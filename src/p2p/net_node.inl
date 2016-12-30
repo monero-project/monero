@@ -395,9 +395,9 @@ namespace nodetool
     if (testnet)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      full_addrs.insert("163.172.182.165:28080");
-      full_addrs.insert("204.12.248.66:28080");
-      full_addrs.insert("5.9.100.248:28080");
+      full_addrs.insert("91.121.81.92:29735");
+      full_addrs.insert("168.235.77.153:29735");
+      //full_addrs.insert("5.9.100.248:29735");
     }
     else
     {
@@ -465,7 +465,7 @@ namespace nodetool
         if (result.size())
         {
           for (const auto& addr_string : result)
-            full_addrs.insert(addr_string + ":18080");
+            full_addrs.insert(addr_string + ":19733");
         }
         ++i;
       }
@@ -473,11 +473,11 @@ namespace nodetool
       if (!full_addrs.size())
       {
         LOG_PRINT_L0("DNS seed node lookup either timed out or failed, falling back to defaults");
-        full_addrs.insert("198.74.231.92:18080");
-        full_addrs.insert("161.67.132.39:18080");
-        full_addrs.insert("163.172.182.165:18080");
-        full_addrs.insert("204.12.248.66:18080");
-        full_addrs.insert("5.9.100.248:18080");
+        full_addrs.insert("91.121.81.92:19733");
+        full_addrs.insert("168.235.77.153:19733");
+        //full_addrs.insert("163.172.182.165:19733");
+        //full_addrs.insert("204.12.248.66:19733");
+        //full_addrs.insert("5.9.100.248:19733");
       }
     }
 
@@ -1212,7 +1212,7 @@ namespace nodetool
     }
     rsp.connections_count = m_net_server.get_config_object().get_connections_count();
     rsp.incoming_connections_count = rsp.connections_count - get_outgoing_connections_count();
-    rsp.version = MONERO_VERSION_FULL;
+    rsp.version = SUMOCOIN_VERSION_FULL;
     rsp.os_version = tools::get_os_version_string();
     m_payload_handler.get_stat_info(rsp.payload_info);
     return 1;

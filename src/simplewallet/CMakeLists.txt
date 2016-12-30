@@ -59,5 +59,5 @@ add_dependencies(simplewallet
   version)
 set_property(TARGET simplewallet
   PROPERTY
-    OUTPUT_NAME "monero-wallet-cli")
+    OUTPUT_NAME "sumo-wallet-cli")
 install(TARGETS simplewallet DESTINATION bin)
