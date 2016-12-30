@@ -30,9 +30,11 @@
 #ifndef _HTTP_SERVER_H_
 #define _HTTP_SERVER_H_
 
+#include <boost/optional/optional.hpp>
 #include <string>
 #include "net_utils_base.h"
 #include "to_nonconst_iterator.h"
+#include "http_auth.h"
 #include "http_base.h"
 
 namespace epee
@@ -50,6 +52,7 @@ namespace net_utils
 		{
 			std::string m_folder;
 			std::string m_required_user_agent;
+			boost::optional<http_auth::login> m_user;
 			critical_section m_lock;
 		};
 
@@ -169,11 +172,20 @@ namespace net_utils
 			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context)
 				: simple_http_connection_handler<t_connection_context>(psnd_hndlr, config),
 					m_config(config),
-					m_conn_context(conn_context)
+					m_conn_context(conn_context),
+					m_auth(m_config.m_user ? http_auth{*m_config.m_user} : http_auth{})
 			{}
 			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
 			{
 				CHECK_AND_ASSERT_MES(m_config.m_phandler, false, "m_config.m_phandler is NULL!!!!");
+
+				const auto auth_response = m_auth.get_response(query_info);
+				if (auth_response)
+				{
+					response = std::move(*auth_response);
+					return true;
+				}
+
 				//fill with default values
 				response.m_mime_tipe = "text/plain";
 				response.m_response_code = 200;
@@ -202,6 +214,7 @@ namespace net_utils
 			//simple_http_connection_handler::config_type m_stub_config;
 			config_type& m_config;
 			t_connection_context& m_conn_context;
+			http_auth m_auth;
 		};
 	}
 }

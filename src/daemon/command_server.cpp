@@ -225,6 +225,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::print_coinbase_tx_sum, &m_parser, p::_1)
     , "Print sum of coinbase transactions (start height, block count)"
     );
+    m_command_lookup.set_handler(
+      "alt_chain_info"
+    , std::bind(&t_command_parser_executor::alt_chain_info, &m_parser, p::_1)
+    , "Print information about alternative chains"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

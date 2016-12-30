@@ -30,8 +30,6 @@
 
 #include <random>
 #include <tuple>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/format.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/value_init.hpp>
@@ -175,9 +173,7 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 
   if (command_line::has_arg(vm, opts.password))
   {
-    tools::password_container pwd(false);
-    pwd.password(command_line::get_arg(vm, opts.password));
-    return {std::move(pwd)};
+    return tools::password_container{command_line::get_arg(vm, opts.password)};
   }
 
   if (command_line::has_arg(vm, opts.password_file))
@@ -193,19 +189,10 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 
     // Remove line breaks the user might have inserted
     boost::trim_right_if(password, boost::is_any_of("\r\n"));
-    return {tools::password_container(std::move(password))};
+    return {tools::password_container{std::move(password)}};
   }
 
-  //vm is already part of the password container class.  just need to check vm for an already existing wallet
-  //here need to pass in variable map.  This will indicate if the wallet already exists to the read password function
-  tools::password_container pwd(verify);
-  if (pwd.read_password())
-  {
-    return {std::move(pwd)};
-  }
-
-  tools::fail_msg_writer() << tools::wallet2::tr("failed to read wallet password");
-  return boost::none;
+  return tools::wallet2::password_prompt(verify);
 }
 
 std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, bool testnet, bool restricted)
@@ -432,6 +419,18 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.restricted);
 }
 
+boost::optional<password_container> wallet2::password_prompt(const bool is_new_wallet)
+{
+  auto pwd_container = tools::password_container::prompt(
+    is_new_wallet, (is_new_wallet ? tr("Enter a password for your new wallet") : tr("Wallet password"))
+  );
+  if (!pwd_container)
+  {
+    tools::fail_msg_writer() << tr("failed to read wallet password");
+  }
+  return pwd_container;
+}
+
 std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file)
 {
   const options opts{};
@@ -445,7 +444,7 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
   auto pwd = get_password(vm, opts, false);
   if (!pwd)
   {
-    return {nullptr, password_container(false)};
+    return {nullptr, password_container{}};
   }
   auto wallet = make_basic(vm, opts);
   if (wallet)
@@ -461,7 +460,7 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const 
   auto pwd = get_password(vm, opts, true);
   if (!pwd)
   {
-    return {nullptr, password_container(false)};
+    return {nullptr, password_container{}};
   }
   return {make_basic(vm, opts), std::move(*pwd)};
 }
@@ -1570,14 +1569,14 @@ bool wallet2::add_address_book_row(const cryptonote::account_public_address &add
   a.m_payment_id = payment_id;
   a.m_description = description;
   
-  int old_size = m_address_book.size();
+  auto old_size = m_address_book.size();
   m_address_book.push_back(a);
   if(m_address_book.size() == old_size+1)
     return true;
   return false;
 }
 
-bool wallet2::delete_address_book_row(int row_id) {
+bool wallet2::delete_address_book_row(std::size_t row_id) {
   if(m_address_book.size() <= row_id)
     return false;
   
@@ -2235,7 +2234,7 @@ bool wallet2::check_connection(uint32_t *version)
       u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
     }
 
-    if (!m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT))
+    if (!m_http_client.connect(u.host, std::to_string(u.port), 10000))
       return false;
   }
 
@@ -2314,16 +2313,38 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
 
       std::stringstream iss;
       iss << cache_data;
-      boost::archive::binary_iarchive ar(iss);
-      ar >> *this;
+      try {
+        boost::archive::portable_binary_iarchive ar(iss);
+        ar >> *this;
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Failed to open portable binary, trying unportable");
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+        iss.str("");
+        iss << cache_data;
+        boost::archive::binary_iarchive ar(iss);
+        ar >> *this;
+      }
     }
     catch (...)
     {
       LOG_PRINT_L1("Failed to load encrypted cache, trying unencrypted");
       std::stringstream iss;
       iss << buf;
-      boost::archive::binary_iarchive ar(iss);
-      ar >> *this;
+      try {
+        boost::archive::portable_binary_iarchive ar(iss);
+        ar >> *this;
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Failed to open portable binary, trying unportable");
+        boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+        iss.str("");
+        iss << buf;
+        boost::archive::binary_iarchive ar(iss);
+        ar >> *this;
+      }
     }
     THROW_WALLET_EXCEPTION_IF(
       m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
@@ -2397,7 +2418,7 @@ void wallet2::store_to(const std::string &path, const std::string &password)
   }
   // preparing wallet data
   std::stringstream oss;
-  boost::archive::binary_oarchive ar(oss);
+  boost::archive::portable_binary_oarchive ar(oss);
   ar << *this;
 
   wallet2::cache_file_data cache_file_data = boost::value_initialized<wallet2::cache_file_data>();

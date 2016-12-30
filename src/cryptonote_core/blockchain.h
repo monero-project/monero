@@ -844,6 +844,13 @@ namespace cryptonote
     void block_longhash_worker(const uint64_t height, const std::vector<block> &blocks,
         std::unordered_map<crypto::hash, crypto::hash> &map) const;
 
+    /**
+     * @brief returns a set of known alternate chains
+     *
+     * @return a list of chains
+     */
+    std::list<std::pair<block_extended_info,uint64_t>> get_alternative_chains() const;
+
     void cancel();
 
   private:

@@ -31,7 +31,6 @@
 #pragma once
 
 #include <memory>
-#include <boost/archive/binary_iarchive.hpp>
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -103,6 +102,9 @@ namespace tools
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static void init_options(boost::program_options::options_description& desc_params);
+
+    //! \return Password retrieved from prompt. Logs error on failure.
+    static boost::optional<password_container> password_prompt(const bool is_new_wallet);
 
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
     static std::unique_ptr<wallet2> make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file);
@@ -525,7 +527,7 @@ namespace tools
     */
     std::vector<address_book_row> get_address_book() const { return m_address_book; }
     bool add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description);
-    bool delete_address_book_row(int row_id);
+    bool delete_address_book_row(std::size_t row_id);
         
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
@@ -676,11 +678,11 @@ namespace boost
   namespace serialization
   {
     template <class Archive>
-    inline void initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
+    inline typename std::enable_if<!Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
     }
-    template<>
-    inline void initialize_transfer_details(boost::archive::binary_iarchive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
+    template <class Archive>
+    inline typename std::enable_if<Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
     {
         if (ver < 1)
         {

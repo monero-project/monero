@@ -30,8 +30,6 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/filesystem.hpp>
 
 #include "include_base_utils.h"
@@ -945,6 +943,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
     LOG_PRINT_RED_L1("The miner transaction in block has invalid height: " << boost::get<txin_gen>(b.miner_tx.vin[0]).height << ", expected: " << height);
     return false;
   }
+  LOG_PRINT_L1("Miner tx hash: " << get_transaction_hash(b.miner_tx));
   CHECK_AND_ASSERT_MES(b.miner_tx.unlock_time == height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, false, "coinbase transaction transaction has the wrong unlock time=" << b.miner_tx.unlock_time << ", expected " << height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
 
   //check outs overflow
@@ -2187,8 +2186,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
   bool res = check_tx_inputs(tx, tvc, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
-    LOG_PRINT_L0("HASH: " << "+" << " VIN/VOUT: " << tx.vin.size() << "/" << tx.vout.size() << " H: " << max_used_block_height << " chcktx: " << a + m_fake_scan_time);
-
+  {
+    size_t mix = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
+    LOG_PRINT_L0("HASH: " <<  get_transaction_hash(tx) << " VIN/MIX/VOUT: " << tx.vin.size() << "/" << mix << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time);
+  }
   if (!res)
     return false;
 
@@ -3868,6 +3869,38 @@ bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, ui
 std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const
 {
   return m_db->get_output_histogram(amounts, unlocked, recent_cutoff);
+}
+
+std::list<std::pair<Blockchain::block_extended_info,uint64_t>> Blockchain::get_alternative_chains() const
+{
+  std::list<std::pair<Blockchain::block_extended_info,uint64_t>> chains;
+
+  for (const auto &i: m_alternative_chains)
+  {
+    const crypto::hash &top = i.first;
+    bool found = false;
+    for (const auto &j: m_alternative_chains)
+    {
+      if (j.second.bl.prev_id == top)
+      {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+    {
+      uint64_t length = 1;
+      auto h = i.second.bl.prev_id;
+      blocks_ext_by_hash::const_iterator prev;
+      while ((prev = m_alternative_chains.find(h)) != m_alternative_chains.end())
+      {
+        h = prev->second.bl.prev_id;
+        ++length;
+      }
+      chains.push_back(std::make_pair(i.second, length));
+    }
+  }
+  return chains;
 }
 
 void Blockchain::cancel()

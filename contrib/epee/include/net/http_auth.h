@@ -25,42 +25,57 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#pragma once
 
-
-#include "wallet/wallet2_api.h"
+#include <boost/optional/optional.hpp>
+#include <cstdint>
+#include "http_base.h"
 #include <string>
+#include <utility>
 
-namespace Monero {
-
-class WalletManagerImpl : public WalletManager
+namespace epee
 {
-public:
-    Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, bool testnet);
-    Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
-    virtual bool closeWallet(Wallet *wallet);
-    bool walletExists(const std::string &path);
-    std::vector<std::string> findWallets(const std::string &path);
-    std::string errorString() const;
-    void setDaemonAddress(const std::string &address);
-    bool connected(uint32_t *version) const;
-    bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
-    uint64_t blockchainHeight() const;
-    uint64_t blockchainTargetHeight() const;
-    uint64_t networkDifficulty() const;
-    double miningHashRate() const;
-    std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
+namespace net_utils
+{
+  namespace http
+  {
+    //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
+    class http_auth
+    {
+    public:
+      struct login
+      {
+        login() = delete;
+        std::string username;
+        std::string password;
+      };
 
-private:
-    WalletManagerImpl() {}
-    friend struct WalletManagerFactory;
-    std::string m_daemonAddress;
-    std::string m_errorString;
-};
+      struct session
+      {
+        session() = delete;
+        const login credentials;
+        std::string nonce;
+        std::uint32_t counter;
+      };
 
-} // namespace
+      http_auth() : user() {}
+      http_auth(login credentials);
 
-namespace Bitmonero = Monero;
+      //! \return Auth response, or `boost::none` iff `request` had valid auth.
+      boost::optional<http_response_info> get_response(const http_request_info& request)
+      {
+        if (user)
+        {
+          return process(request);
+        }
+        return boost::none;
+      }
+
+    private:
+      boost::optional<http_response_info> process(const http_request_info& request);
+
+      boost::optional<session> user;
+    };
+  }
+}
+}

@@ -630,9 +630,11 @@ TEST(Serialization, serializes_ringct_types)
 
   tx0.set_null();
   tx0.version = 2;
-  cryptonote::txin_to_key txin_to_key1;
+  cryptonote::txin_to_key txin_to_key1{};
+  txin_to_key1.amount = 100;
   txin_to_key1.key_offsets.resize(4);
-  cryptonote::txin_to_key txin_to_key2;
+  cryptonote::txin_to_key txin_to_key2{};
+  txin_to_key2.amount = 200;
   txin_to_key2.key_offsets.resize(4);
   tx0.vin.push_back(txin_to_key1);
   tx0.vin.push_back(txin_to_key2);

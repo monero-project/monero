@@ -149,10 +149,13 @@ message(STATUS "Building for a ${ARCH_WIDTH}-bit system")
 
 # Check if we're on FreeBSD so we can exclude the local miniupnpc (it should be installed from ports instead)
 # CMAKE_SYSTEM_NAME checks are commonly known, but specifically taken from libsdl's CMakeLists
-if(CMAKE_SYSTEM_NAME MATCHES "kFreeBSD.*")
+if(CMAKE_SYSTEM_NAME MATCHES "kFreeBSD.*|FreeBSD")
   set(FREEBSD TRUE)
-elseif(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*|FreeBSD")
-  set(FREEBSD TRUE)
+endif()
+
+# Check if we're on DragonFly BSD. See the README.md for build instructions.
+if(CMAKE_SYSTEM_NAME MATCHES "DragonFly.*")
+  set(DRAGONFLY TRUE)
 endif()
 
 # Check if we're on OpenBSD. See the README.md for build instructions.
@@ -519,7 +522,7 @@ else()
       set(RELEASE_FLAGS "${RELEASE_FLAGS} -ffat-lto-objects")
     endif()
     # Since gcc 4.9 the LTO format is non-standard (slim), so we need the gcc-specific ar and ranlib binaries
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0) AND NOT OPENBSD)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0) AND NOT OPENBSD AND NOT DRAGONFLY)
       # When invoking cmake on distributions on which gcc's binaries are prefixed
       # with an arch-specific triplet, the user must specify -DCHOST=<prefix>
       if (DEFINED CHOST)
@@ -544,7 +547,7 @@ else()
       # On Windows, this is as close to fully-static as we get:
       # this leaves only deps on /c/Windows/system32/*.dll
       set(STATIC_FLAGS "-static")
-    elseif (NOT (APPLE OR FREEBSD OR OPENBSD))
+    elseif (NOT (APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
       # On Linux, we don't support fully static build, but these can be static
       set(STATIC_FLAGS "-static-libgcc -static-libstdc++")
     endif()
@@ -579,6 +582,9 @@ if(MINGW)
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi)
 elseif(APPLE OR FREEBSD OR OPENBSD)
   set(EXTRA_LIBRARIES "")
+elseif(DRAGONFLY)
+  find_library(COMPAT compat)
+  set(EXTRA_LIBRARIES ${COMPAT})
 elseif(NOT MSVC)
   find_library(RT rt)
   set(EXTRA_LIBRARIES ${RT})

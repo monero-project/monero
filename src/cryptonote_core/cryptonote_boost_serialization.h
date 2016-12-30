@@ -38,7 +38,8 @@
 #include <boost/foreach.hpp>
 #include <boost/serialization/is_bitwise_serializable.hpp>
 #include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/archive/portable_binary_oarchive.hpp>
 #include "cryptonote_basic.h"
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/crypto.h"
@@ -230,7 +231,8 @@ namespace boost
     // a & x.senderPk; // not serialized, as we do not use it in monero currently
   }
 
-  inline void serializeOutPk(boost::archive::binary_iarchive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
+  template <class Archive>
+  inline typename std::enable_if<Archive::is_loading::value, void>::type serializeOutPk(Archive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
   {
     rct::keyV outPk;
     a & outPk;
@@ -242,7 +244,8 @@ namespace boost
     }
   }
 
-  inline void serializeOutPk(boost::archive::binary_oarchive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
+  template <class Archive>
+  inline typename std::enable_if<Archive::is_saving::value, void>::type serializeOutPk(Archive &a, rct::ctkeyV &outPk_, const boost::serialization::version_type ver)
   {
     rct::keyV outPk(outPk_.size());
     for (size_t n = 0; n < outPk_.size(); ++n)

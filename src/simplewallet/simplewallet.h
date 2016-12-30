@@ -81,6 +81,9 @@ namespace cryptonote
 
     void wallet_idle_thread();
 
+    //! \return Prompts user for password and verifies against local file. Logs on error and returns `none`
+    boost::optional<tools::password_container> get_and_verify_password() const;
+
     bool new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, const std::string &old_language);
     bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
@@ -124,6 +127,7 @@ namespace cryptonote
     bool locked_transfer(const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
+    bool donate(const std::vector<std::string> &args);
     bool sign_transfer(const std::vector<std::string> &args);
     bool submit_transfer(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(

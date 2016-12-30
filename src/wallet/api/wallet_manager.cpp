@@ -352,6 +352,14 @@ double WalletManagerImpl::miningHashRate() const
     return mres.speed;
 }
 
+std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const
+{
+    std::vector<std::string> addresses = tools::wallet2::addresses_from_url(address, dnssec_valid);
+    if (addresses.empty())
+        return "";
+    return addresses.front();
+}
+
 
 ///////////////////// WalletManagerFactory implementation //////////////////////
 WalletManager *WalletManagerFactory::getWalletManager()

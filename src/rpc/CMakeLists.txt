@@ -46,6 +46,7 @@ target_link_libraries(rpc
   PUBLIC
     cryptonote_core
     cryptonote_protocol
+    epee
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

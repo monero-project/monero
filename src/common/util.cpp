@@ -50,6 +50,92 @@ namespace tools
 {
   std::function<void(int)> signal_handler::m_handler;
 
+  std::unique_ptr<std::FILE, tools::close_file> create_private_file(const std::string& name)
+  {
+#ifdef WIN32
+    struct close_handle
+    {
+      void operator()(HANDLE handle) const noexcept
+      {
+        CloseHandle(handle);
+      }
+    };
+
+    std::unique_ptr<void, close_handle> process = nullptr;
+    {
+      HANDLE temp{};
+      const bool fail = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, std::addressof(temp)) == 0;
+      process.reset(temp);
+      if (fail)
+        return nullptr;
+    }
+
+    DWORD sid_size = 0;
+    GetTokenInformation(process.get(), TokenOwner, nullptr, 0, std::addressof(sid_size));
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+      return nullptr;
+
+    std::unique_ptr<char[]> sid{new char[sid_size]};
+    if (!GetTokenInformation(process.get(), TokenOwner, sid.get(), sid_size, std::addressof(sid_size)))
+      return nullptr;
+
+    const PSID psid = reinterpret_cast<const PTOKEN_OWNER>(sid.get())->Owner;
+    const DWORD daclSize =
+      sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
+
+    const std::unique_ptr<char[]> dacl{new char[daclSize]};
+    if (!InitializeAcl(reinterpret_cast<PACL>(dacl.get()), daclSize, ACL_REVISION))
+      return nullptr;
+
+    if (!AddAccessAllowedAce(reinterpret_cast<PACL>(dacl.get()), ACL_REVISION, (READ_CONTROL | FILE_GENERIC_READ | DELETE), psid))
+      return nullptr;
+
+    SECURITY_DESCRIPTOR descriptor{};
+    if (!InitializeSecurityDescriptor(std::addressof(descriptor), SECURITY_DESCRIPTOR_REVISION))
+      return nullptr;
+
+    if (!SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false))
+      return nullptr;
+
+    SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
+    std::unique_ptr<void, close_handle> file{
+      CreateFile(
+        name.c_str(),
+        GENERIC_WRITE, FILE_SHARE_READ,
+        std::addressof(attributes),
+        CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY,
+        nullptr
+      )
+    };
+    if (file)
+    {
+      const int fd = _open_osfhandle(reinterpret_cast<intptr_t>(file.get()), 0);
+      if (0 <= fd)
+      {
+        file.release();
+        std::FILE* real_file = _fdopen(fd, "w");
+        if (!real_file)
+        {
+          _close(fd);
+        }
+        return {real_file, tools::close_file{}};
+      }
+    }
+#else
+    const int fd = open(name.c_str(), (O_RDWR | O_EXCL | O_CREAT), S_IRUSR);
+    if (0 <= fd)
+    {
+      std::FILE* file = fdopen(fd, "w");
+      if (!file)
+      {
+        close(fd);
+      }
+      return {file, tools::close_file{}};
+    }
+#endif
+    return nullptr;
+  }
+
 #ifdef WIN32
   std::string get_windows_version_display_string()
   {

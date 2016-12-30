@@ -442,7 +442,8 @@ void slow_hash_allocate_state(void)
     hp_state = (uint8_t *) VirtualAlloc(hp_state, MEMORY, MEM_LARGE_PAGES |
                                         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #else
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+  defined(__DragonFly__)
     hp_state = mmap(0, MEMORY, PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANON, 0, 0);
 #else
