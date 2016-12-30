@@ -3384,7 +3384,7 @@ namespace base {
     };
     /// @brief Action to be taken for dispatching
     enum class DispatchAction : base::type::EnumType {
-        None = 1, NormalLog = 2, SysLog = 4
+        None = 1, NormalLog = 2, SysLog = 4, FileOnlyLog = 8,
         };
     }  // namespace base
     template <typename T>
@@ -4338,12 +4338,12 @@ inline void FUNCTION_NAME(const T&);
             void handle(const LogDispatchData* data) {
                 m_data = data;
                 dispatch(m_data->logMessage()->logger()->logBuilder()->build(m_data->logMessage(),
-                                                                             m_data->dispatchAction() == base::DispatchAction::NormalLog));
+                                                                             m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog));
             }
         private:
             const LogDispatchData* m_data;
             void dispatch(base::type::string_t&& logLine) {
-                if (m_data->dispatchAction() == base::DispatchAction::NormalLog) {
+                if (m_data->dispatchAction() == base::DispatchAction::NormalLog || m_data->dispatchAction() == base::DispatchAction::FileOnlyLog) {
                     if (m_data->logMessage()->logger()->m_typedConfigurations->toFile(m_data->logMessage()->level())) {
                         base::type::fstream_t* fs = m_data->logMessage()->logger()->m_typedConfigurations->fileStream(m_data->logMessage()->level());
                         if (fs != nullptr) {
@@ -4364,10 +4364,12 @@ inline void FUNCTION_NAME(const T&);
                                                 << m_data->logMessage()->logger()->id() << "]", false);
                         }
                     }
-                    if (m_data->logMessage()->logger()->m_typedConfigurations->toStandardOutput(m_data->logMessage()->level())) {
-                        if (ELPP->hasFlag(LoggingFlag::ColoredTerminalOutput))
-                            m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&logLine, m_data->logMessage()->level());
-                        ELPP_COUT << ELPP_COUT_LINE(logLine);
+                    if (m_data->dispatchAction() != base::DispatchAction::FileOnlyLog) {
+                        if (m_data->logMessage()->logger()->m_typedConfigurations->toStandardOutput(m_data->logMessage()->level())) {
+                            if (ELPP->hasFlag(LoggingFlag::ColoredTerminalOutput))
+                                m_data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&logLine, m_data->logMessage()->level());
+                            ELPP_COUT << ELPP_COUT_LINE(logLine);
+                        }
                     }
                 }
 #if defined(ELPP_SYSLOG)
@@ -4401,8 +4403,8 @@ inline void FUNCTION_NAME(const T&);
         class AsyncLogDispatchCallback : public LogDispatchCallback {
         protected:
             void handle(const LogDispatchData* data) {
-                base::type::string_t logLine = data->logMessage()->logger()->logBuilder()->build(data->logMessage(), data->dispatchAction() == base::DispatchAction::NormalLog);
-                if (data->dispatchAction() == base::DispatchAction::NormalLog && data->logMessage()->logger()->typedConfigurations()->toStandardOutput(data->logMessage()->level())) {
+                base::type::string_t logLine = data->logMessage()->logger()->logBuilder()->build(data->logMessage(), data->dispatchAction() == base::DispatchAction::NormalLog || data->dispatchAction() == base::DispatchAction::FileOnlyLog);
+                if ((data->dispatchAction() == base::DispatchAction::NormalLog || data->dispatchAction() == base::DispatchAction::FileOnlyLog) && data->logMessage()->logger()->typedConfigurations()->toStandardOutput(data->logMessage()->level())) {
                     if (ELPP->hasFlag(LoggingFlag::ColoredTerminalOutput))
                         data->logMessage()->logger()->logBuilder()->convertToColoredOutput(&logLine, data->logMessage()->level());
                     ELPP_COUT << ELPP_COUT_LINE(logLine);
@@ -4457,7 +4459,7 @@ inline void FUNCTION_NAME(const T&);
                 Logger* logger = logMessage->logger();
                 base::TypedConfigurations* conf = logger->typedConfigurations();
                 base::type::string_t logLine = logItem->logLine();
-                if (data->dispatchAction() == base::DispatchAction::NormalLog) {
+                if (data->dispatchAction() == base::DispatchAction::NormalLog || data->dispatchAction() == base::DispatchAction::FileOnlyLog) {
                     if (conf->toFile(logMessage->level())) {
                         base::type::fstream_t* fs = conf->fileStream(logMessage->level());
                         if (fs != nullptr) {
