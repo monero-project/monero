@@ -1255,8 +1255,12 @@ namespace el {
                                         return fullPath.substr(0, lastSlashAt + 1);
                                     }
                                     /// @brief builds stripped filename and puts it in buff
-                                    static void buildStrippedFilename(const char* filename, char buff[],
+                                    static void buildStrippedFilename(const char* filename, char buff[], const std::string &commonPrefix = NULL,
                                                                       std::size_t limit = base::consts::kSourceFilenameMaxLength) {
+                                        if (!commonPrefix.empty()) {
+                                            if (!strncmp(filename, commonPrefix.c_str(), commonPrefix.size()))
+                                                filename += commonPrefix.size();
+                                        }
                                         std::size_t sizeOfFilename = strlen(filename);
                                         if (sizeOfFilename >= limit) {
                                             filename += (sizeOfFilename - limit);
@@ -3984,12 +3988,21 @@ inline void FUNCTION_NAME(const T&);
                     return name;
                 return it->second;
             }
+
+            void setFilenameCommonPrefix(const std::string &prefix) {
+                m_filenameCommonPrefix = prefix;
+            }
+
+            std::string getFilenameCommonPrefix() {
+                return m_filenameCommonPrefix;
+            }
         private:
             base::type::VerboseLevel m_level;
             base::type::EnumType* m_pFlags;
             std::map<std::string, base::type::VerboseLevel> m_modules;
             std::deque<std::pair<std::string, Level>> m_categories;
             std::map<std::string, std::string> m_threadNames;
+            std::string m_filenameCommonPrefix;
         };
     }  // namespace base
     class LogMessage {
@@ -4561,7 +4574,7 @@ inline void FUNCTION_NAME(const T&);
                 if (logFormat->hasFlag(base::FormatFlags::File)) {
                     // File
                     base::utils::Str::clearBuff(buff, base::consts::kSourceFilenameMaxLength);
-                    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff);
+                    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff, ELPP->vRegistry()->getFilenameCommonPrefix());
                     base::utils::Str::replaceFirstWithEscape(logLine, base::consts::kLogFileFormatSpecifier, std::string(buff));
                 }
                 if (logFormat->hasFlag(base::FormatFlags::FileBase)) {
@@ -4579,7 +4592,7 @@ inline void FUNCTION_NAME(const T&);
                 if (logFormat->hasFlag(base::FormatFlags::Location)) {
                     // Location
                     char* buf = base::utils::Str::clearBuff(buff, base::consts::kSourceFilenameMaxLength + base::consts::kSourceLineMaxLength);
-                    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff);
+                    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff, ELPP->vRegistry()->getFilenameCommonPrefix());
                     buf = base::utils::Str::addToBuff(buff, buf, bufLim);
                     buf = base::utils::Str::addToBuff(":", buf, bufLim);
                     buf = base::utils::Str::convertAndAddToBuff(logMessage->line(),  base::consts::kSourceLineMaxLength, buf, bufLim, false);
@@ -6148,6 +6161,10 @@ el::base::type::ostream_t& operator<<(el::base::type::ostream_t& OutputStreamIns
         /// @brief Clears categories
         static inline void clearCategories(void) {
             ELPP->vRegistry()->clearCategories();
+        }
+        /// @brief Sets filename common prefix
+        static inline void setFilenameCommonPrefix(const std::string &prefix) {
+            ELPP->vRegistry()->setFilenameCommonPrefix(prefix);
         }
     };
     class VersionInfo : base::StaticClass {
