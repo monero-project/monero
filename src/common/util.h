@@ -152,7 +152,7 @@ namespace tools
       }
       else
       {
-        LOG_PRINT_RED_L0("Got control signal " << type << ". Exiting without saving...");
+        MGINFO_RED("Got control signal " << type << ". Exiting without saving...");
         return FALSE;
       }
       return TRUE;

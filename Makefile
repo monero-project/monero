@@ -96,6 +96,14 @@ release-static-win32:
 	mkdir -p build/release
 	cd build/release && cmake -G "MSYS Makefiles" -D STATIC=ON -D ARCH="i686" -D BUILD_64=OFF -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=../../cmake/32-bit-toolchain.cmake -D MSYS2_FOLDER=c:/msys32 ../.. && $(MAKE)
 
+custom:
+	mkdir -p build/custom
+	cd build/custom && cmake -D BUILD_TESTS=ON -D USE_LTO=OFF -D ARCH="x86-64" -D CMAKE_BUILD_TYPE=custom ../.. && $(MAKE)
+
+custom-test:
+	mkdir -p build/custom
+	cd build/custom && cmake -D BUILD_TESTS=ON -D USE_LTO=OFF -D ARCH="x86-64" -D CMAKE_BUILD_TYPE=custom ../.. && $(MAKE) all test
+
 clean:
 	@echo "WARNING: Back-up your wallet if it exists within ./build!" ; \
         read -r -p "This will destroy the build directory, continue (y/N)?: " CONTINUE; \

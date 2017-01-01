@@ -41,17 +41,13 @@
 
 #include "cryptonote_core/cryptonote_format_utils.h"
 #include "profile_tools.h"
-#include "../../contrib/otshell_utils/utils.hpp"
 #include "../../src/p2p/network_throttle-detail.hpp"
-#include "../../src/p2p/data_logger.hpp"
-using namespace nOT::nUtils;
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
 
 namespace cryptonote
 {
-
-
-// static
-// template<class t_core> std::ofstream  t_cryptonote_protocol_handler<t_core>::m_logreq("logreq.txt"); // static
 
 
 
@@ -284,10 +280,10 @@ namespace cryptonote
 	int64_t max_block_height = max(static_cast<int64_t>(hshd.current_height),static_cast<int64_t>(m_core.get_current_blockchain_height()));
 	int64_t last_block_v1 = 1009826;
 	int64_t diff_v2 = max_block_height > last_block_v1 ? min(abs(diff), max_block_height - last_block_v1) : 0;
-    LOG_PRINT_CCONTEXT_YELLOW("Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
+    MCLOG(is_inital ? el::Level::Info : el::Level::Debug, "global", context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
       << " [Your node is " << std::abs(diff) << " blocks (" << ((abs(diff) - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
-      << "] " << ENDL << "SYNCHRONIZATION started", (is_inital ? LOG_LEVEL_0:LOG_LEVEL_1));
+      << "] " << ENDL << "SYNCHRONIZATION started");
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
     context.m_state = cryptonote_connection_context::state_synchronizing;
     context.m_remote_blockchain_height = hshd.current_height;
@@ -515,12 +511,12 @@ namespace cryptonote
       // ones we received.
       if(context.m_requested_objects.size())
       {
-        LOG_PRINT_CCONTEXT_RED
+        MERROR
         (
           "NOTIFY_NEW_FLUFFY_BLOCK: peer sent the number of transaction requested"
           << ", but not the actual transactions requested"
           << ", context.m_requested_objects.size() = " << context.m_requested_objects.size() 
-          << ", dropping connection", LOG_LEVEL_0
+          << ", dropping connection"
         );
         
         m_p2p->drop_connection(context);
@@ -842,8 +838,8 @@ namespace cryptonote
 
     if(context.m_requested_objects.size())
     {
-      LOG_PRINT_CCONTEXT_RED("returned not all requested objects (context.m_requested_objects.size()="
-        << context.m_requested_objects.size() << "), dropping connection", LOG_LEVEL_0);
+      MERROR("returned not all requested objects (context.m_requested_objects.size()="
+        << context.m_requested_objects.size() << "), dropping connection");
       m_p2p->drop_connection(context);
       return 1;
     }
@@ -854,7 +850,7 @@ namespace cryptonote
       epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
         boost::bind(&t_core::resume_mine, &m_core));
 
-      LOG_PRINT_CCONTEXT_YELLOW( "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size() , LOG_LEVEL_1);
+      MLOG_YELLOW(el::Level::Debug, "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size());
 
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
 
@@ -913,15 +909,12 @@ namespace cryptonote
           TIME_MEASURE_FINISH(block_process_time);
           LOG_PRINT_CCONTEXT_L2("Block process time: " << block_process_time + transactions_process_time << "(" << transactions_process_time << "/" << block_process_time << ")ms");
 
-          epee::net_utils::data_logger::get_instance().add_data("calc_time", block_process_time + transactions_process_time);
-          epee::net_utils::data_logger::get_instance().add_data("block_processing", 1);
-
         } // each download block
         m_core.cleanup_handle_incoming_blocks();
 
         if (m_core.get_current_blockchain_height() > previous_height)
         {
-          LOG_PRINT_CCONTEXT_YELLOW( "Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height() , LOG_LEVEL_0);
+          MGINFO_YELLOW("Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height());
         }
       } // if not DISCARD BLOCK
 
@@ -973,7 +966,7 @@ namespace cryptonote
       auto it = context.m_needed_objects.begin();
 
       const size_t count_limit = m_core.get_block_sync_size();
-      _note_c("net/req-calc" , "Setting count_limit: " << count_limit);
+      MDEBUG("Setting count_limit: " << count_limit);
       while(it != context.m_needed_objects.end() && count < count_limit)
       {
         if( !(check_having_blocks && m_core.have_block(*it)))
@@ -1015,7 +1008,7 @@ namespace cryptonote
                            << "\r\non connection [" << epee::net_utils::print_connection_context_short(context)<< "]");
 
       context.m_state = cryptonote_connection_context::state_normal;
-      LOG_PRINT_CCONTEXT_GREEN(" SYNCHRONIZED OK", LOG_LEVEL_0);
+      MGINFO_GREEN("SYNCHRONIZED OK");
       on_connection_synchronized();
     }
     return true;
@@ -1027,7 +1020,7 @@ namespace cryptonote
     bool val_expected = false;
     if(m_synchronized.compare_exchange_strong(val_expected, true))
     {
-      LOG_PRINT_L0(ENDL << "**********************************************************************" << ENDL
+      MGINFO_GREEN(ENDL << "**********************************************************************" << ENDL
         << "You are now synchronized with the network. You may now start monero-wallet-cli." << ENDL
         << ENDL
         << "Please note, that the blockchain will be saved only after you quit the daemon with \"exit\" command or if you use \"save\" command." << ENDL
@@ -1118,12 +1111,12 @@ namespace cryptonote
       {
         if(m_core.get_testnet() && (support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS))
         {
-          LOG_PRINT_CCONTEXT_YELLOW("PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK", LOG_LEVEL_1);
+          MDEBUG("PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK");
           fluffyConnections.push_back(context.m_connection_id);
         }
         else
         {
-          LOG_PRINT_CCONTEXT_YELLOW("PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK", LOG_LEVEL_1);
+          MDEBUG("PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK");
           fullConnections.push_back(context.m_connection_id);
         }
       }
@@ -1146,18 +1139,6 @@ namespace cryptonote
     return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
   }
 
-  /// @deprecated
-  template<class t_core> std::ofstream& t_cryptonote_protocol_handler<t_core>::get_logreq() const {
-    static std::ofstream * logreq=NULL;
-    if (!logreq) {
-      LOG_PRINT_RED("LOG OPENED",LOG_LEVEL_0);
-      logreq = new std::ofstream("logreq.txt"); // leak mem (singleton)
-      *logreq << "Opened log" << std::endl;
-    }
-    LOG_PRINT_YELLOW("LOG USED",LOG_LEVEL_0);
-    (*logreq) << "log used" << std::endl;
-    return *logreq;
-  }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::stop()

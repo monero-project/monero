@@ -44,10 +44,7 @@
 
 #include "net_load_tests.h"
 
-#include "../../contrib/otshell_utils/utils.hpp"
-
 using namespace net_load_tests;
-using namespace nOT::nUtils;
 
 namespace
 {
@@ -632,10 +629,8 @@ int main(int argc, char** argv)
 {
   epee::debug::get_set_enable_assert(true, false);
   //set up logging options
-  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
 
   ::testing::InitGoogleTest(&argc, argv);
-  epee::net_utils::data_logger::get_instance().kill_instance();
   return RUN_ALL_TESTS();
 }

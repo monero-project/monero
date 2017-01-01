@@ -151,9 +151,9 @@ bool transactions_flow_test(std::string& working_folder,
 
   w2.init(daemon_addr_b);
 
-  LOG_PRINT_GREEN("Using wallets: " << ENDL
+  MGINFO_GREEN("Using wallets: " << ENDL
     << "Source:  " << w1.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL
-    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_target_wallet, LOG_LEVEL_1);
+    << "Target:  " << w2.get_account().get_public_address_str(false) << ENDL << "Path: " << working_folder + "/" + path_target_wallet);
 
   //lets do some money
   epee::net_utils::http::http_simple_client http_client;
@@ -194,7 +194,7 @@ bool transactions_flow_test(std::string& working_folder,
         cryptonote::transaction tx_s;
         bool r = do_send_money(w1, w1, 0, td.m_tx.vout[td.m_internal_output_index].amount - TEST_FEE, tx_s, 50);
         CHECK_AND_ASSERT_MES(r, false, "Failed to send starter tx " << get_transaction_hash(tx_s));
-        LOG_PRINT_GREEN("Starter transaction sent " << get_transaction_hash(tx_s), LOG_LEVEL_0);
+        MGINFO_GREEN("Starter transaction sent " << get_transaction_hash(tx_s));
         if(++count >= FIRST_N_TRANSFERS)
           break;
       }
@@ -272,8 +272,8 @@ bool transactions_flow_test(std::string& working_folder,
   uint64_t money_2 = w2.balance();
   if(money_2 == transfered_money)
   {
-    LOG_PRINT_GREEN("-----------------------FINISHING TRANSACTIONS FLOW TEST OK-----------------------", LOG_LEVEL_0);
-    LOG_PRINT_GREEN("transferred " << print_money(transfered_money) << " via " << i << " transactions" , LOG_LEVEL_0);
+    MGINFO_GREEN("-----------------------FINISHING TRANSACTIONS FLOW TEST OK-----------------------");
+    MGINFO_GREEN("transferred " << print_money(transfered_money) << " via " << i << " transactions" );
     return true;
   }else
   {
@@ -290,13 +290,13 @@ bool transactions_flow_test(std::string& working_folder,
     {
       if(tx_pair.second.m_received_count != 1)
       {
-        LOG_PRINT_RED_L0("Transaction lost: " << get_transaction_hash(tx_pair.second.tx));
+        MERROR("Transaction lost: " << get_transaction_hash(tx_pair.second.tx));
       }
 
     }
 
-    LOG_PRINT_RED_L0("-----------------------FINISHING TRANSACTIONS FLOW TEST FAILED-----------------------" );
-    LOG_PRINT_RED_L0("income " << print_money(money_2) << " via " << i << " transactions, expected money = " << print_money(transfered_money) );
+    MERROR("-----------------------FINISHING TRANSACTIONS FLOW TEST FAILED-----------------------" );
+    MERROR("income " << print_money(money_2) << " via " << i << " transactions, expected money = " << print_money(transfered_money) );
     LOCAL_ASSERT(false);
     return false;
   }

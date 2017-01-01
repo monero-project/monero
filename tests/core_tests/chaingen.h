@@ -52,45 +52,9 @@
 #include "cryptonote_core/cryptonote_boost_serialization.h"
 #include "misc_language.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "tests.core"
 
-namespace concolor
-{
-  inline std::basic_ostream<char, std::char_traits<char> >& bright_white(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::set_console_color(epee::log_space::console_color_white, true);
-    return ostr;
-  }
-
-  inline std::basic_ostream<char, std::char_traits<char> >& red(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::set_console_color(epee::log_space::console_color_red, true);
-    return ostr;
-  }
-
-  inline std::basic_ostream<char, std::char_traits<char> >& green(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::set_console_color(epee::log_space::console_color_green, true);
-    return ostr;
-  }
-
-  inline std::basic_ostream<char, std::char_traits<char> >& magenta(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::set_console_color(epee::log_space::console_color_magenta, true);
-    return ostr;
-  }
-
-  inline std::basic_ostream<char, std::char_traits<char> >& yellow(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::set_console_color(epee::log_space::console_color_yellow, true);
-    return ostr;
-  }
-
-  inline std::basic_ostream<char, std::char_traits<char> >& normal(std::basic_ostream<char, std::char_traits<char> >& ostr)
-  {
-    epee::log_space::reset_console_color();
-    return ostr;
-  }
-}
 
 
 struct callback_entry
@@ -446,7 +410,7 @@ public:
 private:
   void log_event(const std::string& event_type) const
   {
-    std::cout << concolor::yellow << "=== EVENT # " << m_ev_index << ": " << event_type << concolor::normal << std::endl;
+    MGINFO_YELLOW("=== EVENT # " << m_ev_index << ": " << event_type);
   }
 };
 //--------------------------------------------------------------------------
@@ -505,7 +469,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   get_test_options<t_test_class> gto;
   if (!c.init(vm, &gto.test_options))
   {
-    std::cout << concolor::magenta << "Failed to init core" << concolor::normal << std::endl;
+    MERROR("Failed to init core");
     return false;
   }
   t_test_class validator;
@@ -520,7 +484,7 @@ inline bool do_replay_file(const std::string& filename)
   std::vector<test_event_entry> events;
   if (!tools::unserialize_obj_from_file(events, filename))
   {
-    std::cout << concolor::magenta << "Failed to deserialize data from file: " << filename << concolor::normal << std::endl;
+    MERROR("Failed to deserialize data from file: ");
     return false;
   }
   return do_replay_events<t_test_class>(events);
@@ -625,7 +589,7 @@ inline bool do_replay_file(const std::string& filename)
         g.generate(events); \
         if (!tools::serialize_obj_to_file(events, filename)) \
         { \
-            std::cout << concolor::magenta << "Failed to serialize data to file: " << filename << concolor::normal << std::endl; \
+            MERROR("Failed to serialize data to file: " << filename); \
             throw std::runtime_error("Failed to serialize data to file"); \
         } \
     }
@@ -634,7 +598,7 @@ inline bool do_replay_file(const std::string& filename)
 #define PLAY(filename, genclass) \
     if(!do_replay_file<genclass>(filename)) \
     { \
-      std::cout << concolor::magenta << "Failed to pass test : " << #genclass << concolor::normal << std::endl; \
+      MERROR("Failed to pass test : " << #genclass); \
       return 1; \
     }
 
@@ -650,34 +614,33 @@ inline bool do_replay_file(const std::string& filename)
     }                                                                                                      \
     catch (const std::exception& ex)                                                                       \
     {                                                                                                      \
-      LOG_PRINT(#genclass << " generation failed: what=" << ex.what(), 0);                                 \
+      MERROR(#genclass << " generation failed: what=" << ex.what());                                       \
     }                                                                                                      \
     catch (...)                                                                                            \
     {                                                                                                      \
-      LOG_PRINT(#genclass << " generation failed: generic exception", 0);                                  \
+      MERROR(#genclass << " generation failed: generic exception");                                        \
     }                                                                                                      \
     if (generated && do_replay_events< genclass >(events))                                                 \
     {                                                                                                      \
-      std::cout << concolor::green << "#TEST# Succeeded " << #genclass << concolor::normal << '\n';        \
+      MGINFO_GREEN("#TEST# Succeeded " << #genclass);                                                      \
     }                                                                                                      \
     else                                                                                                   \
     {                                                                                                      \
-      std::cout << concolor::magenta << "#TEST# Failed " << #genclass << concolor::normal << '\n';         \
+      MERROR("#TEST# Failed " << #genclass);                                                               \
       failed_tests.push_back(#genclass);                                                                   \
     }                                                                                                      \
-    std::cout << std::endl;                                                                                \
   }
 
 #define CALL_TEST(test_name, function)                                                                     \
   {                                                                                                        \
     if(!function())                                                                                        \
     {                                                                                                      \
-      std::cout << concolor::magenta << "#TEST# Failed " << test_name << concolor::normal << std::endl;    \
+      MERROR("#TEST# Failed " << test_name);                                                               \
       return 1;                                                                                            \
     }                                                                                                      \
     else                                                                                                   \
     {                                                                                                      \
-      std::cout << concolor::green << "#TEST# Succeeded " << test_name << concolor::normal << std::endl;   \
+      MGINFO_GREEN("#TEST# Succeeded " << test_name);                                                      \
     }                                                                                                      \
   }
 

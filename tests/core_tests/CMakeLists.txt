@@ -65,6 +65,7 @@ target_link_libraries(coretests
   PRIVATE
     cryptonote_core
     p2p
+    epee
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET coretests

@@ -69,8 +69,6 @@ namespace cryptonote
 			
 			virtual double get_avg_block_size() = 0;
 			virtual double estimate_one_block_size() noexcept; // for estimating size of blocks to download
-
-			virtual std::ofstream& get_logreq() const =0;
 	};
 
   template<class t_core>
@@ -138,7 +136,6 @@ namespace cryptonote
     bool m_one_request = true;
     std::atomic<bool> m_stopping;
 
-		// static std::ofstream m_logreq;
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();
     boost::circular_buffer<size_t> m_avg_buffer = boost::circular_buffer<size_t>(10);
@@ -161,8 +158,6 @@ namespace cryptonote
         epee::serialization::store_t_to_binary(arg, arg_buff);
         return m_p2p->relay_notify_to_all(t_parameter::ID, arg_buff, exclude_context);
       }
-
-			virtual std::ofstream& get_logreq() const ;
   };
 
 } // namespace

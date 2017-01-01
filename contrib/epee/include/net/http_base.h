@@ -31,6 +31,10 @@
 #include <boost/regex.hpp>
 
 #include "string_tools.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 namespace epee
 {
 namespace net_utils

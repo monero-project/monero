@@ -38,6 +38,9 @@
 #include <ctime>
 #include <string>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 namespace {
@@ -513,6 +516,34 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
   }
 
   tools::success_msg_writer() << "Log level is now " << std::to_string(level);
+
+  return true;
+}
+
+bool t_rpc_command_executor::set_log_categories(const std::string &categories) {
+  cryptonote::COMMAND_RPC_SET_LOG_CATEGORIES::request req;
+  cryptonote::COMMAND_RPC_SET_LOG_CATEGORIES::response res;
+  req.categories = categories;
+
+  std::string fail_message = "Unsuccessful";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/set_log_categories", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_set_log_categories(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  tools::success_msg_writer() << "Log categories are now " << categories;
 
   return true;
 }

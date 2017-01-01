@@ -47,6 +47,9 @@
 #include "wallet/password_container.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
+
 /*!
  * \namespace cryptonote
  * \brief Holds cryptonote related classes and helpers.

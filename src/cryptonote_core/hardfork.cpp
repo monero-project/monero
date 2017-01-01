@@ -33,6 +33,9 @@
 #include "blockchain_db/blockchain_db.h"
 #include "hardfork.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "hardfork"
+
 using namespace cryptonote;
 
 static uint8_t get_block_vote(const cryptonote::block &b)

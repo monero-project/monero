@@ -35,6 +35,11 @@
 #include <dlfcn.h>
 #endif
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "stacktrace"
+
+#define ST_LOG(x) CERROR(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x
+
 // from http://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
 
 // The decl of __cxa_throw in /usr/include/.../cxxabi.h uses
@@ -103,34 +108,34 @@ void log_stack_trace(const char *msg)
   const char *log = stack_trace_log.empty() ? NULL : stack_trace_log.c_str();
 
   if (msg)
-    LOG_PRINT2(log, msg, LOG_LEVEL_0);
-  LOG_PRINT2(log, "Unwound call stack:", LOG_LEVEL_0);
+    ST_LOG(msg);
+  ST_LOG("Unwound call stack:");
   if (unw_getcontext(&ctx) < 0) {
-    LOG_PRINT2(log, "Failed to create unwind context", LOG_LEVEL_0);
+    ST_LOG("Failed to create unwind context");
     return;
   }
   if (unw_init_local(&cur, &ctx) < 0) {
-    LOG_PRINT2(log, "Failed to find the first unwind frame", LOG_LEVEL_0);
+    ST_LOG("Failed to find the first unwind frame");
     return;
   }
   for (level = 1; level < 999; ++level) { // 999 for safety
     int ret = unw_step(&cur);
     if (ret < 0) {
-      LOG_PRINT2(log, "Failed to find the next frame", LOG_LEVEL_0);
+      ST_LOG("Failed to find the next frame");
       return;
     }
     if (ret == 0)
       break;
     if (unw_get_reg(&cur, UNW_REG_IP, &ip) < 0) {
-      LOG_PRINT2(log, "  " << std::setw(4) << level, LOG_LEVEL_0);
+      ST_LOG("  " << std::setw(4) << level);
       continue;
     }
     if (unw_get_proc_name(&cur, sym, sizeof(sym), &off) < 0) {
-      LOG_PRINT2(log, "  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip, LOG_LEVEL_0);
+      ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip);
       continue;
     }
     dsym = abi::__cxa_demangle(sym, NULL, NULL, &status);
-    LOG_PRINT2(log, "  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off, LOG_LEVEL_0);
+    ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off);
     free(dsym);
   }
 }

@@ -38,6 +38,10 @@
 #include "crypto/crypto.h"
 #include "profile_tools.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "blockchain.db.lmdb"
+
+
 #if defined(__i386) || defined(__x86_64)
 #define MISALIGNED_OK	1
 #endif
@@ -388,14 +392,14 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
     boost::filesystem::space_info si = boost::filesystem::space(path);
     if(si.available < add_size)
     {
-      LOG_PRINT_RED_L0("!! WARNING: Insufficient free space to extend database !!: " << si.available / 1LL << 20L);
+      MERROR("!! WARNING: Insufficient free space to extend database !!: " << si.available / 1LL << 20L);
       return;
     }
   }
   catch(...)
   {
     // print something but proceed.
-    LOG_PRINT_YELLOW("Unable to query free disk space.", LOG_LEVEL_0);
+    MWARNING("Unable to query free disk space.");
   }
 
   MDB_envinfo mei;
@@ -437,7 +441,7 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to set new mapsize: ", result).c_str()));
 
-  LOG_PRINT_GREEN("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB", LOG_LEVEL_0);
+  MINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
 
   mdb_txn_safe::allow_new_txns();
 }
@@ -1168,7 +1172,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   {
     if (*(const uint32_t*)v.mv_data > VERSION)
     {
-      LOG_PRINT_RED_L0("Existing lmdb database was made by a later version. We don't know how it will change yet.");
+      MINFO("Existing lmdb database was made by a later version. We don't know how it will change yet.");
       compatible = false;
     }
 #if VERSION > 0
@@ -1198,8 +1202,8 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
     txn.abort();
     mdb_env_close(m_env);
     m_open = false;
-    LOG_PRINT_RED_L0("Existing lmdb database is incompatible with this version.");
-    LOG_PRINT_RED_L0("Please delete the existing database and resync.");
+    MFATAL("Existing lmdb database is incompatible with this version.");
+    MFATAL("Please delete the existing database and resync.");
     return;
   }
 
@@ -1216,7 +1220,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
         txn.abort();
         mdb_env_close(m_env);
         m_open = false;
-        LOG_PRINT_RED_L0("Failed to write version to database.");
+        MERROR("Failed to write version to database.");
         return;
       }
     }
@@ -2864,7 +2868,7 @@ void BlockchainLMDB::fixup()
     ptr = (char *)k.mv_data; \
     ptr[sizeof(name)-2] = 's'
 
-#define LOGIF(y)    if (y <= epee::log_space::log_singletone::get_log_detalisation_level())
+#define LOGIF(y)    if (ELPP->vRegistry()->allowed(y, MONERO_DEFAULT_LOG_CATEGORY))
 
 void BlockchainLMDB::migrate_0_1()
 {
@@ -2875,8 +2879,8 @@ void BlockchainLMDB::migrate_0_1()
   MDB_val k, v;
   char *ptr;
 
-  LOG_PRINT_YELLOW("Migrating blockchain from DB version 0 to 1 - this may take a while:", LOG_LEVEL_0);
-  LOG_PRINT_L0("updating blocks, hf_versions, outputs, txs, and spent_keys tables...");
+  MLOG_YELLOW(el::Level::Info, "Migrating blockchain from DB version 0 to 1 - this may take a while:");
+  MINFO("updating blocks, hf_versions, outputs, txs, and spent_keys tables...");
 
   do {
     result = mdb_txn_begin(m_env, NULL, 0, txn);
@@ -2887,10 +2891,10 @@ void BlockchainLMDB::migrate_0_1()
     if ((result = mdb_stat(txn, m_blocks, &db_stats)))
       throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
     m_height = db_stats.ms_entries;
-    LOG_PRINT_L0("Total number of blocks: " << m_height);
-    LOG_PRINT_L1("block migration will update block_heights, block_info, and hf_versions...");
+    MINFO("Total number of blocks: " << m_height);
+    MINFO("block migration will update block_heights, block_info, and hf_versions...");
 
-    LOG_PRINT_L1("migrating block_heights:");
+    MINFO("migrating block_heights:");
     MDB_dbi o_heights;
 
     unsigned int flags;
@@ -2925,7 +2929,7 @@ void BlockchainLMDB::migrate_0_1()
     while(1) {
       if (!(i % 2000)) {
         if (i) {
-          LOGIF(1) {
+          LOGIF(el::Level::Info) {
             std::cout << i << " / " << z << "  \r" << std::flush;
           }
           txn.commit();
@@ -3016,7 +3020,7 @@ void BlockchainLMDB::migrate_0_1()
       MDB_val k, v;
       if (!(i % 2000)) {
         if (i) {
-          LOGIF(1) {
+          LOGIF(el::Level::Info) {
             std::cout << i << " / " << z << "  \r" << std::flush;
           }
           txn.commit();
@@ -3148,7 +3152,7 @@ void BlockchainLMDB::migrate_0_1()
     while(1) {
       if (!(i % 2000)) {
         if (i) {
-          LOGIF(1) {
+          LOGIF(el::Level::Info) {
             std::cout << i << " / " << z << "  \r" << std::flush;
           }
           txn.commit();
@@ -3294,7 +3298,7 @@ void BlockchainLMDB::migrate_0_1()
     while(1) {
       if (!(i % 1000)) {
         if (i) {
-          LOGIF(1) {
+          LOGIF(el::Level::Info) {
             std::cout << i << " / " << z << "  \r" << std::flush;
           }
           MDB_val_set(pk, "txblk");

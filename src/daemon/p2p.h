@@ -34,6 +34,9 @@
 #include "p2p/net_node.h"
 #include "daemon/protocol.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize
 {
 
@@ -57,12 +60,12 @@ public:
     : m_server{protocol.get()}
   {
     //initialize objects
-    LOG_PRINT_L0("Initializing p2p server...");
+    MGINFO("Initializing p2p server...");
     if (!m_server.init(vm))
     {
       throw std::runtime_error("Failed to initialize p2p server.");
     }
-    LOG_PRINT_L0("P2p server initialized OK");
+    MGINFO("P2p server initialized OK");
   }
 
   t_node_server & get()
@@ -72,9 +75,9 @@ public:
 
   void run()
   {
-    LOG_PRINT_L0("Starting p2p net loop...");
+    MGINFO("Starting p2p net loop...");
     m_server.run();
-    LOG_PRINT_L0("p2p net loop stopped");
+    MGINFO("p2p net loop stopped");
   }
 
   void stop()
@@ -84,11 +87,11 @@ public:
 
   ~t_p2p()
   {
-    LOG_PRINT_L0("Deinitializing p2p...");
+    MGINFO("Deinitializing p2p...");
     try {
       m_server.deinit();
     } catch (...) {
-      LOG_PRINT_L0("Failed to deinitialize p2p...");
+      MERROR("Failed to deinitialize p2p...");
     }
   }
 };

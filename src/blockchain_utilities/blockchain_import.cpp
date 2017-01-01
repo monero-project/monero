@@ -44,6 +44,9 @@
 
 #include "fake_core.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+
 namespace
 {
 // CONFIG
@@ -132,7 +135,7 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int&
 #if !defined(BERKELEY_DB)
   if (db_type == "berkeley")
   {
-    LOG_ERROR("BerkeleyDB support disabled.");
+    MFATAL("BerkeleyDB support disabled.");
     return false;
   }
 #endif
@@ -163,7 +166,7 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int&
 	continue;
       if (db_type == "lmdb")
       {
-	LOG_PRINT_L1("LMDB flag: " << it);
+	MINFO("LMDB flag: " << it);
 	if (it == "nosync")
 	  db_flags |= MDB_NOSYNC;
 	else if (it == "nometasync")
@@ -211,7 +214,7 @@ int pop_blocks(FakeCore& simple_core, int num_blocks)
     if (simple_core.support_batch)
       use_batch = true;
     else
-      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
+      MWARNING("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
   }
 
   if (use_batch)
@@ -260,14 +263,14 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
   boost::system::error_code ec;
   if (!boost::filesystem::exists(fs_import_file_path, ec))
   {
-    LOG_PRINT_L0("bootstrap file not found: " << fs_import_file_path);
+    MFATAL("bootstrap file not found: " << fs_import_file_path);
     return false;
   }
 
   BootstrapFile bootstrap;
   // BootstrapFile bootstrap(import_file_path);
   uint64_t total_source_blocks = bootstrap.count_blocks(import_file_path);
-  LOG_PRINT_L0("bootstrap file last block number: " << total_source_blocks-1 << " (zero-based height)  total blocks: " << total_source_blocks);
+  MINFO("bootstrap file last block number: " << total_source_blocks-1 << " (zero-based height)  total blocks: " << total_source_blocks);
 
   std::cout << ENDL;
   std::cout << "Preparing to read blocks..." << ENDL;
@@ -280,7 +283,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
   uint64_t num_imported = 0;
   if (import_file.fail())
   {
-    LOG_PRINT_L0("import_file.open() fail");
+    MFATAL("import_file.open() fail");
     return false;
   }
 
@@ -309,7 +312,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
   // These are what we'll try to use, and they don't have to be a determination
   // from source and destination blockchains, but those are the defaults.
-  LOG_PRINT_L0("start block: " << start_height << "  stop block: " <<
+  MINFO("start block: " << start_height << "  stop block: " <<
       block_stop);
 
   bool use_batch = false;
@@ -318,13 +321,13 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     if (simple_core.support_batch)
       use_batch = true;
     else
-      LOG_PRINT_L0("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
+      MWARNING("WARNING: batch transactions enabled but unsupported or unnecessary for this database type - ignoring");
   }
 
   if (use_batch)
     simple_core.batch_start(db_batch_size);
 
-  LOG_PRINT_L0("Reading blockchain from bootstrap file...");
+  MINFO("Reading blockchain from bootstrap file...");
   std::cout << ENDL;
 
   // Within the loop, we skip to start_height before we start adding.
@@ -338,7 +341,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     // TODO: bootstrap.read_chunk();
     if (! import_file) {
       std::cout << refresh_string;
-      LOG_PRINT_L0("End of file reached");
+      MINFO("End of file reached");
       quit = 1;
       break;
     }
@@ -349,29 +352,29 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     {
       throw std::runtime_error("Error in deserialization of chunk size");
     }
-    LOG_PRINT_L3("chunk_size: " << chunk_size);
+    MDEBUG("chunk_size: " << chunk_size);
 
     if (chunk_size > BUFFER_SIZE)
     {
-      LOG_PRINT_L0("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE);
+      MWARNING("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE);
       throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
     if (chunk_size > 100000)
     {
-      LOG_PRINT_L0("NOTE: chunk_size " << chunk_size << " > 100000");
+      MINFO("NOTE: chunk_size " << chunk_size << " > 100000");
     }
     else if (chunk_size == 0) {
-      LOG_PRINT_L0("ERROR: chunk_size == 0");
+      MFATAL("ERROR: chunk_size == 0");
       return 2;
     }
     import_file.read(buffer_block, chunk_size);
     if (! import_file) {
-      LOG_PRINT_L0("ERROR: unexpected end of file: bytes read before error: "
+      MFATAL("ERROR: unexpected end of file: bytes read before error: "
           << import_file.gcount() << " of chunk_size " << chunk_size);
       return 2;
     }
     bytes_read += chunk_size;
-    LOG_PRINT_L3("Total bytes read: " << bytes_read);
+    MINFO("Total bytes read: " << bytes_read);
 
     if (h + NUM_BLOCKS_PER_CHUNK < start_height + 1)
     {
@@ -384,7 +387,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
         << " / " << block_stop
         << std::flush;
       std::cout << ENDL << ENDL;
-      LOG_PRINT_L0("Specified block number reached - stopping.  block: " << h-1 << "  total blocks: " << h);
+      MINFO("Specified block number reached - stopping.  block: " << h-1 << "  total blocks: " << h);
       quit = 1;
       break;
     }
@@ -405,14 +408,14 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
         if ((h-1) % display_interval == 0)
         {
           std::cout << refresh_string;
-          LOG_PRINT_L0("loading block number " << h-1);
+          MDEBUG("loading block number " << h-1);
         }
         else
         {
-          LOG_PRINT_L3("loading block number " << h-1);
+          MDEBUG("loading block number " << h-1);
         }
         b = bp.block;
-        LOG_PRINT_L2("block prev_id: " << b.prev_id << ENDL);
+        MDEBUG("block prev_id: " << b.prev_id << ENDL);
 
         if ((h-1) % progress_interval == 0)
         {
@@ -427,12 +430,12 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
         archived_txs = bp.txs;
 
         // std::cout << refresh_string;
-        // LOG_PRINT_L1("txs: " << archived_txs.size());
+        // MDEBUG("txs: " << archived_txs.size());
 
         // if archived_txs is invalid
         // {
         //   std::cout << refresh_string;
-        //   LOG_PRINT_RED_L0("exception while de-archiving txs, height=" << h);
+        //   MFATAL("exception while de-archiving txs, height=" << h);
         //   quit = 1;
         //   break;
         // }
@@ -445,20 +448,20 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           ++tx_num;
           // if tx is invalid
           // {
-          //   LOG_PRINT_RED_L0("exception while indexing tx from txs, height=" << h <<", tx_num=" << tx_num);
+          //   MFATAL("exception while indexing tx from txs, height=" << h <<", tx_num=" << tx_num);
           //   quit = 1;
           //   break;
           // }
 
           // std::cout << refresh_string;
-          // LOG_PRINT_L1("tx hash: " << get_transaction_hash(tx));
+          // MDEBUG("tx hash: " << get_transaction_hash(tx));
 
           // crypto::hash hsh = null_hash;
           // size_t blob_size = 0;
           // NOTE: all tx hashes except for coinbase tx are available in the block data
           // get_transaction_hash(tx, hsh, blob_size);
-          // LOG_PRINT_L0("tx " << tx_num << "  " << hsh << " : " << ENDL);
-          // LOG_PRINT_L0(obj_to_json_str(tx) << ENDL);
+          // MDEBUG("tx " << tx_num << "  " << hsh << " : " << ENDL);
+          // MDEBUG(obj_to_json_str(tx) << ENDL);
 
           // add blocks with verification.
           // for Blockchain and blockchain_storage add_new_block().
@@ -475,7 +478,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
             r = simple_core.m_pool.add_tx(tx, tvc, true, true, false, version);
             if (!r)
             {
-              LOG_PRINT_RED_L0("failed to add transaction to transaction pool, height=" << h <<", tx_num=" << tx_num);
+              MFATAL("failed to add transaction to transaction pool, height=" << h <<", tx_num=" << tx_num);
               quit = 1;
               break;
             }
@@ -499,8 +502,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
           if (bvc.m_verifivation_failed)
           {
-            LOG_PRINT_L0("Failed to add block to blockchain, verification failed, height = " << h);
-            LOG_PRINT_L0("skipping rest of file");
+            MFATAL("Failed to add block to blockchain, verification failed, height = " << h);
+            MFATAL("skipping rest of file");
             // ok to commit previously batched data because it failed only in
             // verification of potential new block with nothing added to batch
             // yet
@@ -509,8 +512,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           }
           if (! bvc.m_added_to_main_chain)
           {
-            LOG_PRINT_L0("Failed to add block to blockchain, height = " << h);
-            LOG_PRINT_L0("skipping rest of file");
+            MFATAL("Failed to add block to blockchain, height = " << h);
+            MFATAL("skipping rest of file");
             // make sure we don't commit partial block data
             quit = 2;
             break;
@@ -527,9 +530,9 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           coins_generated = bp.coins_generated;
 
           // std::cout << refresh_string;
-          // LOG_PRINT_L2("block_size: " << block_size);
-          // LOG_PRINT_L2("cumulative_difficulty: " << cumulative_difficulty);
-          // LOG_PRINT_L2("coins_generated: " << coins_generated);
+          // MDEBUG("block_size: " << block_size);
+          // MDEBUG("cumulative_difficulty: " << cumulative_difficulty);
+          // MDEBUG("coins_generated: " << coins_generated);
 
           try
           {
@@ -538,7 +541,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
           catch (const std::exception& e)
           {
             std::cout << refresh_string;
-            LOG_PRINT_RED_L0("Error adding block to blockchain: " << e.what());
+            MFATAL("Error adding block to blockchain: " << e.what());
             quit = 2; // make sure we don't commit partial block data
             break;
           }
@@ -563,7 +566,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
     catch (const std::exception& e)
     {
       std::cout << refresh_string;
-      LOG_PRINT_RED_L0("exception while reading from file, height=" << h << ": " << e.what());
+      MFATAL("exception while reading from file, height=" << h << ": " << e.what());
       return 2;
     }
   } // while
@@ -582,10 +585,10 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
       simple_core.batch_stop();
     }
     simple_core.m_storage.get_db().show_stats();
-    LOG_PRINT_L0("Number of blocks imported: " << num_imported);
+    MINFO("Number of blocks imported: " << num_imported);
     if (h > 0)
       // TODO: if there was an error, the last added block is probably at zero-based height h-2
-      LOG_PRINT_L0("Finished at block: " << h-1 << "  total blocks: " << h);
+      MINFO("Finished at block: " << h-1 << "  total blocks: " << h);
   }
   std::cout << ENDL;
   return 0;
@@ -602,7 +605,7 @@ int main(int argc, char* argv[])
   std::string available_dbs = join_set_strings(db_types_all, ", ");
   available_dbs = "available: " + available_dbs;
 
-  uint32_t log_level = LOG_LEVEL_0;
+  uint32_t log_level = 0;
   uint64_t num_blocks = 0;
   uint64_t block_stop = 0;
   std::string m_config_folder;
@@ -719,10 +722,8 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
-  log_space::get_set_log_detalisation_level(true, log_level);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-  LOG_PRINT_L0("Starting...");
-  LOG_PRINT_L0("Setting log level = " << log_level);
+  mlog_configure("", true);
+  MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
 
@@ -767,23 +768,23 @@ int main(int argc, char* argv[])
     db_engine_compiled = "memory";
   }
 
-  LOG_PRINT_L0("database: " << db_type);
-  LOG_PRINT_L0("database flags: " << db_flags);
-  LOG_PRINT_L0("verify:  " << std::boolalpha << opt_verify << std::noboolalpha);
+  MINFO("database: " << db_type);
+  MINFO("database flags: " << db_flags);
+  MINFO("verify:  " << std::boolalpha << opt_verify << std::noboolalpha);
   if (opt_batch)
   {
-    LOG_PRINT_L0("batch:   " << std::boolalpha << opt_batch << std::noboolalpha
+    MINFO("batch:   " << std::boolalpha << opt_batch << std::noboolalpha
         << "  batch size: " << db_batch_size);
   }
   else
   {
-    LOG_PRINT_L0("batch:   " << std::boolalpha << opt_batch << std::noboolalpha);
+    MINFO("batch:   " << std::boolalpha << opt_batch << std::noboolalpha);
   }
-  LOG_PRINT_L0("resume:  " << std::boolalpha << opt_resume  << std::noboolalpha);
-  LOG_PRINT_L0("testnet: " << std::boolalpha << opt_testnet << std::noboolalpha);
+  MINFO("resume:  " << std::boolalpha << opt_resume  << std::noboolalpha);
+  MINFO("testnet: " << std::boolalpha << opt_testnet << std::noboolalpha);
 
-  LOG_PRINT_L0("bootstrap file path: " << import_file_path);
-  LOG_PRINT_L0("database path:       " << m_config_folder);
+  MINFO("bootstrap file path: " << import_file_path);
+  MINFO("database path:       " << m_config_folder);
 
   try
   {
@@ -813,15 +814,15 @@ int main(int argc, char* argv[])
   if (! vm["pop-blocks"].defaulted())
   {
     num_blocks = command_line::get_arg(vm, arg_pop_blocks);
-    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    MINFO("height: " << simple_core.m_storage.get_current_blockchain_height());
     pop_blocks(simple_core, num_blocks);
-    LOG_PRINT_L0("height: " << simple_core.m_storage.get_current_blockchain_height());
+    MINFO("height: " << simple_core.m_storage.get_current_blockchain_height());
     return 0;
   }
 
   if (! vm["drop-hard-fork"].defaulted())
   {
-    LOG_PRINT_L0("Dropping hard fork tables...");
+    MINFO("Dropping hard fork tables...");
     simple_core.m_storage.get_db().drop_hard_fork_info();
     return 0;
   }

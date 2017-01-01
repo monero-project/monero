@@ -216,8 +216,7 @@ namespace
 int main(int argc, char** argv)
 {
   //set up logging options
-  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
 
   size_t thread_count = (std::max)(min_thread_count, std::thread::hardware_concurrency() / 2);
 
@@ -232,6 +231,5 @@ int main(int argc, char** argv)
 
   if (!tcp_server.run_server(thread_count, true))
     return 2;
-  epee::net_utils::data_logger::get_instance().kill_instance();
   return 0;
 }

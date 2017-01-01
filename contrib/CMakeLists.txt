@@ -27,5 +27,4 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 add_subdirectory(epee)
-add_subdirectory(otshell_utils)
 

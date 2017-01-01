@@ -39,6 +39,9 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+
 #define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
 
 static const uint64_t valid_decomposed_outputs[] = {
@@ -623,7 +626,7 @@ namespace cryptonote
       zero_secret_key &= (sender_account_keys.m_spend_secret_key.data[i] == 0);
     if (zero_secret_key)
     {
-      LOG_PRINT_L1("Null secret key, skipping signatures");
+      MDEBUG("Null secret key, skipping signatures");
     }
 
     if (tx.version == 1)
@@ -659,7 +662,7 @@ namespace cryptonote
         i++;
       }
 
-      LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str() , LOG_LEVEL_3);
+      MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str());
     }
     else
     {
@@ -764,7 +767,7 @@ namespace cryptonote
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
 
-      LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
+      MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL);
     }
 
     return true;

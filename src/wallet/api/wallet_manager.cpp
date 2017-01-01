@@ -436,7 +436,7 @@ WalletManager *WalletManagerFactory::getWalletManager()
     static WalletManagerImpl * g_walletManager = nullptr;
 
     if  (!g_walletManager) {
-        epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_MAX);
+        mlog_configure("monero-wallet-gui.log", false);
         g_walletManager = new WalletManagerImpl();
     }
 
@@ -445,7 +445,7 @@ WalletManager *WalletManagerFactory::getWalletManager()
 
 void WalletManagerFactory::setLogLevel(int level)
 {
-    epee::log_space::log_singletone::get_set_log_detalisation_level(true, level);
+    mlog_set_log_level(level);
 }
 
 

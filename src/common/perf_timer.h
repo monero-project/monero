@@ -32,23 +32,26 @@
 #include <stdio.h>
 #include "misc_log_ex.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "perf"
+
 namespace tools
 {
 
 class PerformanceTimer;
 
-extern int performance_timer_log_level;
+extern el::Level performance_timer_log_level;
 extern __thread std::vector<PerformanceTimer*> *performance_timers;
 
 class PerformanceTimer
 {
 public:
-  PerformanceTimer(const std::string &s, int l = LOG_LEVEL_2): name(s), level(l), started(false)
+  PerformanceTimer(const std::string &s, el::Level l = el::Level::Debug): name(s), level(l), started(false)
   {
     ticks = epee::misc_utils::get_tick_count();
     if (!performance_timers)
     {
-      LOG_PRINT("PERF             ----------", level);
+      MLOG(level, "PERF             ----------");
       performance_timers = new std::vector<PerformanceTimer*>();
     }
     else
@@ -56,7 +59,7 @@ public:
       PerformanceTimer *pt = performance_timers->back();
       if (!pt->started)
       {
-        LOG_PRINT("PERF           " << std::string((performance_timers->size()-1) * 2, ' ') << "  " << pt->name, pt->level);
+        MLOG(pt->level, "PERF           " << std::string((performance_timers->size()-1) * 2, ' ') << "  " << pt->name);
         pt->started = true;
       }
     }
@@ -69,7 +72,7 @@ public:
     ticks = epee::misc_utils::get_tick_count() - ticks;
     char s[12];
     snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)ticks);
-    LOG_PRINT("PERF " << s << std::string(performance_timers->size() * 2, ' ') << "  " << name, level);
+    MLOG(level, "PERF " << s << std::string(performance_timers->size() * 2, ' ') << "  " << name);
     if (performance_timers->empty())
     {
       delete performance_timers;
@@ -79,12 +82,12 @@ public:
 
 private:
   std::string name;
-  int level;
+  el::Level level;
   uint64_t ticks;
   bool started;
 };
 
-void set_performance_timer_log_level(int level);
+void set_performance_timer_log_level(el::Level level);
 
 #define PERF_TIMER(name) tools::PerformanceTimer pt_##name(#name, tools::performance_timer_log_level)
 #define PERF_TIMER_L(name, l) tools::PerformanceTimer pt_##name(#name, l)

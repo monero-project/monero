@@ -44,6 +44,7 @@ target_link_libraries(functional_tests
     wallet
     common
     crypto
+    epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}

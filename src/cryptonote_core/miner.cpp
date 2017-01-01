@@ -43,6 +43,9 @@
 #include "string_coding.h"
 #include "storages/portable_storage_template_helper.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "miner"
+
 using namespace epee;
 
 #include "miner.h"
@@ -193,7 +196,7 @@ namespace cryptonote
       m_config_folder_path = boost::filesystem::path(command_line::get_arg(vm, arg_extra_messages)).parent_path().string();
       m_config = AUTO_VAL_INIT(m_config);
       epee::serialization::load_t_from_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
-      LOG_PRINT_L0("Loaded " << m_extra_messages.size() << " extra messages, current index " << m_config.current_extra_message_index);
+      MINFO("Loaded " << m_extra_messages.size() << " extra messages, current index " << m_config.current_extra_message_index);
     }
 
     if(command_line::has_arg(vm, arg_start_mining))
@@ -278,11 +281,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
-    LOG_PRINT_L1("Miner has received stop signal");
+    MTRACE("Miner has received stop signal");
 
     if (!is_mining())
     {
-      LOG_PRINT_L1("Not mining - nothing to stop" );
+      MDEBUG("Not mining - nothing to stop" );
       return true;
     }
 
@@ -292,7 +295,7 @@ namespace cryptonote
     BOOST_FOREACH(boost::thread& th, m_threads)
       th.join();
 
-    LOG_PRINT_L0("Mining has been stopped, " << m_threads.size() << " finished" );
+    MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
     return true;
   }
@@ -328,7 +331,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_miners_count_lock);
     ++m_pausers_count;
     if(m_pausers_count == 1 && is_mining())
-      LOG_PRINT_L2("MINING PAUSED");
+      MDEBUG("MINING PAUSED");
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::resume()
@@ -338,17 +341,17 @@ namespace cryptonote
     if(m_pausers_count < 0)
     {
       m_pausers_count = 0;
-      LOG_PRINT_RED_L0("Unexpected miner::resume() called");
+      MERROR("Unexpected miner::resume() called");
     }
     if(!m_pausers_count && is_mining())
-      LOG_PRINT_L2("MINING RESUMED");
+      MDEBUG("MINING RESUMED");
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::worker_thread()
   {
     uint32_t th_local_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index);
-    LOG_PRINT_L0("Miner thread was started ["<< th_local_index << "]");
-    log_space::log_singletone::set_thread_log_prefix(std::string("[miner ") + std::to_string(th_local_index) + "]");
+    MGINFO("Miner thread was started ["<< th_local_index << "]");
+    MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
     uint32_t nonce = m_starter_nonce + th_local_index;
     uint64_t height = 0;
     difficulty_type local_diff = 0;
@@ -389,7 +392,7 @@ namespace cryptonote
       {
         //we lucky!
         ++m_config.current_extra_message_index;
-        LOG_PRINT_GREEN("Found block for difficulty: " << local_diff, LOG_LEVEL_0);
+        MGINFO_GREEN("Found block for difficulty: " << local_diff);
         if(!m_phandler->handle_block_found(b))
         {
           --m_config.current_extra_message_index;
@@ -404,7 +407,7 @@ namespace cryptonote
       ++m_hashes;
     }
     slow_hash_free_state();
-    LOG_PRINT_L0("Miner thread stopped ["<< th_local_index << "]");
+    MGINFO("Miner thread stopped ["<< th_local_index << "]");
     return true;
   }
   //-----------------------------------------------------------------------------------------------------

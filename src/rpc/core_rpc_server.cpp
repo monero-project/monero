@@ -678,17 +678,20 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_level(const COMMAND_RPC_SET_LOG_LEVEL::request& req, COMMAND_RPC_SET_LOG_LEVEL::response& res)
   {
-    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    if (req.level < 0 || req.level > 4)
     {
       res.status = "Error: log level not valid";
+      return true;
     }
-    else
-    {
-      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
-      int otshell_utils_log_level = 100 - (req.level * 20);
-      gCurrentLogger.setDebugLevel(otshell_utils_log_level);
-      res.status = CORE_RPC_STATUS_OK;
-    }
+    mlog_set_log_level(req.level);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_log_categories(const COMMAND_RPC_SET_LOG_CATEGORIES::request& req, COMMAND_RPC_SET_LOG_CATEGORIES::response& res)
+  {
+    mlog_set_categories(req.categories.c_str());
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

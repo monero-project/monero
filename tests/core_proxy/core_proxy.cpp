@@ -75,11 +75,8 @@ int main(int argc, char* argv[])
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
-  //log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-  log_space::log_singletone::add_logger(LOGGER_FILE, 
-    log_space::log_singletone::get_default_log_file().c_str(), 
-    log_space::log_singletone::get_default_log_folder().c_str());
+  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
+  mlog_set_log_level(2);
 
 
   po::options_description desc("Allowed options");
@@ -97,8 +94,8 @@ int main(int argc, char* argv[])
   if (!r)
     return 1;
 
-  LOG_PRINT("Module folder: " << argv[0], LOG_LEVEL_0);
-  LOG_PRINT("Node starting ...", LOG_LEVEL_0);
+  MGINFO("Module folder: " << argv[0]);
+  MGINFO("Node starting ...");
 
 
   //create objects and link them
@@ -113,32 +110,32 @@ int main(int argc, char* argv[])
 
   //initialize objects
 
-  LOG_PRINT_L0("Initializing p2p server...");
+  MGINFO("Initializing p2p server...");
   bool res = p2psrv.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize p2p server.");
-  LOG_PRINT_L0("P2p server initialized OK");
+  MGINFO("P2p server initialized OK");
 
-  LOG_PRINT_L0("Initializing cryptonote protocol...");
+  MGINFO("Initializing cryptonote protocol...");
   res = cprotocol.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize cryptonote protocol.");
-  LOG_PRINT_L0("Cryptonote protocol initialized OK");
+  MGINFO("Cryptonote protocol initialized OK");
 
   //initialize core here
-  LOG_PRINT_L0("Initializing proxy core...");
+  MGINFO("Initializing proxy core...");
   res = pr_core.init(vm);
   CHECK_AND_ASSERT_MES(res, 1, "Failed to initialize core");  
-  LOG_PRINT_L0("Core initialized OK");
+  MGINFO("Core initialized OK");
 
-  LOG_PRINT_L0("Starting p2p net loop...");
+  MGINFO("Starting p2p net loop...");
   p2psrv.run();
-  LOG_PRINT_L0("p2p net loop stopped");
+  MGINFO("p2p net loop stopped");
 
   //deinitialize components  
-  LOG_PRINT_L0("Deinitializing core...");
+  MGINFO("Deinitializing core...");
   pr_core.deinit();
-  LOG_PRINT_L0("Deinitializing cryptonote_protocol...");
+  MGINFO("Deinitializing cryptonote_protocol...");
   cprotocol.deinit();
-  LOG_PRINT_L0("Deinitializing p2p...");
+  MGINFO("Deinitializing p2p...");
   p2psrv.deinit();
 
 
@@ -146,8 +143,7 @@ int main(int argc, char* argv[])
   cprotocol.set_p2p_endpoint(NULL);
 
 
-  LOG_PRINT("Node stopped.", LOG_LEVEL_0);
-  epee::net_utils::data_logger::get_instance().kill_instance();
+  MGINFO("Node stopped.");
   return 0;
 
   CATCH_ENTRY_L0("main", 1);

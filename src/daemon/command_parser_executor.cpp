@@ -29,6 +29,9 @@
 #include "common/dns_utils.h"
 #include "daemon/command_parser_executor.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 t_command_parser_executor::t_command_parser_executor(
@@ -117,24 +120,24 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
 {
   if(args.size() != 1)
   {
-    std::cout << "use: set_log <log_level_number_0-4>" << std::endl;
+    std::cout << "use: set_log [<log_level_number_0-4> | <categories>]" << std::endl;
     return true;
   }
 
   uint16_t l = 0;
-  if(!epee::string_tools::get_xtype_from_string(l, args[0]))
+  if(epee::string_tools::get_xtype_from_string(l, args[0]))
   {
-    std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << std::endl;
-    return true;
+    if(4 < l)
+    {
+      std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << std::endl;
+      return true;
+    }
+    return m_executor.set_log_level(l);
   }
-
-  if(LOG_LEVEL_4 < l)
+  else
   {
-    std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << std::endl;
-    return true;
+    return m_executor.set_log_categories(args.front());
   }
-
-  return m_executor.set_log_level(l);
 }
 
 bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 

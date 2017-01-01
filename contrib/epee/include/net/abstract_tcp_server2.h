@@ -55,8 +55,10 @@
 #include "net_utils_base.h"
 #include "syncobj.h"
 #include "../../../../src/p2p/connection_basic.hpp"
-#include "../../../../contrib/otshell_utils/utils.hpp"
 #include "../../../../src/p2p/network_throttle-detail.hpp"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 1000
 

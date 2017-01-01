@@ -52,8 +52,8 @@ namespace epee
 #endif
 
 #define START_WAY_POINTS() uint64_t _____way_point_time = epee::misc_utils::get_tick_count();
-#define WAY_POINT(name) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
-#define WAY_POINT2(name, avrg_obj) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; avrg_obj.push(delta); LOG_PRINT("Way point " << name << ": " << delta, LOG_LEVEL_2);_____way_point_time = misc_utils::get_tick_count();}
+#define WAY_POINT(name) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; MDEBUG("Way point " << name << ": " << delta);_____way_point_time = misc_utils::get_tick_count();}
+#define WAY_POINT2(name, avrg_obj) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; avrg_obj.push(delta); MDEBUG("Way point " << name << ": " << delta);_____way_point_time = misc_utils::get_tick_count();}
 
 
 #define TIME_MEASURE_START(var_name)    uint64_t var_name = epee::misc_utils::get_tick_count();
@@ -67,7 +67,7 @@ namespace profile_tools
 		{}
 		~local_call_account()
 		{
-			LOG_PRINT2("profile_details.log", "PROFILE "<<m_pname<<":av_time:\t" << (m_count_of_call ? (m_summary_time_used/m_count_of_call):0) <<" sum_time:\t"<<m_summary_time_used<<" call_count:\t" << m_count_of_call, LOG_LEVEL_0);
+			MINFO("PROFILE "<<m_pname<<":av_time:\t" << (m_count_of_call ? (m_summary_time_used/m_count_of_call):0) <<" sum_time:\t"<<m_summary_time_used<<" call_count:\t" << m_count_of_call);
 		}
 
 		size_t m_count_of_call;

@@ -56,6 +56,10 @@
 #include "password_container.h"
 
 #include <iostream>
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
+
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
 
 class Serialization_portability_wallet_Test;

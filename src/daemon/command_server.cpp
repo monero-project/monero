@@ -30,6 +30,9 @@
 #include "version.h"
 #include "daemon/command_server.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 namespace p = std::placeholders;
@@ -133,7 +136,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "set_log"
     , std::bind(&t_command_parser_executor::set_log_level, &m_parser, p::_1)
-    , "set_log <level> - Change current log detalization level, <level> is a number 0-4"
+    , "set_log <level>|<categories> - Change current loglevel, <level> is a number 0-4"
     );
   m_command_lookup.set_handler(
       "diff"
