@@ -6687,6 +6687,7 @@ if (ELPP_DEBUG_LOG) C##LEVEL##_EVERY_N(el::base::Writer, n, el::base::DispatchAc
 #define DLOG_N_TIMES(n, LEVEL) DCLOG_N_TIMES(n, LEVEL, ELPP_CURR_FILE_LOGGER_ID)
 #define DVLOG_N_TIMES(n, vlevel) DCVLOG_N_TIMES(n, vlevel, ELPP_CURR_FILE_LOGGER_ID)
 // Check macros
+#if !defined(ELPP_DISABLE_CHECK_MACROS)
 #undef CCHECK
 #undef CPCHECK
 #undef CCHECK_EQ
@@ -6795,6 +6796,7 @@ if (ELPP_DEBUG_LOG) C##LEVEL##_EVERY_N(el::base::Writer, n, el::base::DispatchAc
 #define DCHECK_STRCASEEQ(str1, str2) DCCHECK_STRCASEEQ(str1, str2, ELPP_CURR_FILE_LOGGER_ID)
 #define DCHECK_STRCASENE(str1, str2) DCCHECK_STRCASENE(str1, str2, ELPP_CURR_FILE_LOGGER_ID)
 #define DPCHECK(condition) DCPCHECK(condition, ELPP_CURR_FILE_LOGGER_ID)
+#endif // define(ELPP_DISABLE_CHECK_MACROS)
 #if defined(ELPP_DISABLE_DEFAULT_CRASH_HANDLING)
 #   define ELPP_USE_DEF_CRASH_HANDLER false
 #else
