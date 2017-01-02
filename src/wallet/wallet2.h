@@ -58,6 +58,8 @@
 #include <iostream>
 #define WALLET_RCP_CONNECTION_TIMEOUT                          200000
 
+class Serialization_portability_wallet_Test;
+
 namespace tools
 {
   class i_wallet2_callback
@@ -86,6 +88,7 @@ namespace tools
 
   class wallet2
   {
+    friend class ::Serialization_portability_wallet_Test;
   public:
     enum RefreshType {
       RefreshFull,
