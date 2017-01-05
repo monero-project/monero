@@ -1052,7 +1052,6 @@ STATIC INLINE void xor_blocks(uint8_t* a, const uint8_t* b)
 
 void cn_slow_hash(const void *data, size_t length, char *hash)
 {
-    uint8_t long_state[MEMORY];
     uint8_t text[INIT_SIZE_BYTE];
     uint8_t a[AES_BLOCK_SIZE];
     uint8_t b[AES_BLOCK_SIZE];
@@ -1069,6 +1068,13 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     {
         hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
     };
+
+#ifndef FORCE_USE_HEAP
+    uint8_t long_state[MEMORY];
+#else
+    uint8_t *long_state = NULL;
+    long_state = (uint8_t *)malloc(MEMORY);
+#endif
 
     hash_process(&state.hs, data, length);
     memcpy(text, state.init, INIT_SIZE_BYTE);
@@ -1129,6 +1135,9 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     memcpy(state.init, text, INIT_SIZE_BYTE);
     hash_permutation(&state.hs);
     extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
+#ifdef FORCE_USE_HEAP
+    free(long_state);
+#endif
 }
 #endif /* !aarch64 || !crypto */
 
