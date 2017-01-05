@@ -14,6 +14,7 @@
 #include <boost/config.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/static_assert.hpp>
+#include <boost/archive/archive_exception.hpp>
 
 #include <climits>
 #if CHAR_BIT != 8
@@ -37,7 +38,9 @@ enum portable_binary_archive_flags {
 //#endif
 
 inline void
-reverse_bytes(char size, char *address){
+reverse_bytes(signed char size, char *address){
+    if (size <= 0)
+        throw archive_exception(archive_exception::other_exception);
     char * first = address;
     char * last = first + size - 1;
     for(;first < last;++first, --last){
