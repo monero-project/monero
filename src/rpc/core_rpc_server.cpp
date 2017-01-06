@@ -892,6 +892,7 @@ namespace cryptonote
     response.hash = string_tools::pod_to_hex(hash);
     response.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     response.reward = get_block_reward(blk);
+    response.block_size = m_core.get_blockchain_storage().get_db().get_block_size(height);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
