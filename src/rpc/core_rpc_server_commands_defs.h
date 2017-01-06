@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 0
+#define CORE_RPC_VERSION_MINOR 1
 #define CORE_RPC_VERSION (((CORE_RPC_VERSION_MAJOR)<<16)|(CORE_RPC_VERSION_MINOR))
 
   struct COMMAND_RPC_GET_HEIGHT
@@ -512,6 +512,7 @@ namespace cryptonote
       bool testnet;
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
+      uint64_t block_size_limit;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -529,6 +530,7 @@ namespace cryptonote
         KV_SERIALIZE(testnet)
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
+        KV_SERIALIZE(block_size_limit)
       END_KV_SERIALIZE_MAP()
     };
   };
