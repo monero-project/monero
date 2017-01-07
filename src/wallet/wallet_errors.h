@@ -626,6 +626,18 @@ namespace tools
       std::string m_request;
     };
     //----------------------------------------------------------------------------------------------------
+    struct wallet_generic_rpc_error : public wallet_rpc_error
+    {
+      explicit wallet_generic_rpc_error(std::string&& loc, const std::string& request, const std::string& status)
+        : wallet_rpc_error(std::move(loc), std::string("error in ") + request + " RPC: " + status, request),
+        m_status(status)
+      {
+      }
+      const std::string& status() const { return m_status; }
+    private:
+      const std::string m_status;
+    };
+    //----------------------------------------------------------------------------------------------------
     struct daemon_busy : public wallet_rpc_error
     {
       explicit daemon_busy(std::string&& loc, const std::string& request)

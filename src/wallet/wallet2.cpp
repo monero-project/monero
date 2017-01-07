@@ -396,6 +396,19 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
   return nullptr;
 }
 
+static void throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method)
+{
+  // no error
+  if (!status)
+    return;
+
+  // empty string -> not connection
+  THROW_WALLET_EXCEPTION_IF(status->empty(), tools::error::no_connection_to_daemon, method);
+
+  THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
+  THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, *status);
+}
+
 } //namespace
 
 namespace tools
@@ -473,6 +486,7 @@ void wallet2::init(const std::string& daemon_address, uint64_t upper_transaction
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = daemon_address;
+  m_node_rpc_proxy.init(m_daemon_address);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
@@ -1643,7 +1657,10 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       blocks_fetched += added_blocks;
       pull_thread.join();
       if(blocks_start_height == next_blocks_start_height)
+      {
+        m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
+      }
 
       // switch to the new blocks from the daemon
       blocks_start_height = next_blocks_start_height;
@@ -3259,20 +3276,12 @@ uint64_t wallet2::get_fee_multiplier(uint32_t priority, bool use_new_fee) const
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_dynamic_per_kb_fee_estimate()
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_fee_estimate";
-  req_t.params.grace_blocks = FEE_ESTIMATE_GRACE_BLOCKS;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_THROW_MES(r, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status == CORE_RPC_STATUS_OK, "Failed to get fee estimate");
-  return resp_t.result.fee;
+  uint64_t fee;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_per_kb_fee_estimate(FEE_ESTIMATE_GRACE_BLOCKS, fee);
+  if (!result)
+    return fee;
+  LOG_PRINT_L1("Failed to query per kB fee, using " << print_money(FEE_PER_KB));
+  return FEE_PER_KB;
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_per_kb_fee()
@@ -3280,15 +3289,8 @@ uint64_t wallet2::get_per_kb_fee()
   bool use_dyn_fee = use_fork_rules(HF_VERSION_DYNAMIC_FEE, -720 * 1);
   if (!use_dyn_fee)
     return FEE_PER_KB;
-  try
-  {
-    return get_dynamic_per_kb_fee_estimate();
-  }
-  catch (...)
-  {
-    LOG_PRINT_L1("Failed to query per kB fee, using " << print_money(FEE_PER_KB));
-    return FEE_PER_KB;
-  }
+
+  return get_dynamic_per_kb_fee_estimate();
 }
 //----------------------------------------------------------------------------------------------------
 // separated the call(s) to wallet2::transfer into their own function
@@ -4513,39 +4515,19 @@ uint64_t wallet2::unlocked_dust_balance(const tx_dust_policy &dust_policy) const
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_hard_fork_info(uint8_t version, uint64_t &earliest_height)
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-
-  m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "hard_fork_info";
-  req_t.params.version = version;
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/json_rpc", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_THROW_MES(r, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_THROW_MES(resp_t.result.status == CORE_RPC_STATUS_OK, "Failed to get hard fork status");
-
-  earliest_height = resp_t.result.earliest_height;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_earliest_height(version, earliest_height);
+  throw_on_rpc_response_error(result, "get_hard_fork_info");
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
 {
-  cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
+  uint64_t height, earliest_height;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
+  throw_on_rpc_response_error(result, "get_info");
+  result = m_node_rpc_proxy.get_earliest_height(version, earliest_height);
+  throw_on_rpc_response_error(result, "get_hard_fork_info");
 
-  m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  CHECK_AND_ASSERT_MES(r, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status != CORE_RPC_STATUS_BUSY, false, "Failed to connect to daemon");
-  CHECK_AND_ASSERT_MES(res.status == CORE_RPC_STATUS_OK, false, "Failed to get current blockchain height");
-
-  uint64_t earliest_height;
-  get_hard_fork_info(version, earliest_height); // can throw
-
-  bool close_enough = res.height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
+  bool close_enough = height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
@@ -4734,34 +4716,17 @@ std::string wallet2::get_daemon_address() const
 
 uint64_t wallet2::get_daemon_blockchain_height(string &err)
 {
-  // XXX: DRY violation. copy-pasted from simplewallet.cpp:get_daemon_blockchain_height()
-  //      consider to move it from simplewallet to wallet2 ?
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  m_daemon_rpc_mutex.lock();
-  bool ok = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getheight", req, res, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  // XXX: DRY violation. copy-pasted from simplewallet.cpp:interpret_rpc_response()
-  if (ok)
+  uint64_t height;
+
+  boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
+  if (result)
   {
-    if (res.status == CORE_RPC_STATUS_BUSY)
-    {
-      err = "daemon is busy. Please try again later.";
-    }
-    else if (res.status != CORE_RPC_STATUS_OK)
-    {
-      err = res.status;
-    }
-    else // success, cleaning up error message
-    {
-      err = "";
-    }
+    err = *result;
+    return 0;
   }
-  else
-  {
-    err = "possibly lost connection to daemon";
-  }
-  return res.height;
+
+  err = "";
+  return height;
 }
 
 uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
