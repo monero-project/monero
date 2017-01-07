@@ -396,6 +396,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
+    LOG_PRINT_L3("on_transfer_split starts");
     if (m_wallet.restricted())
     {
       er.code = WALLET_RPC_ERROR_CODE_DENIED;
@@ -485,9 +486,13 @@ namespace tools
         mixin = 2;
       }
       std::vector<wallet2::pending_tx> ptx_vector;
+      LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
       ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
+      LOG_PRINT_L2("on_transfer_split calling commit_txyy");
       m_wallet.commit_tx(ptx_vector);
+      LOG_PRINT_L2("on_transfer_split called commit_txyy");
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
