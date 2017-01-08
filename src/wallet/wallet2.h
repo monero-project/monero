@@ -226,6 +226,8 @@ namespace tools
       tx_construction_data construction_data;
     };
 
+    // The term "Unsigned tx" is not really a tx since it's not signed yet.
+    // It doesnt have tx hash, key and the integrated address is not separated into addr + payment id.
     struct unsigned_tx_set
     {
       std::vector<tx_construction_data> txes;
@@ -387,7 +389,12 @@ namespace tools
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     bool save_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename);
+    // load unsigned tx from file and sign it. Takes confirmation callback as argument. Used by the cli wallet
     bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx, std::function<bool(const unsigned_tx_set&)> accept_func = NULL);
+    // sign unsigned tx. Takes unsigned_tx_set as argument. Used by GUI
+    bool sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx);
+    // load unsigned_tx_set from file. 
+    bool load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs);
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon);

@@ -43,6 +43,7 @@
 namespace Monero {
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
+class UnsignedTransactionImpl;
 class AddressBookImpl;
 struct Wallet2CallbackImpl;
 
@@ -99,6 +100,8 @@ public:
                                         optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
     virtual PendingTransaction * createSweepUnmixableTransaction();
+    bool submitTransaction(const std::string &fileName);
+    virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename);
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
@@ -126,6 +129,7 @@ private:
 
 private:
     friend class PendingTransactionImpl;
+    friend class UnsignedTransactionImpl;    
     friend class TransactionHistoryImpl;
     friend class Wallet2CallbackImpl;
     friend class AddressBookImpl;

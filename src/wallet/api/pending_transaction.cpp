@@ -51,7 +51,7 @@ PendingTransaction::~PendingTransaction() {}
 PendingTransactionImpl::PendingTransactionImpl(WalletImpl &wallet)
     : m_wallet(wallet)
 {
-
+  m_status = Status_Ok;
 }
 
 PendingTransactionImpl::~PendingTransactionImpl()
@@ -77,19 +77,39 @@ std::vector<std::string> PendingTransactionImpl::txid() const
     return txid;
 }
 
-bool PendingTransactionImpl::commit()
+bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
 {
 
     LOG_PRINT_L3("m_pending_tx size: " << m_pending_tx.size());
 
     try {
+      // Save tx to file
+      if (!filename.empty()) {
+        boost::system::error_code ignore;
+        bool tx_file_exists = boost::filesystem::exists(filename, ignore);
+        if(tx_file_exists && !overwrite){
+          m_errorString = string(tr("Attempting to save transaction to file, but specified file(s) exist. Exiting to not risk overwriting. File:")) + filename;
+          m_status = Status_Error;
+          LOG_ERROR(m_errorString);
+          return false;
+        }
+        bool r = m_wallet.m_wallet->save_tx(m_pending_tx, filename);
+        if (!r) {
+          m_errorString = tr("Failed to write transaction(s) to file");
+          m_status = Status_Error;
+        } else {
+          m_status = Status_Ok;
+        }
+      }
+      // Commit tx
+      else {
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
             m_wallet.m_wallet->commit_tx(ptx);
-            // success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
             // if no exception, remove element from vector
             m_pending_tx.pop_back();
         } // TODO: extract method;
+      }
     } catch (const tools::error::daemon_busy&) {
         // TODO: make it translatable with "tr"?
         m_errorString = tr("daemon is busy. Please try again later.");
@@ -100,7 +120,11 @@ bool PendingTransactionImpl::commit()
     } catch (const tools::error::tx_rejected& e) {
         std::ostringstream writer(m_errorString);
         writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
+        std::string reason = e.reason();
         m_status = Status_Error;
+        m_errorString = writer.str();
+        if (!reason.empty())
+          m_errorString  += string(tr(". Reason: ")) + reason;
     } catch (std::exception &e) {
         m_errorString = string(tr("Unknown exception: ")) + e.what();
         m_status = Status_Error;

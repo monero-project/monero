@@ -31,6 +31,7 @@
 
 #include "wallet.h"
 #include "pending_transaction.h"
+#include "unsigned_transaction.h"
 #include "transaction_history.h"
 #include "address_book.h"
 #include "common_defines.h"
@@ -623,6 +624,50 @@ int WalletImpl::autoRefreshInterval() const
     return m_refreshIntervalMillis;
 }
 
+UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_filename) {
+  clearStatus();
+  UnsignedTransactionImpl * transaction = new UnsignedTransactionImpl(*this);
+  if (!m_wallet->load_unsigned_tx(unsigned_filename, transaction->m_unsigned_tx_set)){
+    m_errorString = tr("Failed to load unsigned transactions");
+    m_status = Status_Error;
+  }
+  
+  // Check tx data and construct confirmation message
+  std::string extra_message;
+  if (!transaction->m_unsigned_tx_set.transfers.empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)transaction->m_unsigned_tx_set.transfers.size()).str();
+  transaction->checkLoadedTx([&transaction](){return transaction->m_unsigned_tx_set.txes.size();}, [&transaction](size_t n)->const tools::wallet2::tx_construction_data&{return transaction->m_unsigned_tx_set.txes[n];}, extra_message);
+  m_status = transaction->status();
+  m_errorString = transaction->errorString(); 
+    
+  return transaction;
+}
+
+bool WalletImpl::submitTransaction(const string &fileName) {
+  clearStatus();
+  PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
+
+// bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
+  bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx);
+  if (!r) {
+    m_errorString = tr("Failed to load transaction from file");
+    m_status = Status_Ok;
+    delete transaction;
+    return false;
+  }
+  
+  if(!transaction->commit()) {
+    m_errorString = transaction->m_errorString;
+    m_status = Status_Error;
+    delete transaction;
+    return false;
+  }
+
+  delete transaction;
+
+  return true;
+}
+
 // TODO:
 // 1 - properly handle payment id (add another menthod with explicit 'payment_id' param)
 // 2 - check / design how "Transaction" can be single interface
@@ -640,6 +685,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     clearStatus();
     // Pause refresh thread while creating transaction
     pauseRefresh();
+      
     cryptonote::account_public_address addr;
 
     // indicates if dst_addr is integrated address (address + payment_id)
@@ -1141,6 +1187,7 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
     if (Utils::isAddressLocal(daemon_address)) {
         this->setTrustedDaemon(true);
     }
+        
 
 }
 
