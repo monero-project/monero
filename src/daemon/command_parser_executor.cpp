@@ -511,4 +511,22 @@ bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& a
   return m_executor.alt_chain_info();
 }
 
+bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector<std::string>& args)
+{
+  if(args.size() != 1)
+  {
+    std::cout << "Exactly one parameter is needed" << std::endl;
+    return false;
+  }
+
+  uint64_t nblocks = 0;
+  if(!epee::string_tools::get_xtype_from_string(nblocks, args[0]) || nblocks == 0)
+  {
+    std::cout << "wrong number of blocks" << std::endl;
+    return false;
+  }
+
+  return m_executor.print_blockchain_dynamic_stats(nblocks);
+}
+
 } // namespace daemonize

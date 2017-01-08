@@ -139,6 +139,8 @@ public:
   bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
 
   bool alt_chain_info();
+
+  bool print_blockchain_dynamic_stats(uint64_t nblocks);
 };
 
 } // namespace daemonize

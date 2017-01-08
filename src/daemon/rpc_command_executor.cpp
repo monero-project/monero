@@ -1406,5 +1406,108 @@ bool t_rpc_command_executor::alt_chain_info()
   return true;
 }
 
+bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
+{
+  cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+  cryptonote::COMMAND_RPC_GET_INFO::response ires;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request bhreq;
+  cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response bhres;
+  cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request fereq;
+  cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response feres;
+  epee::json_rpc::error error_resp;
+
+  std::string fail_message = "Problem fetching info";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
+    {
+      return true;
+    }
+    if (!m_rpc_client->rpc_request(fereq, feres, "/get_fee_estimate", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+    if (!m_rpc_server->on_get_per_kb_fee_estimate(fereq, feres, error_resp) || feres.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "Height: " << ires.height << ", diff " << ires.difficulty << ", cum. diff " << ires.cumulative_difficulty
+      << ", target " << ires.target << " sec" << ", dyn fee " << cryptonote::print_money(feres.fee) << "/kB";
+
+  if (nblocks > 0)
+  {
+    if (nblocks > ires.height)
+      nblocks = ires.height;
+
+    bhreq.start_height = ires.height - nblocks;
+    bhreq.end_height = ires.height - 1;
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->rpc_request(bhreq, bhres, "/getblockheadersrange", fail_message.c_str()))
+      {
+        return true;
+      }
+    }
+    else
+    {
+      if (!m_rpc_server->on_get_block_headers_range(bhreq, bhres, error_resp) || bhres.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << fail_message.c_str();
+        return true;
+      }
+    }
+
+    double avgdiff = 0;
+    double avgnumtxes = 0;
+    double avgreward = 0;
+    std::vector<uint64_t> sizes;
+    sizes.reserve(nblocks);
+    std::vector<unsigned> major_versions(256, 0), minor_versions(256, 0);
+    for (const auto &bhr: bhres.headers)
+    {
+      avgdiff += bhr.difficulty;
+      avgnumtxes += bhr.num_txes;
+      avgreward += bhr.reward;
+      sizes.push_back(bhr.block_size);
+      static_assert(sizeof(bhr.major_version) == 1, "major_version expected to be uint8_t");
+      static_assert(sizeof(bhr.minor_version) == 1, "major_version expected to be uint8_t");
+      major_versions[(unsigned)bhr.major_version]++;
+      minor_versions[(unsigned)bhr.minor_version]++;
+    }
+    avgdiff /= nblocks;
+    avgnumtxes /= nblocks;
+    avgreward /= nblocks;
+    uint64_t median_block_size = epee::misc_utils::median(sizes);
+    tools::msg_writer() << "Last " << nblocks << ": avg. diff " << (uint64_t)avgdiff << ", avg num txes " << avgnumtxes
+        << ", avg. reward " << cryptonote::print_money(avgreward) << ", median block size " << median_block_size;
+
+    unsigned int max_major = 256, max_minor = 256;
+    while (max_major > 0 && !major_versions[--max_major]);
+    while (max_minor > 0 && !minor_versions[--max_minor]);
+    std::string s = "";
+    for (unsigned n = 0; n <= max_major; ++n)
+      if (major_versions[n])
+        s += (s.empty() ? "" : ", ") + boost::lexical_cast<std::string>(major_versions[n]) + std::string(" v") + boost::lexical_cast<std::string>(n);
+    tools::msg_writer() << "Block versions: " << s;
+    s = "";
+    for (unsigned n = 0; n <= max_minor; ++n)
+      if (minor_versions[n])
+        s += (s.empty() ? "" : ", ") + boost::lexical_cast<std::string>(minor_versions[n]) + std::string(" v") + boost::lexical_cast<std::string>(n);
+    tools::msg_writer() << "Voting for: " << s;
+  }
+  return true;
+}
 
 }// namespace daemonize

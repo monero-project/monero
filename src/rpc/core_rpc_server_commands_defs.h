@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 4
+#define CORE_RPC_VERSION_MINOR 5
 #define CORE_RPC_VERSION (((CORE_RPC_VERSION_MAJOR)<<16)|(CORE_RPC_VERSION_MINOR))
 
   struct COMMAND_RPC_GET_HEIGHT
@@ -706,6 +706,7 @@ namespace cryptonote
       difficulty_type difficulty;
       uint64_t reward;
       uint64_t block_size;
+      uint64_t num_txes;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -720,6 +721,7 @@ namespace cryptonote
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(reward)
         KV_SERIALIZE(block_size)
+        KV_SERIALIZE(num_txes)
       END_KV_SERIALIZE_MAP()
   };
 

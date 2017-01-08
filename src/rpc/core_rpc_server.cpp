@@ -896,6 +896,7 @@ namespace cryptonote
     response.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     response.reward = get_block_reward(blk);
     response.block_size = m_core.get_blockchain_storage().get_db().get_block_size(height);
+    response.num_txes = blk.tx_hashes.size();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
