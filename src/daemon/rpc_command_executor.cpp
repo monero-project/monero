@@ -363,7 +363,9 @@ bool t_rpc_command_executor::show_status() {
     }
   }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections")
+  std::time_t uptime = std::time(nullptr) - ires.start_time;
+
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections, uptime %uh %um %us")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % get_sync_percentage(ires)
@@ -374,6 +376,9 @@ bool t_rpc_command_executor::show_status() {
     % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
+    % (unsigned int)floor(uptime / 3600.0)
+    % (unsigned int)floor(fmod(uptime, 3600.0) / 60.0)
+    % (unsigned int)fmod(uptime, 60.0)
   ;
 
   return true;

@@ -250,6 +250,8 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options)
   {
+    start_time = std::time(nullptr);
+
     m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
 
@@ -1008,6 +1010,11 @@ namespace cryptonote
   uint64_t core::get_target_blockchain_height() const
   {
     return m_target_blockchain_height;
+  }
+  //-----------------------------------------------------------------------------------------------
+  std::time_t core::get_start_time() const
+  {
+    return start_time;
   }
   //-----------------------------------------------------------------------------------------------
   void core::graceful_exit()
