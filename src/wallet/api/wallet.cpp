@@ -52,6 +52,8 @@ namespace {
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
     static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
+    // Default refresh interval when connected to remote node
+    static const int    DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS = 1000 * 10;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -1186,6 +1188,10 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
 
     if (Utils::isAddressLocal(daemon_address)) {
         this->setTrustedDaemon(true);
+        m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
+    } else {
+        this->setTrustedDaemon(false);
+        m_refreshIntervalMillis = DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
     }
         
 
