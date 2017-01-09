@@ -919,7 +919,7 @@ namespace cryptonote
       KV_SERIALIZE(last_failed_id_hash)
       KV_SERIALIZE(receive_time)
       KV_SERIALIZE(relayed)
-      KV_SERIALIZE(last_failed_id_hash)
+      KV_SERIALIZE(last_relayed_time)
     END_KV_SERIALIZE_MAP()
   };
 

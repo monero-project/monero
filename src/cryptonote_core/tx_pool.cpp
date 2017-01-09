@@ -189,6 +189,8 @@ namespace cryptonote
         txd_p.first->second.fee = fee;
         txd_p.first->second.max_used_block_id = null_hash;
         txd_p.first->second.max_used_block_height = 0;
+        txd_p.first->second.last_failed_height = 0;
+        txd_p.first->second.last_failed_id = null_hash;
         txd_p.first->second.kept_by_block = kept_by_block;
         txd_p.first->second.receive_time = time(nullptr);
         txd_p.first->second.last_relayed_time = time(NULL);
