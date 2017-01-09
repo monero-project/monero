@@ -354,11 +354,11 @@ namespace detail {
     template class archive_serializer_map<portable_binary_iarchive>;
 }
 
-template class basic_binary_iprimitive<
-    portable_binary_iarchive,
-    std::istream::char_type, 
-    std::istream::traits_type
-> ;
+// template class basic_binary_iprimitive<
+//    portable_binary_iarchive,
+//    std::istream::char_type, 
+//    std::istream::traits_type
+//> ;
 
 } // namespace archive
 } // namespace boost
