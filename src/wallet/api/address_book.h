@@ -51,6 +51,8 @@ public:
     // Error codes. See AddressBook:ErrorCode enum in wallet2_api.h
     std::string errorString() const {return m_errorString;}
     int errorCode() const {return m_errorCode;}
+
+    int lookupPaymentID(const std::string &payment_id) const;
     
 private:
     void clearRows();

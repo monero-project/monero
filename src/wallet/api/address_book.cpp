@@ -103,6 +103,28 @@ bool AddressBookImpl::deleteRow(std::size_t rowId)
   return r;
 } 
 
+int AddressBookImpl::lookupPaymentID(const std::string &payment_id) const
+{
+    // turn short ones into long ones for comparison
+    const std::string long_payment_id = payment_id + std::string(64 - payment_id.size(), '0');
+
+    int idx = -1;
+    for (const auto &row: m_rows) {
+        ++idx;
+        // this does short/short and long/long
+        if (payment_id == row->getPaymentId())
+            return idx;
+        // short/long
+        if (long_payment_id == row->getPaymentId())
+            return idx;
+        // one case left: payment_id was long, row's is short
+        const std::string long_row_payment_id = row->getPaymentId() + std::string(64 - row->getPaymentId().size(), '0');
+        if (payment_id == long_row_payment_id)
+            return idx;
+    }
+    return -1;
+}
+
 void AddressBookImpl::clearRows() {
    for (auto r : m_rows) {
      delete r;

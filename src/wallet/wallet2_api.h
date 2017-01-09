@@ -175,6 +175,7 @@ struct AddressBook
     virtual void refresh() = 0;  
     virtual std::string errorString() const = 0;
     virtual int errorCode() const = 0;
+    virtual int lookupPaymentID(const std::string &payment_id) const = 0;
 };
 
 struct WalletListener
