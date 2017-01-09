@@ -3,6 +3,10 @@ project (otshell CXX)
 
 # Add executable
 
+if(APPLE AND POLICY CMP0042)
+	cmake_policy(SET CMP0042 NEW)
+endif()
+
 file(GLOB otshell_utils_sources # All files in directory:
 	"*.h"
 	"*.hpp"
