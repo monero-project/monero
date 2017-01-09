@@ -30,6 +30,11 @@ if(FREEBSD)
   add_definitions(-DMDB_DSYNC=O_SYNC)
 endif()
 
+if(ANDROID)
+  add_definitions("-DANDROID=1")
+endif()
+
+
 set (lmdb_sources
 mdb.c
 midl.c)

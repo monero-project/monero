@@ -133,7 +133,7 @@ namespace epee
     bool wait_stdin_data()
     {
 #if !defined(WIN32)
-      #ifdef __OpenBSD__
+      #if defined(__OpenBSD__) || defined(__ANDROID__)
       int stdin_fileno = fileno(stdin);
       #else
       int stdin_fileno = ::fileno(stdin);
