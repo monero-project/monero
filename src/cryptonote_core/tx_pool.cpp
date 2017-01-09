@@ -60,6 +60,7 @@ namespace cryptonote
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
+    float const ACCEPT_THRESHOLD = 0.99f;
 
     // a kind of increasing backoff within min/max bounds
     time_t get_relay_delay(time_t now, time_t received)
@@ -68,6 +69,11 @@ namespace cryptonote
       if (d > MAX_RELAY_TIME)
         d = MAX_RELAY_TIME;
       return d;
+    }
+
+    uint64_t template_accept_threshold(uint64_t amount)
+    {
+      return amount * ACCEPT_THRESHOLD;
     }
   }
   //---------------------------------------------------------------------------------
@@ -587,7 +593,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint8_t version)
   {
     // Warning: This function takes already_generated_
     // coins as an argument and appears to do nothing
@@ -595,47 +601,51 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
+    uint64_t best_coinbase = 0;
     total_size = 0;
     fee = 0;
 
-    // Maximum block size is 130% of the median block size.  This gives a
-    // little extra headroom for the max size transaction.
-    size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
+    LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee.size() << " txes in the pool");
     auto sorted_it = m_txs_by_fee.begin();
     while (sorted_it != m_txs_by_fee.end())
     {
       auto tx_it = m_transactions.find(sorted_it->second);
+      LOG_PRINT_L2("Considering " << tx_it->first << ", size " << tx_it->second.blob_size << ", current block size " << total_size << "/" << max_total_size << ", current coinbase " << print_money(best_coinbase));
 
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx_it->second.blob_size)
       {
+        LOG_PRINT_L2("  would exceed maximum block size");
         sorted_it++;
         continue;
       }
 
-      // If adding this tx will make the block size
-      // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
-      // _BLOCK_SIZE bytes, reject the tx; this will
-      // keep block sizes from becoming too unwieldly
-      // to propagate at 60s block times.
-      if ( (total_size + tx_it->second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
-      {
-        sorted_it++;
-        continue;
-      }
-
-      // If we've exceeded the penalty free size,
+      // If we're getting lower coinbase tx,
       // stop including more tx
-      if (total_size > median_size)
-        break;
+      uint64_t block_reward;
+      if(!get_block_reward(median_size, total_size + tx_it->second.blob_size, already_generated_coins, block_reward, version))
+      {
+        LOG_PRINT_L2("  would exceed maximum block size");
+        sorted_it++;
+        continue;
+      }
+      uint64_t coinbase = block_reward + fee;
+      if (coinbase < template_accept_threshold(best_coinbase))
+      {
+        LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
+        sorted_it++;
+        continue;
+      }
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
       if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
       {
+        LOG_PRINT_L2("  not ready to go, or key images already seen");
         sorted_it++;
         continue;
       }
@@ -643,10 +653,15 @@ namespace cryptonote
       bl.tx_hashes.push_back(tx_it->first);
       total_size += tx_it->second.blob_size;
       fee += tx_it->second.fee;
+      best_coinbase = coinbase;
       append_key_images(k_images, tx_it->second.tx);
       sorted_it++;
+      LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
     }
 
+    LOG_PRINT_L2("Block template filled with " << bl.tx_hashes.size() << " txes, size "
+        << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase)
+        << " (including " << print_money(fee) << " in fees)");
     return true;
   }
   //---------------------------------------------------------------------------------

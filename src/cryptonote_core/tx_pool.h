@@ -216,10 +216,11 @@ namespace cryptonote
      * @param already_generated_coins the current total number of coins "minted"
      * @param total_size return-by-reference the total size of the new block
      * @param fee return-by-reference the total of fees from the included transactions
+     * @param version hard fork version to use for consensus rules
      *
      * @return true
      */
-    bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee);
+    bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint8_t version);
 
     /**
      * @brief get a list of all transactions in the pool
