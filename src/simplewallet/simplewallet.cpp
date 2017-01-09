@@ -46,6 +46,7 @@
 #include "common/i18n.h"
 #include "common/command_line.h"
 #include "common/util.h"
+#include "common/dns_utils.h"
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "simplewallet.h"
@@ -1877,75 +1878,6 @@ bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::get_address_from_str(const std::string &str, cryptonote::account_public_address &address, bool &has_payment_id, crypto::hash8 &payment_id)
-{
-    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), str))
-    {
-      // if treating as an address fails, try as url
-      bool dnssec_ok = false;
-      std::string url = str;
-
-      // attempt to get address from dns query
-      auto addresses_from_dns = tools::wallet2::addresses_from_url(url, dnssec_ok);
-
-      // for now, move on only if one address found
-      if (addresses_from_dns.size() == 1)
-      {
-        if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), addresses_from_dns[0]))
-        {
-          // if it was an address, prompt user for confirmation.
-          // inform user of DNSSEC validation status as well.
-
-          std::string dnssec_str;
-          if (dnssec_ok)
-          {
-            dnssec_str = tr("DNSSEC validation passed");
-          }
-          else
-          {
-            dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
-          }
-          std::stringstream prompt;
-          prompt << tr("For URL: ") << url
-                 << ", " << dnssec_str << std::endl
-                 << tr(" Monero Address = ") << addresses_from_dns[0]
-                 << std::endl
-                 << tr("Is this OK? (Y/n) ")
-          ;
-
-          // prompt the user for confirmation given the dns query and dnssec status
-          std::string confirm_dns_ok = command_line::input_line(prompt.str());
-          if (std::cin.eof())
-          {
-            return false;
-          }
-          if (!command_line::is_yes(confirm_dns_ok))
-          {
-            fail_msg_writer() << tr("you have cancelled the transfer request");
-            return false;
-          }
-        }
-        else
-        {
-          fail_msg_writer() << tr("failed to get a Monero address from: ") << url;
-          return false;
-        }
-      }
-      else if (addresses_from_dns.size() > 1)
-      {
-        fail_msg_writer() << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
-        return false;
-      }
-      else
-      {
-        fail_msg_writer() << tr("wrong address: ") << url;
-        return false;
-      }
-    }
-
-    return true;
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
@@ -2038,7 +1970,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
     crypto::hash8 new_payment_id;
-    if (!get_address_from_str(local_args[i], de.addr, has_payment_id, new_payment_id))
+    if (!tools::dns_utils::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
       return true;
 
     if (has_payment_id)
@@ -2526,7 +2458,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   bool has_payment_id;
   crypto::hash8 new_payment_id;
   cryptonote::account_public_address address;
-  if (!get_address_from_str(local_args[0], address, has_payment_id, new_payment_id))
+  if (!tools::dns_utils::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[0]))
     return true;
 
   if (has_payment_id)
@@ -3074,7 +3006,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), local_args[2]))
+  if(!tools::dns_utils::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), local_args[2]))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -3614,7 +3546,7 @@ bool simple_wallet::verify(const std::vector<std::string> &args)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), address_string))
+  if(!tools::dns_utils::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), address_string))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
