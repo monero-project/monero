@@ -46,12 +46,14 @@ public:
     std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
     void setDaemonAddress(const std::string &address);
-    bool connected(uint32_t *version) const;
+    bool connected(uint32_t *version = NULL) const;
     bool checkPayment(const std::string &address, const std::string &txid, const std::string &txkey, const std::string &daemon_address, uint64_t &received, uint64_t &height, std::string &error) const;
     uint64_t blockchainHeight() const;
     uint64_t blockchainTargetHeight() const;
     uint64_t networkDifficulty() const;
     double miningHashRate() const;
+    void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
+    uint64_t blockTarget() const;
     std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
 
 private:
