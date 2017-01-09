@@ -586,6 +586,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("import_key_images", boost::bind(&simple_wallet::import_key_images, this, _1), tr("Import signed key images list and verify their spent status"));
   m_cmd_binder.set_handler("export_outputs", boost::bind(&simple_wallet::export_outputs, this, _1), tr("Export a set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("import_outputs", boost::bind(&simple_wallet::import_outputs, this, _1), tr("Import set of outputs owned by this wallet"));
+  m_cmd_binder.set_handler("show_transfer", boost::bind(&simple_wallet::show_transfer, this, _1), tr("Show information about a transfer to/from this address"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3995,6 +3996,128 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
     return true;
   }
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::show_transfer(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: show_transfer <txid>");
+    return true;
+  }
+
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data))
+  {
+    fail_msg_writer() << tr("failed to parse txid");
+    return false;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+  m_wallet->get_payments(payments, 0);
+  for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+    const tools::wallet2::payment_details &pd = i->second;
+    if (pd.m_tx_hash == txid) {
+      std::string payment_id = string_tools::pod_to_hex(i->first);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      success_msg_writer() << "Incoming transaction found";
+      success_msg_writer() << "txid: " << txid;
+      success_msg_writer() << "Height: " << pd.m_block_height;
+      success_msg_writer() << "Timestamp: " << get_human_readable_timestamp(pd.m_timestamp);
+      success_msg_writer() << "Amount: " << print_money(pd.m_amount);
+      success_msg_writer() << "Payment ID: " << payment_id;
+      success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+      return true;
+    }
+  }
+
+  std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments_out;
+  m_wallet->get_payments_out(payments_out, 0);
+  for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments_out.begin(); i != payments_out.end(); ++i) {
+    if (i->first == txid)
+    {
+      const tools::wallet2::confirmed_transfer_details &pd = i->second;
+      uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      std::string dests;
+      for (const auto &d: pd.m_dests) {
+        if (!dests.empty())
+          dests += ", ";
+        dests +=  get_account_address_as_str(m_wallet->testnet(), d.addr) + ": " + print_money(d.amount);
+      }
+      std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      success_msg_writer() << "Outgoing transaction found";
+      success_msg_writer() << "txid: " << txid;
+      success_msg_writer() << "Height: " << pd.m_block_height;
+      success_msg_writer() << "Timestamp: " << get_human_readable_timestamp(pd.m_timestamp);
+      success_msg_writer() << "Amount: " << print_money(pd.m_amount_in - change - fee);
+      success_msg_writer() << "Payment ID: " << payment_id;
+      success_msg_writer() << "Change: " << print_money(change);
+      success_msg_writer() << "Fee: " << print_money(fee);
+      success_msg_writer() << "Destinations: " << dests;
+      success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+      return true;
+    }
+  }
+
+  try
+  {
+    m_wallet->update_pool_state();
+    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> pool_payments;
+    m_wallet->get_unconfirmed_payments(pool_payments);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
+      const tools::wallet2::payment_details &pd = i->second;
+      if (pd.m_tx_hash == txid)
+      {
+        std::string payment_id = string_tools::pod_to_hex(i->first);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+          payment_id = payment_id.substr(0,16);
+        success_msg_writer() << "Unconfirmed incoming transaction found in the txpool";
+        success_msg_writer() << "txid: " << txid;
+        success_msg_writer() << "Timestamp: " << get_human_readable_timestamp(pd.m_timestamp);
+        success_msg_writer() << "Amount: " << print_money(pd.m_amount);
+        success_msg_writer() << "Payment ID: " << payment_id;
+        success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+        return true;
+      }
+    }
+  }
+  catch (...)
+  {
+    fail_msg_writer() << "Failed to get pool state";
+  }
+
+  std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
+  m_wallet->get_unconfirmed_payments_out(upayments);
+  for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
+    if (i->first == txid)
+    {
+      const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
+      uint64_t amount = pd.m_amount_in;
+      uint64_t fee = amount - pd.m_amount_out;
+      std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
+      if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+        payment_id = payment_id.substr(0,16);
+      bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
+
+      success_msg_writer() << (is_failed ? "Failed" : "Pending") << " outgoing transaction found";
+      success_msg_writer() << "txid: " << txid;
+      success_msg_writer() << "Timestamp: " << get_human_readable_timestamp(pd.m_timestamp);
+      success_msg_writer() << "Amount: " << print_money(amount - pd.m_change - fee);
+      success_msg_writer() << "Payment ID: " << payment_id;
+      success_msg_writer() << "Change: " << print_money(pd.m_change);
+      success_msg_writer() << "Fee: " << print_money(fee);
+      success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+      return true;
+    }
+  }
+
+  fail_msg_writer() << tr("Transaction ID not found");
   return true;
 }
 //----------------------------------------------------------------------------------------------------
