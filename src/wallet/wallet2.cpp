@@ -76,8 +76,8 @@ using namespace cryptonote;
 // arbitrary, used to generate different hashes from the same input
 #define CHACHA8_KEY_TAIL 0x8c
 
-#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\002"
-#define SIGNED_TX_PREFIX "Monero signed tx set\002"
+#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
+#define SIGNED_TX_PREFIX "Monero signed tx set\003"
 
 #define RECENT_OUTPUT_RATIO (0.25) // 25% of outputs are from the recent zone
 #define RECENT_OUTPUT_ZONE (5 * 86400) // last 5 days are the recent zone
@@ -2955,14 +2955,19 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   for (auto &tx: ptx_vector)
     txs.txes.push_back(tx.construction_data);
   txs.transfers = m_transfers;
-  std::string s = obj_to_json_str(txs);
-  if (s.empty())
+  // save as binary
+  std::ostringstream oss;
+  boost::archive::portable_binary_oarchive ar(oss);
+  try
+  {
+    ar << txs;
+  }
+  catch (...)
+  {
     return false;
-  LOG_PRINT_L2("Saving unsigned tx data: " << s);
-  // save as binary as there's no implementation of loading a json_archive
-  if (!::serialization::dump_binary(txs, s))
-    return false;
-  return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + s);
+  }
+  LOG_PRINT_L2("Saving unsigned tx data: " << oss.str());
+  return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + oss.str());  
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
@@ -2987,7 +2992,14 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     return false;
   }
   unsigned_tx_set exported_txs;
-  if (!::serialization::parse_binary(std::string(s.c_str() + magiclen, s.size() - magiclen), exported_txs))
+  s = s.substr(magiclen);
+  try
+  {
+    std::istringstream iss(s);
+    boost::archive::portable_binary_iarchive ar(iss);
+    ar >> exported_txs;
+  }
+  catch (...)  
   {
     LOG_PRINT_L0("Failed to parse data from " << unsigned_filename);
     return false;
@@ -3060,14 +3072,19 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     signed_txes.key_images[i] = m_transfers[i].m_key_image;
   }
 
-  s = obj_to_json_str(signed_txes);
-  if (s.empty())
+  // save as binary
+  std::ostringstream oss;
+  boost::archive::portable_binary_oarchive ar(oss);
+  try
+  {
+    ar << signed_txes;
+  }
+  catch(...)
+  {
     return false;
-  LOG_PRINT_L2("Saving signed tx data: " << s);
-  // save as binary as there's no implementation of loading a json_archive
-  if (!::serialization::dump_binary(signed_txes, s))
-    return false;
-  return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + s);
+  }
+  LOG_PRINT_L2("Saving signed tx data: " << oss.str());
+  return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + oss.str());  
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
@@ -3093,7 +3110,14 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     LOG_PRINT_L0("Bad magic from " << signed_filename);
     return false;
   }
-  if (!::serialization::parse_binary(std::string(s.c_str() + magiclen, s.size() - magiclen), signed_txs))
+  s = s.substr(magiclen);
+  try
+  {
+    std::istringstream iss(s);
+    boost::archive::portable_binary_iarchive ar(iss);
+    ar >> signed_txs;
+  }
+  catch (...)
   {
     LOG_PRINT_L0("Failed to parse data from " << signed_filename);
     return false;

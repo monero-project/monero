@@ -321,6 +321,8 @@ portable_binary_iarchive::init(unsigned int flags){
         boost::archive::library_version_type input_library_version;
         * this >> input_library_version;
 
+        // ignore archive version checking
+        /*
         // extra little .t is to get around borland quirk
         if(boost::archive::BOOST_ARCHIVE_VERSION() < input_library_version)
             boost::serialization::throw_exception(
@@ -328,6 +330,7 @@ portable_binary_iarchive::init(unsigned int flags){
                     boost::archive::archive_exception::unsupported_version
                 )
             );
+        */
         
         #if BOOST_WORKAROUND(__MWERKS__, BOOST_TESTED_AT(0x3205))
         this->set_library_version(input_library_version);

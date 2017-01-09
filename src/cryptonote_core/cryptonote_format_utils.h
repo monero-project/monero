@@ -36,7 +36,8 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctOps.h"
-
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/utility.hpp>
 
 namespace cryptonote
 {
@@ -62,16 +63,6 @@ namespace cryptonote
     rct::key mask;                      //ringct amount mask
 
     void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
-
-    BEGIN_SERIALIZE_OBJECT()
-      FIELD(outputs)
-      VARINT_FIELD(real_output)
-      FIELD(real_out_tx_key)
-      VARINT_FIELD(real_output_in_tx_index)
-      VARINT_FIELD(amount)
-      FIELD(rct)
-      FIELD(mask)
-    END_SERIALIZE()
   };
 
   struct tx_destination_entry
@@ -260,4 +251,24 @@ namespace cryptonote
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \
   specific_type& variable_name = boost::get<specific_type>(variant_var);
 
+}
+
+BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 0)
+
+namespace boost
+{
+  namespace serialization
+  {
+    template <class Archive>
+    inline void serialize(Archive &a, cryptonote::tx_source_entry &x, const boost::serialization::version_type ver)
+    {
+      a & x.outputs;
+      a & x.real_output;
+      a & x.real_out_tx_key;
+      a & x.real_output_in_tx_index;
+      a & x.amount;
+      a & x.rct;
+      a & x.mask;
+    }
+  }
 }
