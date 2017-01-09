@@ -575,6 +575,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
   m_cmd_binder.set_handler("show_transfers", boost::bind(&simple_wallet::show_transfers, this, _1), tr("show_transfers [in|out|pending|failed|pool] [<min_height> [<max_height>]] - Show incoming/outgoing transfers within an optional height range"));
+  m_cmd_binder.set_handler("unspent_outputs", boost::bind(&simple_wallet::unspent_outputs, this, _1), tr("unspent_outputs [<min_amount> <max_amount>] - Show unspent outputs within an optional amount range)"));
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
@@ -3312,6 +3313,124 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     }
   }
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
+{
+  if(!args_.empty() && args_.size() != 2) {
+    fail_msg_writer() << tr("usage: unspent_outputs [<min_amount> <max_amount>]");
+    return true;
+  }
+  uint64_t min_amount = 0;
+  uint64_t max_amount = std::numeric_limits<uint64_t>::max();
+  if (args_.size() == 2)
+  {
+    if (!cryptonote::parse_amount(min_amount, args_[0]) || !cryptonote::parse_amount(max_amount, args_[1]))
+    {
+      fail_msg_writer() << tr("amount is wrong: ") << args_[0] << ' ' << args_[1] <<
+        ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
+      return true;
+    }
+    if (min_amount > max_amount)
+    {
+      fail_msg_writer() << tr("<min_amount> should be smaller than <max_amount>");
+      return true;
+    }
+  }
+  tools::wallet2::transfer_container transfers;
+  m_wallet->get_transfers(transfers);
+  if (transfers.empty())
+  {
+    success_msg_writer() << "There is no unspent output in this wallet.";
+    return true;
+  }
+  std::map<uint64_t, tools::wallet2::transfer_container> amount_to_tds;
+  uint64_t min_height = std::numeric_limits<uint64_t>::max();
+  uint64_t max_height = 0;
+  uint64_t found_min_amount = std::numeric_limits<uint64_t>::max();
+  uint64_t found_max_amount = 0;
+  uint64_t count = 0;
+  for (const auto& td : transfers)
+  {
+    uint64_t amount = td.amount();
+    if (td.m_spent || amount < min_amount || amount > max_amount)
+      continue;
+    amount_to_tds[amount].push_back(td);
+    if (min_height > td.m_block_height) min_height = td.m_block_height;
+    if (max_height < td.m_block_height) max_height = td.m_block_height;
+    if (found_min_amount > amount) found_min_amount = amount;
+    if (found_max_amount < amount) found_max_amount = amount;
+    ++count;
+  }
+  for (const auto& amount_tds : amount_to_tds)
+  {
+    auto& tds = amount_tds.second;
+    success_msg_writer() << tr("\nAmount: ") << print_money(amount_tds.first) << tr(", number of keys: ") << tds.size();
+    for (size_t i = 0; i < tds.size(); )
+    {
+      std::ostringstream oss;
+      for (size_t j = 0; j < 8 && i < tds.size(); ++i, ++j)
+        oss << tds[i].m_block_height << tr(" ");
+      success_msg_writer() << oss.str();
+    }
+  }
+  success_msg_writer()
+    << tr("\nMin block height: ") << min_height
+    << tr("\nMax block height: ") << max_height
+    << tr("\nMin amount found: ") << print_money(found_min_amount)
+    << tr("\nMax amount found: ") << print_money(found_max_amount)
+    << tr("\nTotal count: ") << count;
+  const size_t histogram_height = 10;
+  const size_t histogram_width  = 50;
+  double bin_size = (max_height - min_height + 1.0) / histogram_width;
+  size_t max_bin_count = 0;
+  std::vector<size_t> histogram(histogram_width, 0);
+  for (const auto& amount_tds : amount_to_tds)
+  {
+    for (auto& td : amount_tds.second)
+    {
+      uint64_t bin_index = (td.m_block_height - min_height + 1) / bin_size;
+      if (bin_index >= histogram_width)
+        bin_index = histogram_width - 1;
+      histogram[bin_index]++;
+      if (max_bin_count < histogram[bin_index])
+        max_bin_count = histogram[bin_index];
+    }
+  }
+  for (size_t x = 0; x < histogram_width; ++x)
+  {
+    double bin_count = histogram[x];
+    if (max_bin_count > histogram_height)
+      bin_count *= histogram_height / (double)max_bin_count;
+    if (histogram[x] > 0 && bin_count < 1.0)
+      bin_count = 1.0;
+    histogram[x] = bin_count;
+  }
+  std::vector<std::string> histogram_line(histogram_height, std::string(histogram_width, ' '));
+  for (size_t y = 0; y < histogram_height; ++y)
+  {
+    for (size_t x = 0; x < histogram_width; ++x)
+    {
+      if (y < histogram[x])
+        histogram_line[y][x] = '*';
+    }
+  }
+  double count_per_star = max_bin_count / (double)histogram_height;
+  if (count_per_star < 1)
+    count_per_star = 1;
+  success_msg_writer()
+    << tr("\nBin size: ") << bin_size
+    << tr("\nOutputs per *: ") << count_per_star;
+  ostringstream histogram_str;
+  histogram_str << tr("count\n  ^\n");
+  for (size_t y = histogram_height; y > 0; --y)
+    histogram_str << tr("  |") << histogram_line[y - 1] << tr("|\n");
+  histogram_str
+    << tr("  +") << std::string(histogram_width, '-') << tr("+--> block height\n")
+    << tr("   ^") << std::string(histogram_width - 2, ' ') << tr("^\n")
+    << tr("  ") << min_height << std::string(histogram_width - 8, ' ') << max_height;
+  success_msg_writer() << histogram_str.str();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
