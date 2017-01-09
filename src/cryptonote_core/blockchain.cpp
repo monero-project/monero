@@ -1895,11 +1895,11 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
   {
     try
     {
-      txs.push_back(m_db->get_tx(tx_hash));
-    }
-    catch (const TX_DNE& e)
-    {
-      missed_txs.push_back(tx_hash);
+      transaction tx;
+      if (m_db->get_tx(tx_hash, tx))
+        txs.push_back(std::move(tx));
+      else
+        missed_txs.push_back(tx_hash);
     }
     catch (const std::exception& e)
     {

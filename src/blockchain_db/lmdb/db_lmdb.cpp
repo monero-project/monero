@@ -1791,7 +1791,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   return ret;
 }
 
-transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
+bool BlockchainLMDB::get_tx(const crypto::hash& h, transaction &tx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1810,19 +1810,27 @@ transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
     get_result = mdb_cursor_get(m_cur_txs, &val_tx_id, &result, MDB_SET);
   }
   if (get_result == MDB_NOTFOUND)
-    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
+    return false;
   else if (get_result)
     throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
 
   blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
 
-  transaction tx;
   if (!parse_and_validate_tx_from_blob(bd, tx))
     throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
 
   TXN_POSTFIX_RDONLY();
 
+  return true;
+}
+
+transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
+{
+  transaction tx;
+
+  if (!get_tx(h, tx))
+    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
   return tx;
 }
 
