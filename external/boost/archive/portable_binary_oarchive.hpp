@@ -225,7 +225,7 @@ portable_binary_oarchive::save_impl(
     const boost::intmax_t l,
     const char maxsize
 ){
-    char size = 0;
+    signed char size = 0;
 
     if(l == 0){
         this->primitive_base_t::save(size);
@@ -245,7 +245,7 @@ portable_binary_oarchive::save_impl(
     }while(ll != 0);
 
     this->primitive_base_t::save(
-        static_cast<char>(negative ? -size : size)
+        static_cast<signed char>(negative ? -size : size)
     );
 
     if(negative)
