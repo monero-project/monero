@@ -3541,7 +3541,7 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id8;
-    if (!get_address_from_str(args[1], address, has_payment_id, payment_id8))
+    if(!tools::dns_utils::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), args[1]))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
