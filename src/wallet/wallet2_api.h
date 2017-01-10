@@ -256,6 +256,12 @@ struct Wallet
      */
     virtual std::string integratedAddress(const std::string &payment_id) const = 0;
     
+   /*!
+    * \brief privateViewKey    - returns private view key
+    * \return                  - private view key
+    */
+    virtual std::string privateViewKey() const = 0;
+
     /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
@@ -295,6 +301,15 @@ struct Wallet
     virtual void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
 
    /*!
+    * \brief createWatchOnly - Creates a watch only wallet
+    * \param path - where to store the wallet
+    * \param password
+    * \param language
+    * \return  - true if created successfully
+    */
+    virtual bool createWatchOnly(const std::string &path, const std::string &password, const std::string &language) const = 0;
+
+   /*!
     * \brief setRefreshFromBlockHeight - start refresh from block height on recover
     *
     * \param refresh_from_block_height - blockchain start height
@@ -323,6 +338,12 @@ struct Wallet
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
+
+   /**
+    * @brief watchOnly - checks if wallet is watch only
+    * @return - true if watch only
+    */
+    virtual bool watchOnly() const = 0;
 
     /**
      * @brief blockChainHeight - returns current blockchain height

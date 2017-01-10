@@ -325,6 +325,7 @@ namespace tools
     const cryptonote::account_base& get_account()const{return m_account;}
 
     void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height;}
+    uint64_t get_refresh_from_block_height() const {return m_refresh_from_block_height;}
 
     // upper_transaction_size_limit as defined below is set to 
     // approximately 125% of the fixed minimum allowable penalty
