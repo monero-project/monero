@@ -141,7 +141,6 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_fast_block_sync);
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
-    command_line::add_arg(desc, command_line::arg_db_auto_remove_logs);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
   }
   //-----------------------------------------------------------------------------------------------
@@ -368,8 +367,6 @@ namespace cryptonote
           blocks_per_sync = bps;
       }
 
-      bool auto_remove_logs = command_line::get_arg(vm, command_line::arg_db_auto_remove_logs) != 0;
-      db->set_auto_remove_logs(auto_remove_logs);
       db->open(filename, db_flags);
       if(!db->m_open)
         return false;

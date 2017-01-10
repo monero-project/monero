@@ -111,11 +111,6 @@ namespace command_line
   , "Max number of threads to use when preparing block hashes in groups."
   , 4
   };
-  const command_line::arg_descriptor<uint64_t> arg_db_auto_remove_logs  = {
-    "db-auto-remove-logs"
-  , "For BerkeleyDB only. Remove transactions logs automatically."
-  , 1
-  };
   const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
     "show-time-stats"
   , "Show time-stats when processing blocks/txs and disk synchronization."
