@@ -31,6 +31,8 @@
 #include "command_line.h"
 #include <boost/algorithm/string/compare.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <unordered_set>
+#include "blockchain_db/db_types.h"
 #include "common/i18n.h"
 #include "cryptonote_config.h"
 #include "string_tools.h"
@@ -88,9 +90,10 @@ namespace command_line
   , "checkpoints from DNS server will be enforced"
   , false
   };
+  std::string arg_db_type_description = "Specify database type, available: " + boost::algorithm::join(cryptonote::blockchain_db_types, ", ");
   const command_line::arg_descriptor<std::string> arg_db_type = {
     "db-type"
-  , "Specify database type"
+  , arg_db_type_description.c_str()
   , DEFAULT_DB_TYPE
   };
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
