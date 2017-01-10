@@ -2188,7 +2188,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
     max_used_block_height = 0;
     TIME_MEASURE_FINISH(a);
     if(m_show_time_stats)
-      LOG_PRINT_L0("HASH: " << "-" << " VIN/VOUT: " << tx.vin.size() << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
+    {
+      size_t mixin = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() - 1 : 0;
+      LOG_PRINT_L0("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << mixin << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
+    }
     return true;
   }
 #endif
@@ -2198,8 +2201,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
   {
-    size_t mix = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
-    LOG_PRINT_L0("HASH: " <<  get_transaction_hash(tx) << " VIN/MIX/VOUT: " << tx.vin.size() << "/" << mix << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time);
+    size_t mixin = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() - 1 : 0;
+    LOG_PRINT_L0("HASH: " <<  get_transaction_hash(tx) << " I/M/O: " << tx.vin.size() << "/" << mixin << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time << " B: " << get_object_blobsize(tx));
   }
   if (!res)
     return false;
