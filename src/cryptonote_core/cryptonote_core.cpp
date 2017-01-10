@@ -301,18 +301,6 @@ namespace cryptonote
       DBS_FAST_MODE = MDB_NORDAHEAD | MDB_NOSYNC;
       DBS_FASTEST_MODE = MDB_NORDAHEAD | MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
     }
-    else if (db_type == "berkeley")
-    {
-#if defined(BERKELEY_DB)
-      db = new BlockchainBDB();
-      DBS_FAST_MODE = DB_TXN_WRITE_NOSYNC;
-      DBS_FASTEST_MODE = DB_TXN_NOSYNC;
-      DBS_SAFE_MODE = DB_TXN_SYNC;
-#else
-      LOG_ERROR("BerkeleyDB support disabled.");
-      return false;
-#endif
-    }
     else
     {
       LOG_ERROR("Attempted to use non-existent database type");
