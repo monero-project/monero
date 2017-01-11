@@ -56,22 +56,16 @@ rapidjson::Value Message::toJson(rapidjson::Document& doc)
 
   val.AddMember("status", rapidjson::StringRef(status.c_str()), al);
   val.AddMember("error_details", rapidjson::StringRef(error_details.c_str()), al);
-  val.AddMember("rpc_version", cryptonote::json::toJsonValue(doc, DAEMON_RPC_VERSION), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, rpc_version, DAEMON_RPC_VERSION);
 
   return val;
 }
 
 void Message::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "status")
-  status = cryptonote::json::fromJsonValue<std::string>(val["status"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "error_details")
-  error_details = cryptonote::json::fromJsonValue<std::string>(val["error_details"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "rpc_version")
-  rpc_version = cryptonote::json::fromJsonValue<decltype(rpc_version)>(val["rpc_version"]);
-
+  GET_FROM_JSON_OBJECT(val, status, status);
+  GET_FROM_JSON_OBJECT(val, error_details, error_details);
+  GET_FROM_JSON_OBJECT(val, rpc_version, rpc_version);
 }
 
 
@@ -104,7 +98,7 @@ FullMessage::FullMessage(Message* message)
     err.error_str = message->status;
     err.message = message->error_details;
 
-    doc.AddMember("error", cryptonote::json::toJsonValue(doc, err), doc.GetAllocator());
+    INSERT_INTO_JSON_OBJECT(doc, doc, error, err);
   }
 }
 
@@ -153,7 +147,6 @@ std::string FullMessage::getRequestType() const
 {
   OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
   return doc["method"].GetString();
-
 }
 
 rapidjson::Value& FullMessage::getMessage()
@@ -205,7 +198,7 @@ cryptonote::rpc::error FullMessage::getError()
   err.use = false;
   if (doc.HasMember("error"))
   {
-    err = cryptonote::json::fromJsonValue<cryptonote::rpc::error>(doc["error"]);
+    GET_FROM_JSON_OBJECT(doc, err, error);
     err.use = true;
   }
 
@@ -251,7 +244,7 @@ FullMessage* FullMessage::timeoutMessage()
   cryptonote::rpc::error err;
 
   err.error_str = "RPC request timed out.";
-  doc.AddMember("err", cryptonote::json::toJsonValue(doc, err), al);
+  INSERT_INTO_JSON_OBJECT(doc, doc, err, err);
 
   return full_message;
 }

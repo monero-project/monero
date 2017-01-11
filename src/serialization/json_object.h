@@ -34,6 +34,26 @@
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "common/sfinae_helpers.h"
 
+#define OBJECT_HAS_MEMBER_OR_THROW(val, key) \
+  do \
+  { \
+    if (!val.HasMember(key)) \
+    { \
+      throw cryptonote::json::MISSING_KEY(key); \
+    } \
+  } while (0);
+
+#define INSERT_INTO_JSON_OBJECT(jsonVal, doc, key, source) \
+    rapidjson::Value key##Val; \
+    cryptonote::json::toJsonValue(doc, source, key##Val); \
+    jsonVal.AddMember(#key, key##Val, doc.GetAllocator());
+
+#define GET_FROM_JSON_OBJECT(source, dst, key) \
+    OBJECT_HAS_MEMBER_OR_THROW(source, #key) \
+    decltype(dst) dstVal##key; \
+    cryptonote::json::fromJsonValue(source[#key], dstVal##key); \
+    dst = dstVal##key;
+
 namespace cryptonote
 {
 
@@ -87,273 +107,234 @@ struct PARSE_FAIL : public JSON_ERROR
   }
 };
 
-// convenience macro
-#define OBJECT_HAS_MEMBER_OR_THROW(val, key) \
-  if (!val.HasMember(key)) \
-  { \
-    throw cryptonote::json::MISSING_KEY(key); \
-  }
-
-
 
 // POD to json value
 template <class Type>
-typename std::enable_if<std::is_pod<Type>::value, rapidjson::Value>::type toJsonValue(rapidjson::Document& doc, const Type& pod)
+typename std::enable_if<std::is_pod<Type>::value, void>::type toJsonValue(rapidjson::Document& doc, const Type& pod, rapidjson::Value& value)
 {
-  return rapidjson::Value(epee::string_tools::pod_to_hex(pod).c_str(), doc.GetAllocator());
+  value = rapidjson::Value(epee::string_tools::pod_to_hex(pod).c_str(), doc.GetAllocator());
 }
 
-template <typename Type, typename = typename std::enable_if<sfinae::is_not_container<Type>::value, Type>::type>
-Type fromJsonValue(const rapidjson::Value& val);
+template <class Type>
+typename std::enable_if<std::is_pod<Type>::value, void>::type fromJsonValue(const rapidjson::Value& val, Type& t)
+{
+  if (!val.IsString())
+  {
+    throw WRONG_TYPE("string");
+  }
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const std::string& i);
+  //TODO: handle failure to convert hex string to POD type
+  bool success = epee::string_tools::hex_to_pod(val.GetString(), t);
 
-template <>
-std::string fromJsonValue(const rapidjson::Value& i);
+  if (!success)
+  {
+    throw BAD_INPUT();
+  }
+}
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, bool i);
+void toJsonValue(rapidjson::Document& doc, const std::string& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, std::string& str);
 
-bool fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, bool i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, bool& b);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint8_t& i);
+void toJsonValue(rapidjson::Document& doc, const uint8_t& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, uint8_t& i);
 
-template <>
-uint8_t fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, const int8_t& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, int8_t& i);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const int8_t& i);
+void toJsonValue(rapidjson::Document& doc, const uint16_t& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, uint16_t& i);
 
-template <>
-int8_t fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, const uint32_t& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, uint32_t& i);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint16_t& i);
+void toJsonValue(rapidjson::Document& doc, const uint64_t& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, uint64_t& i);
 
-template <>
-uint16_t fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint32_t& i);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::block& b, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::block& b);
 
-template <>
-uint32_t fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txin_v& txin, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_v& txin);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const uint64_t& i);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txin_gen& txin, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_gen& txin);
 
-template <>
-uint64_t fromJsonValue(const rapidjson::Value& i);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_script& txin, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_script& txin);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_scripthash& txin, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_scripthash& txin);
 
-template <>
-cryptonote::transaction fromJsonValue<cryptonote::transaction>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_key& txin, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_key& txin);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::block& b);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txout_target_v& txout, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_target_v& txout);
 
-template <>
-cryptonote::block fromJsonValue<cryptonote::block>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_script& txout, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_script& txout);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_v& txin);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_scripthash& txout, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_scripthash& txout);
 
-template <>
-cryptonote::txin_v fromJsonValue<cryptonote::txin_v>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_key& txout, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_key& txout);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_gen& txin);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::tx_out& txout, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_out& txout);
 
-template <>
-cryptonote::txin_gen fromJsonValue<cryptonote::txin_gen>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& info, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& info);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_script& txin);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::block_complete_entry& blk);
 
-template <>
-cryptonote::txin_to_script fromJsonValue<cryptonote::txin_to_script>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::block_with_transactions& blk);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_scripthash& txin);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::transaction_info& tx_info);
 
-template <>
-cryptonote::txin_to_scripthash fromJsonValue<cryptonote::txin_to_scripthash>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_key_and_amount_index& out);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txin_to_key& txin);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::amount_with_random_outputs& out);
 
-template <>
-cryptonote::txin_to_key fromJsonValue<cryptonote::txin_to_key>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::peer& peer, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::peer& peer);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_target_v& txout);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::tx_in_pool& tx);
 
-template <>
-cryptonote::txout_target_v fromJsonValue<cryptonote::txout_target_v>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::hard_fork_info& info);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_script& txout);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_amount_count& out);
 
-template <>
-cryptonote::txout_to_script fromJsonValue<cryptonote::txout_to_script>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_amount_and_index& out);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_scripthash& txout);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_mask_unlocked& out, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_key_mask_unlocked& out);
 
-template <>
-cryptonote::txout_to_scripthash fromJsonValue<cryptonote::txout_to_scripthash>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::error& err, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::error& error);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::txout_to_key& txout);
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::BlockHeaderResponse& response);
 
-template <>
-cryptonote::txout_to_key fromJsonValue<cryptonote::txout_to_key>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const rct::rctSig& i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& i, rct::rctSig& sig);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::tx_out& txout);
+void toJsonValue(rapidjson::Document& doc, const rct::ctkey& key, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::ctkey& key);
 
-template <>
-cryptonote::tx_out fromJsonValue<cryptonote::tx_out>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const rct::ecdhTuple& tuple, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::ecdhTuple& tuple);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::connection_info& info);
+void toJsonValue(rapidjson::Document& doc, const rct::rctSigPrunable& sig, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::rctSigPrunable& sig);
 
-template <>
-cryptonote::connection_info fromJsonValue<cryptonote::connection_info>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const rct::rangeSig& sig, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::block_complete_entry& blk);
+void toJsonValue(rapidjson::Document& doc, const rct::asnlSig& sig, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::asnlSig& sig);
 
-template <>
-cryptonote::block_complete_entry fromJsonValue<cryptonote::block_complete_entry>(const rapidjson::Value& val);
+void toJsonValue(rapidjson::Document& doc, const rct::mgSig& sig, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::mgSig& sig);
 
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::block_with_transactions& blk);
-
-template <>
-cryptonote::rpc::block_with_transactions fromJsonValue<cryptonote::rpc::block_with_transactions>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::transaction_info& tx_info);
-
-template <>
-cryptonote::rpc::transaction_info fromJsonValue<cryptonote::rpc::transaction_info>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_and_amount_index& out);
-
-template <>
-cryptonote::rpc::output_key_and_amount_index fromJsonValue<cryptonote::rpc::output_key_and_amount_index>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::amount_with_random_outputs& out);
-
-template <>
-cryptonote::rpc::amount_with_random_outputs fromJsonValue<cryptonote::rpc::amount_with_random_outputs>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::peer& out);
-
-template <>
-cryptonote::rpc::peer fromJsonValue<cryptonote::rpc::peer>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& out);
-
-template <>
-cryptonote::rpc::tx_in_pool fromJsonValue<cryptonote::rpc::tx_in_pool>(const rapidjson::Value& val);
-
-template <>
-cryptonote::rpc::hard_fork_info fromJsonValue<cryptonote::rpc::hard_fork_info>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info);
-
-template <>
-cryptonote::rpc::output_amount_count fromJsonValue<cryptonote::rpc::output_amount_count>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_count& out);
-
-template <>
-cryptonote::rpc::output_amount_and_index fromJsonValue<cryptonote::rpc::output_amount_and_index>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_amount_and_index& out);
-
-template <>
-cryptonote::rpc::output_key_mask_unlocked fromJsonValue<cryptonote::rpc::output_key_mask_unlocked>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_key_mask_unlocked& out);
-
-template <>
-cryptonote::rpc::error fromJsonValue<cryptonote::rpc::error>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::error& err);
-
-template <>
-cryptonote::rpc::BlockHeaderResponse fromJsonValue<cryptonote::rpc::BlockHeaderResponse>(const rapidjson::Value& val);
-
-rapidjson::Value toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::BlockHeaderResponse& response);
 
 template <typename Map>
-typename std::enable_if<sfinae::is_map_like<Map>::value, Map>::type fromJsonValue(const rapidjson::Value& val);
+typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type toJsonValue(rapidjson::Document& doc, const Map& map, rapidjson::Value& val);
+
+template <typename Map>
+typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type fromJsonValue(const rapidjson::Value& val, Map& map);
 
 template <typename Vec>
-typename std::enable_if<sfinae::is_vector_like<Vec>::value, rapidjson::Value>::type toJsonValue(rapidjson::Document& doc, const Vec &vec);
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type toJsonValue(rapidjson::Document& doc, const Vec &vec, rapidjson::Value& val);
 
 template <typename Vec>
-typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type fromJsonValue(const rapidjson::Value& val);
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type fromJsonValue(const rapidjson::Value& val, Vec& vec);
 
 
 // ideally would like to have the below functions in the .cpp file, but
 // unfortunately because of how templates work they have to be here.
 
 template <typename Map>
-typename std::enable_if<sfinae::is_map_like<Map>::value, rapidjson::Value>::type toJsonValue(rapidjson::Document& doc, const Map &val)
+typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type toJsonValue(rapidjson::Document& doc, const Map& map, rapidjson::Value& val)
 {
-  rapidjson::Value obj(rapidjson::kObjectType);
+  val.SetObject();
 
   auto& al = doc.GetAllocator();
 
-  for (const auto& i : val)
+  for (const auto& i : map)
   {
-    obj.AddMember(toJsonValue(doc, i.first), toJsonValue(doc, i.second), al);
+    rapidjson::Value k;
+    rapidjson::Value m;
+    toJsonValue(doc, i.first, k);
+    toJsonValue(doc, i.second, m);
+    val.AddMember(k, m, al);
   }
-
-  return obj;
 }
 
 template <typename Map>
-typename std::enable_if<sfinae::is_map_like<Map>::value, Map>::type fromJsonValue(const rapidjson::Value& val)
+typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type fromJsonValue(const rapidjson::Value& val, Map& map)
 {
   if (!val.IsObject())
   {
     throw WRONG_TYPE("json object");
   }
 
-  Map retmap;
-
   auto itr = val.MemberBegin();
 
   while (itr != val.MemberEnd())
   {
-    retmap.emplace(fromJsonValue<typename Map::key_type>(itr->name), fromJsonValue<typename Map::mapped_type>(itr->value));
+    typename Map::key_type k;
+    typename Map::mapped_type m;
+    fromJsonValue(itr->name, k);
+    fromJsonValue(itr->value, m);
+    map.emplace(k, m);
     ++itr;
   }
-
-  return retmap;
 }
 
 template <typename Vec>
-typename std::enable_if<sfinae::is_vector_like<Vec>::value, rapidjson::Value>::type toJsonValue(rapidjson::Document& doc, const Vec &vec)
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type toJsonValue(rapidjson::Document& doc, const Vec &vec, rapidjson::Value& val)
 {
-  rapidjson::Value arr(rapidjson::kArrayType);
+  val.SetArray();
 
   for (const auto& t : vec)
   {
-    arr.PushBack(toJsonValue(doc, t), doc.GetAllocator());
+    rapidjson::Value v;
+    toJsonValue(doc, t, v);
+    val.PushBack(v, doc.GetAllocator());
   }
-
-  return arr;
 }
 
 template <typename Vec>
-typename std::enable_if<sfinae::is_vector_like<Vec>::value, Vec>::type fromJsonValue(const rapidjson::Value& val)
+typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type fromJsonValue(const rapidjson::Value& val, Vec& vec)
 {
   if (!val.IsArray())
   {
     throw WRONG_TYPE("json array");
   }
 
-  Vec vec;
-
   for (rapidjson::SizeType i=0; i < val.Size(); i++)
   {
-    vec.push_back(fromJsonValue<typename Vec::value_type>(val[i]));
+    typename Vec::value_type v;
+    fromJsonValue(val[i], v);
+    vec.push_back(v);
   }
-
-  return vec;
 }
-
-
-
-
-
 
 }  // namespace json
 

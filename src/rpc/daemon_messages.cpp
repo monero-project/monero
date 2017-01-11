@@ -83,9 +83,7 @@ rapidjson::Value GetHeight::Response::toJson(rapidjson::Document& doc)
 
 void GetHeight::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<uint64_t>(val["height"]);
-
+  GET_FROM_JSON_OBJECT(val, height, height);
 }
 
 
@@ -95,7 +93,7 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("block_ids", cryptonote::json::toJsonValue(doc, block_ids), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, block_ids, block_ids);
   val.AddMember("start_height", start_height, al);
 
   return val;
@@ -103,12 +101,8 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
 
 void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "block_ids")
-  block_ids = cryptonote::json::fromJsonValue<decltype(block_ids)>(val["block_ids"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
-  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
-
+  GET_FROM_JSON_OBJECT(val, block_ids, block_ids);
+  GET_FROM_JSON_OBJECT(val, start_height, start_height);
 }
 
 rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
@@ -117,28 +111,20 @@ rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("blocks", cryptonote::json::toJsonValue(doc, blocks), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, blocks, blocks);
   val.AddMember("start_height", start_height, al);
   val.AddMember("current_height", current_height, al);
-  val.AddMember("output_indices", cryptonote::json::toJsonValue(doc, output_indices), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, output_indices, output_indices);
 
   return val;
 }
 
 void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "blocks")
-  blocks = cryptonote::json::fromJsonValue<decltype(blocks)>(val["blocks"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
-  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "current_height")
-  current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "output_indices")
-  output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
-
+  GET_FROM_JSON_OBJECT(val, blocks, blocks);
+  GET_FROM_JSON_OBJECT(val, start_height, start_height);
+  GET_FROM_JSON_OBJECT(val, current_height, current_height);
+  GET_FROM_JSON_OBJECT(val, output_indices, output_indices);
 }
 
 
@@ -148,7 +134,7 @@ rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("known_hashes", cryptonote::json::toJsonValue(doc, known_hashes), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, known_hashes, known_hashes);
   val.AddMember("start_height", start_height, al);
 
   return val;
@@ -156,12 +142,8 @@ rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
 
 void GetHashesFast::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "known_hashes")
-  known_hashes = cryptonote::json::fromJsonValue<decltype(known_hashes)>(val["known_hashes"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
-  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
-
+  GET_FROM_JSON_OBJECT(val, known_hashes, known_hashes);
+  GET_FROM_JSON_OBJECT(val, start_height, start_height);
 }
 
 rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
@@ -170,7 +152,7 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hashes", cryptonote::json::toJsonValue(doc, hashes), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, hashes, hashes);
   val.AddMember("start_height", start_height, al);
   val.AddMember("current_height", current_height, al);
 
@@ -179,15 +161,9 @@ rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
 
 void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hashes")
-  hashes = cryptonote::json::fromJsonValue<decltype(hashes)>(val["hashes"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "start_height")
-  start_height = cryptonote::json::fromJsonValue<uint64_t>(val["start_height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "current_height")
-  current_height = cryptonote::json::fromJsonValue<uint64_t>(val["current_height"]);
-
+  GET_FROM_JSON_OBJECT(val, hashes, hashes);
+  GET_FROM_JSON_OBJECT(val, start_height, start_height);
+  GET_FROM_JSON_OBJECT(val, current_height, current_height);
 }
 
 
@@ -197,16 +173,14 @@ rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx_hashes", cryptonote::json::toJsonValue(doc, tx_hashes), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_hashes, tx_hashes);
 
   return val;
 }
 
 void GetTransactions::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_hashes")
-  tx_hashes = cryptonote::json::fromJsonValue<decltype(tx_hashes)>(val["tx_hashes"]);
-
+  GET_FROM_JSON_OBJECT(val, tx_hashes, tx_hashes);
 }
 
 rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
@@ -215,24 +189,16 @@ rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("txs",
-                cryptonote::json::toJsonValue(doc, txs),
-                al);
-  val.AddMember("missed_hashes",
-                cryptonote::json::toJsonValue(doc, missed_hashes),
-                al);
+  INSERT_INTO_JSON_OBJECT(val, doc, txs, txs);
+  INSERT_INTO_JSON_OBJECT(val, doc, missed_hashes, missed_hashes);
 
   return val;
 }
 
 void GetTransactions::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "txs")
-  txs = cryptonote::json::fromJsonValue<decltype(txs)>(val["txs"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "missed_hashes")
-  missed_hashes = cryptonote::json::fromJsonValue<decltype(missed_hashes)>(val["missed_hashes"]);
-
+  GET_FROM_JSON_OBJECT(val, txs, txs);
+  GET_FROM_JSON_OBJECT(val, missed_hashes, missed_hashes);
 }
 
 
@@ -242,16 +208,14 @@ rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("key_images", cryptonote::json::toJsonValue(doc, key_images), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, key_images, key_images);
 
   return val;
 }
 
 void KeyImagesSpent::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "key_images")
-  key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
-
+  GET_FROM_JSON_OBJECT(val, key_images, key_images);
 }
 
 rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
@@ -260,16 +224,14 @@ rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("spent_status", cryptonote::json::toJsonValue(doc, spent_status), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, spent_status, spent_status);
 
   return val;
 }
 
 void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "spent_status")
-  spent_status = cryptonote::json::fromJsonValue<decltype(spent_status)>(val["spent_status"]);
-
+  GET_FROM_JSON_OBJECT(val, spent_status, spent_status);
 }
 
 
@@ -279,16 +241,14 @@ rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& 
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx_hash", cryptonote::json::toJsonValue(doc, tx_hash), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_hash, tx_hash);
 
   return val;
 }
 
 void GetTxGlobalOutputIndices::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_hash")
-  tx_hash = cryptonote::json::fromJsonValue<decltype(tx_hash)>(val["tx_hash"]);
-
+  GET_FROM_JSON_OBJECT(val, tx_hash, tx_hash);
 }
 
 rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document& doc)
@@ -297,16 +257,14 @@ rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document&
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("output_indices", cryptonote::json::toJsonValue(doc, output_indices), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, output_indices, output_indices);
 
   return val;
 }
 
 void GetTxGlobalOutputIndices::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "output_indices")
-  output_indices = cryptonote::json::fromJsonValue<decltype(output_indices)>(val["output_indices"]);
-
+  GET_FROM_JSON_OBJECT(val, output_indices, output_indices);
 }
 
 
@@ -316,20 +274,16 @@ rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts", cryptonote::json::toJsonValue(doc, amounts), al);
-  val.AddMember("count", cryptonote::json::toJsonValue(doc, count), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, amounts, amounts);
+  INSERT_INTO_JSON_OBJECT(val, doc, count, count);
 
   return val;
 }
 
 void GetRandomOutputsForAmounts::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts")
-  amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "count")
-  count = cryptonote::json::fromJsonValue<decltype(count)>(val["count"]);
-
+  GET_FROM_JSON_OBJECT(val, amounts, amounts);
+  GET_FROM_JSON_OBJECT(val, count, count);
 }
 
 rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Document& doc)
@@ -338,16 +292,14 @@ rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Documen
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts_with_outputs", cryptonote::json::toJsonValue(doc, amounts_with_outputs), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, amounts_with_outputs, amounts_with_outputs);
 
   return val;
 }
 
 void GetRandomOutputsForAmounts::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts_with_outputs")
-  amounts_with_outputs = cryptonote::json::fromJsonValue<decltype(amounts_with_outputs)>(val["amounts_with_outputs"]);
-
+  GET_FROM_JSON_OBJECT(val, amounts_with_outputs, amounts_with_outputs);
 }
 
 
@@ -357,20 +309,16 @@ rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("tx", cryptonote::json::toJsonValue(doc, tx), al);
-  val.AddMember("relay", cryptonote::json::toJsonValue(doc, relay), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx, tx);
+  INSERT_INTO_JSON_OBJECT(val, doc, relay, relay);
 
   return val;
 }
 
 void SendRawTx::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "tx")
-  tx = cryptonote::json::fromJsonValue<decltype(tx)>(val["tx"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "relay")
-  relay = cryptonote::json::fromJsonValue<decltype(relay)>(val["relay"]);
-
+  GET_FROM_JSON_OBJECT(val, tx, tx);
+  GET_FROM_JSON_OBJECT(val, relay, relay);
 }
 
 rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
@@ -379,16 +327,14 @@ rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("relayed", cryptonote::json::toJsonValue(doc, relayed), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, relayed, relayed);
 
   return val;
 }
 
 void SendRawTx::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "relayed")
-  relayed = cryptonote::json::fromJsonValue<decltype(relayed)>(val["relayed"]);
-
+  GET_FROM_JSON_OBJECT(val, relayed, relayed);
 }
 
 
@@ -407,64 +353,38 @@ rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
-  val.AddMember("target_height", cryptonote::json::toJsonValue(doc, target_height), al);
-  val.AddMember("difficulty", cryptonote::json::toJsonValue(doc, difficulty), al);
-  val.AddMember("target", cryptonote::json::toJsonValue(doc, target), al);
-  val.AddMember("tx_count", cryptonote::json::toJsonValue(doc, tx_count), al);
-  val.AddMember("tx_pool_size", cryptonote::json::toJsonValue(doc, tx_pool_size), al);
-  val.AddMember("alt_blocks_count", cryptonote::json::toJsonValue(doc, alt_blocks_count), al);
-  val.AddMember("outgoing_connections_count", cryptonote::json::toJsonValue(doc, outgoing_connections_count), al);
-  val.AddMember("incoming_connections_count", cryptonote::json::toJsonValue(doc, incoming_connections_count), al);
-  val.AddMember("white_peerlist_size", cryptonote::json::toJsonValue(doc, white_peerlist_size), al);
-  val.AddMember("grey_peerlist_size", cryptonote::json::toJsonValue(doc, grey_peerlist_size), al);
-  val.AddMember("testnet", cryptonote::json::toJsonValue(doc, testnet), al);
-  val.AddMember("top_block_hash", cryptonote::json::toJsonValue(doc, top_block_hash), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, height, height);
+  INSERT_INTO_JSON_OBJECT(val, doc, target_height, target_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, difficulty, difficulty);
+  INSERT_INTO_JSON_OBJECT(val, doc, target, target);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_count, tx_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_pool_size, tx_pool_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, alt_blocks_count, alt_blocks_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, outgoing_connections_count, outgoing_connections_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, incoming_connections_count, incoming_connections_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, white_peerlist_size, white_peerlist_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, grey_peerlist_size, grey_peerlist_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, testnet, testnet);
+  INSERT_INTO_JSON_OBJECT(val, doc, top_block_hash, top_block_hash);
 
   return val;
 }
 
 void GetInfo::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "target_height")
-  target_height = cryptonote::json::fromJsonValue<decltype(target_height)>(val["target_height"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "difficulty")
-  difficulty = cryptonote::json::fromJsonValue<decltype(difficulty)>(val["difficulty"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "target")
-  target = cryptonote::json::fromJsonValue<decltype(target)>(val["target"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_count")
-  tx_count = cryptonote::json::fromJsonValue<decltype(tx_count)>(val["tx_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "tx_pool_size")
-  tx_pool_size = cryptonote::json::fromJsonValue<decltype(tx_pool_size)>(val["tx_pool_size"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "alt_blocks_count")
-  alt_blocks_count = cryptonote::json::fromJsonValue<decltype(alt_blocks_count)>(val["alt_blocks_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "outgoing_connections_count")
-  outgoing_connections_count = cryptonote::json::fromJsonValue<decltype(outgoing_connections_count)>(val["outgoing_connections_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "incoming_connections_count")
-  incoming_connections_count = cryptonote::json::fromJsonValue<decltype(incoming_connections_count)>(val["incoming_connections_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "white_peerlist_size")
-  white_peerlist_size = cryptonote::json::fromJsonValue<decltype(white_peerlist_size)>(val["white_peerlist_size"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "grey_peerlist_size")
-  grey_peerlist_size = cryptonote::json::fromJsonValue<decltype(grey_peerlist_size)>(val["grey_peerlist_size"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "testnet")
-  testnet = cryptonote::json::fromJsonValue<decltype(testnet)>(val["testnet"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "top_block_hash")
-  top_block_hash = cryptonote::json::fromJsonValue<decltype(top_block_hash)>(val["top_block_hash"]);
-
+  GET_FROM_JSON_OBJECT(val, height, height);
+  GET_FROM_JSON_OBJECT(val, target_height, target_height);
+  GET_FROM_JSON_OBJECT(val, difficulty, difficulty);
+  GET_FROM_JSON_OBJECT(val, target, target);
+  GET_FROM_JSON_OBJECT(val, tx_count, tx_count);
+  GET_FROM_JSON_OBJECT(val, tx_pool_size, tx_pool_size);
+  GET_FROM_JSON_OBJECT(val, alt_blocks_count, alt_blocks_count);
+  GET_FROM_JSON_OBJECT(val, outgoing_connections_count, outgoing_connections_count);
+  GET_FROM_JSON_OBJECT(val, incoming_connections_count, incoming_connections_count);
+  GET_FROM_JSON_OBJECT(val, white_peerlist_size, white_peerlist_size);
+  GET_FROM_JSON_OBJECT(val, grey_peerlist_size, grey_peerlist_size);
+  GET_FROM_JSON_OBJECT(val, testnet, testnet);
+  GET_FROM_JSON_OBJECT(val, top_block_hash, top_block_hash);
 }
 
 
@@ -501,16 +421,14 @@ rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, height, height);
 
   return val;
 }
 
 void GetBlockHash::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
+  GET_FROM_JSON_OBJECT(val, height, height);
 }
 
 rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
@@ -519,16 +437,14 @@ rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hash", cryptonote::json::toJsonValue(doc, hash), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, hash, hash);
 
   return val;
 }
 
 void GetBlockHash::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
-  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
-
+  GET_FROM_JSON_OBJECT(val, hash, hash);
 }
 
 
@@ -551,15 +467,14 @@ rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, header, header);
 
   return val;
 }
 
 void GetLastBlockHeader::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
-  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
+  GET_FROM_JSON_OBJECT(val, header, header);
 }
 
 
@@ -569,16 +484,14 @@ rapidjson::Value GetBlockHeaderByHash::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("hash", cryptonote::json::toJsonValue(doc, hash), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, hash, hash);
 
   return val;
 }
 
 void GetBlockHeaderByHash::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "hash")
-  hash = cryptonote::json::fromJsonValue<decltype(hash)>(val["hash"]);
-
+  GET_FROM_JSON_OBJECT(val, hash, hash);
 }
 
 rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc)
@@ -587,15 +500,14 @@ rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, header, header);
 
   return val;
 }
 
 void GetBlockHeaderByHash::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
-  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
+  GET_FROM_JSON_OBJECT(val, header, header);
 }
 
 
@@ -605,16 +517,14 @@ rapidjson::Value GetBlockHeaderByHeight::Request::toJson(rapidjson::Document& do
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("height", cryptonote::json::toJsonValue(doc, height), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, height, height);
 
   return val;
 }
 
 void GetBlockHeaderByHeight::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "height")
-  height = cryptonote::json::fromJsonValue<decltype(height)>(val["height"]);
-
+  GET_FROM_JSON_OBJECT(val, height, height);
 }
 
 rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& doc)
@@ -623,15 +533,14 @@ rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& d
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("header", cryptonote::json::toJsonValue(doc, header), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, header, header);
 
   return val;
 }
 
 void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "header")
-  header = cryptonote::json::fromJsonValue<decltype(header)>(val["header"]);
+  GET_FROM_JSON_OBJECT(val, header, header);
 }
 
 
@@ -654,20 +563,16 @@ rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("white_list", cryptonote::json::toJsonValue(doc, white_list), al);
-  val.AddMember("gray_list", cryptonote::json::toJsonValue(doc, gray_list), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, white_list, white_list);
+  INSERT_INTO_JSON_OBJECT(val, doc, gray_list, gray_list);
 
   return val;
 }
 
 void GetPeerList::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "white_list")
-  white_list = cryptonote::json::fromJsonValue<decltype(white_list)>(val["white_list"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "gray_list")
-  gray_list = cryptonote::json::fromJsonValue<decltype(gray_list)>(val["gray_list"]);
-
+  GET_FROM_JSON_OBJECT(val, white_list, white_list);
+  GET_FROM_JSON_OBJECT(val, gray_list, gray_list);
 }
 
 
@@ -684,9 +589,7 @@ rapidjson::Value SetLogLevel::Request::toJson(rapidjson::Document& doc)
 
 void SetLogLevel::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "level")
-  level = cryptonote::json::fromJsonValue<decltype(level)>(val["level"]);
-
+  GET_FROM_JSON_OBJECT(val, level, level);
 }
 
 rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc)
@@ -714,20 +617,16 @@ rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("transactions", cryptonote::json::toJsonValue(doc, transactions), al);
-  val.AddMember("key_images", cryptonote::json::toJsonValue(doc, key_images), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, transactions, transactions);
+  INSERT_INTO_JSON_OBJECT(val, doc, key_images, key_images);
 
   return val;
 }
 
 void GetTransactionPool::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "transactions")
-  transactions = cryptonote::json::fromJsonValue<decltype(transactions)>(val["transactions"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "key_images")
-  key_images = cryptonote::json::fromJsonValue<decltype(key_images)>(val["key_images"]);
-
+  GET_FROM_JSON_OBJECT(val, transactions, transactions);
+  GET_FROM_JSON_OBJECT(val, key_images, key_images);
 }
 
 
@@ -737,16 +636,14 @@ rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", cryptonote::json::toJsonValue(doc, version), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, version, version);
 
   return val;
 }
 
 void HardForkInfo::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
-  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
-
+  GET_FROM_JSON_OBJECT(val, version, version);
 }
 
 rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
@@ -755,15 +652,14 @@ rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("info", cryptonote::json::toJsonValue(doc, info), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, info, info);
 
   return val;
 }
 
 void HardForkInfo::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "info")
-  info = cryptonote::json::fromJsonValue<decltype(info)>(val["info"]);
+  GET_FROM_JSON_OBJECT(val, info, info);
 }
 
 
@@ -773,31 +669,22 @@ rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("amounts", cryptonote::json::toJsonValue(doc, amounts), al);
-  val.AddMember("min_count", cryptonote::json::toJsonValue(doc, min_count), al);
-  val.AddMember("max_count", cryptonote::json::toJsonValue(doc, max_count), al);
-  val.AddMember("unlocked", cryptonote::json::toJsonValue(doc, unlocked), al);
-  val.AddMember("recent_cutoff", cryptonote::json::toJsonValue(doc, recent_cutoff), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, amounts, amounts);
+  INSERT_INTO_JSON_OBJECT(val, doc, min_count, min_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, max_count, max_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, unlocked, unlocked);
+  INSERT_INTO_JSON_OBJECT(val, doc, recent_cutoff, recent_cutoff);
 
   return val;
 }
 
 void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "amounts")
-  amounts = cryptonote::json::fromJsonValue<decltype(amounts)>(val["amounts"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "min_count")
-  min_count = cryptonote::json::fromJsonValue<decltype(min_count)>(val["min_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "max_count")
-  max_count = cryptonote::json::fromJsonValue<decltype(max_count)>(val["max_count"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "unlocked")
-  unlocked = cryptonote::json::fromJsonValue<decltype(unlocked)>(val["unlocked"]);
-
-  OBJECT_HAS_MEMBER_OR_THROW(val, "recent_cutoff")
-  recent_cutoff = cryptonote::json::fromJsonValue<decltype(recent_cutoff)>(val["recent_cutoff"]);
+  GET_FROM_JSON_OBJECT(val, amounts, amounts);
+  GET_FROM_JSON_OBJECT(val, min_count, min_count);
+  GET_FROM_JSON_OBJECT(val, max_count, max_count);
+  GET_FROM_JSON_OBJECT(val, unlocked, unlocked);
+  GET_FROM_JSON_OBJECT(val, recent_cutoff, recent_cutoff);
 }
 
 rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
@@ -806,16 +693,14 @@ rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("histogram", cryptonote::json::toJsonValue(doc, histogram), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, histogram, histogram);
 
   return val;
 }
 
 void GetOutputHistogram::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "histogram")
-  histogram = cryptonote::json::fromJsonValue<decltype(histogram)>(val["histogram"]);
-
+  GET_FROM_JSON_OBJECT(val, histogram, histogram);
 }
 
 
@@ -825,15 +710,14 @@ rapidjson::Value GetOutputKeys::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("outputs", cryptonote::json::toJsonValue(doc, outputs), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, outputs, outputs);
 
   return val;
 }
 
 void GetOutputKeys::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "outputs")
-  outputs = cryptonote::json::fromJsonValue<decltype(outputs)>(val["outputs"]);
+  GET_FROM_JSON_OBJECT(val, outputs, outputs);
 }
 
 rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc)
@@ -842,15 +726,14 @@ rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("keys", cryptonote::json::toJsonValue(doc, keys), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, keys, keys);
 
   return val;
 }
 
 void GetOutputKeys::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "keys")
-  keys = cryptonote::json::fromJsonValue<decltype(keys)>(val["keys"]);
+  GET_FROM_JSON_OBJECT(val, keys, keys);
 }
 
 
@@ -869,16 +752,14 @@ rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("version", cryptonote::json::toJsonValue(doc, version), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, version, version);
 
   return val;
 }
 
 void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "version")
-  version = cryptonote::json::fromJsonValue<decltype(version)>(val["version"]);
-
+  GET_FROM_JSON_OBJECT(val, version, version);
 }
 
 rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc)
@@ -887,15 +768,14 @@ rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("num_grace_blocks", cryptonote::json::toJsonValue(doc, num_grace_blocks), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, num_grace_blocks, num_grace_blocks);
 
   return val;
 }
 
 void GetPerKBFeeEstimate::Request::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "num_grace_blocks")
-  num_grace_blocks = cryptonote::json::fromJsonValue<decltype(num_grace_blocks)>(val["num_grace_blocks"]);
+  GET_FROM_JSON_OBJECT(val, num_grace_blocks, num_grace_blocks);
 }
 
 rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc)
@@ -904,16 +784,14 @@ rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc)
 
   auto& al = doc.GetAllocator();
 
-  val.AddMember("estimated_fee_per_kb", cryptonote::json::toJsonValue(doc, estimated_fee_per_kb), al);
+  INSERT_INTO_JSON_OBJECT(val, doc, estimated_fee_per_kb, estimated_fee_per_kb);
 
   return val;
 }
 
 void GetPerKBFeeEstimate::Response::fromJson(rapidjson::Value& val)
 {
-  OBJECT_HAS_MEMBER_OR_THROW(val, "estimated_fee_per_kb")
-  estimated_fee_per_kb = cryptonote::json::fromJsonValue<decltype(estimated_fee_per_kb)>(val["estimated_fee_per_kb"]);
-
+  GET_FROM_JSON_OBJECT(val, estimated_fee_per_kb, estimated_fee_per_kb);
 }
 
 

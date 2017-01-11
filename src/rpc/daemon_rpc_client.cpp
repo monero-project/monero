@@ -734,7 +734,9 @@ typename ReqType::Response DaemonRPCClient::parseResponse(rapidjson::Value& resp
 
 cryptonote::rpc::error DaemonRPCClient::parseError(rapidjson::Value& err)
 {
-  return cryptonote::json::fromJsonValue<cryptonote::rpc::error>(err);
+  cryptonote::rpc::error error;
+  cryptonote::json::fromJsonValue(err, error);
+  return error;
 }
 
 }  // namespace rpc
