@@ -56,7 +56,7 @@ rapidjson::Value Message::toJson(rapidjson::Document& doc)
 
   val.AddMember("status", rapidjson::StringRef(status.c_str()), al);
   val.AddMember("error_details", rapidjson::StringRef(error_details.c_str()), al);
-  val.AddMember("rpc_version", cryptonote::json::toJsonValue<decltype(rpc_version)>(doc, DAEMON_RPC_VERSION), al);
+  val.AddMember("rpc_version", cryptonote::json::toJsonValue(doc, DAEMON_RPC_VERSION), al);
 
   return val;
 }
@@ -104,7 +104,7 @@ FullMessage::FullMessage(Message* message)
     err.error_str = message->status;
     err.message = message->error_details;
 
-    doc.AddMember("error", cryptonote::json::toJsonValue<decltype(err)>(doc, err), doc.GetAllocator());
+    doc.AddMember("error", cryptonote::json::toJsonValue(doc, err), doc.GetAllocator());
   }
 }
 
@@ -251,7 +251,7 @@ FullMessage* FullMessage::timeoutMessage()
   cryptonote::rpc::error err;
 
   err.error_str = "RPC request timed out.";
-  doc.AddMember("err", cryptonote::json::toJsonValue<decltype(err)>(doc, err), al);
+  doc.AddMember("err", cryptonote::json::toJsonValue(doc, err), al);
 
   return full_message;
 }

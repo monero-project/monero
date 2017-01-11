@@ -135,7 +135,7 @@ TEST(JsonSerialization, SerializeBlock)
 
   for (auto& bl : blocks)
   {
-    auto b_as_json = json::toJsonValue<block>(d, bl);
+    auto b_as_json = json::toJsonValue(d, bl);
 
     auto b_from_json = json::fromJsonValue<block>(b_as_json);
 
@@ -206,7 +206,7 @@ TEST(JsonSerialization, SerializeUnorderedMap)
 
   d.SetObject();
 
-  auto map_as_json = json::toJsonValue<decltype(u_map)>(d, u_map);
+  auto map_as_json = json::toJsonValue(d, u_map);
 
   auto back_to_map = json::fromJsonValue<decltype(u_map)>(map_as_json);
 
