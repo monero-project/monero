@@ -93,7 +93,7 @@ public:
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     void setRecoveringFromSeed(bool recoveringFromSeed);
     bool watchOnly() const;
-
+    bool rescanSpent();
 
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
