@@ -831,6 +831,16 @@ struct MyWalletListener : public Monero::WalletListener
         cv_receive.notify_one();
     }
 
+    virtual void unconfirmedMoneyReceived(const string &txId, uint64_t amount)
+    {
+        std::cout << "wallet: " << wallet->address() << "**** just received unconfirmed money ("
+                  << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
+        // Don't trigger recieve until tx is mined
+        // total_rx += amount;
+        // receive_triggered = true;
+        // cv_receive.notify_one();
+    }
+
     virtual void newBlock(uint64_t height)
     {
 //        std::cout << "wallet: " << wallet->address()

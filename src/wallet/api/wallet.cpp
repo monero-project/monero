@@ -103,6 +103,21 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
+    virtual void on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+    {
+
+        std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
+
+        LOG_PRINT_L3(__FUNCTION__ << ": unconfirmed money received. height:  " << height
+                     << ", tx: " << tx_hash
+                     << ", amount: " << print_money(amount));
+        // do not signal on received tx if wallet is not syncronized completely
+        if (m_listener && m_wallet->synchronized()) {
+            m_listener->unconfirmedMoneyReceived(tx_hash, amount);
+            m_listener->updated();
+        }
+    }
+
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount,
                                 const cryptonote::transaction& spend_tx)
     {

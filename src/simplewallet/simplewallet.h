@@ -184,6 +184,7 @@ namespace cryptonote
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
     virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount);
+    virtual void on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount);
     virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx);
     virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx);
     //----------------------------------------------------------
