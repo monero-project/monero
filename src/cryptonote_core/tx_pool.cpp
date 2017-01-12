@@ -63,7 +63,7 @@ namespace cryptonote
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
-    float const ACCEPT_THRESHOLD = 0.99f;
+    float const ACCEPT_THRESHOLD = 1.0f;
 
     // a kind of increasing backoff within min/max bounds
     time_t get_relay_delay(time_t now, time_t received)
@@ -613,6 +613,10 @@ namespace cryptonote
     uint64_t best_coinbase = 0;
     total_size = 0;
     fee = 0;
+    
+    //baseline empty block
+    get_block_reward(median_size, total_size, already_generated_coins, best_coinbase, version);
+
 
     size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
