@@ -277,6 +277,46 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     return true;
 }
 
+bool WalletImpl::createWatchOnly(const std::string &path, const std::string &password, const std::string &language) const
+{
+    clearStatus();
+    std::unique_ptr<tools::wallet2> view_wallet(new tools::wallet2(m_wallet->testnet()));
+
+    // Store same refresh height as original wallet
+    view_wallet->set_refresh_from_block_height(m_wallet->get_refresh_from_block_height());
+
+    bool keys_file_exists;
+    bool wallet_file_exists;
+    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    LOG_PRINT_L3("wallet_path: " << path << "");
+    LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
+                 << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
+
+    // add logic to error out if new wallet requested but named wallet file exists
+    if (keys_file_exists || wallet_file_exists) {
+        m_errorString = "attempting to generate view only wallet, but specified file(s) exist.  Exiting to not risk overwriting.";
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
+        return false;
+    }
+    // TODO: validate language
+    view_wallet->set_seed_language(language);
+
+    const crypto::secret_key viewkey = m_wallet->get_account().get_keys().m_view_secret_key;
+    const cryptonote::account_public_address address = m_wallet->get_account().get_keys().m_account_address;
+
+    try {
+        view_wallet->generate(path, password, address, viewkey);
+        m_status = Status_Ok;
+    } catch (const std::exception &e) {
+        LOG_ERROR("Error creating view only wallet: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return false;
+    }
+    return true;
+}
+
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
@@ -413,6 +453,11 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
         return "";
     }
     return m_wallet->get_account().get_public_integrated_address_str(pid, m_wallet->testnet());
+}
+
+std::string WalletImpl::privateViewKey() const
+{
+    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
 }
 
 std::string WalletImpl::path() const
@@ -966,7 +1011,12 @@ bool WalletImpl::trustedDaemon() const
     return m_trustedDaemon;
 }
 
-void WalletImpl::clearStatus()
+bool WalletImpl::watchOnly() const
+{
+    return m_wallet->watch_only();
+}
+
+void WalletImpl::clearStatus() const
 {
     m_status = Status_Ok;
     m_errorString.clear();
@@ -1020,7 +1070,9 @@ void WalletImpl::doRefresh()
             if (m_history->count() == 0) {
                 m_history->refresh();
             }
-        } 
+        } else {
+           LOG_PRINT_L3(__FUNCTION__ << ": skipping refresh - daemon is not synced");
+        }
     } catch (const std::exception &e) {
         m_status = Status_Error;
         m_errorString = e.what();
@@ -1067,8 +1119,9 @@ bool WalletImpl::isNewWallet() const
     // in case wallet created without daemon connection, closed and opened again,
     // it's the same case as if it created from scratch, i.e. we need "fast sync"
     // with the daemon (pull hashes instead of pull blocks).
-    // If wallet cache is rebuilt, creation height stored in .keys is used. 
-    return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache);
+    // If wallet cache is rebuilt, creation height stored in .keys is used.
+    // Watch only wallet is a copy of an existing wallet. 
+    return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache) && !watchOnly();
 }
 
 void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
@@ -1078,8 +1131,12 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
     // If daemon isn't synced a calculated block height will be used instead
     if (isNewWallet() && daemonSynced()) {
+        LOG_PRINT_L2(__FUNCTION__ << ":New Wallet - fast refresh until " << daemonBlockChainHeight());
         m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
     }
+
+    if (m_rebuildWalletCache)
+      LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
 
     if (Utils::isAddressLocal(daemon_address)) {
         this->setTrustedDaemon(true);

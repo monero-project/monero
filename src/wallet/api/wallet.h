@@ -53,6 +53,8 @@ public:
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
+    bool createWatchOnly(const std::string &path, const std::string &password,
+                            const std::string &language) const;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path, const std::string &seed);
     bool close();
@@ -65,6 +67,7 @@ public:
     bool setPassword(const std::string &password);
     std::string address() const;
     std::string integratedAddress(const std::string &payment_id) const;
+    std::string privateViewKey() const;
     std::string path() const;
     bool store(const std::string &path);
     std::string filename() const;
@@ -88,6 +91,7 @@ public:
     int autoRefreshInterval() const;
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     void setRecoveringFromSeed(bool recoveringFromSeed);
+    bool watchOnly() const;
 
 
 
@@ -112,7 +116,7 @@ public:
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
 
 private:
-    void clearStatus();
+    void clearStatus() const;
     void refreshThreadFunc();
     void doRefresh();
     bool daemonSynced() const;
