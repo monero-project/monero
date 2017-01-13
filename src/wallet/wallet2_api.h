@@ -155,6 +155,7 @@ struct TransactionInfo
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
     virtual uint64_t blockHeight() const = 0;
+    virtual uint64_t confirmations() const = 0;
     //! transaction_id
     virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
@@ -237,6 +238,13 @@ struct WalletListener
      * @param amount        - amount
      */
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
+    
+   /**
+    * @brief unconfirmedMoneyReceived - called when payment arrived in tx pool
+    * @param txId          - transaction id
+    * @param amount        - amount
+    */
+    virtual void unconfirmedMoneyReceived(const std::string &txId, uint64_t amount) = 0;
 
     /**
      * @brief newBlock      - called when new block received

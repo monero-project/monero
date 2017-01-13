@@ -1569,6 +1569,11 @@ void simple_wallet::on_money_received(uint64_t height, const cryptonote::transac
     m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
+void simple_wallet::on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+{
+  // Not implemented in CLI wallet
+}
+//----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx)
 {
   message_writer(epee::log_space::console_color_magenta, false) << "\r" <<
