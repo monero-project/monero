@@ -92,6 +92,8 @@ using namespace cryptonote;
       ioservice.stop(); \
     } while(0)
 
+#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
+
 namespace
 {
 // Create on-demand to prevent static initialization order fiasco issues.
@@ -3146,7 +3148,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
   {
     return false;
   }
-  LOG_PRINT_L2("Saving signed tx data: " << oss.str());
+  LOG_PRINT_L3("Saving signed tx data: " << oss.str());
   return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + oss.str());  
 }
 //----------------------------------------------------------------------------------------------------
@@ -4841,6 +4843,27 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
       "Public key yielding at least one output wasn't found in the transaction extra");
   return cryptonote::null_pkey;
 }
+
+bool wallet2::export_key_images(const std::string filename)
+{
+  std::vector<std::pair<crypto::key_image, crypto::signature>> ski = export_key_images();
+  std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
+  const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
+
+  std::string data;
+  data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+  data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
+  for (const auto &i: ski)
+  {
+    data += std::string((const char *)&i.first, sizeof(crypto::key_image));
+    data += std::string((const char *)&i.second, sizeof(crypto::signature));
+  }
+
+  // encrypt data, keep magic plaintext
+  std::string ciphertext = encrypt_with_view_secret_key(data);
+  return epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);    
+}
+
 //----------------------------------------------------------------------------------------------------
 std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key_images() const
 {
@@ -4891,6 +4914,70 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
   }
   return ski;
 }
+
+uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent)
+{
+  std::string data;
+  bool r = epee::file_io_utils::load_file_to_string(filename, data);
+
+  if (!r)
+  {
+    fail_msg_writer() << tr("failed to read file ") << filename;
+    return 0;
+  }
+  const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
+  if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
+  {
+    fail_msg_writer() << "Bad key image export file magic in " << filename;
+    return 0;
+  }
+
+  try
+  {
+    data = decrypt_with_view_secret_key(std::string(data, magiclen));
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Failed to decrypt " << filename << ": " << e.what();
+    return 0;
+  }
+
+  const size_t headerlen = 2 * sizeof(crypto::public_key);
+  if (data.size() < headerlen)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return 0;
+  }
+  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
+  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
+  const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
+  if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
+  {
+    fail_msg_writer() << "Key images from " << filename << " are for a different account";
+    return 0;
+  }
+
+  const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
+  if ((data.size() - headerlen) % record_size)
+  {
+    fail_msg_writer() << "Bad data size from file " << filename;
+    return 0;
+  }
+  size_t nki = (data.size() - headerlen) / record_size;
+
+  std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+  ski.reserve(nki);
+  for (size_t n = 0; n < nki; ++n)
+  {
+    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(&data[headerlen + n * record_size]);
+    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(&data[headerlen + n * record_size + sizeof(crypto::key_image)]);
+
+    ski.push_back(std::make_pair(key_image, signature));
+  }
+  
+  return import_key_images(ski, spent, unspent);    
+}
+
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent)
 {

@@ -539,8 +539,10 @@ namespace tools
     std::vector<tools::wallet2::transfer_details> export_outputs() const;
     size_t import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs);
 
+    bool export_key_images(const std::string filename);
     std::vector<std::pair<crypto::key_image, crypto::signature>> export_key_images() const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent);
+    uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
 
     void update_pool_state();
 

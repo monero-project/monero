@@ -72,7 +72,6 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 4
 
-#define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 #define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\003"
 
 #define LOCK_IDLE_SCOPE() \
@@ -3907,23 +3906,7 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
 
   try
   {
-    std::vector<std::pair<crypto::key_image, crypto::signature>> ski = m_wallet->export_key_images();
-    std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
-    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-
-    std::string data;
-    data += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
-    data += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
-    for (const auto &i: ski)
-    {
-      data += std::string((const char *)&i.first, sizeof(crypto::key_image));
-      data += std::string((const char *)&i.second, sizeof(crypto::signature));
-    }
-
-    // encrypt data, keep magic plaintext
-    std::string ciphertext = m_wallet->encrypt_with_view_secret_key(data);
-    bool r = epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);
-    if (!r)
+    if (!m_wallet->export_key_images(filename))
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
       return true;
@@ -3949,69 +3932,17 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   }
   std::string filename = args[0];
 
-  std::string data;
-  bool r = epee::file_io_utils::load_file_to_string(filename, data);
-  if (!r)
-  {
-    fail_msg_writer() << tr("failed to read file ") << filename;
-    return true;
-  }
-  const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
-  if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
-  {
-    fail_msg_writer() << "Bad key image export file magic in " << filename;
-    return true;
-  }
-
-  try
-  {
-    data = m_wallet->decrypt_with_view_secret_key(std::string(data, magiclen));
-  }
-  catch (const std::exception &e)
-  {
-    fail_msg_writer() << "Failed to decrypt " << filename << ": " << e.what();
-    return true;
-  }
-
-  const size_t headerlen = 2 * sizeof(crypto::public_key);
-  if (data.size() < headerlen)
-  {
-    fail_msg_writer() << "Bad data size from file " << filename;
-    return true;
-  }
-  const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
-  const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
-  const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-  if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
-  {
-    fail_msg_writer() << "Key images from " << filename << " are for a different account";
-    return true;
-  }
-
-  const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
-  if ((data.size() - headerlen) % record_size)
-  {
-    fail_msg_writer() << "Bad data size from file " << filename;
-    return true;
-  }
-  size_t nki = (data.size() - headerlen) / record_size;
-
-  std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
-  ski.reserve(nki);
-  for (size_t n = 0; n < nki; ++n)
-  {
-    crypto::key_image key_image = *reinterpret_cast<const crypto::key_image*>(&data[headerlen + n * record_size]);
-    crypto::signature signature = *reinterpret_cast<const crypto::signature*>(&data[headerlen + n * record_size + sizeof(crypto::key_image)]);
-
-    ski.push_back(std::make_pair(key_image, signature));
-  }
-
   try
   {
     uint64_t spent = 0, unspent = 0;
-    uint64_t height = m_wallet->import_key_images(ski, spent, unspent);
-    success_msg_writer() << "Signed key images imported to height " << height << ", "
-        << print_money(spent) << " spent, " << print_money(unspent) << " unspent";
+    uint64_t height = m_wallet->import_key_images(filename, spent, unspent);
+    if (height > 0)
+    {
+      success_msg_writer() << "Signed key images imported to height " << height << ", "
+          << print_money(spent) << " spent, " << print_money(unspent) << " unspent"; 
+    } else {
+      fail_msg_writer() << "Failed to import key images";
+    }
   }
   catch (const std::exception &e)
   {
