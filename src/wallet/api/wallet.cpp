@@ -83,7 +83,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
-        LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+        //LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
 
         if (m_listener) {
             m_listener->newBlock(height);
@@ -662,25 +662,68 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
 
 bool WalletImpl::submitTransaction(const string &fileName) {
   clearStatus();
-  PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
+  std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
-// bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); });
   bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx);
   if (!r) {
     m_errorString = tr("Failed to load transaction from file");
     m_status = Status_Ok;
-    delete transaction;
     return false;
   }
   
   if(!transaction->commit()) {
     m_errorString = transaction->m_errorString;
     m_status = Status_Error;
-    delete transaction;
     return false;
   }
 
-  delete transaction;
+  return true;
+}
+
+bool WalletImpl::exportKeyImages(const string &filename) 
+{
+  if (m_wallet->watch_only())
+  {
+    m_errorString = tr("Wallet is view only");
+    m_status = Status_Error;
+    return false;
+  }
+  
+  try
+  {
+    if (!m_wallet->export_key_images(filename))
+    {
+      m_errorString = tr("failed to save file ") + filename;
+      m_status = Status_Error;
+      return false;
+    }
+  }
+  catch (std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    m_errorString = e.what();
+    m_status = Status_Error;
+    return false;
+  }
+  return true;
+}
+
+bool WalletImpl::importKeyImages(const string &filename)
+{
+  try
+  {
+    uint64_t spent = 0, unspent = 0;
+    uint64_t height = m_wallet->import_key_images(filename, spent, unspent);
+    LOG_PRINT_L2("Signed key images imported to height " << height << ", "
+        << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    m_errorString = string(tr("Failed to import key images: ")) + e.what();
+    m_status = Status_Error;
+    return false;
+  }
 
   return true;
 }

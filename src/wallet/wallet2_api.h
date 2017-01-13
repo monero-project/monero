@@ -513,6 +513,21 @@ struct Wallet
      */
     virtual void disposeTransaction(PendingTransaction * t) = 0;
 
+   /*!
+    * \brief exportKeyImages - exports key images to file
+    * \param filename
+    * \return                  - true on success
+    */
+    virtual bool exportKeyImages(const std::string &filename) = 0;
+   
+   /*!
+    * \brief importKeyImages - imports key images from file
+    * \param filename
+    * \return                  - true on success
+    */
+    virtual bool importKeyImages(const std::string &filename) = 0;
+
+
     virtual TransactionHistory * history() const = 0;
     virtual AddressBook * addressBook() const = 0;
     virtual void setListener(WalletListener *) = 0;
