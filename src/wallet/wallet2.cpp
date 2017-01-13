@@ -2889,6 +2889,24 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
   }
   return payment_id;
 }
+
+crypto::hash8 wallet2::get_short_payment_id(const pending_tx &ptx) const
+{
+  crypto::hash8 payment_id8 = null_hash8;
+  std::vector<tx_extra_field> tx_extra_fields;
+  if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
+    return payment_id8;
+  cryptonote::tx_extra_nonce extra_nonce;
+  if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+  {
+    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+    {
+      decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key); 
+    }
+  }
+  return payment_id8;
+}
+
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)
@@ -2959,7 +2977,30 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   LOG_PRINT_L0("saving " << ptx_vector.size() << " transactions");
   unsigned_tx_set txs;
   for (auto &tx: ptx_vector)
-    txs.txes.push_back(tx.construction_data);
+  {
+    tx_construction_data construction_data = tx.construction_data;
+    // Short payment id is encrypted with tx_key. 
+    // Since sign_tx() generates new tx_keys and encrypts the payment id, we need to save the decrypted payment ID
+    // Get decrypted payment id from pending_tx
+    crypto::hash8 payment_id = get_short_payment_id(tx);
+    if (payment_id != null_hash8)
+    {
+      // Remove encrypted
+      remove_field_from_tx_extra(construction_data.extra, typeid(cryptonote::tx_extra_nonce));
+      // Add decrypted
+      std::string extra_nonce;
+      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+      if (!add_extra_nonce_to_tx_extra(construction_data.extra, extra_nonce))
+      {
+        LOG_ERROR("Failed to add decrypted payment id to tx extra");
+        return false;
+      }
+      LOG_PRINT_L1("Decrypted payment ID: " << payment_id);       
+    }
+    // Save tx construction_data to unsigned_tx_set
+    txs.txes.push_back(construction_data);      
+  }
+  
   txs.transfers = m_transfers;
   // save as binary
   std::ostringstream oss;
