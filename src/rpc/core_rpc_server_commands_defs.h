@@ -521,6 +521,7 @@ namespace cryptonote
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
       uint64_t block_size_limit;
+      uint64_t start_time;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -539,6 +540,7 @@ namespace cryptonote
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(block_size_limit)
+        KV_SERIALIZE(start_time)
       END_KV_SERIALIZE_MAP()
     };
   };

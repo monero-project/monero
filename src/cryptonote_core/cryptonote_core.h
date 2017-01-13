@@ -560,6 +560,12 @@ namespace cryptonote
      uint64_t get_target_blockchain_height() const;
 
      /**
+      * @brief gets start_time
+      *
+      */
+     std::time_t get_start_time() const;
+
+     /**
       * @brief tells the Blockchain to update its checkpoints
       *
       * This function will check if enough time has passed since the last
@@ -813,6 +819,8 @@ namespace cryptonote
      boost::interprocess::file_lock db_lock; //!< a lock object for a file lock in the db directory
 
      size_t block_sync_size;
+
+     time_t start_time;
    };
 }
 

@@ -145,6 +145,7 @@ namespace cryptonote
     res.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1);
     res.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
     res.status = CORE_RPC_STATUS_OK;
+    res.start_time = (uint64_t)m_core.get_start_time();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1167,6 +1168,7 @@ namespace cryptonote
     res.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1);
     res.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
     res.status = CORE_RPC_STATUS_OK;
+    res.start_time = (uint64_t)m_core.get_start_time();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
