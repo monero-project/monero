@@ -375,6 +375,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   LOG_PRINT_GREEN("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block(), LOG_LEVEL_0);
   m_db->block_txn_stop();
 
+  update_next_cumulative_size_limit();
   return true;
 }
 //------------------------------------------------------------------
@@ -532,6 +533,7 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
+  update_next_cumulative_size_limit();
   return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
 }
 //------------------------------------------------------------------
