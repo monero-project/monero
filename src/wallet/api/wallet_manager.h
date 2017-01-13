@@ -54,6 +54,9 @@ public:
     double miningHashRate() const;
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     uint64_t blockTarget() const;
+    bool isMining() const;
+    bool startMining(const std::string &address, uint32_t threads = 1);
+    bool stopMining();
     std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
 
 private:
