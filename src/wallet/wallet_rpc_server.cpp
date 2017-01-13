@@ -125,7 +125,7 @@ namespace tools
       }
     }
 
-    epee::net_utils::http::http_auth::login login{};
+    epee::net_utils::http::login login{};
 
     const bool disable_auth = command_line::get_arg(vm, arg_disable_rpc_login);
     const std::string user_pass = command_line::get_arg(vm, arg_rpc_login);

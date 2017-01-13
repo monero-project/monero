@@ -53,7 +53,7 @@ namespace epee
     {}
 
     bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
-      std::string user_agent = "", boost::optional<net_utils::http::http_auth::login> user = boost::none)
+      std::string user_agent = "", boost::optional<net_utils::http::login> user = boost::none)
     {
 
       //set self as callback handler
