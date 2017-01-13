@@ -3017,7 +3017,7 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
   return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + oss.str());  
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
+bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -3038,7 +3038,6 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     LOG_PRINT_L0("Bad magic from " << unsigned_filename);
     return false;
   }
-  unsigned_tx_set exported_txs;
   s = s.substr(magiclen);
   try
   {
@@ -3053,12 +3052,26 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
   }
   LOG_PRINT_L1("Loaded tx unsigned data from binary: " << exported_txs.txes.size() << " transactions");
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
+{
+  unsigned_tx_set exported_txs;
+  if(!load_unsigned_tx(unsigned_filename, exported_txs))
+    return false;
+  
   if (accept_func && !accept_func(exported_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
+  return sign_tx(exported_txs, signed_filename, txs);
+}
 
+//----------------------------------------------------------------------------------------------------
+bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs)
+{
   import_outputs(exported_txs.transfers);
 
   // sign the transactions

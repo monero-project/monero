@@ -77,7 +77,8 @@ struct PendingTransaction
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
-    virtual bool commit() = 0;
+    // commit transaction or save to file if filename is provided.
+    virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t dust() const = 0;
     virtual uint64_t fee() const = 0;
@@ -87,6 +88,48 @@ struct PendingTransaction
      * \return
      */
     virtual uint64_t txCount() const = 0;
+};
+
+/**
+ * @brief Transaction-like interface for sending money
+ */
+struct UnsignedTransaction
+{
+    enum Status {
+        Status_Ok,
+        Status_Error,
+        Status_Critical
+    };
+
+    enum Priority {
+        Priority_Low = 1,
+        Priority_Medium = 2,
+        Priority_High = 3,
+        Priority_Last
+    };
+
+    virtual ~UnsignedTransaction() = 0;
+    virtual int status() const = 0;
+    virtual std::string errorString() const = 0;
+    virtual std::vector<uint64_t> amount() const = 0;
+    virtual std::vector<uint64_t>  fee() const = 0;
+    virtual std::vector<uint64_t> mixin() const = 0;
+    // returns a string with information about all transactions.
+    virtual std::string confirmationMessage() const = 0;
+    virtual std::vector<std::string> paymentId() const = 0;
+    virtual std::vector<std::string> recipientAddress() const = 0;
+    virtual uint64_t minMixinCount() const = 0;
+    /*!
+     * \brief txCount - number of transactions current transaction will be splitted to
+     * \return
+     */
+    virtual uint64_t txCount() const = 0;
+   /*!
+    * @brief sign - Sign txs and saves to file
+    * @param signedFileName
+    * return - true on success
+    */
+    virtual bool sign(const std::string &signedFileName) = 0;
 };
 
 /**
@@ -441,12 +484,27 @@ struct Wallet
      */
 
     virtual PendingTransaction * createSweepUnmixableTransaction() = 0;
+    
+   /*!
+    * \brief loadUnsignedTx  - creates transaction from unsigned tx file
+    * \return                - UnsignedTransaction object. caller is responsible to check UnsignedTransaction::status()
+    *                          after object returned
+    */
+    virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) = 0;
+    
+   /*!
+    * \brief submitTransaction - submits transaction in signed tx file
+    * \return                  - true on success
+    */
+    virtual bool submitTransaction(const std::string &fileName) = 0;
+    
 
     /*!
      * \brief disposeTransaction - destroys transaction object
      * \param t -  pointer to the "PendingTransaction" object. Pointer is not valid after function returned;
      */
     virtual void disposeTransaction(PendingTransaction * t) = 0;
+
     virtual TransactionHistory * history() const = 0;
     virtual AddressBook * addressBook() const = 0;
     virtual void setListener(WalletListener *) = 0;
