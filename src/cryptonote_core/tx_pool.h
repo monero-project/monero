@@ -54,23 +54,25 @@ namespace cryptonote
   /************************************************************************/
 
   //! pair of <transaction fee, transaction hash> for organization
-  typedef std::pair<double, crypto::hash> tx_by_fee_entry;
+  typedef std::pair<std::pair<double, std::time_t>, crypto::hash> tx_by_fee_and_receive_time_entry;
 
   class txCompare
   {
   public:
-    bool operator()(const tx_by_fee_entry& a, const tx_by_fee_entry& b)
+    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b)
     {
       // sort by greatest first, not least
-      if (a.first > b.first) return true;
-      else if (a.first < b.first) return false;
+      if (a.first.first > b.first.first) return true;
+      else if (a.first.first < b.first.first) return false;
+      else if (a.first.second < b.first.second) return true;
+      else if (a.first.second > b.first.second) return false;
       else if (a.second != b.second) return true;
       else return false;
     }
   };
 
   //! container for sorting transactions by fee per unit size
-  typedef std::set<tx_by_fee_entry, txCompare> sorted_tx_container;
+  typedef std::set<tx_by_fee_and_receive_time_entry, txCompare> sorted_tx_container;
 
   /**
    * @brief Transaction pool, handles transactions which are not part of a block
@@ -473,7 +475,8 @@ private:
     epee::math_helper::once_a_time_seconds<30> m_remove_stuck_tx_interval;
 
     //TODO: look into doing this better
-    sorted_tx_container m_txs_by_fee;  //!< container for transactions organized by fee per size
+    //!< container for transactions organized by fee per size and receive time
+    sorted_tx_container m_txs_by_fee_and_receive_time;
 
     /**
      * @brief get an iterator to a transaction in the sorted container
