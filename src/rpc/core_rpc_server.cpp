@@ -300,6 +300,8 @@ namespace cryptonote
       outkey.key = epee::string_tools::pod_to_hex(i.key);
       outkey.mask = epee::string_tools::pod_to_hex(i.mask);
       outkey.unlocked = i.unlocked;
+      outkey.height = i.height;
+      outkey.txid = epee::string_tools::pod_to_hex(i.txid);
     }
 
     res.status = CORE_RPC_STATUS_OK;

@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 3
+#define CORE_RPC_VERSION_MINOR 4
 #define CORE_RPC_VERSION (((CORE_RPC_VERSION_MAJOR)<<16)|(CORE_RPC_VERSION_MINOR))
 
   struct COMMAND_RPC_GET_HEIGHT
@@ -329,11 +329,15 @@ namespace cryptonote
       crypto::public_key key;
       rct::key mask;
       bool unlocked;
+      uint64_t height;
+      crypto::hash txid;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(key)
         KV_SERIALIZE_VAL_POD_AS_BLOB(mask)
         KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(txid)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -365,11 +369,15 @@ namespace cryptonote
       std::string key;
       std::string mask;
       bool unlocked;
+      uint64_t height;
+      std::string txid;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(key)
         KV_SERIALIZE(mask)
         KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(txid)
       END_KV_SERIALIZE_MAP()
     };
 

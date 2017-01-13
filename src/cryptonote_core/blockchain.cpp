@@ -1778,7 +1778,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
     tx_out_index toi = m_db->get_output_tx_and_index(i.amount, i.index);
     bool unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 
-    res.outs.push_back({od.pubkey, od.commitment, unlocked});
+    res.outs.push_back({od.pubkey, od.commitment, unlocked, od.height, toi.first});
   }
   return true;
 }
