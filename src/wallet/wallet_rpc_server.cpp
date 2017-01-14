@@ -381,7 +381,8 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -451,7 +452,8 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
+      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       LOG_PRINT_L2("on_transfer_split calling commit_txyy");
@@ -565,7 +567,8 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 

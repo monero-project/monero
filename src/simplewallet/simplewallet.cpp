@@ -624,6 +624,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
+  m_cmd_binder.set_handler("onetime_address", boost::bind(&simple_wallet::print_onetime_address, this, _1), tr("One-time address with integrated 64bit payment ID"));
+  m_cmd_binder.set_handler("onetime_address_classic", boost::bind(&simple_wallet::print_onetime_address_classic, this, _1), tr("One-time address in the classic mode with separate 256bit payment ID"));
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), tr("Save wallet data"));
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), tr("Save a watch-only keys file"));
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
@@ -1003,8 +1005,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
-
-      m_wallet_file=m_generate_from_view_key;
 
       // check the view key matches the given address
       crypto::public_key pkey;
@@ -2169,16 +2169,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
+  bool is_onetime = false;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
     crypto::hash8 new_payment_id;
-    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
+    bool is_onetime_temp;
+    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, is_onetime_temp, m_wallet->testnet(), local_args[i]))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
     }
+    is_onetime = is_onetime || is_onetime_temp;
 
     if (has_payment_id)
     {
@@ -2242,15 +2245,15 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return true;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
       break;
       case TransferNew:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
       case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
         break;
     }
 
@@ -2671,8 +2674,9 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 
   bool has_payment_id;
   crypto::hash8 new_payment_id;
+  bool is_onetime;
   cryptonote::account_public_address address;
-  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[0]))
+  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, is_onetime, m_wallet->testnet(), local_args[0]))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -2716,7 +2720,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
 
     if (ptx_vector.empty())
     {
@@ -3777,9 +3781,15 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id8;
-    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), args[1]))
+    bool is_onetime;
+    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, is_onetime, m_wallet->testnet(), args[1]))
     {
       fail_msg_writer() << tr("failed to parse address");
+      return true;
+    }
+    if (is_onetime)
+    {
+      fail_msg_writer() << tr("this is a one-time address, shouldn't be added to the address book");
       return true;
     }
     crypto::hash payment_id = null_hash;
@@ -3839,6 +3849,64 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
       success_msg_writer() << tr("Description: ") << row.m_description << "\n";
     }
   }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto& account_keys = m_wallet->get_account().get_keys();
+  const crypto::secret_key& a = account_keys.m_view_secret_key;
+  for (int i = 0; i < 65536; ++i)
+  {
+    crypto::hash8 k = crypto::rand<crypto::hash8>();
+    crypto::hash k32;
+    memcpy(k32.data, k.data, 8);
+    memset(k32.data + 8, 0, 24);
+    char data[2 * HASH_SIZE];
+    memcpy(data            , &a  , HASH_SIZE);
+    memcpy(data + HASH_SIZE, &k32, HASH_SIZE);
+    crypto::secret_key h;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(h));
+    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+    if (k.data[0] != h.data[0])
+      continue;
+    const auto& AB = account_keys.m_account_address;
+    cryptonote::account_public_address CD;
+    crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
+    crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
+    success_msg_writer() << tr("One-time integrated address: \n") << cryptonote::get_account_onetime_address_as_str(m_wallet->testnet(), CD, k);
+    success_msg_writer() << tr("Payment ID integrated in the above: ") << k;
+    return true;
+  }
+  fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::print_onetime_address_classic(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto& account_keys = m_wallet->get_account().get_keys();
+  const crypto::secret_key& a = account_keys.m_view_secret_key;
+  for (int i = 0; i < 65536; ++i)
+  {
+    crypto::hash k = crypto::rand<crypto::hash>();
+    char data[2 * HASH_SIZE];
+    memcpy(data            , &a, HASH_SIZE);
+    memcpy(data + HASH_SIZE, &k, HASH_SIZE);
+    crypto::secret_key h;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(h));
+    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+    if (k.data[0] != h.data[0])
+      continue;
+    const auto& AB = account_keys.m_account_address;
+    cryptonote::account_public_address CD;
+    crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
+    crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
+    success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
+    success_msg_writer() << tr("Payment ID: \n") << k;
+    success_msg_writer() << tr("IMPORTANT: If the sender forgets to attach the payment ID, you will NOT see the fund!");
+    return true;
+  }
+  fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
   return true;
 }
 //----------------------------------------------------------------------------------------------------
