@@ -34,6 +34,7 @@
 
 int main(int argc, char** argv)
 {
+  epee::string_tools::set_module_name_and_folder(argv[0]);
   epee::debug::get_set_enable_assert(true, false);
 
   ::testing::InitGoogleTest(&argc, argv);
