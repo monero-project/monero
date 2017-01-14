@@ -367,7 +367,6 @@ private:
 
   MDB_dbi m_properties;
 
-  uint64_t m_height;
   uint64_t m_num_txs;
   uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation
