@@ -83,7 +83,7 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     PERF_TIMER(add_tx);
     if (tx.version == 0)
@@ -201,6 +201,7 @@ namespace cryptonote
         txd_p.first->second.receive_time = time(nullptr);
         txd_p.first->second.last_relayed_time = time(NULL);
         txd_p.first->second.relayed = relayed;
+        txd_p.first->second.do_not_relay = do_not_relay;
         tvc.m_verifivation_impossible = true;
         tvc.m_added_to_pool = true;
       }else
@@ -224,9 +225,10 @@ namespace cryptonote
       txd_p.first->second.receive_time = time(nullptr);
       txd_p.first->second.last_relayed_time = time(NULL);
       txd_p.first->second.relayed = relayed;
+      txd_p.first->second.do_not_relay = do_not_relay;
       tvc.m_added_to_pool = true;
 
-      if(txd_p.first->second.fee > 0)
+      if(txd_p.first->second.fee > 0 && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
@@ -251,12 +253,12 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
     get_transaction_hash(tx, h, blob_size);
-    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, version);
+    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, do_not_relay, version);
   }
   //---------------------------------------------------------------------------------
   //FIXME: Can return early before removal of all of the key images.
@@ -292,7 +294,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed)
+  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     auto it = m_transactions.find(id);
@@ -308,6 +310,7 @@ namespace cryptonote
     blob_size = it->second.blob_size;
     fee = it->second.fee;
     relayed = it->second.relayed;
+    do_not_relay = it->second.do_not_relay;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
     m_txs_by_fee.erase(sorted_it);
@@ -367,7 +370,7 @@ namespace cryptonote
     for(auto it = m_transactions.begin(); it!= m_transactions.end();)
     {
       // 0 fee transactions are never relayed
-      if(it->second.fee > 0 && now - it->second.last_relayed_time > get_relay_delay(now, it->second.receive_time))
+      if(it->second.fee > 0 && !it->second.do_not_relay && now - it->second.last_relayed_time > get_relay_delay(now, it->second.receive_time))
       {
         // if the tx is older than half the max lifetime, we don't re-relay it, to avoid a problem
         // mentioned by smooth where nodes would flush txes at slightly different times, causing
@@ -431,6 +434,7 @@ namespace cryptonote
       txi.receive_time = txd.receive_time;
       txi.relayed = txd.relayed;
       txi.last_relayed_time = txd.last_relayed_time;
+      txi.do_not_relay = txd.do_not_relay;
       tx_infos.push_back(txi);
     }
 

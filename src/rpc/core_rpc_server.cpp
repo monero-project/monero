@@ -528,7 +528,7 @@ namespace cryptonote
 
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {
@@ -558,7 +558,7 @@ namespace cryptonote
       return true;
     }
 
-    if(!tvc.m_should_be_relayed || req.do_not_relay)
+    if(!tvc.m_should_be_relayed)
     {
       LOG_PRINT_L0("[on_send_raw_tx]: tx accepted, but not relayed");
       res.reason = "Not relayed";

@@ -508,7 +508,7 @@ block Blockchain::pop_block_from_blockchain()
       // that might not be always true. Unlikely though, and always relaying
       // these again might cause a spike of traffic as many nodes re-relay
       // all the transactions in a popped block when a reorg happens.
-      bool r = m_tx_pool.add_tx(tx, tvc, true, true, version);
+      bool r = m_tx_pool.add_tx(tx, tvc, true, true, false, version);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -2973,7 +2973,7 @@ void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
     // that might not be always true. Unlikely though, and always relaying
     // these again might cause a spike of traffic as many nodes re-relay
     // all the transactions in a popped block when a reorg happens.
-    if (!m_tx_pool.add_tx(tx, tvc, true, true, version))
+    if (!m_tx_pool.add_tx(tx, tvc, true, true, false, version))
     {
       LOG_PRINT_L0("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
     }
@@ -2990,9 +2990,9 @@ bool Blockchain::flush_txes_from_pool(const std::list<crypto::hash> &txids)
     cryptonote::transaction tx;
     size_t blob_size;
     uint64_t fee;
-    bool relayed;
+    bool relayed, do_not_relay;
     LOG_PRINT_L1("Removing txid " << txid << " from the pool");
-    if(m_tx_pool.have_tx(txid) && !m_tx_pool.take_tx(txid, tx, blob_size, fee, relayed))
+    if(m_tx_pool.have_tx(txid) && !m_tx_pool.take_tx(txid, tx, blob_size, fee, relayed, do_not_relay))
     {
       LOG_PRINT_L0("Failed to remove txid " << txid << " from the pool");
       res = false;
@@ -3153,7 +3153,7 @@ leave:
     transaction tx;
     size_t blob_size = 0;
     uint64_t fee = 0;
-    bool relayed = false;
+    bool relayed = false, do_not_relay = false;
     TIME_MEASURE_START(aa);
 
 // XXX old code does not check whether tx exists
@@ -3170,7 +3170,7 @@ leave:
     TIME_MEASURE_START(bb);
 
     // get transaction with hash <tx_id> from tx_pool
-    if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee, relayed))
+    if(!m_tx_pool.take_tx(tx_id, tx, blob_size, fee, relayed, do_not_relay))
     {
       LOG_PRINT_L1("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       bvc.m_verifivation_failed = true;
@@ -3954,12 +3954,12 @@ void Blockchain::load_compiled_in_block_hashes()
 
         size_t blob_size;
         uint64_t fee;
-        bool relayed;
+        bool relayed, do_not_relay;
         transaction pool_tx;
         for(const transaction &tx : txs)
         {
           crypto::hash tx_hash = get_transaction_hash(tx);
-          m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee, relayed);
+          m_tx_pool.take_tx(tx_hash, pool_tx, blob_size, fee, relayed, do_not_relay);
         }
       }
     }

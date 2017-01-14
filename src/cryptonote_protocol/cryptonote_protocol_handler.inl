@@ -328,7 +328,7 @@ namespace cryptonote
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true);
+      m_core.handle_incoming_tx(*tx_blob_it, tvc, true, true, false);
       if(tvc.m_verifivation_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
@@ -478,7 +478,7 @@ namespace cryptonote
           if(!m_core.get_pool_transaction(tx_hash, tx))
           {
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
-            if(!m_core.handle_incoming_tx(tx_blob, tvc, true, true) || tvc.m_verifivation_failed)
+            if(!m_core.handle_incoming_tx(tx_blob, tvc, true, true, false) || tvc.m_verifivation_failed)
             {
               LOG_PRINT_CCONTEXT_L1("Block verification failed: transaction verification failed, dropping connection");
               m_p2p->drop_connection(context);
@@ -682,7 +682,7 @@ namespace cryptonote
     for(auto tx_blob_it = arg.txs.begin(); tx_blob_it!=arg.txs.end();)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      m_core.handle_incoming_tx(*tx_blob_it, tvc, false, true);
+      m_core.handle_incoming_tx(*tx_blob_it, tvc, false, true, false);
       if(tvc.m_verifivation_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
@@ -874,7 +874,7 @@ namespace cryptonote
           BOOST_FOREACH(auto& tx_blob, block_entry.txs)
           {
             tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-            m_core.handle_incoming_tx(tx_blob, tvc, true, true);
+            m_core.handle_incoming_tx(tx_blob, tvc, true, true, false);
             if(tvc.m_verifivation_failed)
             {
               LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = "

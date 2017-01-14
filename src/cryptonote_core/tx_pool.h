@@ -103,7 +103,7 @@ namespace cryptonote
      * @param id the transaction's hash
      * @param blob_size the transaction's size
      */
-    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version);
+    bool add_tx(const transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -117,11 +117,12 @@ namespace cryptonote
      * @param tvc return-by-reference status about the transaction verification
      * @param kept_by_block has this transaction been in a block?
      * @param relayed was this transaction from the network or a local client?
+     * @param do_not_relay to avoid relaying the transaction to the network
      * @param version the version used to create the transaction
      *
      * @return true if the transaction passes validations, otherwise false
      */
-    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version);
+    bool add_tx(const transaction &tx, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
 
     /**
      * @brief takes a transaction with the given hash from the pool
@@ -131,10 +132,11 @@ namespace cryptonote
      * @param blob_size return-by-reference the transaction's size
      * @param fee the transaction fee
      * @param relayed return-by-reference was transaction relayed to us by the network?
+     * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed);
+    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
@@ -303,7 +305,7 @@ namespace cryptonote
 
 
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
-#define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    11
+#define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    12
 
     /**
      * @brief serialize the transaction pool to/from disk
@@ -362,6 +364,7 @@ namespace cryptonote
 
       time_t last_relayed_time;  //!< the last time the transaction was relayed to the network
       bool relayed;  //!< whether or not the transaction has been relayed to the network
+      bool do_not_relay; //!< to avoid relay this transaction to the network
     };
 
   private:
@@ -515,6 +518,9 @@ namespace boost
       if (version < 11)
         return;
       ar & td.kept_by_block;
+      if (version < 12)
+        return;
+      ar & td.do_not_relay;
     }
   }
 }

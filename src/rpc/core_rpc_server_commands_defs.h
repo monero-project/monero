@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 4
+#define CORE_RPC_VERSION_MINOR 5
 #define CORE_RPC_VERSION (((CORE_RPC_VERSION_MAJOR)<<16)|(CORE_RPC_VERSION_MINOR))
 
   struct COMMAND_RPC_GET_HEIGHT
@@ -920,6 +920,7 @@ namespace cryptonote
     uint64_t receive_time;
     bool relayed;
     uint64_t last_relayed_time;
+    bool do_not_relay;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id_hash)
@@ -934,6 +935,7 @@ namespace cryptonote
       KV_SERIALIZE(receive_time)
       KV_SERIALIZE(relayed)
       KV_SERIALIZE(last_relayed_time)
+      KV_SERIALIZE(do_not_relay)
     END_KV_SERIALIZE_MAP()
   };
 
