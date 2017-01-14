@@ -1259,6 +1259,14 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     return false;
   }
 
+  // this is a cheap test
+  if (!m_hardfork->check_for_height(b, block_height))
+  {
+    LOG_PRINT_L1("Block with id: " << id << std::endl << "has old version for height " << block_height);
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+
   //block is not related with head of main chain
   //first of all - look in alternative chains container
   auto it_prev = m_alternative_chains.find(b.prev_id);
