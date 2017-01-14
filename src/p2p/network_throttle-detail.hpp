@@ -67,9 +67,6 @@ class network_throttle : public i_network_throttle {
 		network_time_seconds m_start_time; // when we were created
 		bool m_any_packet_yet; // did we yet got any packet to count
 
-		double m_overheat; // last overheat
-		double m_overheat_time; // time in seconds after epoch
-
 		std::string m_name; // my name for debug and logs
 		std::string m_nameshort; // my name for debug and logs (used in log file name)
 
