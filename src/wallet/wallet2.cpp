@@ -2234,7 +2234,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection(uint32_t *version)
+bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
 {
   boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
 
@@ -2248,7 +2248,7 @@ bool wallet2::check_connection(uint32_t *version)
       u.port = m_testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
     }
 
-    if (!m_http_client.connect(u.host, std::to_string(u.port), 10000))
+    if (!m_http_client.connect(u.host, std::to_string(u.port), timeout))
       return false;
   }
 
