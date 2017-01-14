@@ -32,8 +32,7 @@
 #include "wallet/wallet2.h"
 
 namespace Monero {
-    
-class AddressBookRow;
+
 class WalletImpl;
 
 class AddressBookImpl : public AddressBook

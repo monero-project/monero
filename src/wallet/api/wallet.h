@@ -123,7 +123,7 @@ private:
 private:
     friend class PendingTransactionImpl;
     friend class TransactionHistoryImpl;
-    friend class Wallet2CallbackImpl;
+    friend struct Wallet2CallbackImpl;
     friend class AddressBookImpl;
 
     tools::wallet2 * m_wallet;
