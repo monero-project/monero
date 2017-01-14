@@ -710,43 +710,54 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    bool verRct(const rctSig & rv) {
+    bool verRct(const rctSig & rv, bool semantics) {
         PERF_TIMER(verRct);
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
-        CHECK_AND_ASSERT_MES(rv.p.MGs.size() == 1, false, "full rctSig has not one MG");
+        if (semantics)
+        {
+          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
+          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
+          CHECK_AND_ASSERT_MES(rv.p.MGs.size() == 1, false, "full rctSig has not one MG");
+        }
+        else
+        {
+          // semantics check is early, we don't have the MGs resolved yet
+        }
 
         // some rct ops can throw
         try
         {
-          std::deque<bool> results(rv.outPk.size(), false);
-          tools::thread_group threadpool(tools::thread_group::optimal_with_max(rv.outPk.size()));
+          if (semantics) {
+            std::deque<bool> results(rv.outPk.size(), false);
+            tools::thread_group threadpool(tools::thread_group::optimal_with_max(rv.outPk.size()));
 
-          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
-            DP("range proofs verified?");
-            for (size_t i = 0; i < rv.outPk.size(); i++) {
-              region.run([&, i] {
-                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              });
-            }
-          });
+            tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+              DP("range proofs verified?");
+              for (size_t i = 0; i < rv.outPk.size(); i++) {
+                region.run([&, i] {
+                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+                });
+              }
+            });
 
-          for (size_t i = 0; i < rv.outPk.size(); ++i) {
-            if (!results[i]) {
-              LOG_PRINT_L1("Range proof verified failed for output " << i);
-              return false;
+            for (size_t i = 0; i < rv.outPk.size(); ++i) {
+              if (!results[i]) {
+                LOG_PRINT_L1("Range proof verified failed for output " << i);
+                return false;
+              }
             }
           }
 
-          //compute txn fee
-          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-          bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
-          DP("mg sig verified?");
-          DP(mgVerd);
-          if (!mgVerd) {
-            LOG_PRINT_L1("MG signature verification failed");
-            return false;
+          if (!semantics) {
+            //compute txn fee
+            key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+            bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
+            DP("mg sig verified?");
+            DP(mgVerd);
+            if (!mgVerd) {
+              LOG_PRINT_L1("MG signature verification failed");
+              return false;
+            }
           }
 
           return true;
@@ -759,76 +770,86 @@ namespace rct {
 
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
-    bool verRctSimple(const rctSig & rv) {
+    bool verRctSimple(const rctSig & rv, bool semantics) {
       try
       {
         PERF_TIMER(verRctSimple);
 
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
-        CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
-        CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
-        CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
+        if (semantics)
+        {
+          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
+          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
+          CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
+        }
+        else
+        {
+          // semantics check is early, and mixRing/MGs aren't resolved yet
+          CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
+        }
 
         const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
 
         std::deque<bool> results(threads);
         tools::thread_group threadpool(tools::thread_group::optimal_with_max(threads));
 
-        results.clear();
-        results.resize(rv.outPk.size());
-        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+        if (semantics) {
+          results.clear();
+          results.resize(rv.outPk.size());
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            for (size_t i = 0; i < rv.outPk.size(); i++) {
+              region.run([&, i] {
+                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              });
+            }
+          });
+
+          for (size_t i = 0; i < results.size(); ++i) {
+            if (!results[i]) {
+              LOG_PRINT_L1("Range proof verified failed for output " << i);
+              return false;
+            }
+          }
+
+          key sumOutpks = identity();
           for (size_t i = 0; i < rv.outPk.size(); i++) {
-            region.run([&, i] {
-                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-            });
+              addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
           }
-        });
+          DP(sumOutpks);
+          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+          addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
-        for (size_t i = 0; i < results.size(); ++i) {
-          if (!results[i]) {
-            LOG_PRINT_L1("Range proof verified failed for output " << i);
-            return false;
+          key sumPseudoOuts = identity();
+          for (size_t i = 0 ; i < rv.pseudoOuts.size() ; i++) {
+              addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
           }
-        }
+          DP(sumPseudoOuts);
 
-        key sumOutpks = identity();
-        for (size_t i = 0; i < rv.outPk.size(); i++) {
-            addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
-        }
-        DP(sumOutpks);
-        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-        addKeys(sumOutpks, txnFeeKey, sumOutpks);
-
-        key message = get_pre_mlsag_hash(rv);
-
-        results.clear();
-        results.resize(rv.mixRing.size());
-        tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
-          for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
-            region.run([&, i] {
-              results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
-            });
-          }
-        });
-
-        for (size_t i = 0; i < results.size(); ++i) {
-          if (!results[i]) {
-            LOG_PRINT_L1("verRctMGSimple failed for input " << i);
-            return false;
+          //check pseudoOuts vs Outs..
+          if (!equalKeys(sumPseudoOuts, sumOutpks)) {
+              LOG_PRINT_L1("Sum check failed");
+              return false;
           }
         }
+        else {
+          const key message = get_pre_mlsag_hash(rv);
 
-        key sumPseudoOuts = identity();
-        for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
-            addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
-        }
-        DP(sumPseudoOuts);
-        
-        //check pseudoOuts vs Outs..
-        if (!equalKeys(sumPseudoOuts, sumOutpks)) {
-            LOG_PRINT_L1("Sum check failed");
-            return false;
+          results.clear();
+          results.resize(rv.mixRing.size());
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
+              region.run([&, i] {
+                results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+              });
+            }
+          });
+
+          for (size_t i = 0; i < results.size(); ++i) {
+            if (!results[i]) {
+              LOG_PRINT_L1("verRctMGSimple failed for input " << i);
+              return false;
+            }
+          }
         }
 
         return true;

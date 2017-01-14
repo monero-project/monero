@@ -126,8 +126,10 @@ namespace rct {
     rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const keyV &amount_keys, const int mixin);
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, const keyV &amount_keys, xmr_amount txnFee, unsigned int mixin);
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk);
-    bool verRct(const rctSig & rv);
-    bool verRctSimple(const rctSig & rv);
+    bool verRct(const rctSig & rv, bool semantics);
+    static inline bool verRct(const rctSig & rv) { return verRct(rv, true) && verRct(rv, false); }
+    bool verRctSimple(const rctSig & rv, bool semantics);
+    static inline bool verRctSimple(const rctSig & rv) { return verRctSimple(rv, true) && verRctSimple(rv, false); }
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask);
