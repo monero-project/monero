@@ -3544,12 +3544,17 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 {
   LOG_PRINT_YELLOW("Blockchain::" << __func__, LOG_LEVEL_3);
   TIME_MEASURE_START(prepare);
+  bool stop_batch;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   if(blocks_entry.size() == 0)
     return false;
 
-  m_db->batch_start(blocks_entry.size());
+  while (!(stop_batch = m_db->batch_start(blocks_entry.size()))) {
+    m_blockchain_lock.unlock();
+    epee::misc_utils::sleep_no_w(1000);
+    m_blockchain_lock.lock();
+  }
 
   if ((m_db->height() + blocks_entry.size()) < m_blocks_hash_check.size())
     return true;
