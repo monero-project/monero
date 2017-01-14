@@ -82,7 +82,9 @@ DISABLE_VS_WARNINGS(4244 4345)
 
     if (recover)
     {
-      m_creation_timestamp = std::max(mktime(&timestamp), (long)0);
+      m_creation_timestamp = mktime(&timestamp);
+      if (m_creation_timestamp == (uint64_t)-1) // failure
+        m_creation_timestamp = 0; // lowest value
     }
     else
     {
@@ -105,7 +107,9 @@ DISABLE_VS_WARNINGS(4244 4345)
     timestamp.tm_min = 0;
     timestamp.tm_sec = 0;
 
-    m_creation_timestamp = std::max(mktime(&timestamp), (long)0);
+    m_creation_timestamp = mktime(&timestamp);
+    if (m_creation_timestamp == (uint64_t)-1) // failure
+      m_creation_timestamp = 0; // lowest value
   }
   //-----------------------------------------------------------------
   void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
