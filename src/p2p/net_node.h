@@ -227,6 +227,8 @@ namespace nodetool
     bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
+    bool has_too_many_connections(const uint32_t ip);
+
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
       is_closing = true;
