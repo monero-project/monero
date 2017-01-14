@@ -74,7 +74,7 @@ namespace md5
 	static void MD5Init(MD5_CTX * context);
 	static void MD5Update( MD5_CTX *context, const unsigned char *input, unsigned int inputLen );
 	static void MD5Final ( unsigned char digest[16], MD5_CTX *context );
-	static void hmac_md5(const unsigned char* text, int text_len, const unsigned char* key, int key_len, unsigned char *digest);
+	static inline void hmac_md5(const unsigned char* text, int text_len, const unsigned char* key, int key_len, unsigned char *digest);
 
 	
 	inline bool md5( unsigned char *input, int ilen, unsigned char output[16] )
