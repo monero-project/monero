@@ -33,6 +33,7 @@
 #include "wallet.h"
 #include "crypto/hash.h"
 #include "wallet/wallet2.h"
+#include "common_defines.h"
 
 #include <vector>
 
@@ -43,30 +44,50 @@ AddressBook::~AddressBook() {}
 AddressBookImpl::AddressBookImpl(WalletImpl *wallet)
     : m_wallet(wallet) {}
 
-bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description)
+bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &payment_id_str, const std::string &description)
 {
-  LOG_PRINT_L2("Adding row");
-  
   clearStatus();
   
   cryptonote::account_public_address addr;
-  bool has_payment_id;
+  bool has_short_pid;
   crypto::hash8 payment_id_short;
-  if(!cryptonote::get_account_integrated_address_from_str(addr, has_payment_id, payment_id_short, m_wallet->m_wallet->testnet(), dst_addr)) {
-    m_errorString = "Invalid destination address";
+  if(!cryptonote::get_account_integrated_address_from_str(addr, has_short_pid, payment_id_short, m_wallet->m_wallet->testnet(), dst_addr)) {
+    m_errorString = tr("Invalid destination address");
     m_errorCode = Invalid_Address;
     return false;
   }
 
-  crypto::hash pid32 = cryptonote::null_hash;
-  bool long_pid =  (payment_id.empty())? false : tools::wallet2::parse_long_payment_id(payment_id, pid32);
-  if(!payment_id.empty() && !long_pid) {
-    m_errorString = "Invalid payment ID";
+  crypto::hash payment_id = cryptonote::null_hash;
+  bool has_long_pid = (payment_id_str.empty())? false : tools::wallet2::parse_long_payment_id(payment_id_str, payment_id); 
+    
+  // Short payment id provided
+  if(payment_id_str.length() == 16) {
+    m_errorString = tr("Invalid payment ID. Short payment ID should only be used in an integrated address");
+    m_errorCode = Invalid_Payment_Id;
+    return false;
+  }
+  
+  // long payment id provided but not valid
+  if(!payment_id_str.empty() && !has_long_pid) {
+    m_errorString = tr("Invalid payment ID");
     m_errorCode = Invalid_Payment_Id;
     return false;
   }
 
-  bool r =  m_wallet->m_wallet->add_address_book_row(addr,pid32,description);
+  // integrated + long payment id provided
+  if(has_long_pid && has_short_pid) {
+    m_errorString = tr("Integrated address and long payment id can't be used at the same time");
+    m_errorCode = Invalid_Payment_Id;
+    return false;
+  }
+
+  // Pad short pid with zeros
+  if (has_short_pid)
+  {
+    memcpy(payment_id.data, payment_id_short.data, 8);
+  }
+  
+  bool r =  m_wallet->m_wallet->add_address_book_row(addr,payment_id,description);
   if (r)
     refresh();
   else
@@ -87,7 +108,16 @@ void AddressBookImpl::refresh()
     
     std::string payment_id = (row->m_payment_id == cryptonote::null_hash)? "" : epee::string_tools::pod_to_hex(row->m_payment_id);
     std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->testnet(),row->m_address);
-
+    // convert the zero padded short payment id to integrated address
+    if (payment_id.length() > 16 && payment_id.substr(16).find_first_not_of('0') == std::string::npos) {
+        payment_id = payment_id.substr(0,16);
+        crypto::hash8 payment_id_short;
+        if(tools::wallet2::parse_short_payment_id(payment_id, payment_id_short)) {
+          address = cryptonote::get_account_integrated_address_as_str(m_wallet->m_wallet->testnet(), row->m_address, payment_id_short);
+          // Don't show payment id when integrated address is used
+          payment_id = "";
+        }
+    }
     AddressBookRow * abr = new AddressBookRow(i, address, payment_id, row->m_description);
     m_rows.push_back(abr);
   }
