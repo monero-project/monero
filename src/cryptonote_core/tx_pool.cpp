@@ -177,6 +177,8 @@ namespace cryptonote
       return false;
     }
 
+    time_t receive_time = time(nullptr);
+
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     tx_details txd;
@@ -198,7 +200,7 @@ namespace cryptonote
         txd_p.first->second.last_failed_height = 0;
         txd_p.first->second.last_failed_id = null_hash;
         txd_p.first->second.kept_by_block = kept_by_block;
-        txd_p.first->second.receive_time = time(nullptr);
+        txd_p.first->second.receive_time = receive_time;
         txd_p.first->second.last_relayed_time = time(NULL);
         txd_p.first->second.relayed = relayed;
         tvc.m_verifivation_impossible = true;
@@ -221,7 +223,7 @@ namespace cryptonote
       txd_p.first->second.max_used_block_height = max_used_block_height;
       txd_p.first->second.last_failed_height = 0;
       txd_p.first->second.last_failed_id = null_hash;
-      txd_p.first->second.receive_time = time(nullptr);
+      txd_p.first->second.receive_time = receive_time;
       txd_p.first->second.last_relayed_time = time(NULL);
       txd_p.first->second.relayed = relayed;
       tvc.m_added_to_pool = true;
@@ -246,7 +248,7 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee.emplace((double)blob_size / fee, id);
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>((double)blob_size / fee, receive_time), id);
 
     return true;
   }
@@ -301,7 +303,7 @@ namespace cryptonote
 
     auto sorted_it = find_tx_in_sorted_container(id);
 
-    if (sorted_it == m_txs_by_fee.end())
+    if (sorted_it == m_txs_by_fee_and_receive_time.end())
       return false;
 
     tx = it->second.tx;
@@ -310,7 +312,7 @@ namespace cryptonote
     relayed = it->second.relayed;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
-    m_txs_by_fee.erase(sorted_it);
+    m_txs_by_fee_and_receive_time.erase(sorted_it);
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -321,7 +323,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   sorted_tx_container::iterator tx_memory_pool::find_tx_in_sorted_container(const crypto::hash& id) const
   {
-    return std::find_if( m_txs_by_fee.begin(), m_txs_by_fee.end()
+    return std::find_if( m_txs_by_fee_and_receive_time.begin(), m_txs_by_fee_and_receive_time.end()
                        , [&](const sorted_tx_container::value_type& a){
                          return a.second == id;
                        }
@@ -342,13 +344,13 @@ namespace cryptonote
         LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
         remove_transaction_keyimages(it->second.tx);
         auto sorted_it = find_tx_in_sorted_container(it->first);
-        if (sorted_it == m_txs_by_fee.end())
+        if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
           LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
-          m_txs_by_fee.erase(sorted_it);
+          m_txs_by_fee_and_receive_time.erase(sorted_it);
         }
         m_timed_out_transactions.insert(it->first);
         auto pit = it++;
@@ -608,9 +610,9 @@ namespace cryptonote
     size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
-    LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee.size() << " txes in the pool");
-    auto sorted_it = m_txs_by_fee.begin();
-    while (sorted_it != m_txs_by_fee.end())
+    LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
+    auto sorted_it = m_txs_by_fee_and_receive_time.begin();
+    while (sorted_it != m_txs_by_fee_and_receive_time.end())
     {
       auto tx_it = m_transactions.find(sorted_it->second);
       LOG_PRINT_L2("Considering " << tx_it->first << ", size " << tx_it->second.blob_size << ", current block size " << total_size << "/" << max_total_size << ", current coinbase " << print_money(best_coinbase));
@@ -675,13 +677,13 @@ namespace cryptonote
         LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
         remove_transaction_keyimages(it->second.tx);
         auto sorted_it = find_tx_in_sorted_container(it->first);
-        if (sorted_it == m_txs_by_fee.end())
+        if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
           LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
-          m_txs_by_fee.erase(sorted_it);
+          m_txs_by_fee_and_receive_time.erase(sorted_it);
         }
         auto pit = it++;
         m_transactions.erase(pit);
@@ -712,14 +714,14 @@ namespace cryptonote
       LOG_ERROR("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
-      m_txs_by_fee.clear();
+      m_txs_by_fee_and_receive_time.clear();
       m_spent_key_images.clear();
     }
 
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee.emplace((double)tx.second.blob_size / tx.second.fee, tx.first);
+      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>((double)tx.second.blob_size / tx.second.fee, tx.second.receive_time), tx.first);
     }
 
     // Ignore deserialization error
