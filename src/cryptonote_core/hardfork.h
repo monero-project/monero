@@ -114,6 +114,20 @@ namespace cryptonote
     bool check(const cryptonote::block &block) const;
 
     /**
+     * @brief same as check, but for a particular height, rather than the top
+     *
+     * NOTE: this does not play well with voting, and relies on voting to be
+     * disabled (that is, forks happen on the scheduled date, whether or not
+     * enough blocks have voted for the fork).
+     *
+     * returns true if no error, false otherwise
+     *
+     * @param block the new block
+     * @param height which height to check for
+     */
+    bool check_for_height(const cryptonote::block &block, uint64_t height) const;
+
+    /**
      * @brief add a new block
      *
      * returns true if no error, false otherwise
@@ -211,6 +225,7 @@ namespace cryptonote
 
     uint8_t get_block_version(uint64_t height) const;
     bool do_check(uint8_t block_version, uint8_t voting_version) const;
+    bool do_check_for_height(uint8_t block_version, uint8_t voting_version, uint64_t height) const;
     int get_voted_fork_index(uint64_t height) const;
     uint8_t get_effective_version(uint8_t voting_version) const;
     bool add(uint8_t block_version, uint8_t voting_version, uint64_t height);

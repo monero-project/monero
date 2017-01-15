@@ -114,6 +114,19 @@ bool HardFork::check(const cryptonote::block &block) const
   return do_check(::get_block_version(block), ::get_block_vote(block));
 }
 
+bool HardFork::do_check_for_height(uint8_t block_version, uint8_t voting_version, uint64_t height) const
+{
+  int fork_index = get_voted_fork_index(height);
+  return block_version == heights[fork_index].version
+      && voting_version >= heights[fork_index].version;
+}
+
+bool HardFork::check_for_height(const cryptonote::block &block, uint64_t height) const
+{
+  CRITICAL_REGION_LOCAL(lock);
+  return do_check_for_height(::get_block_version(block), ::get_block_vote(block), height);
+}
+
 bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
