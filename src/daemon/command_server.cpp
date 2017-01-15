@@ -230,6 +230,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::alt_chain_info, &m_parser, p::_1)
     , "Print information about alternative chains"
     );
+    m_command_lookup.set_handler(
+      "bc_dyn_stats"
+    , std::bind(&t_command_parser_executor::print_blockchain_dynamic_stats, &m_parser, p::_1)
+    , "Print information about current blockchain dynamic state"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)
