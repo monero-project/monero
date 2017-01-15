@@ -312,9 +312,9 @@ namespace cryptonote
     LOG_PRINT_L0("Loading blockchain from folder " << folder.string() << " ...");
 
     const std::string filename = folder.string();
-    // temporarily default to fastest:async:1000
+    // default to fast:async:1
     blockchain_db_sync_mode sync_mode = db_async;
-    uint64_t blocks_per_sync = 1000;
+    uint64_t blocks_per_sync = 1;
 
     try
     {
@@ -327,12 +327,12 @@ namespace cryptonote
       for(const auto &option : options)
         LOG_PRINT_L0("option: " << option);
 
-      // default to fast:async:1000
+      // default to fast:async:1
       uint64_t DEFAULT_FLAGS = DBS_FAST_MODE;
 
       if(options.size() == 0)
       {
-        // temporarily default to fastest:async:1000
+        // default to fast:async:1
         db_flags = DEFAULT_FLAGS;
       }
 
@@ -348,7 +348,10 @@ namespace cryptonote
         else if(options[0] == "fast")
           db_flags = DBS_FAST_MODE;
         else if(options[0] == "fastest")
+        {
           db_flags = DBS_FASTEST_MODE;
+          blocks_per_sync = 1000; // default to fastest:async:1000
+        }
         else
           db_flags = DEFAULT_FLAGS;
       }
