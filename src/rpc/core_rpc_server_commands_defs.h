@@ -922,6 +922,7 @@ namespace cryptonote
     uint64_t receive_time;
     bool relayed;
     uint64_t last_relayed_time;
+    bool do_not_relay;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id_hash)
@@ -936,6 +937,7 @@ namespace cryptonote
       KV_SERIALIZE(receive_time)
       KV_SERIALIZE(relayed)
       KV_SERIALIZE(last_relayed_time)
+      KV_SERIALIZE(do_not_relay)
     END_KV_SERIALIZE_MAP()
   };
 

@@ -743,6 +743,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
                           << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
+                          << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
@@ -823,6 +824,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
                           << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
+                          << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl

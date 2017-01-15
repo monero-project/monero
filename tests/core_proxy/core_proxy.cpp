@@ -165,7 +165,7 @@ string tx2str(const cryptonote::transaction& tx, const cryptonote::hash256& tx_h
     return ss.str();
 }*/
 
-bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed) {
+bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay) {
     if (!keeped_by_block)
         return true;
 
