@@ -2335,10 +2335,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
     CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " + boost::lexical_cast<std::string>(rv.type));
   }
 
-  // outPk
-  CHECK_AND_ASSERT_MES(rv.outPk.size() == tx.vout.size(), false, "Bad outPk size");
-  for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
-    rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
+  // outPk was already done by handle_incoming_tx
 
   return true;
 }
@@ -2643,7 +2640,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
 
-      if (!rct::verRctSimple(rv))
+      if (!rct::verRctSimple(rv, false))
       {
         LOG_PRINT_L1("Failed to check ringct signatures!");
         return false;
@@ -2701,7 +2698,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
       }
 
-      if (!rct::verRct(rv))
+      if (!rct::verRct(rv, false))
       {
         LOG_PRINT_L1("Failed to check ringct signatures!");
         return false;

@@ -49,6 +49,7 @@ using namespace epee;
 #if defined(BERKELEY_DB)
 #include "blockchain_db/berkeleydb/db_bdb.h"
 #endif
+#include "ringct/rctSigs.h"
 
 DISABLE_VS_WARNINGS(4355)
 
@@ -497,6 +498,22 @@ namespace cryptonote
       return false;
     }
 
+    // resolve outPk references in rct txes
+    // outPk aren't the only thing that need resolving for a fully resolved tx,
+    // but outPk (1) are needed now to check range proof semantics, and
+    // (2) do not need access to the blockchain to find data
+    if (tx.version >= 2)
+    {
+      rct::rctSig &rv = tx.rct_signatures;
+      if (rv.outPk.size() != tx.vout.size())
+      {
+        LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");
+        return false;
+      }
+      for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
+        rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
+    }
+
     if(!check_tx_semantic(tx, keeped_by_block))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
@@ -587,6 +604,33 @@ namespace cryptonote
       return false;
     }
 
+    if (tx.version >= 2)
+    {
+      const rct::rctSig &rv = tx.rct_signatures;
+      switch (rv.type) {
+        case rct::RCTTypeNull:
+          // coinbase should not come here, so we reject for all other types
+          LOG_PRINT_RED_L1("Unexpected Null rctSig type");
+          return false;
+        case rct::RCTTypeSimple:
+          if (!rct::verRctSimple(rv, true))
+          {
+            LOG_PRINT_RED_L1("rct signature semantics check failed");
+            return false;
+          }
+          break;
+        case rct::RCTTypeFull:
+          if (!rct::verRct(rv, true))
+          {
+            LOG_PRINT_RED_L1("rct signature semantics check failed");
+            return false;
+          }
+          break;
+        default:
+          LOG_PRINT_RED_L1("Unknown rct type: " << rv.type);
+          return false;
+      }
+    }
 
     return true;
   }
