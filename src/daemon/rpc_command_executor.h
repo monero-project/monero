@@ -106,7 +106,7 @@ public:
 
   bool print_transaction_pool_stats();
 
-  bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet);
+  bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet, bool do_background_mining);
 
   bool stop_mining();
 

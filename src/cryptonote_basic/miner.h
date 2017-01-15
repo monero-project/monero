@@ -35,7 +35,14 @@
 #include "cryptonote_basic.h"
 #include "difficulty.h"
 #include "math_helper.h"
-
+#ifdef _WIN32
+#include <windows.h>
+#elif __linux__
+#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/times.h>
+#include <time.h>
+#endif
 
 namespace cryptonote
 {
@@ -60,7 +67,7 @@ namespace cryptonote
     static void init_options(boost::program_options::options_description& desc);
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();
-    bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs);
+    bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background = false);
     uint64_t get_speed() const;
     uint32_t get_threads_count() const;
     void send_stop_signal();
@@ -74,6 +81,26 @@ namespace cryptonote
     void pause();
     void resume();
     void do_print_hashrate(bool do_hr);
+    bool get_is_background_mining_enabled() const;
+    uint64_t get_min_idle_seconds() const;
+    bool set_min_idle_seconds(uint64_t min_idle_seconds);
+    uint8_t get_idle_threshold() const;
+    bool set_idle_threshold(uint8_t idle_threshold);
+    uint8_t get_mining_target() const;
+    bool set_mining_target(uint8_t mining_target);
+
+    static constexpr uint8_t  BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE       = 90;
+    static constexpr uint8_t  BACKGROUND_MINING_MIN_IDLE_THRESHOLD_PERCENTAGE           = 50;
+    static constexpr uint8_t  BACKGROUND_MINING_MAX_IDLE_THRESHOLD_PERCENTAGE           = 99;
+    static constexpr uint16_t BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS    = 10;
+    static constexpr uint16_t BACKGROUND_MINING_MIN_MIN_IDLE_INTERVAL_IN_SECONDS        = 10;
+    static constexpr uint16_t BACKGROUND_MINING_MAX_MIN_IDLE_INTERVAL_IN_SECONDS        = 3600;
+    static constexpr uint8_t  BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE        = 20;
+    static constexpr uint8_t  BACKGROUND_MINING_MIN_MINING_TARGET_PERCENTAGE            = 5;
+    static constexpr uint8_t  BACKGROUND_MINING_MAX_MINING_TARGET_PERCENTAGE            = 50;
+    static constexpr uint8_t  BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS       = 10;
+    static constexpr uint64_t BACKGROUND_MINING_DEFAULT_MINER_EXTRA_SLEEP_MILLIS        = 400; // ramp up 
+    static constexpr uint64_t BACKGROUND_MINING_MIN_MINER_EXTRA_SLEEP_MILLIS            = 5;
 
   private:
     bool worker_thread();
@@ -119,8 +146,24 @@ namespace cryptonote
     bool m_do_print_hashrate;
     bool m_do_mining;
 
+    // background mining stuffs ..
+
+    bool set_is_background_mining_enabled(bool is_background_mining_enabled);
+    bool background_worker_thread();
+    std::atomic<bool> m_is_background_mining_enabled;
+    boost::mutex m_is_background_mining_enabled_mutex;
+    boost::condition_variable m_is_background_mining_enabled_cond;
+    std::atomic<bool> m_is_background_mining_started;
+    boost::mutex m_is_background_mining_started_mutex;
+    boost::condition_variable m_is_background_mining_started_cond;    
+    boost::thread m_background_mining_thread;
+    uint64_t m_min_idle_seconds;
+    uint8_t m_idle_threshold;
+    uint8_t m_mining_target;
+    std::atomic<uint64_t> m_miner_extra_sleep;
+    static bool get_system_times(uint64_t& total_time, uint64_t& idle_time);
+    static bool get_process_time(uint64_t& total_time);
+    static uint8_t get_percent_of_total(uint64_t some_time, uint64_t total_time);
+    static bool ac_line_status(); // true = plugged in, else nope
   };
 }
-
-
-

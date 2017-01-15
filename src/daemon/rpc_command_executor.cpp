@@ -929,11 +929,12 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   return true;
 }
 
-bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet) {
+bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet, bool do_background_mining = false) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;
   req.miner_address = cryptonote::get_account_address_as_str(testnet, address);
   req.threads_count = num_threads;
+  req.do_background_mining = do_background_mining;
 
   std::string fail_message = "Mining did not start";
 

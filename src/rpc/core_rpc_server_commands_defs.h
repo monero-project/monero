@@ -500,10 +500,12 @@ namespace cryptonote
     {
       std::string miner_address;
       uint64_t    threads_count;
+      bool        do_background_mining;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(miner_address)
         KV_SERIALIZE(threads_count)
+        KV_SERIALIZE(do_background_mining)        
       END_KV_SERIALIZE_MAP()
     };
 
