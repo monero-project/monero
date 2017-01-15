@@ -54,6 +54,8 @@ namespace {
     static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
     // Default refresh interval when connected to remote node
     static const int    DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS = 1000 * 10;
+    // Connection timeout 30 sec
+    static const int    DEFAULT_CONNECTION_TIMEOUT_MILLIS = 1000 * 30;
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -1086,7 +1088,7 @@ bool WalletImpl::verifySignedMessage(const std::string &message, const std::stri
 
 bool WalletImpl::connectToDaemon()
 {
-    bool result = m_wallet->check_connection();
+    bool result = m_wallet->check_connection(NULL, DEFAULT_CONNECTION_TIMEOUT_MILLIS);
     m_status = result ? Status_Ok : Status_Error;
     if (!result) {
         m_errorString = "Error connecting to daemon at " + m_wallet->get_daemon_address();
@@ -1099,7 +1101,7 @@ bool WalletImpl::connectToDaemon()
 Wallet::ConnectionStatus WalletImpl::connected() const
 {
     uint32_t version = 0;
-    m_is_connected = m_wallet->check_connection(&version);
+    m_is_connected = m_wallet->check_connection(&version, DEFAULT_CONNECTION_TIMEOUT_MILLIS);
     if (!m_is_connected)
         return Wallet::ConnectionStatus_Disconnected;
     if ((version >> 16) != CORE_RPC_VERSION_MAJOR)
