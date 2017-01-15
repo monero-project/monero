@@ -2733,7 +2733,7 @@ float wallet2::get_output_relatedness(const transfer_details &td0, const transfe
   return 0.0f;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::list<size_t>& selected_transfers) const
+size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::list<size_t>& selected_transfers, bool smallest) const
 {
   std::vector<size_t> candidates;
   float best_relatedness = 1.0f;
@@ -2761,13 +2761,30 @@ size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::ve
     if (relatedness == best_relatedness)
       candidates.push_back(n);
   }
-  size_t idx = crypto::rand<size_t>() % candidates.size();
+
+  // we have all the least related outputs in candidates, so we can pick either
+  // the smallest, or a random one, depending on request
+  size_t idx;
+  if (smallest)
+  {
+    idx = 0;
+    for (size_t n = 0; n < candidates.size(); ++n)
+    {
+      const transfer_details &td = transfers[unused_indices[candidates[n]]];
+      if (td.amount() < transfers[unused_indices[candidates[idx]]].amount())
+        idx = n;
+    }
+  }
+  else
+  {
+    idx = crypto::rand<size_t>() % candidates.size();
+  }
   return pop_index (unused_indices, candidates[idx]);
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::list<size_t>& selected_transfers) const
+size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::list<size_t>& selected_transfers, bool smallest) const
 {
-  return pop_best_value_from(m_transfers, unused_indices, selected_transfers);
+  return pop_best_value_from(m_transfers, unused_indices, selected_transfers, smallest);
 }
 //----------------------------------------------------------------------------------------------------
 // Select random input sources for transaction.
@@ -4109,8 +4126,11 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
   }
 
-  // while we have something to send
-  while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee) {
+  // while:
+  // - we have something to send
+  // - or we need to gather more fee
+  // - or we have just one input in that tx, which is rct (to try and make all/most rct txes 2/2)
+  while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee || (use_rct && txes.back().selected_transfers.size() == 1)) {
     TX &tx = txes.back();
 
     // if we need to spend money and don't have any left, we fail
@@ -4121,7 +4141,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
     // get a random unspent output and use it to pay part (or all) of the current destination (and maybe next one, etc)
     // This could be more clever, but maybe at the cost of making probabilistic inferences easier
-    size_t idx = !prefered_inputs.empty() ? pop_back(prefered_inputs) : !unused_transfers_indices.empty() ? pop_best_value(unused_transfers_indices, tx.selected_transfers) : pop_best_value(unused_dust_indices, tx.selected_transfers);
+    size_t idx;
+    if ((dsts.empty() || dsts[0].amount == 0) && !adding_fee)
+      // the "make rct txes 2/2" case - we pick a small value output to "clean up" the wallet too
+      idx = pop_best_value(unused_dust_indices.empty() ? unused_transfers_indices : unused_dust_indices, tx.selected_transfers, true);
+    else if (!prefered_inputs.empty())
+      idx = pop_back(prefered_inputs);
+    else
+      idx = pop_best_value(unused_transfers_indices.empty() ? unused_dust_indices : unused_transfers_indices, tx.selected_transfers);
 
     const transfer_details &td = m_transfers[idx];
     LOG_PRINT_L2("Picking output " << idx << ", amount " << print_money(td.amount()) << ", ki " << td.m_key_image);
