@@ -657,7 +657,7 @@ TEST(Serialization, portability_wallet)
   const bool testnet = true;
   const bool restricted = false;
   tools::wallet2 w(testnet, restricted);
-  string wallet_file = "../data/wallet_9svHk1";
+  string wallet_file = epee::string_tools::get_current_module_folder() + "/../../../../tests/data/wallet_9svHk1";
   string password = "test";
   bool r = false;
   try
@@ -777,7 +777,7 @@ TEST(Serialization, portability_wallet)
 TEST(Serialization, portability_outputs)
 {
   // read file
-  const std::string filename = "../data/outputs";
+  const std::string filename = epee::string_tools::get_current_module_folder() + "/../../../../tests/data/outputs";
   std::string data;
   bool r = epee::file_io_utils::load_file_to_string(filename, data);
   ASSERT_TRUE(r);
@@ -892,7 +892,7 @@ TEST(Serialization, portability_outputs)
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
 TEST(Serialization, portability_unsigned_tx)
 {
-  const string filename = "../data/unsigned_monero_tx";
+  const string filename = epee::string_tools::get_current_module_folder() + "/../../../../tests/data/unsigned_monero_tx";
   std::string s;
   const bool testnet = true;
   bool r = epee::file_io_utils::load_file_to_string(filename, s);
@@ -1042,7 +1042,7 @@ TEST(Serialization, portability_unsigned_tx)
 #define SIGNED_TX_PREFIX "Monero signed tx set\003"
 TEST(Serialization, portability_signed_tx)
 {
-  const string filename = "../data/signed_monero_tx";
+  const string filename = epee::string_tools::get_current_module_folder() + "/../../../../tests/data/signed_monero_tx";
   const bool testnet = true;
   std::string s;
   bool r = epee::file_io_utils::load_file_to_string(filename, s);
