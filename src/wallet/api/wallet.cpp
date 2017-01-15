@@ -1217,6 +1217,24 @@ bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::st
     return m_wallet->parse_uri(uri, address, payment_id, amount, tx_description, recipient_name, unknown_parameters, error);
 }
 
+bool WalletImpl::rescanSpent()
+{
+  clearStatus();
+  if (!trustedDaemon()) {
+    m_status = Status_Error;
+    m_errorString = tr("Rescan spent can only be used with a trusted daemon");
+    return false;
+  }
+  try {
+      m_wallet->rescan_spent();
+  } catch (const std::exception &e) {
+      LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+      m_status = Status_Error;
+      m_errorString = e.what();
+      return false;
+  }
+  return true;
+}
 } // namespace
 
 namespace Bitmonero = Monero;
