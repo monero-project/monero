@@ -102,6 +102,8 @@ public:
     virtual PendingTransaction * createSweepUnmixableTransaction();
     bool submitTransaction(const std::string &fileName);
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename);
+    bool exportKeyImages(const std::string &filename);
+    bool importKeyImages(const std::string &filename);
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
@@ -126,6 +128,7 @@ private:
     void stopRefresh();
     bool isNewWallet() const;
     void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+
 
 private:
     friend class PendingTransactionImpl;
