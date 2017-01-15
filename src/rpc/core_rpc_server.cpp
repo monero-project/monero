@@ -151,7 +151,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     CHECK_CORE_BUSY();
-    std::list<std::pair<block, std::list<transaction> > > bs;
+    std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > > bs;
 
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
@@ -159,24 +159,30 @@ namespace cryptonote
       return false;
     }
 
-    for(auto& b: bs)
+    for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
-      res.blocks.back().block = block_to_blob(b.first);
+      res.blocks.back().block = bd.first;
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
       res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.first.miner_tx), res.output_indices.back().indices.back().indices);
+      block b;
+      if (!parse_and_validate_block_from_blob(bd.first, b))
+      {
+        res.status = "Invalid block";
+        return false;
+      }
+      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.miner_tx), res.output_indices.back().indices.back().indices);
       if (!r)
       {
         res.status = "Failed";
         return false;
       }
       size_t txidx = 0;
-      for(auto& t: b.second)
+      for(const auto& t: bd.second)
       {
-        res.blocks.back().txs.push_back(tx_to_blob(t));
+        res.blocks.back().txs.push_back(t);
         res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        bool r = m_core.get_tx_outputs_gindexs(b.first.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
+        bool r = m_core.get_tx_outputs_gindexs(b.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
         if (!r)
         {
           res.status = "Failed";

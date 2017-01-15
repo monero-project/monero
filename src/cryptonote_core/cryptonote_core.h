@@ -287,16 +287,23 @@ namespace cryptonote
      bool get_blockchain_top(uint64_t& height, crypto::hash& top_id) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<block>&, std::list<transaction>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<block>&, std::list<transaction>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<block>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<block>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      */
+     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const;
+
+     /**
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      *
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
       */
      bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
 
@@ -317,6 +324,13 @@ namespace cryptonote
       * @note see Blockchain::get_block_id_by_height
       */
      crypto::hash get_block_id_by_height(uint64_t height) const;
+
+     /**
+      * @copydoc Blockchain::get_transactions
+      *
+      * @note see Blockchain::get_transactions
+      */
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::blobdata>& txs, std::list<crypto::hash>& missed_txs) const;
 
      /**
       * @copydoc Blockchain::get_transactions
@@ -431,11 +445,11 @@ namespace cryptonote
      bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const;
 
      /**
-      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<block, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
+      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >&, uint64_t&, uint64_t&, size_t) const
       *
-      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<block, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
+      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
 
      /**
       * @brief gets some stats about the daemon
