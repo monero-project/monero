@@ -1689,7 +1689,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::has_too_many_connections(const uint32_t ip)
   {
-    const uint8_t max_connections = 3;
+    const uint8_t max_connections = 1;
     uint8_t count = 0;
 
     m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
