@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 5
+#define CORE_RPC_VERSION_MINOR 6
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -118,6 +118,28 @@ namespace cryptonote
         KV_SERIALIZE(current_height)
         KV_SERIALIZE(status)
         KV_SERIALIZE(output_indices)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHT
+  {
+    struct request
+    {
+      std::vector<uint64_t> heights;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(heights)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<block_complete_entry> blocks;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blocks)
+        KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
   };
