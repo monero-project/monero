@@ -5150,7 +5150,7 @@ std::string wallet2::encrypt(const std::string &plaintext, const crypto::secret_
     crypto::signature &signature = *(crypto::signature*)&ciphertext[ciphertext.size() - sizeof(crypto::signature)];
     crypto::generate_signature(hash, pkey, skey, signature);
   }
-  return std::move(ciphertext);
+  return ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::encrypt_with_view_secret_key(const std::string &plaintext, bool authenticated) const
@@ -5180,7 +5180,7 @@ std::string wallet2::decrypt(const std::string &ciphertext, const crypto::secret
       error::wallet_internal_error, "Failed to authenticate criphertext");
   }
   crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
-  return std::move(plaintext);
+  return plaintext;
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::decrypt_with_view_secret_key(const std::string &ciphertext, bool authenticated) const
@@ -5218,7 +5218,7 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
   }
 
   std::string uri = "monero:" + address;
-  bool n_fields = 0;
+  unsigned int n_fields = 0;
 
   if (!payment_id.empty())
   {

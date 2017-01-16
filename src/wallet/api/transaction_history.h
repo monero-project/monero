@@ -33,7 +33,6 @@
 
 namespace Monero {
 
-class TransactionInfo;
 class WalletImpl;
 
 class TransactionHistoryImpl : public TransactionHistory

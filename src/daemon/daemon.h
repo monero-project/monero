@@ -31,7 +31,7 @@
 
 namespace daemonize {
 
-class t_internals;
+struct t_internals;
 
 class t_daemon final {
 public:
