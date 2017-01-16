@@ -68,6 +68,9 @@ using boost::lexical_cast;
 namespace po = boost::program_options;
 typedef cryptonote::simple_wallet sw;
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
+
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
 #define DEFAULT_MIX 4
@@ -136,8 +139,8 @@ namespace
   class message_writer
   {
   public:
-    message_writer(epee::log_space::console_colors color = epee::log_space::console_color_default, bool bright = false,
-      std::string&& prefix = std::string(), int log_level = LOG_LEVEL_2)
+    message_writer(console_colors color = console_color_default, bool bright = false,
+      std::string&& prefix = std::string(), el::Level log_level = el::Level::Info)
       : m_flush(true)
       , m_color(color)
       , m_bright(bright)
@@ -173,17 +176,17 @@ namespace
       {
         m_flush = false;
 
-        LOG_PRINT(m_oss.str(), m_log_level);
+        MCLOG(m_log_level, "global", m_oss.str());
 
-        if (epee::log_space::console_color_default == m_color)
+        if (console_color_default == m_color)
         {
           std::cout << m_oss.str();
         }
         else
         {
-          epee::log_space::set_console_color(m_color, m_bright);
+          set_console_color(m_color, m_bright);
           std::cout << m_oss.str();
-          epee::log_space::reset_console_color();
+          reset_console_color();
         }
         std::cout << std::endl;
       }
@@ -197,19 +200,19 @@ namespace
   private:
     bool m_flush;
     std::stringstream m_oss;
-    epee::log_space::console_colors m_color;
+    console_colors m_color;
     bool m_bright;
-    int m_log_level;
+    el::Level m_log_level;
   };
 
   message_writer success_msg_writer(bool color = false)
   {
-    return message_writer(color ? epee::log_space::console_color_green : epee::log_space::console_color_default, false, std::string(), LOG_LEVEL_2);
+    return message_writer(color ? console_color_green : console_color_default, false, std::string(), el::Level::Info);
   }
 
   message_writer fail_msg_writer()
   {
-    return message_writer(epee::log_space::console_color_red, true, sw::tr("Error: "), LOG_LEVEL_0);
+    return message_writer(console_color_red, true, sw::tr("Error: "), el::Level::Error);
   }
 
   bool is_it_true(const std::string& s)
@@ -571,7 +574,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<mixin_count>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
-  m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level> - Change current log detail level, <0-4>"));
+  m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level>|<categories> - Change current log detail (level must be <0-4>)"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
@@ -745,22 +748,24 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
 {
   if(args.size() != 1)
   {
-    fail_msg_writer() << tr("usage: set_log <log_level_number_0-4>");
+    fail_msg_writer() << tr("usage: set_log <log_level_number_0-4> | <categories>");
     return true;
   }
   uint16_t l = 0;
-  if(!epee::string_tools::get_xtype_from_string(l, args[0]))
+  if(epee::string_tools::get_xtype_from_string(l, args[0]))
   {
-    fail_msg_writer() << tr("wrong number format, use: set_log <log_level_number_0-4>");
-    return true;
-  }
-  if(LOG_LEVEL_4 < l)
-  {
-    fail_msg_writer() << tr("wrong number range, use: set_log <log_level_number_0-4>");
-    return true;
-  }
+    if(4 < l)
+    {
+      fail_msg_writer() << tr("wrong number range, use: set_log <log_level_number_0-4>");
+      return true;
+    }
 
-  log_space::log_singletone::get_set_log_detalisation_level(true, l);
+    mlog_set_log_level(l);
+  }
+  else
+  {
+    mlog_set_categories(args.front().c_str());
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -1244,7 +1249,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     if (was_deprecated_wallet)
     {
       // The user had used an older version of the wallet with old style mnemonics.
-      message_writer(epee::log_space::console_color_green, false) << "\n" << tr("You had been using "
+      message_writer(console_color_green, false) << "\n" << tr("You had been using "
         "a deprecated version of the wallet. Please use the new seed that we provide.\n");
     }
     mnemonic_language = get_mnemonic_language();
@@ -1268,7 +1273,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   try
   {
     recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random);
-    message_writer(epee::log_space::console_color_white, true) << tr("Generated new wallet: ")
+    message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
   }
@@ -1325,7 +1330,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     {
       m_wallet->generate(m_wallet_file, std::move(rc.second).password(), address, viewkey);
     }
-    message_writer(epee::log_space::console_color_white, true) << tr("Generated new wallet: ")
+    message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   }
   catch (const std::exception& e)
@@ -1356,7 +1361,7 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       return false;
     }
 
-    message_writer(epee::log_space::console_color_white, true) <<
+    message_writer(console_color_white, true) <<
       (m_wallet->watch_only() ? tr("Opened watch-only wallet") : tr("Opened wallet")) << ": "
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     // If the wallet file is deprecated, we should ask for mnemonic language again and store
@@ -1366,7 +1371,7 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
     {
       if (m_wallet->is_deterministic())
       {
-        message_writer(epee::log_space::console_color_green, false) << "\n" << tr("You had been using "
+        message_writer(console_color_green, false) << "\n" << tr("You had been using "
           "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n");
         std::string mnemonic_language = get_mnemonic_language();
         if (mnemonic_language.empty())
@@ -1381,7 +1386,7 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       }
       else
       {
-        message_writer(epee::log_space::console_color_green, false) << "\n" << tr("You had been using "
+        message_writer(console_color_green, false) << "\n" << tr("You had been using "
           "a deprecated version of the wallet. Your wallet file format is being upgraded now.\n");
         m_wallet->rewrite(m_wallet_file, password);
       }
@@ -1558,7 +1563,7 @@ void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
 {
-  message_writer(epee::log_space::console_color_green, false) << "\r" <<
+  message_writer(console_color_green, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(tx) << ", " <<
     tr("received ") << print_money(amount);
@@ -1575,7 +1580,7 @@ void simple_wallet::on_unconfirmed_money_received(uint64_t height, const crypton
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx)
 {
-  message_writer(epee::log_space::console_color_magenta, false) << "\r" <<
+  message_writer(console_color_magenta, false) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(spend_tx) << ", " <<
     tr("spent ") << print_money(amount);
@@ -1587,7 +1592,7 @@ void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transactio
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
 {
-  message_writer(epee::log_space::console_color_red, true) << "\r" <<
+  message_writer(console_color_red, true) << "\r" <<
     tr("Height ") << height << ", " <<
     tr("transaction ") << get_transaction_hash(tx) << ", " <<
     tr("unsupported transaction format");
@@ -1739,7 +1744,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
       std::string verbose_string;
       if (verbose)
         verbose_string = (boost::format("%68s%68s") % td.get_public_key() % (td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : std::string('?', 64))).str();
-      message_writer(td.m_spent ? epee::log_space::console_color_magenta : epee::log_space::console_color_green, false) <<
+      message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
         boost::format("%21s%8s%12s%8s%16u%68s%s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
@@ -3394,7 +3399,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   // print in and out sorted by height
   for (std::map<uint64_t, std::pair<bool, std::string>>::const_iterator i = output.begin(); i != output.end(); ++i) {
-    message_writer(i->second.first ? epee::log_space::console_color_green : epee::log_space::console_color_magenta, false) <<
+    message_writer(i->second.first ? console_color_green : console_color_magenta, false) <<
       boost::format("%8.8llu %6.6s %s") %
       ((unsigned long long)i->first) % (i->second.first ? tr("in") : tr("out")) % i->second.second;
   }
@@ -3604,7 +3609,7 @@ bool simple_wallet::run()
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
   std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
-  message_writer(epee::log_space::console_color_green, false) << "Background refresh thread started";
+  message_writer(console_color_green, false) << "Background refresh thread started";
   return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
 }
 //----------------------------------------------------------------------------------------------------
@@ -4248,6 +4253,7 @@ int main(int argc, char* argv[])
   const bool r = w.init(*vm);
   CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet"));
 
+try{ throw 1; } catch(...){}
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
   if (!command.empty())
   {

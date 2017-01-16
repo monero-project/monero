@@ -909,6 +909,26 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_SET_LOG_CATEGORIES
+  {
+    struct request
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct tx_info
   {
     std::string id_hash;

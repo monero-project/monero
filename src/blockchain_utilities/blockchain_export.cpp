@@ -38,8 +38,11 @@
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+
 namespace po = boost::program_options;
-using namespace epee; // log_space
+using namespace epee;
 
 std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
 {
@@ -122,10 +125,8 @@ int main(int argc, char* argv[])
   log_level    = command_line::get_arg(vm, arg_log_level);
   block_stop = command_line::get_arg(vm, arg_block_stop);
 
-  log_space::get_set_log_detalisation_level(true, log_level);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  mlog_configure("", true);
   LOG_PRINT_L0("Starting...");
-  LOG_PRINT_L0("Setting log level = " << log_level);
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
   bool opt_blocks_dat = command_line::get_arg(vm, arg_blocks_dat);

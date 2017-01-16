@@ -37,9 +37,9 @@ add_executable(net_load_tests_clt
   ${clt_headers})
 target_link_libraries(net_load_tests_clt
   PRIVATE
-    otshell_utils
     p2p
     cryptonote_core
+    epee
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
@@ -58,9 +58,9 @@ add_executable(net_load_tests_srv
   ${srv_headers})
 target_link_libraries(net_load_tests_srv
   PRIVATE
-    otshell_utils
     p2p
     cryptonote_core
+    epee
     ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

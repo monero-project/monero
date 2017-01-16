@@ -41,6 +41,9 @@
 using namespace epee;
 namespace bf = boost::filesystem;
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
+
 static boost::mutex instance_lock;
 
 namespace

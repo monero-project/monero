@@ -39,6 +39,9 @@ using namespace epee;
 #include <sstream>
 #include <random>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "checkpoints"
+
 namespace
 {
   bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
@@ -99,11 +102,11 @@ namespace cryptonote
 
     if(it->second == h)
     {
-      LOG_PRINT_GREEN("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h, LOG_LEVEL_1);
+      MINFO("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h);
       return true;
     }else
     {
-      LOG_ERROR("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH: " << it->second << ", FETCHED HASH: " << h);
+      MWARNING("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH: " << it->second << ", FETCHED HASH: " << h);
       return false;
     }
   }

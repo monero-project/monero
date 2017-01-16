@@ -46,6 +46,9 @@
 //#include "profile_tools.h"
 #include "../string_tools.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
+
 #ifndef MAKE_IP
 #define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
 #endif
@@ -180,19 +183,19 @@ namespace net_utils
 					return true;
 				}else
 				{
-					LOG_PRINT("Some problems at connect, message: " << ec.message(), LOG_LEVEL_3);
+					MWARNING("Some problems at connect, message: " << ec.message());
 					return false;
 				}
 
 			}
 			catch(const boost::system::system_error& er)
 			{
-				LOG_PRINT("Some problems at connect, message: " << er.what(), LOG_LEVEL_4);
+				MDEBUG("Some problems at connect, message: " << er.what());
 				return false;
 			}
 			catch(...)
 			{
-				LOG_PRINT("Some fatal problems.", LOG_LEVEL_4);
+				MDEBUG("Some fatal problems.");
 				return false;
 			}
 
@@ -387,20 +390,20 @@ namespace net_utils
 
 				if (ec)
 				{
-                    LOG_PRINT_L4("READ ENDS: Connection err_code " << ec.value());
+                    MTRACE("READ ENDS: Connection err_code " << ec.value());
                     if(ec == boost::asio::error::eof)
                     {
-                      LOG_PRINT_L4("Connection err_code eof.");
+                      MTRACE("Connection err_code eof.");
                       //connection closed there, empty
                       return true;
                     }
 
-					LOG_PRINT_L3("Problems at read: " << ec.message());
+					MDEBUG("Problems at read: " << ec.message());
                     m_connected = false;
 					return false;
 				}else
 				{
-                    LOG_PRINT_L4("READ ENDS: Success. bytes_tr: " << bytes_transfered);
+                    MTRACE("READ ENDS: Success. bytes_tr: " << bytes_transfered);
 					m_deadline.expires_at(boost::posix_time::pos_infin);
 				}
 

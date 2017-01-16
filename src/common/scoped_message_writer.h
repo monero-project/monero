@@ -34,20 +34,23 @@
 namespace tools
 {
 
+/************************************************************************/
+/*                                                                      */
+/************************************************************************/
 class scoped_message_writer
 {
 private:
   bool m_flush;
   std::stringstream m_oss;
-  epee::log_space::console_colors m_color;
+  epee::console_colors m_color;
   bool m_bright;
-  int m_log_level;
+  el::Level m_log_level;
 public:
   scoped_message_writer(
-      epee::log_space::console_colors color = epee::log_space::console_color_default
+      epee::console_colors color = epee::console_color_default
     , bool bright = false
     , std::string&& prefix = std::string()
-    , int log_level = LOG_LEVEL_2
+    , el::Level log_level = el::Level::Info
     )
     : m_flush(true)
     , m_color(color)
@@ -88,17 +91,17 @@ public:
     {
       m_flush = false;
 
-      LOG_PRINT(m_oss.str(), m_log_level);
+      MCLOG(m_log_level, "msgwriter", m_oss.str());
 
-      if (epee::log_space::console_color_default == m_color)
+      if (epee::console_color_default == m_color)
       {
         std::cout << m_oss.str();
       }
       else
       {
-        epee::log_space::set_console_color(m_color, m_bright);
+        set_console_color(m_color, m_bright);
         std::cout << m_oss.str();
-        epee::log_space::reset_console_color();
+        epee::reset_console_color();
       }
       std::cout << std::endl;
     }
@@ -107,17 +110,17 @@ public:
 
 inline scoped_message_writer success_msg_writer()
 {
-  return scoped_message_writer(epee::log_space::console_color_green, false, std::string(), LOG_LEVEL_2);
+  return scoped_message_writer(epee::console_color_green, false, std::string(), el::Level::Info);
 }
 
-inline scoped_message_writer msg_writer(epee::log_space::console_colors color = epee::log_space::console_color_default)
+inline scoped_message_writer msg_writer(epee::console_colors color = epee::console_color_default)
 {
-  return scoped_message_writer(color, false, std::string(), LOG_LEVEL_2);
+  return scoped_message_writer(color, false, std::string(), el::Level::Info);
 }
 
 inline scoped_message_writer fail_msg_writer()
 {
-  return scoped_message_writer(epee::log_space::console_color_red, true, "Error: ", LOG_LEVEL_0);
+  return scoped_message_writer(epee::console_color_red, true, "Error: ", el::Level::Error);
 }
 
 } // namespace tools

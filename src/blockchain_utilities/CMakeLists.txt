@@ -72,6 +72,7 @@ target_link_libraries(blockchain_import
     cryptonote_core
     blockchain_db
     p2p
+    epee
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
@@ -98,6 +99,7 @@ target_link_libraries(blockchain_export
     cryptonote_core
     blockchain_db
     p2p
+    epee
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
@@ -118,6 +120,7 @@ target_link_libraries(cn_deserialize
   LINK_PRIVATE
     cryptonote_core
 	p2p
+    epee
     ${CMAKE_THREAD_LIBS_INIT})
 
 add_dependencies(cn_deserialize

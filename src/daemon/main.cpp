@@ -47,6 +47,9 @@
 #include "common/stack_trace.h"
 #endif // STACK_TRACE
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
 
@@ -54,7 +57,6 @@ int main(int argc, char const * argv[])
 {
   try {
 
-    _note_c("dbg/main", "Begin of main()");
     // TODO parse the debug options like set log level right here at start
 
     tools::sanitize_locale();
@@ -79,7 +81,6 @@ int main(int argc, char const * argv[])
       bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
       command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
-      cryptonote::core::init_options(core_settings);
 
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
@@ -196,6 +197,23 @@ int main(int argc, char const * argv[])
     }
     po::notify(vm);
 
+    // log_file_path
+    //   default: <data_dir>/<CRYPTONOTE_NAME>.log
+    //   if log-file argument given:
+    //     absolute path
+    //     relative path: relative to data_dir
+    bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
+    if (! vm["log-file"].defaulted())
+      log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
+    log_file_path = bf::absolute(log_file_path, relative_path_base);
+    mlog_configure(log_file_path.string(), true);
+
+    // Set log level
+    if (!vm["log-level"].defaulted())
+    {
+      mlog_set_log(command_line::get_arg(vm, daemon_args::arg_log_level).c_str());
+    }
+
     // If there are positional options, we're running a daemon command
     {
       auto command = command_line::get_arg(vm, daemon_args::arg_command);
@@ -236,55 +254,17 @@ int main(int argc, char const * argv[])
       }
     }
 
-    // Start with log level 0
-    epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_0);
-
-    // Set log level
-    {
-      int new_log_level = command_line::get_arg(vm, daemon_args::arg_log_level);
-      if(new_log_level < LOG_LEVEL_MIN || new_log_level > LOG_LEVEL_MAX)
-      {
-        LOG_PRINT_L0("Wrong log level value: " << new_log_level);
-      }
-      else if (epee::log_space::get_set_log_detalisation_level(false) != new_log_level)
-      {
-        epee::log_space::get_set_log_detalisation_level(true, new_log_level);
-        int otshell_utils_log_level = 100 - (new_log_level * 20);
-        gCurrentLogger.setDebugLevel(otshell_utils_log_level);
-        LOG_PRINT_L0("LOG_LEVEL set to " << new_log_level);
-      }
-    }
-
-    // log_file_path
-    //   default: <data_dir>/<CRYPTONOTE_NAME>.log
-    //   if log-file argument given:
-    //     absolute path
-    //     relative path: relative to data_dir
-
-    // Set log file
-    {
-      bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
-      if (! vm["log-file"].defaulted())
-        log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
-      log_file_path = bf::absolute(log_file_path, relative_path_base);
-
-      epee::log_space::log_singletone::add_logger(
-          LOGGER_FILE
-        , log_file_path.filename().string().c_str()
-        , log_file_path.parent_path().string().c_str()
-        );
 #ifdef STACK_TRACE
-      tools::set_stack_trace_log(log_file_path.filename().string());
+    tools::set_stack_trace_log(log_file_path.filename().string());
 #endif // STACK_TRACE
-    }
 
     if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     // logging is now set up
-    LOG_PRINT_L0("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
+    MGINFO("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
 
-    _note_c("dbg/main", "Moving from main() into the daemonize now.");
+    MINFO("Moving from main() into the daemonize now.");
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{}, vm);
   }

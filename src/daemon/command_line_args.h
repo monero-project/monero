@@ -46,10 +46,10 @@ namespace daemon_args
   , "Specify log file"
   , ""
   };
-  const command_line::arg_descriptor<int> arg_log_level = {
+  const command_line::arg_descriptor<std::string> arg_log_level = {
     "log-level"
   , ""
-  , LOG_LEVEL_0
+  , ""
   };
   const command_line::arg_descriptor<std::vector<std::string>> arg_command = {
     "daemon_command"

@@ -42,6 +42,9 @@
 #include "net_utils_base.h"
 #include "pragma_comp_defs.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
+
 #define LEVIN_DEFAULT_DATA_BUFF_SIZE       2000  
 
 namespace epee

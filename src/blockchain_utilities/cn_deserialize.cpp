@@ -33,8 +33,11 @@
 #include "common/command_line.h"
 #include "version.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+
 namespace po = boost::program_options;
-using namespace epee; // log_space
+using namespace epee;
 
 using namespace cryptonote;
 
@@ -87,8 +90,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  log_space::get_set_log_detalisation_level(true, log_level);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
+  mlog_configure("", true);
 
   std::string m_config_folder;
 

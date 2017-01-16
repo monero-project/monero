@@ -33,6 +33,9 @@
 #include "misc_log_ex.h"
 #include "daemon/command_line_args.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize
 {
 
@@ -68,12 +71,12 @@ public:
   bool run()
   {
     //initialize core here
-    LOG_PRINT_L0("Initializing core...");
+    MGINFO("Initializing core...");
     if (!m_core.init(m_vm_HACK))
     {
       return false;
     }
-    LOG_PRINT_L0("Core initialized OK");
+    MGINFO("Core initialized OK");
     return true;
   }
 
@@ -84,12 +87,12 @@ public:
 
   ~t_core()
   {
-    LOG_PRINT_L0("Deinitializing core...");
+    MGINFO("Deinitializing core...");
     try {
       m_core.deinit();
       m_core.set_cryptonote_protocol(nullptr);
     } catch (...) {
-      LOG_PRINT_L0("Failed to deinitialize core...");
+      MERROR("Failed to deinitialize core...");
     }
   }
 };

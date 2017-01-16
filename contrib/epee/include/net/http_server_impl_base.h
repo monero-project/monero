@@ -36,6 +36,9 @@
 #include "net/http_server_cp2.h"
 #include "net/http_server_handlers_map2.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 namespace epee
 {
 
@@ -79,15 +82,14 @@ namespace epee
     bool run(size_t threads_count, bool wait = true)
     {
       //go to loop
-      LOG_PRINT("Run net_service loop( " << threads_count << " threads)...", LOG_LEVEL_0);
-      _fact_c("net/RPClog", "Run net_service loop( " << threads_count << " threads)...");
+      MINFO("Run net_service loop( " << threads_count << " threads)...");
       if(!m_net_server.run_server(threads_count, wait))
       {
         LOG_ERROR("Failed to run net tcp server!");
       }
 
       if(wait)
-        LOG_PRINT("net_service loop stopped.", LOG_LEVEL_0);
+        MINFO("net_service loop stopped.");
       return true;
     }
 

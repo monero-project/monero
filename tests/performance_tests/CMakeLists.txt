@@ -54,6 +54,7 @@ target_link_libraries(performance_tests
     cryptonote_core
     common
     crypto
+    epee
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

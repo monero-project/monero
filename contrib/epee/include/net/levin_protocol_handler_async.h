@@ -38,6 +38,8 @@
 #include <random>
 #include <chrono>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 namespace epee
 {
@@ -151,7 +153,7 @@ public:
         {
           if(ec == boost::asio::error::operation_aborted)
             return;
-          LOG_PRINT_CC(con.get_context_ref(), "Timeout on invoke operation happened, command: " << command, LOG_LEVEL_2);
+          MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command);
           std::string fake;
           cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
           con.close();
@@ -244,15 +246,15 @@ public:
     }
     CHECK_AND_ASSERT_MES_NO_RET(0 == boost::interprocess::ipcdetail::atomic_read32(&m_wait_count), "Failed to wait for operation completion. m_wait_count = " << m_wait_count);
 
-    LOG_PRINT_CC(m_connection_context, "~async_protocol_handler()", LOG_LEVEL_4);
+    MTRACE(m_connection_context << "~async_protocol_handler()");
   }
 
   bool start_outer_call()
   {
-    LOG_PRINT_CC_L4(m_connection_context, "[levin_protocol] -->> start_outer_call");
+    MTRACE(m_connection_context << "[levin_protocol] -->> start_outer_call");
     if(!m_pservice_endpoint->add_ref())
     {
-      LOG_PRINT_CC_RED(m_connection_context, "[levin_protocol] -->> start_outer_call failed", LOG_LEVEL_4);
+      MERROR(m_connection_context << "[levin_protocol] -->> start_outer_call failed");
       return false;
     }
     boost::interprocess::ipcdetail::atomic_inc32(&m_wait_count);
@@ -260,7 +262,7 @@ public:
   }
   bool finish_outer_call()
   {
-    LOG_PRINT_CC_L4(m_connection_context, "[levin_protocol] <<-- finish_outer_call");
+    MTRACE(m_connection_context << "[levin_protocol] <<-- finish_outer_call");
     boost::interprocess::ipcdetail::atomic_dec32(&m_wait_count);
     m_pservice_endpoint->release();
     return true;
@@ -316,13 +318,13 @@ public:
 
     if(!m_config.m_pcommands_handler)
     {
-      LOG_ERROR_CC(m_connection_context, "Commands handler not set!");
+      MERROR(m_connection_context << "Commands handler not set!");
       return false;
     }
 
     if(m_cache_in_buffer.size() +  cb > m_config.m_max_packet_size)
     {
-      LOG_ERROR_CC(m_connection_context, "Maximum packet size exceed!, m_max_packet_size = " << m_config.m_max_packet_size 
+      MWARNING(m_connection_context << "Maximum packet size exceed!, m_max_packet_size = " << m_config.m_max_packet_size
                           << ", packet received " << m_cache_in_buffer.size() +  cb 
                           << ", connection will be closed.");
       return false;
@@ -353,7 +355,7 @@ public:
 
           bool is_response = (m_oponent_protocol_ver == LEVIN_PROTOCOL_VER_1 && m_current_head.m_flags&LEVIN_PACKET_RESPONSE);
 
-          LOG_PRINT_CC_L4(m_connection_context, "LEVIN_PACKET_RECIEVED. [len=" << m_current_head.m_cb 
+          MDEBUG(m_connection_context << "LEVIN_PACKET_RECIEVED. [len=" << m_current_head.m_cb
             << ", flags" << m_current_head.m_flags 
             << ", r?=" << m_current_head.m_have_to_return_data 
             <<", cmd = " << m_current_head.m_command 
@@ -381,7 +383,7 @@ public:
               //use sync call scenario
               if(!boost::interprocess::ipcdetail::atomic_read32(&m_wait_count) && !boost::interprocess::ipcdetail::atomic_read32(&m_close_called))
               {
-                LOG_ERROR_CC(m_connection_context, "no active invoke when response came, wtf?");
+                MERROR(m_connection_context << "no active invoke when response came, wtf?");
                 return false;
               }else
               {
@@ -413,7 +415,7 @@ public:
               if(!m_pservice_endpoint->do_send(send_buff.data(), send_buff.size()))
                 return false;
               CRITICAL_REGION_END();
-              LOG_PRINT_CC_L4(m_connection_context, "LEVIN_PACKET_SENT. [len=" << m_current_head.m_cb 
+              MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << m_current_head.m_cb
                 << ", flags" << m_current_head.m_flags 
                 << ", r?=" << m_current_head.m_have_to_return_data 
                 <<", cmd = " << m_current_head.m_command 
@@ -431,7 +433,7 @@ public:
           {
             if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.data()) != LEVIN_SIGNATURE)
             {
-              LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
+              MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
               return false;
             }
             is_continue = false;
@@ -585,7 +587,7 @@ public:
     }
     CRITICAL_REGION_END();
 
-    LOG_PRINT_CC_L4(m_connection_context, "LEVIN_PACKET_SENT. [len=" << head.m_cb 
+    MDEBUG(m_connection_context << "LEVIN_PACKET_SENT. [len=" << head.m_cb
                             << ", f=" << head.m_flags 
                             << ", r?=" << head.m_have_to_return_data 
                             << ", cmd = " << head.m_command 
@@ -597,7 +599,7 @@ public:
     {
       if(misc_utils::get_tick_count() - ticks_start > m_config.m_invoke_timeout)
       {
-        LOG_PRINT_CC_L2(m_connection_context, "invoke timeout (" << m_config.m_invoke_timeout << "), closing connection ");
+        MWARNING(m_connection_context << "invoke timeout (" << m_config.m_invoke_timeout << "), closing connection ");
         close();
         return LEVIN_ERROR_CONNECTION_TIMEDOUT;
       }
@@ -650,7 +652,7 @@ public:
       return -1;
     }
     CRITICAL_REGION_END();
-    LOG_PRINT_CC_L4(m_connection_context, "LEVIN_PACKET_SENT. [len=" << head.m_cb << 
+    LOG_DEBUG_CC(m_connection_context, "LEVIN_PACKET_SENT. [len=" << head.m_cb <<
       ", f=" << head.m_flags << 
       ", r?=" << head.m_have_to_return_data <<
       ", cmd = " << head.m_command << 

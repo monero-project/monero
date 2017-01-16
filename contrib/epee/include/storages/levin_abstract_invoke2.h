@@ -30,6 +30,9 @@
 #include <boost/utility/value_init.hpp>
 #include "net/levin_base.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
+
 namespace epee
 {
   namespace net_utils
@@ -48,7 +51,7 @@ namespace epee
       int res = transport.invoke(command, buff_to_send, buff_to_recv);
       if( res <=0 )
       {
-        LOG_PRINT_RED("Failed to invoke command " << command << " return code " << res, LOG_LEVEL_1);
+        MERROR("Failed to invoke command " << command << " return code " << res);
         return false;
       }
       serialization::portable_storage stg_ret;
@@ -154,7 +157,7 @@ namespace epee
       int res = transport.notify(command, buff_to_send, conn_id);
       if(res <=0 )
       {
-        LOG_PRINT_RED_L0("Failed to notify command " << command << " return code " << res);
+        MERROR("Failed to notify command " << command << " return code " << res);
         return false;
       }
       return true;
