@@ -914,7 +914,7 @@ namespace cryptonote
 
         if (m_core.get_current_blockchain_height() > previous_height)
         {
-          MGINFO_YELLOW("Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height());
+          MGINFO_YELLOW(context << " Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height());
         }
       } // if not DISCARD BLOCK
 

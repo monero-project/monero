@@ -216,7 +216,7 @@ namespace
 int main(int argc, char** argv)
 {
   //set up logging options
-  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
+  mlog_configure(mlog_get_default_log_path("net_load_tests_srv.log"), true);
 
   size_t thread_count = (std::max)(min_thread_count, std::thread::hardware_concurrency() / 2);
 

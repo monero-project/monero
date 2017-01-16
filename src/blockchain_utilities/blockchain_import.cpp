@@ -722,7 +722,7 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
-  mlog_configure("", true);
+  mlog_configure("monero-blockchain-import", true);
   MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
