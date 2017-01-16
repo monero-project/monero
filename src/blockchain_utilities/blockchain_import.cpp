@@ -472,7 +472,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
             uint8_t version = simple_core.m_storage.get_current_hard_fork_version();
             tx_verification_context tvc = AUTO_VAL_INIT(tvc);
             bool r = true;
-            r = simple_core.m_pool.add_tx(tx, tvc, true, true, version);
+            r = simple_core.m_pool.add_tx(tx, tvc, true, true, false, version);
             if (!r)
             {
               LOG_PRINT_RED_L0("failed to add transaction to transaction pool, height=" << h <<", tx_num=" << tx_num);
