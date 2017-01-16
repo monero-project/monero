@@ -34,6 +34,7 @@ set(wallet_sources
   password_container.cpp
   wallet2.cpp
   wallet_args.cpp
+  node_rpc_proxy.cpp
   api/wallet.cpp
   api/wallet_manager.cpp
   api/transaction_info.cpp
@@ -55,6 +56,7 @@ set(wallet_private_headers
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
+  node_rpc_proxy.h
   api/wallet.h
   api/wallet_manager.h
   api/transaction_info.h
