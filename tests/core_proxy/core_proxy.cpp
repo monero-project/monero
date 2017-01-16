@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
+  mlog_configure(mlog_get_default_log_path("core_proxy.log"), true);
   mlog_set_log_level(2);
 
 
