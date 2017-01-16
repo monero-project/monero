@@ -1001,7 +1001,11 @@ namespace el {
                                     public:
                                         Mutex(void) {
 #   if ELPP_OS_UNIX
-                                            pthread_mutex_init(&m_underlyingMutex, nullptr);
+                                            pthread_mutexattr_t attr;
+                                            pthread_mutexattr_init(&attr);
+                                            pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+                                            pthread_mutex_init(&m_underlyingMutex, &attr);
+                                            pthread_mutexattr_destroy(&attr);
 #   elif ELPP_OS_WINDOWS
                                             InitializeCriticalSection(&m_underlyingMutex);
 #   endif  // ELPP_OS_UNIX
