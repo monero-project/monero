@@ -31,6 +31,9 @@
 #include "storages/portable_storage.h"
 #include "storages/portable_storage_template_helper.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 
 #define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(const epee::net_utils::http::http_request_info& query_info, \
               epee::net_utils::http::http_response_info& response, \
@@ -77,7 +80,7 @@
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
       response_info.m_mime_tipe = "application/json"; \
       response_info.m_header_info.m_content_type = " application/json"; \
-      LOG_PRINT( s_pattern << " processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms", LOG_LEVEL_2); \
+      MDEBUG( s_pattern << " processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
     }
 
 #define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
@@ -104,7 +107,7 @@
       uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
       response_info.m_mime_tipe = " application/octet-stream"; \
       response_info.m_header_info.m_content_type = " application/octet-stream"; \
-      LOG_PRINT( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms", LOG_LEVEL_2); \
+      MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
     }
 
 #define CHAIN_URI_MAP2(callback) else {callback(query_info, response_info, m_conn_context);handled = true;}
@@ -166,7 +169,7 @@
   uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
   response_info.m_mime_tipe = "application/json"; \
   response_info.m_header_info.m_content_type = " application/json"; \
-  LOG_PRINT( query_info.m_URI << "[" << method_name << "] processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms", LOG_LEVEL_2);
+  MDEBUG( query_info.m_URI << "[" << method_name << "] processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms");
 
 #define MAP_JON_RPC_WE_IF(method_name, callback_f, command_type, cond) \
     else if((callback_name == method_name) && (cond)) \

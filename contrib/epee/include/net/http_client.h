@@ -52,6 +52,9 @@
 
 //#pragma comment(lib, "shlwapi.lib")
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 extern epee::critical_section gregexp_lock;
 
 
@@ -156,6 +159,17 @@ using namespace std;
 
 		return csTmp;
 	}
+	static inline int get_index(const char *s, char c) { const char *ptr = (const char*)memchr(s, c, 16); return ptr ? ptr-s : -1; }
+	static inline 
+		std::string hex_to_dec_2bytes(const char *s)
+	{
+		const char *hex = get_hex_vals();
+		int i0 = get_index(hex, toupper(s[0]));
+		int i1 = get_index(hex, toupper(s[1]));
+		if (i0 < 0 || i1 < 0)
+			return std::string("%") + std::string(1, s[0]) + std::string(1, s[1]);
+		return std::string(1, i0 * 16 | i1);
+	}
 
 	static inline std::string convert(char val)
 	{
@@ -173,6 +187,25 @@ using namespace std;
 		{
 			if(is_unsafe(uri[i]))
 				result += convert(uri[i]);
+			else
+				result += uri[i];
+
+		}
+
+		return result;
+	}
+	static inline std::string convert_from_url_format(const std::string& uri)
+	{
+
+		std::string result;
+
+		for(size_t i = 0; i!= uri.size(); i++)
+		{
+			if(uri[i] == '%' && i + 2 < uri.size())
+			{
+				result += hex_to_dec_2bytes(uri.c_str() + i + 1);
+				i += 2;
+			}
 			else
 				result += uri[i];
 
@@ -295,10 +328,10 @@ using namespace std;
 				CRITICAL_REGION_LOCAL(m_lock);
 				if(!is_connected())
 				{
-					LOG_PRINT("Reconnecting...", LOG_LEVEL_3);
+					MDEBUG("Reconnecting...");
 					if(!connect(m_host_buff, m_port, m_timeout))
 					{
-						LOG_PRINT("Failed to connect to " << m_host_buff << ":" << m_port, LOG_LEVEL_3);
+						MDEBUG("Failed to connect to " << m_host_buff << ":" << m_port);
 						return false;
 					}
 				}
@@ -346,7 +379,7 @@ using namespace std;
 					{
 						if(!m_net_client.recv(recv_buffer))
 						{
-							LOG_PRINT("Unexpected reciec fail", LOG_LEVEL_3);
+							MERROR("Unexpected recv fail");
 							m_state = reciev_machine_state_error;
             }
             if(!recv_buffer.size())
@@ -434,7 +467,7 @@ using namespace std;
 				CRITICAL_REGION_LOCAL(m_lock);
 				if(!recv_buff.size())
 				{
-					LOG_PRINT("Warning: Content-Len mode, but connection unexpectedly closed", LOG_LEVEL_3);
+					MERROR("Warning: Content-Len mode, but connection unexpectedly closed");
 					m_state = reciev_machine_state_done;
 					return true;
 				}
@@ -548,7 +581,7 @@ using namespace std;
         CRITICAL_REGION_LOCAL(m_lock);
 				if(!recv_buff.size())
 				{
-					LOG_PRINT("Warning: CHUNKED mode, but connection unexpectedly closed", LOG_LEVEL_3);
+					MERROR("Warning: CHUNKED mode, but connection unexpectedly closed");
 					m_state = reciev_machine_state_done;
 					return true;
 				}
@@ -635,7 +668,7 @@ using namespace std;
 			inline
 				bool parse_header(http_header_info& body_info, const std::string& m_cache_to_process)
 			{ 
-				LOG_FRAME("http_stream_filter::parse_cached_header(*)", LOG_LEVEL_4);
+				MTRACE("http_stream_filter::parse_cached_header(*)");
 				
 				STATIC_REGEXP_EXPR_1(rexp_mach_field, 
 					"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)"
@@ -803,7 +836,7 @@ using namespace std;
 				}else
 				{   //Apparently there are no signs of the form of transfer, will receive data until the connection is closed
 					m_state = reciev_machine_state_error;
-					LOG_PRINT("Undefinded transfer type, consider http_body_transfer_connection_close method. header: " << m_header_cache, LOG_LEVEL_2);
+					MERROR("Undefinded transfer type, consider http_body_transfer_connection_close method. header: " << m_header_cache);
 					return false;
 				} 
 				return false;

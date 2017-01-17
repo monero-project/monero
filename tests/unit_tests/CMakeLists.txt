@@ -35,6 +35,7 @@ set(unit_tests_sources
   canonical_amounts.cpp
   chacha8.cpp
   checkpoints.cpp
+  command_line.cpp
   decompose_amount_into_digits.cpp
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
@@ -42,6 +43,7 @@ set(unit_tests_sources
   fee.cpp
   get_xtype_from_string.cpp
   json_serialization.cpp
+  http_auth.cpp
   main.cpp
   mnemonics.cpp
   mul_div.cpp
@@ -54,6 +56,7 @@ set(unit_tests_sources
   thread_group.cpp
   hardfork.cpp
   unbound.cpp
+  uri.cpp
   varint.cpp
   ringct.cpp
   output_selection.cpp)
@@ -73,6 +76,7 @@ target_link_libraries(unit_tests
     serialization
     wallet
     p2p
+    epee
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

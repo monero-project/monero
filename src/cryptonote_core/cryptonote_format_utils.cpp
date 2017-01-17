@@ -39,6 +39,9 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+
 #define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
 
 static const uint64_t valid_decomposed_outputs[] = {
@@ -320,26 +323,26 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra)
+  crypto::public_key get_tx_pub_key_from_extra(const std::vector<uint8_t>& tx_extra, size_t pk_index)
   {
     std::vector<tx_extra_field> tx_extra_fields;
     parse_tx_extra(tx_extra, tx_extra_fields);
 
     tx_extra_pub_key pub_key_field;
-    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field))
+    if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index))
       return null_pkey;
 
     return pub_key_field.pub_key;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const transaction_prefix& tx_prefix)
+  crypto::public_key get_tx_pub_key_from_extra(const transaction_prefix& tx_prefix, size_t pk_index)
   {
-    return get_tx_pub_key_from_extra(tx_prefix.extra);
+    return get_tx_pub_key_from_extra(tx_prefix.extra, pk_index);
   }
   //---------------------------------------------------------------
-  crypto::public_key get_tx_pub_key_from_extra(const transaction& tx)
+  crypto::public_key get_tx_pub_key_from_extra(const transaction& tx, size_t pk_index)
   {
-    return get_tx_pub_key_from_extra(tx.extra);
+    return get_tx_pub_key_from_extra(tx.extra, pk_index);
   }
   //---------------------------------------------------------------
   bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key)
@@ -368,6 +371,8 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
+    if (tx_extra.empty())
+      return true;
     std::string extra_str(reinterpret_cast<const char*>(tx_extra.data()), tx_extra.size());
     std::istringstream iss(extra_str);
     binary_archive<false> ar(iss);
@@ -534,8 +539,10 @@ namespace cryptonote
 
     uint64_t summary_inputs_money = 0;
     //fill inputs
+    int idx = -1;
     BOOST_FOREACH(const tx_source_entry& src_entr,  sources)
     {
+      ++idx;
       if(src_entr.real_output >= src_entr.outputs.size())
       {
         LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
@@ -553,9 +560,11 @@ namespace cryptonote
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
       {
-        LOG_ERROR("derived public key missmatch with output public key! "<< ENDL << "derived_key:"
+        LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! "<< ENDL << "derived_key:"
           << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
           << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second) );
+        LOG_ERROR("amount " << src_entr.amount << ", rct " << src_entr.rct);
+        LOG_ERROR("tx pubkey " << src_entr.real_out_tx_key << ", real_output_in_tx_index " << src_entr.real_output_in_tx_index);
         return false;
       }
 
@@ -619,7 +628,7 @@ namespace cryptonote
       zero_secret_key &= (sender_account_keys.m_spend_secret_key.data[i] == 0);
     if (zero_secret_key)
     {
-      LOG_PRINT_L1("Null secret key, skipping signatures");
+      MDEBUG("Null secret key, skipping signatures");
     }
 
     if (tx.version == 1)
@@ -655,7 +664,7 @@ namespace cryptonote
         i++;
       }
 
-      LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str() , LOG_LEVEL_3);
+      MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL << ss_ring_s.str());
     }
     else
     {
@@ -760,7 +769,7 @@ namespace cryptonote
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
 
-      LOG_PRINT2("construct_tx.log", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL, LOG_LEVEL_3);
+      MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL);
     }
 
     return true;

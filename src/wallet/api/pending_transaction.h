@@ -35,7 +35,7 @@
 #include <vector>
 
 
-namespace Bitmonero {
+namespace Monero {
 
 class WalletImpl;
 class PendingTransactionImpl : public PendingTransaction
@@ -45,7 +45,7 @@ public:
     ~PendingTransactionImpl();
     int status() const;
     std::string errorString() const;
-    bool commit();
+    bool commit(const std::string &filename = "", bool overwrite = false);
     uint64_t amount() const;
     uint64_t dust() const;
     uint64_t fee() const;
@@ -64,3 +64,5 @@ private:
 
 
 }
+
+namespace Bitmonero = Monero;

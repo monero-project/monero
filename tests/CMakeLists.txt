@@ -62,6 +62,14 @@ else ()
         FOLDER "${folder}")
 endif ()
 
+file(COPY
+  data/wallet_9svHk1.keys
+  data/wallet_9svHk1
+  data/outputs
+  data/unsigned_monero_tx
+  data/signed_monero_tx
+  DESTINATION data)
+
 add_subdirectory(core_tests)
 add_subdirectory(crypto)
 add_subdirectory(functional_tests)

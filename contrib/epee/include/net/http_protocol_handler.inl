@@ -33,6 +33,9 @@
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 #define HTTP_MAX_URI_LEN		 9000 
 #define HTTP_MAX_HEADER_LEN		 100000
 
@@ -133,7 +136,7 @@ namespace net_utils
 			std::string boundary;
 			if(!match_boundary(content_type, boundary))
 			{
-				LOG_PRINT("Failed to match boundary in content type: " << content_type, LOG_LEVEL_0);
+				MERROR("Failed to match boundary in content type: " << content_type);
 				return false;
 			}
 			
@@ -155,7 +158,7 @@ namespace net_utils
 					pos = body.find(boundary, std::distance(body.begin(), it_begin));
 					if(std::string::npos == pos)
 					{
-						LOG_PRINT("Error: Filed to match closing multipart tag", LOG_LEVEL_0);
+						MERROR("Error: Filed to match closing multipart tag");
 						it_end = body.end();
 					}else
 					{
@@ -177,7 +180,7 @@ namespace net_utils
 				out_values.push_back(multipart_entry());
 				if(!handle_part_of_multipart(it_begin, it_end, out_values.back()))
 				{
-					LOG_PRINT("Failed to handle_part_of_multipart", LOG_LEVEL_0);
+					MERROR("Failed to handle_part_of_multipart");
 					return false;
 				}
 
@@ -331,8 +334,6 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::handle_invoke_query_line()
 	{ 
-		LOG_FRAME("simple_http_connection_handler<t_connection_context>::handle_recognize_protocol_out(*)", LOG_LEVEL_3);
-
 		STATIC_REGEXP_EXPR_1(rexp_match_command_line, "^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+).(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
 		//											    123         4     5      6      7     8        9        10          11     12    
 		//size_t match_len = 0;
@@ -378,8 +379,6 @@ namespace net_utils
 	bool simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(size_t pos)
 	{ 
 		//LOG_PRINT_L4("HTTP HEAD:\r\n" << m_cache.substr(0, pos));
-
-		LOG_FRAME("simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(*)", LOG_LEVEL_3);
 
 		m_query_info.m_full_request_buf_size = pos;
     m_query_info.m_request_head.assign(m_cache.begin(), m_cache.begin()+pos); 
@@ -479,8 +478,6 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
 	{ 
-		LOG_FRAME("http_stream_filter::parse_cached_header(*)", LOG_LEVEL_3);
-
 		STATIC_REGEXP_EXPR_1(rexp_mach_field, 
 			"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)"
 			//  12            3         4                5              6                   7                  8      9        10
@@ -576,7 +573,7 @@ namespace net_utils
 		m_config.m_lock.unlock();
 		if(!file_io_utils::load_file_to_string(destination_file_path.c_str(), response.m_body))
 		{
-			LOG_PRINT("URI \""<< query_info.m_full_request_str.substr(0, query_info.m_full_request_str.size()-2) << "\" [" << destination_file_path << "] Not Found (404 )" , LOG_LEVEL_1);
+			MWARNING("URI \""<< query_info.m_full_request_str.substr(0, query_info.m_full_request_str.size()-2) << "\" [" << destination_file_path << "] Not Found (404 )");
 			response.m_body = get_not_found_response_body(query_info.m_URI);
 			response.m_response_code = 404;
 			response.m_response_comment = "Not found";
@@ -584,7 +581,7 @@ namespace net_utils
 			return true;
 		}
 
-		LOG_PRINT(" -->> " << query_info.m_full_request_str << "\r\n<<--OK" , LOG_LEVEL_3);
+		MDEBUG(" -->> " << query_info.m_full_request_str << "\r\n<<--OK");
 		response.m_response_code = 200;
 		response.m_response_comment = "OK";
 		response.m_mime_tipe = get_file_mime_tipe(uri_to_path);

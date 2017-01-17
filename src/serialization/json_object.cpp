@@ -979,51 +979,51 @@ void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig)
   }
 }
 
-void toJsonValue(rapidjson::Document& doc, const rct::asnlSig& sig, rapidjson::Value& val)
+void toJsonValue(rapidjson::Document& doc, const rct::boroSig& sig, rapidjson::Value& val)
 {
   val.SetObject();
 
-  std::vector<rct::key> keyVector(sig.L1, std::end(sig.L1));
-  INSERT_INTO_JSON_OBJECT(val, doc, L1, sig.L1);
+  std::vector<rct::key> keyVector(sig.s0, std::end(sig.s0));
+  INSERT_INTO_JSON_OBJECT(val, doc, s0, sig.s0);
 
-  keyVector.assign(sig.s2, std::end(sig.s2));
-  INSERT_INTO_JSON_OBJECT(val, doc, s2, sig.s2);
+  keyVector.assign(sig.s1, std::end(sig.s1));
+  INSERT_INTO_JSON_OBJECT(val, doc, s1, sig.s1);
 
-  INSERT_INTO_JSON_OBJECT(val, doc, s, sig.s);
+  INSERT_INTO_JSON_OBJECT(val, doc, ee, sig.ee);
 }
 
-void fromJsonValue(const rapidjson::Value& val, rct::asnlSig& sig)
+void fromJsonValue(const rapidjson::Value& val, rct::boroSig& sig)
 {
   if (!val.IsObject())
   {
     throw WRONG_TYPE("json object");
   }
 
-  OBJECT_HAS_MEMBER_OR_THROW(val, "L1")
+  OBJECT_HAS_MEMBER_OR_THROW(val, "s0")
   std::vector<rct::key> keyVector;
-  cryptonote::json::fromJsonValue(val["L1"], keyVector);
+  cryptonote::json::fromJsonValue(val["s0"], keyVector);
   if (!(keyVector.size() == 64))
   {
     throw WRONG_TYPE("key64 (rct::key[64])");
   }
   for (size_t i=0; i < 64; i++)
   {
-    sig.L1[i] = keyVector[i];
+    sig.s0[i] = keyVector[i];
   }
 
-  OBJECT_HAS_MEMBER_OR_THROW(val, "s2")
+  OBJECT_HAS_MEMBER_OR_THROW(val, "s1")
   keyVector.clear();
-  cryptonote::json::fromJsonValue(val["s2"], keyVector);
+  cryptonote::json::fromJsonValue(val["s1"], keyVector);
   if (!(keyVector.size() == 64))
   {
     throw WRONG_TYPE("key64 (rct::key[64])");
   }
   for (size_t i=0; i < 64; i++)
   {
-    sig.s2[i] = keyVector[i];
+    sig.s1[i] = keyVector[i];
   }
 
-  GET_FROM_JSON_OBJECT(val, sig.s, s);
+  GET_FROM_JSON_OBJECT(val, sig.ee, ee);
 }
 
 void toJsonValue(rapidjson::Document& doc, const rct::mgSig& sig, rapidjson::Value& val)

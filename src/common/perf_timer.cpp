@@ -28,18 +28,22 @@
 
 #include "perf_timer.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "perf"
+
 namespace tools
 {
 
-int performance_timer_log_level = 2;
+el::Level performance_timer_log_level = el::Level::Debug;
 __thread std::vector<PerformanceTimer*> *performance_timers = NULL;
 
-void set_performance_timer_log_level(int level)
+void set_performance_timer_log_level(el::Level level)
 {
-  if (level < LOG_LEVEL_MIN || level > LOG_LEVEL_MAX)
+  if (level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info
+   && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
   {
-    LOG_PRINT_L0("Wrong log level: " << level << ", using 2");
-    level = 2;
+    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Debug");
+    level = el::Level::Debug;
   }
   performance_timer_log_level = level;
 }

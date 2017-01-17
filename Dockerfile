@@ -17,7 +17,7 @@ WORKDIR /src
 RUN set -e && \
   apt-get update -q && \
   apt-get install -q -y --no-install-recommends build-essential ca-certificates g++ gcc cmake \
-  pkg-config libunbound2 libevent-2.0-5 libgtest-dev libboost-all-dev libdb5.3++-dev libdb5.3-dev libssl-dev && \
+  pkg-config libunbound2 libevent-2.0-5 libgtest-dev libboost-all-dev libdb5.3++-dev libdb5.3-dev libssl1.0-dev && \
   make -j 4 && \
   apt-get purge -y g++ gcc cmake pkg-config && \
   apt-get clean -q -y && \

@@ -50,13 +50,9 @@ int main(int argc, char* argv[])
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  epee::log_space::get_set_log_detalisation_level(true, LOG_LEVEL_3);
-  epee::log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL, LOG_LEVEL_2);
+  mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
+  mlog_set_log_level(3);
   
-  epee::log_space::log_singletone::add_logger(LOGGER_FILE, 
-    epee::log_space::log_singletone::get_default_log_file().c_str(), 
-    epee::log_space::log_singletone::get_default_log_folder().c_str());
-
   po::options_description desc_options("Allowed options");
   command_line::add_arg(desc_options, command_line::arg_help);
   command_line::add_arg(desc_options, arg_test_data_path);
@@ -202,19 +198,18 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
     GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
 
-    std::cout << (failed_tests.empty() ? concolor::green : concolor::magenta);
-    std::cout << "\nREPORT:\n";
-    std::cout << "  Test run: " << tests_count << '\n';
-    std::cout << "  Failures: " << failed_tests.size() << '\n';
+    el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
+    MLOG(level, "\nREPORT:");
+    MLOG(level, "  Test run: " << tests_count);
+    MLOG(level, "  Failures: " << failed_tests.size());
     if (!failed_tests.empty())
     {
-      std::cout << "FAILED TESTS:\n";
+      MLOG(level, "FAILED TESTS:");
       BOOST_FOREACH(auto test_name, failed_tests)
       {
-        std::cout << "  " << test_name << '\n';
+        MLOG(level, "  " << test_name);
       }
     }
-    std::cout << concolor::normal << std::endl;
   }
   else if (command_line::get_arg(vm, arg_test_transactions))
   {
@@ -222,8 +217,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    std::cout << concolor::magenta << "Wrong arguments" << concolor::normal << std::endl;
-    std::cout << desc_options << std::endl;
+    MERROR("Wrong arguments");
     return 2;
   }
 

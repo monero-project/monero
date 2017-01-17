@@ -133,7 +133,7 @@ namespace epee
     bool wait_stdin_data()
     {
 #if !defined(WIN32)
-      #ifdef __OpenBSD__
+      #if defined(__OpenBSD__) || defined(__ANDROID__)
       int stdin_fileno = fileno(stdin);
       #else
       int stdin_fileno = ::fileno(stdin);
@@ -277,11 +277,11 @@ namespace epee
     {
       if (!m_prompt.empty())
       {
-        epee::log_space::set_console_color(epee::log_space::console_color_yellow, true);
+        epee::set_console_color(epee::console_color_yellow, true);
         std::cout << m_prompt;
         if (' ' != m_prompt.back())
           std::cout << ' ';
-        epee::log_space::reset_console_color();
+        epee::reset_console_color();
         std::cout.flush();
       }
     }
@@ -310,7 +310,7 @@ namespace epee
           }
           if (!get_line_ret)
           {
-            LOG_PRINT("Failed to read line.", LOG_LEVEL_0);
+            MERROR("Failed to read line.");
           }
           string_tools::trim(command);
 

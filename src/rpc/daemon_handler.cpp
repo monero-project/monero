@@ -302,7 +302,7 @@ namespace rpc
     cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, !req.relay) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {
@@ -537,17 +537,15 @@ namespace rpc
 
   void DaemonHandler::handle(const SetLogLevel::Request& req, SetLogLevel::Response& res)
   {
-    if (req.level < LOG_LEVEL_MIN || req.level > LOG_LEVEL_MAX)
+    if (req.level < 0 || req.level > 4)
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Error: log level not valid";
     }
     else
     {
-      epee::log_space::log_singletone::get_set_log_detalisation_level(true, req.level);
-      int otshell_utils_log_level = 100 - (req.level * 20);
-      gCurrentLogger.setDebugLevel(otshell_utils_log_level);
       res.status = Message::STATUS_OK;
+      mlog_set_log_level(req.level);
     }
   }
 

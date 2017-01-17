@@ -64,12 +64,15 @@
 
 namespace
 {
+  uint32_t create_checksum_index(const std::vector<std::string> &word_list,
+    uint32_t unique_prefix_length);
+  bool checksum_test(std::vector<std::string> seed, uint32_t unique_prefix_length);
 
   /*!
    * \brief Finds the word list that contains the seed words and puts the indices
    *        where matches occured in matched_indices.
    * \param  seed            List of words to match.
-   * \param  has_checksum    If word list passed checksum test, we need to only do a prefix check.
+   * \param  has_checksum    The seed has a checksum word (maybe not checked).
    * \param  matched_indices The indices where the seed words were found are added to this.
    * \param  language        Language instance pointer to write to after it is found.
    * \return                 true if all the words were present in some language false if not.
@@ -88,6 +91,7 @@ namespace
       Language::Singleton<Language::Russian>::instance(),
       Language::Singleton<Language::OldEnglish>::instance()
     });
+    Language::Base *fallback = NULL;
 
     // Iterate through all the languages and find a match
     for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
@@ -126,12 +130,33 @@ namespace
       }
       if (full_match)
       {
+        // if we were using prefix only, and we have a checksum, check it now
+        // to avoid false positives due to prefix set being too common
+        if (has_checksum)
+          if (!checksum_test(seed, (*it1)->get_unique_prefix_length()))
+          {
+            fallback = *it1;
+            full_match = false;
+          }
+      }
+      if (full_match)
+      {
         *language = *it1;
         return true;
       }
       // Some didn't match. Clear the index array.
       matched_indices.clear();
     }
+
+    // if we get there, we've not found a good match, but we might have a fallback,
+    // if we detected a match which did not fit the checksum, which might be a badly
+    // typed/transcribed seed in the right language
+    if (fallback)
+    {
+      *language = fallback;
+      return true;
+    }
+
     return false;
   }
 

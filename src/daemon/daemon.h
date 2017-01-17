@@ -29,9 +29,12 @@
 #pragma once
 #include <boost/program_options.hpp>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
-class t_internals;
+struct t_internals;
 
 class t_daemon final {
 public:

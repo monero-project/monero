@@ -29,11 +29,24 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "command_line.h"
-#include "string_tools.h"
+#include <boost/algorithm/string/compare.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <unordered_set>
+#include "blockchain_db/db_types.h"
+#include "common/i18n.h"
 #include "cryptonote_config.h"
+#include "string_tools.h"
 
 namespace command_line
 {
+  namespace
+  {
+    const char* tr(const char* str)
+    {
+      return i18n_translate(str, "command_line");
+    }
+  }
+
   std::string input_line(const std::string& prompt)
   {
     std::cout << prompt;
@@ -43,6 +56,20 @@ namespace command_line
 
     return epee::string_tools::trim(buf);
 
+  }
+
+  bool is_yes(const std::string& str)
+  {
+    if (str == "y" || str == "Y")
+      return true;
+
+    boost::algorithm::is_iequal ignore_case{};
+    if (boost::algorithm::equals("yes", str, ignore_case))
+      return true;
+    if (boost::algorithm::equals(command_line::tr("yes"), str, ignore_case))
+      return true;
+
+    return false;
   }
 
   const arg_descriptor<bool> arg_help = {"help", "Produce help message"};
@@ -63,9 +90,10 @@ namespace command_line
   , "checkpoints from DNS server will be enforced"
   , false
   };
+  std::string arg_db_type_description = "Specify database type, available: " + boost::algorithm::join(cryptonote::blockchain_db_types, ", ");
   const command_line::arg_descriptor<std::string> arg_db_type = {
     "db-type"
-  , "Specify database type"
+  , arg_db_type_description.c_str()
   , DEFAULT_DB_TYPE
   };
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
@@ -82,11 +110,6 @@ namespace command_line
     "prep-blocks-threads"
   , "Max number of threads to use when preparing block hashes in groups."
   , 4
-  };
-  const command_line::arg_descriptor<uint64_t> arg_db_auto_remove_logs  = {
-    "db-auto-remove-logs"
-  , "For BerkeleyDB only. Remove transactions logs automatically."
-  , 1
   };
   const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
     "show-time-stats"

@@ -48,6 +48,9 @@ using namespace epee;
 
 #include <functional>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 struct t_internals {
@@ -175,17 +178,17 @@ bool t_daemon::run(bool interactive)
     zmq_server.stop();
 
     mp_internals->rpc.stop();
-    LOG_PRINT("Node stopped.", LOG_LEVEL_0);
+    MGINFO("Node stopped.");
     return true;
   }
   catch (std::exception const & ex)
   {
-    LOG_ERROR("Uncaught exception! " << ex.what());
+    MFATAL("Uncaught exception! " << ex.what());
     return false;
   }
   catch (...)
   {
-    LOG_ERROR("Uncaught exception!");
+    MFATAL("Uncaught exception!");
     return false;
   }
 }

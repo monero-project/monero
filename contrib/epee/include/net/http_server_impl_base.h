@@ -36,6 +36,9 @@
 #include "net/http_server_cp2.h"
 #include "net/http_server_handlers_map2.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+
 namespace epee
 {
 
@@ -52,7 +55,8 @@ namespace epee
         : m_net_server(external_io_service)
     {}
 
-    bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0", const std::string &user_agent = "")
+    bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
+      std::string user_agent = "", boost::optional<net_utils::http::login> user = boost::none)
     {
 
       //set self as callback handler
@@ -62,7 +66,8 @@ namespace epee
       m_net_server.get_config_object().m_folder = "";
 
       // workaround till we get auth/encryption
-      m_net_server.get_config_object().m_required_user_agent = user_agent;
+      m_net_server.get_config_object().m_required_user_agent = std::move(user_agent);
+      m_net_server.get_config_object().m_user = std::move(user);
 
       LOG_PRINT_L0("Binding on " << bind_ip << ":" << bind_port);
       bool res = m_net_server.init_server(bind_port, bind_ip);
@@ -77,15 +82,14 @@ namespace epee
     bool run(size_t threads_count, bool wait = true)
     {
       //go to loop
-      LOG_PRINT("Run net_service loop( " << threads_count << " threads)...", LOG_LEVEL_0);
-      _fact_c("net/RPClog", "Run net_service loop( " << threads_count << " threads)...");
+      MINFO("Run net_service loop( " << threads_count << " threads)...");
       if(!m_net_server.run_server(threads_count, wait))
       {
         LOG_ERROR("Failed to run net tcp server!");
       }
 
       if(wait)
-        LOG_PRINT("net_service loop stopped.", LOG_LEVEL_0);
+        MINFO("net_service loop stopped.");
       return true;
     }
 

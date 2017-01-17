@@ -119,9 +119,9 @@ struct fake_core_db
     return m_storage.get_db().add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
   }
 
-  void batch_start(uint64_t batch_num_blocks = 0)
+  bool batch_start(uint64_t batch_num_blocks = 0)
   {
-    m_storage.get_db().batch_start(batch_num_blocks);
+    return m_storage.get_db().batch_start(batch_num_blocks);
   }
 
   void batch_stop()

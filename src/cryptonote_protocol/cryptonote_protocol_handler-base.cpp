@@ -73,10 +73,10 @@
 #include "../../src/cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "../../src/p2p/network_throttle.hpp"
 
-#include "../../contrib/otshell_utils/utils.hpp"
-using namespace nOT::nUtils;
-
 #include "../../../src/cryptonote_core/cryptonote_core.h" // e.g. for the send_stop_signal()
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
 
 // ################################################################################################
 // ################################################################################################
@@ -122,25 +122,24 @@ cryptonote_protocol_handler_base::~cryptonote_protocol_handler_base() {
 
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
 	using namespace epee::net_utils;
-	LOG_PRINT_L1("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
-	LOG_PRINT_RED("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)" , LOG_LEVEL_1);
-	_note_c("net/req2", "### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
+	MDEBUG("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
+	MWARNING("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)");
 	// TODO
 }
 
-void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet_size) { _scope_dbg1("");
+void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet_size) {
 	using namespace epee::net_utils;
 	double delay=0; // will be calculated
-	_dbg1("Packet size: " << packet_size);
+	MDEBUG("Packet size: " << packet_size);
 	do
 	{ // rate limiting
 		//XXX 
 		/*if (::cryptonote::core::get_is_stopping()) { 
-			_dbg1("We are stopping - so abort sleep");
+			MDEBUG("We are stopping - so abort sleep");
 			return;
 		}*/
 		/*if (m_was_shutdown) { 
-			_dbg2_c("net/netuse/sleep","m_was_shutdown - so abort sleep");
+			MDEBUG("m_was_shutdown - so abort sleep");
 			return;
 		}*/
 
@@ -155,9 +154,7 @@ void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet
 		if (delay > 0) {
 			//delay += rand2*0.1;
             		long int ms = (long int)(delay * 1000);
-			_info_c("net/sleep", "Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // XXX debug sleep
-			_dbg1_c("net/sleep/", "sleep in sleep_before_packet");
-			_dbg2("Sleep for " << ms);
+			MDEBUG("Sleeping for " << ms << " ms before packet_size="<<packet_size); // XXX debug sleep
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) ); // TODO randomize sleeps
 		}
 	} while(delay > 0);

@@ -148,3 +148,22 @@ TEST(mnemonics, all_languages)
     test_language(*(*it));
   }
 }
+
+TEST(mnemonics, language_detection_with_bad_checksum)
+{
+    crypto::secret_key key;
+    std::string language_name;
+    bool res;
+
+    // This Portuguese (4-prefix) seed has all its words with 3-prefix that's also present in English
+    const std::string base_seed = "cinzento luxuriante leonardo gnostico digressao cupula fifa broxar iniquo louvor ovario dorsal ideologo besuntar decurso rosto susto lemure unheiro pagodeiro nitroglicerina eclusa mazurca bigorna";
+    const std::string real_checksum = "gnostico";
+
+    res = crypto::ElectrumWords::words_to_bytes(base_seed, key, language_name);
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "Portuguese");
+
+    res = crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name);
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "Portuguese");
+}

@@ -89,7 +89,6 @@ target_link_libraries(daemon
     cryptonote_core
     crypto
     common
-    otshell_utils
     p2p
     cryptonote_protocol
     daemonizer

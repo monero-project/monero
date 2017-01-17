@@ -72,6 +72,8 @@ public:
 
   bool set_log_level(const std::vector<std::string>& args);
 
+  bool set_log_categories(const std::vector<std::string>& args);
+
   bool print_height(const std::vector<std::string>& args);
 
   bool print_block(const std::vector<std::string>& args);
@@ -119,6 +121,10 @@ public:
   bool output_histogram(const std::vector<std::string>& args);
 
   bool print_coinbase_tx_sum(const std::vector<std::string>& args);
+
+  bool alt_chain_info(const std::vector<std::string>& args);
+
+  bool print_blockchain_dynamic_stats(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

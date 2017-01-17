@@ -40,6 +40,7 @@ add_executable(libwallet_api_tests
 target_link_libraries(libwallet_api_tests
   PRIVATE
     wallet
+    epee
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

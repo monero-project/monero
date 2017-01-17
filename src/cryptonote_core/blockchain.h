@@ -906,6 +906,16 @@ namespace cryptonote
      */
     void block_longhash_worker(const uint64_t height, const std::vector<block> &blocks,
         std::unordered_map<crypto::hash, crypto::hash> &map) const;
+
+    /**
+     * @brief returns a set of known alternate chains
+     *
+     * @return a list of chains
+     */
+    std::list<std::pair<block_extended_info,uint64_t>> get_alternative_chains() const;
+
+    void cancel();
+
   private:
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
@@ -974,6 +984,8 @@ namespace cryptonote
     HardFork *m_hardfork;
 
     bool m_testnet;
+
+    std::atomic<bool> m_cancel;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input

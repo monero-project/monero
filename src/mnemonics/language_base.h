@@ -106,6 +106,12 @@ namespace Language
       trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
       unique_prefix_length = 4;
     }
+    virtual ~Base()
+    {
+      delete word_list;
+      delete word_map;
+      delete trimmed_word_map;
+    }
     /*!
      * \brief Returns a pointer to the word list.
      * \return A pointer to the word list.

@@ -31,6 +31,10 @@
 
 #include <boost/uuid/uuid.hpp>
 #include "string_tools.h"
+#include "misc_log_ex.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 #ifndef MAKE_IP
 #define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
@@ -142,20 +146,24 @@ namespace net_utils
     return ss.str();
   }
 
-#define LOG_PRINT_CC(ct, message, log_level) LOG_PRINT("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_GREEN(ct, message, log_level) LOG_PRINT_GREEN("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_RED(ct, message, log_level) LOG_PRINT_RED("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_BLUE(ct, message, log_level) LOG_PRINT_BLUE("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_YELLOW(ct, message, log_level) LOG_PRINT_YELLOW("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_CYAN(ct, message, log_level) LOG_PRINT_CYAN("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_PRINT_CC_MAGENTA(ct, message, log_level) LOG_PRINT_MAGENTA("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, log_level)
-#define LOG_ERROR_CC(ct, message) LOG_PRINT_RED("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message, LOG_LEVEL_2)
+inline MAKE_LOGGABLE(connection_context_base, ct, os)
+{
+  os << "[" << epee::net_utils::print_connection_context_short(ct) << "] ";
+  return os;
+}
 
-#define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
-#define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
-#define LOG_PRINT_CC_L2(ct, message) LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
-#define LOG_PRINT_CC_L3(ct, message) LOG_PRINT_L3("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
-#define LOG_PRINT_CC_L4(ct, message) LOG_PRINT_L4("[" << epee::net_utils::print_connection_context_short(ct) << "]" << message)
+#define LOG_ERROR_CC(ct, message) MERROR(ct << message)
+#define LOG_WARNING_CC(ct, message) MWARNING(ct << message)
+#define LOG_INFO_CC(ct, message) MINFO(ct << message)
+#define LOG_DEBUG_CC(ct, message) MDEBUG(ct << message)
+#define LOG_TRACE_CC(ct, message) MTRACE(ct << message)
+#define LOG_CC(level, ct, message) MLOG(level, ct << message)
+
+#define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0(epee::net_utils::print_connection_context_short(ct) << message)
+#define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1(epee::net_utils::print_connection_context_short(ct) << message)
+#define LOG_PRINT_CC_L2(ct, message) LOG_PRINT_L2(epee::net_utils::print_connection_context_short(ct) << message)
+#define LOG_PRINT_CC_L3(ct, message) LOG_PRINT_L3(epee::net_utils::print_connection_context_short(ct) << message)
+#define LOG_PRINT_CC_L4(ct, message) LOG_PRINT_L4(epee::net_utils::print_connection_context_short(ct) << message)
 
 #define LOG_PRINT_CCONTEXT_L0(message) LOG_PRINT_CC_L0(context, message)
 #define LOG_PRINT_CCONTEXT_L1(message) LOG_PRINT_CC_L1(context, message)
@@ -163,13 +171,6 @@ namespace net_utils
 #define LOG_PRINT_CCONTEXT_L3(message) LOG_PRINT_CC_L3(context, message)
 #define LOG_ERROR_CCONTEXT(message)    LOG_ERROR_CC(context, message)
  
-#define LOG_PRINT_CCONTEXT_GREEN(message, log_level) LOG_PRINT_CC_GREEN(context, message, log_level)
-#define LOG_PRINT_CCONTEXT_RED(message, log_level) LOG_PRINT_CC_RED(context, message, log_level)
-#define LOG_PRINT_CCONTEXT_BLUE(message, log_level) LOG_PRINT_CC_BLUE(context, message, log_level) 
-#define LOG_PRINT_CCONTEXT_YELLOW(message, log_level) LOG_PRINT_CC_YELLOW(context, message, log_level) 
-#define LOG_PRINT_CCONTEXT_CYAN(message, log_level) LOG_PRINT_CC_CYAN(context, message, log_level) 
-#define LOG_PRINT_CCONTEXT_MAGENTA(message, log_level) LOG_PRINT_CC_MAGENTA(context, message, log_level) 
-
 #define CHECK_AND_ASSERT_MES_CC(condition, return_val, err_message) CHECK_AND_ASSERT_MES(condition, return_val, "[" << epee::net_utils::print_connection_context_short(context) << "]" << err_message)
 
 }

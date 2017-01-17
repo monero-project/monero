@@ -33,6 +33,10 @@
 #include "cryptonote_core/cryptonote_basic.h"
 #include "crypto/hash.h"
 #include "wallet_rpc_server_error_codes.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
+
 namespace tools
 {
 namespace wallet_rpc
@@ -525,6 +529,31 @@ namespace wallet_rpc
     };
   };
 
+  struct transfer_entry
+  {
+    std::string txid;
+    std::string payment_id;
+    uint64_t height;
+    uint64_t timestamp;
+    uint64_t amount;
+    uint64_t fee;
+    std::string note;
+    std::list<transfer_destination> destinations;
+    std::string type;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(txid);
+      KV_SERIALIZE(payment_id);
+      KV_SERIALIZE(height);
+      KV_SERIALIZE(timestamp);
+      KV_SERIALIZE(amount);
+      KV_SERIALIZE(fee);
+      KV_SERIALIZE(note);
+      KV_SERIALIZE(destinations);
+      KV_SERIALIZE(type);
+    END_KV_SERIALIZE_MAP()
+  };
+
   struct COMMAND_RPC_GET_TRANSFERS
   {
     struct request
@@ -551,36 +580,13 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
 
-    struct entry
-    {
-      std::string txid;
-      std::string payment_id;
-      uint64_t height;
-      uint64_t timestamp;
-      uint64_t amount;
-      uint64_t fee;
-      std::string note;
-      std::list<transfer_destination> destinations;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(txid);
-        KV_SERIALIZE(payment_id);
-        KV_SERIALIZE(height);
-        KV_SERIALIZE(timestamp);
-        KV_SERIALIZE(amount);
-        KV_SERIALIZE(fee);
-        KV_SERIALIZE(note);
-        KV_SERIALIZE(destinations);
-      END_KV_SERIALIZE_MAP()
-    };
-
     struct response
     {
-      std::list<entry> in;
-      std::list<entry> out;
-      std::list<entry> pending;
-      std::list<entry> failed;
-      std::list<entry> pool;
+      std::list<transfer_entry> in;
+      std::list<transfer_entry> out;
+      std::list<transfer_entry> pending;
+      std::list<transfer_entry> failed;
+      std::list<transfer_entry> pool;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(in);
@@ -588,6 +594,27 @@ namespace wallet_rpc
         KV_SERIALIZE(pending);
         KV_SERIALIZE(failed);
         KV_SERIALIZE(pool);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TRANSFER_BY_TXID
+  {
+    struct request
+    {
+      std::string txid;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      transfer_entry transfer;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(transfer);
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -699,6 +726,62 @@ namespace wallet_rpc
         KV_SERIALIZE(height)
         KV_SERIALIZE(spent)
         KV_SERIALIZE(unspent)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct uri_spec
+  {
+    std::string address;
+    std::string payment_id;
+    uint64_t amount;
+    std::string tx_description;
+    std::string recipient_name;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address);
+      KV_SERIALIZE(payment_id);
+      KV_SERIALIZE(amount);
+      KV_SERIALIZE(tx_description);
+      KV_SERIALIZE(recipient_name);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_MAKE_URI
+  {
+    struct request: public uri_spec
+    {
+    };
+
+    struct response
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PARSE_URI
+  {
+    struct request
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uri_spec uri;
+      std::vector<std::string> unknown_parameters;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri);
+        KV_SERIALIZE(unknown_parameters);
       END_KV_SERIALIZE_MAP()
     };
   };

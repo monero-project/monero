@@ -33,6 +33,9 @@
 #include "blockchain_db/blockchain_db.h"
 #include "hardfork.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "hardfork"
+
 using namespace cryptonote;
 
 static uint8_t get_block_vote(const cryptonote::block &b)
@@ -112,6 +115,19 @@ bool HardFork::check(const cryptonote::block &block) const
 {
   CRITICAL_REGION_LOCAL(lock);
   return do_check(::get_block_version(block), ::get_block_vote(block));
+}
+
+bool HardFork::do_check_for_height(uint8_t block_version, uint8_t voting_version, uint64_t height) const
+{
+  int fork_index = get_voted_fork_index(height);
+  return block_version == heights[fork_index].version
+      && voting_version >= heights[fork_index].version;
+}
+
+bool HardFork::check_for_height(const cryptonote::block &block, uint64_t height) const
+{
+  CRITICAL_REGION_LOCAL(lock);
+  return do_check_for_height(::get_block_version(block), ::get_block_vote(block), height);
 }
 
 bool HardFork::add(uint8_t block_version, uint8_t voting_version, uint64_t height)

@@ -30,6 +30,9 @@
 #include "version.h"
 #include "daemon/command_server.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 namespace p = std::placeholders;
@@ -133,7 +136,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "set_log"
     , std::bind(&t_command_parser_executor::set_log_level, &m_parser, p::_1)
-    , "set_log <level> - Change current log detalization level, <level> is a number 0-4"
+    , "set_log <level>|<categories> - Change current loglevel, <level> is a number 0-4"
     );
   m_command_lookup.set_handler(
       "diff"
@@ -224,6 +227,16 @@ t_command_server::t_command_server(
       "print_coinbase_tx_sum"
     , std::bind(&t_command_parser_executor::print_coinbase_tx_sum, &m_parser, p::_1)
     , "Print sum of coinbase transactions (start height, block count)"
+    );
+    m_command_lookup.set_handler(
+      "alt_chain_info"
+    , std::bind(&t_command_parser_executor::alt_chain_info, &m_parser, p::_1)
+    , "Print information about alternative chains"
+    );
+    m_command_lookup.set_handler(
+      "bc_dyn_stats"
+    , std::bind(&t_command_parser_executor::print_blockchain_dynamic_stats, &m_parser, p::_1)
+    , "Print information about current blockchain dynamic state"
     );
 }
 

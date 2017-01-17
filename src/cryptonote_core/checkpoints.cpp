@@ -39,6 +39,9 @@ using namespace epee;
 #include <sstream>
 #include <random>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "checkpoints"
+
 namespace
 {
   bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
@@ -99,11 +102,11 @@ namespace cryptonote
 
     if(it->second == h)
     {
-      LOG_PRINT_GREEN("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h, LOG_LEVEL_1);
+      MINFO("CHECKPOINT PASSED FOR HEIGHT " << height << " " << h);
       return true;
     }else
     {
-      LOG_ERROR("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH: " << it->second << ", FETCHED HASH: " << h);
+      MWARNING("CHECKPOINT FAILED FOR HEIGHT " << height << ". EXPECTED HASH: " << it->second << ", FETCHED HASH: " << h);
       return false;
     }
   }
@@ -186,6 +189,9 @@ namespace cryptonote
     ADD_CHECKPOINT(913193, "5292d5d56f6ba4de33a58d9a34d263e2cb3c6fee0aed2286fd4ac7f36d53c85f");
     ADD_CHECKPOINT(1000000, "a886ef5149902d8342475fee9bb296341b891ac67c4842f47a833f23c00ed721");
     ADD_CHECKPOINT(1100000, "3fd720c5c8b3072fc1ccda922dec1ef25f9ed88a1e6ad4103d0fe00b180a5903");
+    ADD_CHECKPOINT(1150000, "1dd16f626d18e1e988490dfd06de5920e22629c972c58b4d8daddea0038627b2");
+    ADD_CHECKPOINT(1200000, "fa7d13a90850882060479d100141ff84286599ae39c3277c8ea784393f882d1f");
+    
 
     return true;
   }

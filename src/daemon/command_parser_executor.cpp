@@ -26,8 +26,11 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "common/dns_utils.h"
 #include "daemon/command_parser_executor.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -117,24 +120,24 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
 {
   if(args.size() != 1)
   {
-    std::cout << "use: set_log <log_level_number_0-4>" << std::endl;
+    std::cout << "use: set_log [<log_level_number_0-4> | <categories>]" << std::endl;
     return true;
   }
 
   uint16_t l = 0;
-  if(!epee::string_tools::get_xtype_from_string(l, args[0]))
+  if(epee::string_tools::get_xtype_from_string(l, args[0]))
   {
-    std::cout << "wrong number format, use: set_log <log_level_number_0-4>" << std::endl;
-    return true;
+    if(4 < l)
+    {
+      std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << std::endl;
+      return true;
+    }
+    return m_executor.set_log_level(l);
   }
-
-  if(LOG_LEVEL_4 < l)
+  else
   {
-    std::cout << "wrong number range, use: set_log <log_level_number_0-4>" << std::endl;
-    return true;
+    return m_executor.set_log_categories(args.front());
   }
-
-  return m_executor.set_log_level(l);
 }
 
 bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 
@@ -238,17 +241,35 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   }
 
   cryptonote::account_public_address adr;
+  bool has_payment_id;
+  crypto::hash8 payment_id;
   bool testnet = false;
-  if(!cryptonote::get_account_address_from_str(adr, false, args.front()))
+  if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, args.front()))
   {
-    if(!cryptonote::get_account_address_from_str(adr, true, args.front()))
+    if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, args.front()))
     {
-      std::cout << "target account address has wrong format" << std::endl;
-      return true;
+      bool dnssec_valid;
+      std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(args.front(), dnssec_valid);
+      if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, address_str))
+      {
+        if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, address_str))
+        {
+          std::cout << "target account address has wrong format" << std::endl;
+          return true;
+        }
+        else
+        {
+          testnet = true;
+        }
+      }
     }
-    testnet = true;
-    std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
+    else
+    {
+      testnet = true;
+    }
   }
+  if(testnet)
+    std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
   if(args.size() > 2)
   {
@@ -480,6 +501,35 @@ bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::str
   }
 
   return m_executor.print_coinbase_tx_sum(height, count);
+}
+
+bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& args)
+{
+  if(args.size())
+  {
+    std::cout << "No parameters allowed" << std::endl;
+    return false;
+  }
+
+  return m_executor.alt_chain_info();
+}
+
+bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector<std::string>& args)
+{
+  if(args.size() != 1)
+  {
+    std::cout << "Exactly one parameter is needed" << std::endl;
+    return false;
+  }
+
+  uint64_t nblocks = 0;
+  if(!epee::string_tools::get_xtype_from_string(nblocks, args[0]) || nblocks == 0)
+  {
+    std::cout << "wrong number of blocks" << std::endl;
+    return false;
+  }
+
+  return m_executor.print_blockchain_dynamic_stats(nblocks);
 }
 
 } // namespace daemonize

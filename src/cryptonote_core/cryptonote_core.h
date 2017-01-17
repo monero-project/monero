@@ -107,10 +107,11 @@ namespace cryptonote
       * @param tvc metadata about the transaction's validity
       * @param keeped_by_block if the transaction has been in a block
       * @param relayed whether or not the transaction was relayed to us
+      * @param do_not_relay whether to prevent the transaction from being relayed
       *
       * @return true if the transaction made it to the transaction pool, otherwise false
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief handles an incoming block
@@ -567,6 +568,12 @@ namespace cryptonote
      uint64_t get_target_blockchain_height() const;
 
      /**
+      * @brief gets start_time
+      *
+      */
+     std::time_t get_start_time() const;
+
+     /**
       * @brief tells the Blockchain to update its checkpoints
       *
       * This function will check if enough time has passed since the last
@@ -649,9 +656,10 @@ namespace cryptonote
       * @param tx_prefix_hash the transaction prefix' hash
       * @param blob_size the size of the transaction
       * @param relayed whether or not the transaction was relayed to us
+      * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -662,12 +670,13 @@ namespace cryptonote
       * @param tvc return-by-reference metadata about the transaction's verification process
       * @param keeped_by_block whether or not the transaction has been in a block
       * @param relayed whether or not the transaction was relayed to us
+      * @param do_not_relay whether to prevent the transaction from being relayed
       *
       * @return true if the transaction is already in the transaction pool,
       * is already in a block on the Blockchain, or is successfully added
       * to the transaction pool
       */
-     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed);
+     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @copydoc Blockchain::add_new_block
@@ -827,6 +836,8 @@ namespace cryptonote
      boost::interprocess::file_lock db_lock; //!< a lock object for a file lock in the db directory
 
      size_t block_sync_size;
+
+     time_t start_time;
    };
 }
 

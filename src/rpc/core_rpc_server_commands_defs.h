@@ -41,7 +41,17 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 
-#define CORE_RPC_VERSION 5
+// When making *any* change here, bump minor
+// If the change is incompatible, then bump major and set minor to 0
+// This ensures CORE_RPC_VERSION always increases, that every change
+// has its own version, and that clients can just test major to see
+// whether they can talk to a given daemon without having to know in
+// advance which version they will stop working with
+// Don't go over 32767 for any of these
+#define CORE_RPC_VERSION_MAJOR 1
+#define CORE_RPC_VERSION_MINOR 6
+#define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
+#define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
   struct COMMAND_RPC_GET_HEIGHT
   {
@@ -108,6 +118,28 @@ namespace cryptonote
         KV_SERIALIZE(current_height)
         KV_SERIALIZE(status)
         KV_SERIALIZE(output_indices)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHT
+  {
+    struct request
+    {
+      std::vector<uint64_t> heights;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(heights)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<block_complete_entry> blocks;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blocks)
+        KV_SERIALIZE(status)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -320,11 +352,15 @@ namespace cryptonote
       crypto::public_key key;
       rct::key mask;
       bool unlocked;
+      uint64_t height;
+      crypto::hash txid;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(key)
         KV_SERIALIZE_VAL_POD_AS_BLOB(mask)
         KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(txid)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -356,11 +392,15 @@ namespace cryptonote
       std::string key;
       std::string mask;
       bool unlocked;
+      uint64_t height;
+      std::string txid;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(key)
         KV_SERIALIZE(mask)
         KV_SERIALIZE(unlocked)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(txid)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -503,6 +543,8 @@ namespace cryptonote
       bool testnet;
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
+      uint64_t block_size_limit;
+      uint64_t start_time;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -520,6 +562,8 @@ namespace cryptonote
         KV_SERIALIZE(testnet)
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
+        KV_SERIALIZE(block_size_limit)
+        KV_SERIALIZE(start_time)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -684,6 +728,8 @@ namespace cryptonote
       std::string hash;
       difficulty_type difficulty;
       uint64_t reward;
+      uint64_t block_size;
+      uint64_t num_txes;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(major_version)
@@ -697,6 +743,8 @@ namespace cryptonote
         KV_SERIALIZE(hash)
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(reward)
+        KV_SERIALIZE(block_size)
+        KV_SERIALIZE(num_txes)
       END_KV_SERIALIZE_MAP()
   };
 
@@ -883,6 +931,26 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_SET_LOG_CATEGORIES
+  {
+    struct request
+    {
+      std::string categories;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(categories)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct tx_info
   {
     std::string id_hash;
@@ -897,6 +965,7 @@ namespace cryptonote
     uint64_t receive_time;
     bool relayed;
     uint64_t last_relayed_time;
+    bool do_not_relay;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id_hash)
@@ -910,7 +979,8 @@ namespace cryptonote
       KV_SERIALIZE(last_failed_id_hash)
       KV_SERIALIZE(receive_time)
       KV_SERIALIZE(relayed)
-      KV_SERIALIZE(last_failed_id_hash)
+      KV_SERIALIZE(last_relayed_time)
+      KV_SERIALIZE(do_not_relay)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -1324,6 +1394,41 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(fee)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ALTERNATE_CHAINS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct chain_info
+    {
+      std::string block_hash;
+      uint64_t height;
+      uint64_t length;
+      uint64_t difficulty;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(block_hash)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(length)
+        KV_SERIALIZE(difficulty)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::list<chain_info> chains;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(chains)
       END_KV_SERIALIZE_MAP()
     };
   };

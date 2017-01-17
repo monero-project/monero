@@ -30,7 +30,13 @@
 #ifdef HAVE_SYS_SYSCTL_H
 #include <sys/sysctl.h>
 #endif
+#ifdef __ANDROID__
+#include <sys/vfs.h> 
+#define statvfs statfs 
+#define fstatvfs fstatfs 
+#else
 #include <sys/statvfs.h>
+#endif
 #include <sys/socket.h>
 #include <sys/mount.h>
 #include <sys/mman.h>

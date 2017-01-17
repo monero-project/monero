@@ -45,6 +45,9 @@
 #include "common/perf_timer.h"
 #include "crypto/hash.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "txpool"
+
 DISABLE_VS_WARNINGS(4244 4345 4503) //'boost::foreach_detail_::or_' : decorated name length exceeded, name was truncated
 
 namespace cryptonote
@@ -60,6 +63,7 @@ namespace cryptonote
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
+    float const ACCEPT_THRESHOLD = 0.99f;
 
     // a kind of increasing backoff within min/max bounds
     time_t get_relay_delay(time_t now, time_t received)
@@ -69,6 +73,11 @@ namespace cryptonote
         d = MAX_RELAY_TIME;
       return d;
     }
+
+    uint64_t template_accept_threshold(uint64_t amount)
+    {
+      return amount * ACCEPT_THRESHOLD;
+    }
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
@@ -77,7 +86,7 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(const transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     PERF_TIMER(add_tx);
     if (tx.version == 0)
@@ -171,6 +180,8 @@ namespace cryptonote
       return false;
     }
 
+    time_t receive_time = time(nullptr);
+
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     tx_details txd;
@@ -189,10 +200,13 @@ namespace cryptonote
         txd_p.first->second.fee = fee;
         txd_p.first->second.max_used_block_id = null_hash;
         txd_p.first->second.max_used_block_height = 0;
+        txd_p.first->second.last_failed_height = 0;
+        txd_p.first->second.last_failed_id = null_hash;
         txd_p.first->second.kept_by_block = kept_by_block;
-        txd_p.first->second.receive_time = time(nullptr);
+        txd_p.first->second.receive_time = receive_time;
         txd_p.first->second.last_relayed_time = time(NULL);
         txd_p.first->second.relayed = relayed;
+        txd_p.first->second.do_not_relay = do_not_relay;
         tvc.m_verifivation_impossible = true;
         tvc.m_added_to_pool = true;
       }else
@@ -205,7 +219,7 @@ namespace cryptonote
     {
       //update transactions container
       auto txd_p = m_transactions.insert(transactions_container::value_type(id, txd));
-      CHECK_AND_ASSERT_MES(txd_p.second, false, "intrnal error: transaction already exists at inserting in memorypool");
+      CHECK_AND_ASSERT_MES(txd_p.second, false, "internal error: transaction already exists at inserting in memorypool");
       txd_p.first->second.blob_size = blob_size;
       txd_p.first->second.kept_by_block = kept_by_block;
       txd_p.first->second.fee = fee;
@@ -213,12 +227,13 @@ namespace cryptonote
       txd_p.first->second.max_used_block_height = max_used_block_height;
       txd_p.first->second.last_failed_height = 0;
       txd_p.first->second.last_failed_id = null_hash;
-      txd_p.first->second.receive_time = time(nullptr);
+      txd_p.first->second.receive_time = receive_time;
       txd_p.first->second.last_relayed_time = time(NULL);
       txd_p.first->second.relayed = relayed;
+      txd_p.first->second.do_not_relay = do_not_relay;
       tvc.m_added_to_pool = true;
 
-      if(txd_p.first->second.fee > 0)
+      if(txd_p.first->second.fee > 0 && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
@@ -238,17 +253,17 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee.emplace((double)blob_size / fee, id);
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>((double)blob_size / fee, receive_time), id);
 
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, uint8_t version)
+  bool tx_memory_pool::add_tx(const transaction &tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
     get_transaction_hash(tx, h, blob_size);
-    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, version);
+    return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, do_not_relay, version);
   }
   //---------------------------------------------------------------------------------
   //FIXME: Can return early before removal of all of the key images.
@@ -284,7 +299,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed)
+  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     auto it = m_transactions.find(id);
@@ -293,16 +308,17 @@ namespace cryptonote
 
     auto sorted_it = find_tx_in_sorted_container(id);
 
-    if (sorted_it == m_txs_by_fee.end())
+    if (sorted_it == m_txs_by_fee_and_receive_time.end())
       return false;
 
     tx = it->second.tx;
     blob_size = it->second.blob_size;
     fee = it->second.fee;
     relayed = it->second.relayed;
+    do_not_relay = it->second.do_not_relay;
     remove_transaction_keyimages(it->second.tx);
     m_transactions.erase(it);
-    m_txs_by_fee.erase(sorted_it);
+    m_txs_by_fee_and_receive_time.erase(sorted_it);
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -313,7 +329,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   sorted_tx_container::iterator tx_memory_pool::find_tx_in_sorted_container(const crypto::hash& id) const
   {
-    return std::find_if( m_txs_by_fee.begin(), m_txs_by_fee.end()
+    return std::find_if( m_txs_by_fee_and_receive_time.begin(), m_txs_by_fee_and_receive_time.end()
                        , [&](const sorted_tx_container::value_type& a){
                          return a.second == id;
                        }
@@ -334,13 +350,13 @@ namespace cryptonote
         LOG_PRINT_L1("Tx " << it->first << " removed from tx pool due to outdated, age: " << tx_age );
         remove_transaction_keyimages(it->second.tx);
         auto sorted_it = find_tx_in_sorted_container(it->first);
-        if (sorted_it == m_txs_by_fee.end())
+        if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
           LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
-          m_txs_by_fee.erase(sorted_it);
+          m_txs_by_fee_and_receive_time.erase(sorted_it);
         }
         m_timed_out_transactions.insert(it->first);
         auto pit = it++;
@@ -359,7 +375,7 @@ namespace cryptonote
     for(auto it = m_transactions.begin(); it!= m_transactions.end();)
     {
       // 0 fee transactions are never relayed
-      if(it->second.fee > 0 && now - it->second.last_relayed_time > get_relay_delay(now, it->second.receive_time))
+      if(it->second.fee > 0 && !it->second.do_not_relay && now - it->second.last_relayed_time > get_relay_delay(now, it->second.receive_time))
       {
         // if the tx is older than half the max lifetime, we don't re-relay it, to avoid a problem
         // mentioned by smooth where nodes would flush txes at slightly different times, causing
@@ -423,6 +439,7 @@ namespace cryptonote
       txi.receive_time = txd.receive_time;
       txi.relayed = txd.relayed;
       txi.last_relayed_time = txd.last_relayed_time;
+      txi.do_not_relay = txd.do_not_relay;
       tx_infos.push_back(txi);
     }
 
@@ -603,7 +620,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee)
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint8_t version)
   {
     // Warning: This function takes already_generated_
     // coins as an argument and appears to do nothing
@@ -611,47 +628,51 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
+    uint64_t best_coinbase = 0;
     total_size = 0;
     fee = 0;
 
-    // Maximum block size is 130% of the median block size.  This gives a
-    // little extra headroom for the max size transaction.
-    size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
 
-    auto sorted_it = m_txs_by_fee.begin();
-    while (sorted_it != m_txs_by_fee.end())
+    LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
+    auto sorted_it = m_txs_by_fee_and_receive_time.begin();
+    while (sorted_it != m_txs_by_fee_and_receive_time.end())
     {
       auto tx_it = m_transactions.find(sorted_it->second);
+      LOG_PRINT_L2("Considering " << tx_it->first << ", size " << tx_it->second.blob_size << ", current block size " << total_size << "/" << max_total_size << ", current coinbase " << print_money(best_coinbase));
 
       // Can not exceed maximum block size
       if (max_total_size < total_size + tx_it->second.blob_size)
       {
+        LOG_PRINT_L2("  would exceed maximum block size");
         sorted_it++;
         continue;
       }
 
-      // If adding this tx will make the block size
-      // greater than CRYPTONOTE_GETBLOCKTEMPLATE_MAX
-      // _BLOCK_SIZE bytes, reject the tx; this will
-      // keep block sizes from becoming too unwieldly
-      // to propagate at 60s block times.
-      if ( (total_size + tx_it->second.blob_size) > CRYPTONOTE_GETBLOCKTEMPLATE_MAX_BLOCK_SIZE )
-      {
-        sorted_it++;
-        continue;
-      }
-
-      // If we've exceeded the penalty free size,
+      // If we're getting lower coinbase tx,
       // stop including more tx
-      if (total_size > median_size)
-        break;
+      uint64_t block_reward;
+      if(!get_block_reward(median_size, total_size + tx_it->second.blob_size, already_generated_coins, block_reward, version))
+      {
+        LOG_PRINT_L2("  would exceed maximum block size");
+        sorted_it++;
+        continue;
+      }
+      uint64_t coinbase = block_reward + fee;
+      if (coinbase < template_accept_threshold(best_coinbase))
+      {
+        LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
+        sorted_it++;
+        continue;
+      }
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
       if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
       {
+        LOG_PRINT_L2("  not ready to go, or key images already seen");
         sorted_it++;
         continue;
       }
@@ -659,10 +680,15 @@ namespace cryptonote
       bl.tx_hashes.push_back(tx_it->first);
       total_size += tx_it->second.blob_size;
       fee += tx_it->second.fee;
+      best_coinbase = coinbase;
       append_key_images(k_images, tx_it->second.tx);
       sorted_it++;
+      LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
     }
 
+    LOG_PRINT_L2("Block template filled with " << bl.tx_hashes.size() << " txes, size "
+        << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase)
+        << " (including " << print_money(fee) << " in fees)");
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -676,13 +702,13 @@ namespace cryptonote
         LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
         remove_transaction_keyimages(it->second.tx);
         auto sorted_it = find_tx_in_sorted_container(it->first);
-        if (sorted_it == m_txs_by_fee.end())
+        if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
           LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
-          m_txs_by_fee.erase(sorted_it);
+          m_txs_by_fee_and_receive_time.erase(sorted_it);
         }
         auto pit = it++;
         m_transactions.erase(pit);
@@ -713,14 +739,14 @@ namespace cryptonote
       LOG_ERROR("Failed to load memory pool from file " << state_file_path);
 
       m_transactions.clear();
-      m_txs_by_fee.clear();
+      m_txs_by_fee_and_receive_time.clear();
       m_spent_key_images.clear();
     }
 
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee.emplace((double)tx.second.blob_size / tx.second.fee, tx.first);
+      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>((double)tx.second.blob_size / tx.second.fee, tx.second.receive_time), tx.first);
     }
 
     // Ignore deserialization error

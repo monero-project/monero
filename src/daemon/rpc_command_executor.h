@@ -45,6 +45,9 @@
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize {
 
 class t_rpc_command_executor final {
@@ -81,6 +84,8 @@ public:
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
   bool set_log_level(int8_t level);
+
+  bool set_log_categories(const std::string &categories);
 
   bool print_height();
 
@@ -137,6 +142,10 @@ public:
   bool output_histogram(uint64_t min_count, uint64_t max_count);
 
   bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
+
+  bool alt_chain_info();
+
+  bool print_blockchain_dynamic_stats(uint64_t nblocks);
 };
 
 } // namespace daemonize

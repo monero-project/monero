@@ -42,6 +42,9 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "common/int-util.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+
 namespace cryptonote {
 
   struct integrated_address {
@@ -98,7 +101,7 @@ namespace cryptonote {
     }
 
     if(current_block_size > 2 * median_size) {
-      LOG_PRINT_L4("Block cumulative size is too big: " << current_block_size << ", expected less than " << 2 * median_size);
+      MERROR("Block cumulative size is too big: " << current_block_size << ", expected less than " << 2 * median_size);
       return false;
     }
 
@@ -199,7 +202,7 @@ namespace cryptonote {
       uint64_t prefix;
       if (!tools::base58::decode_addr(str, prefix, data))
       {
-        LOG_PRINT_L1("Invalid address format");
+        LOG_PRINT_L2("Invalid address format");
         return false;
       }
 

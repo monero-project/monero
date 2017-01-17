@@ -40,9 +40,11 @@
 #include <boost/thread/condition_variable.hpp>
 
 
-namespace Bitmonero {
+namespace Monero {
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
+class UnsignedTransactionImpl;
+class AddressBookImpl;
 struct Wallet2CallbackImpl;
 
 class WalletImpl : public Wallet
@@ -52,6 +54,8 @@ public:
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
+    bool createWatchOnly(const std::string &path, const std::string &password,
+                            const std::string &language) const;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path, const std::string &seed);
     bool close();
@@ -64,6 +68,8 @@ public:
     bool setPassword(const std::string &password);
     std::string address() const;
     std::string integratedAddress(const std::string &payment_id) const;
+    std::string privateViewKey() const;
+    std::string path() const;
     bool store(const std::string &path);
     std::string filename() const;
     std::string keysFilename() const;
@@ -86,40 +92,50 @@ public:
     int autoRefreshInterval() const;
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     void setRecoveringFromSeed(bool recoveringFromSeed);
-
+    bool watchOnly() const;
+    bool rescanSpent();
 
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
     virtual PendingTransaction * createSweepUnmixableTransaction();
+    bool submitTransaction(const std::string &fileName);
+    virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename);
+    bool exportKeyImages(const std::string &filename);
+    bool importKeyImages(const std::string &filename);
 
     virtual void disposeTransaction(PendingTransaction * t);
     virtual TransactionHistory * history() const;
+    virtual AddressBook * addressBook() const;
     virtual void setListener(WalletListener * l);
     virtual uint32_t defaultMixin() const;
     virtual void setDefaultMixin(uint32_t arg);
     virtual bool setUserNote(const std::string &txid, const std::string &note);
     virtual std::string getUserNote(const std::string &txid) const;
     virtual std::string getTxKey(const std::string &txid) const;
-
     virtual std::string signMessage(const std::string &message);
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
+    virtual void startRefresh();
+    virtual void pauseRefresh();
+    virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
 
 private:
-    void clearStatus();
+    void clearStatus() const;
     void refreshThreadFunc();
     void doRefresh();
-    void startRefresh();
+    bool daemonSynced() const;
     void stopRefresh();
-    void pauseRefresh();
     bool isNewWallet() const;
     void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
 
+
 private:
     friend class PendingTransactionImpl;
+    friend class UnsignedTransactionImpl;    
     friend class TransactionHistoryImpl;
-    friend class Wallet2CallbackImpl;
+    friend struct Wallet2CallbackImpl;
+    friend class AddressBookImpl;
 
     tools::wallet2 * m_wallet;
     mutable std::atomic<int>  m_status;
@@ -129,6 +145,7 @@ private:
     bool        m_trustedDaemon;
     WalletListener * m_walletListener;
     Wallet2CallbackImpl * m_wallet2Callback;
+    AddressBookImpl *  m_addressBook;
 
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
@@ -144,13 +161,17 @@ private:
     // flag indicating wallet is recovering from seed
     // so it shouldn't be considered as new and pull blocks (slow-refresh)
     // instead of pulling hashes (fast-refresh)
-    bool                m_recoveringFromSeed;
+    std::atomic<bool>   m_recoveringFromSeed;
     std::atomic<bool>   m_synchronized;
-    bool                m_rebuildWalletCache;
+    std::atomic<bool>   m_rebuildWalletCache;
+    // cache connection status to avoid unnecessary RPC calls
+    mutable std::atomic<bool>   m_is_connected;
 };
 
 
 } // namespace
+
+namespace Bitmonero = Monero;
 
 #endif
 

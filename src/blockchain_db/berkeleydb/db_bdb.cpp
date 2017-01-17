@@ -1813,9 +1813,10 @@ bool BlockchainBDB::has_key_image(const crypto::key_image& img) const
 // Ostensibly BerkeleyDB has batch transaction support built-in,
 // so the following few functions will be NOP.
 
-void BlockchainBDB::batch_start(uint64_t batch_num_blocks)
+bool BlockchainBDB::batch_start(uint64_t batch_num_blocks)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
+    return false;
 }
 
 void BlockchainBDB::batch_commit()

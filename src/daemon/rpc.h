@@ -32,6 +32,9 @@
 
 #include "rpc/core_rpc_server.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+
 namespace daemonize
 {
 
@@ -52,27 +55,27 @@ public:
     )
     : m_server{core.get(), p2p.get()}
   {
-    LOG_PRINT_L0("Initializing core rpc server...");
+    MGINFO("Initializing core rpc server...");
     if (!m_server.init(vm))
     {
       throw std::runtime_error("Failed to initialize core rpc server.");
     }
-    LOG_PRINT_GREEN("Core rpc server initialized OK on port: " << m_server.get_binded_port(), LOG_LEVEL_0);
+    MGINFO("Core rpc server initialized OK on port: " << m_server.get_binded_port());
   }
 
   void run()
   {
-    LOG_PRINT_L0("Starting core rpc server...");
+    MGINFO("Starting core rpc server...");
     if (!m_server.run(2, false))
     {
       throw std::runtime_error("Failed to start core rpc server.");
     }
-    LOG_PRINT_L0("Core rpc server started ok");
+    MGINFO("Core rpc server started ok");
   }
 
   void stop()
   {
-    LOG_PRINT_L0("Stopping core rpc server...");
+    MGINFO("Stopping core rpc server...");
     m_server.send_stop_signal();
     m_server.timed_wait_server_stop(5000);
   }
@@ -84,11 +87,11 @@ public:
 
   ~t_rpc()
   {
-    LOG_PRINT_L0("Deinitializing rpc server...");
+    MGINFO("Deinitializing rpc server...");
     try {
       m_server.deinit();
     } catch (...) {
-      LOG_PRINT_L0("Failed to deinitialize rpc server...");
+      MERROR("Failed to deinitialize rpc server...");
     }
   }
 };

@@ -34,9 +34,10 @@
 #include <string>
 #include <vector>
 #include <ctime>
+#include <iostream>
 
 //  Public interface for libwallet library
-namespace Bitmonero {
+namespace Monero {
 
     namespace Utils {
         bool isAddressLocal(const std::string &hostaddr);
@@ -62,7 +63,8 @@ struct PendingTransaction
 {
     enum Status {
         Status_Ok,
-        Status_Error
+        Status_Error,
+        Status_Critical
     };
 
     enum Priority {
@@ -75,7 +77,8 @@ struct PendingTransaction
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
-    virtual bool commit() = 0;
+    // commit transaction or save to file if filename is provided.
+    virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t dust() const = 0;
     virtual uint64_t fee() const = 0;
@@ -85,6 +88,48 @@ struct PendingTransaction
      * \return
      */
     virtual uint64_t txCount() const = 0;
+};
+
+/**
+ * @brief Transaction-like interface for sending money
+ */
+struct UnsignedTransaction
+{
+    enum Status {
+        Status_Ok,
+        Status_Error,
+        Status_Critical
+    };
+
+    enum Priority {
+        Priority_Low = 1,
+        Priority_Medium = 2,
+        Priority_High = 3,
+        Priority_Last
+    };
+
+    virtual ~UnsignedTransaction() = 0;
+    virtual int status() const = 0;
+    virtual std::string errorString() const = 0;
+    virtual std::vector<uint64_t> amount() const = 0;
+    virtual std::vector<uint64_t>  fee() const = 0;
+    virtual std::vector<uint64_t> mixin() const = 0;
+    // returns a string with information about all transactions.
+    virtual std::string confirmationMessage() const = 0;
+    virtual std::vector<std::string> paymentId() const = 0;
+    virtual std::vector<std::string> recipientAddress() const = 0;
+    virtual uint64_t minMixinCount() const = 0;
+    /*!
+     * \brief txCount - number of transactions current transaction will be splitted to
+     * \return
+     */
+    virtual uint64_t txCount() const = 0;
+   /*!
+    * @brief sign - Sign txs and saves to file
+    * @param signedFileName
+    * return - true on success
+    */
+    virtual bool sign(const std::string &signedFileName) = 0;
 };
 
 /**
@@ -110,6 +155,7 @@ struct TransactionInfo
     virtual uint64_t amount() const = 0;
     virtual uint64_t fee() const = 0;
     virtual uint64_t blockHeight() const = 0;
+    virtual uint64_t confirmations() const = 0;
     //! transaction_id
     virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
@@ -130,6 +176,51 @@ struct TransactionHistory
     virtual void refresh() = 0;
 };
 
+/**
+ * @brief AddressBookRow - provides functions to manage address book
+ */
+struct AddressBookRow {
+public:
+    AddressBookRow(std::size_t _rowId, const std::string &_address, const std::string &_paymentId, const std::string &_description):
+        m_rowId(_rowId),
+        m_address(_address),
+        m_paymentId(_paymentId), 
+        m_description(_description) {}
+ 
+private:
+    std::size_t m_rowId;
+    std::string m_address;
+    std::string m_paymentId;
+    std::string m_description;
+public:
+    std::string extra;
+    std::string getAddress() const {return m_address;} 
+    std::string getDescription() const {return m_description;} 
+    std::string getPaymentId() const {return m_paymentId;} 
+    std::size_t getRowId() const {return m_rowId;}
+};
+
+/**
+ * @brief The AddressBook - interface for 
+Book
+ */
+struct AddressBook
+{
+    enum ErrorCode {
+        Status_Ok,
+        General_Error,
+        Invalid_Address,
+        Invalid_Payment_Id
+    };
+    virtual ~AddressBook() = 0;
+    virtual std::vector<AddressBookRow*> getAll() const = 0;
+    virtual bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description) = 0;  
+    virtual bool deleteRow(std::size_t rowId) = 0;
+    virtual void refresh() = 0;  
+    virtual std::string errorString() const = 0;
+    virtual int errorCode() const = 0;
+    virtual int lookupPaymentID(const std::string &payment_id) const = 0;
+};
 
 struct WalletListener
 {
@@ -147,6 +238,13 @@ struct WalletListener
      * @param amount        - amount
      */
     virtual void moneyReceived(const std::string &txId, uint64_t amount) = 0;
+    
+   /**
+    * @brief unconfirmedMoneyReceived - called when payment arrived in tx pool
+    * @param txId          - transaction id
+    * @param amount        - amount
+    */
+    virtual void unconfirmedMoneyReceived(const std::string &txId, uint64_t amount) = 0;
 
     /**
      * @brief newBlock      - called when new block received
@@ -176,7 +274,8 @@ struct Wallet
 
     enum Status {
         Status_Ok,
-        Status_Error
+        Status_Error,
+        Status_Critical
     };
 
     enum ConnectionStatus {
@@ -195,6 +294,7 @@ struct Wallet
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
+    virtual std::string path() const = 0;
     
     /*!
      * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
@@ -207,6 +307,12 @@ struct Wallet
      */
     virtual std::string integratedAddress(const std::string &payment_id) const = 0;
     
+   /*!
+    * \brief privateViewKey    - returns private view key
+    * \return                  - private view key
+    */
+    virtual std::string privateViewKey() const = 0;
+
     /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
@@ -246,6 +352,15 @@ struct Wallet
     virtual void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
 
    /*!
+    * \brief createWatchOnly - Creates a watch only wallet
+    * \param path - where to store the wallet
+    * \param password
+    * \param language
+    * \return  - true if created successfully
+    */
+    virtual bool createWatchOnly(const std::string &path, const std::string &password, const std::string &language) const = 0;
+
+   /*!
     * \brief setRefreshFromBlockHeight - start refresh from block height on recover
     *
     * \param refresh_from_block_height - blockchain start height
@@ -274,6 +389,12 @@ struct Wallet
     virtual bool trustedDaemon() const = 0;
     virtual uint64_t balance() const = 0;
     virtual uint64_t unlockedBalance() const = 0;
+
+   /**
+    * @brief watchOnly - checks if wallet is watch only
+    * @return - true if watch only
+    */
+    virtual bool watchOnly() const = 0;
 
     /**
      * @brief blockChainHeight - returns current blockchain height
@@ -315,6 +436,15 @@ struct Wallet
     static bool addressValid(const std::string &str, bool testnet);
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
+
+   /**
+    * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
+    */
+    virtual void startRefresh() = 0;
+   /**
+    * @brief pauseRefresh - pause refresh thread
+    */
+    virtual void pauseRefresh() = 0;
 
     /**
      * @brief refresh - refreshes the wallet, updating transactions from daemon
@@ -362,13 +492,44 @@ struct Wallet
      */
 
     virtual PendingTransaction * createSweepUnmixableTransaction() = 0;
+    
+   /*!
+    * \brief loadUnsignedTx  - creates transaction from unsigned tx file
+    * \return                - UnsignedTransaction object. caller is responsible to check UnsignedTransaction::status()
+    *                          after object returned
+    */
+    virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) = 0;
+    
+   /*!
+    * \brief submitTransaction - submits transaction in signed tx file
+    * \return                  - true on success
+    */
+    virtual bool submitTransaction(const std::string &fileName) = 0;
+    
 
     /*!
      * \brief disposeTransaction - destroys transaction object
      * \param t -  pointer to the "PendingTransaction" object. Pointer is not valid after function returned;
      */
     virtual void disposeTransaction(PendingTransaction * t) = 0;
+
+   /*!
+    * \brief exportKeyImages - exports key images to file
+    * \param filename
+    * \return                  - true on success
+    */
+    virtual bool exportKeyImages(const std::string &filename) = 0;
+   
+   /*!
+    * \brief importKeyImages - imports key images from file
+    * \param filename
+    * \return                  - true on success
+    */
+    virtual bool importKeyImages(const std::string &filename) = 0;
+
+
     virtual TransactionHistory * history() const = 0;
+    virtual AddressBook * addressBook() const = 0;
     virtual void setListener(WalletListener *) = 0;
     /*!
      * \brief defaultMixin - returns number of mixins used in transactions
@@ -410,6 +571,13 @@ struct Wallet
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
+
+    virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) = 0;
+   /*
+    * \brief rescanSpent - Rescan spent outputs - Can only be used with trusted daemon
+    * \return true on success
+    */
+    virtual bool rescanSpent() = 0;
 };
 
 /**
@@ -486,6 +654,41 @@ struct WalletManager
     //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
 
+    //! set the daemon address (hostname and port)
+    virtual void setDaemonAddress(const std::string &address) = 0;
+
+    //! returns whether the daemon can be reached, and its version number
+    virtual bool connected(uint32_t *version = NULL) const = 0;
+
+    //! returns current blockchain height
+    virtual uint64_t blockchainHeight() const = 0;
+
+    //! returns current blockchain target height
+    virtual uint64_t blockchainTargetHeight() const = 0;
+
+    //! returns current network difficulty
+    virtual uint64_t networkDifficulty() const = 0;
+
+    //! returns current mining hash rate (0 if not mining)
+    virtual double miningHashRate() const = 0;
+
+    //! returns current hard fork info
+    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
+
+    //! returns current block target
+    virtual uint64_t blockTarget() const = 0;
+
+    //! returns true iff mining
+    virtual bool isMining() const = 0;
+
+    //! starts mining with the set number of threads
+    virtual bool startMining(const std::string &address, uint32_t threads = 1) = 0;
+
+    //! stops mining
+    virtual bool stopMining() = 0;
+
+    //! resolves an OpenAlias address to a monero address
+    virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
 };
 
 
@@ -509,4 +712,6 @@ struct WalletManagerFactory
 
 
 }
+
+namespace Bitmonero = Monero;
 

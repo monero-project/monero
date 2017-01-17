@@ -209,6 +209,8 @@ public:
 
   virtual transaction get_tx(const crypto::hash& h) const;
 
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+
   virtual uint64_t get_tx_count() const;
 
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;
@@ -245,7 +247,7 @@ public:
                             );
 
   virtual void set_batch_transactions(bool batch_transactions);
-  virtual void batch_start(uint64_t batch_num_blocks=0);
+  virtual bool batch_start(uint64_t batch_num_blocks=0);
   virtual void batch_commit();
   virtual void batch_stop();
   virtual void batch_abort();
@@ -367,7 +369,6 @@ private:
 
   MDB_dbi m_properties;
 
-  uint64_t m_height;
   uint64_t m_num_txs;
   uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation

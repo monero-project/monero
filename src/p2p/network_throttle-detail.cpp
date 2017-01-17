@@ -77,9 +77,8 @@
 // TODO:
 #include "../../src/p2p/network_throttle-detail.hpp"
 
-#include "../../contrib/otshell_utils/utils.hpp"
-#include "data_logger.hpp"
-using namespace nOT::nUtils;
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.throttle"
 
 // ################################################################################################
 // ################################################################################################
@@ -88,8 +87,6 @@ using namespace nOT::nUtils;
 // (But maybe common parts will be separated out later though - if needed)
 // ################################################################################################
 // ################################################################################################
-
-using namespace nOT::nUtils;
 
 namespace epee
 {
@@ -163,7 +160,7 @@ void network_throttle::set_name(const std::string &name)
 void network_throttle::set_target_speed( network_speed_kbps target ) 
 {
     m_target_speed = target * 1024;
-	_note_c("net/"+m_nameshort, "Setting LIMIT: " << target << " kbps");
+	MINFO("Setting LIMIT: " << target << " kbps");
 	set_real_target_speed(target);
 }
 
@@ -220,7 +217,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 	std::string history_str = oss.str();
 
-	_dbg2_c( "net/" + m_nameshort , "Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)" 
+	MDEBUG("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)"
         << " Speed AVG=" << std::setw(4) <<  ((long int)(cts .average/1024)) <<"[w="<<cts .window<<"]"
         <<           " " << std::setw(4) <<  ((long int)(cts2.average/1024)) <<"[w="<<cts2.window<<"]"
 				<<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
@@ -241,8 +238,6 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 }
 
 void network_throttle::logger_handle_net(const std::string &filename, double time, size_t size) {
-	if (! epee::net_utils::data_logger::m_save_graph)
-		return;
     boost::mutex mutex;
     mutex.lock(); {
         std::fstream file;
@@ -312,8 +307,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	if (dbg) {
 		std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		_dbg1_c( "net/"+m_nameshort+"_c" ,
-			(cts.delay > 0 ? "SLEEP" : "")
+		MDEBUG((cts.delay > 0 ? "SLEEP" : "")
 			<< "dbg " << m_name << ": " 
 			<< "speed is A=" << std::setw(8) <<cts.average<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "

@@ -76,7 +76,6 @@ target_link_libraries(cryptonote_core
   PUBLIC
     common
     crypto
-    otshell_utils
     blockchain_db
     ringct
     ${Boost_DATE_TIME_LIBRARY}

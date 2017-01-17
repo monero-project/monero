@@ -34,13 +34,15 @@ set(wallet_sources
   password_container.cpp
   wallet2.cpp
   wallet_args.cpp
-  wallet_rpc_server.cpp
+  node_rpc_proxy.cpp
   api/wallet.cpp
   api/wallet_manager.cpp
   api/transaction_info.cpp
   api/transaction_history.cpp
   api/pending_transaction.cpp
-  api/utils.cpp)
+  api/utils.cpp
+  api/address_book.cpp
+  api/unsigned_transaction.cpp)
 
 set(wallet_api_headers
     wallet2_api.h)
@@ -54,12 +56,15 @@ set(wallet_private_headers
   wallet_rpc_server.h
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
+  node_rpc_proxy.h
   api/wallet.h
   api/wallet_manager.h
   api/transaction_info.h
   api/transaction_history.h
   api/pending_transaction.h
-  api/common_defines.h)
+  api/common_defines.h
+  api/address_book.h
+  api/unsigned_transaction.h)
 
 monero_private_headers(wallet
   ${wallet_private_headers})
@@ -102,6 +107,7 @@ if (NOT BUILD_GUI_DEPS)
   target_link_libraries(wallet_rpc_server
     PRIVATE
       wallet
+      epee
       rpc
       cryptonote_core
       crypto
