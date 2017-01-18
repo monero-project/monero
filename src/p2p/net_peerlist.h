@@ -285,9 +285,11 @@ namespace nodetool
     {
       if(!vl.last_seen)
         continue;
-      bs_head.push_back(vl);      
-      if(cnt++ > depth)
+
+      if(cnt++ >= depth)
         break;
+
+      bs_head.push_back(vl);
     }
     return true;
   }
