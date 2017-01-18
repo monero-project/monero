@@ -253,7 +253,7 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>((double)blob_size / fee, receive_time), id);
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
 
     return true;
   }
@@ -732,7 +732,7 @@ namespace cryptonote
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>((double)tx.second.blob_size / tx.second.fee, tx.second.receive_time), tx.first);
+      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(tx.second.fee / (double)tx.second.blob_size, tx.second.receive_time), tx.first);
     }
 
     // Ignore deserialization error
