@@ -1,5 +1,5 @@
 name: monero
-version: 0  # TODO: change this to release version in CI builds
+version: 0.10.1 # Current stable version
 summary: "Monero: the secure, private, untraceable cryptocurrency https://getmonero.org"
 description: |
     Monero is a private, secure, untraceable, decentralised digital currency.
@@ -9,37 +9,28 @@ grade: devel
 confinement: strict
 
 apps:
-    d:
+    monerod:
         daemon: forking
-        command: daemon.bash
+        command: |
+          monerod --detach --data-dir ${SNAP_DATA}
         plugs:
             - network
             - network-bind
-
-    log:
-        command: log.bash
-
-    monero:
-        command: wallet.bash
+    monero-wallet-rpc:
+        command: |
+            monero-wallet-rpc --log-file ${SNAP_USER_DATA}
         plugs:
+            - home
+            - network
+            - network-bind
+    monero-wallet-cli:
+        command: |
+            monero-wallet-cli --log-file ${SNAP_USER_DATA}
+        plugs:
+            - home
             - network
 
 parts:
-    wrapper:
-        plugin: dump
-        source: .
-        stage-packages:
-            - rlwrap
-        organize:
-            contrib/snap/daemon.bash: daemon.bash
-            contrib/snap/log.bash: log.bash
-            contrib/snap/wallet.bash: wallet.bash
-        snap:
-            - daemon.bash
-            - log.bash
-            - wallet.bash
-            - usr/bin/rlwrap
- 
     cmake-build:
         plugin: cmake
         configflags:
@@ -51,7 +42,6 @@ parts:
         source: .
         build-packages:
             - gcc
-            - cmake
             - pkg-config
             - libunbound-dev
             - libevent-dev
@@ -68,6 +58,8 @@ parts:
             - libminiupnpc10
             - libunbound2
             - libunwind8
-        snap:
+        prime:
             - bin
-            - usr
+            - usr/lib/
+            - -usr/lib/gcc
+            - -usr/share
