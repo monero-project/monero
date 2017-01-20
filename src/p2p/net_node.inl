@@ -926,6 +926,50 @@ namespace nodetool
     return true;
   }
 
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::check_connection_and_handshake_with_peer(const net_address& na, uint64_t last_seen_stamp)
+  {
+    LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
+                                  << epee::string_tools::num_to_string_fast(na.port) << "(last_seen: "
+                                  << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
+                                  << ")...");
+
+    typename net_server::t_connection_context con = AUTO_VAL_INIT(con);
+    bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(na.ip),
+                                    epee::string_tools::num_to_string_fast(na.port),
+                                    m_config.m_net_config.connection_timeout,
+                                    con);
+
+    if (!res) {
+      bool is_priority = is_priority_node(na);
+
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, con, "Connect failed to "
+              << epee::string_tools::get_ip_string_from_int32(na.ip)
+              << ":" << epee::string_tools::num_to_string_fast(na.port));
+
+      return false;
+    }
+
+    peerid_type pi = AUTO_VAL_INIT(pi);
+    res = do_handshake_with_peer(pi, con, true);
+
+    if (!res) {
+      bool is_priority = is_priority_node(na);
+
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, con, "Failed to HANDSHAKE with peer "
+              << epee::string_tools::get_ip_string_from_int32(na.ip)
+              << ":" << epee::string_tools::num_to_string_fast(na.port));
+
+      return false;
+    }
+
+    m_net_server.get_config_object().close(con.m_connection_id);
+
+    LOG_PRINT_CC_GREEN(con, "CONNECTION HANDSHAKED OK AND CLOSED.", LOG_LEVEL_2);
+
+    return true;
+  }
+
 #undef LOG_PRINT_CC_PRIORITY_NODE
 
   //-----------------------------------------------------------------------------------
@@ -1097,6 +1141,7 @@ namespace nodetool
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
     m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
+    m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     return true;
   }
@@ -1703,5 +1748,31 @@ namespace nodetool
     });
 
     return count > max_connections;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
+  {
+    peerlist_entry pe = AUTO_VAL_INIT(pe);
+
+    if (!m_peerlist.get_gray_peer_random(pe)) {
+        return false;
+    }
+
+    bool success = check_connection_and_handshake_with_peer(pe.adr, pe.last_seen);
+
+    if (!success) {
+      m_peerlist.remove_from_peer_gray(pe);
+
+      LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
+
+      return true;
+    }
+
+    m_peerlist.append_with_peer_white(pe);
+
+    LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
+
+    return true;
   }
 }

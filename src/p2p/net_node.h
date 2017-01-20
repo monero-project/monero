@@ -229,6 +229,9 @@ namespace nodetool
 
     bool has_too_many_connections(const uint32_t ip);
 
+    bool check_connection_and_handshake_with_peer(const net_address& na, uint64_t last_seen_stamp);
+    bool gray_peerlist_housekeeping();
+
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
       is_closing = true;
@@ -289,6 +292,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<P2P_DEFAULT_HANDSHAKE_INTERVAL> m_peer_handshake_idle_maker_interval;
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
+    epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
 
     std::string m_bind_ip;
     std::string m_port;

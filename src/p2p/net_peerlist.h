@@ -81,6 +81,8 @@ namespace nodetool
     bool set_peer_just_seen(peerid_type peer, const net_address& addr);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_ip_allowed(uint32_t ip);
+    bool get_gray_peer_random(peerlist_entry& pe);
+    bool remove_from_peer_gray(const peerlist_entry& pe);
 
     
   private:
@@ -396,6 +398,50 @@ namespace nodetool
     return true;
   }
   //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::get_gray_peer_random(peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    if (m_peers_gray.empty()) {
+      return false;
+    }
+
+    size_t x = crypto::rand<size_t>() % (m_peers_gray.size() + 1);
+    size_t res = (x * x * x) / (m_peers_gray.size() * m_peers_gray.size()); //parabola \/
+
+    LOG_PRINT_L3("Random gray peer index=" << res << "(x="<< x << ", max_index=" << m_peers_gray.size() << ")");
+
+    peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
+    pe = *epee::misc_utils::move_it_backward(--by_time_index.end(), res);
+
+    return true;
+
+    CATCH_ENTRY_L0("peerlist_manager::get_gray_peer_random()", false);
+    return true;
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::remove_from_peer_gray(const peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    peers_indexed::index_iterator<by_addr>::type iterator = m_peers_gray.get<by_addr>().find(pe.adr);
+
+    if (iterator != m_peers_gray.get<by_addr>().end()) {
+      m_peers_gray.erase(iterator);
+    }
+
+    return true;
+
+    CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_gray()", false);
+    return true;
+  }
+    //--------------------------------------------------------------------------------------------------
 }
 
 BOOST_CLASS_VERSION(nodetool::peerlist_manager, CURRENT_PEERLIST_STORAGE_ARCHIVE_VER)
