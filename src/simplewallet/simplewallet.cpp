@@ -2317,9 +2317,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     LOG_ERROR("RPC error: " << e.to_string());
     fail_msg_writer() << tr("RPC error: ") << e.what();
   }
-  catch (const tools::error::get_random_outs_error&)
+  catch (const tools::error::get_random_outs_error &e)
   {
-    fail_msg_writer() << tr("failed to get random outputs to mix");
+    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
   catch (const tools::error::not_enough_money& e)
   {
@@ -2495,9 +2495,9 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     LOG_ERROR("RPC error: " << e.to_string());
     fail_msg_writer() << tr("RPC error: ") << e.what();
   }
-  catch (const tools::error::get_random_outs_error&)
+  catch (const tools::error::get_random_outs_error &e)
   {
-    fail_msg_writer() << tr("failed to get random outputs to mix");
+    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
   catch (const tools::error::not_enough_money& e)
   {
@@ -2756,9 +2756,9 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
     LOG_ERROR("RPC error: " << e.to_string());
     fail_msg_writer() << tr("RPC error: ") << e.what();
   }
-  catch (const tools::error::get_random_outs_error&)
+  catch (const tools::error::get_random_outs_error &e)
   {
-    fail_msg_writer() << tr("failed to get random outputs to mix");
+    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
   catch (const tools::error::not_enough_money& e)
   {
@@ -3041,9 +3041,9 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
     LOG_ERROR("Unknown RPC error: " << e.to_string());
     fail_msg_writer() << tr("RPC error: ") << e.what();
   }
-  catch (const tools::error::get_random_outs_error&)
+  catch (const tools::error::get_random_outs_error &e)
   {
-    fail_msg_writer() << tr("failed to get random outputs to mix");
+    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
   catch (const tools::error::not_enough_money& e)
   {
