@@ -3865,16 +3865,20 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     char data[2 * HASH_SIZE];
     memcpy(data            , &a  , HASH_SIZE);
     memcpy(data + HASH_SIZE, &k32, HASH_SIZE);
-    crypto::secret_key h;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(h));
+    crypto::secret_key c;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(c));
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (k.data[0] != h.data[0])
+    if (k.data[0] != c.data[0])
       continue;
-    const auto& AB = account_keys.m_account_address;
-    cryptonote::account_public_address CD;
-    crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
-    crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
-    success_msg_writer() << tr("One-time integrated address: \n") << cryptonote::get_account_onetime_address_as_str(m_wallet->testnet(), CD, k);
+    crypto::secret_key d;
+    crypto::public_key D;
+    crypto::hash_to_scalar(c.data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+    secret_key_to_public_key(d, D);
+    const auto& ack = account_keys.m_account_address;
+    cryptonote::account_public_address ack_onetime;
+    crypto::secret_key_to_public_key(c, ack_onetime.m_view_public_key);
+    crypto::add_public_key(ack.m_spend_public_key, D, ack_onetime.m_spend_public_key);
+    success_msg_writer() << tr("One-time integrated address: \n") << cryptonote::get_account_onetime_address_as_str(m_wallet->testnet(), ack_onetime, k);
     success_msg_writer() << tr("Payment ID integrated in the above: ") << k;
     return true;
   }
@@ -3892,16 +3896,20 @@ bool simple_wallet::print_onetime_address_classic(const std::vector<std::string>
     char data[2 * HASH_SIZE];
     memcpy(data            , &a, HASH_SIZE);
     memcpy(data + HASH_SIZE, &k, HASH_SIZE);
-    crypto::secret_key h;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(h));
+    crypto::secret_key c;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(c));
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (k.data[0] != h.data[0])
+    if (k.data[0] != c.data[0])
       continue;
-    const auto& AB = account_keys.m_account_address;
-    cryptonote::account_public_address CD;
-    crypto::secret_key_mult_public_key(h, AB.m_view_public_key , CD.m_view_public_key );
-    crypto::secret_key_mult_public_key(h, AB.m_spend_public_key, CD.m_spend_public_key);
-    success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), CD);
+    crypto::secret_key d;
+    crypto::public_key D;
+    crypto::hash_to_scalar(c.data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+    secret_key_to_public_key(d, D);
+    const auto& ack = account_keys.m_account_address;
+    cryptonote::account_public_address ack_onetime;
+    crypto::secret_key_to_public_key(c, ack_onetime.m_view_public_key);
+    crypto::add_public_key(ack.m_spend_public_key, D, ack_onetime.m_spend_public_key);
+    success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), ack_onetime);
     success_msg_writer() << tr("Payment ID: \n") << k;
     success_msg_writer() << tr("IMPORTANT: If the sender forgets to attach the payment ID, you will NOT see the fund!");
     return true;

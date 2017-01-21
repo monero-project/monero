@@ -113,8 +113,8 @@ namespace crypto {
     friend bool check_key(const public_key &);
     static bool secret_key_to_public_key(const secret_key &, public_key &);
     friend bool secret_key_to_public_key(const secret_key &, public_key &);
-    static bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
-    friend bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
+    static bool add_public_key(const public_key &, const public_key &, public_key &);
+    friend bool add_public_key(const public_key &, const public_key &, public_key &);
     static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
@@ -174,10 +174,10 @@ namespace crypto {
     return crypto_ops::secret_key_to_public_key(sec, pub);
   }
 
-  /* Checks a private key and multiplies it to the given public key.
+  /* Checks a pair of public keys and computes their addition.
    */
-  inline bool secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
-    return crypto_ops::secret_key_mult_public_key(sec, pub, result);
+  inline bool add_public_key(const public_key &key1, const public_key &key2, public_key &result) {
+    return crypto_ops::add_public_key(key1, key2, result);
   }
 
   /* To generate an ephemeral key used to send money to:

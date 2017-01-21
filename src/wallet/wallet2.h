@@ -613,7 +613,7 @@ namespace tools
       bool standard = false;
       bool onetime = false;
     };
-    void check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const cryptonote::tx_out &o, const crypto::key_derivation &derivation, const crypto::secret_key* onetime_h, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const;
+    void check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const cryptonote::tx_out &o, const std::pair<crypto::secret_key, crypto::public_key>& derivation_info, const crypto::secret_key* onetime_c, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     uint64_t get_upper_tranaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();

@@ -2897,12 +2897,6 @@ void sc_mulsub(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s[30] = s11 >> 9;
   s[31] = s11 >> 17;
 }
-void sc_mul(unsigned char *s, const unsigned char *a, const unsigned char *b) {
-  unsigned char zero[32], neg[32];
-  sc_0(zero);
-  sc_mulsub(neg, a, b, zero);
-  sc_sub(s, zero, neg);
-}
 
 /* Assumes that a != INT64_MIN */
 static int64_t signum(int64_t a) {
