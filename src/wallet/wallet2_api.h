@@ -708,6 +708,7 @@ struct WalletManagerFactory
 
     static WalletManager * getWalletManager();
     static void setLogLevel(int level);
+    static void setLogCategories(const std::string &categories);
 };
 
 
