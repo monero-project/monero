@@ -965,7 +965,7 @@ namespace nodetool
 
     m_net_server.get_config_object().close(con.m_connection_id);
 
-    LOG_PRINT_CC_GREEN(con, "CONNECTION HANDSHAKED OK AND CLOSED.", LOG_LEVEL_2);
+    LOG_DEBUG_CC(con, "CONNECTION HANDSHAKED OK AND CLOSED.");
 
     return true;
   }
