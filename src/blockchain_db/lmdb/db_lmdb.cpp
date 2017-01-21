@@ -441,7 +441,7 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to set new mapsize: ", result).c_str()));
 
-  MINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
+  MGINFO("LMDB Mapsize increased." << "  Old: " << mei.me_mapsize / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
 
   mdb_txn_safe::allow_new_txns();
 }
@@ -525,7 +525,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks)
   // size-based check
   if (need_resize(threshold_size))
   {
-    LOG_PRINT_L0("[batch] DB resize needed");
+    MGINFO("[batch] DB resize needed");
     do_resize(increase_size);
   }
 }
@@ -1172,7 +1172,7 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
   {
     if (*(const uint32_t*)v.mv_data > VERSION)
     {
-      MINFO("Existing lmdb database was made by a later version. We don't know how it will change yet.");
+      MWARNING("Existing lmdb database was made by a later version. We don't know how it will change yet.");
       compatible = false;
     }
 #if VERSION > 0
@@ -2301,11 +2301,11 @@ void BlockchainLMDB::batch_commit()
   if (! m_batch_transactions)
     throw0(DB_ERROR("batch transactions not enabled"));
   if (! m_batch_active)
-    throw0(DB_ERROR("batch transaction not in progress"));
+    throw1(DB_ERROR("batch transaction not in progress"));
   if (m_write_batch_txn == nullptr)
-    throw0(DB_ERROR("batch transaction not in progress"));
+    throw1(DB_ERROR("batch transaction not in progress"));
   if (m_writer != boost::this_thread::get_id())
-    return; // batch txn owned by other thread
+    throw1(DB_ERROR("batch transaction owned by other thread"));
 
   check_open();
 
@@ -2328,11 +2328,11 @@ void BlockchainLMDB::batch_stop()
   if (! m_batch_transactions)
     throw0(DB_ERROR("batch transactions not enabled"));
   if (! m_batch_active)
-    throw0(DB_ERROR("batch transaction not in progress"));
+    throw1(DB_ERROR("batch transaction not in progress"));
   if (m_write_batch_txn == nullptr)
-    throw0(DB_ERROR("batch transaction not in progress"));
+    throw1(DB_ERROR("batch transaction not in progress"));
   if (m_writer != boost::this_thread::get_id())
-    return; // batch txn owned by other thread
+    throw1(DB_ERROR("batch transaction owned by other thread"));
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
   TIME_MEASURE_START(time1);
@@ -2354,9 +2354,11 @@ void BlockchainLMDB::batch_abort()
   if (! m_batch_transactions)
     throw0(DB_ERROR("batch transactions not enabled"));
   if (! m_batch_active)
-    throw0(DB_ERROR("batch transaction not in progress"));
+    throw1(DB_ERROR("batch transaction not in progress"));
+  if (m_write_batch_txn == nullptr)
+    throw1(DB_ERROR("batch transaction not in progress"));
   if (m_writer != boost::this_thread::get_id())
-    return; // batch txn owned by other thread
+    throw1(DB_ERROR("batch transaction owned by other thread"));
   check_open();
   // for destruction of batch transaction
   m_write_txn = nullptr;
