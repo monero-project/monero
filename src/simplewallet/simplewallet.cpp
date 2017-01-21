@@ -1958,7 +1958,7 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
     return false;
   }
   // available for RPC version 1.4 or higher
-  if (version < 0x10004)
+  if (version < MAKE_CORE_RPC_VERSION(1, 4))
     return true;
   std::string err;
   uint64_t blockchain_height = get_daemon_blockchain_height(err);
