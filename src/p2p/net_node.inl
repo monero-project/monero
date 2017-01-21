@@ -1456,6 +1456,14 @@ namespace nodetool
       drop_connection(context);
       return 1;
     }
+
+    if(has_too_many_connections(context.m_remote_ip))
+    {
+      LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << " REFUSED, too many connections from the same address");
+      drop_connection(context);
+      return 1;
+    }
+
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;
 
@@ -1673,5 +1681,27 @@ namespace nodetool
     }
 
     return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::has_too_many_connections(const uint32_t ip)
+  {
+    const uint8_t max_connections = 1;
+    uint8_t count = 0;
+
+    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    {
+      if (cntxt.m_is_income && cntxt.m_remote_ip == ip) {
+        count++;
+
+        if (count > max_connections) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return count > max_connections;
   }
 }
