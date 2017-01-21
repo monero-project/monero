@@ -57,7 +57,6 @@ parts:
             - libevent-dev
             - libboost-all-dev
             - libdb-dev
-            - libunwind-dev
             - libminiupnpc-dev
             - libldns-dev
             - libexpat1-dev
@@ -67,7 +66,6 @@ parts:
         stage-packages:
             - libminiupnpc10
             - libunbound2
-            - libunwind8
         snap:
             - bin
             - usr

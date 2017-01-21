@@ -254,10 +254,6 @@ int main(int argc, char const * argv[])
       }
     }
 
-#ifdef STACK_TRACE
-    tools::set_stack_trace_log(log_file_path.filename().string());
-#endif // STACK_TRACE
-
     if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
