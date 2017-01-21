@@ -80,7 +80,7 @@ namespace cryptonote
 
 }
 
-BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 0)
+BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
 
 namespace boost
 {
@@ -96,6 +96,9 @@ namespace boost
       a & x.amount;
       a & x.rct;
       a & x.mask;
+      if (ver < 1)
+        return;
+      a & x.unencrypted_payment_id;
     }
   }
 }

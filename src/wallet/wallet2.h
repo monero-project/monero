@@ -211,6 +211,7 @@ namespace tools
       uint64_t unlock_time;
       bool use_rct;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
+      bool is_onetime;
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -232,7 +233,6 @@ namespace tools
 
       tx_construction_data construction_data;
 
-      bool is_onetime;
     };
 
     // The term "Unsigned tx" is not really a tx since it's not signed yet.
@@ -681,7 +681,7 @@ BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 0)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 1)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 0)
 
 namespace boost
@@ -906,6 +906,9 @@ namespace boost
       a & x.unlock_time;
       a & x.use_rct;
       a & x.dests;
+      if (ver < 1)
+        return;
+      a & x.is_onetime;
     }
 
     template <class Archive>
@@ -921,7 +924,6 @@ namespace boost
       a & x.tx_key;
       a & x.dests;
       a & x.construction_data;
-      a & x.is_onetime;
     }
   }
 }
@@ -1173,7 +1175,7 @@ namespace tools
     ptx.construction_data.unlock_time = unlock_time;
     ptx.construction_data.use_rct = false;
     ptx.construction_data.dests = dsts;
-    ptx.is_onetime = is_onetime;
+    ptx.construction_data.is_onetime = is_onetime;
   }
 
 

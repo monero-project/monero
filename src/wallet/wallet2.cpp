@@ -3035,7 +3035,7 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
     crypto::hash8 payment_id8 = null_hash8;
     if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
     {
-      if (!ptx.is_onetime)
+      if (!ptx.construction_data.is_onetime)
       {
         if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key))
         {
@@ -3248,8 +3248,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
     crypto::secret_key tx_key;
-    bool is_onetime;    // TODO: I have no idea what to do here, because I don't know how to use this command. 
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, sd.splitted_dsts, sd.extra, is_onetime, ptx.tx, sd.unlock_time, tx_key, sd.use_rct);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, sd.splitted_dsts, sd.extra, sd.is_onetime, ptx.tx, sd.unlock_time, tx_key, sd.use_rct);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_testnet);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -3919,7 +3918,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = false;
   ptx.construction_data.dests = dsts;
-  ptx.is_onetime = is_onetime;
+  ptx.construction_data.is_onetime = is_onetime;
   LOG_PRINT_L2("transfer_selected done");
 }
 
@@ -4081,7 +4080,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   ptx.construction_data.unlock_time = unlock_time;
   ptx.construction_data.use_rct = true;
   ptx.construction_data.dests = dsts;
-  ptx.is_onetime = is_onetime;
+  ptx.construction_data.is_onetime = is_onetime;
   LOG_PRINT_L2("transfer_selected_rct done");
 }
 
