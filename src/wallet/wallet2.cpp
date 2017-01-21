@@ -597,21 +597,25 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
 //----------------------------------------------------------------------------------------------------
 void wallet2::check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const tx_out &o, const std::pair<crypto::secret_key, crypto::public_key>& derivation_info, const crypto::secret_key* onetime_c, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const
 {
+  received.standard = false;
+  received.onetime  = false;
   const crypto::secret_key &view_secret_key = derivation_info.first;
   const crypto::public_key &tx_public_key   = derivation_info.second;
   crypto::key_derivation derivation;
-  crypto::generate_key_derivation(tx_public_key, view_secret_key, derivation);
+  bool r = crypto::generate_key_derivation(tx_public_key, view_secret_key, derivation);
+  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
   check_acc_out_precomp(spend_public_key, o, derivation, i, received.standard, money_transfered, error);
   if (!received.standard && onetime_c)
   {
     crypto::secret_key d;
     crypto::public_key D;
-    crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+    crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, d);
     secret_key_to_public_key(d, D);
     crypto::public_key spend_public_key2;
     crypto::key_derivation derivation2;
     crypto::add_public_key(spend_public_key, D, spend_public_key2);
-    crypto::generate_key_derivation(tx_public_key, *onetime_c, derivation2);
+    r = crypto::generate_key_derivation(tx_public_key, *onetime_c, derivation2);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
     check_acc_out_precomp(spend_public_key2, o, derivation2, i, received.onetime, money_transfered, error);
   }
 }
@@ -661,14 +665,20 @@ static uint64_t decodeRct_onetime(const rct::rctSig & rv, const crypto::public_k
 //----------------------------------------------------------------------------------------------------
 struct payment_id_info {
   tx_extra_nonce extra_nonce;
-  bool has_payment_id32 = false;
-  bool has_payment_id8  = false;
-  crypto::hash  payment_id32 = null_hash ;
-  crypto::hash8 payment_id8  = null_hash8;
-  crypto::secret_key* onetime_c = nullptr;
+  bool has_payment_id32;
+  bool has_payment_id8;
+  crypto::hash  payment_id32;
+  crypto::hash8 payment_id8;
+  crypto::secret_key* onetime_c;
   crypto::secret_key  onetime_c_real;
 };
 static void get_payment_id_info(const std::vector<tx_extra_field>& tx_extra_fields, const crypto::secret_key& viewkey, payment_id_info& pID_info) {
+  pID_info.payment_id32 = null_hash;
+  pID_info.payment_id8  = null_hash8;
+  pID_info.has_payment_id32 = false;
+  pID_info.has_payment_id8  = false;
+  pID_info.onetime_c = nullptr;
+  pID_info.onetime_c_real;
   if (find_tx_extra_field_by_type(tx_extra_fields, pID_info.extra_nonce))
   {
     pID_info.has_payment_id32 = get_payment_id_from_tx_extra_nonce          (pID_info.extra_nonce.nonce, pID_info.payment_id32);
@@ -684,7 +694,7 @@ static void get_payment_id_info(const std::vector<tx_extra_field>& tx_extra_fiel
     char data[2 * HASH_SIZE];
     memcpy(data            , &viewkey              , HASH_SIZE);
     memcpy(data + HASH_SIZE, &pID_info.payment_id32, HASH_SIZE);
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(pID_info.onetime_c_real));
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, pID_info.onetime_c_real);
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
     if (pID_info.payment_id32.data[0] == pID_info.onetime_c_real.data[0])
       pID_info.onetime_c = &pID_info.onetime_c_real;
@@ -3836,24 +3846,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     src.real_output = it_to_replace - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
-    {
-      // read unencrypted payment id needed for onetime addressing
-      std::vector<tx_extra_field> tx_extra_fields;
-      tx_extra_nonce extra_nonce;
-      src.unencrypted_payment_id = null_hash;
-      if (parse_tx_extra(td.m_tx.extra, tx_extra_fields) && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-      {
-        if (!get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, src.unencrypted_payment_id))
-        {
-          crypto::hash8 payment_id8;
-          if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-          {
-            memcpy(src.unencrypted_payment_id.data, payment_id8.data, 8);
-            memset(src.unencrypted_payment_id.data + 8, 0, 24);
-          }
-        }
-      }
-    }
+    cryptonote::set_unencrypted_payment_id_from_tx_extra(td.m_tx.extra, src);
     detail::print_source_entry(src);
     ++out_index;
   }
@@ -4000,6 +3993,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     src.real_output = it_to_replace - src.outputs.begin();
     src.real_output_in_tx_index = td.m_internal_output_index;
     src.mask = td.m_mask;
+    cryptonote::set_unencrypted_payment_id_from_tx_extra(td.m_tx.extra, src);
     {
       // read unencrypted payment id needed for onetime addressing
       std::vector<tx_extra_field> tx_extra_fields;
@@ -5121,7 +5115,7 @@ std::vector<std::pair<crypto::key_image, crypto::signature>> wallet2::export_key
     cryptonote::keypair in_ephemeral, in_ephemeral2;
     cryptonote::generate_key_image_helper_onetime(m_account.get_keys(), tx_pub_key, pID_info.onetime_c, td.m_internal_output_index, in_ephemeral, ki, in_ephemeral2, ki2);
 
-    if (td.m_key_image_known && ki != td.m_key_image || in_ephemeral.pub != pkey)
+    if (in_ephemeral.pub != pkey)
     {
       in_ephemeral = in_ephemeral2;
       ki = ki2;

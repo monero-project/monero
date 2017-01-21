@@ -3866,13 +3866,13 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     memcpy(data            , &a  , HASH_SIZE);
     memcpy(data + HASH_SIZE, &k32, HASH_SIZE);
     crypto::secret_key c;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(c));
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, c);
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
     if (k.data[0] != c.data[0])
       continue;
     crypto::secret_key d;
     crypto::public_key D;
-    crypto::hash_to_scalar(c.data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+    crypto::hash_to_scalar(c.data, HASH_SIZE, d);
     secret_key_to_public_key(d, D);
     const auto& ack = account_keys.m_account_address;
     cryptonote::account_public_address ack_onetime;
@@ -3897,13 +3897,13 @@ bool simple_wallet::print_onetime_address_classic(const std::vector<std::string>
     memcpy(data            , &a, HASH_SIZE);
     memcpy(data + HASH_SIZE, &k, HASH_SIZE);
     crypto::secret_key c;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(c));
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, c);
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
     if (k.data[0] != c.data[0])
       continue;
     crypto::secret_key d;
     crypto::public_key D;
-    crypto::hash_to_scalar(c.data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+    crypto::hash_to_scalar(c.data, HASH_SIZE, d);
     secret_key_to_public_key(d, D);
     const auto& ack = account_keys.m_account_address;
     cryptonote::account_public_address ack_onetime;

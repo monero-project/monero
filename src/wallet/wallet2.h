@@ -610,8 +610,8 @@ namespace tools
     crypto::hash8 get_short_payment_id(const pending_tx &ptx) const;
     void check_acc_out_precomp(const crypto::public_key &spend_public_key, const cryptonote::tx_out &o, const crypto::key_derivation &derivation, size_t i, bool &received, uint64_t &money_transfered, bool &error) const;
     struct is_received_info {
-      bool standard = false;
-      bool onetime = false;
+      bool standard;
+      bool onetime;
     };
     void check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const cryptonote::tx_out &o, const std::pair<crypto::secret_key, crypto::public_key>& derivation_info, const crypto::secret_key* onetime_c, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
@@ -1097,24 +1097,7 @@ namespace tools
       src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx);
       src.real_output = interted_it - src.outputs.begin();
       src.real_output_in_tx_index = td.m_internal_output_index;
-      {
-        // read unencrypted payment id needed for onetime addressing
-        std::vector<tx_extra_field> tx_extra_fields;
-        tx_extra_nonce extra_nonce;
-        src.unencrypted_payment_id = null_hash;
-        if (parse_tx_extra(td.m_tx.extra, tx_extra_fields) && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-        {
-          if (!get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, src.unencrypted_payment_id))
-          {
-            crypto::hash8 payment_id8;
-            if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-            {
-              memcpy(src.unencrypted_payment_id.data, payment_id8.data, 8);
-              memset(src.unencrypted_payment_id.data + 8, 0, 24);
-            }
-          }
-        }
-      }
+      cryptonote::set_unencrypted_payment_id_from_tx_extra(td.m_tx.extra, src);
       detail::print_source_entry(src);
       ++i;
     }

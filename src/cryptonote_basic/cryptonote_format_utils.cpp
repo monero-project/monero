@@ -130,11 +130,11 @@ namespace cryptonote
     {
       crypto::secret_key d;
       crypto::public_key D;
-      crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, reinterpret_cast<crypto::ec_scalar&>(d));
+      crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, d);
       secret_key_to_public_key(d, D);
       account_keys ack2;
       ack2.m_view_secret_key = *onetime_c;
-      sc_add((unsigned char*)&ack2.m_spend_secret_key, (unsigned char*)&ack.m_spend_secret_key, (unsigned char*)&d);
+      sc_add((unsigned char*)ack2.m_spend_secret_key.data, (unsigned char*)&ack.m_spend_secret_key, (unsigned char*)&d);
       crypto::add_public_key(ack.m_account_address.m_spend_public_key, D, ack2.m_account_address.m_spend_public_key);
       if (!generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral2, ki2))
         return false;
@@ -356,6 +356,26 @@ namespace cryptonote
       return false;
     payment_id = *reinterpret_cast<const crypto::hash8*>(extra_nonce.data() + 1);
     return true;
+  }
+  //---------------------------------------------------------------
+  bool set_unencrypted_payment_id_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    tx_extra_nonce extra_nonce;
+    src.unencrypted_payment_id = null_hash;
+    if (parse_tx_extra(tx_extra, tx_extra_fields) && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+    {
+      if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, src.unencrypted_payment_id))
+        return true;
+      crypto::hash8 payment_id8;
+      if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+      {
+        memcpy(src.unencrypted_payment_id.data, payment_id8.data, 8);
+        memset(src.unencrypted_payment_id.data + 8, 0, 24);
+        return true;
+      }
+    }
+    return false;
   }
   //---------------------------------------------------------------
   bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
