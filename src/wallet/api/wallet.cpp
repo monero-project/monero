@@ -834,8 +834,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         } catch (const tools::error::wallet_rpc_error& e) {
             m_errorString = tr("RPC error: ") +  e.to_string();
             m_status = Status_Error;
-        } catch (const tools::error::get_random_outs_error&) {
-            m_errorString = tr("failed to get random outputs to mix");
+        } catch (const tools::error::get_random_outs_error &e) {
+            m_errorString = (boost::format(tr("failed to get random outputs to mix: %s")) % e.what()).str();
             m_status = Status_Error;
 
         } catch (const tools::error::not_enough_money& e) {
