@@ -81,7 +81,7 @@ namespace nodetool
     bool set_peer_just_seen(peerid_type peer, const net_address& addr);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_ip_allowed(uint32_t ip);
-    bool get_gray_peer_random(peerlist_entry& pe);
+    bool get_random_gray_peer(peerlist_entry& pe);
     bool remove_from_peer_gray(const peerlist_entry& pe);
 
     
@@ -399,7 +399,7 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::get_gray_peer_random(peerlist_entry& pe)
+  bool peerlist_manager::get_random_gray_peer(peerlist_entry& pe)
   {
     TRY_ENTRY();
 
@@ -419,7 +419,7 @@ namespace nodetool
 
     return true;
 
-    CATCH_ENTRY_L0("peerlist_manager::get_gray_peer_random()", false);
+    CATCH_ENTRY_L0("peerlist_manager::get_random_gray_peer()", false);
     return true;
   }
   //--------------------------------------------------------------------------------------------------

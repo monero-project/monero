@@ -1755,7 +1755,7 @@ namespace nodetool
   {
     peerlist_entry pe = AUTO_VAL_INIT(pe);
 
-    if (!m_peerlist.get_gray_peer_random(pe)) {
+    if (!m_peerlist.get_random_gray_peer(pe)) {
         return false;
     }
 
