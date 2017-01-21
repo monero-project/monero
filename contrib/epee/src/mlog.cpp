@@ -33,7 +33,6 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-//#define MLOG_BASE_FORMAT "%datetime{%Y-%M-%d %H:%m:%s.%g}\t%thread\t%level\t%logger\t%fbase:%line\t%msg"
 #define MLOG_BASE_FORMAT "%datetime{%Y-%M-%d %H:%m:%s.%g}\t%thread\t%level\t%logger\t%loc\t%msg"
 
 using namespace epee;
@@ -83,7 +82,10 @@ void mlog_configure(const std::string &filename_base, bool console)
   el::Configurations c;
   c.setGlobally(el::ConfigurationType::Filename, filename_base);
   c.setGlobally(el::ConfigurationType::ToFile, "true");
-  c.setGlobally(el::ConfigurationType::Format, MLOG_BASE_FORMAT);
+  const char *log_format = getenv("MONERO_LOG_FORMAT");
+  if (!log_format)
+    log_format = MLOG_BASE_FORMAT;
+  c.setGlobally(el::ConfigurationType::Format, log_format);
   c.setGlobally(el::ConfigurationType::ToStandardOutput, console ? "true" : "false");
   c.setGlobally(el::ConfigurationType::MaxLogFileSize, "104850000"); // 100 MB - 7600 bytes
   el::Loggers::setDefaultConfigurations(c, true);
