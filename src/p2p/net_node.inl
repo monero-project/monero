@@ -1769,7 +1769,7 @@ namespace nodetool
       return true;
     }
 
-    m_peerlist.append_with_peer_white(pe);
+    m_peerlist.set_peer_just_seen(pe.id, pe.adr);
 
     LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
 
