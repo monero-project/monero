@@ -3074,7 +3074,7 @@ crypto::hash8 wallet2::get_short_payment_id(const pending_tx &ptx) const
   cryptonote::tx_extra_nonce extra_nonce;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
   {
-    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8) && !ptx.construction_data.is_onetime)
     {
       decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key); 
     }
