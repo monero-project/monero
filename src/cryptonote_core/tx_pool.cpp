@@ -240,7 +240,7 @@ namespace cryptonote
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
 
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
       std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
@@ -275,7 +275,7 @@ namespace cryptonote
     // ND: Speedup
     // 1. Move transaction hash calcuation outside of loop. ._.
     crypto::hash actual_hash = get_transaction_hash(tx);
-    BOOST_FOREACH(const txin_v& vi, tx.vin)
+    for(const txin_v& vi: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(vi, const txin_to_key, txin, false);
       auto it = m_spent_key_images.find(txin.k_image);
@@ -415,7 +415,7 @@ namespace cryptonote
   void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& tx_vt, m_transactions)
+    for(const auto& tx_vt: m_transactions)
       txs.push_back(tx_vt.second.tx);
   }
   //------------------------------------------------------------------
@@ -488,7 +488,7 @@ namespace cryptonote
   bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
       if(have_tx_keyimg_as_spent(tokey_in.k_image))
