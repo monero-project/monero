@@ -625,7 +625,6 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
   m_cmd_binder.set_handler("onetime_address", boost::bind(&simple_wallet::print_onetime_address, this, _1), tr("One-time address with integrated 64bit payment ID"));
-  m_cmd_binder.set_handler("onetime_address_classic", boost::bind(&simple_wallet::print_onetime_address_classic, this, _1), tr("One-time address in the classic mode with separate 256bit payment ID"));
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), tr("Save wallet data"));
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), tr("Save a watch-only keys file"));
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
@@ -3880,38 +3879,6 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     crypto::add_public_key(ack.m_spend_public_key, D, ack_onetime.m_spend_public_key);
     success_msg_writer() << tr("One-time integrated address: \n") << cryptonote::get_account_onetime_address_as_str(m_wallet->testnet(), ack_onetime, k);
     success_msg_writer() << tr("Payment ID integrated in the above: ") << k;
-    return true;
-  }
-  fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_onetime_address_classic(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  const auto& account_keys = m_wallet->get_account().get_keys();
-  const crypto::secret_key& a = account_keys.m_view_secret_key;
-  for (int i = 0; i < 65536; ++i)
-  {
-    crypto::hash k = crypto::rand<crypto::hash>();
-    char data[2 * HASH_SIZE];
-    memcpy(data            , &a, HASH_SIZE);
-    memcpy(data + HASH_SIZE, &k, HASH_SIZE);
-    crypto::secret_key c;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, c);
-    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (k.data[0] != c.data[0])
-      continue;
-    crypto::secret_key d;
-    crypto::public_key D;
-    crypto::hash_to_scalar(c.data, HASH_SIZE, d);
-    secret_key_to_public_key(d, D);
-    const auto& ack = account_keys.m_account_address;
-    cryptonote::account_public_address ack_onetime;
-    crypto::secret_key_to_public_key(c, ack_onetime.m_view_public_key);
-    crypto::add_public_key(ack.m_spend_public_key, D, ack_onetime.m_spend_public_key);
-    success_msg_writer() << tr("One-time address: \n") << cryptonote::get_account_address_as_str(m_wallet->testnet(), ack_onetime);
-    success_msg_writer() << tr("Payment ID: \n") << k;
-    success_msg_writer() << tr("IMPORTANT: If the sender forgets to attach the payment ID, you will NOT see the fund!");
     return true;
   }
   fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
