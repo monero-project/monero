@@ -1719,6 +1719,43 @@ bool wallet2::delete_address_book_row(std::size_t row_id) {
 
   return true;
 }
+//----------------------------------------------------------------------------------------------------
+bool wallet2::make_onetime_address(std::string& adr_str, cryptonote::account_public_address& adr, crypto::hash8& payment_id) const
+{
+  const auto& account_keys = m_account.get_keys();
+  const crypto::secret_key& a = account_keys.m_view_secret_key;
+  for (int i = 0; i < 65536; ++i)
+  {
+    crypto::hash8 k = crypto::rand<crypto::hash8>();
+    crypto::hash k32;
+    memcpy(k32.data, k.data, 8);
+    memset(k32.data + 8, 0, 24);
+    char data[2 * HASH_SIZE];
+    memcpy(data            , &a  , HASH_SIZE);
+    memcpy(data + HASH_SIZE, &k32, HASH_SIZE);
+    crypto::secret_key c;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, c);
+    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+    if (k.data[0] != c.data[0])
+      continue;
+    crypto::secret_key d;
+    crypto::public_key D;
+    crypto::hash_to_scalar(c.data, HASH_SIZE, d);
+    secret_key_to_public_key(d, D);
+    const auto& adr_real = account_keys.m_account_address;
+    crypto::secret_key_to_public_key(c, adr.m_view_public_key);
+    crypto::add_public_key(adr_real.m_spend_public_key, D, adr.m_spend_public_key);
+    adr_str = cryptonote::get_account_onetime_address_as_str(testnet(), adr, k);
+    payment_id = k;
+    return true;
+  }
+  LOG_ERROR("failed to generate valid one-time address after 65536 attempts");
+  adr_str = "";
+  adr.m_spend_public_key = null_pkey;
+  adr.m_view_public_key  = null_pkey;
+  payment_id = null_hash8;
+  return false;
+}
 
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)

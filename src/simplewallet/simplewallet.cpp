@@ -3859,35 +3859,18 @@ bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/*
     return true;
   }
 
-  const auto& account_keys = m_wallet->get_account().get_keys();
-  const crypto::secret_key& a = account_keys.m_view_secret_key;
-  for (int i = 0; i < 65536; ++i)
+  std::string adr_str;
+  cryptonote::account_public_address adr;
+  crypto::hash8 payment_id;
+  if (!m_wallet->make_onetime_address(adr_str, adr, payment_id))
   {
-    crypto::hash8 k = crypto::rand<crypto::hash8>();
-    crypto::hash k32;
-    memcpy(k32.data, k.data, 8);
-    memset(k32.data + 8, 0, 24);
-    char data[2 * HASH_SIZE];
-    memcpy(data            , &a  , HASH_SIZE);
-    memcpy(data + HASH_SIZE, &k32, HASH_SIZE);
-    crypto::secret_key c;
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, c);
-    // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (k.data[0] != c.data[0])
-      continue;
-    crypto::secret_key d;
-    crypto::public_key D;
-    crypto::hash_to_scalar(c.data, HASH_SIZE, d);
-    secret_key_to_public_key(d, D);
-    const auto& ack = account_keys.m_account_address;
-    cryptonote::account_public_address ack_onetime;
-    crypto::secret_key_to_public_key(c, ack_onetime.m_view_public_key);
-    crypto::add_public_key(ack.m_spend_public_key, D, ack_onetime.m_spend_public_key);
-    success_msg_writer() << tr("One-time integrated address: \n") << cryptonote::get_account_onetime_address_as_str(m_wallet->testnet(), ack_onetime, k);
-    success_msg_writer() << tr("Payment ID integrated in the above: ") << k;
-    return true;
+    fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
   }
-  fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
+  else
+  {
+    success_msg_writer() << tr("One-time integrated address: \n") << adr_str;
+    success_msg_writer() << tr("Payment ID integrated in the above: ") << payment_id;
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------

@@ -641,6 +641,22 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_onetime_address(const wallet_rpc::COMMAND_RPC_MAKE_ONETIME_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_ONETIME_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    std::string adr_str;
+    cryptonote::account_public_address adr;
+    crypto::hash8 payment_id;
+    if (!m_wallet.make_onetime_address(adr_str, adr, payment_id))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_FAILED_MAKE_ONETIME;
+      er.message = "Failed to make one-time address";
+      return false;
+    }
+    res.onetime_address = adr_str;
+    res.payment_id = epee::string_tools::pod_to_hex(payment_id);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_split_integrated_address(const wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
   {
     try

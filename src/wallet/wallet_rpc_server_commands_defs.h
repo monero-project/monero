@@ -435,6 +435,26 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_MAKE_ONETIME_ADDRESS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string onetime_address;
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(onetime_address)
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_SPLIT_INTEGRATED_ADDRESS
   {
     struct request

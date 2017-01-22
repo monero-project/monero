@@ -522,6 +522,11 @@ namespace tools
     bool add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash &payment_id, const std::string &description);
     bool delete_address_book_row(std::size_t row_id);
         
+    /*!
+     * \brief  Generate one-time address with payment ID that satisfies the equation: (Hs(a,pID) - pID) mod 256 == 0
+     */
+    bool make_onetime_address(std::string& adr_str, cryptonote::account_public_address& adr, crypto::hash8& payment_id) const;
+    
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
 
