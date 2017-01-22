@@ -3853,6 +3853,12 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  if (!m_wallet->testnet())
+  {
+    fail_msg_writer() << tr("The one-time address feature is not yet ready for the mainnet use. Please use testnet to help testing.");
+    return true;
+  }
+
   const auto& account_keys = m_wallet->get_account().get_keys();
   const crypto::secret_key& a = account_keys.m_view_secret_key;
   for (int i = 0; i < 65536; ++i)
