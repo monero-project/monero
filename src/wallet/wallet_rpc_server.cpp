@@ -281,21 +281,24 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool& is_onetime, epee::json_rpc::error& er)
   {
     crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
     std::string extra_nonce;
+    is_onetime = false;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
       bool has_payment_id;
       crypto::hash8 new_payment_id;
-      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address))
+      bool is_onetime_temp;
+      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, is_onetime_temp, m_wallet.testnet(), it->address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
         return false;
       }
+      is_onetime = is_onetime || is_onetime_temp;
       de.amount = it->amount;
       dsts.push_back(de);
 
@@ -359,6 +362,7 @@ namespace tools
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_onetime;
 
     LOG_PRINT_L3("on_transfer_split starts");
     if (m_wallet.restricted())
@@ -369,7 +373,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_onetime, er))
     {
       return false;
     }
@@ -381,7 +385,6 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
@@ -429,6 +432,7 @@ namespace tools
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_onetime;
 
     if (m_wallet.restricted())
     {
@@ -438,7 +442,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_onetime, er))
     {
       return false;
     }
@@ -452,7 +456,6 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
       ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
@@ -547,6 +550,7 @@ namespace tools
   {
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_onetime;
 
     if (m_wallet.restricted())
     {
@@ -560,14 +564,13 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(destination, req.payment_id, dsts, extra, is_onetime, er))
     {
       return false;
     }
 
     try
     {
-      bool is_onetime;  // TODO: I don't know how to deal with RPC; someone please help!
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, is_onetime, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
