@@ -87,6 +87,8 @@ using namespace cryptonote;
 
 #define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
 
+#define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
+
 #define KILL_IOSERVICE()  \
     do { \
       work.reset(); \
@@ -2720,6 +2722,19 @@ namespace
     vec.pop_back();
     return res;
   }
+
+  template<typename T>
+  void pop_if_present(std::vector<T>& vec, T e)
+  {
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
+      if (e == vec[i])
+      {
+        pop_index (vec, i);
+        return;
+      }
+    }
+  }
 }
 //----------------------------------------------------------------------------------------------------
 // This returns a handwavy estimation of how much two outputs are related
@@ -4028,6 +4043,17 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money) co
   return picks;
 }
 
+static bool should_pick_a_second_output(bool use_rct, size_t n_transfers, const std::vector<size_t> &unused_transfers_indices, const std::vector<size_t> &unused_dust_indices)
+{
+  if (!use_rct)
+    return false;
+  if (n_transfers > 1)
+    return false;
+  if (unused_dust_indices.empty() && unused_transfers_indices.empty())
+    return false;
+  return true;
+}
+
 // Another implementation of transaction creation that is hopefully better
 // While there is anything left to pay, it goes through random outputs and tries
 // to fill the next destination/amount. If it fully fills it, it will use the
@@ -4152,8 +4178,18 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // - we have something to send
   // - or we need to gather more fee
   // - or we have just one input in that tx, which is rct (to try and make all/most rct txes 2/2)
-  while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee || (use_rct && txes.back().selected_transfers.size() == 1)) {
+  while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee || should_pick_a_second_output(use_rct, txes.back().selected_transfers.size(), unused_transfers_indices, unused_dust_indices)) {
     TX &tx = txes.back();
+
+    LOG_PRINT_L2("Start of loop with " << unused_transfers_indices.size() << " " << unused_dust_indices.size());
+    LOG_PRINT_L2("unused_transfers_indices:");
+    for (auto t: unused_transfers_indices)
+      LOG_PRINT_L2("  " << t);
+    LOG_PRINT_L2("unused_dust_indices:");
+    for (auto t: unused_dust_indices)
+      LOG_PRINT_L2("  " << t);
+    LOG_PRINT_L2("dsts size " << dsts.size() << ", first " << (dsts.empty() ? -1 : dsts[0].amount));
+    LOG_PRINT_L2("adding_fee " << adding_fee << ", use_rct " << use_rct);
 
     // if we need to spend money and don't have any left, we fail
     if (unused_dust_indices.empty() && unused_transfers_indices.empty()) {
@@ -4167,9 +4203,20 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     if ((dsts.empty() || dsts[0].amount == 0) && !adding_fee)
       // the "make rct txes 2/2" case - we pick a small value output to "clean up" the wallet too
       idx = pop_best_value(unused_dust_indices.empty() ? unused_transfers_indices : unused_dust_indices, tx.selected_transfers, true);
-    else if (!prefered_inputs.empty())
+    else if (!prefered_inputs.empty()) {
       idx = pop_back(prefered_inputs);
-    else
+      pop_if_present(unused_transfers_indices, idx);
+      pop_if_present(unused_dust_indices, idx);
+
+      // since we're trying to add a second output which is not strictly needed,
+      // we only add it if it's unrelated enough to the first one
+      float relatedness = get_output_relatedness(m_transfers[idx], m_transfers[tx.selected_transfers.front()]);
+      if (relatedness > SECOND_OUTPUT_RELATEDNESS_THRESHOLD)
+      {
+        LOG_PRINT_L2("Second outout was not strictly needed, and relatedness " << relatedness << ", not adding");
+        break;
+      }
+    } else
       idx = pop_best_value(unused_transfers_indices.empty() ? unused_dust_indices : unused_transfers_indices, tx.selected_transfers);
 
     const transfer_details &td = m_transfers[idx];
