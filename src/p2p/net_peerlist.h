@@ -45,6 +45,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 
 #include "syncobj.h"
@@ -283,7 +284,7 @@ namespace nodetool
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
       if(!vl.last_seen)
         continue;
@@ -301,13 +302,13 @@ namespace nodetool
   {    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_gr)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
     {
       pl_gray.push_back(vl);      
     }
 
     peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_wt)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
     {
       pl_white.push_back(vl);      
     }
