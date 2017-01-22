@@ -797,23 +797,6 @@ namespace rct {
         tools::thread_group threadpool(tools::thread_group::optimal_with_max(threads));
 
         if (semantics) {
-          results.clear();
-          results.resize(rv.outPk.size());
-          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
-            for (size_t i = 0; i < rv.outPk.size(); i++) {
-              region.run([&, i] {
-                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              });
-            }
-          });
-
-          for (size_t i = 0; i < results.size(); ++i) {
-            if (!results[i]) {
-              LOG_PRINT_L1("Range proof verified failed for output " << i);
-              return false;
-            }
-          }
-
           key sumOutpks = identity();
           for (size_t i = 0; i < rv.outPk.size(); i++) {
               addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
@@ -832,6 +815,23 @@ namespace rct {
           if (!equalKeys(sumPseudoOuts, sumOutpks)) {
               LOG_PRINT_L1("Sum check failed");
               return false;
+          }
+
+          results.clear();
+          results.resize(rv.outPk.size());
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            for (size_t i = 0; i < rv.outPk.size(); i++) {
+              region.run([&, i] {
+                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              });
+            }
+          });
+
+          for (size_t i = 0; i < results.size(); ++i) {
+            if (!results[i]) {
+              LOG_PRINT_L1("Range proof verified failed for output " << i);
+              return false;
+            }
           }
         }
         else {
