@@ -385,6 +385,50 @@ If you want to help out, see CONTRIBUTING for a set of guidelines.
 
 This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the github repo.
 
+## Obtaining Stack Traces and Core Dumps on Unix Systems
+
+We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
+
+* To use gdb in order to obtain a stack trace for a build that has stalled:
+
+Run the build.
+
+Once it stalls, enter the following command:
+
+```
+gdb /path/to/monerod `pidof monerod` 
+```
+
+Type `thread apply all bt` within gdb in order to obtain the stack trace
+
+* If however the core dumps or segfaults:
+
+Enter `ulimit -c unlimited` on the command line to enable unlimited filesizes for core dumps
+
+Run the build.
+
+When it terminates with an output along the lines of "Segmentation fault (core dumped)", there should be a core dump file in the same directory as monerod.
+
+You can now analyse this core dump with `gdb` as follows:
+
+`gdb /path/to/monerod /path/to/dumpfile`
+
+Print the stack trace with `bt`
+
+* To run monero within gdb:
+
+Type `gdb /path/to/monerod`
+
+Pass command-line options with `--args` followed by the relevant arguments
+
+Type `run` to run monerod
+
+## Analysing Memory Corruption
+
+We use the tool `valgrind` for this.
+
+Run with `valgrind /path/to/monerod`. It will be slow.
+
 ## LMDB
 
 Instructions for debugging suspected blockchain corruption as per @HYC
