@@ -121,10 +121,10 @@ void mlog_set_log_level(int level)
     switch (level)
     {
       case 0:
-        settings = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL";
+        settings = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
         break;
       case 1:
-        settings = "*:WARNING,global:INFO";
+        settings = "*:WARNING,global:INFO,stacktrace:INFO";
         break;
       case 2:
         settings = "*:INFO";
