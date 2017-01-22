@@ -197,10 +197,11 @@ namespace cryptonote
      *
      * @param h the hash to look for
      * @param blk return-by-reference variable to put result block in
+     * @param orphan if non-NULL, will be set to true if not in the main chain, false otherwise
      *
      * @return true if the block was found, else false
      */
-    bool get_block_by_hash(const crypto::hash &h, block &blk) const;
+    bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
 
     /**
      * @brief get all block hashes (main chain, alt chains, and invalid blocks)

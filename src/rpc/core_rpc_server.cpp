@@ -985,7 +985,8 @@ namespace cryptonote
       return false;
     }
     block blk;
-    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    bool orphan = false;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk, &orphan);
     if (!have_block)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -999,7 +1000,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1123,7 +1124,8 @@ namespace cryptonote
       block_hash = m_core.get_block_id_by_height(req.height);
     }
     block blk;
-    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    bool orphan = false;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk, &orphan);
     if (!have_block)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1137,7 +1139,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;

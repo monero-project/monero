@@ -636,7 +636,7 @@ crypto::hash Blockchain::get_block_id_by_height(uint64_t height) const
   return null_hash;
 }
 //------------------------------------------------------------------
-bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk) const
+bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -645,6 +645,8 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk) const
   try
   {
     blk = m_db->get_block(h);
+    if (orphan)
+      *orphan = false;
     return true;
   }
   // try to find block in alternative chain
@@ -654,6 +656,8 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk) const
     if (m_alternative_chains.end() != it_alt)
     {
       blk = it_alt->second.bl;
+      if (orphan)
+        *orphan = true;
       return true;
     }
   }
