@@ -125,10 +125,10 @@ void mlog_set_log_level(int level)
         settings = "*:WARNING,global:INFO";
         break;
       case 2:
-        settings = "*:INFO";
+        settings = "*:DEBUG";
         break;
       case 3:
-        settings = "*:DEBUG";
+        settings = "*:TRACE";
         break;
       case 4:
         settings = "*:TRACE";
