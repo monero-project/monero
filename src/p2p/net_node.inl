@@ -205,7 +205,7 @@ namespace nodetool
     if(time(nullptr) >= it->second)
     {
       m_blocked_ips.erase(it);
-      MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
+      MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
       return true;
     }
     return false;
@@ -237,7 +237,7 @@ namespace nodetool
     for (const auto &c: conns)
       m_net_server.get_config_object().close(c);
 
-    MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.");
+    MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ namespace nodetool
     if (i == m_blocked_ips.end())
       return false;
     m_blocked_ips.erase(i);
-    MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
+    MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
