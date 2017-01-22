@@ -487,6 +487,13 @@ namespace cryptonote
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
 
+    if (bad_semantics_txes.find(tx_hash) != bad_semantics_txes.end())
+    {
+      LOG_PRINT_L1("Transaction already seen with bad semantics, rejected");
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
     const size_t max_tx_version = version == 1 ? 1 : 2;
     if (tx.version == 0 || tx.version > max_tx_version)
@@ -534,6 +541,7 @@ namespace cryptonote
     if(!check_tx_semantic(tx, keeped_by_block))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
+      bad_semantics_txes.insert(tx_hash);
       tvc.m_verifivation_failed = true;
       return false;
     }
