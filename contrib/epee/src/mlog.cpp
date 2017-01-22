@@ -108,6 +108,32 @@ void mlog_configure(const std::string &filename_base, bool console)
   mlog_set_categories(monero_log);
 }
 
+static const char *get_default_categories(int level)
+{
+  const char *categories = "";
+  switch (level)
+  {
+    case 0:
+      categories = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
+      break;
+    case 1:
+      categories = "*:WARNING,global:INFO,stacktrace:INFO";
+      break;
+    case 2:
+      categories = "*:DEBUG";
+      break;
+    case 3:
+      categories = "*:TRACE";
+      break;
+    case 4:
+      categories = "*:TRACE";
+      break;
+    default:
+      break;
+  }
+  return categories;
+}
+
 void mlog_set_categories(const char *categories)
 {
   el::Loggers::setCategories(categories);
@@ -117,30 +143,9 @@ void mlog_set_categories(const char *categories)
 // maps epee style log level to new logging system
 void mlog_set_log_level(int level)
 {
-    const char *settings = NULL;
-    switch (level)
-    {
-      case 0:
-        settings = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
-        break;
-      case 1:
-        settings = "*:WARNING,global:INFO,stacktrace:INFO";
-        break;
-      case 2:
-        settings = "*:DEBUG";
-        break;
-      case 3:
-        settings = "*:TRACE";
-        break;
-      case 4:
-        settings = "*:TRACE";
-        break;
-      default:
-        return;
-    }
-
-    el::Loggers::setCategories(settings);
-    MINFO("Mew log categories: " << settings);
+  const char *categories = get_default_categories(level);
+  el::Loggers::setCategories(categories);
+  MINFO("Mew log categories: " << categories);
 }
 
 void mlog_set_log(const char *log)
@@ -151,7 +156,14 @@ void mlog_set_log(const char *log)
   level = strtoll(log, &ptr, 10);
   if (ptr && *ptr)
   {
-    mlog_set_categories(log);
+    // we can have a default level, eg, 2,foo:ERROR
+    if (*ptr == ',') {
+      std::string new_categories = std::string(get_default_categories(level)) + ptr;
+      mlog_set_categories(new_categories.c_str());
+    }
+    else {
+      mlog_set_categories(log);
+    }
   }
   else if (level >= 0 && level <= 4)
   {
