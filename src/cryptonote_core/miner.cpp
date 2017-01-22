@@ -33,7 +33,6 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/limits.hpp>
-#include <boost/foreach.hpp>
 #include "misc_language.h"
 #include "include_base_utils.h"
 #include "cryptonote_basic_impl.h"

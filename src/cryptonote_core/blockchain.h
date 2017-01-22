@@ -36,7 +36,6 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/foreach.hpp>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>

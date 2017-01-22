@@ -31,7 +31,6 @@
 #include "include_base_utils.h"
 using namespace epee;
 
-#include <boost/foreach.hpp>
 #include <unordered_set>
 #include "cryptonote_core.h"
 #include "common/command_line.h"

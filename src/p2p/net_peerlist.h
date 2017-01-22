@@ -33,7 +33,6 @@
 #include <list>
 #include <set>
 #include <map>
-#include <boost/foreach.hpp>
 //#include <boost/bimap.hpp>
 //#include <boost/bimap/multiset_of.hpp>
 #include <boost/archive/binary_iarchive.hpp>

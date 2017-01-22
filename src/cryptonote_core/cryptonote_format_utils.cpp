@@ -32,7 +32,6 @@
 using namespace epee;
 
 #include "cryptonote_format_utils.h"
-#include <boost/foreach.hpp>
 #include "cryptonote_config.h"
 #include "miner.h"
 #include "crypto/crypto.h"
