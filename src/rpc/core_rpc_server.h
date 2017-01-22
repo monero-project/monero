@@ -194,3 +194,5 @@ private:
     bool m_restricted;
   };
 }
+
+BOOST_CLASS_VERSION(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >, 1);

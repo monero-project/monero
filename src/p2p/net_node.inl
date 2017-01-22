@@ -173,6 +173,9 @@ namespace nodetool
       make_default_config();
     }
 
+    // always recreate a new peer id
+    make_default_peer_id();
+
     //at this moment we have hardcoded config
     m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
     m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE; //20 MB limit
@@ -212,10 +215,16 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::make_default_config()
+  bool node_server<t_payload_net_handler>::make_default_peer_id()
   {
     m_config.m_peer_id  = crypto::rand<uint64_t>();
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::make_default_config()
+  {
+    return make_default_peer_id();
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>

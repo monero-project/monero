@@ -110,7 +110,12 @@ namespace nodetool
     void serialize(Archive &a,  const t_version_type ver)
     {
       a & m_peerlist;
-      a & m_config.m_peer_id;
+      if (ver == 0)
+      {
+        // from v1, we do not store the peer id anymore
+        peerid_type peer_id;
+        a & peer_id;
+      }
     }
     // debug functions
     bool log_peerlist();
@@ -162,6 +167,7 @@ namespace nodetool
 #endif
     int handle_get_support_flags(int command, COMMAND_REQUEST_SUPPORT_FLAGS::request& arg, COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context);
     bool init_config();
+    bool make_default_peer_id();
     bool make_default_config();
     bool store_config();
     bool check_trust(const proof_of_trust& tr);
