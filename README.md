@@ -138,8 +138,6 @@ library archives (`.a`).
 | libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       | Network IO     |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
-| libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
-| liblzma        | any           | NO       | `liblzma-dev`      | `xz`           | YES      | For libunwind  |
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | SSL toolkit    |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | XML parsing    |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
@@ -198,7 +196,7 @@ Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from ht
 
 * `apt-get update && apt-get upgrade` to install all of the latest software
 
-* Install the dependencies for Monero except libunwind and libboost-all-dev
+* Install the dependencies for Monero except libboost-all-dev
 
 * Increase the system swap size:
 ```	

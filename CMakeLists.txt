@@ -274,18 +274,10 @@ endif()
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
-# On ARM, having libunwind package (with .so's only) installed breaks static link.
 if(APPLE OR (ARM AND STATIC))
   set(DEFAULT_STACK_TRACE OFF)
-  set(LIBUNWIND_LIBRARIES "")
 else()
-  find_package(Libunwind)
-    if(LIBUNWIND_FOUND)
-      set(DEFAULT_STACK_TRACE ON)
-    else()
-      set(DEFAULT_STACK_TRACE OFF)
-      set(LIBUNWIND_LIBRARIES "")
-    endif()
+  set(DEFAULT_STACK_TRACE ON)
 endif()
 
 option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
@@ -326,10 +318,6 @@ include_directories(${LMDB_INCLUDE})
 if (BERKELEY_DB)
   include_directories(${BDB_INCLUDE})
 endif()
-
-# Final setup for libunwind
-include_directories(${LIBUNWIND_INCLUDE})
-link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")

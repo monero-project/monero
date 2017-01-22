@@ -28,9 +28,6 @@
 
 #include "common/stack_trace.h"
 #include "misc_log_ex.h"
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
-#include <cxxabi.h>
 #ifndef STATICLIB
 #include <dlfcn.h>
 #endif
@@ -84,60 +81,21 @@ void CXA_THROW(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*))
   __real___cxa_throw(ex, info, dest);
 }
 
-namespace
-{
-  std::string stack_trace_log;
-}
-
 namespace tools
 {
 
-void set_stack_trace_log(const std::string &log)
-{
-  stack_trace_log = log;
-}
-
 void log_stack_trace(const char *msg)
 {
-  unw_context_t ctx;
-  unw_cursor_t cur;
-  unw_word_t ip, off;
-  unsigned level;
-  char sym[512], *dsym;
-  int status;
-  const char *log = stack_trace_log.empty() ? NULL : stack_trace_log.c_str();
-
   if (msg)
     ST_LOG(msg);
   ST_LOG("Unwound call stack:");
-  if (unw_getcontext(&ctx) < 0) {
-    ST_LOG("Failed to create unwind context");
-    return;
-  }
-  if (unw_init_local(&cur, &ctx) < 0) {
-    ST_LOG("Failed to find the first unwind frame");
-    return;
-  }
-  for (level = 1; level < 999; ++level) { // 999 for safety
-    int ret = unw_step(&cur);
-    if (ret < 0) {
-      ST_LOG("Failed to find the next frame");
-      return;
-    }
-    if (ret == 0)
-      break;
-    if (unw_get_reg(&cur, UNW_REG_IP, &ip) < 0) {
-      ST_LOG("  " << std::setw(4) << level);
-      continue;
-    }
-    if (unw_get_proc_name(&cur, sym, sizeof(sym), &off) < 0) {
-      ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip);
-      continue;
-    }
-    dsym = abi::__cxa_demangle(sym, NULL, NULL, &status);
-    ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off);
-    free(dsym);
-  }
+  std::stringstream ss;
+  ss << el::base::debug::StackTrace();
+  std::vector<std::string> lines;
+  std::string s = ss.str();
+  boost::split(lines, s, boost::is_any_of("\n"));
+  for (const auto &line: lines)
+    ST_LOG(line);
 }
 
 }  // namespace tools
