@@ -395,7 +395,6 @@ namespace nodetool
     }
     return true;
     CATCH_ENTRY_L0("peerlist_manager::append_with_peer_gray()", false);
-    return true;
   }
   //--------------------------------------------------------------------------------------------------
   inline
@@ -420,7 +419,6 @@ namespace nodetool
     return true;
 
     CATCH_ENTRY_L0("peerlist_manager::get_random_gray_peer()", false);
-    return true;
   }
   //--------------------------------------------------------------------------------------------------
   inline
@@ -439,7 +437,6 @@ namespace nodetool
     return true;
 
     CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_gray()", false);
-    return true;
   }
     //--------------------------------------------------------------------------------------------------
 }
