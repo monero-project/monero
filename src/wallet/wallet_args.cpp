@@ -137,7 +137,7 @@ namespace wallet_args
     if (!vm["log-file"].defaulted())
       log_path = command_line::get_arg(vm, arg_log_file);
     else
-      log_path = mlog_get_default_log_path("monero-wallet-cli,log");
+      log_path = mlog_get_default_log_path("monero-wallet-cli.log");
     mlog_configure(log_path, false);
     if (!vm["log-level"].defaulted())
     {
