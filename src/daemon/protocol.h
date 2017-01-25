@@ -77,6 +77,7 @@ public:
       m_protocol.deinit();
       m_protocol.set_p2p_endpoint(nullptr);
       MGINFO("Cryptonote protocol stopped successfully");
+      tools::success_msg_writer() << "Daemon stopped successfully";
     } catch (...) {
       LOG_ERROR("Failed to stop cryptonote protocol!");
     }
