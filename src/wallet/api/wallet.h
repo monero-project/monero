@@ -127,7 +127,7 @@ private:
     bool daemonSynced() const;
     void stopRefresh();
     bool isNewWallet() const;
-    void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    bool doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
 
 
 private:

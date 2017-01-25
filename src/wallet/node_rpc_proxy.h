@@ -39,10 +39,7 @@ namespace tools
 class NodeRPCProxy
 {
 public:
-  NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, boost::mutex &mutex):
-    m_http_client(http_client), m_daemon_rpc_mutex(mutex) { init(""); }
-
-  void init(const std::string &daemon_address);
+  NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, boost::mutex &mutex);
 
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
@@ -50,7 +47,6 @@ public:
   boost::optional<std::string> get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks, uint64_t &fee);
 
 private:
-  std::string m_daemon_address;
   epee::net_utils::http::http_simple_client &m_http_client;
   boost::mutex &m_daemon_rpc_mutex;
 

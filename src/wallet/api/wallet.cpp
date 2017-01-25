@@ -516,12 +516,12 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    doInit(daemon_address, upper_transaction_size_limit);
+    if (!doInit(daemon_address, upper_transaction_size_limit))
+        return false;
     bool result = this->refresh();
     // enabling background refresh thread
     startRefresh();
     return result;
-
 }
 
 void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
@@ -1232,9 +1232,10 @@ bool WalletImpl::isNewWallet() const
     return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache) && !watchOnly();
 }
 
-void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
+bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (!m_wallet->init(daemon_address, upper_transaction_size_limit))
+       return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
     // If daemon isn't synced a calculated block height will be used instead
@@ -1253,8 +1254,7 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
         this->setTrustedDaemon(false);
         m_refreshIntervalMillis = DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
     }
-        
-
+    return true;
 }
 
 bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
