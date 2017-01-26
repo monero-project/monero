@@ -42,9 +42,9 @@
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
 #include "cryptonote_protocol_handler_common.h"
-#include "cryptonote_core/connection_context.h"
-#include "cryptonote_core/cryptonote_stat_info.h"
-#include "cryptonote_core/verification_context.h"
+#include "cryptonote_basic/connection_context.h"
+#include "cryptonote_basic/cryptonote_stat_info.h"
+#include "cryptonote_basic/verification_context.h"
 // #include <netinet/in.h>
 #include <boost/circular_buffer.hpp>
 

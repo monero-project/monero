@@ -69,6 +69,7 @@ monero_add_library(common
   ${common_private_headers})
 target_link_libraries(common
   PUBLIC
+    epee
     crypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}

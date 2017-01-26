@@ -30,8 +30,8 @@
 
 #pragma once
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/difficulty.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
 
 namespace cryptonote

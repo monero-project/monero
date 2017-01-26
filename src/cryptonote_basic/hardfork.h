@@ -29,7 +29,7 @@
 #pragma once
 
 #include "syncobj.h"
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic.h"
 
 namespace cryptonote
 {

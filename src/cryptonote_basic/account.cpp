@@ -38,8 +38,8 @@ extern "C"
 {
 #include "crypto/keccak.h"
 }
-#include "cryptonote_core/cryptonote_basic_impl.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic_impl.h"
+#include "cryptonote_format_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "account"

@@ -27,38 +27,19 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(cryptonote_core_sources
-  account.cpp
   blockchain.cpp
-  checkpoints.cpp
-  cryptonote_basic_impl.cpp
   cryptonote_core.cpp
-  cryptonote_format_utils.cpp
-  difficulty.cpp
-  miner.cpp
   tx_pool.cpp
-  hardfork.cpp)
+  cryptonote_tx_utils.cpp)
 
 set(cryptonote_core_headers)
 
 set(cryptonote_core_private_headers
-  account.h
-  account_boost_serialization.h
   blockchain_storage_boost_serialization.h
   blockchain.h
-  checkpoints.h
-  connection_context.h
-  cryptonote_basic.h
-  cryptonote_basic_impl.h
-  cryptonote_boost_serialization.h
   cryptonote_core.h
-  cryptonote_format_utils.h
-  cryptonote_stat_info.h
-  difficulty.h
-  miner.h
-  tx_extra.h
   tx_pool.h
-  verification_context.h
-  hardfork.h)
+  cryptonote_tx_utils.h)
 
 if(PER_BLOCK_CHECKPOINT)
   set(Blocks "blocks")

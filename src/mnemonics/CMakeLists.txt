@@ -51,5 +51,7 @@ monero_add_library(mnemonics
   ${mnemonics_headers}
   ${mnemonics_private_headers})
 target_link_libraries(mnemonics
+  PUBLIC
+    ${Boost_SYSTEM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

@@ -42,16 +42,16 @@
 
 #include "syncobj.h"
 #include "string_tools.h"
-#include "cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/core_rpc_server_commands_defs.h"
-#include "difficulty.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "verification_context.h"
+#include "cryptonote_basic/difficulty.h"
+#include "cryptonote_tx_utils.h"
+#include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
-#include "checkpoints.h"
-#include "hardfork.h"
+#include "cryptonote_basic/checkpoints.h"
+#include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote

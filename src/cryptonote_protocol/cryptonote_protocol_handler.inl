@@ -39,7 +39,7 @@
 #include <list>
 #include <unordered_map>
 
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "../../src/p2p/network_throttle-detail.hpp"
 

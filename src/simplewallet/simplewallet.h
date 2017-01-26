@@ -40,8 +40,8 @@
 #include <boost/optional/optional.hpp>
 #include <boost/program_options/variables_map.hpp>
 
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
 #include "wallet/password_container.h"

@@ -28,8 +28,8 @@
 
 #pragma once
 
-#include "cryptonote_core/cryptonote_boost_serialization.h"
-#include "cryptonote_core/difficulty.h"
+#include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_basic/difficulty.h"
 
 
 namespace cryptonote

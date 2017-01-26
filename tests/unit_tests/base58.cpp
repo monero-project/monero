@@ -33,7 +33,7 @@
 #include <cstdint>
 
 #include "common/base58.cpp"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "serialization/binary_utils.h"
 
 using namespace tools;
