@@ -58,6 +58,11 @@ public:
                             const std::string &language) const;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path, const std::string &seed);
+    bool recoverFromKeys(const std::string &path,
+                            const std::string &language,
+                            const std::string &address_string, 
+                            const std::string &viewkey_string,
+                            const std::string &spendkey_string = "");
     bool close();
     std::string seed() const;
     std::string getSeedLanguage() const;

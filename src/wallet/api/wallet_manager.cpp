@@ -72,6 +72,22 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::st
     return wallet;
 }
 
+Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path, 
+                                                const std::string &language,
+                                                bool testnet, 
+                                                uint64_t restoreHeight,
+                                                const std::string &addressString,
+                                                const std::string &viewKeyString,
+                                                const std::string &spendKeyString)
+{
+    WalletImpl * wallet = new WalletImpl(testnet);
+    if(restoreHeight > 0){
+        wallet->setRefreshFromBlockHeight(restoreHeight);
+    }
+    wallet->recoverFromKeys(path, language, addressString, viewKeyString, spendKeyString);
+    return wallet;
+}
+
 bool WalletManagerImpl::closeWallet(Wallet *wallet)
 {
     WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);

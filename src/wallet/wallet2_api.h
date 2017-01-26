@@ -435,6 +435,7 @@ struct Wallet
     static std::string genPaymentId();
     static bool paymentIdValid(const std::string &paiment_id);
     static bool addressValid(const std::string &str, bool testnet);
+    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error);
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
 
@@ -613,6 +614,25 @@ struct WalletManager
      * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet = false, uint64_t restoreHeight = 0) = 0;
+
+   /*!
+    * \brief  recovers existing wallet using keys. Creates a view only wallet if spend key is omitted
+    * \param  path           Name of wallet file to be created
+    * \param  language       language
+    * \param  testnet        testnet
+    * \param  restoreHeight  restore from start height
+    * \param  addressString  public address
+    * \param  viewKeyString  view key
+    * \param  spendKeyString spend key (optional)
+    * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
+    */
+    virtual Wallet * createWalletFromKeys(const std::string &path, 
+                                                    const std::string &language,
+                                                    bool testnet, 
+                                                    uint64_t restoreHeight,
+                                                    const std::string &addressString,
+                                                    const std::string &viewKeyString,
+                                                    const std::string &spendKeyString = "") = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
