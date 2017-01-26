@@ -205,7 +205,7 @@ namespace cryptonote
       }
       catch (...)
       {
-        res.status = "Error retrieving block at height " + height;
+        res.status = "Error retrieving block at height " + std::to_string(height);
         return true;
       }
       std::list<transaction> txs;
