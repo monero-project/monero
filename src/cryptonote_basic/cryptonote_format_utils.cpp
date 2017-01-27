@@ -122,7 +122,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, const crypto::secret_key* onetime_c, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2)
+  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& onetime_c, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2)
   {
     if (!generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
       return false;

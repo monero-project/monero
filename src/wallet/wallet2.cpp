@@ -595,28 +595,14 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
   error = false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const tx_out &o, const std::pair<crypto::secret_key, crypto::public_key>& derivation_info, const crypto::secret_key* onetime_c, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const
+void wallet2::check_acc_out_precomp_onetime(const crypto::public_key &spend_public_key, const tx_out &o, const crypto::key_derivation &derivation, const boost::optional<onetime_info> onetime, size_t i, is_received_info &received, uint64_t &money_transfered, bool &error) const
 {
   received.standard = false;
   received.onetime  = false;
-  const crypto::secret_key &view_secret_key = derivation_info.first;
-  const crypto::public_key &tx_public_key   = derivation_info.second;
-  crypto::key_derivation derivation;
-  bool r = crypto::generate_key_derivation(tx_public_key, view_secret_key, derivation);
-  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
   check_acc_out_precomp(spend_public_key, o, derivation, i, received.standard, money_transfered, error);
-  if (!received.standard && onetime_c)
+  if (!received.standard && onetime)
   {
-    crypto::secret_key d;
-    crypto::public_key D;
-    crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, d);
-    secret_key_to_public_key(d, D);
-    crypto::public_key spend_public_key2;
-    crypto::key_derivation derivation2;
-    crypto::add_public_key(spend_public_key, D, spend_public_key2);
-    r = crypto::generate_key_derivation(tx_public_key, *onetime_c, derivation2);
-    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
-    check_acc_out_precomp(spend_public_key2, o, derivation2, i, received.onetime, money_transfered, error);
+    check_acc_out_precomp(onetime->spend_public_key, o, onetime->derivation, i, received.onetime, money_transfered, error);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -651,7 +637,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key &pub,
   }
 }
 //----------------------------------------------------------------------------------------------------
-static uint64_t decodeRct_onetime(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, bool received_onetime, const crypto::secret_key* onetime_c, unsigned int i, rct::key & mask)
+static uint64_t decodeRct_onetime(const rct::rctSig & rv, const crypto::public_key pub, const crypto::secret_key &sec, bool received_onetime, const boost::optional<crypto::secret_key>& onetime_c, unsigned int i, rct::key & mask)
 {
   if (received_onetime)
   {
@@ -669,16 +655,13 @@ struct payment_id_info {
   bool has_payment_id8;
   crypto::hash  payment_id32;
   crypto::hash8 payment_id8;
-  crypto::secret_key* onetime_c;
-  crypto::secret_key  onetime_c_real;
+  boost::optional<crypto::secret_key> onetime_c;
 };
 static void get_payment_id_info(const std::vector<tx_extra_field>& tx_extra_fields, const crypto::secret_key& viewkey, payment_id_info& pID_info) {
   pID_info.payment_id32 = null_hash;
   pID_info.payment_id8  = null_hash8;
   pID_info.has_payment_id32 = false;
   pID_info.has_payment_id8  = false;
-  pID_info.onetime_c = nullptr;
-  pID_info.onetime_c_real;
   if (find_tx_extra_field_by_type(tx_extra_fields, pID_info.extra_nonce))
   {
     pID_info.has_payment_id32 = get_payment_id_from_tx_extra_nonce          (pID_info.extra_nonce.nonce, pID_info.payment_id32);
@@ -694,10 +677,11 @@ static void get_payment_id_info(const std::vector<tx_extra_field>& tx_extra_fiel
     char data[2 * HASH_SIZE];
     memcpy(data            , &viewkey              , HASH_SIZE);
     memcpy(data + HASH_SIZE, &pID_info.payment_id32, HASH_SIZE);
-    crypto::hash_to_scalar(data, 2 * HASH_SIZE, pID_info.onetime_c_real);
+    crypto::secret_key onetime_c;
+    crypto::hash_to_scalar(data, 2 * HASH_SIZE, onetime_c);
     // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
-    if (pID_info.payment_id32.data[0] == pID_info.onetime_c_real.data[0])
-      pID_info.onetime_c = &pID_info.onetime_c_real;
+    if (pID_info.payment_id32.data[0] == onetime_c.data[0])
+      pID_info.onetime_c = onetime_c;
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -790,9 +774,26 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     std::deque<rct::key> mask(tx.vout.size());
     int threads = tools::get_max_concurrency();
     const cryptonote::account_keys& keys = m_account.get_keys();
-    std::pair<crypto::secret_key, crypto::public_key> derivation_info;
-    derivation_info.first  = keys.m_view_secret_key;
-    derivation_info.second = tx_pub_key;
+    crypto::key_derivation derivation;
+    r = generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
+
+    // precompute data for onetime addressing
+    boost::optional<onetime_info> onetime;
+    if (pID_info.onetime_c)
+    {
+      crypto::secret_key onetime_d;
+      crypto::hash_to_scalar(pID_info.onetime_c->data, HASH_SIZE, onetime_d);
+      crypto::public_key onetime_D;
+      secret_key_to_public_key(onetime_d, onetime_D);
+      crypto::public_key onetime_spend_public_key;
+      crypto::add_public_key(keys.m_account_address.m_spend_public_key, onetime_D, onetime_spend_public_key);
+      crypto::key_derivation onetime_derivation;
+      r = generate_key_derivation(tx_pub_key, *pID_info.onetime_c, onetime_derivation);
+      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "key derivation failed");
+      onetime = { onetime_spend_public_key, onetime_derivation };
+    }
+
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -802,7 +803,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
       uint64_t money_transfered = 0;
       bool error = false;
       is_received_info received;
-      check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[0], derivation_info, pID_info.onetime_c, 0, received, money_transfered, error);
+      check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[0], derivation, onetime, 0, received, money_transfered, error);
       if (error)
       {
         r = false;
@@ -848,7 +849,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           // the first one was already checked
           for (size_t i = 1; i < tx.vout.size(); ++i)
           {
-            ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation_info), std::cref(pID_info.onetime_c), i,
+            ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), std::cref(onetime), i,
               std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
           }
           KILL_IOSERVICE();
@@ -901,7 +902,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
       std::deque<is_received_info> received(tx.vout.size());
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
-        ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation_info), std::cref(pID_info.onetime_c), i,
+        ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp_onetime, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), std::cref(onetime), i,
           std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
       }
       KILL_IOSERVICE();
@@ -945,7 +946,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         uint64_t money_transfered = 0;
         bool error = false;
         is_received_info received;
-        check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[i], derivation_info, pID_info.onetime_c, i, received, money_transfered, error);
+        check_acc_out_precomp_onetime(keys.m_account_address.m_spend_public_key, tx.vout[i], derivation, onetime, i, received, money_transfered, error);
         if (error)
         {
           r = false;
