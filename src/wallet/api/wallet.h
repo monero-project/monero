@@ -94,6 +94,7 @@ public:
     void setRecoveringFromSeed(bool recoveringFromSeed);
     bool watchOnly() const;
     bool rescanSpent();
+    bool testnet() const {return m_wallet->testnet();}
 
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
