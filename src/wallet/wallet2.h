@@ -104,7 +104,7 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
 
   public:
     static const char* tr(const char* str);// { return i18n_translate(str, "cryptonote::simple_wallet"); }
@@ -125,7 +125,7 @@ namespace tools
     //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -506,6 +506,8 @@ namespace tools
     void auto_refresh(bool r) { m_auto_refresh = r; }
     bool confirm_missing_payment_id() const { return m_confirm_missing_payment_id; }
     void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
+    bool ask_password() const { return m_ask_password; }
+    void ask_password(bool always) { m_ask_password = always; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -656,6 +658,7 @@ namespace tools
     bool m_auto_refresh;
     uint64_t m_refresh_from_block_height;
     bool m_confirm_missing_payment_id;
+    bool m_ask_password;
     NodeRPCProxy m_node_rpc_proxy;
   };
 }
