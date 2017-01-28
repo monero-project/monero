@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 
   //set up logging options
   mlog_configure(mlog_get_default_log_path("core_tests.log"), true);
-  mlog_set_log_level(3);
+  mlog_set_log_level(2);
   
   po::options_description desc_options("Allowed options");
   command_line::add_arg(desc_options, command_line::arg_help);
