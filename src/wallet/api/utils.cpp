@@ -31,50 +31,16 @@
 
 
 #include "include_base_utils.h"                     // LOG_PRINT_x
-#include "net/http_client.h"                        // epee::net_utils::...
-#include <boost/asio.hpp>
+#include "common/util.h"
 
 using namespace std;
 
 namespace Monero {
 namespace Utils {
 
-
-// copy-pasted from simplewallet.
-
 bool isAddressLocal(const std::string &address)
 {
-    // extract host
-    epee::net_utils::http::url_content u_c;
-    if (!epee::net_utils::parse_url(address, u_c))
-    {
-        LOG_PRINT_L1("Failed to determine whether daemon is local, assuming not");
-        return false;
-    }
-    if (u_c.host.empty())
-    {
-        LOG_PRINT_L1("Failed to determine whether daemon is local, assuming not");
-        return false;
-    }
-    // resolver::resolve can throw an exception
-    try {
-        // resolve to IP
-        boost::asio::io_service io_service;
-        boost::asio::ip::tcp::resolver resolver(io_service);
-        boost::asio::ip::tcp::resolver::query query(u_c.host, "", boost::asio::ip::tcp::resolver::query::canonical_name);
-        boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
-        while (i != boost::asio::ip::tcp::resolver::iterator())
-        {
-            const boost::asio::ip::tcp::endpoint &ep = *i;
-            if (ep.address().is_loopback())
-                return true;
-            ++i;
-        }
-    } catch (const boost::system::system_error &e) {
-        LOG_ERROR("Failed to resolve " << address << ", :" << e.what());
-    }
-
-    return false;
+  return tools::is_local_address(address);
 }
 
 }

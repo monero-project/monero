@@ -865,33 +865,6 @@ void simple_wallet::print_seed(std::string seed)
 //----------------------------------------------------------------------------------------------------
 static bool is_local_daemon(const std::string &address)
 {
-  // extract host
-  epee::net_utils::http::url_content u_c;
-  if (!epee::net_utils::parse_url(address, u_c))
-  {
-    LOG_PRINT_L1("Failed to determine whether daemon is local, assuming not");
-    return false;
-  }
-  if (u_c.host.empty())
-  {
-    LOG_PRINT_L1("Failed to determine whether daemon is local, assuming not");
-    return false;
-  }
-
-  // resolve to IP
-  boost::asio::io_service io_service;
-  boost::asio::ip::tcp::resolver resolver(io_service);
-  boost::asio::ip::tcp::resolver::query query(u_c.host, "");
-  boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
-  while (i != boost::asio::ip::tcp::resolver::iterator())
-  {
-    const boost::asio::ip::tcp::endpoint &ep = *i;
-    if (ep.address().is_loopback())
-      return true;
-    ++i;
-  }
-
-  return false;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
@@ -1155,9 +1128,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   // set --trusted-daemon if local
   try
   {
-    if (is_local_daemon(m_wallet->get_daemon_address()))
+    if (tools::is_local_address(m_wallet->get_daemon_address()))
     {
-      LOG_PRINT_L1(tr("Daemon is local, assuming trusted"));
+      MINFO(tr("Daemon is local, assuming trusted"));
       m_trusted_daemon = true;
     }
   }
