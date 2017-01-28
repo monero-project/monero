@@ -1324,15 +1324,13 @@ int main(int argc, char** argv) {
     argc, argv,
     "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>] [--rpc-bind-port=<port>]",
     desc_params,
-    po::positional_options_description()
+    po::positional_options_description(),
+    true
   );
   if (!vm)
   {
     return 1;
   }
-
-  mlog_configure("monero-wallet-rpc.log", true);
-  mlog_set_log_level(2);
 
   std::unique_ptr<tools::wallet2> wal;
   try
