@@ -505,6 +505,11 @@ namespace nodetool
     auto config_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, config_arg);
 
+    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+      m_config_folder = m_config_folder + "/" + m_port;
+    }
+
     res = init_config();
     CHECK_AND_ASSERT_MES(res, false, "Failed to init config.");
 
