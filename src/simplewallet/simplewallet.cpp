@@ -624,7 +624,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
-  m_cmd_binder.set_handler("onetime_address", boost::bind(&simple_wallet::print_onetime_address, this, _1), tr("One-time address with integrated 64bit payment ID"));
+  m_cmd_binder.set_handler("disposable_address", boost::bind(&simple_wallet::print_disposable_address, this, _1), tr("Disposable address with integrated 64bit payment ID"));
   m_cmd_binder.set_handler("save", boost::bind(&simple_wallet::save, this, _1), tr("Save wallet data"));
   m_cmd_binder.set_handler("save_watch_only", boost::bind(&simple_wallet::save_watch_only, this, _1), tr("Save a watch-only keys file"));
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
@@ -2168,19 +2168,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
-  bool is_onetime = false;
+  bool is_disposable = false;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
     crypto::hash8 new_payment_id;
-    bool is_onetime_temp;
-    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, is_onetime_temp, m_wallet->testnet(), local_args[i]))
+    bool is_disposable_temp;
+    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, is_disposable_temp, m_wallet->testnet(), local_args[i]))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
     }
-    is_onetime = is_onetime || is_onetime_temp;
+    is_disposable = is_disposable || is_disposable_temp;
 
     if (has_payment_id)
     {
@@ -2244,15 +2244,15 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return true;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, 0 /* unused fee arg*/, extra, is_disposable, m_trusted_daemon);
       break;
       case TransferNew:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_disposable, m_trusted_daemon);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
       case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
+        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_disposable, m_trusted_daemon);
         break;
     }
 
@@ -2673,9 +2673,9 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 
   bool has_payment_id;
   crypto::hash8 new_payment_id;
-  bool is_onetime;
+  bool is_disposable;
   cryptonote::account_public_address address;
-  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, is_onetime, m_wallet->testnet(), local_args[0]))
+  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, is_disposable, m_wallet->testnet(), local_args[0]))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -2719,7 +2719,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_onetime, m_trusted_daemon);
+    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, is_disposable, m_trusted_daemon);
 
     if (ptx_vector.empty())
     {
@@ -3780,15 +3780,15 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id8;
-    bool is_onetime;
-    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, is_onetime, m_wallet->testnet(), args[1]))
+    bool is_disposable;
+    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, is_disposable, m_wallet->testnet(), args[1]))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
     }
-    if (is_onetime)
+    if (is_disposable)
     {
-      fail_msg_writer() << tr("this is a one-time address, shouldn't be added to the address book");
+      fail_msg_writer() << tr("this is a disposable address, shouldn't be added to the address book");
       return true;
     }
     crypto::hash payment_id = null_hash;
@@ -3851,24 +3851,24 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_onetime_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::print_disposable_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if (!m_wallet->testnet())
   {
-    fail_msg_writer() << tr("The one-time address feature is not yet ready for the mainnet use. Please use testnet to help testing.");
+    fail_msg_writer() << tr("The disposable address feature is not yet ready for the mainnet use. Please use testnet to help testing.");
     return true;
   }
 
   std::string adr_str;
   cryptonote::account_public_address adr;
   crypto::hash8 payment_id;
-  if (!m_wallet->make_onetime_address(adr_str, adr, payment_id))
+  if (!m_wallet->make_disposable_address(adr_str, adr, payment_id))
   {
-    fail_msg_writer() << tr("failed to generate valid one-time address after 65536 attempts");
+    fail_msg_writer() << tr("failed to generate valid disposable address after 65536 attempts");
   }
   else
   {
-    success_msg_writer() << tr("One-time integrated address: \n") << adr_str;
+    success_msg_writer() << tr("Disposable address: \n") << adr_str;
     success_msg_writer() << tr("Payment ID integrated in the above: ") << payment_id;
   }
   return true;

@@ -935,7 +935,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         //std::vector<tools::wallet2::pending_tx> ptx_vector;
 
         try {
-            bool is_onetime;  // TODO: I don't know how to deal with wallet API; someone please help!
+            bool is_disposable;  // TODO: I don't know how to deal with wallet API; someone please help!
             if (amount) {
                 vector<cryptonote::tx_destination_entry> dsts;
                 cryptonote::tx_destination_entry de;
@@ -944,11 +944,11 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 dsts.push_back(de);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
                                                                           static_cast<uint32_t>(priority),
-                                                                          extra, is_onetime, m_trustedDaemon);
+                                                                          extra, is_disposable, m_trustedDaemon);
             } else {
                 transaction->m_pending_tx = m_wallet->create_transactions_all(addr, fake_outs_count, 0 /* unlock_time */,
                                                                           static_cast<uint32_t>(priority),
-                                                                          extra, is_onetime, m_trustedDaemon);
+                                                                          extra, is_disposable, m_trustedDaemon);
             }
 
         } catch (const tools::error::daemon_busy&) {

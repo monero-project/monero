@@ -173,19 +173,19 @@ namespace cryptonote {
     return tools::base58::encode_addr(integrated_address_prefix, t_serializable_object_to_blob(iadr));
   }
   //-----------------------------------------------------------------------
-  std::string get_account_onetime_address_as_str(
+  std::string get_account_disposable_address_as_str(
       bool testnet
     , account_public_address const & adr
     , crypto::hash8 const & payment_id
     )
   {
-    uint64_t onetime_address_prefix = testnet ?
-      config::testnet::CRYPTONOTE_PUBLIC_ONETIME_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ONETIME_ADDRESS_BASE58_PREFIX;
+    uint64_t disposable_address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX;
 
     integrated_address iadr = {
       adr, payment_id
     };
-    return tools::base58::encode_addr(onetime_address_prefix, t_serializable_object_to_blob(iadr));
+    return tools::base58::encode_addr(disposable_address_prefix, t_serializable_object_to_blob(iadr));
   }
   //-----------------------------------------------------------------------
   bool is_coinbase(const transaction& tx)
@@ -207,15 +207,15 @@ namespace cryptonote {
     , std::string const & str
     )
   {
-    bool is_onetime;
-    return get_account_address_from_str(adr, has_payment_id, payment_id, is_onetime, testnet, str);
+    bool is_disposable;
+    return get_account_address_from_str(adr, has_payment_id, payment_id, is_disposable, testnet, str);
   }
   //-----------------------------------------------------------------------
   bool get_account_address_from_str(
       account_public_address& adr
     , bool& has_payment_id
     , crypto::hash8& payment_id
-    , bool& is_onetime
+    , bool& is_disposable
     , bool testnet
     , std::string const & str
     )
@@ -224,8 +224,8 @@ namespace cryptonote {
       config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
     uint64_t integrated_address_prefix = testnet ?
       config::testnet::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
-    uint64_t onetime_address_prefix = testnet ?
-      config::testnet::CRYPTONOTE_PUBLIC_ONETIME_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ONETIME_ADDRESS_BASE58_PREFIX;
+    uint64_t disposable_address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX;
 
     if (2 * sizeof(public_address_outer_blob) != str.size())
     {
@@ -240,17 +240,17 @@ namespace cryptonote {
       if (integrated_address_prefix == prefix)
       {
         has_payment_id = true;
-        is_onetime = false;
+        is_disposable = false;
       }
       else if (address_prefix == prefix)
       {
         has_payment_id = false;
-        is_onetime = false;
+        is_disposable = false;
       }
-      else if (onetime_address_prefix == prefix)
+      else if (disposable_address_prefix == prefix)
       {
         has_payment_id = true;
-        is_onetime = true;
+        is_disposable = true;
       }
       else {
         LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix << " or " << integrated_address_prefix);
@@ -314,7 +314,7 @@ namespace cryptonote {
       //we success
       adr = blob.m_address;
       has_payment_id = false;
-      is_onetime = false;
+      is_disposable = false;
     }
 
     return true;
@@ -335,17 +335,17 @@ namespace cryptonote {
       cryptonote::account_public_address& address
     , bool& has_payment_id
     , crypto::hash8& payment_id
-    , bool& is_onetime
+    , bool& is_disposable
     , bool testnet
     , const std::string& str_or_url
     )
   {
-    if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, is_onetime, testnet, str_or_url))
+    if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, is_disposable, testnet, str_or_url))
       return true;
     bool dnssec_valid;
     std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid);
     return !address_str.empty() &&
-      get_account_integrated_address_from_str(address, has_payment_id, payment_id, is_onetime, testnet, address_str);
+      get_account_integrated_address_from_str(address, has_payment_id, payment_id, is_disposable, testnet, address_str);
   }
   //--------------------------------------------------------------------------------
   bool get_account_address_from_str_or_url(
@@ -356,8 +356,8 @@ namespace cryptonote {
     , const std::string& str_or_url
     )
   {
-    bool is_onetime;
-    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, is_onetime, testnet, str_or_url);
+    bool is_disposable;
+    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, is_disposable, testnet, str_or_url);
   }
   //--------------------------------------------------------------------------------
   bool get_account_address_from_str_or_url(
@@ -368,8 +368,8 @@ namespace cryptonote {
   {
     bool has_payment_id;
     crypto::hash8 payment_id;
-    bool is_onetime;
-    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, is_onetime, testnet, str_or_url);
+    bool is_disposable;
+    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, is_disposable, testnet, str_or_url);
   }
   //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {

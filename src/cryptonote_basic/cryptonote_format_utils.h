@@ -69,7 +69,7 @@ namespace cryptonote
   void set_encrypted_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash8& payment_id);
   bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id);
   bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id);
-  bool set_unencrypted_payment_id_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src);    // for onetime address scheme
+  bool set_unencrypted_payment_id_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src);    // for disposable address scheme
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, size_t output_index);
   bool is_out_to_acc_precomp(const crypto::public_key& spend_public_key, const txout_to_key& out_key, const crypto::key_derivation& derivation, size_t output_index);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, const crypto::public_key& tx_pub_key, std::vector<size_t>& outs, uint64_t& money_transfered);
@@ -77,7 +77,7 @@ namespace cryptonote
   bool get_tx_fee(const transaction& tx, uint64_t & fee);
   uint64_t get_tx_fee(const transaction& tx);
   bool generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki);
-  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& onetime_h, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2);
+  bool generate_key_image_helper_disposable(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& disposable_h, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2);
   void get_blob_hash(const blobdata& blob, crypto::hash& res);
   crypto::hash get_blob_hash(const blobdata& blob);
   std::string short_hash_str(const crypto::hash& h);

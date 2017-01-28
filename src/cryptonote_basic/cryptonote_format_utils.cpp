@@ -122,18 +122,18 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_onetime(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& onetime_c, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2)
+  bool generate_key_image_helper_disposable(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& disposable_c, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2)
   {
     if (!generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
       return false;
-    if (onetime_c)
+    if (disposable_c)
     {
       crypto::secret_key d;
       crypto::public_key D;
-      crypto::hash_to_scalar(onetime_c->data, HASH_SIZE, d);
+      crypto::hash_to_scalar(disposable_c->data, HASH_SIZE, d);
       secret_key_to_public_key(d, D);
       account_keys ack2;
-      ack2.m_view_secret_key = *onetime_c;
+      ack2.m_view_secret_key = *disposable_c;
       sc_add((unsigned char*)ack2.m_spend_secret_key.data, (unsigned char*)&ack.m_spend_secret_key, (unsigned char*)&d);
       crypto::add_public_key(ack.m_account_address.m_spend_public_key, D, ack2.m_account_address.m_spend_public_key);
       if (!generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral2, ki2))
