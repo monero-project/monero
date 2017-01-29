@@ -369,7 +369,7 @@ namespace tools
         cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, long_payment_id);
       }
       /* or short payment ID */
-      else if (!wallet2::parse_short_payment_id(payment_id_str, short_payment_id)) {
+      else if (wallet2::parse_short_payment_id(payment_id_str, short_payment_id)) {
         cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, short_payment_id);
       }
       else {
