@@ -197,6 +197,44 @@ bool Wallet::addressValid(const std::string &str, bool testnet)
   return get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, str);
 }
 
+bool Wallet::keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)
+{
+  bool has_payment_id;
+  cryptonote::account_public_address address;
+  crypto::hash8 pid;
+  if(!get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, address_string)) {
+      error = tr("Failed to parse address");
+      return false;
+  }
+  
+  cryptonote::blobdata key_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(secret_key_string, key_data) || key_data.size() != sizeof(crypto::secret_key))
+  {
+      error = tr("Failed to parse key");
+      return false;
+  }
+  crypto::secret_key key = *reinterpret_cast<const crypto::secret_key*>(key_data.data());
+
+  // check the key match the given address
+  crypto::public_key pkey;
+  if (!crypto::secret_key_to_public_key(key, pkey)) {
+      error = tr("failed to verify key");
+      return false;
+  }
+  bool matchAddress = false;
+  if(isViewKey)
+      matchAddress = address.m_view_public_key == pkey;
+  else
+      matchAddress = address.m_spend_public_key == pkey;
+
+  if(!matchAddress) {
+      error = tr("key does not match address");
+      return false;
+  }
+  
+  return true;
+}
+
 std::string Wallet::paymentIdFromAddress(const std::string &str, bool testnet)
 {
   bool has_payment_id;
@@ -336,6 +374,98 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
     }
     return true;
 }
+
+bool WalletImpl::recoverFromKeys(const std::string &path,
+                                const std::string &language,
+                                const std::string &address_string,
+                                const std::string &viewkey_string,
+                                const std::string &spendkey_string)
+{
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 new_payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, m_wallet->testnet(), address_string))
+    {
+        m_errorString = tr("failed to parse address");
+        m_status = Status_Error;
+        return false;
+    }
+
+    // parse optional spend key
+    crypto::secret_key spendkey;
+    bool has_spendkey = false;
+    if (!spendkey_string.empty()) {
+        cryptonote::blobdata spendkey_data;
+        if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
+        {
+            m_errorString = tr("failed to parse secret spend key");
+            m_status = Status_Error;
+            return false;
+        }
+        has_spendkey = true;
+        spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+    }
+
+    // parse view secret key
+    if (viewkey_string.empty()) {
+        m_errorString = tr("No view key supplied, cancelled");
+        m_status = Status_Error;
+        return false;
+    }
+    cryptonote::blobdata viewkey_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
+    {
+        m_errorString = tr("failed to parse secret view key");
+        m_status = Status_Error;
+        return false;
+    }
+    crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+
+    // check the spend and view keys match the given address
+    crypto::public_key pkey;
+    if(has_spendkey) {
+        if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+            m_errorString = tr("failed to verify secret spend key");
+            m_status = Status_Error;
+            return false;
+        }
+        if (address.m_spend_public_key != pkey) {
+            m_errorString = tr("spend key does not match address");
+            m_status = Status_Error;
+            return false;
+        }
+    }
+    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        m_errorString = tr("failed to verify secret view key");
+        m_status = Status_Error;
+        return false;
+    }
+    if (address.m_view_public_key != pkey) {
+        m_errorString = tr("view key does not match address");
+        m_status = Status_Error;
+        return false;
+    }
+
+    try
+    {
+        if (has_spendkey) {
+            m_wallet->generate(path, "", address, spendkey, viewkey);
+            LOG_PRINT_L1("Generated new wallet from keys");
+        }
+        else {
+            m_wallet->generate(path, "", address, viewkey);
+            LOG_PRINT_L1("Generated new view only wallet from keys");
+        }
+        
+    }
+    catch (const std::exception& e) {
+        m_errorString = string(tr("failed to generate new wallet: ")) + e.what();
+        m_status = Status_Error;
+        return false;
+    }
+    return true;
+}
+
 
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
