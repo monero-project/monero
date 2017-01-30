@@ -515,7 +515,6 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, "", recovery_key, true, false);
-        // TODO: wallet->init(daemon_address);
 
     } catch (const std::exception &e) {
         m_status = Status_Critical;
@@ -646,19 +645,7 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    if (!doInit(daemon_address, upper_transaction_size_limit))
-        return false;
-    bool result = this->refresh();
-    // enabling background refresh thread
-    startRefresh();
-    return result;
-}
-
-void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
-{
-    clearStatus();
-    doInit(daemon_address, upper_transaction_size_limit);
-    startRefresh();
+    return doInit(daemon_address, upper_transaction_size_limit);
 }
 
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
