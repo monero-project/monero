@@ -4112,7 +4112,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   THROW_WALLET_EXCEPTION_IF(needed_money == 0, error::zero_destination);
 
   // gather all our dust and non dust outputs
-  for (size_t i = 0; i < m_transfers.size(); ++i)
+  const std::vector<size_t> unused_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, trusted_daemon);
+  for (size_t i: unused_indices)
   {
     const transfer_details& td = m_transfers[i];
     if (!td.m_spent && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
