@@ -578,19 +578,6 @@ namespace cryptonote
       if( m_is_background_mining_started )
       {
         // figure out if we need to stop, and monitor mining usage
-
-        // previous is uninitialized
-        if(previous_process_time == 0)
-        {
-          // get some starting data ..
-          if(!get_system_times(prev_total_time, prev_idle_time))
-            LOG_ERROR(__func__ << " : get_system_times call failed");
-
-          if(!get_process_time(previous_process_time))
-            LOG_ERROR(__func__ << " : get_process_time call failed!");
-
-          continue;
-        }
         
         // If we get here, then previous values are initialized.
         // Let's get some current data for comparison.
@@ -659,7 +646,17 @@ namespace cryptonote
         {
           MGINFO(__func__ << " : cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
           m_is_background_mining_started = true;
-          m_is_background_mining_started_cond.notify_all();          
+          m_is_background_mining_started_cond.notify_all();
+
+          // Wait for a little mining to happen ..
+          boost::this_thread::sleep_for(boost::chrono::seconds( 1 ));
+
+          // Starting data ...
+          if(!get_process_time(previous_process_time))
+          {
+            m_is_background_mining_started = false;
+            LOG_ERROR(__func__ << " : get_process_time call failed!");
+          }
         }
 
         prev_total_time = current_total_time;
