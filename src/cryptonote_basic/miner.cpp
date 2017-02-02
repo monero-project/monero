@@ -526,6 +526,7 @@ namespace cryptonote
     uint64_t prev_total_time, current_total_time;
     uint64_t prev_idle_time, current_idle_time;
     uint64_t previous_process_time = 0, current_process_time = 0;
+    m_is_background_mining_enabled = false;
 
     if(!get_system_times(prev_total_time, prev_idle_time))
     {
