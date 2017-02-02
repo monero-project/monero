@@ -890,10 +890,6 @@ void simple_wallet::print_seed(std::string seed)
   std::cout << seed << std::endl;
 }
 //----------------------------------------------------------------------------------------------------
-static bool is_local_daemon(const std::string &address)
-{
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   if (!handle_command_line(vm))
@@ -4302,7 +4298,6 @@ int main(int argc, char* argv[])
   const bool r = w.init(*vm);
   CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet"));
 
-try{ throw 1; } catch(...){}
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
   if (!command.empty())
   {
