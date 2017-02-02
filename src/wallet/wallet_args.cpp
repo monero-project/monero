@@ -72,7 +72,8 @@ namespace wallet_args
     int argc, char** argv,
     const char* const usage,
     boost::program_options::options_description desc_params,
-    const boost::program_options::positional_options_description& positional_options)
+    const boost::program_options::positional_options_description& positional_options,
+    bool log_to_console)
   
   {
     namespace bf = boost::filesystem;
@@ -138,7 +139,7 @@ namespace wallet_args
       log_path = command_line::get_arg(vm, arg_log_file);
     else
       log_path = mlog_get_default_log_path("monero-wallet-cli.log");
-    mlog_configure(log_path, false);
+    mlog_configure(log_path, log_to_console);
     if (!vm["log-level"].defaulted())
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
