@@ -41,6 +41,7 @@ using namespace epee;
 #include "common/base58.h"
 #include "crypto/hash.h"
 #include "common/int-util.h"
+#include "common/dns_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
@@ -291,7 +292,34 @@ namespace cryptonote {
     crypto::hash8 payment_id;
     return get_account_integrated_address_from_str(adr, has_payment_id, payment_id, testnet, str);
   }
-
+  //--------------------------------------------------------------------------------
+  bool get_account_address_from_str_or_url(
+      cryptonote::account_public_address& address
+    , bool& has_payment_id
+    , crypto::hash8& payment_id
+    , bool testnet
+    , const std::string& str_or_url
+    )
+  {
+    if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, str_or_url))
+      return true;
+    bool dnssec_valid;
+    std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid);
+    return !address_str.empty() &&
+      get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_str);
+  }
+  //--------------------------------------------------------------------------------
+  bool get_account_address_from_str_or_url(
+      cryptonote::account_public_address& address
+    , bool testnet
+    , const std::string& str_or_url
+    )
+  {
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+    return get_account_address_from_str_or_url(address, testnet, str_or_url);
+  }
+  //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
     return cryptonote::get_transaction_hash(a) == cryptonote::get_transaction_hash(b);
   }
