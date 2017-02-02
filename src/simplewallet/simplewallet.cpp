@@ -380,7 +380,7 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
     m_wallet->rewrite(m_wallet_file, pwd_container->password());
     m_wallet->store();
   }
-  catch (const wallet_logic_error& e)
+  catch (const tools::error::wallet_logic_error& e)
   {
     fail_msg_writer() << tr("Error with wallet rewrite: ") << e.what();
     return false;
