@@ -531,6 +531,7 @@ namespace cryptonote
       if (rv.outPk.size() != tx.vout.size())
       {
         LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");
+        tvc.m_verifivation_failed = true;
         return false;
       }
       for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
