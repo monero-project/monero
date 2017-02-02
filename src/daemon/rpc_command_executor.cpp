@@ -1451,6 +1451,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
 
   std::string fail_message = "Problem fetching info";
 
+  fereq.grace_blocks = 0;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
