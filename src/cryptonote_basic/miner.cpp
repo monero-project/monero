@@ -798,5 +798,10 @@ namespace cryptonote
     
     LOG_ERROR(__func__ << " : couldn't query power status");
     return false; // shouldn't get here unless no support for querying battery status
+    // TODO: return enum with ability to signify failure in querying for power status
+    // and change bg-mining logic so that it stops. As @vtnerd states, with the current
+    // setup "If someone enabled background mining on a system that fails to grab ac
+    // status, it will just continually check with little hope of ever being resolved
+    // automagically". This is also the case for time/idle stats functions.
   }
 }
