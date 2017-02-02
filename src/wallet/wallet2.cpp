@@ -3007,7 +3007,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   }
 
   //fee includes dust if dust policy specified it.
-  LOG_PRINT_L0("Transaction successfully sent. <" << txid << ">" << ENDL
+  LOG_PRINT_L1("Transaction successfully sent. <" << txid << ">" << ENDL
             << "Commission: " << print_money(ptx.fee) << " (dust sent to dust addr: " << print_money((ptx.dust_added_to_fee ? 0 : ptx.dust)) << ")" << ENDL
             << "Balance: " << print_money(balance()) << ENDL
             << "Unlocked: " << print_money(unlocked_balance()) << ENDL
