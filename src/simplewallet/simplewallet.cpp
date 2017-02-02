@@ -362,6 +362,33 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
   return true;
 }
 
+bool simple_wallet::change_password(const std::vector<std::string> &args)
+{ 
+  const auto orig_pwd_container = get_and_verify_password();
+
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your original password was incorrect.");
+    return false;
+  }
+
+  // prompts for a new password, this is not a new wallet so pass in false.
+  const auto pwd_container = tools::wallet2::password_prompt(false);
+  
+  try
+  {
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    m_wallet->store();
+  }
+  catch (const wallet_logic_error& e)
+  {
+    fail_msg_writer() << tr("Error with wallet rewrite: ") << e.what();
+    return false;
+  }
+
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
