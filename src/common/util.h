@@ -181,4 +181,6 @@ namespace tools
 
   void set_max_concurrency(unsigned n);
   unsigned get_max_concurrency();
+
+  bool is_local_address(const std::string &address);
 }
