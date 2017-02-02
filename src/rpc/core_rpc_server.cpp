@@ -28,7 +28,6 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <boost/foreach.hpp>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -160,7 +159,7 @@ namespace cryptonote
       return false;
     }
 
-    BOOST_FOREACH(auto& b, bs)
+    for(auto& b: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
       res.blocks.back().block = block_to_blob(b.first);
@@ -173,7 +172,7 @@ namespace cryptonote
         return false;
       }
       size_t txidx = 0;
-      BOOST_FOREACH(auto& t, b.second)
+      for(auto& t: b.second)
       {
         res.blocks.back().txs.push_back(tx_to_blob(t));
         res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
@@ -381,7 +380,7 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     std::vector<crypto::hash> vh;
-    BOOST_FOREACH(const auto& tx_hex_str, req.txs_hashes)
+    for(const auto& tx_hex_str: req.txs_hashes)
     {
       blobdata b;
       if(!string_tools::parse_hexstr_to_binbuff(tx_hex_str, b))
@@ -433,7 +432,7 @@ namespace cryptonote
 
     std::list<std::string>::const_iterator txhi = req.txs_hashes.begin();
     std::vector<crypto::hash>::const_iterator vhi = vh.begin();
-    BOOST_FOREACH(auto& tx, txs)
+    for(auto& tx: txs)
     {
       res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
       COMMAND_RPC_GET_TRANSACTIONS::entry &e = res.txs.back();
@@ -471,7 +470,7 @@ namespace cryptonote
       }
     }
 
-    BOOST_FOREACH(const auto& miss_tx, missed_txs)
+    for(const auto& miss_tx: missed_txs)
     {
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
     }
@@ -485,7 +484,7 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     std::vector<crypto::key_image> key_images;
-    BOOST_FOREACH(const auto& ki_hex_str, req.key_images)
+    for(const auto& ki_hex_str: req.key_images)
     {
       blobdata b;
       if(!string_tools::parse_hexstr_to_binbuff(ki_hex_str, b))
@@ -908,7 +907,7 @@ namespace cryptonote
   uint64_t core_rpc_server::get_block_reward(const block& blk)
   {
     uint64_t reward = 0;
-    BOOST_FOREACH(const tx_out& out, blk.miner_tx.vout)
+    for(const tx_out& out: blk.miner_tx.vout)
     {
       reward += out.amount;
     }

@@ -83,7 +83,7 @@ namespace nodetool
     time(&now_time);
     std::stringstream ss;
     ss << std::setfill ('0') << std::setw (8) << std::hex << std::noshowbase;
-    BOOST_FOREACH(const peerlist_entry& pe, pl)
+    for(const peerlist_entry& pe: pl)
     {
       ss << pe.id << "\t" << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << ":" << boost::lexical_cast<std::string>(pe.adr.port) << " \tlast_seen: " << epee::misc_utils::get_time_interval_string(now_time - pe.last_seen) << std::endl;
     }

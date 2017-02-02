@@ -924,7 +924,7 @@ namespace tools
       splitted_dsts.clear();
       dust_dsts.clear();
 
-      BOOST_FOREACH(auto& de, dsts)
+      for(auto& de: dsts)
       {
         cryptonote::decompose_amount_into_digits(de.amount, 0,
           [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, de.addr)); },
@@ -987,7 +987,7 @@ namespace tools
 
     // calculate total amount being sent to all destinations
     // throw if total amount overflows uint64_t
-    BOOST_FOREACH(auto& dt, dsts)
+    for(auto& dt: dsts)
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
       needed_money += dt.amount;
@@ -1008,7 +1008,7 @@ namespace tools
     {
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
       req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
-      BOOST_FOREACH(size_t idx, selected_transfers)
+      for(size_t idx: selected_transfers)
       {
         const transfer_container::const_iterator it = m_transfers.begin() + idx;
         THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
@@ -1028,7 +1028,7 @@ namespace tools
         std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
 
       std::unordered_map<uint64_t, uint64_t> scanty_outs;
-      BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)
+      for(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs: daemon_resp.outs)
       {
         if (amount_outs.outs.size() < fake_outputs_count)
         {
@@ -1041,7 +1041,7 @@ namespace tools
     //prepare inputs
     size_t i = 0;
     std::vector<cryptonote::tx_source_entry> sources;
-    BOOST_FOREACH(size_t idx, selected_transfers)
+    for(size_t idx: selected_transfers)
     {
       sources.resize(sources.size()+1);
       cryptonote::tx_source_entry& src = sources.back();
@@ -1052,7 +1052,7 @@ namespace tools
       if(daemon_resp.outs.size())
       {
         daemon_resp.outs[i].outs.sort([](const out_entry& a, const out_entry& b){return a.global_amount_index < b.global_amount_index;});
-        BOOST_FOREACH(out_entry& daemon_oe, daemon_resp.outs[i].outs)
+        for(out_entry& daemon_oe: daemon_resp.outs[i].outs)
         {
           if(td.m_global_output_index == daemon_oe.global_amount_index)
             continue;
@@ -1094,11 +1094,11 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust_dsts;
     uint64_t dust = 0;
     destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust_dsts);
-    BOOST_FOREACH(auto& d, dust_dsts) {
+    for(auto& d: dust_dsts) {
       THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
         std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
     }
-    BOOST_FOREACH(auto& d, dust_dsts) {
+    for(auto& d: dust_dsts) {
       if (!dust_policy.add_to_fee)
         splitted_dsts.push_back(cryptonote::tx_destination_entry(d.amount, dust_policy.addr_for_dust));
       dust += d.amount;

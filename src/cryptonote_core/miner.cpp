@@ -33,7 +33,6 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/limits.hpp>
-#include <boost/foreach.hpp>
 #include "misc_language.h"
 #include "include_base_utils.h"
 #include "cryptonote_basic_impl.h"
@@ -292,7 +291,7 @@ namespace cryptonote
     send_stop_signal();
     CRITICAL_REGION_LOCAL(m_threads_lock);
 
-    BOOST_FOREACH(boost::thread& th, m_threads)
+    for(boost::thread& th: m_threads)
       th.join();
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );

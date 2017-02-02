@@ -54,7 +54,6 @@
 #include "../../contrib/epee/include/net/net_utils_base.h" 
 #include "../../contrib/epee/include/misc_log_ex.h" 
 #include <boost/lambda/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>

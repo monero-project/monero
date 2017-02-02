@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <boost/filesystem.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "include_base_utils.h"
 #include "cryptonote_basic_impl.h"
@@ -933,7 +934,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
     size_t count = 0;
     size_t max_i = timestamps.size()-1;
     // get difficulties and timestamps from most recent blocks in alt chain
-    BOOST_REVERSE_FOREACH(auto it, alt_chain)
+    for(auto it: boost::adaptors::reverse(alt_chain))
     {
       timestamps[max_i - count] = it->second.bl.timestamp;
       cumulative_difficulties[max_i - count] = it->second.cumulative_difficulty;

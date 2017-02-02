@@ -31,7 +31,6 @@
 #include "include_base_utils.h"
 using namespace epee;
 
-#include <boost/foreach.hpp>
 #include <unordered_set>
 #include "cryptonote_core.h"
 #include "common/command_line.h"
@@ -668,7 +667,7 @@ namespace cryptonote
   bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
   {
     spent.clear();
-    BOOST_FOREACH(auto& ki, key_im)
+    for(auto& ki: key_im)
     {
       spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
     }
@@ -681,14 +680,14 @@ namespace cryptonote
     uint64_t emission_amount = 0;
     uint64_t total_fee_amount = 0;
     this->get_blocks(start_offset, count, blocks);
-    BOOST_FOREACH(auto& b, blocks)
+    for(auto& b: blocks)
     {
       std::list<transaction> txs;
       std::list<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
       this->get_transactions(b.tx_hashes, txs, missed_txs);      
       uint64_t tx_fee_amount = 0;
-      BOOST_FOREACH(const auto& tx, txs)
+      for(const auto& tx: txs)
       {
         tx_fee_amount += get_tx_fee(tx);
       }
@@ -703,7 +702,7 @@ namespace cryptonote
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
   {
     std::unordered_set<crypto::key_image> ki;
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
       if(!ki.insert(tokey_in.k_image).second)
@@ -869,7 +868,7 @@ namespace cryptonote
 
       block_to_blob(b, arg.b.block);
       //pack transactions
-      BOOST_FOREACH(auto& tx,  txs)
+      for(auto& tx:  txs)
         arg.b.txs.push_back(t_serializable_object_to_blob(tx));
 
       m_pprotocol->relay_block(arg, exclude_context);
