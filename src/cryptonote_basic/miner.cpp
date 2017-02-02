@@ -574,7 +574,9 @@ namespace cryptonote
         MGINFO(__func__ << " : background miner thread interrupted ");
         continue; // if interrupted because stop called, loop should end ..
       }
-      
+
+      bool on_ac_power = ac_line_status();
+
       if( m_is_background_mining_started )
       {
         // figure out if we need to stop, and monitor mining usage
@@ -599,9 +601,9 @@ namespace cryptonote
         uint64_t process_diff = (current_process_time - previous_process_time);
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
         uint8_t process_percentage = get_percent_of_total(process_diff, total_diff);
-        bool on_ac_power = ac_line_status();
+
         MGINFO(__func__ << " : idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
-        if( idle_percentage + process_percentage < get_idle_threshold() || !ac_line_status() )
+        if( idle_percentage + process_percentage < get_idle_threshold() || !on_ac_power )
         {
           MGINFO(__func__ << " : cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
           m_is_background_mining_started = false;
@@ -627,7 +629,7 @@ namespace cryptonote
         prev_total_time = current_total_time;
         prev_idle_time = current_idle_time;
       }
-      else
+      else if( on_ac_power )
       {
         // figure out if we need to start
 
