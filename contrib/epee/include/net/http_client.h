@@ -263,7 +263,6 @@ using namespace std;
 			blocked_mode_client m_net_client;
 			std::string m_host_buff;
 			std::string m_port;
-			unsigned int m_timeout;
 			std::string m_header_cache;
 			http_response_info m_response_info;
 			size_t m_len_in_summary;
@@ -276,23 +275,43 @@ using namespace std;
 			critical_section m_lock;
 
 		public:
-			void set_host_name(const std::string& name)
+			explicit http_simple_client()
+				: i_target_handler()
+				, m_net_client()
+				, m_host_buff()
+				, m_port()
+				, m_header_cache()
+				, m_response_info()
+				, m_len_in_summary(0)
+				, m_len_in_remain(0)
+				, m_pcontent_encoding_handler(nullptr)
+				, m_state()
+				, m_chunked_state()
+				, m_chunked_cache()
+				, m_lock()
+			{}
+
+			bool set_server(const std::string& address)
+			{
+				http::url_content parsed{};
+				const bool r = parse_url(address, parsed);
+				CHECK_AND_ASSERT_MES(r, false, "failed to parse url: " << address);
+				set_server(std::move(parsed.host), std::to_string(parsed.port));
+				return true;
+			}
+
+			void set_server(std::string host, std::string port)
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
-				m_host_buff = name;
+				disconnect();
+				m_host_buff = std::move(host);
+				m_port = std::move(port);
 			}
-      bool connect(const std::string& host, int port, unsigned int timeout)
-      {
-        return connect(host, std::to_string(port), timeout);
-      }
-      bool connect(const std::string& host, const std::string& port, unsigned int timeout)
+
+      bool connect(std::chrono::milliseconds timeout)
       {
         CRITICAL_REGION_LOCAL(m_lock);
-        m_host_buff = host;
-        m_port = port;
-        m_timeout = timeout;
-
-        return m_net_client.connect(host,  port, timeout, timeout);
+        return m_net_client.connect(m_host_buff, m_port, timeout);
       }
 			//---------------------------------------------------------------------------
 			bool disconnect()
@@ -316,20 +335,20 @@ using namespace std;
 			}
 			//---------------------------------------------------------------------------
 			inline 
-				bool invoke_get(const std::string& uri, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
+				bool invoke_get(const std::string& uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
 			{
 					CRITICAL_REGION_LOCAL(m_lock);
-					return invoke(uri, "GET", body, ppresponse_info, additional_params);
+					return invoke(uri, "GET", body, timeout, ppresponse_info, additional_params);
 			}
 
 			//---------------------------------------------------------------------------
-			inline bool invoke(const std::string& uri, const std::string& method, const std::string& body, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
+			inline bool invoke(const std::string& uri, const std::string& method, const std::string& body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				if(!is_connected())
 				{
 					MDEBUG("Reconnecting...");
-					if(!connect(m_host_buff, m_port, m_timeout))
+					if(!connect(timeout))
 					{
 						MDEBUG("Failed to connect to " << m_host_buff << ":" << m_port);
 						return false;
@@ -347,27 +366,27 @@ using namespace std;
 				req_buff += "\r\n";
 				//--
 
-				bool res = m_net_client.send(req_buff);
+				bool res = m_net_client.send(req_buff, timeout);
 				CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
 				if(body.size())
-					res = m_net_client.send(body);
+					res = m_net_client.send(body, timeout);
 				CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
 
 				if(ppresponse_info)
 					*ppresponse_info = &m_response_info;
 
 				m_state = reciev_machine_state_header;
-				return handle_reciev();
+				return handle_reciev(timeout);
 			}
 			//---------------------------------------------------------------------------
-			inline bool invoke_post(const std::string& uri, const std::string& body,  const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
+			inline bool invoke_post(const std::string& uri, const std::string& body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
-				return invoke(uri, "POST", body, ppresponse_info, additional_params);
+				return invoke(uri, "POST", body, timeout, ppresponse_info, additional_params);
 			}
 		private: 
 			//---------------------------------------------------------------------------
-			inline bool handle_reciev()
+			inline bool handle_reciev(std::chrono::milliseconds timeout)
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				bool keep_handling = true;
@@ -377,7 +396,7 @@ using namespace std;
 				{
 					if(need_more_data)
 					{
-						if(!m_net_client.recv(recv_buffer))
+						if(!m_net_client.recv(recv_buffer, timeout))
 						{
 							MERROR("Unexpected recv fail");
 							m_state = reciev_machine_state_error;
@@ -878,33 +897,6 @@ using namespace std;
 				return true;
 			}
 		};
-
-
-
-    /************************************************************************/
-    /*                                                                      */
-    /************************************************************************/
-  //inline 
-    template<class t_transport>
-    bool invoke_request(const std::string& url, t_transport& tr, unsigned int timeout, const http_response_info** ppresponse_info, const std::string& method = "GET", const std::string& body = std::string(), const fields_list& additional_params = fields_list())
-    {
-      http::url_content u_c;
-      bool res = parse_url(url, u_c);
-
-      if(!tr.is_connected() && !u_c.host.empty())
-      {
-        CHECK_AND_ASSERT_MES(res, false, "failed to parse url: " << url);
-
-        if(!u_c.port)
-          u_c.port = 80;//default for http
-
-        res = tr.connect(u_c.host, static_cast<int>(u_c.port), timeout);
-        CHECK_AND_ASSERT_MES(res, false, "failed to connect " << u_c.host << ":" << u_c.port);
-      }
-
-      return tr.invoke(u_c.uri, method, body, ppresponse_info, additional_params);
-    }
-
 	}
 }
 }

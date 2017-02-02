@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <chrono>
 #include "string_tools.h"
 #include "net/http_client.h"
 
@@ -38,20 +39,16 @@ private:
   epee::net_utils::http::http_simple_client * mp_http_client;
   bool m_ok;
 public:
-  static unsigned int const TIMEOUT = 200000;
+  static constexpr std::chrono::seconds TIMEOUT()
+  {
+    return std::chrono::minutes(3) + std::chrono::seconds(30);
+  }
 
-  t_http_connection(
-      epee::net_utils::http::http_simple_client * p_http_client
-    , uint32_t ip
-    , uint16_t port
-    )
+  t_http_connection(epee::net_utils::http::http_simple_client* p_http_client)
     : mp_http_client(p_http_client)
     , m_ok(false)
   {
-    // TODO fix http client so that it accepts properly typed arguments
-    std::string ip_str = epee::string_tools::get_ip_string_from_int32(ip);
-    std::string port_str = boost::lexical_cast<std::string>(port);
-    m_ok = mp_http_client->connect(ip_str, port_str, TIMEOUT);
+    m_ok = mp_http_client->connect(TIMEOUT());
   }
 
   ~t_http_connection()

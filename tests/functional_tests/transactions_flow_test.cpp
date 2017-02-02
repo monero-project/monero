@@ -159,14 +159,14 @@ bool transactions_flow_test(std::string& working_folder,
   epee::net_utils::http::http_simple_client http_client;
   COMMAND_RPC_STOP_MINING::request daemon1_req = AUTO_VAL_INIT(daemon1_req);
   COMMAND_RPC_STOP_MINING::response daemon1_rsp = AUTO_VAL_INIT(daemon1_rsp);
-  bool r = net_utils::invoke_http_json_remote_command2(daemon_addr_a + "/stop_mine", daemon1_req, daemon1_rsp, http_client, 10000);
+  bool r = http_client.set_server(daemon_addr_a) && net_utils::invoke_http_json("/stop_mine", daemon1_req, daemon1_rsp, http_client, std::chrono::seconds(10));
   CHECK_AND_ASSERT_MES(r, false, "failed to stop mining");
 
   COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
   COMMAND_RPC_START_MINING::response daemon_rsp = AUTO_VAL_INIT(daemon_rsp);
   daemon_req.miner_address = w1.get_account().get_public_address_str(false);
   daemon_req.threads_count = 9;
-  r = net_utils::invoke_http_json_remote_command2(daemon_addr_a + "/start_mining", daemon_req, daemon_rsp, http_client, 10000);
+  r = net_utils::invoke_http_json("/start_mining", daemon_req, daemon_rsp, http_client, std::chrono::seconds(10));
   CHECK_AND_ASSERT_MES(r, false, "failed to get getrandom_outs");
   CHECK_AND_ASSERT_MES(daemon_rsp.status == CORE_RPC_STATUS_OK, false, "failed to getrandom_outs.bin");
 
