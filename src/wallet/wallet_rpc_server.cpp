@@ -1302,6 +1302,104 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_address_book(const wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::response& res, epee::json_rpc::error& er)
+  {
+    const auto ab = m_wallet.get_address_book();
+    if (req.entries.empty())
+    {
+      uint64_t idx = 0;
+      for (const auto &entry: ab)
+        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx++, get_account_address_as_str(m_wallet.testnet(), entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
+    }
+    else
+    {
+      for (uint64_t idx: req.entries)
+      {
+        if (idx >= ab.size())
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_INDEX;
+          er.message = "Index out of range: " + std::to_string(idx);
+          return false;
+        }
+        const auto &entry = ab[idx];
+        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx, get_account_address_as_str(m_wallet.testnet(), entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
+      }
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_add_address_book(const wallet_rpc::COMMAND_RPC_ADD_ADDRESS_BOOK_ENTRY::request& req, wallet_rpc::COMMAND_RPC_ADD_ADDRESS_BOOK_ENTRY::response& res, epee::json_rpc::error& er)
+  {
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id8;
+    crypto::hash payment_id = cryptonote::null_hash;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id8, m_wallet.testnet(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;
+      return false;
+    }
+    if (has_payment_id)
+    {
+      memcpy(payment_id.data, payment_id8.data, 8);
+      memset(payment_id.data + 8, 0, 24);
+    }
+    if (!req.payment_id.empty())
+    {
+      if (has_payment_id)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+        er.message = "Separate payment ID given with integrated address";
+        return false;
+      }
+
+      crypto::hash long_payment_id;
+      crypto::hash8 short_payment_id;
+
+      if (!wallet2::parse_long_payment_id(req.payment_id, payment_id))
+      {
+        if (!wallet2::parse_short_payment_id(req.payment_id, payment_id8))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Payment id has invalid format: \"" + req.payment_id + "\", expected 16 or 64 character string";
+          return false;
+        }
+        else
+        {
+          memcpy(payment_id.data, payment_id8.data, 8);
+          memset(payment_id.data + 8, 0, 24);
+        }
+      }
+    }
+    if (!m_wallet.add_address_book_row(address, payment_id, req.description))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to add address book entry";
+      return false;
+    }
+    res.index = m_wallet.get_address_book().size();
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_delete_address_book(const wallet_rpc::COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY::request& req, wallet_rpc::COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY::response& res, epee::json_rpc::error& er)
+  {
+    const auto ab = m_wallet.get_address_book();
+    if (req.index >= ab.size())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_INDEX;
+      er.message = "Index out of range: " + std::to_string(req.index);
+      return false;
+    }
+    if (!m_wallet.delete_address_book_row(req.index))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Failed to delete address book entry";
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
 
 int main(int argc, char** argv) {
