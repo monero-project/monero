@@ -388,7 +388,7 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
     m_wallet->rewrite(m_wallet_file, pwd_container->password());
     m_wallet->store();
   }
-  catch (const wallet_logic_error& e)
+  catch (const tools::error::wallet_logic_error& e)
   {
     fail_msg_writer() << tr("Error with wallet rewrite: ") << e.what();
     return false;
@@ -921,10 +921,6 @@ void simple_wallet::print_seed(std::string seed)
   boost::replace_nth(seed, " ", 7, "\n");
   // don't log
   std::cout << seed << std::endl;
-}
-//----------------------------------------------------------------------------------------------------
-static bool is_local_daemon(const std::string &address)
-{
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
@@ -4344,7 +4340,6 @@ int main(int argc, char* argv[])
   const bool r = w.init(*vm);
   CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet"));
 
-try{ throw 1; } catch(...){}
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
   if (!command.empty())
   {
