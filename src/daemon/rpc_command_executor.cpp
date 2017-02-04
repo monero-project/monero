@@ -381,8 +381,8 @@ bool t_rpc_command_executor::show_status() {
     % (unsigned)ires.outgoing_connections_count
     % (unsigned)ires.incoming_connections_count
     % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
-    % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0)
-    % (unsigned int)floor(fmod((uptime / 60.0), 60.0)
+    % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
+    % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
     % (unsigned int)fmod(uptime, 60.0)
   ;
 
