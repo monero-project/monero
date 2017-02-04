@@ -43,7 +43,12 @@ static std::string generate_log_filename(const char *base)
   char tmp[200];
   struct tm tm;
   time_t now = time(NULL);
-  if (!gmtime_r(&now, &tm))
+  if
+#ifdef WIN32
+  (!gmtime_s(&tm, &now))
+#else
+  (!gmtime_r(&now, &tm))
+#endif
     strcpy(tmp, "unknown");
   else
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", &tm);
