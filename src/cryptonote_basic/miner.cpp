@@ -335,7 +335,7 @@ namespace cryptonote
     m_background_mining_thread.interrupt();
     m_background_mining_thread.join();
 
-    LOG_PRINT_L0("Mining has been stopped, " << m_threads.size() << " finished" );
+    MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
     return true;
   }
@@ -530,7 +530,7 @@ namespace cryptonote
 
     if(!get_system_times(prev_total_time, prev_idle_time))
     {
-      LOG_ERROR(__func__ << " : get_system_times call failed, background mining will NOT work!");
+      LOG_ERROR("get_system_times call failed, background mining will NOT work!");
       return false;
     }
     
@@ -556,7 +556,7 @@ namespace cryptonote
         /*
         while( !m_is_background_mining_enabled )
         {
-          MGINFO(__func__ << " : background mining is disabled, waiting until enabled!");
+          MGINFO("background mining is disabled, waiting until enabled!");
           boost::unique_lock<boost::mutex> enabled_lock( m_is_background_mining_enabled_mutex );        
           m_is_background_mining_enabled_cond.wait( enabled_lock );
         } 
@@ -569,9 +569,9 @@ namespace cryptonote
             boost::chrono::seconds( BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS ) :
             boost::chrono::seconds( get_min_idle_seconds() ) );
       }
-      catch(boost::thread_interrupted)
+      catch(const boost::thread_interrupted&)
       {
-        MGINFO(__func__ << " : background miner thread interrupted ");
+        MDEBUG("background miner thread interrupted ");
         continue; // if interrupted because stop called, loop should end ..
       }
 
@@ -586,13 +586,13 @@ namespace cryptonote
 
         if(!get_system_times(current_total_time, current_idle_time))
         {
-          LOG_ERROR(__func__ << " : get_system_times call failed");
+          MERROR("get_system_times call failed");
           continue;
         }
 
         if(!get_process_time(current_process_time))
         {
-          LOG_ERROR(__func__ << " : get_process_time call failed!");
+          MERROR("get_process_time call failed!");
           continue;
         }
 
@@ -602,10 +602,10 @@ namespace cryptonote
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
         uint8_t process_percentage = get_percent_of_total(process_diff, total_diff);
 
-        MGINFO(__func__ << " : idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
+        MGINFO("idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
         if( idle_percentage + process_percentage < get_idle_threshold() || !on_ac_power )
         {
-          MGINFO(__func__ << " : cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
+          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
           m_is_background_mining_started = false;
 
           // reset process times
@@ -623,7 +623,7 @@ namespace cryptonote
           // fall below zero because all the time functions aggregate across all processors.
           // I'm just hard limiting to 5 millis min sleep here, other options?
           m_miner_extra_sleep = std::max( new_miner_extra_sleep , (int64_t)5 );
-          MGINFO(__func__ << " : m_miner_extra_sleep " << m_miner_extra_sleep);
+          MDEBUG("m_miner_extra_sleep " << m_miner_extra_sleep);
         }
         
         prev_total_time = current_total_time;
@@ -635,7 +635,7 @@ namespace cryptonote
 
         if(!get_system_times(current_total_time, current_idle_time))
         {
-          LOG_ERROR(__func__ << " : get_system_times call failed");
+          MERROR("get_system_times call failed");
           continue;
         }
 
@@ -643,10 +643,10 @@ namespace cryptonote
         uint64_t idle_diff = (current_idle_time - prev_idle_time);
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
         bool on_ac_power = ac_line_status();
-        MGINFO(__func__ << " : idle percentage is " << unsigned(idle_percentage));
+        MGINFO("idle percentage is " << unsigned(idle_percentage));
         if( idle_percentage >= get_idle_threshold() && on_ac_power )
         {
-          MGINFO(__func__ << " : cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
+          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
           m_is_background_mining_started = true;
           m_is_background_mining_started_cond.notify_all();
 
@@ -657,7 +657,7 @@ namespace cryptonote
           if(!get_process_time(previous_process_time))
           {
             m_is_background_mining_started = false;
-            LOG_ERROR(__func__ << " : get_process_time call failed!");
+            MERROR("get_process_time call failed!");
           }
         }
 
@@ -695,14 +695,14 @@ namespace cryptonote
 
       if( !epee::file_io_utils::is_file_exist(STAT_FILE_PATH) )
       {
-        LOG_ERROR(__func__ << " : '" << STAT_FILE_PATH << "' file does not exist");
+        LOG_ERROR("'" << STAT_FILE_PATH << "' file does not exist");
         return false;
       }
 
       std::ifstream stat_file_stream(STAT_FILE_PATH);
       if( stat_file_stream.fail() )
       {
-        LOG_ERROR(__func__ << " : failed to open '" << STAT_FILE_PATH << "'");
+        LOG_ERROR("failed to open '" << STAT_FILE_PATH << "'");
         return false;
       }
 
@@ -713,7 +713,7 @@ namespace cryptonote
       uint64_t utime, ntime, stime, itime;
       if( !(stat_file_iss >> utime && stat_file_iss >> ntime && stat_file_iss >> stime && stat_file_iss >> itime) )
       {
-        LOG_ERROR(__func__ << " : failed to read '" << STAT_FILE_PATH << "'");
+        LOG_ERROR("failed to read '" << STAT_FILE_PATH << "'");
         return false;
       }
 
@@ -781,14 +781,14 @@ namespace cryptonote
 
       if( !epee::file_io_utils::is_file_exist(POWER_SUPPLY_STATUS_PATH) )
       {
-        LOG_ERROR(__func__ << " : '" << POWER_SUPPLY_STATUS_PATH << "' file does not exist, can't determine if on AC power");
+        LOG_ERROR("'" << POWER_SUPPLY_STATUS_PATH << "' file does not exist, can't determine if on AC power");
         return false;
       }
 
       std::ifstream power_stream(POWER_SUPPLY_STATUS_PATH);
       if( power_stream.fail() )
       {
-        LOG_ERROR(__func__ << " : failed to open '" << POWER_SUPPLY_STATUS_PATH << "'");
+        LOG_ERROR("failed to open '" << POWER_SUPPLY_STATUS_PATH << "'");
         return false;
       }
 
@@ -796,7 +796,7 @@ namespace cryptonote
 
     #endif
     
-    LOG_ERROR(__func__ << " : couldn't query power status");
+    LOG_ERROR("couldn't query power status");
     return false; // shouldn't get here unless no support for querying battery status
     // TODO: return enum with ability to signify failure in querying for power status
     // and change bg-mining logic so that it stops. As @vtnerd states, with the current
