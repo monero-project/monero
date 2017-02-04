@@ -443,6 +443,8 @@ namespace cryptonote
     {
       if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
         continue;
+      if (destinations[n].amount == 0)
+        continue;
       if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
         return null_pkey;
     }
