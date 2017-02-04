@@ -26,11 +26,17 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#if !defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__
+#define USE_UNWIND
+#endif
+
 #include "common/stack_trace.h"
 #include "misc_log_ex.h"
+#ifdef USE_UNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #include <cxxabi.h>
+#endif
 #ifndef STATICLIB
 #include <dlfcn.h>
 #endif
@@ -99,6 +105,7 @@ void set_stack_trace_log(const std::string &log)
 
 void log_stack_trace(const char *msg)
 {
+#ifdef USE_UNWIND
   unw_context_t ctx;
   unw_cursor_t cur;
   unw_word_t ip, off;
@@ -106,10 +113,13 @@ void log_stack_trace(const char *msg)
   char sym[512], *dsym;
   int status;
   const char *log = stack_trace_log.empty() ? NULL : stack_trace_log.c_str();
+#endif
 
   if (msg)
     ST_LOG(msg);
   ST_LOG("Unwound call stack:");
+
+#ifdef USE_UNWIND
   if (unw_getcontext(&ctx) < 0) {
     ST_LOG("Failed to create unwind context");
     return;
@@ -138,6 +148,15 @@ void log_stack_trace(const char *msg)
     ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off);
     free(dsym);
   }
+#else
+  std::stringstream ss;
+  ss << el::base::debug::StackTrace();
+  std::vector<std::string> lines;
+  std::string s = ss.str();
+  boost::split(lines, s, boost::is_any_of("\n"));
+  for (const auto &line: lines)
+    ST_LOG(line);
+#endif
 }
 
 }  // namespace tools
