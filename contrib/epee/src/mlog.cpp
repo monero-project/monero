@@ -77,6 +77,32 @@ static void mlog_set_common_prefix()
   el::Loggers::setFilenameCommonPrefix(std::string(path, expected_ptr - path));
 }
 
+static const char *get_default_categories(int level)
+{
+  const char *categories = "";
+  switch (level)
+  {
+    case 0:
+      categories = "*:WARNING,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
+      break;
+    case 1:
+      categories = "*:WARNING,global:INFO,stacktrace:INFO";
+      break;
+    case 2:
+      categories = "*:DEBUG";
+      break;
+    case 3:
+      categories = "*:TRACE";
+      break;
+    case 4:
+      categories = "*:TRACE";
+      break;
+    default:
+      break;
+  }
+  return categories;
+}
+
 void mlog_configure(const std::string &filename_base, bool console)
 {
   el::Configurations c;
@@ -103,35 +129,9 @@ void mlog_configure(const std::string &filename_base, bool console)
   const char *monero_log = getenv("MONERO_LOGS");
   if (!monero_log)
   {
-    monero_log = "*:WARNING,net*:FATAL,global:INFO,verify:FATAL";
+    monero_log = get_default_categories(0);
   }
   mlog_set_categories(monero_log);
-}
-
-static const char *get_default_categories(int level)
-{
-  const char *categories = "";
-  switch (level)
-  {
-    case 0:
-      categories = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
-      break;
-    case 1:
-      categories = "*:WARNING,global:INFO,stacktrace:INFO";
-      break;
-    case 2:
-      categories = "*:DEBUG";
-      break;
-    case 3:
-      categories = "*:TRACE";
-      break;
-    case 4:
-      categories = "*:TRACE";
-      break;
-    default:
-      break;
-  }
-  return categories;
 }
 
 void mlog_set_categories(const char *categories)
