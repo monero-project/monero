@@ -44,6 +44,9 @@
 using namespace std;
 using namespace cryptonote;
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
+
 namespace Monero {
 
 namespace {
@@ -255,6 +258,9 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
+void Wallet::debug(const std::string &str) {
+    MDEBUG(str);
+}
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)

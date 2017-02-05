@@ -428,6 +428,8 @@ struct Wallet
     static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error);
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
+    // Easylogger wrapper
+    static void debug(const std::string &str);
 
    /**
     * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
