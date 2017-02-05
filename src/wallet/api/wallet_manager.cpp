@@ -48,7 +48,7 @@ namespace {
     bool connect_and_invoke(const std::string& address, const std::string& path, const Request& request, Response& response)
     {
         epee::net_utils::http::http_simple_client client{};
-        return client.set_server(address) && epee::net_utils::invoke_http_json(path, request, response, client);
+        return client.set_server(address, boost::none) && epee::net_utils::invoke_http_json(path, request, response, client);
     }
 }
 

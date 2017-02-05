@@ -38,6 +38,9 @@
 
 #pragma once
 
+#include <boost/optional/optional_fwd.hpp>
+
+#include "common/common_fwd.h"
 #include "common/rpc_client.h"
 #include "misc_log_ex.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -60,7 +63,7 @@ public:
   t_rpc_command_executor(
       uint32_t ip
     , uint16_t port
-    , const std::string &user_agent
+    , const boost::optional<tools::login>& user
     , bool is_rpc = true
     , cryptonote::core_rpc_server* rpc_server = NULL
     );

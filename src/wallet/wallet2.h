@@ -53,7 +53,7 @@
 #include "ringct/rctOps.h"
 
 #include "wallet_errors.h"
-#include "password_container.h"
+#include "common/password.h"
 #include "node_rpc_proxy.h"
 
 #include <iostream>
@@ -343,7 +343,8 @@ namespace tools
     // into account the current median block size rather than
     // the minimum block size.
     bool deinit();
-    bool init(std::string daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = 0);
+    bool init(std::string daemon_address = "http://localhost:8080",
+      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
@@ -527,6 +528,7 @@ namespace tools
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
+    const boost::optional<epee::net_utils::http::login>& get_daemon_login() const { return m_daemon_login; }
     uint64_t get_daemon_blockchain_height(std::string& err);
     uint64_t get_daemon_blockchain_target_height(std::string& err);
    /*!
@@ -619,6 +621,7 @@ namespace tools
     crypto::public_key get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const;
 
     cryptonote::account_base m_account;
+    boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;

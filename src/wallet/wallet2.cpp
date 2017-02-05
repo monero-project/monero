@@ -108,6 +108,7 @@ struct options {
   const command_line::arg_descriptor<std::string> password = {"password", tools::wallet2::tr("Wallet password"), "", true};
   const command_line::arg_descriptor<std::string> password_file = {"password-file", tools::wallet2::tr("Wallet password file"), "", true};
   const command_line::arg_descriptor<int> daemon_port = {"daemon-port", tools::wallet2::tr("Use daemon instance at port <arg> instead of 18081"), 0};
+  const command_line::arg_descriptor<std::string> daemon_login = {"daemon-login", tools::wallet2::tr("Specify username[:password] for daemon RPC client"), "", true};
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> restricted = {"restricted-rpc", tools::wallet2::tr("Restricts to view-only commands"), false};
 };
@@ -152,6 +153,18 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     return nullptr;
   }
 
+  boost::optional<epee::net_utils::http::login> login{};
+  if (command_line::has_arg(vm, opts.daemon_login))
+  {
+    auto parsed = tools::login::parse(
+      command_line::get_arg(vm, opts.daemon_login), false, "Daemon client password"
+    );
+    if (!parsed)
+      return nullptr;
+
+    login.emplace(std::move(parsed->username), std::move(parsed->password).password());
+  }
+
   if (daemon_host.empty())
     daemon_host = "localhost";
 
@@ -164,7 +177,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet, restricted));
-  wallet->init(std::move(daemon_address));
+  wallet->init(std::move(daemon_address), std::move(login));
   return wallet;
 }
 
@@ -434,6 +447,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.password);
   command_line::add_arg(desc_params, opts.password_file);
   command_line::add_arg(desc_params, opts.daemon_port);
+  command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.restricted);
 }
@@ -485,11 +499,12 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const 
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::init(std::string daemon_address, uint64_t upper_transaction_size_limit)
+bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit)
 {
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = std::move(daemon_address);
-  return m_http_client.set_server(get_daemon_address());
+  m_daemon_login = std::move(daemon_login);
+  return m_http_client.set_server(get_daemon_address(), get_daemon_login());
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const

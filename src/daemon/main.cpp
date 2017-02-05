@@ -30,6 +30,7 @@
 
 #include "common/command_line.h"
 #include "common/scoped_message_writer.h"
+#include "common/password.h"
 #include "common/util.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/miner.h"
@@ -40,6 +41,7 @@
 #include "misc_log_ex.h"
 #include "p2p/net_node.h"
 #include "rpc/core_rpc_server.h"
+#include "rpc/rpc_args.h"
 #include "daemon/command_line_args.h"
 #include "blockchain_db/db_types.h"
 
@@ -220,13 +222,13 @@ int main(int argc, char const * argv[])
 
       if (command.size())
       {
-        auto rpc_ip_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_ip);
+        const cryptonote::rpc_args::descriptors arg{};
+        auto rpc_ip_str = command_line::get_arg(vm, arg.rpc_bind_ip);
         auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
         if (testnet_mode)
         {
           rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
         }
-        auto user_agent = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_user_agent);
 
         uint32_t rpc_ip;
         uint16_t rpc_port;
@@ -241,7 +243,20 @@ int main(int argc, char const * argv[])
           return 1;
         }
 
-        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, user_agent};
+        boost::optional<tools::login> login{};
+        if (command_line::has_arg(vm, arg.rpc_login))
+        {
+          login = tools::login::parse(
+            command_line::get_arg(vm, arg.rpc_login), false, "Daemon client password"
+          );
+          if (!login)
+          {
+            std::cerr << "Failed to obtain password" << std::endl;
+            return 1;
+          }
+        }
+
+        daemonize::t_command_server rpc_commands{rpc_ip, rpc_port, std::move(login)};
         if (rpc_commands.process_command_vec(command))
         {
           return 0;

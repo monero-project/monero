@@ -42,7 +42,7 @@ set(unit_tests_sources
   epee_levin_protocol_handler_async.cpp
   fee.cpp
   get_xtype_from_string.cpp
-  http_auth.cpp
+  http.cpp
   main.cpp
   mnemonics.cpp
   mul_div.cpp

@@ -40,11 +40,11 @@ namespace p = std::placeholders;
 t_command_server::t_command_server(
     uint32_t ip
   , uint16_t port
-  , const std::string &user_agent
+  , const boost::optional<tools::login>& login
   , bool is_rpc
   , cryptonote::core_rpc_server* rpc_server
   )
-  : m_parser(ip, port, user_agent, is_rpc, rpc_server)
+  : m_parser(ip, port, login, is_rpc, rpc_server)
   , m_command_lookup()
   , m_is_rpc(is_rpc)
 {

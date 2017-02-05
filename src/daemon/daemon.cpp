@@ -33,6 +33,7 @@
 #include "misc_log_ex.h"
 #include "daemon/daemon.h"
 
+#include "common/password.h"
 #include "common/util.h"
 #include "daemon/core.h"
 #include "daemon/p2p.h"
@@ -127,7 +128,8 @@ bool t_daemon::run(bool interactive)
 
     if (interactive)
     {
-      rpc_commands = new daemonize::t_command_server(0, 0, "", false, mp_internals->rpc.get_server());
+      // The first three variables are not used when the fourth is false
+      rpc_commands = new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpc.get_server());
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 

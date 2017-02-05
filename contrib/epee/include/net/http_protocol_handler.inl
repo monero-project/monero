@@ -390,13 +390,6 @@ namespace net_utils
 			return false;
 		}
 
-                if (!m_config.m_required_user_agent.empty() && m_query_info.m_header_info.m_user_agent != m_config.m_required_user_agent)
-                {
-			LOG_ERROR("simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): unexpected user agent: " << m_query_info.m_header_info.m_user_agent);
-			m_state = http_state_error;
-			return false;
-                }
-
 		m_cache.erase(0, pos);
 
 		std::string req_command_str = m_query_info.m_full_request_str;

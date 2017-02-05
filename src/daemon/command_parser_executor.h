@@ -36,7 +36,10 @@
 
 #pragma once
 
+#include <boost/optional/optional_fwd.hpp>
+
 #include "daemon/rpc_command_executor.h"
+#include "common/common_fwd.h"
 #include "rpc/core_rpc_server.h"
 
 namespace daemonize {
@@ -49,7 +52,7 @@ public:
   t_command_parser_executor(
       uint32_t ip
     , uint16_t port
-    , const std::string &user_agent
+    , const boost::optional<tools::login>& login
     , bool is_rpc
     , cryptonote::core_rpc_server* rpc_server = NULL
     );

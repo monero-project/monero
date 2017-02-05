@@ -38,6 +38,7 @@ using namespace epee;
 #include "cryptonote_core/cryptonote_basic_impl.h"
 #include "misc_language.h"
 #include "crypto/hash.h"
+#include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
@@ -49,11 +50,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
-    command_line::add_arg(desc, arg_user_agent);
+    cryptonote::rpc_args::init_options(desc);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -64,29 +64,29 @@ namespace cryptonote
     , m_p2p(p2p)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::handle_command_line(
-      const boost::program_options::variables_map& vm
-    )
-  {
-    auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
-
-    m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
-    m_port = command_line::get_arg(vm, p2p_bind_arg);
-    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
       const boost::program_options::variables_map& vm
     )
   {
     m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
-    std::string m_user_agent = command_line::get_arg(vm, command_line::arg_user_agent);
-
     m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip, m_user_agent);
+
+    auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+
+    auto rpc_config = cryptonote::rpc_args::process(vm);
+    if (!rpc_config)
+      return false;
+
+    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
+
+    boost::optional<epee::net_utils::http::login> http_login{};
+    std::string port = command_line::get_arg(vm, p2p_bind_arg);
+    if (rpc_config->login)
+      http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
+
+    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
+      std::move(port), std::move(rpc_config->bind_ip), std::move(http_login)
+    );
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_busy()
@@ -1446,12 +1446,6 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------------
 
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
-      "rpc-bind-ip"
-    , "IP for RPC server"
-    , "127.0.0.1"
-    };
-
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"
@@ -1469,11 +1463,4 @@ namespace cryptonote
     , "Restrict RPC to view only commands"
     , false
     };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_user_agent = {
-      "user-agent"
-    , "Restrict RPC to clients using this user agent"
-    , ""
-    };
-
 }  // namespace cryptonote

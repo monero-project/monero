@@ -1192,7 +1192,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
   catch (const std::exception &e) { }
 
-  m_http_client.set_server(m_wallet->get_daemon_address());
+  m_http_client.set_server(m_wallet->get_daemon_address(), m_wallet->get_daemon_login());
   m_wallet->callback(this);
   return true;
 }
