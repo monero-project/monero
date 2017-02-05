@@ -61,8 +61,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
-#define WALLET_RCP_CONNECTION_TIMEOUT                          200000
-
 class Serialization_portability_wallet_Test;
 
 namespace tools
@@ -96,6 +94,8 @@ namespace tools
   {
     friend class ::Serialization_portability_wallet_Test;
   public:
+    static constexpr const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
+
     enum RefreshType {
       RefreshFull,
       RefreshOptimizeCoinbase,
@@ -104,10 +104,10 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
 
   public:
-    static const char* tr(const char* str);// { return i18n_translate(str, "cryptonote::simple_wallet"); }
+    static const char* tr(const char* str);
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static void init_options(boost::program_options::options_description& desc_params);
@@ -125,7 +125,7 @@ namespace tools
     //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
     struct transfer_details
     {
       uint64_t m_block_height;
@@ -342,8 +342,8 @@ namespace tools
     // free block size. TODO: fix this so that it actually takes
     // into account the current median block size rather than
     // the minimum block size.
-    void init(const std::string& daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = 0);
     bool deinit();
+    bool init(std::string daemon_address = "http://localhost:8080", uint64_t upper_transaction_size_limit = 0);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
@@ -506,6 +506,8 @@ namespace tools
     void auto_refresh(bool r) { m_auto_refresh = r; }
     bool confirm_missing_payment_id() const { return m_confirm_missing_payment_id; }
     void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
+    bool ask_password() const { return m_ask_password; }
+    void ask_password(bool always) { m_ask_password = always; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -656,6 +658,7 @@ namespace tools
     bool m_auto_refresh;
     uint64_t m_refresh_from_block_height;
     bool m_confirm_missing_payment_id;
+    bool m_ask_password;
     NodeRPCProxy m_node_rpc_proxy;
   };
 }
@@ -924,7 +927,7 @@ namespace tools
       splitted_dsts.clear();
       dust_dsts.clear();
 
-      BOOST_FOREACH(auto& de, dsts)
+      for(auto& de: dsts)
       {
         cryptonote::decompose_amount_into_digits(de.amount, 0,
           [&](uint64_t chunk) { splitted_dsts.push_back(cryptonote::tx_destination_entry(chunk, de.addr)); },
@@ -987,7 +990,7 @@ namespace tools
 
     // calculate total amount being sent to all destinations
     // throw if total amount overflows uint64_t
-    BOOST_FOREACH(auto& dt, dsts)
+    for(auto& dt: dsts)
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
       needed_money += dt.amount;
@@ -1008,7 +1011,7 @@ namespace tools
     {
       COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
       req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
-      BOOST_FOREACH(size_t idx, selected_transfers)
+      for(size_t idx: selected_transfers)
       {
         const transfer_container::const_iterator it = m_transfers.begin() + idx;
         THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
@@ -1018,7 +1021,7 @@ namespace tools
       }
 
       m_daemon_rpc_mutex.lock();
-      bool r = epee::net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getrandom_outs.bin", req, daemon_resp, m_http_client, 200000);
+      bool r = epee::net_utils::invoke_http_bin("/getrandom_outs.bin", req, daemon_resp, m_http_client, rpc_timeout);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
       THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
@@ -1028,7 +1031,7 @@ namespace tools
         std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
 
       std::unordered_map<uint64_t, uint64_t> scanty_outs;
-      BOOST_FOREACH(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs, daemon_resp.outs)
+      for(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs: daemon_resp.outs)
       {
         if (amount_outs.outs.size() < fake_outputs_count)
         {
@@ -1041,7 +1044,7 @@ namespace tools
     //prepare inputs
     size_t i = 0;
     std::vector<cryptonote::tx_source_entry> sources;
-    BOOST_FOREACH(size_t idx, selected_transfers)
+    for(size_t idx: selected_transfers)
     {
       sources.resize(sources.size()+1);
       cryptonote::tx_source_entry& src = sources.back();
@@ -1052,7 +1055,7 @@ namespace tools
       if(daemon_resp.outs.size())
       {
         daemon_resp.outs[i].outs.sort([](const out_entry& a, const out_entry& b){return a.global_amount_index < b.global_amount_index;});
-        BOOST_FOREACH(out_entry& daemon_oe, daemon_resp.outs[i].outs)
+        for(out_entry& daemon_oe: daemon_resp.outs[i].outs)
         {
           if(td.m_global_output_index == daemon_oe.global_amount_index)
             continue;
@@ -1094,11 +1097,11 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> splitted_dsts, dust_dsts;
     uint64_t dust = 0;
     destination_split_strategy(dsts, change_dts, dust_policy.dust_threshold, splitted_dsts, dust_dsts);
-    BOOST_FOREACH(auto& d, dust_dsts) {
+    for(auto& d: dust_dsts) {
       THROW_WALLET_EXCEPTION_IF(dust_policy.dust_threshold < d.amount, error::wallet_internal_error, "invalid dust value: dust = " +
         std::to_string(d.amount) + ", dust_threshold = " + std::to_string(dust_policy.dust_threshold));
     }
-    BOOST_FOREACH(auto& d, dust_dsts) {
+    for(auto& d: dust_dsts) {
       if (!dust_policy.add_to_fee)
         splitted_dsts.push_back(cryptonote::tx_destination_entry(d.amount, dust_policy.addr_for_dust));
       dust += d.amount;

@@ -31,7 +31,6 @@
 #include "include_base_utils.h"
 using namespace epee;
 
-#include <boost/foreach.hpp>
 #include <unordered_set>
 #include "cryptonote_core.h"
 #include "common/command_line.h"
@@ -42,6 +41,7 @@ using namespace epee;
 #include "cryptonote_format_utils.h"
 #include "misc_language.h"
 #include <csignal>
+#include <p2p/net_node.h>
 #include "cryptonote_core/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
@@ -259,8 +259,17 @@ namespace cryptonote
 
     m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
+    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    auto p2p_bind_arg = testnet ? nodetool::arg_testnet_p2p_bind_port : nodetool::arg_p2p_bind_port;
+    std::string m_port = command_line::get_arg(vm, p2p_bind_arg);
+    std::string m_config_folder_mempool = m_config_folder;
 
-    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
+    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+      m_config_folder_mempool = m_config_folder_mempool + "/" + m_port;
+    }
+
+    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder_mempool);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
@@ -532,6 +541,7 @@ namespace cryptonote
       if (rv.outPk.size() != tx.vout.size())
       {
         LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");
+        tvc.m_verifivation_failed = true;
         return false;
       }
       for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
@@ -668,7 +678,7 @@ namespace cryptonote
   bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
   {
     spent.clear();
-    BOOST_FOREACH(auto& ki, key_im)
+    for(auto& ki: key_im)
     {
       spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
     }
@@ -681,14 +691,14 @@ namespace cryptonote
     uint64_t emission_amount = 0;
     uint64_t total_fee_amount = 0;
     this->get_blocks(start_offset, count, blocks);
-    BOOST_FOREACH(auto& b, blocks)
+    for(auto& b: blocks)
     {
       std::list<transaction> txs;
       std::list<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
       this->get_transactions(b.tx_hashes, txs, missed_txs);      
       uint64_t tx_fee_amount = 0;
-      BOOST_FOREACH(const auto& tx, txs)
+      for(const auto& tx: txs)
       {
         tx_fee_amount += get_tx_fee(tx);
       }
@@ -703,7 +713,7 @@ namespace cryptonote
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
   {
     std::unordered_set<crypto::key_image> ki;
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
       if(!ki.insert(tokey_in.k_image).second)
@@ -869,7 +879,7 @@ namespace cryptonote
 
       block_to_blob(b, arg.b.block);
       //pack transactions
-      BOOST_FOREACH(auto& tx,  txs)
+      for(auto& tx:  txs)
         arg.b.txs.push_back(t_serializable_object_to_blob(tx));
 
       m_pprotocol->relay_block(arg, exclude_context);

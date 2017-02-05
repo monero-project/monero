@@ -34,7 +34,6 @@
 #include "storages/http_abstract_invoke.h"
 #include "net/http_client.h"
 #include "string_tools.h"
-#include <boost/lexical_cast.hpp>
 
 namespace tools
 {
@@ -42,27 +41,16 @@ namespace tools
   {
   private:
     epee::net_utils::http::http_simple_client m_http_client;
-    uint32_t m_ip;
-    uint16_t m_port;
   public:
     t_rpc_client(
         uint32_t ip
       , uint16_t port
       )
       : m_http_client{}
-      , m_ip{ip}
-      , m_port{port}
-    {}
-
-    std::string build_url(std::string const & relative_url) const
     {
-      std::string result =
-              "http://"
-             + epee::string_tools::get_ip_string_from_int32(m_ip)
-             + ":"
-             + boost::lexical_cast<std::string>(m_port)
-             + relative_url;
-      return result;
+      m_http_client.set_server(
+        epee::string_tools::get_ip_string_from_int32(ip), std::to_string(port)
+      );
     }
 
     template <typename T_req, typename T_res>
@@ -72,8 +60,7 @@ namespace tools
       , std::string const & method_name
       )
     {
-      std::string rpc_url = build_url("/json_rpc");
-      t_http_connection connection(&m_http_client, m_ip, m_port);
+      t_http_connection connection(&m_http_client);
 
       bool ok = connection.is_open();
       if (!ok)
@@ -81,7 +68,7 @@ namespace tools
         fail_msg_writer() << "Couldn't connect to daemon";
         return false;
       }
-      ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
+      ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "Daemon request failed";
@@ -101,11 +88,10 @@ namespace tools
       , std::string const & fail_msg
       )
     {
-      std::string rpc_url = build_url("/json_rpc");
-      t_http_connection connection(&m_http_client, m_ip, m_port);
+      t_http_connection connection(&m_http_client);
 
       bool ok = connection.is_open();
-      ok = ok && epee::net_utils::invoke_http_json_rpc(rpc_url, method_name, req, res, m_http_client);
+      ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "Couldn't connect to daemon";
@@ -130,11 +116,10 @@ namespace tools
       , std::string const & fail_msg
       )
     {
-      std::string rpc_url = build_url(relative_url);
-      t_http_connection connection(&m_http_client, m_ip, m_port);
+      t_http_connection connection(&m_http_client);
 
       bool ok = connection.is_open();
-      ok = ok && epee::net_utils::invoke_http_json_remote_command2(rpc_url, req, res, m_http_client);
+      ok = ok && epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "Couldn't connect to daemon";
@@ -153,7 +138,7 @@ namespace tools
 
     bool check_connection()
     {
-      t_http_connection connection(&m_http_client, m_ip, m_port);
+      t_http_connection connection(&m_http_client);
       return connection.is_open();
     }
   };

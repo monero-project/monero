@@ -33,7 +33,6 @@
 #include <list>
 #include <set>
 #include <map>
-#include <boost/foreach.hpp>
 //#include <boost/bimap.hpp>
 //#include <boost/bimap/multiset_of.hpp>
 #include <boost/archive/binary_iarchive.hpp>
@@ -45,6 +44,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 
 #include "syncobj.h"
@@ -230,7 +230,7 @@ namespace nodetool
   bool peerlist_manager::merge_peerlist(const std::list<peerlist_entry>& outer_bs)
   {
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    BOOST_FOREACH(const peerlist_entry& be,  outer_bs)
+    for(const peerlist_entry& be:  outer_bs)
     {
       append_with_peer_gray(be);
     }
@@ -283,7 +283,7 @@ namespace nodetool
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
       if(!vl.last_seen)
         continue;
@@ -301,13 +301,13 @@ namespace nodetool
   {    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_gr)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
     {
       pl_gray.push_back(vl);      
     }
 
     peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_wt)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
     {
       pl_white.push_back(vl);      
     }

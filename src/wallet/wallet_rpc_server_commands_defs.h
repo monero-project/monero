@@ -786,5 +786,84 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_ADD_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      std::string address;
+      std::string payment_id;
+      std::string description;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(description)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      std::list<uint64_t> entries;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(entries)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      uint64_t index;
+      std::string address;
+      std::string payment_id;
+      std::string description;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(description)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<entry> entries;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(entries)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }

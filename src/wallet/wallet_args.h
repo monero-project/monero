@@ -49,5 +49,6 @@ namespace wallet_args
     int argc, char** argv,
     const char* const usage,
     boost::program_options::options_description desc_params,
-    const boost::program_options::positional_options_description& positional_options);
+    const boost::program_options::positional_options_description& positional_options,
+    bool log_to_console = false);
 }

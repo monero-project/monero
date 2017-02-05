@@ -451,22 +451,6 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
   return addresses[0];
 }
 
-bool get_account_address_from_str_or_url(
-    cryptonote::account_public_address& address
-  , bool& has_payment_id
-  , crypto::hash8& payment_id
-  , bool testnet
-  , const std::string& str_or_url
-  )
-{
-  if (cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, str_or_url))
-    return true;
-  bool dnssec_valid;
-  std::string address_str = get_account_address_as_str_from_url(str_or_url, dnssec_valid);
-  return !address_str.empty() &&
-          cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_str);
-}
-
 }  // namespace tools::dns_utils
 
 }  // namespace tools

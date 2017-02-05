@@ -411,7 +411,7 @@ namespace cryptonote
       transaction tx;
       crypto::hash tx_hash;
 
-      BOOST_FOREACH(auto& tx_blob, arg.b.txs)
+      for(auto& tx_blob: arg.b.txs)
       {
         if(parse_and_validate_tx_from_blob(tx_blob, tx))
         {
@@ -527,7 +527,7 @@ namespace cryptonote
       }      
       
       size_t tx_idx = 0;
-      BOOST_FOREACH(auto& tx_hash, new_block.tx_hashes)
+      for(auto& tx_hash: new_block.tx_hashes)
       {
         if(m_core.get_pool_transaction(tx_hash, tx))
         {
@@ -638,7 +638,7 @@ namespace cryptonote
     fluffy_response.current_blockchain_height = m_core.get_current_blockchain_height();
     fluffy_response.hop = arg.hop;    
     size_t local_txs_count = local_txs.size();
-    BOOST_FOREACH(auto& tx_idx, arg.missing_tx_indices)
+    for(auto& tx_idx: arg.missing_tx_indices)
     {
       if(tx_idx < local_txs_count)
       {
@@ -790,7 +790,7 @@ namespace cryptonote
     context.m_remote_blockchain_height = arg.current_blockchain_height;
 
     size_t count = 0;
-    BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
+    for(const block_complete_entry& block_entry: arg.blocks)
     {
       if (m_stopping)
       {
@@ -859,7 +859,7 @@ namespace cryptonote
         uint64_t previous_height = m_core.get_current_blockchain_height();
 
         m_core.prepare_handle_incoming_blocks(arg.blocks);
-        BOOST_FOREACH(const block_complete_entry& block_entry, arg.blocks)
+        for(const block_complete_entry& block_entry: arg.blocks)
         {
           if (m_stopping)
           {
@@ -869,7 +869,7 @@ namespace cryptonote
 
           // process transactions
           TIME_MEASURE_START(transactions_process_time);
-          BOOST_FOREACH(auto& tx_blob, block_entry.txs)
+          for(auto& tx_blob: block_entry.txs)
           {
             tx_verification_context tvc = AUTO_VAL_INIT(tvc);
             m_core.handle_incoming_tx(tx_blob, tvc, true, true, false);
@@ -1077,7 +1077,7 @@ namespace cryptonote
       m_p2p->drop_connection(context);
     }
 
-    BOOST_FOREACH(auto& bl_id, arg.m_block_ids)
+    for(auto& bl_id: arg.m_block_ids)
     {
       if(!m_core.have_block(bl_id))
         context.m_needed_objects.push_back(bl_id);

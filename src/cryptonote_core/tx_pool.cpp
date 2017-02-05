@@ -63,7 +63,7 @@ namespace cryptonote
     size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
-    float const ACCEPT_THRESHOLD = 0.99f;
+    float const ACCEPT_THRESHOLD = 1.0f;
 
     // a kind of increasing backoff within min/max bounds
     time_t get_relay_delay(time_t now, time_t received)
@@ -240,7 +240,7 @@ namespace cryptonote
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
 
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
       std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
@@ -253,7 +253,7 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>((double)blob_size / fee, receive_time), id);
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
 
     return true;
   }
@@ -275,7 +275,7 @@ namespace cryptonote
     // ND: Speedup
     // 1. Move transaction hash calcuation outside of loop. ._.
     crypto::hash actual_hash = get_transaction_hash(tx);
-    BOOST_FOREACH(const txin_v& vi, tx.vin)
+    for(const txin_v& vi: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(vi, const txin_to_key, txin, false);
       auto it = m_spent_key_images.find(txin.k_image);
@@ -415,7 +415,7 @@ namespace cryptonote
   void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& tx_vt, m_transactions)
+    for(const auto& tx_vt: m_transactions)
       txs.push_back(tx_vt.second.tx);
   }
   //------------------------------------------------------------------
@@ -488,7 +488,7 @@ namespace cryptonote
   bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
       if(have_tx_keyimg_as_spent(tokey_in.k_image))
@@ -613,6 +613,10 @@ namespace cryptonote
     uint64_t best_coinbase = 0;
     total_size = 0;
     fee = 0;
+    
+    //baseline empty block
+    get_block_reward(median_size, total_size, already_generated_coins, best_coinbase, version);
+
 
     size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
@@ -641,7 +645,7 @@ namespace cryptonote
         sorted_it++;
         continue;
       }
-      uint64_t coinbase = block_reward + fee;
+      uint64_t coinbase = block_reward + fee + tx_it->second.fee;
       if (coinbase < template_accept_threshold(best_coinbase))
       {
         LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
@@ -728,7 +732,7 @@ namespace cryptonote
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>((double)tx.second.blob_size / tx.second.fee, tx.second.receive_time), tx.first);
+      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(tx.second.fee / (double)tx.second.blob_size, tx.second.receive_time), tx.first);
     }
 
     // Ignore deserialization error

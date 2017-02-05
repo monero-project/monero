@@ -897,7 +897,8 @@ TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
 
     std::chrono::seconds wait_for = std::chrono::seconds(20);
     std::unique_lock<std::mutex> lock (wallet_src_listener->mutex);
-    wallet_src->initAsync(TESTNET_DAEMON_ADDRESS, 0);
+    wallet_src->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet_src->startRefresh();
     std::cerr << "TEST: waiting on refresh lock...\n";
     wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
     std::cerr << "TEST: refresh lock acquired...\n";
@@ -1050,8 +1051,8 @@ TEST_F(WalletManagerMainnetTest, CreateAndRefreshWalletMainNetAsync)
 
     std::chrono::seconds wait_for = std::chrono::seconds(SECONDS_TO_REFRESH);
     std::unique_lock<std::mutex> lock (wallet_listener->mutex);
-    wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
-    // wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->startRefresh();
     std::cerr << "TEST: waiting on refresh lock...\n";
     wallet_listener->cv_refresh.wait_for(lock, wait_for);
     std::cerr << "TEST: refresh lock acquired...\n";
@@ -1076,8 +1077,8 @@ TEST_F(WalletManagerMainnetTest, OpenAndRefreshWalletMainNetAsync)
 
     std::chrono::seconds wait_for = std::chrono::seconds(SECONDS_TO_REFRESH);
     std::unique_lock<std::mutex> lock (wallet_listener->mutex);
-    wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
-    // wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->startRefresh();
     std::cerr << "TEST: waiting on refresh lock...\n";
     wallet_listener->cv_refresh.wait_for(lock, wait_for);
     std::cerr << "TEST: refresh lock acquired...\n";
@@ -1110,8 +1111,8 @@ TEST_F(WalletManagerMainnetTest, RecoverAndRefreshWalletMainNetAsync)
     std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet));
     std::chrono::seconds wait_for = std::chrono::seconds(SECONDS_TO_REFRESH);
     std::unique_lock<std::mutex> lock (wallet_listener->mutex);
-    wallet->initAsync(MAINNET_DAEMON_ADDRESS, 0);
-    // wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
+    wallet->startRefresh();
     std::cerr << "TEST: waiting on refresh lock...\n";
 
     // here we wait for 120 seconds and test if wallet doesn't syncrnonize blockchain completely,

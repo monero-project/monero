@@ -1104,8 +1104,8 @@ namespace el {
                                     ELPP_UNUSED(ms);
 #      endif  // ELPP_ASYNC_LOGGING
                                 }
-                                typedef std::mutex Mutex;
-                                typedef std::lock_guard<std::mutex> ScopedLock;
+                                typedef std::recursive_mutex Mutex;
+                                typedef std::lock_guard<std::recursive_mutex> ScopedLock;
 #   endif  // !ELPP_USE_STD_THREADING
 #else
                                 namespace internal {

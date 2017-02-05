@@ -1056,10 +1056,11 @@ void BlockchainLMDB::open(const std::string& filename, const int mdb_flags)
 
   // check for existing LMDB files in base directory
   boost::filesystem::path old_files = direc.parent_path();
-  if (boost::filesystem::exists(old_files / "data.mdb") || boost::filesystem::exists(old_files / "lock.mdb"))
+  if (boost::filesystem::exists(old_files / CRYPTONOTE_BLOCKCHAINDATA_FILENAME)
+      || boost::filesystem::exists(old_files / CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME))
   {
     LOG_PRINT_L0("Found existing LMDB files in " << old_files.string());
-    LOG_PRINT_L0("Move data.mdb and/or lock.mdb to " << filename << ", or delete them, and then restart");
+    LOG_PRINT_L0("Move " << CRYPTONOTE_BLOCKCHAINDATA_FILENAME << " and/or " << CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME << " to " << filename << ", or delete them, and then restart");
     throw DB_ERROR("Database could not be opened");
   }
 
@@ -1313,9 +1314,9 @@ std::vector<std::string> BlockchainLMDB::get_filenames() const
   std::vector<std::string> filenames;
 
   boost::filesystem::path datafile(m_folder);
-  datafile /= "data.mdb";
+  datafile /= CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
   boost::filesystem::path lockfile(m_folder);
-  lockfile /= "lock.mdb";
+  lockfile /= CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME;
 
   filenames.push_back(datafile.string());
   filenames.push_back(lockfile.string());

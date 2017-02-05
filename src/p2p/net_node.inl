@@ -505,6 +505,11 @@ namespace nodetool
     auto config_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, config_arg);
 
+    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+      m_config_folder = m_config_folder + "/" + m_port;
+    }
+
     res = init_config();
     CHECK_AND_ASSERT_MES(res, false, "Failed to init config.");
 
@@ -1182,7 +1187,7 @@ namespace nodetool
     time(&now);
     delta = now - local_time;
 
-    BOOST_FOREACH(peerlist_entry& be, local_peerlist)
+    for(peerlist_entry& be: local_peerlist)
     {
       if(be.last_seen > local_time)
       {
@@ -1320,7 +1325,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::relay_notify_to_list(int command, const std::string& data_buff, const std::list<boost::uuids::uuid> &connections)
   {
-    BOOST_FOREACH(const auto& c_id, connections)
+    for(const auto& c_id: connections)
     {
       m_net_server.get_config_object().notify(command, data_buff, c_id);
     }
