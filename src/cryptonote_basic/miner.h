@@ -37,7 +37,7 @@
 #include "math_helper.h"
 #ifdef _WIN32
 #include <windows.h>
-#elif __linux__
+#elif defined(__linux__)
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/times.h>
