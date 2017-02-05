@@ -408,13 +408,10 @@ namespace nodetool
       return false;
     }
 
-    size_t x = crypto::rand<size_t>() % (m_peers_gray.size() + 1);
-    size_t res = (x * x * x) / (m_peers_gray.size() * m_peers_gray.size()); //parabola \/
-
-    LOG_PRINT_L3("Random gray peer index=" << res << "(x="<< x << ", max_index=" << m_peers_gray.size() << ")");
+    size_t random_index = crypto::rand<size_t>() % m_peers_gray.size();
 
     peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
-    pe = *epee::misc_utils::move_it_backward(--by_time_index.end(), res);
+    pe = *epee::misc_utils::move_it_backward(--by_time_index.end(), random_index);
 
     return true;
 
