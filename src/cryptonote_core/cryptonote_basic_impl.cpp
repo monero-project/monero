@@ -317,7 +317,7 @@ namespace cryptonote {
   {
     bool has_payment_id;
     crypto::hash8 payment_id;
-    return get_account_address_from_str_or_url(address, testnet, str_or_url);
+    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, testnet, str_or_url);
   }
   //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
