@@ -85,11 +85,14 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
-        //LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
-
-        if (m_listener) {
-            m_listener->newBlock(height);
-            //  m_listener->updated();
+        // Don't flood the GUI with signals. On fast refresh - send signal every 1000th block
+        // get_refresh_from_block_height() returns the blockheight from when the wallet was 
+        // created or the restore height specified when wallet was recovered
+        if(height >= m_wallet->m_wallet->get_refresh_from_block_height() || height % 1000 == 0) {
+            // LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+            if (m_listener) {
+                m_listener->newBlock(height);
+            }
         }
     }
 
@@ -515,7 +518,6 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, "", recovery_key, true, false);
-        // TODO: wallet->init(daemon_address);
 
     } catch (const std::exception &e) {
         m_status = Status_Critical;
@@ -535,7 +537,7 @@ bool WalletImpl::close()
         if (status() != Status_Critical)
             m_wallet->store();
         else
-            LOG_PRINT_L3("Status_Critical - not storing wallet");
+            LOG_ERROR("Status_Critical - not storing wallet");
         LOG_PRINT_L1("wallet::store done");
         LOG_PRINT_L1("Calling wallet::stop...");
         m_wallet->stop();
@@ -646,19 +648,7 @@ string WalletImpl::keysFilename() const
 bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
 {
     clearStatus();
-    if (!doInit(daemon_address, upper_transaction_size_limit))
-        return false;
-    bool result = this->refresh();
-    // enabling background refresh thread
-    startRefresh();
-    return result;
-}
-
-void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
-{
-    clearStatus();
-    doInit(daemon_address, upper_transaction_size_limit);
-    startRefresh();
+    return doInit(daemon_address, upper_transaction_size_limit);
 }
 
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
@@ -1323,8 +1313,8 @@ void WalletImpl::doRefresh()
 
 void WalletImpl::startRefresh()
 {
-    LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
     if (!m_refreshEnabled) {
+        LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
         m_refreshEnabled = true;
         m_refreshCV.notify_one();
     }
