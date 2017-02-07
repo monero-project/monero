@@ -164,6 +164,6 @@ namespace cryptonote
     static bool get_system_times(uint64_t& total_time, uint64_t& idle_time);
     static bool get_process_time(uint64_t& total_time);
     static uint8_t get_percent_of_total(uint64_t some_time, uint64_t total_time);
-    static bool ac_line_status(); // true = plugged in, else nope
+    static bool on_battery_power();
   };
 }

@@ -575,7 +575,7 @@ namespace cryptonote
         continue; // if interrupted because stop called, loop should end ..
       }
 
-      bool on_ac_power = ac_line_status();
+      bool on_ac_power = !on_battery_power();
 
       if( m_is_background_mining_started )
       {
@@ -642,7 +642,7 @@ namespace cryptonote
         uint64_t total_diff = (current_total_time - prev_total_time);
         uint64_t idle_diff = (current_idle_time - prev_idle_time);
         uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
-        bool on_ac_power = ac_line_status();
+
         MGINFO("idle percentage is " << unsigned(idle_percentage));
         if( idle_percentage >= get_idle_threshold() && on_ac_power )
         {
@@ -763,14 +763,14 @@ namespace cryptonote
     return (uint8_t)( ceil( (other * 1.f / total * 1.f) * 100) );    
   }
   //-----------------------------------------------------------------------------------------------------    
-  bool miner::ac_line_status()
+  bool miner::on_battery_power()
   {
     #ifdef _WIN32
 
       SYSTEM_POWER_STATUS power_status;
     	if ( GetSystemPowerStatus( &power_status ) != 0 )
     	{
-        return power_status.ACLineStatus == 1;
+        return power_status.ACLineStatus != 1;
     	}
 
     #elif defined(__linux__)
@@ -792,7 +792,7 @@ namespace cryptonote
         return false;
       }
 
-      return power_stream.get() == '1';
+      return power_stream.get() != '1';
 
     #endif
     
