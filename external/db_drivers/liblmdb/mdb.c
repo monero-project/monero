@@ -809,6 +809,16 @@ typedef struct MDB_txbody {
 	uint32_t	mtb_magic;
 		/** Format of this lock file. Must be set to #MDB_LOCK_FORMAT. */
 	uint32_t	mtb_format;
+		/**	The ID of the last transaction committed to the database.
+		 *	This is recorded here only for convenience; the value can always
+		 *	be determined by reading the main database meta pages.
+		 */
+	volatile txnid_t		mtb_txnid;
+		/** The number of slots that have been used in the reader table.
+		 *	This always records the maximum count, it is not decremented
+		 *	when readers release their slots.
+		 */
+	volatile unsigned	mtb_numreaders;
 #if defined(_WIN32) || defined(MDB_USE_POSIX_SEM)
 	char	mtb_rmname[MNAME_LEN];
 #elif defined(MDB_USE_SYSV_SEM)
@@ -820,16 +830,6 @@ typedef struct MDB_txbody {
 		 */
 	mdb_mutex_t	mtb_rmutex;
 #endif
-		/**	The ID of the last transaction committed to the database.
-		 *	This is recorded here only for convenience; the value can always
-		 *	be determined by reading the main database meta pages.
-		 */
-	volatile txnid_t		mtb_txnid;
-		/** The number of slots that have been used in the reader table.
-		 *	This always records the maximum count, it is not decremented
-		 *	when readers release their slots.
-		 */
-	volatile unsigned	mtb_numreaders;
 } MDB_txbody;
 
 	/** The actual reader table definition. */
