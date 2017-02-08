@@ -55,10 +55,10 @@ else ()
   add_library(gtest      UNKNOWN IMPORTED)
   add_library(gtest_main UNKNOWN IMPORTED)
   set_target_properties(gtest PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/gtest/libgtest.a
+    IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/gtest/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set_target_properties(gtest_main PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/gtest/libgtest_main.a
+    IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/gtest/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   add_dependencies(gtest      googletest)
   add_dependencies(gtest_main googletest)
