@@ -277,7 +277,8 @@ namespace cryptonote
 
     boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
     boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
-
+    set_is_background_mining_enabled(do_background);
+    
     for(size_t i = 0; i != threads_count; i++)
     {
       m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
@@ -285,7 +286,6 @@ namespace cryptonote
 
     LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
 
-    set_is_background_mining_enabled(do_background);
     if( get_is_background_mining_enabled() )
     {
       m_background_mining_thread = boost::thread(attrs, boost::bind(&miner::background_worker_thread, this));
@@ -526,7 +526,7 @@ namespace cryptonote
     uint64_t prev_total_time, current_total_time;
     uint64_t prev_idle_time, current_idle_time;
     uint64_t previous_process_time = 0, current_process_time = 0;
-    m_is_background_mining_enabled = false;
+    m_is_background_mining_started = false;
 
     if(!get_system_times(prev_total_time, prev_idle_time))
     {

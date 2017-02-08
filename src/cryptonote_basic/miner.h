@@ -95,7 +95,7 @@ namespace cryptonote
     static constexpr uint16_t BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS    = 10;
     static constexpr uint16_t BACKGROUND_MINING_MIN_MIN_IDLE_INTERVAL_IN_SECONDS        = 10;
     static constexpr uint16_t BACKGROUND_MINING_MAX_MIN_IDLE_INTERVAL_IN_SECONDS        = 3600;
-    static constexpr uint8_t  BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE        = 20;
+    static constexpr uint8_t  BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE        = 40;
     static constexpr uint8_t  BACKGROUND_MINING_MIN_MINING_TARGET_PERCENTAGE            = 5;
     static constexpr uint8_t  BACKGROUND_MINING_MAX_MINING_TARGET_PERCENTAGE            = 50;
     static constexpr uint8_t  BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS       = 10;

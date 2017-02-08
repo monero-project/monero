@@ -610,6 +610,7 @@ namespace cryptonote
       uint64_t speed;
       uint32_t threads_count;
       std::string address;
+      bool is_background_mining_enabled;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -617,6 +618,7 @@ namespace cryptonote
         KV_SERIALIZE(speed)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(address)
+        KV_SERIALIZE(is_background_mining_enabled)
       END_KV_SERIALIZE_MAP()
     };
   };

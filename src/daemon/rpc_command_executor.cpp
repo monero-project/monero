@@ -377,7 +377,7 @@ bool t_rpc_command_executor::show_status() {
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
-    % (mining_busy ? "syncing" : mres.active ? "mining at " + get_mining_speed(mres.speed) : "not mining")
+    % (mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
     % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
