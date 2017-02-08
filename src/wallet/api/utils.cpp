@@ -39,8 +39,13 @@ namespace Monero {
 namespace Utils {
 
 bool isAddressLocal(const std::string &address)
-{
-  return tools::is_local_address(address);
+{ 
+    try {
+        return tools::is_local_address(address);
+    } catch (const std::exception &e) {
+        MERROR("error: " << e.what());
+        return false;
+    }
 }
 
 }
