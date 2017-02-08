@@ -3988,10 +3988,12 @@ inline void FUNCTION_NAME(const T&);
             }
 
             void setThreadName(const std::string &name) {
+                const base::threading::ScopedLock scopedLock(lock());
                 m_threadNames[base::threading::getCurrentThreadId()] = name;
             }
             
             std::string getThreadName(const std::string& name) {
+                const base::threading::ScopedLock scopedLock(lock());
                 std::map<std::string, std::string>::const_iterator it = m_threadNames.find(name);
                 if (it == m_threadNames.end())
                     return name;
