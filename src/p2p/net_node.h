@@ -155,6 +155,8 @@ namespace nodetool
       CHAIN_INVOKE_MAP_TO_OBJ_FORCE_CONTEXT(m_payload_handler, typename t_payload_net_handler::connection_context&)
     END_INVOKE_MAP2()
 
+    enum PeerType { anchor = 0, white, gray };
+
     //----------------- commands handlers ----------------------------------------------
     int handle_handshake(int command, typename COMMAND_HANDSHAKE::request& arg, typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context);
     int handle_timed_sync(int command, typename COMMAND_TIMED_SYNC::request& arg, typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context);
@@ -206,15 +208,17 @@ namespace nodetool
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
 
+    bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(bool use_white_list);
-    bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, bool white = true);
+    bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
+    bool is_peer_used(const anchor_peerlist_entry& peer);
     bool is_addr_connected(const net_address& peer);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
-    bool make_expected_connections_count(bool white_list, size_t expected_connections);
+    bool make_expected_connections_count(PeerType peer_type, size_t expected_connections);
     void cache_connect_fail_info(const net_address& addr);
     bool is_addr_recently_failed(const net_address& addr);
     bool is_priority_node(const net_address& na);

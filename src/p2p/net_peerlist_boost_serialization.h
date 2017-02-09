@@ -49,6 +49,14 @@ namespace boost
       a & pl.adr;
       a & pl.id;
       a & pl.last_seen;
-    }    
+    }
+
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a, nodetool::anchor_peerlist_entry& pl, const ver_type ver)
+    {
+      a & pl.adr;
+      a & pl.id;
+      a & pl.first_seen;
+    }
   }
 }
