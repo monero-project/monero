@@ -368,7 +368,7 @@ bool t_rpc_command_executor::show_status() {
 
   std::time_t uptime = std::time(nullptr) - ires.start_time;
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections, uptime %ud %uh %um %us")
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % get_sync_percentage(ires)
