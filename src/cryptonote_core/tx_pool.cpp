@@ -34,8 +34,8 @@
 #include <vector>
 
 #include "tx_pool.h"
-#include "cryptonote_format_utils.h"
-#include "cryptonote_boost_serialization.h"
+#include "cryptonote_tx_utils.h"
+#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
 #include "blockchain.h"
 #include "common/boost_serialization_helper.h"

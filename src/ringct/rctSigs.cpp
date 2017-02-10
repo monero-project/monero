@@ -34,7 +34,7 @@
 #include "common/thread_group.h"
 #include "common/util.h"
 #include "rctSigs.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace crypto;
 using namespace std;

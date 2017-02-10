@@ -41,8 +41,8 @@
 #include "string_tools.h"
 #include "syncobj.h"
 #include "math_helper.h"
-#include "cryptonote_basic_impl.h"
-#include "verification_context.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 

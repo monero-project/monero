@@ -38,6 +38,7 @@ source_group(p2p FILES ${P2P})
 monero_add_library(p2p ${P2P})
 target_link_libraries(p2p
   PUBLIC
+    epee
     ${UPNP_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

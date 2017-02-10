@@ -49,5 +49,6 @@ target_link_libraries(ringct
   PUBLIC
     common
     crypto
+    cryptonote_basic
   PRIVATE
     ${EXTRA_LIBRARIES})

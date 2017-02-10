@@ -34,7 +34,7 @@
 #include <cstring>  // memcpy
 #include <random>
 
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
 #include "profile_tools.h"
 

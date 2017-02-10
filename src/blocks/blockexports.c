@@ -2,11 +2,18 @@
 
 #if defined(__APPLE__)
 #include <mach-o/getsect.h>
-
+#ifdef BUILD_SHARED_LIBS
+#if !defined(__LP64__)
+const struct mach_header _mh_execute_header;
+#else
+const struct mach_header_64 _mh_execute_header;
+#endif
+#else
 #if !defined(__LP64__)
 extern const struct mach_header _mh_execute_header;
 #else
 extern const struct mach_header_64 _mh_execute_header;
+#endif
 #endif
 
 const unsigned char *get_blocks_dat_start(int testnet)

@@ -38,11 +38,11 @@ using namespace epee;
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
-#include "cryptonote_format_utils.h"
+#include "cryptonote_tx_utils.h"
 #include "misc_language.h"
 #include <csignal>
 #include <p2p/net_node.h>
-#include "cryptonote_core/checkpoints.h"
+#include "cryptonote_basic/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"

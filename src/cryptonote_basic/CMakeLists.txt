@@ -26,30 +26,48 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(rpc_sources
-  core_rpc_server.cpp)
+set(cryptonote_basic_sources
+  account.cpp
+  checkpoints.cpp
+  cryptonote_basic_impl.cpp
+  cryptonote_format_utils.cpp
+  difficulty.cpp
+  miner.cpp
+  hardfork.cpp)
 
-set(rpc_headers)
+set(cryptonote_basic_headers)
 
-set(rpc_private_headers
-  core_rpc_server.h
-  core_rpc_server_commands_defs.h
-  core_rpc_server_error_codes.h)
+set(cryptonote_basic_private_headers
+  account.h
+  account_boost_serialization.h
+  checkpoints.h
+  connection_context.h
+  cryptonote_basic.h
+  cryptonote_basic_impl.h
+  cryptonote_boost_serialization.h
+  cryptonote_format_utils.h
+  cryptonote_stat_info.h
+  difficulty.h
+  miner.h
+  tx_extra.h
+  verification_context.h
+  hardfork.h)
 
-monero_private_headers(rpc
-  ${rpc_private_headers})
-monero_add_library(rpc
-  ${rpc_sources}
-  ${rpc_headers}
-  ${rpc_private_headers})
-target_link_libraries(rpc
+monero_private_headers(cryptonote_basic
+  ${crypto_private_headers})
+monero_add_library(cryptonote_basic
+  ${cryptonote_basic_sources}
+  ${cryptonote_basic_headers}
+  ${cryptonote_basic_private_headers})
+target_link_libraries(cryptonote_basic
   PUBLIC
-    cryptonote_core
-    cryptonote_protocol
-    epee
-    ${Boost_REGEX_LIBRARY}
+    common
+    crypto
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SERIALIZATION_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
-add_dependencies(rpc
-  version)

@@ -29,7 +29,7 @@
 #include "common/command_line.h"
 #include "common/i18n.h"
 #include "common/dns_utils.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include <cstring>
 #include <sstream>
 // check local first (in the event of static or in-source compilation of libunbound)

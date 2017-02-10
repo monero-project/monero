@@ -35,8 +35,8 @@
 
 #include "console_handler.h"
 
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 
 #include "chaingen.h"
 #include "chaingen_tests_list.h"

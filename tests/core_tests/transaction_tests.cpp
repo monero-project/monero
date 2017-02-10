@@ -29,9 +29,9 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "include_base_utils.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "misc_language.h"
 
 using namespace cryptonote;

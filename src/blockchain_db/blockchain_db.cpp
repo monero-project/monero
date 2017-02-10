@@ -29,7 +29,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "blockchain_db.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
