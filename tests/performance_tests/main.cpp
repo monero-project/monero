@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -43,6 +43,8 @@
 #include "generate_key_image_helper.h"
 #include "generate_keypair.h"
 #include "is_out_to_acc.h"
+#include "sc_reduce32.h"
+#include "cn_fast_hash.h"
 
 int main(int argc, char** argv)
 {
@@ -105,8 +107,11 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(test_derive_secret_key);
   TEST_PERFORMANCE0(test_ge_frombytes_vartime);
   TEST_PERFORMANCE0(test_generate_keypair);
+  TEST_PERFORMANCE0(test_sc_reduce32);
 
   TEST_PERFORMANCE0(test_cn_slow_hash);
+  TEST_PERFORMANCE1(test_cn_fast_hash, 32);
+  TEST_PERFORMANCE1(test_cn_fast_hash, 16384);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
