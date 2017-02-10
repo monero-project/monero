@@ -32,6 +32,7 @@ set(common_sources
   dns_utils.cpp
   util.cpp
   i18n.cpp
+  password.cpp
   perf_timer.cpp
   task_region.cpp
   thread_group.cpp)
@@ -46,6 +47,7 @@ set(common_private_headers
   base58.h
   boost_serialization_helper.h
   command_line.h
+  common_fwd.h
   dns_utils.h
   http_connection.h
   int-util.h
@@ -56,6 +58,7 @@ set(common_private_headers
   util.h
   varint.h
   i18n.h
+  password.h
   perf_timer.h
   stack_trace.h
   task_region.h

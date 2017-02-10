@@ -109,7 +109,7 @@ http::http_response_info make_response(const auth_responses& choices)
     std::string out{"   DIGEST   "};
     write_fields(out, choice);
 
-    response.m_additional_fields.push_back(
+    response.m_header_info.m_etc_fields.push_back(
       std::make_pair(u8"WWW-authenticate", std::move(out))
     );
   }
@@ -510,7 +510,7 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
 
 TEST(HTTP_Auth, DogFood)
 {
-  const auto add_field = [] (http::http_request_info& request, http::http_client_auth& client)
+  const auto add_auth_field = [] (http::http_request_info& request, http::http_client_auth& client)
   {
     auto field = client.get_auth_field(request.m_http_method_str, request.m_URI);
     EXPECT_TRUE(bool(field));
@@ -529,19 +529,21 @@ TEST(HTTP_Auth, DogFood)
   request.m_http_method_str = "GET";
   request.m_URI = "/FOO";
 
-  const auto response = server.get_response(request);
+  auto response = server.get_response(request);
   ASSERT_TRUE(bool(response));
   EXPECT_TRUE(is_unauthorized(*response));
+  EXPECT_TRUE(response->m_header_info.m_etc_fields.empty());
+  response->m_header_info.m_etc_fields = response->m_additional_fields;
 
   EXPECT_EQ(http::http_client_auth::kSuccess, client.handle_401(*response));
-  EXPECT_TRUE(add_field(request, client));
+  EXPECT_TRUE(add_auth_field(request, client));
   EXPECT_FALSE(bool(server.get_response(request)));
 
   for (unsigned i = 0; i < 1000; ++i)
   {
     request.m_http_method_str += std::to_string(i);
     request.m_header_info.m_etc_fields.clear();
-    EXPECT_TRUE(add_field(request, client));
+    EXPECT_TRUE(add_auth_field(request, client));
     EXPECT_FALSE(bool(server.get_response(request)));
   }
 
@@ -549,11 +551,13 @@ TEST(HTTP_Auth, DogFood)
   request.m_header_info.m_etc_fields.clear();
   client = http::http_client_auth{user};
   EXPECT_EQ(http::http_client_auth::kSuccess, client.handle_401(*response));
-  EXPECT_TRUE(add_field(request, client));
+  EXPECT_TRUE(add_auth_field(request, client));
 
-  const auto response2 = server.get_response(request);
+  auto response2 = server.get_response(request);
   ASSERT_TRUE(bool(response2));
   EXPECT_TRUE(is_unauthorized(*response2));
+  EXPECT_TRUE(response2->m_header_info.m_etc_fields.empty());
+  response2->m_header_info.m_etc_fields = response2->m_additional_fields;
 
   const auth_responses parsed1 = parse_response(*response);
   const auth_responses parsed2 = parse_response(*response2);
@@ -564,7 +568,7 @@ TEST(HTTP_Auth, DogFood)
   // with stale=true client should reset
   request.m_header_info.m_etc_fields.clear();
   EXPECT_EQ(http::http_client_auth::kSuccess, client.handle_401(*response2));
-  EXPECT_TRUE(add_field(request, client));
+  EXPECT_TRUE(add_auth_field(request, client));
   EXPECT_FALSE(bool(server.get_response(request)));
 
   // client should give up if stale=false
@@ -654,7 +658,7 @@ TEST(HTTP_Client_Auth, MD5)
 
 
   EXPECT_EQ(http::http_client_auth::kBadPassword, auth.handle_401(response));
-  response.m_additional_fields.front().second.append(u8"," + write_fields({{u8"stale", u8"TRUE"}}));
+  response.m_header_info.m_etc_fields.front().second.append(u8"," + write_fields({{u8"stale", u8"TRUE"}}));
   EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
 }
 
@@ -718,7 +722,17 @@ TEST(HTTP_Client_Auth, MD5_auth)
   }
 
   EXPECT_EQ(http::http_client_auth::kBadPassword, auth.handle_401(response));
-  response.m_additional_fields.back().second.append(u8"," + write_fields({{u8"stale", u8"trUe"}}));
+  response.m_header_info.m_etc_fields.back().second.append(u8"," + write_fields({{u8"stale", u8"trUe"}}));
   EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
 }
 
+
+TEST(HTTP, Add_Field)
+{
+  std::string str{"leading text"};
+  epee::net_utils::http::add_field(str, "foo", "bar");
+  epee::net_utils::http::add_field(str, std::string("bar"), std::string("foo"));
+  epee::net_utils::http::add_field(str, {"moarbars", "moarfoo"});
+
+  EXPECT_STREQ("leading textfoo: bar\r\nbar: foo\r\nmoarbars: moarfoo\r\n", str.c_str());
+}

@@ -52,11 +52,9 @@ namespace cryptonote
   {
   public:
 
-    static const command_line::arg_descriptor<std::string> arg_rpc_bind_ip;
     static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
-    static const command_line::arg_descriptor<std::string> arg_user_agent;
 
     typedef epee::net_utils::connection_context_base connection_context;
 
@@ -175,10 +173,6 @@ namespace cryptonote
     //-----------------------
 
 private:
-
-    bool handle_command_line(
-        const boost::program_options::variables_map& vm
-      );
     bool check_core_busy();
     bool check_core_ready();
     
@@ -188,8 +182,6 @@ private:
     
     core& m_core;
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
-    std::string m_port;
-    std::string m_bind_ip;
     bool m_testnet;
     bool m_restricted;
   };

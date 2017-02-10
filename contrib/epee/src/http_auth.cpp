@@ -362,7 +362,7 @@ namespace
 
       server_parameters best{};
 
-      const std::list<field>& fields = response.m_additional_fields;
+      const std::list<field>& fields = response.m_header_info.m_etc_fields;
       auto current = fields.begin();
       const auto end = fields.end();
       while (true)

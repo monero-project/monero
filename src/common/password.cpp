@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,7 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "password_container.h"
+#include "password.h"
 
 #include <iostream>
 #include <memory.h>
@@ -244,5 +244,28 @@ namespace tools
       return {std::move(pass1)};
 
     return boost::none;
+  }
+
+  boost::optional<login> login::parse(std::string&& userpass, bool verify, const char* message)
+  {
+    login out{};
+    password_container wipe{std::move(userpass)};
+
+    const auto loc = wipe.password().find(':');
+    if (loc == std::string::npos)
+    {
+      auto result = tools::password_container::prompt(verify, message);
+      if (!result)
+        return boost::none;
+
+      out.password = std::move(*result);
+    }
+    else
+    {
+      out.password = password_container{wipe.password().substr(loc + 1)};
+    }
+
+    out.username = wipe.password().substr(0, loc);
+    return {std::move(out)};
   }
 } 
