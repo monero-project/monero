@@ -477,6 +477,9 @@ namespace tools
       if(ver < 16)
         return;
       a & m_address_book;
+      if(ver < 17)
+        return;
+      a & m_sent_disposable_addresses;
     }
 
     /*!
@@ -526,6 +529,8 @@ namespace tools
      * \brief  Generate disposable address with payment ID that satisfies the equation: (Hs(a,pID) - pID) mod 256 == 0
      */
     bool make_disposable_address(std::string& adr_str, cryptonote::account_public_address& adr, crypto::hash8& payment_id) const;
+    bool check_sent_disposable_addresses(const cryptonote::account_public_address& addr) const { return m_sent_disposable_addresses.find(addr.m_spend_public_key) != m_sent_disposable_addresses.end(); }
+    void add_sent_disposable_addresses(const cryptonote::account_public_address& addr) { m_sent_disposable_addresses.insert(addr.m_spend_public_key); }
     
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
@@ -657,6 +662,7 @@ namespace tools
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
+    std::unordered_set<crypto::public_key> m_sent_disposable_addresses;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
@@ -682,7 +688,7 @@ namespace tools
     NodeRPCProxy m_node_rpc_proxy;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 16)
+BOOST_CLASS_VERSION(tools::wallet2, 17)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)

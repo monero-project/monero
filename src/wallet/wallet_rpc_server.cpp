@@ -281,7 +281,7 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool& is_disposable, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool& is_disposable, cryptonote::account_public_address& disposable_addr, epee::json_rpc::error& er)
   {
     crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
     std::string extra_nonce;
@@ -299,6 +299,16 @@ namespace tools
         return false;
       }
       is_disposable = is_disposable || is_disposable_temp;
+      if (is_disposable_temp)
+      {
+        disposable_addr = de.addr;
+        if (m_wallet.check_sent_disposable_addresses(disposable_addr))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_SENT_DISPOSABLE_ADDR;
+          er.message = std::string("WALLET_RPC_ERROR_CODE_SENT_DISPOSABLE_ADDR: ") + it->address;
+          return false;
+        }
+      }
       de.amount = it->amount;
       dsts.push_back(de);
 
@@ -363,6 +373,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
     bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     LOG_PRINT_L3("on_transfer_split starts");
     if (m_wallet.restricted())
@@ -373,7 +384,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -424,6 +435,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -433,6 +446,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
     bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     if (m_wallet.restricted())
     {
@@ -442,7 +456,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -494,6 +508,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -551,6 +567,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
     bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     if (m_wallet.restricted())
     {
@@ -564,7 +581,7 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, is_disposable, er))
+    if (!validate_transfer(destination, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -606,6 +623,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

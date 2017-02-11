@@ -402,6 +402,22 @@ namespace cryptonote
     return encrypt_payment_id(payment_id, public_key, secret_key);
   }
   //---------------------------------------------------------------
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
+  {
+    if (destinations.empty())
+      return null_pkey;
+    for (size_t n = 1; n < destinations.size(); ++n)
+    {
+      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
+        continue;
+      if (destinations[n].amount == 0)
+        continue;
+      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
+        return null_pkey;
+    }
+    return destinations[0].addr.m_view_public_key;
+  }
+  //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)
   {
     money = 0;

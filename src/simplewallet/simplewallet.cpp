@@ -2169,6 +2169,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   vector<cryptonote::tx_destination_entry> dsts;
   bool is_disposable = false;
+  cryptonote::account_public_address disposable_addr;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::tx_destination_entry de;
@@ -2181,6 +2182,15 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return true;
     }
     is_disposable = is_disposable || is_disposable_temp;
+    if (is_disposable_temp)
+    {
+      disposable_addr = de.addr;
+      if (m_wallet->check_sent_disposable_addresses(disposable_addr))
+      {
+        fail_msg_writer() << tr("you've already transferred fund to this disposable address before! ") << local_args[i];
+        return true;
+      }
+    }
 
     if (has_payment_id)
     {
@@ -2329,8 +2339,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       {
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_monero_tx";
       }
+      return true;
     }
-    else while (!ptx_vector.empty())
+    while (!ptx_vector.empty())
     {
       auto & ptx = ptx_vector.back();
       m_wallet->commit_tx(ptx);
@@ -2339,6 +2350,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       // if no exception, remove element from vector
       ptx_vector.pop_back();
     }
+    if (is_disposable)
+      m_wallet->add_sent_disposable_addresses(disposable_addr);
   }
   catch (const tools::error::daemon_busy&)
   {
