@@ -737,7 +737,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_categories(const COMMAND_RPC_SET_LOG_CATEGORIES::request& req, COMMAND_RPC_SET_LOG_CATEGORIES::response& res)
   {
-    mlog_set_categories(req.categories.c_str());
+    mlog_set_log(req.categories.c_str());
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
