@@ -374,7 +374,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
       return 2;
     }
     bytes_read += chunk_size;
-    MINFO("Total bytes read: " << bytes_read);
+    MDEBUG("Total bytes read: " << bytes_read);
 
     if (h + NUM_BLOCKS_PER_CHUNK < start_height + 1)
     {
@@ -596,6 +596,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
 int main(int argc, char* argv[])
 {
+  epee::string_tools::set_module_name_and_folder(argv[0]);
+
   std::string default_db_type = "lmdb";
   std::string default_db_engine_compiled = "blockchain_db";
 
@@ -722,7 +724,8 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
-  mlog_configure("monero-blockchain-import", true);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
+  mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
