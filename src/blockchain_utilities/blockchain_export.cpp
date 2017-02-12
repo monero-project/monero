@@ -126,6 +126,7 @@ int main(int argc, char* argv[])
   block_stop = command_line::get_arg(vm, arg_block_stop);
 
   mlog_configure("monero-blockchain-export", true);
+  mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   LOG_PRINT_L0("Starting...");
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);

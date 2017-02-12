@@ -374,7 +374,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
       return 2;
     }
     bytes_read += chunk_size;
-    MINFO("Total bytes read: " << bytes_read);
+    MDEBUG("Total bytes read: " << bytes_read);
 
     if (h + NUM_BLOCKS_PER_CHUNK < start_height + 1)
     {
@@ -723,6 +723,7 @@ int main(int argc, char* argv[])
   db_arg_str = command_line::get_arg(vm, arg_database);
 
   mlog_configure("monero-blockchain-import", true);
+  mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
