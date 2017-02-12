@@ -112,7 +112,7 @@ namespace nodetool
       if (ver == 0)
       {
         // from v1, we do not store the peer id anymore
-        peerid_type peer_id;
+        peerid_type peer_id = AUTO_VAL_INIT (peer_id);
         a & peer_id;
       }
     }
