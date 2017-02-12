@@ -635,7 +635,7 @@ namespace cryptonote
     boost::thread::attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
 
-    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs))
+    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining))
     {
       res.status = "Failed, mining not started";
       LOG_PRINT_L0(res.status);
@@ -663,6 +663,7 @@ namespace cryptonote
 
     const miner& lMiner = m_core.get_miner();
     res.active = lMiner.is_mining();
+    res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
     
     if ( lMiner.is_mining() ) {
       res.speed = lMiner.get_speed();

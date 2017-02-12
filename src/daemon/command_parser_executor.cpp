@@ -271,17 +271,24 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   if(testnet)
     std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
-  if(args.size() > 2)
+  bool do_background_mining = false;  
+  if(args.size() > 3)
   {
     return false;
   }
-  else if(args.size() == 2)
+  
+  if(args.size() == 3)
+  {
+    do_background_mining = args[2] == "true";
+  }
+  
+  if(args.size() >= 2)
   {
     bool ok = epee::string_tools::get_xtype_from_string(threads_count, args[1]);
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
-  m_executor.start_mining(adr, threads_count, testnet);
+  m_executor.start_mining(adr, threads_count, testnet, do_background_mining);
 
   return true;
 }
