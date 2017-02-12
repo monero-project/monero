@@ -826,6 +826,8 @@ namespace cryptonote
     context.m_remote_blockchain_height = arg.current_blockchain_height;
 
     size_t count = 0;
+    std::vector<crypto::hash> block_hashes;
+    block_hashes.reserve(arg.blocks.size());
     for(const block_complete_entry& block_entry: arg.blocks)
     {
       if (m_stopping)
@@ -843,9 +845,10 @@ namespace cryptonote
         return 1;
       }
       //to avoid concurrency in core between connections, suspend connections which delivered block later then first one
+      const crypto::hash block_hash = get_block_hash(b);
       if(count == 2)
       {
-        if(m_core.have_block(get_block_hash(b)))
+        if(m_core.have_block(block_hash))
         {
           context.m_state = cryptonote_connection_context::state_idle;
           context.m_needed_objects.clear();
@@ -855,7 +858,7 @@ namespace cryptonote
         }
       }
 
-      auto req_it = context.m_requested_objects.find(get_block_hash(b));
+      auto req_it = context.m_requested_objects.find(block_hash);
       if(req_it == context.m_requested_objects.end())
       {
         LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_GET_OBJECTS: block with id=" << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block))
@@ -872,6 +875,7 @@ namespace cryptonote
       }
 
       context.m_requested_objects.erase(req_it);
+      block_hashes.push_back(block_hash);
     }
 
     if(context.m_requested_objects.size())
@@ -894,7 +898,31 @@ namespace cryptonote
 
         uint64_t previous_height = m_core.get_current_blockchain_height();
 
+        // we lock all the rest to avoid having multiple connections redo a lot
+        // of the same work, and one of them doing it for nothing: subsequent
+        // connections will wait until the current one's added its blocks, then
+        // will add any extra it has, if any
+        CRITICAL_REGION_LOCAL(m_sync_lock);
+
+        // dismiss what another connection might already have done (likely everything)
+        uint64_t top_height;
+        crypto::hash top_hash;
+        if (m_core.get_blockchain_top(top_height, top_hash)) {
+          uint64_t dismiss = 1;
+          for (const auto &h: block_hashes) {
+            if (top_hash == h) {
+              LOG_DEBUG_CC(context, "Found current top block in synced blocks, dismissing "
+                  << dismiss << "/" << arg.blocks.size() << " blocks");
+              while (dismiss--)
+                arg.blocks.pop_front();
+              break;
+            }
+            ++dismiss;
+          }
+        }
+
         m_core.prepare_handle_incoming_blocks(arg.blocks);
+
         for(const block_complete_entry& block_entry: arg.blocks)
         {
           if (m_stopping)
