@@ -628,6 +628,7 @@ void BlockchainLMDB::add_block(const block& blk, const size_t& block_size, const
   CURSOR(blocks)
   CURSOR(block_info)
 
+  // this call to mdb_cursor_put will change height()
   MDB_val_copy<blobdata> blob(block_to_blob(blk));
   result = mdb_cursor_put(m_cur_blocks, &key, &blob, MDB_APPEND);
   if (result)

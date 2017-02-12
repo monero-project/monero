@@ -130,12 +130,6 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   uint64_t prev_height = height();
 
-  // call out to subclass implementation to add the block & metadata
-  time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
-  TIME_MEASURE_FINISH(time1);
-  time_add_block1 += time1;
-
   // call out to add the transactions
 
   time1 = epee::misc_utils::get_tick_count();
@@ -150,6 +144,12 @@ uint64_t BlockchainDB::add_block( const block& blk
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
+
+  // call out to subclass implementation to add the block & metadata
+  time1 = epee::misc_utils::get_tick_count();
+  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
+  TIME_MEASURE_FINISH(time1);
+  time_add_block1 += time1;
 
   m_hardfork->add(blk, prev_height);
 
