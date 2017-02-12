@@ -142,7 +142,7 @@ void mlog_configure(const std::string &filename_base, bool console)
 void mlog_set_categories(const char *categories)
 {
   el::Loggers::setCategories(categories);
-  MINFO("New log categories: " << categories);
+  MGINFO("New log categories: " << categories);
 }
 
 // maps epee style log level to new logging system
@@ -150,7 +150,7 @@ void mlog_set_log_level(int level)
 {
   const char *categories = get_default_categories(level);
   el::Loggers::setCategories(categories);
-  MINFO("New log categories: " << categories);
+  MGINFO("New log categories: " << categories);
 }
 
 void mlog_set_log(const char *log)
