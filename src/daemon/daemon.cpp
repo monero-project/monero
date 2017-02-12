@@ -124,18 +124,18 @@ bool t_daemon::run(bool interactive)
       return false;
     mp_internals->rpc.run();
 
-    daemonize::t_command_server* rpc_commands;
+    std::unique_ptr<daemonize::t_command_server> rpc_commands;
 
     if (interactive)
     {
       // The first three variables are not used when the fourth is false
-      rpc_commands = new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpc.get_server());
+      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpc.get_server()));
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
     mp_internals->p2p.run(); // blocks until p2p goes down
 
-    if (interactive)
+    if (rpc_commands)
     {
       rpc_commands->stop_handling();
     }
