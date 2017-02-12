@@ -95,10 +95,10 @@ public:
 
   int elapsed_time() const { return m_elapsed; }
 
-  int time_per_call() const
+  int time_per_call(int scale = 1) const
   {
     static_assert(0 < T::loop_count, "T::loop_count must be greater than 0");
-    return m_elapsed / T::loop_count;
+    return m_elapsed * scale / T::loop_count;
   }
 
 private:
@@ -130,7 +130,17 @@ void run_test(const char* test_name)
     std::cout << test_name << " - OK:\n";
     std::cout << "  loop count:    " << T::loop_count << '\n';
     std::cout << "  elapsed:       " << runner.elapsed_time() << " ms\n";
-    std::cout << "  time per call: " << runner.time_per_call() << " ms/call\n" << std::endl;
+    const char *unit = "ms";
+    int time_per_call = runner.time_per_call();
+    if (time_per_call < 30000) {
+     time_per_call = runner.time_per_call(1000);
+#ifdef _WIN32
+     unit = "\xb5s";
+#else
+     unit = "µs";
+#endif
+    }
+    std::cout << "  time per call: " << time_per_call << " " << unit << "/call\n" << std::endl;
   }
   else
   {
