@@ -141,6 +141,7 @@ bool t_daemon::run(bool interactive)
     }
 
     mp_internals->rpc.stop();
+    mp_internals->core.get().get_miner().stop();
     MGINFO("Node stopped.");
     return true;
   }
@@ -162,6 +163,7 @@ void t_daemon::stop()
   {
     throw std::runtime_error{"Can't stop stopped daemon"};
   }
+  mp_internals->core.get().get_miner().stop();
   mp_internals->p2p.stop();
   mp_internals->rpc.stop();
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
