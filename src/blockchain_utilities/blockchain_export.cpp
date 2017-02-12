@@ -57,6 +57,8 @@ std::string join_set_strings(const std::unordered_set<std::string>& db_types_all
 
 int main(int argc, char* argv[])
 {
+  epee::string_tools::set_module_name_and_folder(argv[0]);
+
   std::string default_db_type = "lmdb";
 
   std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
@@ -125,7 +127,7 @@ int main(int argc, char* argv[])
   log_level    = command_line::get_arg(vm, arg_log_level);
   block_stop = command_line::get_arg(vm, arg_block_stop);
 
-  mlog_configure("monero-blockchain-export", true);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-export.log"), true);
   mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   LOG_PRINT_L0("Starting...");
 
