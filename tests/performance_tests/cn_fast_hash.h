@@ -31,7 +31,7 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
 template<size_t bytes>
 class test_cn_fast_hash
