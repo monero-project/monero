@@ -367,7 +367,7 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_FLUFFY_BLOCK (hop " << arg.hop << ", " << arg.b.txs.size() << " txes)");
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_FLUFFY_BLOCK (height " << arg.current_blockchain_height << ", hop " << arg.hop << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     
@@ -377,7 +377,7 @@ namespace cryptonote
     transaction miner_tx;
     if(parse_and_validate_block_from_blob(arg.b.block, new_block))
     {
-      // This is a seccond notification, we must have asked for some missing tx
+      // This is a second notification, we must have asked for some missing tx
       if(!context.m_requested_objects.empty())
       {
         // What we asked for != to what we received ..
@@ -475,6 +475,7 @@ namespace cryptonote
           // sent in our pool, so don't verify again..
           if(!m_core.get_pool_transaction(tx_hash, tx))
           {
+            MDEBUG("Incoming tx " << tx_hash << " not in pool, adding");
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
             if(!m_core.handle_incoming_tx(tx_blob, tvc, true, true, false) || tvc.m_verifivation_failed)
             {
@@ -496,9 +497,9 @@ namespace cryptonote
         {
           LOG_ERROR_CCONTEXT
           (
-            "sent wrong tx: failed to parse and validate transaction: \r\n"
+            "sent wrong tx: failed to parse and validate transaction: "
             << epee::string_tools::buff_to_hex_nodelimer(tx_blob) 
-            << "\r\n dropping connection"
+            << ", dropping connection"
           );
             
           m_p2p->drop_connection(context);
@@ -535,7 +536,19 @@ namespace cryptonote
         }
         else
         {
-          need_tx_indices.push_back(tx_idx); 
+          std::vector<crypto::hash> tx_ids;
+          std::list<transaction> txes;
+          std::list<crypto::hash> missing;
+          tx_ids.push_back(tx_hash);
+          if (m_core.get_transactions(tx_ids, txes, missing) && missing.empty())
+          {
+            have_tx.push_back(tx_to_blob(tx));
+          }
+          else
+          {
+            MDEBUG("Tx " << tx_hash << " not found in pool");
+            need_tx_indices.push_back(tx_idx);
+          }
         }
         
         ++tx_idx;
@@ -544,8 +557,11 @@ namespace cryptonote
       if(!need_tx_indices.empty()) // drats, we don't have everything..
       {
         // request non-mempool txs
+        MDEBUG("We are missing " << need_tx_indices.size() << " txes for this fluffy block");
+        for (auto txidx: need_tx_indices)
+          MDEBUG("  tx " << new_block.tx_hashes[txidx]);
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
-        missing_tx_req.b = arg.b;
+        missing_tx_req.block_hash = get_block_hash(new_block);
         missing_tx_req.hop = arg.hop;
         missing_tx_req.current_blockchain_height = arg.current_blockchain_height;
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
@@ -555,6 +571,8 @@ namespace cryptonote
       }
       else // whoo-hoo we've got em all ..
       {
+        MDEBUG("We have all needed txes for this fluffy block");
+
         block_complete_entry b;
         b.block = arg.b.block;
         b.txs = have_tx;
@@ -598,9 +616,9 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT
       (
-        "sent wrong block: failed to parse and validate block: \r\n"
+        "sent wrong block: failed to parse and validate block: "
         << epee::string_tools::buff_to_hex_nodelimer(arg.b.block) 
-        << "\r\n dropping connection"
+        << ", dropping connection"
       );
         
       m_core.resume_mine();
@@ -615,34 +633,29 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
-    MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes)");
-    
-    std::list<block> local_blocks;
-    std::list<transaction> local_txs;
-    if(!m_core.get_blocks(arg.current_blockchain_height - 1, 1, local_blocks, local_txs))
-    {
+    MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
 
-      LOG_ERROR_CCONTEXT
-      (
-        "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
-        << ", get_blocks( start_offset = " << (arg.current_blockchain_height - 1) << " ) failed"
-        << ", dropping connection"
-      );
-      
+    block b;
+    if (!m_core.get_block_by_hash(arg.block_hash, b))
+    {
+      LOG_ERROR_CCONTEXT("failed to find block: " << arg.block_hash << ", dropping connection");
       m_p2p->drop_connection(context);
-      return 1;            
+      return 1;
     }
 
+    for (auto txidx: arg.missing_tx_indices)
+      MDEBUG("  tx " << b.tx_hashes[txidx]);
+
+    std::vector<crypto::hash> txids;
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
-    fluffy_response.b = arg.b;
-    fluffy_response.current_blockchain_height = m_core.get_current_blockchain_height();
+    fluffy_response.b.block = t_serializable_object_to_blob(b);
+    fluffy_response.current_blockchain_height = arg.current_blockchain_height;
     fluffy_response.hop = arg.hop;    
-    size_t local_txs_count = local_txs.size();
     for(auto& tx_idx: arg.missing_tx_indices)
     {
-      if(tx_idx < local_txs_count)
+      if(tx_idx < b.tx_hashes.size())
       {
-        fluffy_response.b.txs.push_back(t_serializable_object_to_blob( *(std::next(local_txs.begin(), tx_idx)) ));
+        txids.push_back(b.tx_hashes[tx_idx]);
       }
       else
       {
@@ -650,7 +663,8 @@ namespace cryptonote
         (
           "Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX"
           << ", request is asking for a tx whose index is out of bounds "
-          << ", tx index = " << tx_idx << ", block_height = " << arg.current_blockchain_height
+          << ", tx index = " << tx_idx << ", block tx count " << b.tx_hashes.size()
+          << ", block_height = " << arg.current_blockchain_height
           << ", dropping connection"
         );
         
@@ -658,7 +672,29 @@ namespace cryptonote
         return 1;
       }
     }    
-            
+
+    std::list<cryptonote::transaction> txs;
+    std::list<crypto::hash> missed;
+    if (!m_core.get_transactions(txids, txs, missed))
+    {
+      LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
+        << "failed to get requested transactions");
+      m_p2p->drop_connection(context);
+      return 1;
+    }
+    if (!missed.empty() || txs.size() != txids.size())
+    {
+      LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
+        << missed.size() << " requested transactions not found" << ", dropping connection");
+      m_p2p->drop_connection(context);
+      return 1;
+    }
+
+    for(auto& tx: txs)
+    {
+      fluffy_response.b.txs.push_back(t_serializable_object_to_blob(tx));
+    }
+
     LOG_PRINT_CCONTEXT_L2
     (
         "-->>NOTIFY_RESPONSE_FLUFFY_MISSING_TX: " 
@@ -801,8 +837,8 @@ namespace cryptonote
       block b;
       if(!parse_and_validate_block_from_blob(block_entry.block, b))
       {
-        LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: \r\n"
-          << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << "\r\n dropping connection");
+        LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: "
+          << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << ", dropping connection");
         m_p2p->drop_connection(context);
         return 1;
       }
@@ -875,7 +911,7 @@ namespace cryptonote
             m_core.handle_incoming_tx(tx_blob, tvc, true, true, false);
             if(tvc.m_verifivation_failed)
             {
-              LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, \r\ntx_id = "
+              LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
                   << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) << ", dropping connection");
               m_p2p->drop_connection(context);
               m_core.cleanup_handle_incoming_blocks();
@@ -1071,9 +1107,9 @@ namespace cryptonote
     context.m_last_response_height = arg.start_height + arg.m_block_ids.size()-1;
     if(context.m_last_response_height > context.m_remote_blockchain_height)
     {
-      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with \r\nm_total_height=" << arg.total_height
-                                                                         << "\r\nm_start_height=" << arg.start_height
-                                                                         << "\r\nm_block_ids.size()=" << arg.m_block_ids.size());
+      LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with m_total_height=" << arg.total_height
+                                                                         << ", m_start_height=" << arg.start_height
+                                                                         << ", m_block_ids.size()=" << arg.m_block_ids.size());
       m_p2p->drop_connection(context);
     }
 
@@ -1110,12 +1146,12 @@ namespace cryptonote
       {
         if(m_core.get_testnet() && (support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS))
         {
-          MDEBUG("PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK");
+          LOG_DEBUG_CC(context, "PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK");
           fluffyConnections.push_back(context.m_connection_id);
         }
         else
         {
-          MDEBUG("PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK");
+          LOG_DEBUG_CC(context, "PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK");
           fullConnections.push_back(context.m_connection_id);
         }
       }

@@ -257,16 +257,16 @@ namespace cryptonote
 
     struct request
     {
-      block_complete_entry b;
+      crypto::hash block_hash;
       uint64_t current_blockchain_height;      
       std::vector<size_t> missing_tx_indices;
       uint32_t hop;
       
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(b)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missing_tx_indices)        
-        KV_SERIALIZE(hop)   
-        KV_SERIALIZE(current_blockchain_height)     
+        KV_SERIALIZE_VAL_POD_AS_BLOB(block_hash)
+        KV_SERIALIZE(current_blockchain_height)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missing_tx_indices)
+        KV_SERIALIZE(hop)
       END_KV_SERIALIZE_MAP()
     };
   }; 

@@ -67,6 +67,8 @@ public:
   bool get_testnet() const { return false; }
   bool get_pool_transaction(const crypto::hash& id, cryptonote::transaction& tx) const { return false; }
   bool get_blocks(uint64_t start_offset, size_t count, std::list<cryptonote::block>& blocks, std::list<cryptonote::transaction>& txs) const { return false; }
+  bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::transaction>& txs, std::list<crypto::hash>& missed_txs) const { return false; }
+  bool get_block_by_hash(const crypto::hash &h, cryptonote::block &blk, bool *orphan = NULL) const { return false; }
 };
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
