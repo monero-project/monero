@@ -888,21 +888,21 @@ namespace cryptonote
 
 
     {
-      m_core.pause_mine();
-      epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
-        boost::bind(&t_core::resume_mine, &m_core));
-
       MLOG_YELLOW(el::Level::Debug, "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size());
 
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
-
-        uint64_t previous_height = m_core.get_current_blockchain_height();
 
         // we lock all the rest to avoid having multiple connections redo a lot
         // of the same work, and one of them doing it for nothing: subsequent
         // connections will wait until the current one's added its blocks, then
         // will add any extra it has, if any
         CRITICAL_REGION_LOCAL(m_sync_lock);
+
+        m_core.pause_mine();
+        epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler(
+          boost::bind(&t_core::resume_mine, &m_core));
+
+        const uint64_t previous_height = m_core.get_current_blockchain_height();
 
         // dismiss what another connection might already have done (likely everything)
         uint64_t top_height;
@@ -920,6 +920,9 @@ namespace cryptonote
             ++dismiss;
           }
         }
+
+        if (arg.blocks.empty())
+          goto skip;
 
         m_core.prepare_handle_incoming_blocks(arg.blocks);
 
@@ -986,6 +989,7 @@ namespace cryptonote
 
 
     }
+skip:
     request_missing_objects(context, true);
     return 1;
   }
