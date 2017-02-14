@@ -564,10 +564,9 @@ namespace cryptonote
         
         // If we're already mining, then sleep for the miner monitor interval.
         // If we're NOT mining, then sleep for the idle monitor interval
-        boost::this_thread::sleep_for( 
-          m_is_background_mining_started ? 
-            boost::chrono::seconds( BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS ) :
-            boost::chrono::seconds( get_min_idle_seconds() ) );
+        uint64_t sleep_for_seconds = BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS;
+        if( !m_is_background_mining_started ) sleep_for_seconds = get_min_idle_seconds();
+        boost::this_thread::sleep_for(boost::chrono::seconds(sleep_for_seconds));
       }
       catch(const boost::thread_interrupted&)
       {
