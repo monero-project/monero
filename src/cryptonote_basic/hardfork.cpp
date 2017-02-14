@@ -191,10 +191,10 @@ void HardFork::init()
   }
   catch (...) { populate = true; }
   if (populate) {
-    LOG_PRINT_L0("The DB has no hard fork info, reparsing from start");
+    MINFO("The DB has no hard fork info, reparsing from start");
     height = 1;
   }
-  LOG_PRINT_L1("reorganizing from " << height);
+  MDEBUG("reorganizing from " << height);
   if (populate) {
     reorganize_from_chain_height(height);
     // reorg will not touch the genesis block, use this as a flag for populating done
@@ -203,7 +203,7 @@ void HardFork::init()
   else {
     rescan_from_chain_height(height);
   }
-  LOG_PRINT_L1("reorganization done");
+  MDEBUG("reorganization done");
 }
 
 uint8_t HardFork::get_block_version(uint64_t height) const
