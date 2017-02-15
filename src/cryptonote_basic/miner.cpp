@@ -41,6 +41,7 @@
 #include "common/command_line.h"
 #include "string_coding.h"
 #include "storages/portable_storage_template_helper.h"
+#include "boost/logic/tribool.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "miner"
@@ -61,6 +62,7 @@ namespace cryptonote
     const command_line::arg_descriptor<std::string> arg_start_mining =    {"start-mining", "Specify wallet address to mining for", "", true};
     const command_line::arg_descriptor<uint32_t>      arg_mining_threads =  {"mining-threads", "Specify mining threads count", 0, true};
     const command_line::arg_descriptor<bool>        arg_bg_mining_enable =  {"bg-mining-enable", "enable/disable background mining", true, true};
+    const command_line::arg_descriptor<bool>        arg_bg_mining_ignore_battery =  {"bg-mining-ignore-battery", "if true, assumes plugged in when unable to query system power status", false, true};    
     const command_line::arg_descriptor<uint64_t>    arg_bg_mining_min_idle_interval_seconds =  {"bg-mining-min-idle-interval", "Specify min lookback interval in seconds for determining idle state", miner::BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS, true};
     const command_line::arg_descriptor<uint8_t>     arg_bg_mining_idle_threshold_percentage =  {"bg-mining-idle-threshold", "Specify minimum avg idle percentage over lookback interval", miner::BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE, true};
     const command_line::arg_descriptor<uint8_t>     arg_bg_mining_miner_target_percentage =  {"bg-mining-miner-target", "Specificy maximum percentage cpu use by miner(s)", miner::BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE, true};
@@ -181,6 +183,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_start_mining);
     command_line::add_arg(desc, arg_mining_threads);
     command_line::add_arg(desc, arg_bg_mining_enable);
+    command_line::add_arg(desc, arg_bg_mining_ignore_battery);    
     command_line::add_arg(desc, arg_bg_mining_min_idle_interval_seconds);
     command_line::add_arg(desc, arg_bg_mining_idle_threshold_percentage);
     command_line::add_arg(desc, arg_bg_mining_miner_target_percentage);
@@ -230,6 +233,8 @@ namespace cryptonote
     // Let init set all parameters even if background mining is not enabled, they can start later with params set
     if(command_line::has_arg(vm, arg_bg_mining_enable))
       set_is_background_mining_enabled( command_line::get_arg(vm, arg_bg_mining_enable) );
+    if(command_line::has_arg(vm, arg_bg_mining_ignore_battery))
+      set_ignore_battery( command_line::get_arg(vm, arg_bg_mining_ignore_battery) );      
     if(command_line::has_arg(vm, arg_bg_mining_min_idle_interval_seconds))
       set_min_idle_seconds( command_line::get_arg(vm, arg_bg_mining_min_idle_interval_seconds) );
     if(command_line::has_arg(vm, arg_bg_mining_idle_threshold_percentage))
@@ -254,7 +259,7 @@ namespace cryptonote
     return m_threads_total;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background)
+  bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background, bool ignore_battery)
   {
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
@@ -278,6 +283,7 @@ namespace cryptonote
     boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
     boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
     set_is_background_mining_enabled(do_background);
+    set_ignore_battery(ignore_battery);
     
     for(size_t i = 0; i != threads_count; i++)
     {
@@ -469,6 +475,11 @@ namespace cryptonote
     return m_is_background_mining_enabled;
   }
   //-----------------------------------------------------------------------------------------------------
+  bool miner::get_ignore_battery() const
+  {
+    return m_ignore_battery;
+  }  
+  //-----------------------------------------------------------------------------------------------------
   /**
   * This has differing behaviour depending on if mining has been started/etc.
   * Note: add documentation
@@ -480,6 +491,11 @@ namespace cryptonote
     // and allow toggling smart mining without start/stop
     //m_is_background_mining_enabled_cond.notify_one();
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::set_ignore_battery(bool ignore_battery)
+  {
+    m_ignore_battery = ignore_battery;
   }
   //-----------------------------------------------------------------------------------------------------
   uint64_t miner::get_min_idle_seconds() const
@@ -575,7 +591,21 @@ namespace cryptonote
         continue; // if interrupted because stop called, loop should end ..
       }
 
-      bool on_ac_power = !on_battery_power();
+      boost::tribool battery_powered(on_battery_power());
+      bool on_ac_power = false;
+      if(indeterminate( battery_powered ))
+      {
+        // name could be better, only ignores battery requirement if we failed
+        // to get the status of the system
+        if( m_ignore_battery )
+        {
+          on_ac_power = true;
+        }
+      }
+      else
+      {
+        on_ac_power = !battery_powered;
+      }
 
       if( m_is_background_mining_started )
       {
@@ -763,45 +793,54 @@ namespace cryptonote
     return (uint8_t)( ceil( (other * 1.f / total * 1.f) * 100) );    
   }
   //-----------------------------------------------------------------------------------------------------    
-  bool miner::on_battery_power()
+  boost::logic::tribool miner::on_battery_power()
   {
     #ifdef _WIN32
 
       SYSTEM_POWER_STATUS power_status;
     	if ( GetSystemPowerStatus( &power_status ) != 0 )
     	{
-        return power_status.ACLineStatus != 1;
+        return boost::logic::tribool(power_status.ACLineStatus != 1);
     	}
 
     #elif defined(__linux__)
 
       // i've only tested on UBUNTU, these paths might be different on other systems
       // need to figure out a way to make this more flexible
-      const std::string POWER_SUPPLY_STATUS_PATH = "/sys/class/power_supply/ACAD/online";
-
-      if( !epee::file_io_utils::is_file_exist(POWER_SUPPLY_STATUS_PATH) )
+      std::string power_supply_path = "";
+      const std::string POWER_SUPPLY_STATUS_PATHS[] = 
       {
-        LOG_ERROR("'" << POWER_SUPPLY_STATUS_PATH << "' file does not exist, can't determine if on AC power");
-        return false;
+        "/sys/class/power_supply/ACAD/online",
+        "/sys/class/power_supply/AC/online"        
+      };
+      
+      for(const std::string& path : POWER_SUPPLY_STATUS_PATHS)
+      {
+        if( epee::file_io_utils::is_file_exist(path) )
+        {
+          power_supply_path = path;
+          break;
+        }
+      }
+      
+      if( power_supply_path.empty() )
+      {
+        LOG_ERROR("Couldn't find battery/power status file, can't determine if plugged in!");
+        return boost::logic::tribool(boost::logic::indeterminate);;
       }
 
-      std::ifstream power_stream(POWER_SUPPLY_STATUS_PATH);
+      std::ifstream power_stream(power_supply_path);
       if( power_stream.fail() )
       {
-        LOG_ERROR("failed to open '" << POWER_SUPPLY_STATUS_PATH << "'");
-        return false;
+        LOG_ERROR("failed to open '" << power_supply_path << "'");
+        return boost::logic::tribool(boost::logic::indeterminate);;
       }
 
-      return power_stream.get() != '1';
+      return boost::logic::tribool( (power_stream.get() != '1') );
 
     #endif
     
     LOG_ERROR("couldn't query power status");
-    return false; // shouldn't get here unless no support for querying battery status
-    // TODO: return enum with ability to signify failure in querying for power status
-    // and change bg-mining logic so that it stops. As @vtnerd states, with the current
-    // setup "If someone enabled background mining on a system that fails to grab ac
-    // status, it will just continually check with little hope of ever being resolved
-    // automagically". This is also the case for time/idle stats functions.
+    return boost::logic::tribool(boost::logic::indeterminate);
   }
 }
