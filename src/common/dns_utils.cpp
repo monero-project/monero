@@ -509,7 +509,6 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
     {
       cur_index = 0;
     }
-    records[cur_index].clear();
   } while (cur_index != first_index);
 
   size_t num_valid_records = 0;
