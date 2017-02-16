@@ -568,4 +568,21 @@ std::string get_nix_version_display_string()
     MDEBUG("Address '" << address << "' is not local");
     return false;
   }
+  int vercmp(const char *v0, const char *v1)
+  {
+    std::vector<std::string> f0, f1;
+    boost::split(f0, v0, boost::is_any_of("."));
+    boost::split(f1, v1, boost::is_any_of("."));
+    while (f0.size() < f1.size())
+      f0.push_back("0");
+    while (f1.size() < f0.size())
+      f1.push_back("0");
+    for (size_t i = 0; i < f0.size(); ++i) {
+      int f0i = atoi(f0[i].c_str()), f1i = atoi(f1[i].c_str());
+      int n = f0i - f1i;
+      if (n)
+        return n;
+    }
+    return 0;
+  }
 }
