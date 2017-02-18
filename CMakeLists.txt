@@ -88,6 +88,14 @@ else()
   set(OPT_FLAGS_RELEASE "-Ofast")
 endif()
 
+# BUILD_TAG is used to select the build type to check for a new version
+if(BUILD_TAG)
+  message(STATUS "Building build tag ${BUILD_TAG}")
+  add_definitions("-DBUILD_TAG=${BUILD_TAG}")
+else()
+  message(STATUS "Building without build tag")
+endif()
+
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 

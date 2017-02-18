@@ -35,6 +35,7 @@ using namespace epee;
 #include "cryptonote_core.h"
 #include "common/command_line.h"
 #include "common/util.h"
+#include "common/updates.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -148,6 +149,7 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
+    command_line::add_arg(desc, command_line::arg_check_updates);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
@@ -242,6 +244,7 @@ namespace cryptonote
     std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
+    std::string check_updates_string = command_line::get_arg(vm, command_line::arg_check_updates);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
@@ -378,6 +381,20 @@ namespace cryptonote
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
+   // DNS versions checking
+    if (check_updates_string == "disabled")
+      check_updates_level = UPDATES_DISABLED;
+    else if (check_updates_string == "notify")
+      check_updates_level = UPDATES_NOTIFY;
+    else if (check_updates_string == "download")
+      check_updates_level = UPDATES_DOWNLOAD;
+    else if (check_updates_string == "update")
+      check_updates_level = UPDATES_UPDATE;
+    else {
+      MERROR("Invalid argument to --dns-versions-check: " << check_updates_string);
+      return false;
+    }
 
     r = m_miner.init(vm, m_testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
@@ -1000,6 +1017,7 @@ namespace cryptonote
 
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
+    m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1024,6 +1042,37 @@ namespace cryptonote
       default:
         break;
     }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_updates()
+  {
+    static const char software[] = "monerod";
+    static const char subdir[] = "cli"; // because it can never be simple
+#ifdef BUILD_TAG
+    static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
+#else
+    static const char buildtag[] = "source";
+#endif
+
+    if (check_updates_level == UPDATES_DISABLED)
+      return true;
+
+    std::string version, hash;
+    MDEBUG("Checking for a new " << software << " version for " << buildtag);
+    if (!tools::check_updates(software, buildtag, m_testnet, version, hash))
+      return false;
+
+    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+      return true;
+
+    std::string url = tools::get_update_url(software, subdir, buildtag, version);
+    MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
+
+    if (check_updates_level == UPDATES_NOTIFY)
+      return true;
+
+    MERROR("Download/update not implemented yet");
     return true;
   }
   //-----------------------------------------------------------------------------------------------

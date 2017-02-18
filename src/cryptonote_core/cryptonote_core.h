@@ -763,6 +763,13 @@ namespace cryptonote
       */
      bool relay_txpool_transactions();
 
+     /**
+      * @brief checks DNS versions
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_updates();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
@@ -785,6 +792,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
      epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
+     epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
 
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
@@ -808,6 +816,13 @@ namespace cryptonote
      time_t start_time;
 
      std::unordered_set<crypto::hash> bad_semantics_txes;
+
+     enum {
+       UPDATES_DISABLED,
+       UPDATES_NOTIFY,
+       UPDATES_DOWNLOAD,
+       UPDATES_UPDATE,
+     } check_updates_level;
    };
 }
 
