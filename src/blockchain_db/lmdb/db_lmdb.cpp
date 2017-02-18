@@ -377,7 +377,50 @@ void mdb_txn_safe::allow_new_txns()
   creation_gate.clear();
 }
 
+void lmdb_resized(MDB_env *env)
+{
+  mdb_txn_safe::prevent_new_txns();
 
+  MGINFO("LMDB map resize detected.");
+
+  MDB_envinfo mei;
+
+  mdb_env_info(env, &mei);
+  uint64_t old = mei.me_mapsize;
+
+  mdb_txn_safe::wait_no_active_txns();
+
+  int result = mdb_env_set_mapsize(env, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to set new mapsize: ", result).c_str()));
+
+  mdb_env_info(env, &mei);
+  uint64_t new_mapsize = mei.me_mapsize;
+
+  MGINFO("LMDB Mapsize increased." << "  Old: " << old / (1024 * 1024) << "MiB" << ", New: " << new_mapsize / (1024 * 1024) << "MiB");
+
+  mdb_txn_safe::allow_new_txns();
+}
+
+inline int lmdb_txn_begin(MDB_env *env, MDB_txn *parent, unsigned int flags, MDB_txn **txn)
+{
+  int res = mdb_txn_begin(env, parent, flags, txn);
+  if (res == MDB_MAP_RESIZED) {
+    lmdb_resized(env);
+    res = mdb_txn_begin(env, parent, flags, txn);
+  }
+  return res;
+}
+
+inline int lmdb_txn_renew(MDB_txn *txn)
+{
+  int res = mdb_txn_renew(txn);
+  if (res == MDB_MAP_RESIZED) {
+    lmdb_resized(mdb_txn_env(txn));
+    res = mdb_txn_renew(txn);
+  }
+  return res;
+}
 
 void BlockchainLMDB::do_resize(uint64_t increase_size)
 {
@@ -1259,7 +1302,7 @@ void BlockchainLMDB::reset()
   check_open();
 
   mdb_txn_safe txn;
-  if (auto result = mdb_txn_begin(m_env, NULL, 0, txn))
+  if (auto result = lmdb_txn_begin(m_env, NULL, 0, txn))
     throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
 
   if (auto result = mdb_drop(txn, m_blocks, 0))
@@ -1342,7 +1385,7 @@ void BlockchainLMDB::unlock()
     txn_ptr = m_write_txn; \
   else \
   { \
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, flags, auto_txn)) \
+    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, flags, auto_txn)) \
       throw0(DB_ERROR(lmdb_error(std::string("Failed to create a transaction for the db in ")+__FUNCTION__+": ", mdb_res).c_str())); \
   } \
 
@@ -1376,7 +1419,7 @@ void BlockchainLMDB::unlock()
     txn_ptr = m_write_txn; \
   else \
   { \
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, flags, auto_txn)) \
+    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, flags, auto_txn)) \
       throw0(DB_ERROR(lmdb_error(std::string("Failed to create a transaction for the db in ")+__FUNCTION__+": ", mdb_res).c_str())); \
   } \
 
@@ -2295,7 +2338,7 @@ bool BlockchainLMDB::batch_start(uint64_t batch_num_blocks)
   m_write_batch_txn = new mdb_txn_safe();
 
   // NOTE: need to make sure it's destroyed properly when done
-  if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
+  if (auto mdb_res = lmdb_txn_begin(m_env, NULL, 0, *m_write_batch_txn))
   {
     delete m_write_batch_txn;
     m_write_batch_txn = nullptr;
@@ -2414,12 +2457,12 @@ bool BlockchainLMDB::block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) co
     m_tinfo.reset(new mdb_threadinfo);
     memset(&m_tinfo->m_ti_rcursors, 0, sizeof(m_tinfo->m_ti_rcursors));
     memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
+    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a read transaction for the db: ", mdb_res).c_str()));
     ret = true;
   } else if (!m_tinfo->m_ti_rflags.m_rf_txn)
   {
-    if (auto mdb_res = mdb_txn_renew(m_tinfo->m_ti_rtxn))
+    if (auto mdb_res = lmdb_txn_renew(m_tinfo->m_ti_rtxn))
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to renew a read transaction for the db: ", mdb_res).c_str()));
     ret = true;
   }
@@ -2452,12 +2495,12 @@ void BlockchainLMDB::block_txn_start(bool readonly)
       m_tinfo.reset(new mdb_threadinfo);
       memset(&m_tinfo->m_ti_rcursors, 0, sizeof(m_tinfo->m_ti_rcursors));
       memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-      if (auto mdb_res = mdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
+      if (auto mdb_res = lmdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
         throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a read transaction for the db: ", mdb_res).c_str()));
       didit = true;
     } else if (!m_tinfo->m_ti_rflags.m_rf_txn)
     {
-      if (auto mdb_res = mdb_txn_renew(m_tinfo->m_ti_rtxn))
+      if (auto mdb_res = lmdb_txn_renew(m_tinfo->m_ti_rtxn))
         throw0(DB_ERROR_TXN_START(lmdb_error("Failed to renew a read transaction for the db: ", mdb_res).c_str()));
       didit = true;
     }
@@ -2483,7 +2526,7 @@ void BlockchainLMDB::block_txn_start(bool readonly)
   {
     m_writer = boost::this_thread::get_id();
     m_write_txn = new mdb_txn_safe();
-    if (auto mdb_res = mdb_txn_begin(m_env, NULL, 0, *m_write_txn))
+    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, 0, *m_write_txn))
     {
       delete m_write_txn;
       m_write_txn = nullptr;
