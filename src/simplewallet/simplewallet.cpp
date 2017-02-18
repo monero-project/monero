@@ -60,6 +60,7 @@
 #include "ringct/rctSigs.h"
 #include "wallet/wallet_args.h"
 #include <stdexcept>
+#include "rpc/daemon_rpc_version.h"
 
 using namespace std;
 using namespace epee;
@@ -1209,10 +1210,10 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
         "Please make sure daemon is running or restart the wallet with the correct daemon address.");
     return false;
   }
-  if (!m_allow_mismatched_daemon_version && ((*version >> 16) != CORE_RPC_VERSION_MAJOR))
+  if (!m_allow_mismatched_daemon_version && ((*version >> 16) != cryptonote::rpc::DAEMON_RPC_VERSION_MAJOR))
   {
     if (!silent)
-      fail_msg_writer() << boost::format(tr("Daemon uses a different RPC major version (%u) than the wallet (%u): %s. Either update one of them, or use --allow-mismatched-daemon-version.")) % (*version>>16) % CORE_RPC_VERSION_MAJOR % m_wallet->get_daemon_address();
+      fail_msg_writer() << boost::format(tr("Daemon uses a different RPC major version (%u) than the wallet (%u): %s. Either update one of them, or use --allow-mismatched-daemon-version.")) % (*version>>16) % cryptonote::rpc::DAEMON_RPC_VERSION_MAJOR % m_wallet->get_daemon_address();
     return false;
   }
   return true;
