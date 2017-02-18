@@ -561,7 +561,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
   {
     LOG_PRINT_L1("No existing blocks to check for average block size");
   }
-  else if (m_cum_count)
+  else if (m_cum_count >= num_prev_blocks)
   {
     avg_block_size = m_cum_size / m_cum_count;
     LOG_PRINT_L1("average block size across recent " << m_cum_count << " blocks: " << avg_block_size);
@@ -570,6 +570,9 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
   }
   else
   {
+    MDB_txn *rtxn;
+    mdb_txn_cursors *rcurs;
+    block_rtxn_start(&rtxn, &rcurs);
     for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
     {
       uint32_t block_size = get_block_size(block_num);
@@ -578,6 +581,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks) con
       // some blocks were to be skipped for being outliers.
       ++num_blocks_used;
     }
+    block_rtxn_stop();
     avg_block_size = total_block_size / num_blocks_used;
     LOG_PRINT_L1("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
   }
@@ -1000,7 +1004,7 @@ tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
 
 void BlockchainLMDB::check_open() const
 {
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+//  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (!m_open)
     throw0(DB_ERROR("DB operation attempted on a not-open DB instance"));
 }

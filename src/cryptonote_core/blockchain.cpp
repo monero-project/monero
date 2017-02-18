@@ -1986,12 +1986,14 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
     return false;
   }
 
+  m_db->block_txn_start(true);
   resp.total_height = get_current_blockchain_height();
   size_t count = 0;
   for(size_t i = resp.start_height; i < resp.total_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
     resp.m_block_ids.push_back(m_db->get_block_hash_from_height(i));
   }
+  m_db->block_txn_stop();
   return true;
 }
 //------------------------------------------------------------------
@@ -2022,6 +2024,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
     }
   }
 
+  m_db->block_txn_start(true);
   total_height = get_current_blockchain_height();
   size_t count = 0;
   for(size_t i = start_height; i < total_height && count < max_count; i++, count++)
@@ -2032,6 +2035,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
     get_transactions(blocks.back().first.tx_hashes, blocks.back().second, mis);
     CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
   }
+  m_db->block_txn_stop();
   return true;
 }
 //------------------------------------------------------------------

@@ -372,7 +372,7 @@ private:
   uint64_t m_num_txs;
   uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation
-  mutable int m_cum_count;
+  mutable unsigned int m_cum_count;
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
   mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
