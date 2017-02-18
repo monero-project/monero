@@ -3950,14 +3950,14 @@ void Blockchain::cancel()
 #if defined(PER_BLOCK_CHECKPOINT)
 void Blockchain::load_compiled_in_block_hashes()
 {
-  if (m_fast_sync && get_blocks_dat_start(m_testnet) != nullptr)
+  if (m_fast_sync && get_blocks_dat_start((int)m_testnet) != nullptr)
   {
-    if (get_blocks_dat_size(m_testnet) > 4)
+    if (get_blocks_dat_size((int)m_testnet) > 4)
     {
-      const unsigned char *p = get_blocks_dat_start(m_testnet);
+      const unsigned char *p = get_blocks_dat_start((int)m_testnet);
       const uint32_t nblocks = *p | ((*(p+1))<<8) | ((*(p+2))<<16) | ((*(p+3))<<24);
       const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
-      if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size(m_testnet) >= size_needed)
+      if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size((int)m_testnet) >= size_needed)
       {
         MINFO("Loading precomputed blocks: " << nblocks);
         p += sizeof(uint32_t);
