@@ -763,24 +763,6 @@ namespace cryptonote
       */
      bool relay_txpool_transactions();
 
-     /**
-      * @brief locks a file in the BlockchainDB directory
-      *
-      * @param path the directory in which to place the file
-      *
-      * @return true if lock acquired successfully, otherwise false
-      */
-     bool lock_db_directory(const boost::filesystem::path &path);
-
-     /**
-      * @brief unlocks the db directory
-      *
-      * @note see lock_db_directory()
-      *
-      * @return true
-      */
-     bool unlock_db_directory();
-
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so

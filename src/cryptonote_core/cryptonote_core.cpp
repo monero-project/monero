@@ -219,40 +219,6 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::lock_db_directory(const boost::filesystem::path &path)
-  {
-    // boost doesn't like locking directories...
-    const boost::filesystem::path lock_path = path / ".daemon_lock";
-
-    try
-    {
-      // ensure the file exists
-      std::ofstream(lock_path.string(), std::ios::out).close();
-
-      db_lock = boost::interprocess::file_lock(lock_path.string().c_str());
-      LOG_PRINT_L1("Locking " << lock_path.string());
-      if (!db_lock.try_lock())
-      {
-        LOG_ERROR("Failed to lock " << lock_path.string());
-        return false;
-      }
-      return true;
-    }
-    catch (const std::exception &e)
-    {
-      LOG_ERROR("Error trying to lock " << lock_path.string() << ": " << e.what());
-      return false;
-    }
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::unlock_db_directory()
-  {
-    db_lock.unlock();
-    db_lock = boost::interprocess::file_lock();
-    LOG_PRINT_L1("Blockchain directory successfully unlocked");
-    return true;
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options)
   {
     start_time = std::time(nullptr);
@@ -284,11 +250,6 @@ namespace cryptonote
     // make sure the data directory exists, and try to lock it
     CHECK_AND_ASSERT_MES (boost::filesystem::exists(folder) || boost::filesystem::create_directories(folder), false,
       std::string("Failed to create directory ").append(folder.string()).c_str());
-    if (!lock_db_directory (folder))
-    {
-      LOG_ERROR ("Failed to lock " << folder);
-      return false;
-    }
 
     // check for blockchain.bin
     try
@@ -440,7 +401,6 @@ namespace cryptonote
     m_miner.stop();
     m_mempool.deinit();
     m_blockchain_storage.deinit();
-    unlock_db_directory();
     return true;
   }
   //-----------------------------------------------------------------------------------------------
