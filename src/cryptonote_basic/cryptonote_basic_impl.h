@@ -75,6 +75,14 @@ namespace cryptonote {
     }
   }
 
+  struct address_parse_info
+  {
+    account_public_address address;
+    bool is_subaddress;
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+  };
+
   /************************************************************************/
   /* Cryptonote helper functions                                          */
   /************************************************************************/
@@ -87,6 +95,7 @@ namespace cryptonote {
 
   std::string get_account_address_as_str(
       bool testnet
+    , bool subaddress
     , const account_public_address& adr
     );
 
@@ -96,31 +105,14 @@ namespace cryptonote {
     , const crypto::hash8& payment_id
     );
 
-  bool get_account_integrated_address_from_str(
-      account_public_address& adr
-    , bool& has_payment_id
-    , crypto::hash8& payment_id
-    , bool testnet
-    , const std::string& str
-    );
-
   bool get_account_address_from_str(
-      account_public_address& adr
+      address_parse_info& info
     , bool testnet
     , const std::string& str
     );
 
   bool get_account_address_from_str_or_url(
-      cryptonote::account_public_address& address
-    , bool& has_payment_id
-    , crypto::hash8& payment_id
-    , bool testnet
-    , const std::string& str_or_url
-    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
-    );
-
-  bool get_account_address_from_str_or_url(
-      cryptonote::account_public_address& address
+      address_parse_info& info
     , bool testnet
     , const std::string& str_or_url
     , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address

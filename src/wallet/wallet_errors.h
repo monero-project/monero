@@ -492,7 +492,7 @@ namespace tools
         for (size_t i = 0; i < m_destinations.size(); ++i)
         {
           const cryptonote::tx_destination_entry& dst = m_destinations[i];
-          ss << "\n  " << i << ": " << cryptonote::get_account_address_as_str(m_testnet, dst.addr) << " " <<
+          ss << "\n  " << i << ": " << cryptonote::get_account_address_as_str(m_testnet, dst.is_subaddress, dst.addr) << " " <<
             cryptonote::print_money(dst.amount);
         }
 
@@ -567,7 +567,7 @@ namespace tools
           ", destinations:";
         for (const auto& dst : m_destinations)
         {
-          ss << '\n' << cryptonote::print_money(dst.amount) << " -> " << cryptonote::get_account_address_as_str(m_testnet, dst.addr);
+          ss << '\n' << cryptonote::print_money(dst.amount) << " -> " << cryptonote::get_account_address_as_str(m_testnet, dst.is_subaddress, dst.addr);
         }
         return ss.str();
       }

@@ -35,6 +35,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/utility/value_init.hpp>
+#include <boost/optional.hpp>
 #include <vector>
 
 #include "common/pod-class.h"
@@ -98,6 +99,8 @@ namespace crypto {
   };
 #pragma pack(pop)
 
+  void hash_to_scalar(const void *data, size_t length, ec_scalar &res);
+
   static_assert(sizeof(ec_point) == 32 && sizeof(ec_scalar) == 32 &&
     sizeof(public_key) == 32 && sizeof(secret_key) == 32 &&
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
@@ -123,14 +126,16 @@ namespace crypto {
     friend bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
     static void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
     friend void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
+    static bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
+    friend bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
     static void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     friend void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     static bool check_signature(const hash &, const public_key &, const signature &);
     friend bool check_signature(const hash &, const public_key &, const signature &);
-    static void generate_tx_proof(const hash &, const public_key &, const public_key &, const public_key &, const secret_key &, signature &);
-    friend void generate_tx_proof(const hash &, const public_key &, const public_key &, const public_key &, const secret_key &, signature &);
-    static bool check_tx_proof(const hash &, const public_key &, const public_key &, const public_key &, const signature &);
-    friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const public_key &, const signature &);
+    static void generate_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
+    friend void generate_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
+    static bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &);
+    friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -198,6 +203,9 @@ namespace crypto {
     const secret_key &base, secret_key &derived_key) {
     crypto_ops::derive_secret_key(derivation, output_index, base, derived_key);
   }
+  inline bool derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &result) {
+    return crypto_ops::derive_subaddress_public_key(out_key, derivation, output_index, result);
+  }
 
   /* Generation and checking of a standard signature.
    */
@@ -210,12 +218,13 @@ namespace crypto {
 
   /* Generation and checking of a tx proof; given a tx pubkey R, the recipient's view pubkey A, and the key 
    * derivation D, the signature proves the knowledge of the tx secret key r such that R=r*G and D=r*A
+   * When the recipient's address is a subaddress, the tx pubkey R is defined as R=r*B where B is the recipient's spend pubkey
    */
-  inline void generate_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const public_key &D, const secret_key &r, signature &sig) {
-    crypto_ops::generate_tx_proof(prefix_hash, R, A, D, r, sig);
+  inline void generate_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const secret_key &r, signature &sig) {
+    crypto_ops::generate_tx_proof(prefix_hash, R, A, B, D, r, sig);
   }
-  inline bool check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const public_key &D, const signature &sig) {
-    return crypto_ops::check_tx_proof(prefix_hash, R, A, D, sig);
+  inline bool check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const signature &sig) {
+    return crypto_ops::check_tx_proof(prefix_hash, R, A, B, D, sig);
   }
 
   /* To send money to a key:
@@ -270,8 +279,10 @@ namespace crypto {
   }
 
   const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
+  const static crypto::secret_key null_skey = boost::value_initialized<crypto::secret_key>();
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
+CRYPTO_MAKE_HASHABLE(secret_key)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)

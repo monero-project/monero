@@ -412,10 +412,17 @@ namespace rpc
 
   void DaemonHandler::handle(const StartMining::Request& req, StartMining::Response& res)
   {
-    account_public_address adr;
-    if(!get_account_address_from_str(adr, m_core.get_testnet(), req.miner_address))
+    cryptonote::address_parse_info info;
+    if(!get_account_address_from_str(info, m_core.get_testnet(), req.miner_address))
     {
       res.error_details = "Failed, wrong address";
+      LOG_PRINT_L0(res.error_details);
+      res.status = Message::STATUS_FAILED;
+      return;
+    }
+    if (info.is_subaddress)
+    {
+      res.error_details = "Failed, mining to subaddress isn't supported yet";
       LOG_PRINT_L0(res.error_details);
       res.status = Message::STATUS_FAILED;
       return;
@@ -442,7 +449,7 @@ namespace rpc
     boost::thread::attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
 
-    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
+    if(!m_core.get_miner().start(info.address, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
     {
       res.error_details = "Failed, mining not started";
       LOG_PRINT_L0(res.error_details);
@@ -518,7 +525,7 @@ namespace rpc
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
       const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(m_core.get_testnet(), lMiningAdr);
+      res.address = get_account_address_as_str(m_core.get_testnet(), false, lMiningAdr);
     }
 
     res.status = Message::STATUS_OK;

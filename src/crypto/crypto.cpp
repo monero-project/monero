@@ -87,7 +87,7 @@ namespace crypto {
     random_scalar_not_thread_safe(res);
   }
 
-  static inline void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
+  void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
     cn_fast_hash(data, length, reinterpret_cast<hash &>(res));
     sc_reduce32(&res);
   }
@@ -189,6 +189,25 @@ namespace crypto {
     sc_add(&derived_key, &base, &scalar);
   }
 
+  bool crypto_ops::derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key) {
+    ec_scalar scalar;
+    ge_p3 point1;
+    ge_p3 point2;
+    ge_cached point3;
+    ge_p1p1 point4;
+    ge_p2 point5;
+    if (ge_frombytes_vartime(&point1, &out_key) != 0) {
+      return false;
+    }
+    derivation_to_scalar(derivation, output_index, scalar);
+    ge_scalarmult_base(&point2, &scalar);
+    ge_p3_to_cached(&point3, &point2);
+    ge_sub(&point4, &point1, &point3);
+    ge_p1p1_to_p2(&point5, &point4);
+    ge_tobytes(&derived_key, &point5);
+    return true;
+  }
+
   struct s_comm {
     hash h;
     ec_point key;
@@ -246,22 +265,33 @@ namespace crypto {
     return sc_isnonzero(&c) == 0;
   }
 
-  void crypto_ops::generate_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const public_key &D, const secret_key &r, signature &sig) {
+  void crypto_ops::generate_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const secret_key &r, signature &sig) {
     // sanity check
     ge_p3 R_p3;
     ge_p3 A_p3;
+    ge_p3 B_p3;
     ge_p3 D_p3;
     if (ge_frombytes_vartime(&R_p3, &R) != 0) throw std::runtime_error("tx pubkey is invalid");
     if (ge_frombytes_vartime(&A_p3, &A) != 0) throw std::runtime_error("recipient view pubkey is invalid");
+    if (B && ge_frombytes_vartime(&B_p3, &*B) != 0) throw std::runtime_error("recipient spend pubkey is invalid");
     if (ge_frombytes_vartime(&D_p3, &D) != 0) throw std::runtime_error("key derivation is invalid");
 #if !defined(NDEBUG)
     {
       assert(sc_check(&r) == 0);
-      // check R == r*G
-      ge_p3 dbg_R_p3;
-      ge_scalarmult_base(&dbg_R_p3, &r);
+      // check R == r*G or R == r*B
       public_key dbg_R;
-      ge_p3_tobytes(&dbg_R, &dbg_R_p3);
+      if (B)
+      {
+        ge_p2 dbg_R_p2;
+        ge_scalarmult(&dbg_R_p2, &r, &B_p3);
+        ge_tobytes(&dbg_R, &dbg_R_p2);
+      }
+      else
+      {
+        ge_p3 dbg_R_p3;
+        ge_scalarmult_base(&dbg_R_p3, &r);
+        ge_p3_tobytes(&dbg_R, &dbg_R_p3);
+      }
       assert(R == dbg_R);
       // check D == r*A
       ge_p2 dbg_D_p2;
@@ -276,43 +306,84 @@ namespace crypto {
     ec_scalar k;
     random_scalar(k);
     
-    // compute X = k*G
-    ge_p3 X_p3;
-    ge_scalarmult_base(&X_p3, &k);
+    s_comm_2 buf;
+    buf.msg = prefix_hash;
+    buf.D = D;
+
+    if (B)
+    {
+      // compute X = k*B
+      ge_p2 X_p2;
+      ge_scalarmult(&X_p2, &k, &B_p3);
+      ge_tobytes(&buf.X, &X_p2);
+    }
+    else
+    {
+      // compute X = k*G
+      ge_p3 X_p3;
+      ge_scalarmult_base(&X_p3, &k);
+      ge_p3_tobytes(&buf.X, &X_p3);
+    }
     
     // compute Y = k*A
     ge_p2 Y_p2;
     ge_scalarmult(&Y_p2, &k, &A_p3);
+    ge_tobytes(&buf.Y, &Y_p2);
 
     // sig.c = Hs(Msg || D || X || Y)
-    s_comm_2 buf;
-    buf.msg = prefix_hash;
-    buf.D = D;
-    ge_p3_tobytes(&buf.X, &X_p3);
-    ge_tobytes(&buf.Y, &Y_p2);
-    hash_to_scalar(&buf, sizeof(s_comm_2), sig.c);
+    hash_to_scalar(&buf, sizeof(buf), sig.c);
 
     // sig.r = k - sig.c*r
     sc_mulsub(&sig.r, &sig.c, &r, &k);
   }
 
-  bool crypto_ops::check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const public_key &D, const signature &sig) {
+  bool crypto_ops::check_tx_proof(const hash &prefix_hash, const public_key &R, const public_key &A, const boost::optional<public_key> &B, const public_key &D, const signature &sig) {
     // sanity check
     ge_p3 R_p3;
     ge_p3 A_p3;
+    ge_p3 B_p3;
     ge_p3 D_p3;
     if (ge_frombytes_vartime(&R_p3, &R) != 0) return false;
     if (ge_frombytes_vartime(&A_p3, &A) != 0) return false;
+    if (B && ge_frombytes_vartime(&B_p3, &*B) != 0) return false;
     if (ge_frombytes_vartime(&D_p3, &D) != 0) return false;
     if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0) return false;
 
     // compute sig.c*R
-    ge_p2 cR_p2;
-    ge_scalarmult(&cR_p2, &sig.c, &R_p3);
+    ge_p3 cR_p3;
+    {
+      ge_p2 cR_p2;
+      ge_scalarmult(&cR_p2, &sig.c, &R_p3);
+      public_key cR;
+      ge_tobytes(&cR, &cR_p2);
+      if (ge_frombytes_vartime(&cR_p3, &cR) != 0) return false;
+    }
 
-    // compute sig.r*G
-    ge_p3 rG_p3;
-    ge_scalarmult_base(&rG_p3, &sig.r);
+    ge_p1p1 X_p1p1;
+    if (B)
+    {
+      // compute X = sig.c*R + sig.r*B
+      ge_p2 rB_p2;
+      ge_scalarmult(&rB_p2, &sig.r, &B_p3);
+      public_key rB;
+      ge_tobytes(&rB, &rB_p2);
+      ge_p3 rB_p3;
+      if (ge_frombytes_vartime(&rB_p3, &rB) != 0) return false;
+      ge_cached rB_cached;
+      ge_p3_to_cached(&rB_cached, &rB_p3);
+      ge_add(&X_p1p1, &cR_p3, &rB_cached);
+    }
+    else
+    {
+      // compute X = sig.c*R + sig.r*G
+      ge_p3 rG_p3;
+      ge_scalarmult_base(&rG_p3, &sig.r);
+      ge_cached rG_cached;
+      ge_p3_to_cached(&rG_cached, &rG_p3);
+      ge_add(&X_p1p1, &cR_p3, &rG_cached);
+    }
+    ge_p2 X_p2;
+    ge_p1p1_to_p2(&X_p2, &X_p1p1);
 
     // compute sig.c*D
     ge_p2 cD_p2;
@@ -321,18 +392,6 @@ namespace crypto {
     // compute sig.r*A
     ge_p2 rA_p2;
     ge_scalarmult(&rA_p2, &sig.r, &A_p3);
-
-    // compute X = sig.c*R + sig.r*G
-    public_key cR;
-    ge_tobytes(&cR, &cR_p2);
-    ge_p3 cR_p3;
-    if (ge_frombytes_vartime(&cR_p3, &cR) != 0) return false;
-    ge_cached rG_cached;
-    ge_p3_to_cached(&rG_cached, &rG_p3);
-    ge_p1p1 X_p1p1;
-    ge_add(&X_p1p1, &cR_p3, &rG_cached);
-    ge_p2 X_p2;
-    ge_p1p1_to_p2(&X_p2, &X_p1p1);
 
     // compute Y = sig.c*D + sig.r*A
     public_key cD;

@@ -46,6 +46,7 @@ namespace cryptonote
     std::vector<output_entry> outputs;  //index + key + optional ringct commitment
     size_t real_output;                 //index in outputs vector of real output_entry
     crypto::public_key real_out_tx_key; //incoming real tx public key
+    std::vector<crypto::public_key> real_out_additional_tx_keys; //incoming real tx additional public keys
     size_t real_output_in_tx_index;     //index in transaction outputs vector
     uint64_t amount;                    //money
     bool rct;                           //true if the output is rct
@@ -58,20 +59,22 @@ namespace cryptonote
   {
     uint64_t amount;                    //money
     account_public_address addr;        //destination address
+    bool is_subaddress;
 
-    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)) { }
-    tx_destination_entry(uint64_t a, const account_public_address &ad) : amount(a), addr(ad) { }
+    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)), is_subaddress(false) { }
+    tx_destination_entry(uint64_t a, const account_public_address &ad, bool is_subaddress) : amount(a), addr(ad), is_subaddress(is_subaddress) { }
 
     BEGIN_SERIALIZE_OBJECT()
       VARINT_FIELD(amount)
       FIELD(addr)
+      FIELD(is_subaddress)
     END_SERIALIZE()
   };
 
   //---------------------------------------------------------------
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys);
   bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time);
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct = false);
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const cryptonote::account_public_address& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false);
 
   bool generate_genesis_block(
       block& bl
@@ -82,6 +85,7 @@ namespace cryptonote
 }
 
 BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 0)
+BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 1)
 
 namespace boost
 {
@@ -97,6 +101,16 @@ namespace boost
       a & x.amount;
       a & x.rct;
       a & x.mask;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const boost::serialization::version_type ver)
+    {
+      a & x.amount;
+      a & x.addr;
+      if (ver < 1)
+        return;
+      a & x.is_subaddress;
     }
   }
 }

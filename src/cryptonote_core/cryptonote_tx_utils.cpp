@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <unordered_set>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -157,8 +158,14 @@ namespace cryptonote
     return destinations[0].addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const cryptonote::account_public_address& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct)
   {
+    if (destinations.empty())
+    {
+      LOG_ERROR("The destinations must be non-empty");
+      return false;
+    }
+
     std::vector<rct::key> amount_keys;
     tx.set_null();
     amount_keys.clear();
@@ -237,8 +244,12 @@ namespace cryptonote
       in_contexts.push_back(input_generation_context_data());
       keypair& in_ephemeral = in_contexts.back().in_ephemeral;
       crypto::key_image img;
-      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      const auto& out_key = reinterpret_cast<const crypto::public_key&>(src_entr.outputs[src_entr.real_output].second.dest);
+      if(!generate_key_image_helper(sender_account_keys, subaddresses, out_key, src_entr.real_out_tx_key, src_entr.real_out_additional_tx_keys, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      {
+        LOG_ERROR("Key image generation failed!");
         return false;
+      }
 
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
@@ -283,6 +294,47 @@ namespace cryptonote
       std::swap(sources[i0], sources[i1]);
     });
 
+    // figure out if we need to make additional tx pubkeys
+    size_t num_stdaddresses = 0;
+    size_t num_subaddresses = 0;
+    std::unordered_set<cryptonote::account_public_address> unique_dst_addresses;
+    account_public_address single_dest_subaddress;
+    for(const tx_destination_entry& dst_entr: destinations)
+    {
+      if (dst_entr.addr == change_addr)
+        continue;
+      if (unique_dst_addresses.count(dst_entr.addr) == 0)
+      {
+        unique_dst_addresses.insert(dst_entr.addr);
+        if (dst_entr.is_subaddress)
+        {
+          ++num_subaddresses;
+          single_dest_subaddress = dst_entr.addr;
+        }
+        else
+        {
+          ++num_stdaddresses;
+        }
+      }
+    }
+    LOG_PRINT_L2("destinations include " << num_stdaddresses << " standard addresses and " << num_subaddresses << "subaddresses");
+
+    // if this is a single-destination transfer to a subaddress, we set the tx pubkey to R=s*D
+    if (num_stdaddresses == 0 && num_subaddresses == 1)
+    {
+      txkey.pub = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(single_dest_subaddress.m_spend_public_key), rct::sk2rct(txkey.sec)));
+      remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
+      add_tx_pub_key_to_extra(tx, txkey.pub);
+    }
+
+    std::vector<crypto::public_key> additional_tx_public_keys;
+    additional_tx_keys.clear();
+
+    // we don't need to include additional tx keys if:
+    //   - all the destinations are standard addresses
+    //   - there's only one destination which is a subaddress
+    bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+
     uint64_t summary_outs_money = 0;
     //fill outputs
     size_t output_index = 0;
@@ -291,8 +343,35 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::key_derivation derivation;
       crypto::public_key out_eph_public_key;
-      bool r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, txkey.sec, derivation);
-      CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")");
+
+      // make additional tx pubkey if necessary
+      keypair additional_txkey;
+      if (need_additional_txkeys)
+      {
+        additional_txkey = keypair::generate();
+        if (dst_entr.is_subaddress)
+          additional_txkey.pub = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(dst_entr.addr.m_spend_public_key), rct::sk2rct(additional_txkey.sec)));
+      }
+
+      bool r;
+      if (dst_entr.addr == change_addr)
+      {
+        // sending change to yourself; derivation = a*R
+        r = crypto::generate_key_derivation(txkey.pub, sender_account_keys.m_view_secret_key, derivation);
+        CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << txkey.pub << ", " << sender_account_keys.m_view_secret_key << ")");
+      }
+      else
+      {
+        // sending to the recipient; derivation = r*A (or s*C in the subaddress scheme)
+        r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : txkey.sec, derivation);
+        CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << (dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : txkey.sec) << ")");
+      }
+
+      if (need_additional_txkeys)
+      {
+        additional_tx_public_keys.push_back(additional_txkey.pub);
+        additional_tx_keys.push_back(additional_txkey.sec);
+      }
 
       if (tx.version > 1)
       {
@@ -311,6 +390,17 @@ namespace cryptonote
       tx.vout.push_back(out);
       output_index++;
       summary_outs_money += dst_entr.amount;
+    }
+
+    remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));
+    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
+
+    LOG_PRINT_L2("tx pubkey: " << txkey.pub);
+    if (need_additional_txkeys)
+    {
+      LOG_PRINT_L2("additional tx pubkeys: ");
+      for (size_t i = 0; i < additional_tx_public_keys.size(); ++i)
+        LOG_PRINT_L2(additional_tx_public_keys[i]);
     }
 
     //check money
@@ -477,8 +567,11 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
+     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+     subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0,0};
      crypto::secret_key tx_key;
-     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
+     std::vector<crypto::secret_key> additional_tx_keys;
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations, destinations.back().addr, extra, tx, unlock_time, tx_key, additional_tx_keys);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(
