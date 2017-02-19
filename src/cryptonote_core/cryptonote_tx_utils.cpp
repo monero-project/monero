@@ -140,23 +140,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
-  {
-    if (destinations.empty())
-      return null_pkey;
-    for (size_t n = 1; n < destinations.size(); ++n)
-    {
-      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
-        continue;
-      if (destinations[n].amount == 0)
-        continue;
-      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
-        return null_pkey;
-    }
-    return destinations[0].addr.m_view_public_key;
-  }
-  //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, size_t>& subaddresses, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, bool is_subaddress, bool is_disposable, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
     std::vector<rct::key> amount_keys;
     tx.set_null();
@@ -167,6 +151,21 @@ namespace cryptonote
 
     tx.extra = extra;
     keypair txkey = keypair::generate();
+
+    // if subaddress is present, identify its account address
+    account_public_address dest_subaddress;
+    if (is_subaddress)
+    {
+      if (destinations.size() != 2)
+      {
+        LOG_ERROR("A tx using subaddress should contain only two destinations, one to the receiver and the other to yourself as change");
+        return false;
+      }
+      dest_subaddress = (memcmp(&destinations[0].addr, &sender_account_keys.m_account_address, sizeof(account_public_address)) ?
+        destinations[0] : destinations[1]).addr;
+      crypto::secret_key_mult_public_key(txkey.sec, dest_subaddress.m_spend_public_key, txkey.pub);
+    }
+
     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
     add_tx_pub_key_to_extra(tx, txkey.pub);
     tx_key = txkey.sec;
@@ -176,7 +175,7 @@ namespace cryptonote
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
       tx_extra_nonce extra_nonce;
-      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      if (!is_disposable && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
         crypto::hash8 payment_id = null_hash8;
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
@@ -232,12 +231,35 @@ namespace cryptonote
       }
       summary_inputs_money += src_entr.amount;
 
+      // disposable addressing scheme
+      boost::optional<keypair> disposable_key;
+      {
+        char data[sizeof(secret_key) + sizeof(hash8)];
+        memcpy(data, &sender_account_keys.m_view_secret_key, sizeof(secret_key));
+        memcpy(data + sizeof(secret_key), &src_entr.payment_id8, sizeof(hash8));
+        secret_key disposable_seckey;
+        hash_to_scalar(data, sizeof(data), disposable_seckey);
+        // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+        if (src_entr.payment_id8.data[0] == disposable_seckey.data[0])
+        {
+          public_key disposable_pubkey;
+          secret_key_to_public_key(disposable_seckey, disposable_pubkey);
+          disposable_key = keypair{};
+          disposable_key->pub = disposable_pubkey;
+          disposable_key->sec = disposable_seckey;
+        }
+      }
+
       //key_derivation recv_derivation;
       in_contexts.push_back(input_generation_context_data());
       keypair& in_ephemeral = in_contexts.back().in_ephemeral;
       crypto::key_image img;
-      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      auto& out_key = reinterpret_cast<const crypto::public_key&>(src_entr.outputs[src_entr.real_output].second.dest);
+      if(!generate_key_image_helper(sender_account_keys, subaddresses, disposable_key, out_key, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      {
+        LOG_ERROR("Key image generation failed!");
         return false;
+      }
 
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
@@ -275,7 +297,15 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(dst_entr.amount > 0 || tx.version > 1, false, "Destination with wrong amount: " << dst_entr.amount);
       crypto::key_derivation derivation;
       crypto::public_key out_eph_public_key;
-      bool r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, txkey.sec, derivation);
+      bool r;
+      if (is_subaddress && !memcmp(&dst_entr.addr, &sender_account_keys.m_account_address, sizeof(account_public_address)))
+      {
+        r = crypto::generate_key_derivation(txkey.pub, sender_account_keys.m_view_secret_key, derivation);
+      }
+      else
+      {
+        r = crypto::generate_key_derivation(dst_entr.addr.m_view_public_key, txkey.sec, derivation);
+      }
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << txkey.sec << ")");
 
       if (tx.version > 1)
@@ -461,8 +491,10 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
+     std::unordered_map<crypto::public_key, size_t> subaddresses;
+     subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = 0;
      crypto::secret_key tx_key;
-     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations, extra, false, false, tx, unlock_time, tx_key);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

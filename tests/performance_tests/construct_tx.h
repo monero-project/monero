@@ -70,7 +70,9 @@ public:
   bool test()
   {
     crypto::secret_key tx_key;
-    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, m_destinations, std::vector<uint8_t>(), m_tx, 0, tx_key, rct);
+    std::unordered_map<crypto::public_key, size_t> subaddresses;
+    subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = 0;
+    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, m_destinations, std::vector<uint8_t>(), false, false, m_tx, 0, tx_key, rct);
   }
 
 private:

@@ -120,6 +120,7 @@ namespace cryptonote
     bool set_min_output_count(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_min_output_value(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_merge_destinations(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_subaddresses_size(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -146,6 +147,8 @@ namespace cryptonote
     );
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool print_integrated_address(const std::vector<std::string> &args = std::vector<std::string>());
+    bool print_disposable_address(const std::vector<std::string> &args = std::vector<std::string>());
+    bool parse_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool address_book(const std::vector<std::string> &args = std::vector<std::string>());
     bool save(const std::vector<std::string> &args);
     bool save_watch_only(const std::vector<std::string> &args);

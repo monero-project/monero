@@ -182,6 +182,47 @@ namespace cryptonote {
     return tools::base58::encode_addr(integrated_address_prefix, t_serializable_object_to_blob(iadr));
   }
   //-----------------------------------------------------------------------
+  std::string get_account_subaddress_as_str(
+      bool testnet
+    , account_public_address const & adr
+    )
+  {
+    uint64_t subaddress_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
+
+    return tools::base58::encode_addr(subaddress_prefix, t_serializable_object_to_blob(adr));
+  }
+  //-----------------------------------------------------------------------
+  std::string get_account_integrated_subaddress_as_str(
+      bool testnet
+    , account_public_address const & adr
+    , crypto::hash8 const & payment_id
+    )
+  {
+    uint64_t integrated_subaddress_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_INTEGRATED_SUBADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_INTEGRATED_SUBADDRESS_BASE58_PREFIX;
+
+    integrated_address iadr = {
+      adr, payment_id
+    };
+    return tools::base58::encode_addr(integrated_subaddress_prefix, t_serializable_object_to_blob(iadr));
+  }
+  //-----------------------------------------------------------------------
+  std::string get_account_disposable_address_as_str(
+      bool testnet
+    , account_public_address const & adr
+    , crypto::hash8 const & payment_id
+    )
+  {
+    uint64_t disposable_address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX;
+
+    integrated_address iadr = {
+      adr, payment_id
+    };
+    return tools::base58::encode_addr(disposable_address_prefix, t_serializable_object_to_blob(iadr));
+  }
+  //-----------------------------------------------------------------------
   bool is_coinbase(const transaction& tx)
   {
     if(tx.vin.size() != 1)
@@ -193,10 +234,8 @@ namespace cryptonote {
     return true;
   }
   //-----------------------------------------------------------------------
-  bool get_account_integrated_address_from_str(
-      account_public_address& adr
-    , bool& has_payment_id
-    , crypto::hash8& payment_id
+  bool get_account_address_from_str(
+      address_parse_info& info
     , bool testnet
     , std::string const & str
     )
@@ -205,6 +244,12 @@ namespace cryptonote {
       config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
     uint64_t integrated_address_prefix = testnet ?
       config::testnet::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
+    uint64_t subaddress_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
+    uint64_t integrated_subaddress_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_INTEGRATED_SUBADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_INTEGRATED_SUBADDRESS_BASE58_PREFIX;
+    uint64_t disposable_address_prefix = testnet ?
+      config::testnet::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX : config::CRYPTONOTE_PUBLIC_DISPOSABLE_ADDRESS_BASE58_PREFIX;
 
     if (2 * sizeof(public_address_outer_blob) != str.size())
     {
@@ -218,18 +263,44 @@ namespace cryptonote {
 
       if (integrated_address_prefix == prefix)
       {
-        has_payment_id = true;
+        info.is_subaddress = false;
+        info.is_disposable = false;
+        info.has_payment_id = true;
       }
       else if (address_prefix == prefix)
       {
-        has_payment_id = false;
+        info.is_subaddress = false;
+        info.is_disposable = false;
+        info.has_payment_id = false;
+      }
+      else if (subaddress_prefix == prefix)
+      {
+        info.is_subaddress = true;
+        info.is_disposable = false;
+        info.has_payment_id = false;
+      }
+      else if (integrated_subaddress_prefix == prefix)
+      {
+        info.is_subaddress = true;
+        info.is_disposable = false;
+        info.has_payment_id = true;
+      }
+      else if (disposable_address_prefix == prefix)
+      {
+        info.is_subaddress = true;
+        info.is_disposable = true;
+        info.has_payment_id = true;
       }
       else {
-        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix << " or " << integrated_address_prefix);
+        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix 
+          << " or " << integrated_address_prefix
+          << " or " << subaddress_prefix
+          << " or " << integrated_subaddress_prefix
+          << " or " << disposable_address_prefix);
         return false;
       }
 
-      if (has_payment_id)
+      if (info.has_payment_id)
       {
         integrated_address iadr;
         if (!::serialization::parse_binary(data, iadr))
@@ -237,19 +308,19 @@ namespace cryptonote {
           LOG_PRINT_L1("Account public address keys can't be parsed");
           return false;
         }
-        adr = iadr.adr;
-        payment_id = iadr.payment_id;
+        info.address = iadr.adr;
+        info.payment_id = iadr.payment_id;
       }
       else
       {
-        if (!::serialization::parse_binary(data, adr))
+        if (!::serialization::parse_binary(data, info.address))
         {
           LOG_PRINT_L1("Account public address keys can't be parsed");
           return false;
         }
       }
 
-      if (!crypto::check_key(adr.m_spend_public_key) || !crypto::check_key(adr.m_view_public_key))
+      if (!crypto::check_key(info.address.m_spend_public_key) || !crypto::check_key(info.address.m_view_public_key))
       {
         LOG_PRINT_L1("Failed to validate address keys");
         return false;
@@ -284,51 +355,26 @@ namespace cryptonote {
       }
 
       //we success
-      adr = blob.m_address;
-      has_payment_id = false;
+      info.address = blob.m_address;
+      info.has_payment_id = false;
     }
 
     return true;
   }
-  //-----------------------------------------------------------------------
-  bool get_account_address_from_str(
-      account_public_address& adr
-    , bool testnet
-    , std::string const & str
-    )
-  {
-    bool has_payment_id;
-    crypto::hash8 payment_id;
-    return get_account_integrated_address_from_str(adr, has_payment_id, payment_id, testnet, str);
-  }
   //--------------------------------------------------------------------------------
   bool get_account_address_from_str_or_url(
-      cryptonote::account_public_address& address
-    , bool& has_payment_id
-    , crypto::hash8& payment_id
+      address_parse_info& info
     , bool testnet
     , const std::string& str_or_url
     , bool cli_confirm
     )
   {
-    if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, str_or_url))
+    if (get_account_address_from_str(info, testnet, str_or_url))
       return true;
     bool dnssec_valid;
     std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, cli_confirm);
     return !address_str.empty() &&
-      get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_str);
-  }
-  //--------------------------------------------------------------------------------
-  bool get_account_address_from_str_or_url(
-      cryptonote::account_public_address& address
-    , bool testnet
-    , const std::string& str_or_url
-    , bool cli_confirm
-    )
-  {
-    bool has_payment_id;
-    crypto::hash8 payment_id;
-    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, testnet, str_or_url, cli_confirm);
+      get_account_address_from_str(info, testnet, address_str);
   }
   //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {

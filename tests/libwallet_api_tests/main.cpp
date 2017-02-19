@@ -580,6 +580,7 @@ TEST_F(WalletTest1, WalletTransaction)
                                                                              PAYMENT_ID_EMPTY,
                                                                              AMOUNT_10XMR,
                                                                              MIXIN_COUNT,
+                                                                             false, false,
                                                                              Monero::PendingTransaction::Priority_Medium);
     ASSERT_TRUE(transaction->status() == Monero::PendingTransaction::Status_Ok);
     wallet1->refresh();
@@ -618,7 +619,7 @@ TEST_F(WalletTest1, WalletTransactionWithMixin)
     for (auto mixin : mixins) {
         std::cerr << "Transaction mixin count: " << mixin << std::endl;
         Monero::PendingTransaction * transaction = wallet1->createTransaction(
-                    recepient_address, payment_id, AMOUNT_5XMR, mixin);
+                    recepient_address, payment_id, AMOUNT_5XMR, mixin, false, false);
 
         std::cerr << "Transaction status: " << transaction->status() << std::endl;
         std::cerr << "Transaction fee: " << Monero::Wallet::displayAmount(transaction->fee()) << std::endl;
@@ -659,7 +660,7 @@ TEST_F(WalletTest1, WalletTransactionWithPriority)
     for (auto it = priorities.begin(); it != priorities.end(); ++it) {
         std::cerr << "Transaction priority: " << *it << std::endl;
         Monero::PendingTransaction * transaction = wallet1->createTransaction(
-                    recepient_address, payment_id, AMOUNT_5XMR, mixin, *it);
+                    recepient_address, payment_id, AMOUNT_5XMR, mixin, false, false, *it);
         std::cerr << "Transaction status: " << transaction->status() << std::endl;
         std::cerr << "Transaction fee: " << Monero::Wallet::displayAmount(transaction->fee()) << std::endl;
         std::cerr << "Transaction error: " << transaction->errorString() << std::endl;
@@ -715,7 +716,7 @@ TEST_F(WalletTest1, WalletTransactionAndHistory)
 
     Monero::PendingTransaction * tx = wallet_src->createTransaction(wallet4_addr,
                                                                        PAYMENT_ID_EMPTY,
-                                                                       AMOUNT_10XMR * 5, 1);
+                                                                       AMOUNT_10XMR * 5, 1, false, false);
 
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
@@ -757,7 +758,7 @@ TEST_F(WalletTest1, WalletTransactionWithPaymentId)
 
     Monero::PendingTransaction * tx = wallet_src->createTransaction(wallet4_addr,
                                                                        payment_id,
-                                                                       AMOUNT_1XMR, 1);
+                                                                       AMOUNT_1XMR, 1, false, false);
 
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
@@ -930,7 +931,7 @@ TEST_F(WalletTest2, WalletCallbackSent)
 
     Monero::PendingTransaction * tx = wallet_src->createTransaction(wallet_dst->address(),
                                                                        PAYMENT_ID_EMPTY,
-                                                                       amount, 1);
+                                                                       amount, 1, false, false);
     std::cout << "** Committing transaction: " << Monero::Wallet::displayAmount(tx->amount())
               << " with fee: " << Monero::Wallet::displayAmount(tx->fee());
 
@@ -971,7 +972,7 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     std::cout << "** Sending " << Monero::Wallet::displayAmount(amount) << " to " << wallet_dst->address();
     Monero::PendingTransaction * tx = wallet_src->createTransaction(wallet_dst->address(),
                                                                        PAYMENT_ID_EMPTY,
-                                                                       amount, 1);
+                                                                       amount, 1, false, false);
 
     std::cout << "** Committing transaction: " << Monero::Wallet::displayAmount(tx->amount())
               << " with fee: " << Monero::Wallet::displayAmount(tx->fee());

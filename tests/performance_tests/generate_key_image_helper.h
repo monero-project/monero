@@ -45,6 +45,9 @@ public:
   {
     cryptonote::keypair in_ephemeral;
     crypto::key_image ki;
-    return cryptonote::generate_key_image_helper(m_bob.get_keys(), m_tx_pub_key, 0, in_ephemeral, ki);
+    std::unordered_map<crypto::public_key, size_t> subaddresses;
+    subaddresses[m_bob.get_keys().m_account_address.m_spend_public_key] = 0;
+    crypto::public_key out_key; // TODO!
+    return cryptonote::generate_key_image_helper(m_bob.get_keys(), subaddresses, boost::none, out_key, m_tx_pub_key, 0, in_ephemeral, ki);
   }
 };

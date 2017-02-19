@@ -364,7 +364,10 @@ bool init_spent_output_indices(map_output_idx_t& outs, map_output_t& outs_mine, 
             // construct key image for this output
             crypto::key_image img;
             keypair in_ephemeral;
-            generate_key_image_helper(from.get_keys(), get_tx_pub_key_from_extra(*oi.p_tx), oi.out_no, in_ephemeral, img);
+            crypto::public_key out_key = boost::get<txout_to_key>(oi.out).key;
+            std::unordered_map<crypto::public_key, size_t> subaddresses;
+            subaddresses[from.get_keys().m_account_address.m_spend_public_key] = 0;
+            generate_key_image_helper(from.get_keys(), subaddresses, boost::none, out_key, get_tx_pub_key_from_extra(*oi.p_tx), oi.out_no, in_ephemeral, img);
 
             // lookup for this key image in the events vector
             BOOST_FOREACH(auto& tx_pair, mtx) {

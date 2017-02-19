@@ -247,19 +247,17 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     return true;
   }
 
-  cryptonote::account_public_address adr;
-  bool has_payment_id;
-  crypto::hash8 payment_id;
+  cryptonote::address_parse_info info;
   bool testnet = false;
-  if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, args.front()))
+  if(!cryptonote::get_account_address_from_str(info, false, args.front()))
   {
-    if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, args.front()))
+    if(!cryptonote::get_account_address_from_str(info, true, args.front()))
     {
       bool dnssec_valid;
       std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(args.front(), dnssec_valid);
-      if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, false, address_str))
+      if(!cryptonote::get_account_address_from_str(info, false, address_str))
       {
-        if(!cryptonote::get_account_integrated_address_from_str(adr, has_payment_id, payment_id, true, address_str))
+        if(!cryptonote::get_account_address_from_str(info, true, address_str))
         {
           std::cout << "target account address has wrong format" << std::endl;
           return true;
@@ -274,6 +272,11 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     {
       testnet = true;
     }
+  }
+  if (info.is_subaddress)
+  {
+    std::cout << "subaddress for mining reward is not yet supported!";
+    return true;
   }
   if(testnet)
     std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
@@ -301,7 +304,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
-  m_executor.start_mining(adr, threads_count, testnet, do_background_mining, ignore_battery);
+  m_executor.start_mining(info.address, threads_count, testnet, do_background_mining, ignore_battery);
 
   return true;
 }

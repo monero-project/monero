@@ -107,6 +107,7 @@ public:
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
+                                        bool is_subaddress, bool is_disposable,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
     virtual PendingTransaction * createSweepUnmixableTransaction();
     bool submitTransaction(const std::string &fileName);

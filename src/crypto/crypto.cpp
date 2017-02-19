@@ -88,7 +88,7 @@ namespace crypto {
     memcpy(&res, tmp, 32);
   }
 
-  static inline void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
+  void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
     cn_fast_hash(data, length, reinterpret_cast<hash &>(res));
     sc_reduce32(&res);
   }
@@ -133,6 +133,58 @@ namespace crypto {
     }
     ge_scalarmult_base(&point, &sec);
     ge_p3_tobytes(&pub, &point);
+    return true;
+  }
+
+  bool crypto_ops::secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    if (sc_check(&sec) != 0) {
+      return false;
+    }
+    ge_p3 point;
+    if (ge_frombytes_vartime(&point, &pub) != 0) {
+      return false;
+    }
+    ge_p2 point2;
+    ge_scalarmult(&point2, &sec, &point);
+    ge_tobytes(&result, &point2);
+    return true;
+  }
+
+  bool crypto_ops::add_public_key(const public_key &A, const public_key &B, public_key &C) {
+    ge_p3 A_p3;
+    if (ge_frombytes_vartime(&A_p3, &A) != 0) {
+      return false;
+    }
+    ge_p3 B_p3;
+    if (ge_frombytes_vartime(&B_p3, &B) != 0) {
+      return false;
+    }
+    ge_cached B_cached;
+    ge_p3_to_cached(&B_cached, &B_p3);
+    ge_p1p1 C_p1p1;
+    ge_add(&C_p1p1, &A_p3, &B_cached);
+    ge_p2 C_p2;
+    ge_p1p1_to_p2(&C_p2, &C_p1p1);
+    ge_tobytes(&C, &C_p2);
+    return true;
+  }
+
+  bool crypto_ops::sub_public_key(const public_key &A, const public_key &B, public_key &C) {
+    ge_p3 A_p3;
+    if (ge_frombytes_vartime(&A_p3, &A) != 0) {
+      return false;
+    }
+    ge_p3 B_p3;
+    if (ge_frombytes_vartime(&B_p3, &B) != 0) {
+      return false;
+    }
+    ge_cached B_cached;
+    ge_p3_to_cached(&B_cached, &B_p3);
+    ge_p1p1 C_p1p1;
+    ge_sub(&C_p1p1, &A_p3, &B_cached);
+    ge_p2 C_p2;
+    ge_p1p1_to_p2(&C_p2, &C_p1p1);
+    ge_tobytes(&C, &C_p2);
     return true;
   }
 
@@ -189,6 +241,25 @@ namespace crypto {
     assert(sc_check(&base) == 0);
     derivation_to_scalar(derivation, output_index, scalar);
     sc_add(&derived_key, &base, &scalar);
+  }
+
+  bool crypto_ops::derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key) {
+    ec_scalar scalar;
+    ge_p3 point1;
+    ge_p3 point2;
+    ge_cached point3;
+    ge_p1p1 point4;
+    ge_p2 point5;
+    if (ge_frombytes_vartime(&point1, &out_key) != 0) {
+      return false;
+    }
+    derivation_to_scalar(derivation, output_index, scalar);
+    ge_scalarmult_base(&point2, &scalar);
+    ge_p3_to_cached(&point3, &point2);
+    ge_sub(&point4, &point1, &point3);
+    ge_p1p1_to_p2(&point5, &point4);
+    ge_tobytes(&derived_key, &point5);
+    return true;
   }
 
   struct s_comm {

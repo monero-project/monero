@@ -75,6 +75,7 @@ namespace tools
     //         tx_sum_overflow
     //         tx_too_big
     //         zero_destination
+    //         reuse_disposable_addr
     //       wallet_rpc_error *
     //         daemon_busy
     //         no_connection_to_daemon
@@ -600,6 +601,14 @@ namespace tools
     {
       explicit zero_destination(std::string&& loc)
         : transfer_error(std::move(loc), "destination amount is zero")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct reuse_disposable_addr : public transfer_error
+    {
+      explicit reuse_disposable_addr(std::string&& loc)
+        : transfer_error(std::move(loc), "you've already transferred to this disposable address before")
       {
       }
     };
