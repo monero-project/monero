@@ -445,8 +445,10 @@ namespace cryptonote {
     static inline bool operator!=(const crypto::secret_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
 }
 
+namespace rct {
 inline std::ostream &operator <<(std::ostream &o, const rct::key &v) {
   epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+}
 }
 
 

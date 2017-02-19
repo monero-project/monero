@@ -215,10 +215,8 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   tx_key = *reinterpret_cast<const crypto::secret_key*>(tx_key_data.data());
 
   bool testnet = address_text[0] != '4';
-  cryptonote::account_public_address address;
-  bool has_payment_id;
-  crypto::hash8 payment_id;
-  if(!cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_text))
+  cryptonote::address_parse_info info;
+  if(!cryptonote::get_account_address_from_str(info, testnet, address_text))
   {
     error = tr("failed to parse address");
     return false;
@@ -258,7 +256,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   }
 
   crypto::key_derivation derivation;
-  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+  if (!crypto::generate_key_derivation(info.address.m_view_public_key, tx_key, derivation))
   {
     error = tr("failed to generate key derivation from supplied parameters");
     return false;
@@ -272,7 +270,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
         continue;
       const cryptonote::txout_to_key tx_out_to_key = boost::get<cryptonote::txout_to_key>(tx.vout[n].target);
       crypto::public_key pubkey;
-      derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
+      derive_public_key(derivation, n, info.address.m_spend_public_key, pubkey);
       if (pubkey == tx_out_to_key.key)
       {
         uint64_t amount;
@@ -287,7 +285,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
             rct::key Ctmp;
             //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
             crypto::key_derivation derivation;
-            bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation);
+            bool r = crypto::generate_key_derivation(info.address.m_view_public_key, tx_key, derivation);
             if (!r)
             {
               LOG_ERROR("Failed to generate key derivation to decode rct output " << n);
@@ -322,11 +320,11 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
 
   if (received > 0)
   {
-    LOG_PRINT_L1(get_account_address_as_str(testnet, address) << " " << tr("received") << " " << cryptonote::print_money(received) << " " << tr("in txid") << " " << txid);
+    LOG_PRINT_L1(get_account_address_as_str(testnet, info.is_subaddress, info.address) << " " << tr("received") << " " << cryptonote::print_money(received) << " " << tr("in txid") << " " << txid);
   }
   else
   {
-    LOG_PRINT_L1(get_account_address_as_str(testnet, address) << " " << tr("received nothing in txid") << " " << txid);
+    LOG_PRINT_L1(get_account_address_as_str(testnet, info.is_subaddress, info.address) << " " << tr("received nothing in txid") << " " << txid);
   }
   if (res.txs.front().in_pool)
   {

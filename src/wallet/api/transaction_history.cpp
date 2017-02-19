@@ -130,6 +130,9 @@ void TransactionHistoryImpl::refresh()
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
+        ti->m_subaddrIndex = { pd.m_subaddr_index.minor };
+        ti->m_subaddrAccount = pd.m_subaddr_index.major;
+        ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = wallet_height - pd.m_block_height;
         ti->m_unlock_time = pd.m_unlock_time;
@@ -174,12 +177,15 @@ void TransactionHistoryImpl::refresh()
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_hash = string_tools::pod_to_hex(hash);
         ti->m_blockheight = pd.m_block_height;
+        ti->m_subaddrIndex = pd.m_subaddr_indices;
+        ti->m_subaddrAccount = pd.m_subaddr_account;
+        ti->m_label = pd.m_subaddr_indices.size() == 1 ? m_wallet->m_wallet->get_subaddress_label({pd.m_subaddr_account, *pd.m_subaddr_indices.begin()}) : "";
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = wallet_height - pd.m_block_height;
 
         // single output transaction might contain multiple transfers
         for (const auto &d: pd.m_dests) {
-            ti->m_transfers.push_back({d.amount, get_account_address_as_str(m_wallet->m_wallet->testnet(), d.addr)});
+            ti->m_transfers.push_back({d.amount, get_account_address_as_str(m_wallet->m_wallet->testnet(), d.is_subaddress, d.addr)});
         }
         m_history.push_back(ti);
     }
@@ -199,12 +205,15 @@ void TransactionHistoryImpl::refresh()
 
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
-        ti->m_amount = amount - pd.m_change;
+        ti->m_amount = amount - pd.m_change - fee;
         ti->m_fee    = fee;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_failed = is_failed;
         ti->m_pending = true;
         ti->m_hash = string_tools::pod_to_hex(hash);
+        ti->m_subaddrIndex = pd.m_subaddr_indices;
+        ti->m_subaddrAccount = pd.m_subaddr_account;
+        ti->m_label = pd.m_subaddr_indices.size() == 1 ? m_wallet->m_wallet->get_subaddress_label({pd.m_subaddr_account, *pd.m_subaddr_indices.begin()}) : "";
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
         m_history.push_back(ti);
@@ -226,6 +235,9 @@ void TransactionHistoryImpl::refresh()
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
         ti->m_pending = true;
+        ti->m_subaddrIndex = { pd.m_subaddr_index.minor };
+        ti->m_subaddrAccount = pd.m_subaddr_index.major;
+        ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
         m_history.push_back(ti);

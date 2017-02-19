@@ -50,6 +50,9 @@ public:
     //! always 0 for incoming txes
     virtual uint64_t fee() const;
     virtual uint64_t blockHeight() const;
+    virtual std::set<uint32_t> subaddrIndex() const;
+    virtual uint32_t subaddrAccount() const;
+    virtual std::string label() const;
 
     virtual std::string hash() const;
     virtual std::time_t timestamp() const;
@@ -65,6 +68,9 @@ private:
     uint64_t    m_amount;
     uint64_t    m_fee;
     uint64_t    m_blockheight;
+    std::set<uint32_t> m_subaddrIndex;        // always unique index for incoming transfers; can be multiple indices for outgoing transfers
+    uint32_t m_subaddrAccount;
+    std::string m_label;
     std::string m_hash;
     std::time_t m_timestamp;
     std::string m_paymentid;

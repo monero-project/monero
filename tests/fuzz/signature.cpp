@@ -66,9 +66,8 @@ int SignatureFuzzer::init()
     boost::filesystem::remove("/tmp/signature-test.address.txt");
     boost::filesystem::remove("/tmp/signature-test");
 
-    bool has_payment_id;
-    crypto::hash8 new_payment_id;
-    if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, true, "9uVsvEryzpN8WH2t1WWhFFCG5tS8cBNdmJYNRuckLENFimfauV5pZKeS1P2CbxGkSDTUPHXWwiYE5ZGSXDAGbaZgDxobqDN"))
+    cryptonote::address_parse_info info;
+    if (!cryptonote::get_account_address_from_str_or_url(info, true, "9uVsvEryzpN8WH2t1WWhFFCG5tS8cBNdmJYNRuckLENFimfauV5pZKeS1P2CbxGkSDTUPHXWwiYE5ZGSXDAGbaZgDxobqDN"))
     {
       std::cerr << "failed to parse address" << std::endl;
       return 1;

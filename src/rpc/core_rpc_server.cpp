@@ -693,10 +693,16 @@ namespace cryptonote
   bool core_rpc_server::on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res)
   {
     CHECK_CORE_READY();
-    account_public_address adr;
-    if(!get_account_address_from_str(adr, m_testnet, req.miner_address))
+    cryptonote::address_parse_info info;
+    if(!get_account_address_from_str(info, m_testnet, req.miner_address))
     {
       res.status = "Failed, wrong address";
+      LOG_PRINT_L0(res.status);
+      return true;
+    }
+    if (info.is_subaddress)
+    {
+      res.status = "Mining to subaddress isn't supported yet";
       LOG_PRINT_L0(res.status);
       return true;
     }
@@ -721,7 +727,7 @@ namespace cryptonote
     boost::thread::attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
 
-    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
+    if(!m_core.get_miner().start(info.address, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
     {
       res.status = "Failed, mining not started";
       LOG_PRINT_L0(res.status);
@@ -755,7 +761,7 @@ namespace cryptonote
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
       const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(m_testnet, lMiningAdr);
+      res.address = get_account_address_as_str(m_testnet, false, lMiningAdr);
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -935,19 +941,25 @@ namespace cryptonote
       return false;
     }
 
-    cryptonote::account_public_address acc = AUTO_VAL_INIT(acc);
+    cryptonote::address_parse_info info;
 
-    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(acc, m_testnet, req.wallet_address))
+    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, m_testnet, req.wallet_address))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS;
       error_resp.message = "Failed to parse wallet address";
+      return false;
+    }
+    if (info.is_subaddress)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS;
+      error_resp.message = "Mining to subaddress is not supported yet";
       return false;
     }
 
     block b = AUTO_VAL_INIT(b);
     cryptonote::blobdata blob_reserve;
     blob_reserve.resize(req.reserve_size, 0);
-    if(!m_core.get_block_template(b, acc, res.difficulty, res.height, res.expected_reward, blob_reserve))
+    if(!m_core.get_block_template(b, info.address, res.difficulty, res.height, res.expected_reward, blob_reserve))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";

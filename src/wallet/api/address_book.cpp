@@ -48,10 +48,8 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
 {
   clearStatus();
   
-  cryptonote::account_public_address addr;
-  bool has_short_pid;
-  crypto::hash8 payment_id_short;
-  if(!cryptonote::get_account_integrated_address_from_str(addr, has_short_pid, payment_id_short, m_wallet->m_wallet->testnet(), dst_addr)) {
+  cryptonote::address_parse_info info;
+  if(!cryptonote::get_account_address_from_str(info, m_wallet->m_wallet->testnet(), dst_addr)) {
     m_errorString = tr("Invalid destination address");
     m_errorCode = Invalid_Address;
     return false;
@@ -75,19 +73,19 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
   }
 
   // integrated + long payment id provided
-  if(has_long_pid && has_short_pid) {
+  if(has_long_pid && info.has_payment_id) {
     m_errorString = tr("Integrated address and long payment id can't be used at the same time");
     m_errorCode = Invalid_Payment_Id;
     return false;
   }
 
   // Pad short pid with zeros
-  if (has_short_pid)
+  if (info.has_payment_id)
   {
-    memcpy(payment_id.data, payment_id_short.data, 8);
+    memcpy(payment_id.data, info.payment_id.data, 8);
   }
   
-  bool r =  m_wallet->m_wallet->add_address_book_row(addr,payment_id,description);
+  bool r =  m_wallet->m_wallet->add_address_book_row(info.address,payment_id,description,info.is_subaddress);
   if (r)
     refresh();
   else
@@ -107,9 +105,9 @@ void AddressBookImpl::refresh()
     tools::wallet2::address_book_row * row = &rows.at(i);
     
     std::string payment_id = (row->m_payment_id == crypto::null_hash)? "" : epee::string_tools::pod_to_hex(row->m_payment_id);
-    std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->testnet(),row->m_address);
+    std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->testnet(), row->m_is_subaddress, row->m_address);
     // convert the zero padded short payment id to integrated address
-    if (payment_id.length() > 16 && payment_id.substr(16).find_first_not_of('0') == std::string::npos) {
+    if (!row->m_is_subaddress && payment_id.length() > 16 && payment_id.substr(16).find_first_not_of('0') == std::string::npos) {
         payment_id = payment_id.substr(0,16);
         crypto::hash8 payment_id_short;
         if(tools::wallet2::parse_short_payment_id(payment_id, payment_id_short)) {
