@@ -619,7 +619,11 @@ namespace cryptonote
     get_block_reward(median_size, total_size, already_generated_coins, best_coinbase, version);
 
 
+#if 1
+    size_t max_total_size = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+#else
     size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+#endif
     std::unordered_set<crypto::key_image> k_images;
 
     LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
@@ -637,6 +641,15 @@ namespace cryptonote
         continue;
       }
 
+#if 1
+      // If we've exceeded the penalty free size,
+      // stop including more tx
+      if (total_size > median_size)
+      {
+        LOG_PRINT_L2("  would exceed median block size");
+        break;
+      }
+#else
       // If we're getting lower coinbase tx,
       // stop including more tx
       uint64_t block_reward;
@@ -653,6 +666,7 @@ namespace cryptonote
         sorted_it++;
         continue;
       }
+#endif
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
@@ -667,7 +681,9 @@ namespace cryptonote
       bl.tx_hashes.push_back(tx_it->first);
       total_size += tx_it->second.blob_size;
       fee += tx_it->second.fee;
+#if 0
       best_coinbase = coinbase;
+#endif
       append_key_images(k_images, tx_it->second.tx);
       sorted_it++;
       LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
