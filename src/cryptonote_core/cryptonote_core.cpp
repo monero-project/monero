@@ -36,6 +36,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "common/util.h"
 #include "common/updates.h"
+#include "common/download.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -1088,6 +1089,35 @@ namespace cryptonote
     MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
 
     if (check_updates_level == UPDATES_NOTIFY)
+      return true;
+
+    std::string filename;
+    const char *slash = strrchr(url.c_str(), '/');
+    if (slash)
+      filename = slash + 1;
+    else
+      filename = std::string(software) + "-update-" + version;
+    boost::filesystem::path path(epee::string_tools::get_current_module_folder());
+    path /= filename;
+    if (!tools::download(path.string(), url))
+    {
+      MERROR("Failed to download " << url);
+      return false;
+    }
+    crypto::hash file_hash;
+    if (!tools::sha256sum(path.string(), file_hash))
+    {
+      MERROR("Failed to hash " << path);
+      return false;
+    }
+    if (hash != epee::string_tools::pod_to_hex(file_hash))
+    {
+      MERROR("Download from " << url << " does not match the expected hash");
+      return false;
+    }
+    MGINFO("New version downloaded to " << path);
+
+    if (check_updates_level == UPDATES_DOWNLOAD)
       return true;
 
     MERROR("Download/update not implemented yet");
