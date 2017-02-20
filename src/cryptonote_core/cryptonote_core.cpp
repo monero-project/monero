@@ -616,6 +616,12 @@ namespace cryptonote
       return false;
     }
 
+    if (!check_tx_inputs_keyimages_domain(tx))
+    {
+      MERROR_VER("tx uses key image not in the valid domain");
+      return false;
+    }
+
     if (tx.version >= 2)
     {
       const rct::rctSig &rv = tx.rct_signatures;
@@ -694,6 +700,18 @@ namespace cryptonote
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
       if(!ki.insert(tokey_in.k_image).second)
+        return false;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_tx_inputs_keyimages_domain(const transaction& tx) const
+  {
+    std::unordered_set<crypto::key_image> ki;
+    for(const auto& in: tx.vin)
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+      if (!(rct::scalarmultKey(rct::ki2rct(tokey_in.k_image), rct::curveOrder()) == rct::identity()))
         return false;
     }
     return true;
