@@ -251,7 +251,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     if (field_viewkey_found)
     {
       cryptonote::blobdata viewkey_data;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(field_viewkey, viewkey_data))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(field_viewkey, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
       {
         tools::fail_msg_writer() << tools::wallet2::tr("failed to parse view key secret key");
         return false;
@@ -269,7 +269,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     if (field_spendkey_found)
     {
       cryptonote::blobdata spendkey_data;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(field_spendkey, spendkey_data))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(field_spendkey, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
       {
         tools::fail_msg_writer() << tools::wallet2::tr("failed to parse spend key secret key");
         return false;
@@ -1456,7 +1456,7 @@ void wallet2::update_pool_state()
   for (auto it: res.transactions)
   {
     cryptonote::blobdata txid_data;
-    if(epee::string_tools::parse_hexstr_to_binbuff(it.id_hash, txid_data))
+    if(epee::string_tools::parse_hexstr_to_binbuff(it.id_hash, txid_data) && txid_data.size() == sizeof(crypto::hash))
     {
       const crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
       if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())

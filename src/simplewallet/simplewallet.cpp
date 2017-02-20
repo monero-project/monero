@@ -997,7 +997,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       cryptonote::blobdata viewkey_data;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
       {
         fail_msg_writer() << tr("failed to parse view key secret key");
         return false;
@@ -1049,7 +1049,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       cryptonote::blobdata spendkey_data;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
       {
         fail_msg_writer() << tr("failed to parse spend key secret key");
         return false;
@@ -1065,7 +1065,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       cryptonote::blobdata viewkey_data;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
       {
         fail_msg_writer() << tr("failed to parse view key secret key");
         return false;
@@ -3166,7 +3166,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
 
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return false;
@@ -3203,7 +3203,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
 
   assert(m_wallet);
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[0], txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return true;
@@ -3219,7 +3219,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   }
   crypto::secret_key tx_key;
   cryptonote::blobdata tx_key_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data) || tx_key_data.size() != sizeof(crypto::secret_key))
   {
     fail_msg_writer() << tr("failed to parse tx key");
     return true;
@@ -3851,7 +3851,7 @@ bool simple_wallet::set_tx_note(const std::vector<std::string> &args)
   }
 
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return false;
@@ -3879,7 +3879,7 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
   }
 
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return false;
@@ -4179,7 +4179,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   }
 
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return false;

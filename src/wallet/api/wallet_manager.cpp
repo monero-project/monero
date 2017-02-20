@@ -182,7 +182,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
 {
   error = "";
   cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(txid_text, txid_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(txid_text, txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     error = tr("failed to parse txid");
     return false;
@@ -196,7 +196,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   }
   crypto::secret_key tx_key;
   cryptonote::blobdata tx_key_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(txkey_text, tx_key_data))
+  if(!epee::string_tools::parse_hexstr_to_binbuff(txkey_text, tx_key_data) || tx_key_data.size() != sizeof(crypto::hash))
   {
     error = tr("failed to parse tx key");
     return false;

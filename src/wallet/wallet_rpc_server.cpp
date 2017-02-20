@@ -983,7 +983,7 @@ namespace tools
     while (i != req.txids.end())
     {
       cryptonote::blobdata txid_blob;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob) || txid_blob.size() != sizeof(crypto::hash))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
         er.message = "TX ID has invalid format";
@@ -1013,7 +1013,7 @@ namespace tools
     while (i != req.txids.end())
     {
       cryptonote::blobdata txid_blob;
-      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob))
+      if(!epee::string_tools::parse_hexstr_to_binbuff(*i++, txid_blob) || txid_blob.size() != sizeof(crypto::hash))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
         er.message = "TX ID has invalid format";
@@ -1206,7 +1206,7 @@ namespace tools
       {
         cryptonote::blobdata bd;
 
-        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].key_image, bd))
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].key_image, bd) || bd.size() != sizeof(crypto::key_image))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
           er.message = "failed to parse key image";
@@ -1214,7 +1214,7 @@ namespace tools
         }
         ski[n].first = *reinterpret_cast<const crypto::key_image*>(bd.data());
 
-        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].signature, bd))
+        if(!epee::string_tools::parse_hexstr_to_binbuff(req.signed_key_images[n].signature, bd) || bd.size() != sizeof(crypto::signature))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
           er.message = "failed to parse signature";

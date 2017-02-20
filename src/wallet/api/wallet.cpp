@@ -1157,7 +1157,7 @@ void WalletImpl::setDefaultMixin(uint32_t arg)
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return false;
     const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -1168,7 +1168,7 @@ bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 std::string WalletImpl::getUserNote(const std::string &txid) const
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return "";
     const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -1178,7 +1178,7 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
 std::string WalletImpl::getTxKey(const std::string &txid) const
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
     {
       return "";
     }
