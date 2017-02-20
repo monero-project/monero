@@ -107,14 +107,14 @@ using namespace std;
 	//---------------------------------------------------------------------------
 	static inline const char* get_hex_vals()
 	{
-		static char hexVals[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+		static const char hexVals[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 		return hexVals;
 	}
 
 	static inline const char* get_unsave_chars()
 	{
 		//static char unsave_chars[] = "\"<>%\\^[]`+$,@:;/!#?=&";
-		static char unsave_chars[] = "\"<>%\\^[]`+$,@:;!#&";
+		static const char unsave_chars[] = "\"<>%\\^[]`+$,@:;!#&";
 		return unsave_chars;
 	}
 
