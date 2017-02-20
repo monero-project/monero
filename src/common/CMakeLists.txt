@@ -76,6 +76,7 @@ target_link_libraries(common
   PUBLIC
     epee
     crypto
+    -lcrypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
