@@ -312,6 +312,9 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
+  uint64_t num_txs() const;
+  uint64_t num_outputs() const;
+
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);
   virtual uint8_t get_hard_fork_version(uint64_t height) const;
@@ -369,10 +372,8 @@ private:
 
   MDB_dbi m_properties;
 
-  uint64_t m_num_txs;
-  uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation
-  mutable int m_cum_count;
+  mutable unsigned int m_cum_count;
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
   mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
