@@ -1387,6 +1387,7 @@ namespace cryptonote
     std::pair<uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
     res.emission_amount = amounts.first;
     res.fee_amount = amounts.second;
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1437,12 +1438,14 @@ namespace cryptonote
   bool core_rpc_server::on_start_save_graph(const COMMAND_RPC_START_SAVE_GRAPH::request& req, COMMAND_RPC_START_SAVE_GRAPH::response& res)
   {
 	  m_p2p.set_save_graph(true);
+	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_stop_save_graph(const COMMAND_RPC_STOP_SAVE_GRAPH::request& req, COMMAND_RPC_STOP_SAVE_GRAPH::response& res)
   {
 	  m_p2p.set_save_graph(false);
+	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
