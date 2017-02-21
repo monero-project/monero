@@ -26,6 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+
 set(common_sources
   base58.cpp
   command_line.cpp
@@ -78,7 +80,6 @@ target_link_libraries(common
   PUBLIC
     epee
     crypto
-    -lcrypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
@@ -87,6 +88,7 @@ target_link_libraries(common
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
   PRIVATE
+    ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
 
 #monero_install_headers(common

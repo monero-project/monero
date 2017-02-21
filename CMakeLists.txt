@@ -311,6 +311,23 @@ else()
   message(STATUS "Stack trace on exception disabled")
 endif()
 
+# Handle OpenSSL, used for sha256sum on binary updates
+if (APPLE)
+  if (NOT OpenSSL_DIR)
+      EXECUTE_PROCESS(COMMAND brew --prefix openssl
+        OUTPUT_VARIABLE OPENSSL_ROOT_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Using OpenSSL found at ${OPENSSL_ROOT_DIR}")
+  endif()
+endif()
+
+find_package(OpenSSL REQUIRED)
+if(STATIC)
+  if(UNIX)
+    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS}")
+  endif()
+endif()
+
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   set(THREADS_PREFER_PTHREAD_FLAG ON)
