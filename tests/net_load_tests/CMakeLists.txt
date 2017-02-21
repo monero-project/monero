@@ -44,6 +44,7 @@ target_link_libraries(net_load_tests_clt
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBARRY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 

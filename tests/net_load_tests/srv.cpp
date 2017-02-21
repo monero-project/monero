@@ -28,8 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <mutex>
-#include <thread>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "include_base_utils.h"
 #include "misc_log_ex.h"
@@ -58,7 +58,7 @@ namespace
 
       //std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-      std::unique_lock<std::mutex> lock(m_open_close_test_mutex);
+      boost::unique_lock<boost::mutex> lock(m_open_close_test_mutex);
       if (!m_open_close_test_conn_id.is_nil())
       {
         EXIT_ON_ERROR(m_open_close_test_helper->handle_new_connection(context.m_connection_id, true));
@@ -69,7 +69,7 @@ namespace
     {
       test_levin_commands_handler::on_connection_close(context);
 
-      std::unique_lock<std::mutex> lock(m_open_close_test_mutex);
+      boost::unique_lock<boost::mutex> lock(m_open_close_test_mutex);
       if (context.m_connection_id == m_open_close_test_conn_id)
       {
         LOG_PRINT_L0("Stop open/close test");
@@ -115,7 +115,7 @@ namespace
 
     int handle_start_open_close_test(int command, const CMD_START_OPEN_CLOSE_TEST::request& req, CMD_START_OPEN_CLOSE_TEST::response&, test_connection_context& context)
     {
-      std::unique_lock<std::mutex> lock(m_open_close_test_mutex);
+      boost::unique_lock<boost::mutex> lock(m_open_close_test_mutex);
       if (0 == m_open_close_test_helper.get())
       {
         LOG_PRINT_L0("Start open/close test (" << req.open_request_target << ", " << req.max_opened_conn_count << ")");
@@ -208,7 +208,7 @@ namespace
     test_tcp_server& m_tcp_server;
 
     boost::uuids::uuid m_open_close_test_conn_id;
-    std::mutex m_open_close_test_mutex;
+    boost::mutex m_open_close_test_mutex;
     std::unique_ptr<open_close_test_helper> m_open_close_test_helper;
   };
 }
@@ -218,7 +218,7 @@ int main(int argc, char** argv)
   //set up logging options
   mlog_configure(mlog_get_default_log_path("net_load_tests_srv.log"), true);
 
-  size_t thread_count = (std::max)(min_thread_count, std::thread::hardware_concurrency() / 2);
+  size_t thread_count = (std::max)(min_thread_count, boost::thread::hardware_concurrency() / 2);
 
   test_tcp_server tcp_server(epee::net_utils::e_connection_type_RPC);
   if (!tcp_server.init_server(srv_port, "127.0.0.1"))

@@ -32,7 +32,7 @@
 #include <chrono>
 #include <functional>
 #include <numeric>
-#include <thread>
+#include <boost/thread/thread.hpp>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -191,7 +191,7 @@ namespace
   protected:
     virtual void SetUp()
     {
-      m_thread_count = (std::max)(min_thread_count, std::thread::hardware_concurrency() / 2);
+      m_thread_count = (std::max)(min_thread_count, boost::thread::hardware_concurrency() / 2);
 
       m_tcp_server.get_config_object().m_pcommands_handler = &m_commands_handler;
       m_tcp_server.get_config_object().m_invoke_timeout = CONNECTION_TIMEOUT;
@@ -278,10 +278,10 @@ namespace
     void parallel_exec(const Func& func)
     {
       unit_test::call_counter properly_finished_threads;
-      std::vector<std::thread> threads(m_thread_count);
+      std::vector<boost::thread> threads(m_thread_count);
       for (size_t i = 0; i < threads.size(); ++i)
       {
-        threads[i] = std::thread([&, i] {
+        threads[i] = boost::thread([&, i] {
           call_func(i, func, 0);
           properly_finished_threads.inc();
         });
