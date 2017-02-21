@@ -97,7 +97,9 @@ Dates are provided in the format YYYYMMDD.
 
 Packages are available for
 
-* Arch Linux via AUR: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
+* Arch Linux (via [AUR](https://aur.archlinux.org/)):
+  - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
+  - Bleeding edge: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
 
 * OS X via [Homebrew](http://brew.sh)
 
