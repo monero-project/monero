@@ -31,6 +31,7 @@
 #pragma once 
 
 #include <boost/program_options.hpp>
+#include <boost/logic/tribool_fwd.hpp>
 #include <atomic>
 #include "cryptonote_basic.h"
 #include "difficulty.h"
@@ -67,7 +68,7 @@ namespace cryptonote
     static void init_options(boost::program_options::options_description& desc);
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();
-    bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background = false);
+    bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background = false, bool ignore_battery = false);
     uint64_t get_speed() const;
     uint32_t get_threads_count() const;
     void send_stop_signal();
@@ -82,6 +83,7 @@ namespace cryptonote
     void resume();
     void do_print_hashrate(bool do_hr);
     bool get_is_background_mining_enabled() const;
+    bool get_ignore_battery() const;
     uint64_t get_min_idle_seconds() const;
     bool set_min_idle_seconds(uint64_t min_idle_seconds);
     uint8_t get_idle_threshold() const;
@@ -149,8 +151,10 @@ namespace cryptonote
     // background mining stuffs ..
 
     bool set_is_background_mining_enabled(bool is_background_mining_enabled);
+    void set_ignore_battery(bool ignore_battery);
     bool background_worker_thread();
     std::atomic<bool> m_is_background_mining_enabled;
+    bool m_ignore_battery;
     boost::mutex m_is_background_mining_enabled_mutex;
     boost::condition_variable m_is_background_mining_enabled_cond;
     std::atomic<bool> m_is_background_mining_started;
@@ -164,6 +168,6 @@ namespace cryptonote
     static bool get_system_times(uint64_t& total_time, uint64_t& idle_time);
     static bool get_process_time(uint64_t& total_time);
     static uint8_t get_percent_of_total(uint64_t some_time, uint64_t total_time);
-    static bool on_battery_power();
+    static boost::logic::tribool on_battery_power();
   };
 }
