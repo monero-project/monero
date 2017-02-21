@@ -258,6 +258,11 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
+void Wallet::init(const char *argv0, const char *default_log_base_name) {
+    epee::string_tools::set_module_name_and_folder(argv0);
+    mlog_configure(mlog_get_default_log_path(default_log_base_name), true);
+}
+
 void Wallet::debug(const std::string &str) {
     MDEBUG(str);
 }

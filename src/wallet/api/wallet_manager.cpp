@@ -451,7 +451,6 @@ WalletManager *WalletManagerFactory::getWalletManager()
     static WalletManagerImpl * g_walletManager = nullptr;
 
     if  (!g_walletManager) {
-        mlog_configure("monero-wallet-gui.log", false);
         g_walletManager = new WalletManagerImpl();
     }
 

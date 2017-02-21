@@ -429,6 +429,7 @@ struct Wallet
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
     // Easylogger wrapper
+    static void init(const char *argv0, const char *default_log_base_name);
     static void debug(const std::string &str);
 
    /**
