@@ -145,7 +145,6 @@ library archives (`.a`).
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | SSL toolkit    |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | XML parsing    |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
-| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | YES      | Historic DB    |
 | Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | Documentation  |
 | Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | Documentation  |
 
