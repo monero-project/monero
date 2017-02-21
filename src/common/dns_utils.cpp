@@ -37,6 +37,7 @@
 
 #include <stdlib.h>
 #include "include_base_utils.h"
+#include <random>
 #include <boost/filesystem/fstream.hpp>
 using namespace epee;
 namespace bf = boost::filesystem;
@@ -449,6 +450,107 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
     return {};
   }
   return addresses[0];
+}
+
+namespace
+{
+  bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
+  {
+    if (a.size() != b.size()) return false;
+
+    for (const auto& record_in_a : a)
+    {
+      bool ok = false;
+      for (const auto& record_in_b : b)
+      {
+	if (record_in_a == record_in_b)
+	{
+	  ok = true;
+	  break;
+	}
+      }
+      if (!ok) return false;
+    }
+
+    return true;
+  }
+}
+
+bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std::vector<std::string> &dns_urls)
+{
+  std::vector<std::vector<std::string> > records;
+  records.resize(dns_urls.size());
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
+  size_t first_index = dis(gen);
+
+  bool avail, valid;
+  size_t cur_index = first_index;
+  do
+  {
+    std::string url = dns_urls[cur_index];
+
+    records[cur_index] = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+    if (!avail)
+    {
+      records[cur_index].clear();
+      LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
+    }
+    if (!valid)
+    {
+      records[cur_index].clear();
+      LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
+    }
+
+    cur_index++;
+    if (cur_index == dns_urls.size())
+    {
+      cur_index = 0;
+    }
+  } while (cur_index != first_index);
+
+  size_t num_valid_records = 0;
+
+  for( const auto& record_set : records)
+  {
+    if (record_set.size() != 0)
+    {
+      num_valid_records++;
+    }
+  }
+
+  if (num_valid_records < 2)
+  {
+    LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
+    return false;
+  }
+
+  int good_records_index = -1;
+  for (size_t i = 0; i < records.size() - 1; ++i)
+  {
+    if (records[i].size() == 0) continue;
+
+    for (size_t j = i + 1; j < records.size(); ++j)
+    {
+      if (dns_records_match(records[i], records[j]))
+      {
+        good_records_index = i;
+        break;
+      }
+    }
+    if (good_records_index >= 0) break;
+  }
+
+  if (good_records_index < 0)
+  {
+    LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+    return false;
+  }
+
+  good_records = records[good_records_index];
+  return true;
 }
 
 }  // namespace tools::dns_utils

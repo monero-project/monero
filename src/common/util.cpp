@@ -31,6 +31,7 @@
 #include <cstdio>
 
 #include "include_base_utils.h"
+#include "file_io_utils.h"
 using namespace epee;
 
 #include "util.h"
@@ -46,7 +47,7 @@ using namespace epee;
 #endif
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
-
+#include <openssl/sha.h>
 
 namespace tools
 {
@@ -567,5 +568,54 @@ std::string get_nix_version_display_string()
 
     MDEBUG("Address '" << address << "' is not local");
     return false;
+  }
+  int vercmp(const char *v0, const char *v1)
+  {
+    std::vector<std::string> f0, f1;
+    boost::split(f0, v0, boost::is_any_of("."));
+    boost::split(f1, v1, boost::is_any_of("."));
+    while (f0.size() < f1.size())
+      f0.push_back("0");
+    while (f1.size() < f0.size())
+      f1.push_back("0");
+    for (size_t i = 0; i < f0.size(); ++i) {
+      int f0i = atoi(f0[i].c_str()), f1i = atoi(f1[i].c_str());
+      int n = f0i - f1i;
+      if (n)
+        return n;
+    }
+    return 0;
+  }
+
+  bool sha256sum(const std::string &filename, crypto::hash &hash)
+  {
+    if (!epee::file_io_utils::is_file_exist(filename))
+      return false;
+    std::ifstream f;
+    f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    f.open(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
+    if (!f)
+      return false;
+    std::ifstream::pos_type file_size = f.tellg();
+    SHA256_CTX ctx;
+    if (!SHA256_Init(&ctx))
+      return false;
+    size_t size_left = file_size;
+    f.seekg(0, std::ios::beg);
+    while (size_left)
+    {
+      char buf[4096];
+      std::ifstream::pos_type read_size = size_left > sizeof(buf) ? sizeof(buf) : size_left;
+      f.read(buf, read_size);
+      if (!f || !f.good())
+        return false;
+      if (!SHA256_Update(&ctx, buf, read_size))
+        return false;
+      size_left -= read_size;
+    }
+    f.close();
+    if (!SHA256_Final((unsigned char*)hash.data, &ctx))
+      return false;
+    return true;
   }
 }

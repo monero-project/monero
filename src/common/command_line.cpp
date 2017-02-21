@@ -120,4 +120,9 @@ namespace command_line
   , "How many blocks to sync at once during chain synchronization."
   , BLOCKS_SYNCHRONIZING_DEFAULT_COUNT
   };
+  const command_line::arg_descriptor<std::string> arg_check_updates = {
+    "check-updates"
+  , "Check for new versions of monero: [disabled|notify|download|update]"
+  , "notify"
+  };
 }

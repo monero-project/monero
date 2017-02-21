@@ -745,6 +745,16 @@ namespace cryptonote
      bool check_tx_inputs_keyimages_diff(const transaction& tx) const;
 
      /**
+      * @brief verify that each input key image in a transaction is in
+      * the valid domain
+      *
+      * @param tx the transaction to check
+      *
+      * @return false if any key image is not in the valid domain, otherwise true
+      */
+     bool check_tx_inputs_keyimages_domain(const transaction& tx) const;
+
+     /**
       * @brief checks HardFork status and prints messages about it
       *
       * Checks the status of HardFork and logs/prints if an update to
@@ -762,6 +772,13 @@ namespace cryptonote
       * @return true
       */
      bool relay_txpool_transactions();
+
+     /**
+      * @brief checks DNS versions
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_updates();
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
@@ -783,8 +800,9 @@ namespace cryptonote
      cryptonote_protocol_stub m_protocol_stub; //!< cryptonote protocol stub instance
 
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
-     epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner; //!< interval for checking HardFork status
+     epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
+     epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
 
      friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
@@ -808,6 +826,13 @@ namespace cryptonote
      time_t start_time;
 
      std::unordered_set<crypto::hash> bad_semantics_txes;
+
+     enum {
+       UPDATES_DISABLED,
+       UPDATES_NOTIFY,
+       UPDATES_DOWNLOAD,
+       UPDATES_UPDATE,
+     } check_updates_level;
    };
 }
 

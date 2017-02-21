@@ -88,7 +88,7 @@ static const char *get_default_categories(int level)
   switch (level)
   {
     case 0:
-      categories = "*:WARNING,net*:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
+      categories = "*:WARNING,net:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
       break;
     case 1:
       categories = "*:WARNING,global:INFO,stacktrace:INFO";

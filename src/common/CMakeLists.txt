@@ -30,12 +30,14 @@ set(common_sources
   base58.cpp
   command_line.cpp
   dns_utils.cpp
+  download.cpp
   util.cpp
   i18n.cpp
   password.cpp
   perf_timer.cpp
   task_region.cpp
-  thread_group.cpp)
+  thread_group.cpp
+  updates.cpp)
 
 if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
@@ -49,6 +51,7 @@ set(common_private_headers
   command_line.h
   common_fwd.h
   dns_utils.h
+  download.h
   http_connection.h
   int-util.h
   pod-class.h
@@ -62,7 +65,8 @@ set(common_private_headers
   perf_timer.h
   stack_trace.h
   task_region.h
-  thread_group.h)
+  thread_group.h
+  updates.h)
 
 monero_private_headers(common
   ${common_private_headers})
@@ -74,6 +78,7 @@ target_link_libraries(common
   PUBLIC
     epee
     crypto
+    -lcrypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
