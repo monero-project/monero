@@ -3544,7 +3544,7 @@ void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uin
 {
   try
   {
-    m_db->get_output_key(amount, offsets, outputs);
+    m_db->get_output_key(amount, offsets, outputs, true);
   }
   catch (const std::exception& e)
   {
