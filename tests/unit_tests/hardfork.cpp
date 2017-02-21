@@ -32,6 +32,7 @@
 #include "gtest/gtest.h"
 
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/hardfork.h"
 
 using namespace cryptonote;
@@ -59,7 +60,7 @@ public:
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
-  virtual blobdata get_block_blob_from_height(const uint64_t& height) const { return blobdata(); }
+  virtual blobdata get_block_blob_from_height(const uint64_t& height) const { return cryptonote::t_serializable_object_to_blob(get_block_from_height(height)); }
   virtual blobdata get_block_blob(const crypto::hash& h) const { return blobdata(); }
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
