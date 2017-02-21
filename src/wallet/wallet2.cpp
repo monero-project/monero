@@ -4217,13 +4217,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     // get a random unspent output and use it to pay part (or all) of the current destination (and maybe next one, etc)
     // This could be more clever, but maybe at the cost of making probabilistic inferences easier
     size_t idx;
-    if ((dsts.empty() || dsts[0].amount == 0) && !adding_fee)
+    if ((dsts.empty() || dsts[0].amount == 0) && !adding_fee) {
       // the "make rct txes 2/2" case - we pick a small value output to "clean up" the wallet too
       idx = pop_best_value(unused_dust_indices.empty() ? unused_transfers_indices : unused_dust_indices, tx.selected_transfers, true);
-    else if (!prefered_inputs.empty()) {
-      idx = pop_back(prefered_inputs);
-      pop_if_present(unused_transfers_indices, idx);
-      pop_if_present(unused_dust_indices, idx);
 
       // since we're trying to add a second output which is not strictly needed,
       // we only add it if it's unrelated enough to the first one
@@ -4233,6 +4229,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         LOG_PRINT_L2("Second outout was not strictly needed, and relatedness " << relatedness << ", not adding");
         break;
       }
+    } else if (!prefered_inputs.empty()) {
+      idx = pop_back(prefered_inputs);
+      pop_if_present(unused_transfers_indices, idx);
+      pop_if_present(unused_dust_indices, idx);
     } else
       idx = pop_best_value(unused_transfers_indices.empty() ? unused_dust_indices : unused_transfers_indices, tx.selected_transfers);
 
