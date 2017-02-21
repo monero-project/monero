@@ -59,7 +59,9 @@ public:
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
-  virtual block get_block(const crypto::hash& h) const { return block(); }
+  virtual blobdata get_block_blob_from_height(const uint64_t& height) const { return blobdata(); }
+  virtual blobdata get_block_blob(const crypto::hash& h) const { return blobdata(); }
+  virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
   virtual block_header get_block_header(const crypto::hash& h) const { return block_header(); }
   virtual uint64_t get_block_timestamp(const uint64_t& height) const { return 0; }

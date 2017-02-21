@@ -634,6 +634,9 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
+    
+    std::list<std::pair<cryptonote::blobdata, block>> local_blocks;
+    std::list<cryptonote::blobdata> local_txs;
 
     block b;
     if (!m_core.get_block_by_hash(arg.block_hash, b))

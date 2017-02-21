@@ -170,13 +170,13 @@ public:
 
   virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const;
 
-  virtual block get_block(const crypto::hash& h) const;
-
   virtual uint64_t get_block_height(const crypto::hash& h) const;
 
   virtual block_header get_block_header(const crypto::hash& h) const;
 
-  virtual block get_block_from_height(const uint64_t& height) const;
+  virtual cryptonote::blobdata get_block_blob(const crypto::hash& h) const;
+
+  virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const;
 
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
@@ -207,9 +207,7 @@ public:
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
-  virtual transaction get_tx(const crypto::hash& h) const;
-
-  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+  virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
 
   virtual uint64_t get_tx_count() const;
 

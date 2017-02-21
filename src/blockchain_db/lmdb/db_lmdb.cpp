@@ -1460,12 +1460,12 @@ bool BlockchainLMDB::block_exists(const crypto::hash& h, uint64_t *height) const
   return ret;
 }
 
-block BlockchainLMDB::get_block(const crypto::hash& h) const
+cryptonote::blobdata BlockchainLMDB::get_block_blob(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  return get_block_from_height(get_block_height(h));
+  return get_block_blob_from_height(get_block_height(h));
 }
 
 uint64_t BlockchainLMDB::get_block_height(const crypto::hash& h) const
@@ -1498,7 +1498,7 @@ block_header BlockchainLMDB::get_block_header(const crypto::hash& h) const
   return get_block(h);
 }
 
-block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
+cryptonote::blobdata BlockchainLMDB::get_block_blob_from_height(const uint64_t& height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1519,13 +1519,9 @@ block BlockchainLMDB::get_block_from_height(const uint64_t& height) const
   blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
 
-  block b;
-  if (!parse_and_validate_block_from_blob(bd, b))
-    throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
-
   TXN_POSTFIX_RDONLY();
 
-  return b;
+  return bd;
 }
 
 uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
@@ -1868,7 +1864,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   return ret;
 }
 
-bool BlockchainLMDB::get_tx(const crypto::hash& h, transaction &tx) const
+bool BlockchainLMDB::get_tx_blob(const crypto::hash& h, cryptonote::blobdata &bd) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1891,24 +1887,11 @@ bool BlockchainLMDB::get_tx(const crypto::hash& h, transaction &tx) const
   else if (get_result)
     throw0(DB_ERROR(lmdb_error("DB error attempting to fetch tx from hash", get_result).c_str()));
 
-  blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
-
-  if (!parse_and_validate_tx_from_blob(bd, tx))
-    throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
 
   TXN_POSTFIX_RDONLY();
 
   return true;
-}
-
-transaction BlockchainLMDB::get_tx(const crypto::hash& h) const
-{
-  transaction tx;
-
-  if (!get_tx(h, tx))
-    throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
-  return tx;
 }
 
 uint64_t BlockchainLMDB::get_tx_count() const
