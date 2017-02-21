@@ -155,6 +155,8 @@ namespace cryptonote
     // we now also need some of net_node's options (p2p bind arg, for separate data dir)
     command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
     command_line::add_arg(desc, nodetool::arg_p2p_bind_port, false);
+
+    miner::init_options(desc);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
