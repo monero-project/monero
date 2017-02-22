@@ -35,7 +35,7 @@
 
 namespace tools
 {
-  bool check_updates(const std::string &software, const std::string &buildtag, bool testnet, std::string &version, std::string &hash)
+  bool check_updates(const std::string &software, const std::string &buildtag, std::string &version, std::string &hash)
   {
     std::vector<std::string> records;
     bool found = false;
@@ -50,10 +50,7 @@ namespace tools
         "updates.moneropulse.se"
     };
 
-    static const std::vector<std::string> testnet_dns_urls = { "testver.moneropulse.net"
-    };
-
-    if (!tools::dns_utils::load_txt_records_from_dns(records, testnet ? testnet_dns_urls : dns_urls))
+    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return false;
 
     for (const auto& record : records)

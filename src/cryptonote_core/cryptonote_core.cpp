@@ -1101,7 +1101,7 @@ namespace cryptonote
 
     std::string version, hash;
     MCDEBUG("updates", "Checking for a new " << software << " version for " << buildtag);
-    if (!tools::check_updates(software, buildtag, m_testnet, version, hash))
+    if (!tools::check_updates(software, buildtag, version, hash))
       return false;
 
     if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
