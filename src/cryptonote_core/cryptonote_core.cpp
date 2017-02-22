@@ -1107,12 +1107,13 @@ namespace cryptonote
     if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
       return true;
 
-    std::string url = tools::get_update_url(software, subdir, buildtag, version);
+    std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
     MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
 
     if (check_updates_level == UPDATES_NOTIFY)
       return true;
 
+    url = tools::get_update_url(software, subdir, buildtag, version, false);
     std::string filename;
     const char *slash = strrchr(url.c_str(), '/');
     if (slash)
