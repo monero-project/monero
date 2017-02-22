@@ -1561,16 +1561,15 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
 
   assert(m_wallet);
-  COMMAND_RPC_START_MINING::request req;
+  COMMAND_RPC_START_MINING::request req = AUTO_VAL_INIT(req); 
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
-  if (0 == args.size())
-  {
-    req.threads_count = 1;
-  }
-  else if (1 == args.size())
+  size_t arg_size = args.size();
+  if(arg_size >= 3) req.ignore_battery = args[2] == "true";
+  if(arg_size >= 2) req.do_background_mining = args[1] == "true";
+  if(arg_size >= 1)
   {
     uint16_t num = 1;
     ok = string_tools::get_xtype_from_string(num, args[0]);
@@ -1579,12 +1578,12 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   }
   else
   {
-    ok = false;
+    req.threads_count = 1;
   }
 
   if (!ok)
   {
-    fail_msg_writer() << tr("invalid arguments. Please use start_mining [<number_of_threads>], "
+    fail_msg_writer() << tr("invalid arguments. Please use start_mining [<number_of_threads>] [do_bg_mining] [ignore_battery], "
       "<number_of_threads> should be from 1 to ") << max_mining_threads_count;
     return true;
   }
