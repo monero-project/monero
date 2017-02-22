@@ -1100,7 +1100,7 @@ namespace cryptonote
       return true;
 
     std::string version, hash;
-    MDEBUG("Checking for a new " << software << " version for " << buildtag);
+    MCDEBUG("updates", "Checking for a new " << software << " version for " << buildtag);
     if (!tools::check_updates(software, buildtag, m_testnet, version, hash))
       return false;
 
@@ -1121,28 +1121,37 @@ namespace cryptonote
       filename = std::string(software) + "-update-" + version;
     boost::filesystem::path path(epee::string_tools::get_current_module_folder());
     path /= filename;
-    if (!tools::download(path.string(), url))
-    {
-      MERROR("Failed to download " << url);
-      return false;
-    }
+
     crypto::hash file_hash;
-    if (!tools::sha256sum(path.string(), file_hash))
+    if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
     {
-      MERROR("Failed to hash " << path);
-      return false;
+      MCDEBUG("updates", "We don't have that file already, downloading");
+      if (!tools::download(path.string(), url))
+      {
+        MCERROR("updates", "Failed to download " << url);
+        return false;
+      }
+      if (!tools::sha256sum(path.string(), file_hash))
+      {
+        MCERROR("updates", "Failed to hash " << path);
+        return false;
+      }
+      if (hash != epee::string_tools::pod_to_hex(file_hash))
+      {
+        MCERROR("updates", "Download from " << url << " does not match the expected hash");
+        return false;
+      }
+      MCINFO("updates", "New version downloaded to " << path);
     }
-    if (hash != epee::string_tools::pod_to_hex(file_hash))
+    else
     {
-      MERROR("Download from " << url << " does not match the expected hash");
-      return false;
+      MCDEBUG("updates", "We already have " << path << " with expected hash");
     }
-    MGINFO("New version downloaded to " << path);
 
     if (check_updates_level == UPDATES_DOWNLOAD)
       return true;
 
-    MERROR("Download/update not implemented yet");
+    MCERROR("updates", "Download/update not implemented yet");
     return true;
   }
   //-----------------------------------------------------------------------------------------------
