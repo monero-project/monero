@@ -1088,7 +1088,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_updates()
   {
-    static const char software[] = "monerod";
+    static const char software[] = "monero";
     static const char subdir[] = "cli"; // because it can never be simple
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
@@ -1141,7 +1141,7 @@ namespace cryptonote
         MCERROR("updates", "Download from " << url << " does not match the expected hash");
         return false;
       }
-      MCINFO("updates", "New version downloaded to " << path);
+      MGINFO("New version downloaded to " << path);
     }
     else
     {
