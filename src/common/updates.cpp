@@ -35,7 +35,7 @@
 
 namespace tools
 {
-  bool check_updates(const std::string &software, const std::string &buildtag, bool testnet, std::string &version, std::string &hash)
+  bool check_updates(const std::string &software, const std::string &buildtag, std::string &version, std::string &hash)
   {
     std::vector<std::string> records;
     bool found = false;
@@ -44,12 +44,13 @@ namespace tools
 
     // All four MoneroPulse domains have DNSSEC on and valid
     static const std::vector<std::string> dns_urls = {
+        "updates.moneropulse.org",
+        "updates.moneropulse.net",
+        "updates.moneropulse.co",
+        "updates.moneropulse.se"
     };
 
-    static const std::vector<std::string> testnet_dns_urls = { "testver.moneropulse.net"
-    };
-
-    if (!tools::dns_utils::load_txt_records_from_dns(records, testnet ? testnet_dns_urls : dns_urls))
+    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return false;
 
     for (const auto& record : records)
@@ -94,9 +95,9 @@ namespace tools
     return found;
   }
 
-  std::string get_update_url(const std::string &software, const std::string &subdir, const std::string &buildtag, const std::string &version)
+  std::string get_update_url(const std::string &software, const std::string &subdir, const std::string &buildtag, const std::string &version, bool user)
   {
-    static const char base[] = "https://updates.getmonero.org/";
+    static const char *base = user ? "https://downloads.getmonero.org/" : "http://updates.getmonero.org/";
 #ifdef _WIN32
     static const char extension[] = ".zip";
 #else

@@ -1088,7 +1088,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_updates()
   {
-    static const char software[] = "monerod";
+    static const char software[] = "monero";
     static const char subdir[] = "cli"; // because it can never be simple
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
@@ -1101,18 +1101,19 @@ namespace cryptonote
 
     std::string version, hash;
     MCDEBUG("updates", "Checking for a new " << software << " version for " << buildtag);
-    if (!tools::check_updates(software, buildtag, m_testnet, version, hash))
+    if (!tools::check_updates(software, buildtag, version, hash))
       return false;
 
     if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
       return true;
 
-    std::string url = tools::get_update_url(software, subdir, buildtag, version);
+    std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
     MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
 
     if (check_updates_level == UPDATES_NOTIFY)
       return true;
 
+    url = tools::get_update_url(software, subdir, buildtag, version, false);
     std::string filename;
     const char *slash = strrchr(url.c_str(), '/');
     if (slash)
@@ -1141,7 +1142,7 @@ namespace cryptonote
         MCERROR("updates", "Download from " << url << " does not match the expected hash");
         return false;
       }
-      MCINFO("updates", "New version downloaded to " << path);
+      MGINFO("New version downloaded to " << path);
     }
     else
     {
