@@ -97,7 +97,7 @@ namespace tools
 
   std::string get_update_url(const std::string &software, const std::string &subdir, const std::string &buildtag, const std::string &version, bool user)
   {
-    static const char *base = user ? "https://downloads.getmonero.org/" : "http://updates.getmonero.org/";
+    const char *base = user ? "https://downloads.getmonero.org/" : "http://updates.getmonero.org/";
 #ifdef _WIN32
     static const char extension[] = ".zip";
 #else
