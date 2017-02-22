@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -406,9 +406,11 @@ namespace nodetool
     if (testnet)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      full_addrs.insert("163.172.182.165:28080");
-      full_addrs.insert("204.12.248.66:28080");
+      full_addrs.insert("212.83.175.67:28080");
       full_addrs.insert("5.9.100.248:28080");
+      full_addrs.insert("163.172.182.165:28080");
+      full_addrs.insert("195.154.123.123:28080");
+      full_addrs.insert("212.83.172.165:28080");
     }
     else
     {
@@ -484,11 +486,15 @@ namespace nodetool
       if (!full_addrs.size())
       {
         MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
-        full_addrs.insert("198.74.231.92:18080");
-        full_addrs.insert("161.67.132.39:18080");
-        full_addrs.insert("163.172.182.165:18080");
-        full_addrs.insert("204.12.248.66:18080");
+
+        full_addrs.insert("107.152.130.98:18080");
+        full_addrs.insert("212.83.175.67:18080");
         full_addrs.insert("5.9.100.248:18080");
+        full_addrs.insert("163.172.182.165:18080");
+        full_addrs.insert("161.67.132.39:18080");
+        full_addrs.insert("198.74.231.92:18080");
+        full_addrs.insert("195.154.123.123:28080");
+        full_addrs.insert("212.83.172.165:28080");
       }
     }
 
