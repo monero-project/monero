@@ -3995,10 +3995,37 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
+static const char expected_block_hashes_hash[] = "23d8a8c73de7b2383c72a016d9a6034e69d62dd48077d1c414e064ceab6daa94";
 void Blockchain::load_compiled_in_block_hashes()
 {
   if (m_fast_sync && get_blocks_dat_start(m_testnet) != nullptr)
   {
+    MINFO("Loading precomputed blocks (" << get_blocks_dat_size(m_testnet) << " bytes)");
+
+    if (!m_testnet)
+    {
+      // first check hash
+      crypto::hash hash;
+      if (!tools::sha256sum(get_blocks_dat_start(m_testnet), get_blocks_dat_size(m_testnet), hash))
+      {
+        MERROR("Failed to hash precomputed blocks data");
+        return;
+      }
+      MINFO("precomputed blocks hash: " << hash << ", expected " << expected_block_hashes_hash);
+      cryptonote::blobdata expected_hash_data;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(std::string(expected_block_hashes_hash), expected_hash_data) || expected_hash_data.size() != sizeof(crypto::hash))
+      {
+        MERROR("Failed to parse expected block hashes hash");
+        return;
+      }
+      const crypto::hash expected_hash = *reinterpret_cast<const crypto::hash*>(expected_hash_data.data());
+      if (hash != expected_hash)
+      {
+        MERROR("Block hash data does not match expected hash");
+        return;
+      }
+    }
+
     if (get_blocks_dat_size(m_testnet) > 4)
     {
       const unsigned char *p = get_blocks_dat_start(m_testnet);
@@ -4006,7 +4033,6 @@ void Blockchain::load_compiled_in_block_hashes()
       const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
       if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size(m_testnet) >= size_needed)
       {
-        MINFO("Loading precomputed blocks: " << nblocks);
         p += sizeof(uint32_t);
         for (uint32_t i = 0; i < nblocks; i++)
         {
@@ -4015,6 +4041,7 @@ void Blockchain::load_compiled_in_block_hashes()
           p += sizeof(hash.data);
           m_blocks_hash_check.push_back(hash);
         }
+        MINFO(nblocks << " block hashes loaded");
 
         // FIXME: clear tx_pool because the process might have been
         // terminated and caused it to store txs kept by blocks.
