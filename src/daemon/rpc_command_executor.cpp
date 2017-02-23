@@ -162,6 +162,34 @@ bool t_rpc_command_executor::print_peer_list() {
   return true;
 }
 
+bool t_rpc_command_executor::print_peer_list_stats() {
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
+
+  std::string failure_message = "Couldn't retrieve peer list";
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_peer_list", failure_message.c_str()))
+    {
+      return false;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_peer_list(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << failure_message;
+      return false;
+    }
+  }
+
+  tools::msg_writer()
+    << "White list size: " << res.white_list.size() << "/" << P2P_LOCAL_WHITE_PEERLIST_LIMIT << " (" << res.white_list.size() *  100.0 / P2P_LOCAL_WHITE_PEERLIST_LIMIT << "%)" << std::endl
+    << "Gray list size: " << res.gray_list.size() << "/" << P2P_LOCAL_GRAY_PEERLIST_LIMIT << " (" << res.gray_list.size() *  100.0 / P2P_LOCAL_GRAY_PEERLIST_LIMIT << "%)";
+
+  return true;
+}
+
 bool t_rpc_command_executor::save_blockchain() {
   cryptonote::COMMAND_RPC_SAVE_BC::request req;
   cryptonote::COMMAND_RPC_SAVE_BC::response res;
