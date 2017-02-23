@@ -836,7 +836,7 @@ namespace cryptonote
 
      time_t start_time;
 
-     std::unordered_set<crypto::hash> bad_semantics_txes;
+     std::unordered_set<crypto::hash> bad_semantics_txes[2];
 
      enum {
        UPDATES_DISABLED,

@@ -60,6 +60,8 @@ DISABLE_VS_WARNINGS(4355)
 
 #define MERROR_VER(x) MCERROR("verify", x)
 
+#define BAD_SEMANTICS_TXES_MAX_SIZE 100
+
 namespace cryptonote
 {
 
@@ -496,11 +498,14 @@ namespace cryptonote
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
 
-    if (bad_semantics_txes.find(tx_hash) != bad_semantics_txes.end())
+    for (int idx = 0; idx < 2; ++idx)
     {
-      LOG_PRINT_L1("Transaction already seen with bad semantics, rejected");
-      tvc.m_verifivation_failed = true;
-      return false;
+      if (bad_semantics_txes[idx].find(tx_hash) != bad_semantics_txes[idx].end())
+      {
+        LOG_PRINT_L1("Transaction already seen with bad semantics, rejected");
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
     }
 
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
@@ -551,8 +556,13 @@ namespace cryptonote
     if(!check_tx_semantic(tx, keeped_by_block))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
-      bad_semantics_txes.insert(tx_hash);
       tvc.m_verifivation_failed = true;
+      bad_semantics_txes[0].insert(tx_hash);
+      if (bad_semantics_txes[0].size() >= BAD_SEMANTICS_TXES_MAX_SIZE)
+      {
+        std::swap(bad_semantics_txes[0], bad_semantics_txes[1]);
+        bad_semantics_txes[0].clear();
+      }
       return false;
     }
 
