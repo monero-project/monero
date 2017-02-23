@@ -2298,7 +2298,11 @@ bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
     req_t.id = epee::serialization::storage_entry(0);
     req_t.method = "get_version";
     bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
-    if (!r || resp_t.result.status != CORE_RPC_STATUS_OK)
+    if(!r) {
+      *version = 0;
+      return false;
+    }
+    if (resp_t.result.status != CORE_RPC_STATUS_OK)
       *version = 0;
     else
       *version = resp_t.result.version;
