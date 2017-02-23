@@ -37,7 +37,7 @@ namespace cryptonote
   rpc_args::descriptors::descriptors()
      : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify ip to bind rpc server"), "127.0.0.1"})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
-     , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rcp-bind-ip value is NOT a loopback (local) IP")})
+     , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
   {}
 
   const char* rpc_args::tr(const char* str) { return i18n_translate(str, "cryptonote::rpc_args"); }
