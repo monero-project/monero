@@ -168,7 +168,6 @@ int main(int argc, char const * argv[])
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
         command_line::get_arg(vm, data_dir_arg));
-    tools::create_directories_if_necessary(data_dir.string());
 
     // FIXME: not sure on windows implementation default, needs further review
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
@@ -215,6 +214,9 @@ int main(int argc, char const * argv[])
     {
       mlog_set_log(command_line::get_arg(vm, daemon_args::arg_log_level).c_str());
     }
+
+    // after logs initialized
+    tools::create_directories_if_necessary(data_dir.string());
 
     // If there are positional options, we're running a daemon command
     {
