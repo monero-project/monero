@@ -281,20 +281,33 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool& is_disposable, cryptonote::account_public_address& disposable_addr, epee::json_rpc::error& er)
   {
     crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
     std::string extra_nonce;
+    is_disposable = false;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
       cryptonote::tx_destination_entry de;
       bool has_payment_id;
       crypto::hash8 new_payment_id;
-      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address))
+      bool is_disposable_temp;
+      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, is_disposable_temp, m_wallet.testnet(), it->address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
         return false;
+      }
+      is_disposable = is_disposable || is_disposable_temp;
+      if (is_disposable_temp)
+      {
+        disposable_addr = de.addr;
+        if (m_wallet.check_sent_disposable_addresses(disposable_addr))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_SENT_DISPOSABLE_ADDR;
+          er.message = std::string("WALLET_RPC_ERROR_CODE_SENT_DISPOSABLE_ADDR: ") + it->address;
+          return false;
+        }
       }
       de.amount = it->amount;
       dsts.push_back(de);
@@ -359,6 +372,8 @@ namespace tools
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     LOG_PRINT_L3("on_transfer_split starts");
     if (m_wallet.restricted())
@@ -369,7 +384,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -381,7 +396,7 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_disposable, req.trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -420,6 +435,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -428,6 +445,8 @@ namespace tools
 
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     if (m_wallet.restricted())
     {
@@ -437,7 +456,7 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -451,7 +470,7 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_disposable, req.trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       LOG_PRINT_L2("on_transfer_split calling commit_txyy");
@@ -489,6 +508,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -545,6 +566,8 @@ namespace tools
   {
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
 
     if (m_wallet.restricted())
     {
@@ -558,14 +581,14 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, er))
+    if (!validate_transfer(destination, req.payment_id, dsts, extra, is_disposable, disposable_addr, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, is_disposable, req.trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
@@ -600,6 +623,8 @@ namespace tools
       er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
       return false;
     }
+    if (is_disposable)
+      m_wallet.add_sent_disposable_addresses(disposable_addr);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -632,6 +657,22 @@ namespace tools
       er.message = e.what();
       return false;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_disposable_address(const wallet_rpc::COMMAND_RPC_MAKE_DISPOSABLE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_DISPOSABLE_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    std::string adr_str;
+    cryptonote::account_public_address adr;
+    crypto::hash8 payment_id;
+    if (!m_wallet.make_disposable_address(adr_str, adr, payment_id))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_FAILED_MAKE_DISPOSABLE;
+      er.message = "Failed to make disposable address";
+      return false;
+    }
+    res.disposable_address = adr_str;
+    res.payment_id = epee::string_tools::pod_to_hex(payment_id);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

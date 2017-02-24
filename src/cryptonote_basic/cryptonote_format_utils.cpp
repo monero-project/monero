@@ -122,6 +122,26 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool generate_key_image_helper_disposable(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& disposable_c, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2)
+  {
+    if (!generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
+      return false;
+    if (disposable_c)
+    {
+      crypto::secret_key d;
+      crypto::public_key D;
+      crypto::hash_to_scalar(disposable_c->data, HASH_SIZE, d);
+      secret_key_to_public_key(d, D);
+      account_keys ack2;
+      ack2.m_view_secret_key = *disposable_c;
+      sc_add((unsigned char*)ack2.m_spend_secret_key.data, (unsigned char*)&ack.m_spend_secret_key, (unsigned char*)&d);
+      crypto::add_public_key(ack.m_account_address.m_spend_public_key, D, ack2.m_account_address.m_spend_public_key);
+      if (!generate_key_image_helper(ack2, tx_public_key, real_output_index, in_ephemeral2, ki2))
+        return false;
+    }
+    return true;
+  }
+  //---------------------------------------------------------------
   uint64_t power_integral(uint64_t a, uint64_t b)
   {
     if(b == 0)
@@ -338,6 +358,26 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool set_unencrypted_payment_id_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    tx_extra_nonce extra_nonce;
+    src.unencrypted_payment_id = null_hash;
+    if (parse_tx_extra(tx_extra, tx_extra_fields) && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+    {
+      if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, src.unencrypted_payment_id))
+        return true;
+      crypto::hash8 payment_id8;
+      if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+      {
+        memcpy(src.unencrypted_payment_id.data, payment_id8.data, 8);
+        memset(src.unencrypted_payment_id.data + 8, 0, 24);
+        return true;
+      }
+    }
+    return false;
+  }
+  //---------------------------------------------------------------
   bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
   {
     crypto::key_derivation derivation;
@@ -360,6 +400,22 @@ namespace cryptonote
   {
     // Encryption and decryption are the same operation (xor with a key)
     return encrypt_payment_id(payment_id, public_key, secret_key);
+  }
+  //---------------------------------------------------------------
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
+  {
+    if (destinations.empty())
+      return null_pkey;
+    for (size_t n = 1; n < destinations.size(); ++n)
+    {
+      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
+        continue;
+      if (destinations[n].amount == 0)
+        continue;
+      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
+        return null_pkey;
+    }
+    return destinations[0].addr.m_view_public_key;
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)

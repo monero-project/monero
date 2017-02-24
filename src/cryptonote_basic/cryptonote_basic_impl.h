@@ -86,6 +86,12 @@ namespace cryptonote {
     , const crypto::hash8& payment_id
     );
 
+  std::string get_account_disposable_address_as_str(
+      bool testnet
+    , const account_public_address& adr
+    , const crypto::hash8& payment_id
+    );
+
   bool get_account_integrated_address_from_str(
       account_public_address& adr
     , bool& has_payment_id
@@ -104,6 +110,15 @@ namespace cryptonote {
       cryptonote::account_public_address& address
     , bool& has_payment_id
     , crypto::hash8& payment_id
+    , bool& is_disposable
+    , bool testnet
+    , const std::string& str_or_url
+    );
+
+  bool get_account_address_from_str_or_url(
+      cryptonote::account_public_address& address
+    , bool& has_payment_id
+    , crypto::hash8& payment_id
     , bool testnet
     , const std::string& str_or_url
     );
@@ -114,6 +129,39 @@ namespace cryptonote {
     , const std::string& str_or_url
     );
 
+  bool get_account_address_from_str(
+      account_public_address& adr
+    , bool& has_payment_id
+    , crypto::hash8& payment_id
+    , bool& is_disposable
+    , bool testnet
+    , const std::string& str
+    );
+
+  inline bool get_account_address_from_str(
+      account_public_address& adr
+    , bool& has_payment_id
+    , crypto::hash8& payment_id
+    , bool testnet
+    , const std::string& str
+    )
+  {
+    bool is_disposable;
+    return get_account_address_from_str(adr, has_payment_id, payment_id, is_disposable, testnet, str);
+  }
+
+  inline bool get_account_integrated_address_from_str(
+      account_public_address& adr
+    , bool& has_payment_id
+    , crypto::hash8& payment_id
+    , bool& is_disposable
+    , bool testnet
+    , const std::string& str
+    )
+  {
+    return get_account_address_from_str(adr, has_payment_id, payment_id, is_disposable, testnet, str);
+  }
+  
   bool is_coinbase(const transaction& tx);
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);

@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
       vector<char> data;
       ec_scalar expected, actual;
       get(input, data, expected);
-      hash_to_scalar(data.data(), data.size(), actual);
+      ::hash_to_scalar(data.data(), data.size(), actual);
       if (expected != actual) {
         goto error;
       }

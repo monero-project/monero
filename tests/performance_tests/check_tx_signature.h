@@ -65,7 +65,7 @@ public:
     destinations.push_back(tx_destination_entry(this->m_source_amount, m_alice.get_keys().m_account_address));
 
     crypto::secret_key tx_key;
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, std::vector<uint8_t>(), m_tx, 0, tx_key, rct))
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, std::vector<uint8_t>(), false, m_tx, 0, tx_key, rct))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);

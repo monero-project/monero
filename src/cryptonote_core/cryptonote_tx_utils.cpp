@@ -137,23 +137,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
-  {
-    if (destinations.empty())
-      return null_pkey;
-    for (size_t n = 1; n < destinations.size(); ++n)
-    {
-      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
-        continue;
-      if (destinations[n].amount == 0)
-        continue;
-      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
-        return null_pkey;
-    }
-    return destinations[0].addr.m_view_public_key;
-  }
-  //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, bool is_disposable, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
   {
     std::vector<rct::key> amount_keys;
     tx.set_null();
@@ -173,7 +157,7 @@ namespace cryptonote
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
       tx_extra_nonce extra_nonce;
-      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      if (!is_disposable && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
         crypto::hash8 payment_id = null_hash8;
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
@@ -229,12 +213,30 @@ namespace cryptonote
       }
       summary_inputs_money += src_entr.amount;
 
+      // disposable addressing scheme
+      boost::optional<crypto::secret_key> disposable_c;
+      {
+        char data[2 * HASH_SIZE];
+        memcpy(data, &sender_account_keys.m_view_secret_key, HASH_SIZE);
+        memcpy(data + HASH_SIZE, &src_entr.unencrypted_payment_id, HASH_SIZE);
+        crypto::secret_key  disposable_c_real;
+        crypto::hash_to_scalar(data, 2 * HASH_SIZE, disposable_c_real);
+        // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+        if (src_entr.unencrypted_payment_id.data[0] == disposable_c_real.data[0])
+          disposable_c = disposable_c_real;
+      }
+
       //key_derivation recv_derivation;
       in_contexts.push_back(input_generation_context_data());
-      keypair& in_ephemeral = in_contexts.back().in_ephemeral;
-      crypto::key_image img;
-      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+      keypair &in_ephemeral = in_contexts.back().in_ephemeral, in_ephemeral2;
+      crypto::key_image img, img2;
+      if(!generate_key_image_helper_disposable(sender_account_keys, src_entr.real_out_tx_key, disposable_c, src_entr.real_output_in_tx_index, in_ephemeral, img, in_ephemeral2, img2))
         return false;
+      if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
+      {
+        in_ephemeral = in_ephemeral2;
+        img = img2;
+      }
 
       //check that derivated key is equal with real output key
       if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
@@ -457,7 +459,7 @@ namespace cryptonote
   bool construct_tx(const account_keys& sender_account_keys, const std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
      crypto::secret_key tx_key;
-     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, tx, unlock_time, tx_key);
+     return construct_tx_and_get_tx_key(sender_account_keys, sources, destinations, extra, false, tx, unlock_time, tx_key);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

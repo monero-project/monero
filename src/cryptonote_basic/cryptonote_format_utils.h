@@ -36,6 +36,8 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctOps.h"
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/utility.hpp>
 
 namespace cryptonote
 {
@@ -46,6 +48,38 @@ namespace cryptonote
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx);
   bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key);
   bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key);
+
+  struct tx_source_entry
+  {
+    typedef std::pair<uint64_t, rct::ctkey> output_entry;
+
+    std::vector<output_entry> outputs;  //index + key + optional ringct commitment
+    size_t real_output;                 //index in outputs vector of real output_entry
+    crypto::public_key real_out_tx_key; //incoming real tx public key
+    size_t real_output_in_tx_index;     //index in transaction outputs vector
+    uint64_t amount;                    //money
+    bool rct;                           //true if the output is rct
+    rct::key mask;                      //ringct amount mask
+    crypto::hash unencrypted_payment_id;  // unencrypted payment id needed for disposable addressing
+
+    void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
+  };
+
+  struct tx_destination_entry
+  {
+    uint64_t amount;                    //money
+    account_public_address addr;        //destination address
+
+    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)) { }
+    tx_destination_entry(uint64_t a, const account_public_address &ad) : amount(a), addr(ad) { }
+
+    BEGIN_SERIALIZE_OBJECT()
+      VARINT_FIELD(amount)
+      FIELD(addr)
+    END_SERIALIZE()
+  };
+
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys);
 
   template<typename T>
   bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
@@ -69,6 +103,7 @@ namespace cryptonote
   void set_encrypted_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash8& payment_id);
   bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id);
   bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id);
+  bool set_unencrypted_payment_id_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src);    // for disposable address scheme
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, size_t output_index);
   bool is_out_to_acc_precomp(const crypto::public_key& spend_public_key, const txout_to_key& out_key, const crypto::key_derivation& derivation, size_t output_index);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, const crypto::public_key& tx_pub_key, std::vector<size_t>& outs, uint64_t& money_transfered);
@@ -76,6 +111,7 @@ namespace cryptonote
   bool get_tx_fee(const transaction& tx, uint64_t & fee);
   uint64_t get_tx_fee(const transaction& tx);
   bool generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki);
+  bool generate_key_image_helper_disposable(const account_keys& ack, const crypto::public_key& tx_public_key, const boost::optional<crypto::secret_key>& disposable_h, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, keypair& in_ephemeral2, crypto::key_image& ki2);
   void get_blob_hash(const blobdata& blob, crypto::hash& res);
   crypto::hash get_blob_hash(const blobdata& blob);
   std::string short_hash_str(const crypto::hash& h);
@@ -210,4 +246,27 @@ namespace cryptonote
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \
   specific_type& variable_name = boost::get<specific_type>(variant_var);
 
+}
+
+BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
+
+namespace boost
+{
+  namespace serialization
+  {
+    template <class Archive>
+    inline void serialize(Archive &a, cryptonote::tx_source_entry &x, const boost::serialization::version_type ver)
+    {
+      a & x.outputs;
+      a & x.real_output;
+      a & x.real_out_tx_key;
+      a & x.real_output_in_tx_index;
+      a & x.amount;
+      a & x.rct;
+      a & x.mask;
+      if (ver < 1)
+        return;
+      a & x.unencrypted_payment_id;
+    }
+  }
 }
