@@ -3457,7 +3457,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     req_t.params.amounts.resize(std::distance(req_t.params.amounts.begin(), end));
     req_t.params.unlocked = true;
     req_t.params.recent_cutoff = time(NULL) - RECENT_OUTPUT_ZONE;
-    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
     THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
@@ -4657,7 +4657,7 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
   req_t.params.min_count = count;
   req_t.params.max_count = 0;
   req_t.params.unlocked = unlocked;
-  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "select_available_outputs_from_histogram");
   THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
@@ -4696,7 +4696,7 @@ uint64_t wallet2::get_num_rct_outputs()
   req_t.params.amounts.push_back(0);
   req_t.params.min_count = 0;
   req_t.params.max_count = 0;
-  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_num_rct_outputs");
   THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
@@ -5428,7 +5428,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
       height_mid,
       height_max
     };
-    bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", req, res, m_http_client);
+    bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", req, res, m_http_client, rpc_timeout);
     if (!r || res.status != CORE_RPC_STATUS_OK)
     {
       std::ostringstream oss;
