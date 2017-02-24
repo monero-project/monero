@@ -51,6 +51,13 @@ bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& 
   return m_executor.print_peer_list();
 }
 
+bool t_command_parser_executor::print_peer_list_stats(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_peer_list_stats();
+}
+
 bool t_command_parser_executor::save_blockchain(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;

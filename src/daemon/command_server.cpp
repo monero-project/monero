@@ -69,6 +69,11 @@ t_command_server::t_command_server(
     , "Print peer list"
     );
   m_command_lookup.set_handler(
+      "print_pl_stats"
+    , std::bind(&t_command_parser_executor::print_peer_list_stats, &m_parser, p::_1)
+    , "Print peer list stats"
+    );
+  m_command_lookup.set_handler(
       "print_cn"
     , std::bind(&t_command_parser_executor::print_connections, &m_parser, p::_1)
     , "Print connections"
