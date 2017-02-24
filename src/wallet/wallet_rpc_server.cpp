@@ -54,6 +54,7 @@ namespace
 {
   const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
   const command_line::arg_descriptor<bool> arg_disable_rpc_login = {"disable-rpc-login", "Disable HTTP authentication for RPC connections served by this process"};
+  const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", "Enable commands which rely on a trusted daemon", false};
 
   constexpr const char default_rpc_username[] = "monero";
 }
@@ -66,7 +67,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w), rpc_login_filename(), m_stop(false)
+  wallet_rpc_server::wallet_rpc_server(wallet2& w):m_wallet(w), rpc_login_filename(), m_stop(false), m_trusted_daemon(false)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::~wallet_rpc_server()
@@ -112,6 +113,15 @@ namespace tools
     boost::optional<epee::net_utils::http::login> http_login{};
     std::string bind_port = command_line::get_arg(vm, arg_rpc_bind_port);
     const bool disable_auth = command_line::get_arg(vm, arg_disable_rpc_login);
+    m_trusted_daemon = command_line::get_arg(vm, arg_trusted_daemon);
+    if (!command_line::has_arg(vm, arg_trusted_daemon))
+    {
+      if (tools::is_local_address(m_wallet.get_daemon_address()))
+      {
+        MINFO(tr("Daemon is local, assuming trusted"));
+        m_trusted_daemon = true;
+      }
+    }
 
     if (disable_auth)
     {
@@ -381,7 +391,7 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -451,7 +461,7 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      ptx_vector = m_wallet.create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       LOG_PRINT_L2("on_transfer_split calling commit_txyy");
@@ -503,7 +513,7 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_unmixable_sweep_transactions(req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_unmixable_sweep_transactions(m_trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
@@ -565,7 +575,7 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, req.trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet.create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
 
       m_wallet.commit_tx(ptx_vector);
 
@@ -1376,6 +1386,7 @@ int main(int argc, char** argv) {
   tools::wallet2::init_options(desc_params);
   command_line::add_arg(desc_params, arg_rpc_bind_port);
   command_line::add_arg(desc_params, arg_disable_rpc_login);
+  command_line::add_arg(desc_params, arg_trusted_daemon);
   cryptonote::rpc_args::init_options(desc_params);
   command_line::add_arg(desc_params, arg_wallet_file);
   command_line::add_arg(desc_params, arg_from_json);
