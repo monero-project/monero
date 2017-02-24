@@ -1,5 +1,5 @@
 name: monero
-version: 0.10.1 # Current stable version
+version: 0.10.2-1
 summary: "Monero: the secure, private, untraceable cryptocurrency https://getmonero.org"
 description: |
     Monero is a private, secure, untraceable, decentralised digital currency.
@@ -12,20 +12,20 @@ apps:
     monerod:
         daemon: forking
         command: |
-          monerod --detach --data-dir ${SNAP_DATA}
+          monerod-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/monerod.conf
         plugs:
             - network
             - network-bind
     monero-wallet-rpc:
         command: |
-            monero-wallet-rpc --log-file ${SNAP_USER_DATA}
+          monero-wallet-rpc --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
             - network-bind
     monero-wallet-cli:
         command: |
-            monero-wallet-cli --log-file ${SNAP_USER_DATA}
+          monero-wallet-cli --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
@@ -63,3 +63,13 @@ parts:
             - usr/lib/
             - -usr/lib/gcc
             - -usr/share
+
+    dist-files:
+        plugin: dump
+        source: .
+        organize:
+            contrib/snap/monerod.conf: etc/monerod.conf
+            contrib/snap/monerod-wrapper: bin/monerod-wrapper
+        prime:
+            - etc
+            - bin
