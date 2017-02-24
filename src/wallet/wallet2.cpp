@@ -679,7 +679,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         break;
       LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid());
       if(0 != m_callback)
-	m_callback->on_skip_transaction(height, tx);
+				m_callback->on_skip_transaction(height, tx);
       return;
     }
 
@@ -873,13 +873,13 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
         {
           if (!pool)
           {
-	    m_transfers.push_back(boost::value_initialized<transfer_details>());
-	    transfer_details& td = m_transfers.back();
-	    td.m_block_height = height;
-	    td.m_internal_output_index = o;
-	    td.m_global_output_index = o_indices[o];
-	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid();
+						m_transfers.push_back(boost::value_initialized<transfer_details>());
+						transfer_details& td = m_transfers.back();
+						td.m_block_height = height;
+						td.m_internal_output_index = o;
+						td.m_global_output_index = o_indices[o];
+						td.m_tx = (const cryptonote::transaction_prefix&)tx;
+						td.m_txid = txid();
             td.m_key_image = ki[o];
             td.m_key_image_known = !m_watch_only;
             td.m_amount = tx.vout[o].amount;
@@ -900,14 +900,14 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
               td.m_mask = rct::identity();
               td.m_rct = false;
             }
-	    set_unspent(m_transfers.size()-1);
-	    m_key_images[td.m_key_image] = m_transfers.size()-1;
-	    m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
-	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid());
-	    if (0 != m_callback)
-	      m_callback->on_money_received(height, tx, td.m_amount);
-          }
-        }
+						set_unspent(m_transfers.size()-1);
+						m_key_images[td.m_key_image] = m_transfers.size()-1;
+						m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
+						LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid());
+						if (0 != m_callback)
+							m_callback->on_money_received(height, tx, td.m_amount);
+					}
+				}
 	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
         {
 	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
@@ -926,11 +926,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
           if (!pool)
           {
             transfer_details &td = m_transfers[kit->second];
-	    td.m_block_height = height;
-	    td.m_internal_output_index = o;
-	    td.m_global_output_index = o_indices[o];
-	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid();
+						td.m_block_height = height;
+						td.m_internal_output_index = o;
+						td.m_global_output_index = o_indices[o];
+						td.m_tx = (const cryptonote::transaction_prefix&)tx;
+						td.m_txid = txid();
             td.m_amount = tx.vout[o].amount;
             td.m_pk_index = pk_index - 1;
             if (td.m_amount == 0)
