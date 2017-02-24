@@ -151,6 +151,8 @@ public:
   bool alt_chain_info();
 
   bool print_blockchain_dynamic_stats(uint64_t nblocks);
+
+  bool update(const std::string &command);
 };
 
 } // namespace daemonize

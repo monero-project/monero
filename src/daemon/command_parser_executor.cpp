@@ -552,4 +552,15 @@ bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector
   return m_executor.print_blockchain_dynamic_stats(nblocks);
 }
 
+bool t_command_parser_executor::update(const std::vector<std::string>& args)
+{
+  if(args.size() != 1)
+  {
+    std::cout << "Exactly one parameter is needed: check, download, or update" << std::endl;
+    return false;
+  }
+
+  return m_executor.update(args.front());
+}
+
 } // namespace daemonize

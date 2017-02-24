@@ -243,6 +243,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::print_blockchain_dynamic_stats, &m_parser, p::_1)
     , "Print information about current blockchain dynamic state"
     );
+    m_command_lookup.set_handler(
+      "update"
+    , std::bind(&t_command_parser_executor::update, &m_parser, p::_1)
+    , "subcommands: check (check if an update is available), download (download it is there is), update (not implemented)"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)
