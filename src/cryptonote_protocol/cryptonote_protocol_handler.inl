@@ -266,6 +266,9 @@ namespace cryptonote
       return true;
 
     uint64_t target = m_core.get_target_blockchain_height();
+    if (target == 0)
+      target = m_core.get_current_blockchain_height();
+
     if(m_core.have_block(hshd.top_id))
     {
       context.m_state = cryptonote_connection_context::state_normal;
@@ -280,7 +283,6 @@ namespace cryptonote
     I prefer pushing target height to the core at the same time it is pushed to the user.
     Nz. */
     m_core.set_target_blockchain_height(static_cast<int64_t>(hshd.current_height));
-
     int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
 	int64_t max_block_height = max(static_cast<int64_t>(hshd.current_height),static_cast<int64_t>(m_core.get_current_blockchain_height()));
 	int64_t last_block_v1 = 1009826;
