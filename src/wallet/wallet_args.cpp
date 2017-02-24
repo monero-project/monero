@@ -106,9 +106,20 @@ namespace wallet_args
     po::options_description desc_all;
     desc_all.add(desc_general).add(desc_params);
     po::variables_map vm;
+    std::string log_path;
     bool r = command_line::handle_error_helper(desc_all, [&]()
     {
       po::store(command_line::parse_command_line(argc, argv, desc_general, true), vm);
+
+      if (command_line::has_arg(vm, arg_log_file))
+        log_path = command_line::get_arg(vm, arg_log_file);
+      else
+        log_path = mlog_get_default_log_path("monero-wallet-cli.log");
+      mlog_configure(log_path, log_to_console);
+      if (command_line::has_arg(vm, arg_log_level))
+      {
+        mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
+      }
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {
@@ -133,17 +144,6 @@ namespace wallet_args
 
     if(command_line::has_arg(vm, arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
-
-    std::string log_path;
-    if (!vm["log-file"].defaulted())
-      log_path = command_line::get_arg(vm, arg_log_file);
-    else
-      log_path = mlog_get_default_log_path("monero-wallet-cli.log");
-    mlog_configure(log_path, log_to_console);
-    if (!vm["log-level"].defaulted())
-    {
-      mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
-    }
 
     tools::scoped_message_writer(epee::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 
