@@ -818,7 +818,6 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
 
-     friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
      uint64_t m_target_blockchain_height; //!< blockchain height target
@@ -833,13 +832,11 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
 
-     boost::interprocess::file_lock db_lock; //!< a lock object for a file lock in the db directory
-
      size_t block_sync_size;
 
      time_t start_time;
 
-     std::unordered_set<crypto::hash> bad_semantics_txes;
+     std::unordered_set<crypto::hash> bad_semantics_txes[2];
 
      enum {
        UPDATES_DISABLED,
