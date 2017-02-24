@@ -69,7 +69,7 @@ parts:
         source: .
         organize:
             contrib/snap/monerod.conf: etc/monerod.conf
-    wrapper:
-        plugin: dump
-        source: contrib/snap/
-        stage: [monerod-wrapper]
+            contrib/snap/monerod-wrapper: bin/monerod-wrapper
+        prime:
+            - etc
+            - bin
