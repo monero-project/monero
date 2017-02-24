@@ -665,7 +665,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res)
   {
-    CHECK_CORE_READY();
+    CHECK_CORE_BUSY();
 
     const miner& lMiner = m_core.get_miner();
     res.active = lMiner.is_mining();
