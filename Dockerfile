@@ -1,40 +1,35 @@
-FROM debian:testing
-MAINTAINER eiabea <developer@eiabea.com>
+FROM ubuntu:16.04
 
-# Install clone dependencies
-RUN set -e && \
-  apt-get update -q && \
-  apt-get install -q -y --no-install-recommends ca-certificates git && \
-  git clone https://github.com/monero-project/monero.git src && \
-  apt-get purge -y git && \
-  apt-get clean -q -y && \
-  apt-get autoclean -q -y && \
-  apt-get autoremove -q -y
+ENV SRC_DIR /usr/local/src/monero
 
-WORKDIR /src
-
-# Install make dependencies
-RUN set -e && \
-  apt-get update -q && \
-  apt-get install -q -y --no-install-recommends build-essential ca-certificates g++ gcc cmake \
-  pkg-config libunbound2 libevent-2.0-5 libgtest-dev libboost-all-dev libdb5.3++-dev libdb5.3-dev libssl1.0-dev && \
-  make -j 4 && \
-  apt-get purge -y g++ gcc cmake pkg-config && \
-  apt-get clean -q -y && \
-  apt-get autoclean -q -y && \
-  apt-get autoremove -q -y && \
-  mkdir /monero && \
-  mv /src/build/release/bin/* /monero && \
-  rm -rf /src
-
-WORKDIR /monero
+RUN set -x \
+  && buildDeps=' \
+      ca-certificates \
+      cmake \
+      g++ \
+      git \
+      libboost1.58-all-dev \
+      libssl-dev \
+      make \
+      pkg-config \
+  ' \
+  && apt-get -qq update \
+  && apt-get -qq --no-install-recommends install $buildDeps \
+  \
+  && git clone https://github.com/monero-project/monero.git $SRC_DIR \
+  && cd $SRC_DIR \
+  && make -j$(nproc) release-static \
+  && cp build/release/bin/* /usr/local/bin/ \
+  \
+  && rm -r $SRC_DIR \
+  && apt-get -qq --auto-remove purge $buildDeps
 
 # Contains the blockchain
 VOLUME /root/.bitmonero
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# /./bitmonero/monero-wallet-cli
+# monero-wallet-cli
 VOLUME /wallet
 
 ENV LOG_LEVEL 0
@@ -46,4 +41,4 @@ ENV RPC_BIND_PORT 18081
 EXPOSE 18080
 EXPOSE 18081
 
-CMD ./monerod --log-level=$LOG_LEVEL --p2p-bind-ip=$P2P_BIND_IP --p2p-bind-port=$P2P_BIND_PORT --rpc-bind-ip=$RPC_BIND_IP --rpc-bind-port=$RPC_BIND_PORT
+CMD monerod --log-level=$LOG_LEVEL --p2p-bind-ip=$P2P_BIND_IP --p2p-bind-port=$P2P_BIND_PORT --rpc-bind-ip=$RPC_BIND_IP --rpc-bind-port=$RPC_BIND_PORT
