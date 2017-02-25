@@ -34,7 +34,7 @@
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_basic/hardfork.h"
+#include "cryptonote_core/hardfork.h"
 #include <boost/format.hpp>
 #include <ctime>
 #include <string>

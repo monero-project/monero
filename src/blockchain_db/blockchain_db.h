@@ -37,7 +37,7 @@
 #include "cryptonote_protocol/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
-#include "cryptonote_basic/hardfork.h"
+#include "cryptonote_core/hardfork.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
