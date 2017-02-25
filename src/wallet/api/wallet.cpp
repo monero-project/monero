@@ -656,9 +656,11 @@ string WalletImpl::keysFilename() const
     return m_wallet->get_keys_file();
 }
 
-bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
+bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit, const std::string &daemon_username, const std::string &daemon_password)
 {
     clearStatus();
+    if(daemon_username != "")
+        m_daemon_login.emplace(daemon_username, daemon_password);
     return doInit(daemon_address, upper_transaction_size_limit);
 }
 
@@ -1365,7 +1367,7 @@ bool WalletImpl::isNewWallet() const
 
 bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
-    if (!m_wallet->init(daemon_address, boost::none, upper_transaction_size_limit))
+    if (!m_wallet->init(daemon_address, m_daemon_login, upper_transaction_size_limit))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)

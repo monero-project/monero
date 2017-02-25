@@ -340,7 +340,7 @@ struct Wallet
      * \param upper_transaction_size_limit
      * \return  - true on success
      */
-    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit, const std::string &daemon_username = "", const std::string &daemon_password = "") = 0;
 
    /*!
     * \brief createWatchOnly - Creates a watch only wallet
