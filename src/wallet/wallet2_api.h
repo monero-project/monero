@@ -35,6 +35,7 @@
 #include <vector>
 #include <ctime>
 #include <iostream>
+#include <functional>
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -706,6 +707,9 @@ struct WalletManager
 
     //! checks for an update and returns version, hash and url
     static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(const std::string &software, const std::string &subdir);
+
+    //! downloads a file from a given uri
+    static bool download(const std::string &path, const std::string &uri, std::function<bool(size_t, ssize_t)> cb);
 };
 
 
