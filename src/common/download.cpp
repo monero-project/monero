@@ -40,7 +40,7 @@
 
 namespace tools
 {
-  static bool download_thread(const std::string &path, const std::string &url)
+  static bool download_thread(const std::string &path, const std::string &url, std::function<bool(size_t, ssize_t)> cb)
   {
     try
     {
@@ -54,13 +54,26 @@ namespace tools
       class download_client: public epee::net_utils::http::http_simple_client
       {
       public:
-        download_client(std::ofstream &f): f(f) {}
+        download_client(std::ofstream &f, const std::function<bool(size_t, ssize_t)> &cb): f(f), cb(cb), content_length(-1), total(0) {}
         virtual ~download_client() { f.close(); }
+        virtual bool on_header(const epee::net_utils::http::http_response_info &headers)
+        {
+          ssize_t length;
+          if (epee::string_tools::get_xtype_from_string(length, headers.m_header_info.m_content_length) && length >= 0)
+          {
+            MINFO("Content-Length: " << length);
+            content_length = length;
+          }
+          return true;
+        }
         virtual bool handle_target_data(std::string &piece_of_transfer)
         {
           try
           {
             f << piece_of_transfer;
+            total += piece_of_transfer.size();
+            if (cb && !cb(total, content_length))
+                return false;
             return f.good();
           }
           catch (const std::exception &e)
@@ -71,7 +84,10 @@ namespace tools
         }
       private:
         std::ofstream &f;
-      } client(f);
+        std::function<bool(size_t, ssize_t)> cb;
+        ssize_t content_length;
+        size_t total;
+      } client(f, cb);
       epee::net_utils::http::url_content u_c;
       if (!epee::net_utils::parse_url(url, u_c))
       {
@@ -106,6 +122,7 @@ namespace tools
         return false;
       }
       MDEBUG("response code: " << info->m_response_code);
+      MDEBUG("response length: " << info->m_header_info.m_content_length);
       MDEBUG("response comment: " << info->m_response_comment);
       MDEBUG("response body: " << info->m_body);
       for (const auto &f: info->m_additional_fields)
@@ -128,10 +145,10 @@ namespace tools
     }
   }
 
-  bool download(const std::string &path, const std::string &url)
+  bool download(const std::string &path, const std::string &url, std::function<bool(size_t, ssize_t)> cb)
   {
     bool success;
-    std::unique_ptr<boost::thread> thread(new boost::thread([&](){ success = download_thread(path, url); }));
+    std::unique_ptr<boost::thread> thread(new boost::thread([&](){ success = download_thread(path, url, cb); }));
     thread->join();
     return success;
   }

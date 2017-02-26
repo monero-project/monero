@@ -32,5 +32,5 @@
 
 namespace tools
 {
-  bool download(const std::string &path, const std::string &url);
+  bool download(const std::string &path, const std::string &url, std::function<bool(size_t, ssize_t)> cb = NULL);
 }
