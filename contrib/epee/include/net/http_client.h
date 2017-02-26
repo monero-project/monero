@@ -538,7 +538,11 @@ using namespace std;
 				}
 				CHECK_AND_ASSERT_MES(m_len_in_remain >= recv_buff.size(), false, "m_len_in_remain >= recv_buff.size()");
 				m_len_in_remain -= recv_buff.size();
-				m_pcontent_encoding_handler->update_in(recv_buff);
+				if (!m_pcontent_encoding_handler->update_in(recv_buff))
+				{
+					m_state = reciev_machine_state_done;
+					return false;
+				}
 
 				if(m_len_in_remain == 0)
 					m_state = reciev_machine_state_done;
@@ -711,7 +715,11 @@ using namespace std;
 								m_len_in_remain = 0;
 							}
 
-							m_pcontent_encoding_handler->update_in(chunk_body);
+							if (!m_pcontent_encoding_handler->update_in(chunk_body))
+							{
+								m_state = reciev_machine_state_error;
+								return false;
+							}
 
 							if(!m_len_in_remain)
 								m_chunked_state = http_chunked_state_chunk_head;
