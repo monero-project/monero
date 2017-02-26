@@ -208,7 +208,6 @@ namespace nodetool
 
     bool make_new_connection_from_peerlist(bool use_white_list);
     bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, bool white = true);
-    size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
     bool is_addr_connected(const net_address& peer);
     template<class t_callback>

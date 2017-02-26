@@ -152,6 +152,20 @@ namespace crypto {
     return res;
   }
 
+  /* Generate an index between 0 and a given value with fixed probability
+   */
+  inline size_t random_index_with_fixed_probability(size_t max_index)
+  {
+    //divide by zero workaround
+    if(!max_index)
+      return 0;
+
+    size_t x = crypto::rand<size_t>()%(max_index+1);
+    size_t res = (x*x*x)/(max_index*max_index); //parabola \/
+
+    return res;
+  }
+
   /* Generate a new key pair
    */
   inline secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false) {

@@ -819,19 +819,6 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::get_random_index_with_fixed_probability(size_t max_index)
-  {
-    //divide by zero workaround
-    if(!max_index)
-      return 0;
-
-    size_t x = crypto::rand<size_t>()%(max_index+1);
-    size_t res = (x*x*x)/(max_index*max_index); //parabola \/
-    MDEBUG("Random connection index=" << res << "(x="<< x << ", max_index=" << max_index << ")");
-    return res;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_peer_used(const peerlist_entry& peer)
   {
 
@@ -1023,7 +1010,7 @@ namespace nodetool
     while(rand_count < (max_random_index+1)*3 &&  try_count < 10 && !m_net_server.is_stop_signal_sent())
     {
       ++rand_count;
-      size_t random_index = get_random_index_with_fixed_probability(max_random_index);
+      size_t random_index = crypto::random_index_with_fixed_probability(max_random_index);
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
 
       if(tried_peers.count(random_index))
