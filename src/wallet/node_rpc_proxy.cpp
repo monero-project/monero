@@ -47,6 +47,17 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::http_simple_client &http_clien
   , m_dynamic_per_kb_fee_estimate_grace_blocks(0)
 {}
 
+void NodeRPCProxy::invalidate()
+{
+  m_height = 0;
+  m_height_time = 0;
+  for (size_t n = 0; n < 256; ++n)
+    m_earliest_height[n] = 0;
+  m_dynamic_per_kb_fee_estimate = 0;
+  m_dynamic_per_kb_fee_estimate_cached_height = 0;
+  m_dynamic_per_kb_fee_estimate_grace_blocks = 0;
+}
+
 boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
 {
   const time_t now = time(NULL);

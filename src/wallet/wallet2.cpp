@@ -2286,6 +2286,7 @@ bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
 
   if(!m_http_client.is_connected())
   {
+    m_node_rpc_proxy.invalidate();
     if (!m_http_client.connect(std::chrono::milliseconds(timeout)))
       return false;
   }

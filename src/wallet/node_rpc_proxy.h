@@ -41,6 +41,8 @@ class NodeRPCProxy
 public:
   NodeRPCProxy(epee::net_utils::http::http_simple_client &http_client, boost::mutex &mutex);
 
+  void invalidate();
+
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height);
