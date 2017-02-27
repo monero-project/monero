@@ -33,6 +33,7 @@
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "hex.h"
 
 
 namespace cryptonote {
@@ -123,23 +124,14 @@ namespace cryptonote {
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
 }
 
-template <class T>
-std::ostream &print256(std::ostream &o, const T &v) {
-  return o << "<" << epee::string_tools::pod_to_hex(v) << ">";
-}
-template <class T>
-std::ostream &print64(std::ostream &o, const T &v) {
-  return o << "<" << epee::string_tools::pod_to_hex(v) << ">";
-}
-
 bool parse_hash256(const std::string str_hash, crypto::hash& hash);
 
 namespace crypto {
-  inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::secret_key &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::hash &v) { return print256(o, v); }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::hash8 &v) { return print64(o, v); }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::secret_key &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::hash &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::hash8 &v) { epee::to_hex::formatted_from_pod(o, v); return o; }
 }

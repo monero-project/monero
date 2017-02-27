@@ -45,6 +45,8 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include "hex.h"
+#include "span.h"
 #include "warnings.h"
 
 
@@ -114,33 +116,10 @@ namespace string_tools
 			return false;
 		}
 	}
-	//----------------------------------------------------------------------------
-  template<class CharT>
-  std::basic_string<CharT> buff_to_hex(const std::basic_string<CharT>& s)
-  {
-    using namespace std;
-    basic_stringstream<CharT> hexStream;
-    hexStream << hex << noshowbase << setw(2);
-
-    for(typename std::basic_string<CharT>::const_iterator it = s.begin(); it != s.end(); it++)
-    {
-      hexStream << "0x"<< static_cast<unsigned int>(static_cast<unsigned char>(*it)) << " ";
-    }
-    return hexStream.str();
-  }
   //----------------------------------------------------------------------------
-  template<class CharT>
-  std::basic_string<CharT> buff_to_hex_nodelimer(const std::basic_string<CharT>& s)
+  inline std::string buff_to_hex_nodelimer(const std::string& src)
   {
-    using namespace std;
-    basic_stringstream<CharT> hexStream;
-    hexStream << hex << noshowbase;
-
-    for(typename std::basic_string<CharT>::const_iterator it = s.begin(); it != s.end(); it++)
-    {
-      hexStream << setw(2) << setfill('0') << static_cast<unsigned int>(static_cast<unsigned char>(*it));
-    }
-    return hexStream.str();
+    return to_hex::string(to_byte_span(to_span(src)));
   }
   //----------------------------------------------------------------------------
   template<class CharT>
@@ -559,9 +538,7 @@ POP_WARNINGS
   std::string pod_to_hex(const t_pod_type& s)
   {
     static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
-    std::string buff;
-    buff.assign(reinterpret_cast<const char*>(&s), sizeof(s));
-    return buff_to_hex_nodelimer(buff);
+    return to_hex::string(as_byte_span(s));
   }
   //----------------------------------------------------------------------------
   template<class t_pod_type>
