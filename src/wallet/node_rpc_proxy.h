@@ -43,6 +43,7 @@ public:
 
   void invalidate();
 
+  boost::optional<std::string> get_rpc_version(uint32_t &version);
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height);
@@ -58,6 +59,7 @@ private:
   uint64_t m_dynamic_per_kb_fee_estimate;
   uint64_t m_dynamic_per_kb_fee_estimate_cached_height;
   uint64_t m_dynamic_per_kb_fee_estimate_grace_blocks;
+  uint32_t m_rpc_version;
 };
 
 }
