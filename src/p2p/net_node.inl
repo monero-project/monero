@@ -1023,7 +1023,14 @@ namespace nodetool
     while(rand_count < (max_random_index+1)*3 &&  try_count < 10 && !m_net_server.is_stop_signal_sent())
     {
       ++rand_count;
-      size_t random_index = get_random_index_with_fixed_probability(max_random_index);
+      size_t random_index;
+
+      if (use_white_list) {
+        random_index = get_random_index_with_fixed_probability(max_random_index);
+      } else {
+        random_index = crypto::rand<size_t>() % m_peerlist.get_gray_peers_count();
+      }
+
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
 
       if(tried_peers.count(random_index))
