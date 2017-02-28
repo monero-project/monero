@@ -1162,7 +1162,7 @@ namespace cryptonote
           {
             MCERROR("updates", "Download from " << uri << " does not match the expected hash");
           }
-          MGINFO("New version downloaded to " << path);
+          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path);
         }
         else
         {
