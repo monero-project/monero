@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
+#include <atomic>
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
@@ -60,6 +61,10 @@ namespace tools
 
   static void download_thread(download_thread_control *control)
   {
+    static std::atomic<unsigned int> thread_id(0);
+
+    MLOG_SET_THREAD_NAME("DL" + std::to_string(thread_id++));
+
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&control](){ delete control; });
     try
     {
