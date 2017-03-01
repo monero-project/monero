@@ -510,6 +510,8 @@ namespace tools
     void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
     bool ask_password() const { return m_ask_password; }
     void ask_password(bool always) { m_ask_password = always; }
+    void set_default_decimal_point(unsigned int decimal_point);
+    unsigned int get_default_decimal_point() const;
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 

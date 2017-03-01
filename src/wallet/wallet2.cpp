@@ -1880,6 +1880,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_ask_password ? 1 :0);
   json.AddMember("ask_password", value2, json.GetAllocator());
 
+  value2.SetInt(cryptonote::get_default_decimal_point());
+  json.AddMember("default_decimal_point", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -2010,6 +2013,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_confirm_missing_payment_id = field_confirm_missing_payment_id;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, int, Int, false, true);
     m_ask_password = field_ask_password;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_decimal_point, int, Int, false, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
+    cryptonote::set_default_decimal_point(field_default_decimal_point);
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
@@ -2272,6 +2277,16 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
     return true;
   }
   return false;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::set_default_decimal_point(unsigned int decimal_point)
+{
+  cryptonote::set_default_decimal_point(decimal_point);
+}
+//----------------------------------------------------------------------------------------------------
+unsigned int wallet2::get_default_decimal_point() const
+{
+  return cryptonote::get_default_decimal_point();
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
