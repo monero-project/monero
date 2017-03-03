@@ -1638,11 +1638,11 @@ void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block
     m_refresh_progress_reporter.update(height, false);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount)
 {
   message_writer(console_color_green, false) << "\r" <<
     tr("Height ") << height << ", " <<
-    tr("transaction ") << get_transaction_hash(tx) << ", " <<
+    tr("transaction ") << txid << ", " <<
     tr("received ") << print_money(amount);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
@@ -1650,16 +1650,16 @@ void simple_wallet::on_money_received(uint64_t height, const cryptonote::transac
     m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+void simple_wallet::on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount)
 {
   // Not implemented in CLI wallet
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx)
+void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx)
 {
   message_writer(console_color_magenta, false) << "\r" <<
     tr("Height ") << height << ", " <<
-    tr("transaction ") << get_transaction_hash(spend_tx) << ", " <<
+    tr("transaction ") << txid << ", " <<
     tr("spent ") << print_money(amount);
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();
@@ -1667,11 +1667,11 @@ void simple_wallet::on_money_spent(uint64_t height, const cryptonote::transactio
     m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
+void simple_wallet::on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx)
 {
   message_writer(console_color_red, true) << "\r" <<
     tr("Height ") << height << ", " <<
-    tr("transaction ") << get_transaction_hash(tx) << ", " <<
+    tr("transaction ") << txid << ", " <<
     tr("unsupported transaction format");
   if (m_auto_refresh_refreshing)
     m_cmd_binder.print_prompt();

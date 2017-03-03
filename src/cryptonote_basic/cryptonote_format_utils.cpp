@@ -93,6 +93,16 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool parse_and_validate_tx_base_from_blob(const blobdata& tx_blob, transaction& tx)
+  {
+    std::stringstream ss;
+    ss << tx_blob;
+    binary_archive<false> ba(ss);
+    bool r = tx.serialize_base(ba);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    return true;
+  }
+  //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash)
   {
     std::stringstream ss;

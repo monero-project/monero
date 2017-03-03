@@ -250,6 +250,28 @@ namespace cryptonote
       }
     END_SERIALIZE()
 
+    template<bool W, template <bool> class Archive>
+    bool serialize_base(Archive<W> &ar)
+    {
+      FIELDS(*static_cast<transaction_prefix *>(this))
+
+      if (version == 1)
+      {
+      }
+      else
+      {
+        ar.tag("rct_signatures");
+        if (!vin.empty())
+        {
+          ar.begin_object();
+          bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
+          if (!r || !ar.stream().good()) return false;
+          ar.end_object();
+        }
+      }
+      return true;
+    }
+
   private:
     static size_t get_signature_size(const txin_v& tx_in);
   };

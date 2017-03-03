@@ -633,28 +633,13 @@ bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& a
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
+void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
-  class lazy_txid_getter
-  {
-    const cryptonote::transaction &tx;
-    crypto::hash lazy_txid;
-    bool computed;
-    public:
-    lazy_txid_getter(const transaction &tx): tx(tx), computed(false) {}
-    const crypto::hash &operator()()
-    {
-      if (!computed)
-      {
-        lazy_txid = cryptonote::get_transaction_hash(tx);
-        computed = true;
-      }
-      return lazy_txid;
-    }
-  } txid(tx);
+  // In this function, tx (probably) only contains the base information
+  // (that is, the prunable stuff may or may not be included)
 
   if (!miner_tx)
-    process_unconfirmed(tx, height);
+    process_unconfirmed(txid, tx, height);
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
   crypto::public_key tx_pub_key = null_pkey;
@@ -663,7 +648,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   if(!parse_tx_extra(tx.extra, tx_extra_fields))
   {
     // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
-    LOG_PRINT_L0("Transaction extra has unsupported format: " << txid());
+    LOG_PRINT_L0("Transaction extra has unsupported format: " << txid);
   }
 
   // Don't try to extract tx public key if tx has no ouputs
@@ -677,9 +662,9 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     {
       if (pk_index > 1)
         break;
-      LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid());
+      LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid);
       if(0 != m_callback)
-	m_callback->on_skip_transaction(height, tx);
+	m_callback->on_skip_transaction(height, txid, tx);
       return;
     }
 
@@ -879,7 +864,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 	    td.m_internal_output_index = o;
 	    td.m_global_output_index = o_indices[o];
 	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid();
+	    td.m_txid = txid;
             td.m_key_image = ki[o];
             td.m_key_image_known = !m_watch_only;
             td.m_amount = tx.vout[o].amount;
@@ -903,9 +888,9 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 	    set_unspent(m_transfers.size()-1);
 	    m_key_images[td.m_key_image] = m_transfers.size()-1;
 	    m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
-	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid());
+	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (0 != m_callback)
-	      m_callback->on_money_received(height, tx, td.m_amount);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount);
           }
         }
 	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
@@ -930,7 +915,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
 	    td.m_internal_output_index = o;
 	    td.m_global_output_index = o_indices[o];
 	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid();
+	    td.m_txid = txid;
             td.m_amount = tx.vout[o].amount;
             td.m_pk_index = pk_index - 1;
             if (td.m_amount == 0)
@@ -952,9 +937,9 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
             THROW_WALLET_EXCEPTION_IF(td.get_public_key() != in_ephemeral[o].pub, error::wallet_internal_error, "Inconsistent public keys");
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
 
-	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid());
+	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (0 != m_callback)
-	      m_callback->on_money_received(height, tx, td.m_amount);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount);
           }
         }
       }
@@ -982,17 +967,17 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
       tx_money_spent_in_ins += amount;
       if (!pool)
       {
-        LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << txid());
+        LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << txid);
         set_spent(it->second, height);
         if (0 != m_callback)
-          m_callback->on_money_spent(height, tx, amount, tx);
+          m_callback->on_money_spent(height, txid, tx, amount, tx);
       }
     }
   }
 
   if (tx_money_spent_in_ins > 0)
   {
-    process_outgoing(tx, height, ts, tx_money_spent_in_ins, tx_money_got_in_outs);
+    process_outgoing(txid, tx, height, ts, tx_money_spent_in_ins, tx_money_got_in_outs);
   }
 
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
@@ -1038,7 +1023,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     }
 
     payment_details payment;
-    payment.m_tx_hash      = txid();
+    payment.m_tx_hash      = txid;
     payment.m_amount       = received;
     payment.m_block_height = height;
     payment.m_unlock_time  = tx.unlock_time;
@@ -1046,7 +1031,7 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
     if (pool) {
       m_unconfirmed_payments.emplace(payment_id, payment);
       if (0 != m_callback)
-        m_callback->on_unconfirmed_money_received(height, tx, payment.m_amount);
+        m_callback->on_unconfirmed_money_received(height, txid, tx, payment.m_amount);
     }
     else
       m_payments.emplace(payment_id, payment);
@@ -1054,12 +1039,11 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, const s
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t height)
+void wallet2::process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height)
 {
   if (m_unconfirmed_txs.empty())
     return;
 
-  crypto::hash txid = get_transaction_hash(tx);
   auto unconf_it = m_unconfirmed_txs.find(txid);
   if(unconf_it != m_unconfirmed_txs.end()) {
     if (store_tx_info()) {
@@ -1075,9 +1059,8 @@ void wallet2::process_unconfirmed(const cryptonote::transaction& tx, uint64_t he
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_outgoing(const cryptonote::transaction &tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received)
+void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::transaction &tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received)
 {
-  crypto::hash txid = get_transaction_hash(tx);
   std::pair<std::unordered_map<crypto::hash, confirmed_transfer_details>::iterator, bool> entry = m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details()));
   // fill with the info we know, some info might already be there
   if (entry.second)
@@ -1120,16 +1103,19 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(b.miner_tx, o_indices.indices[txidx++].indices, height, b.timestamp, true, false);
+    process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, o_indices.indices[txidx++].indices, height, b.timestamp, true, false);
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
-    for(auto& txblob: bche.txs)
+    THROW_WALLET_EXCEPTION_IF(bche.txs.size() != b.tx_hashes.size(), error::wallet_internal_error, "Wrong amount of transactions for block");
+    size_t idx = 0;
+    for (const auto& txblob: bche.txs)
     {
       cryptonote::transaction tx;
-      bool r = parse_and_validate_tx_from_blob(txblob, tx);
+      bool r = parse_and_validate_tx_base_from_blob(txblob, tx);
       THROW_WALLET_EXCEPTION_IF(!r, error::tx_parse_error, txblob);
-      process_new_transaction(tx, o_indices.indices[txidx++].indices, height, b.timestamp, false, false);
+      process_new_transaction(b.tx_hashes[idx], tx, o_indices.indices[txidx++].indices, height, b.timestamp, false, false);
+      ++idx;
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
@@ -1184,6 +1170,34 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   req.block_ids = short_chain_history;
+
+  uint32_t rpc_version;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_version(rpc_version);
+  // no error
+  if (!!result)
+  {
+    // empty string -> not connection
+    THROW_WALLET_EXCEPTION_IF(result->empty(), tools::error::no_connection_to_daemon, "getversion");
+    THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
+    if (*result != CORE_RPC_STATUS_OK)
+    {
+      MDEBUG("Cannot determined daemon RPC version, not asking for pruned blocks");
+      req.prune = false; // old daemon
+    }
+  }
+  else
+  {
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 7))
+    {
+      MDEBUG("Daemon is recent enough, asking for pruned blocks");
+      req.prune = true;
+    }
+    else
+    {
+      MDEBUG("Daemon is too old, not asking for pruned blocks");
+      req.prune = false;
+    }
+  }
 
   req.start_height = start_height;
   m_daemon_rpc_mutex.lock();
@@ -1497,7 +1511,7 @@ void wallet2::update_pool_state()
                   {
                     if (tx_hash == txid)
                     {
-                      process_new_transaction(tx, std::vector<uint64_t>(), 0, time(NULL), false, true);
+                      process_new_transaction(txid, tx, std::vector<uint64_t>(), 0, time(NULL), false, true);
                     }
                     else
                     {
@@ -2286,6 +2300,7 @@ bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
 
   if(!m_http_client.is_connected())
   {
+    m_node_rpc_proxy.invalidate();
     if (!m_http_client.connect(std::chrono::milliseconds(timeout)))
       return false;
   }

@@ -45,7 +45,42 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::http_simple_client &http_clien
   , m_dynamic_per_kb_fee_estimate(0)
   , m_dynamic_per_kb_fee_estimate_cached_height(0)
   , m_dynamic_per_kb_fee_estimate_grace_blocks(0)
+  , m_rpc_version(0)
 {}
+
+void NodeRPCProxy::invalidate()
+{
+  m_height = 0;
+  m_height_time = 0;
+  for (size_t n = 0; n < 256; ++n)
+    m_earliest_height[n] = 0;
+  m_dynamic_per_kb_fee_estimate = 0;
+  m_dynamic_per_kb_fee_estimate_cached_height = 0;
+  m_dynamic_per_kb_fee_estimate_grace_blocks = 0;
+  m_rpc_version = 0;
+}
+
+boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
+{
+  const time_t now = time(NULL);
+  if (m_rpc_version == 0)
+  {
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+    req_t.jsonrpc = "2.0";
+    req_t.id = epee::serialization::storage_entry(0);
+    req_t.method = "get_version";
+    m_daemon_rpc_mutex.lock();
+    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+    m_daemon_rpc_mutex.unlock();
+    CHECK_AND_ASSERT_MES(r, std::string(), "Failed to connect to daemon");
+    CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, resp_t.result.status, "Failed to connect to daemon");
+    CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, resp_t.result.status, "Failed to get daemon RPC version");
+    m_rpc_version = resp_t.result.version;
+  }
+  rpc_version = m_rpc_version;
+  return boost::optional<std::string>();
+}
 
 boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
 {

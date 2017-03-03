@@ -44,6 +44,9 @@ using namespace epee;
 #include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
+
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
 
@@ -151,6 +154,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  static cryptonote::blobdata get_pruned_tx_blob(const cryptonote::blobdata &blobdata)
+  {
+    cryptonote::transaction tx;
+
+    if (!cryptonote::parse_and_validate_tx_from_blob(blobdata, tx))
+    {
+      MERROR("Failed to parse and validate tx from blob");
+      return blobdata;
+    }
+
+    std::stringstream ss;
+    binary_archive<true> ba(ss);
+    bool r = tx.serialize_base(ba);
+    CHECK_AND_ASSERT_MES(r, blobdata, "Failed to serialize rct signatures base");
+    return ss.str();
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     CHECK_CORE_BUSY();
@@ -162,10 +182,13 @@ namespace cryptonote
       return false;
     }
 
+    size_t pruned_size = 0, unpruned_size = 0, ntxes = 0;
     for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
       res.blocks.back().block = bd.first;
+      pruned_size += bd.first.size();
+      unpruned_size += bd.first.size();
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
       res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
       block b;
@@ -181,9 +204,15 @@ namespace cryptonote
         return false;
       }
       size_t txidx = 0;
+      ntxes += bd.second.size();
       for(const auto& t: bd.second)
       {
-        res.blocks.back().txs.push_back(t);
+        if (req.prune)
+          res.blocks.back().txs.push_back(get_pruned_tx_blob(t));
+        else
+          res.blocks.back().txs.push_back(t);
+        pruned_size += res.blocks.back().txs.back().size();
+        unpruned_size += t.size();
         res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
         bool r = m_core.get_tx_outputs_gindexs(b.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
         if (!r)
@@ -194,6 +223,7 @@ namespace cryptonote
       }
     }
 
+    MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, pruned size " << pruned_size << ", unpruned size " << unpruned_size);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
