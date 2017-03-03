@@ -671,9 +671,15 @@ namespace cryptonote
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
-      if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
+      if (!is_transaction_ready_to_go(tx_it->second))
       {
-        LOG_PRINT_L2("  not ready to go, or key images already seen");
+        LOG_PRINT_L2("  not ready to go");
+        sorted_it++;
+        continue;
+      }
+      if (have_key_images(k_images, tx_it->second.tx))
+      {
+        LOG_PRINT_L2("  key images already seen");
         sorted_it++;
         continue;
       }
