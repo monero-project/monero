@@ -1029,7 +1029,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     payment.m_unlock_time  = tx.unlock_time;
     payment.m_timestamp    = ts;
     if (pool) {
-      m_unconfirmed_payments.emplace(payment_id, payment);
+      m_unconfirmed_payments.emplace(txid(), payment);
       if (0 != m_callback)
         m_callback->on_unconfirmed_money_received(height, txid, tx, payment.m_amount);
     }
