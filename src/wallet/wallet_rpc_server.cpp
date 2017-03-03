@@ -1397,6 +1397,7 @@ int main(int argc, char** argv) {
     "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>] [--rpc-bind-port=<port>]",
     desc_params,
     po::positional_options_description(),
+    "monero-wallet-rpc.log",
     true
   );
   if (!vm)

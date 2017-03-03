@@ -4333,7 +4333,8 @@ int main(int argc, char* argv[])
    argc, argv,
    "monero-wallet-cli [--wallet-file=<file>|--generate-new-wallet=<file>] [<COMMAND>]",
     desc_params,
-    positional_options
+    positional_options,
+    "monero-wallet-cli.log"
   );
 
   if (!vm)
