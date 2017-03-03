@@ -222,7 +222,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     return false;
 
   db.set_batch_transactions(true);
-  db.batch_start();
+  bool stop_batch = db.batch_start();
 
   versions.clear();
 
@@ -250,7 +250,8 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     add(db.get_block_from_height(h), h);
   }
 
-  db.batch_stop();
+  if (stop_batch)
+    db.batch_stop();
 
   return true;
 }
