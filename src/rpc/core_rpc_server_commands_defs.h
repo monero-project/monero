@@ -1438,4 +1438,39 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_UPDATE
+  {
+    struct request
+    {
+      std::string command;
+      std::string path;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(command);
+        KV_SERIALIZE(path);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      bool update;
+      std::string version;
+      std::string user_uri;
+      std::string auto_uri;
+      std::string hash;
+      std::string path;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(update)
+        KV_SERIALIZE(version)
+        KV_SERIALIZE(user_uri)
+        KV_SERIALIZE(auto_uri)
+        KV_SERIALIZE(hash)
+        KV_SERIALIZE(path)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
