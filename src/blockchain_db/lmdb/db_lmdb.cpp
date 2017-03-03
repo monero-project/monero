@@ -749,7 +749,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
   uint64_t m_height = height();
 
   int result;
-  uint64_t tx_id = num_txs();
+  uint64_t tx_id = get_tx_count();
 
   CURSOR(txs)
   CURSOR(tx_indices)
@@ -1741,20 +1741,6 @@ uint64_t BlockchainLMDB::height() const
   return db_stats.ms_entries;
 }
 
-uint64_t BlockchainLMDB::num_txs() const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-  TXN_PREFIX_RDONLY();
-  int result;
-
-  // get current height
-  MDB_stat db_stats;
-  if ((result = mdb_stat(m_txn, m_txs, &db_stats)))
-    throw0(DB_ERROR(lmdb_error("Failed to query m_txs: ", result).c_str()));
-  return db_stats.ms_entries;
-}
-
 uint64_t BlockchainLMDB::num_outputs() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1900,10 +1886,11 @@ uint64_t BlockchainLMDB::get_tx_count() const
   check_open();
 
   TXN_PREFIX_RDONLY();
+  int result;
 
   MDB_stat db_stats;
-  if (mdb_stat(m_txn, m_tx_indices, &db_stats))
-    throw0(DB_ERROR("Failed to query m_tx_indices"));
+  if ((result = mdb_stat(m_txn, m_txs, &db_stats)))
+    throw0(DB_ERROR(lmdb_error("Failed to query m_txs: ", result).c_str()));
 
   TXN_POSTFIX_RDONLY();
 

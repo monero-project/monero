@@ -310,7 +310,6 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
-  uint64_t num_txs() const;
   uint64_t num_outputs() const;
 
   // Hard fork
