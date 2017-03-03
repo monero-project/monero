@@ -762,7 +762,11 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if ((db_type == "lmdb") || (db_type == "berkeley"))
+  if ((db_type == "lmdb")
+#if defined(BERKELEY_DB)
+   || (db_type == "berkeley")
+#endif
+  )
   {
     db_engine_compiled = "blockchain_db";
   }
@@ -799,13 +803,11 @@ int main(int argc, char* argv[])
   // properties to do so. Both ways work, but fake core isn't necessary in that
   // circumstance.
 
-  // for multi_db_runtime:
-  if (db_type == "lmdb" || db_type == "berkeley")
-  {
-    fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
-    import_from_file(simple_core, import_file_path, block_stop);
-  }
-  else
+  if (db_type != "lmdb"
+#if defined(BERKELEY_DB)
+  && db_type != "berkeley"
+#endif
+  )
   {
     std::cerr << "database type unrecognized" << ENDL;
     return 1;
