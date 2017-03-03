@@ -31,6 +31,7 @@
 #include "include_base_utils.h"
 using namespace epee;
 
+#include <atomic>
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
@@ -64,6 +65,8 @@ static const uint64_t valid_decomposed_outputs[] = {
   (uint64_t)1000000000000000000, (uint64_t)2000000000000000000, (uint64_t)3000000000000000000, (uint64_t)4000000000000000000, (uint64_t)5000000000000000000, (uint64_t)6000000000000000000, (uint64_t)7000000000000000000, (uint64_t)8000000000000000000, (uint64_t)9000000000000000000, // 1 meganero
   (uint64_t)10000000000000000000ull
 };
+
+static std::atomic<unsigned int> default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
 
 namespace cryptonote
 {
@@ -152,12 +155,12 @@ namespace cryptonote
     if (std::string::npos != point_index)
     {
       fraction_size = str_amount.size() - point_index - 1;
-      while (CRYPTONOTE_DISPLAY_DECIMAL_POINT < fraction_size && '0' == str_amount.back())
+      while (default_decimal_point < fraction_size && '0' == str_amount.back())
       {
         str_amount.erase(str_amount.size() - 1, 1);
         --fraction_size;
       }
-      if (CRYPTONOTE_DISPLAY_DECIMAL_POINT < fraction_size)
+      if (default_decimal_point < fraction_size)
         return false;
       str_amount.erase(point_index, 1);
     }
@@ -169,9 +172,9 @@ namespace cryptonote
     if (str_amount.empty())
       return false;
 
-    if (fraction_size < CRYPTONOTE_DISPLAY_DECIMAL_POINT)
+    if (fraction_size < default_decimal_point)
     {
-      str_amount.append(CRYPTONOTE_DISPLAY_DECIMAL_POINT - fraction_size, '0');
+      str_amount.append(default_decimal_point - fraction_size, '0');
     }
 
     return string_tools::get_xtype_from_string(amount, str_amount);
@@ -514,14 +517,59 @@ namespace cryptonote
     cn_fast_hash(blob.data(), blob.size(), res);
   }
   //---------------------------------------------------------------
-  std::string print_money(uint64_t amount)
+  void set_default_decimal_point(unsigned int decimal_point)
   {
-    std::string s = std::to_string(amount);
-    if(s.size() < CRYPTONOTE_DISPLAY_DECIMAL_POINT+1)
+    switch (decimal_point)
     {
-      s.insert(0, CRYPTONOTE_DISPLAY_DECIMAL_POINT+1 - s.size(), '0');
+      case 12:
+      case 9:
+      case 6:
+      case 3:
+      case 0:
+        default_decimal_point = decimal_point;
+        break;
+      default:
+        ASSERT_MES_AND_THROW("Invalid decimal point specificatin: " << decimal_point);
     }
-    s.insert(s.size() - CRYPTONOTE_DISPLAY_DECIMAL_POINT, ".");
+  }
+  //---------------------------------------------------------------
+  unsigned int get_default_decimal_point()
+  {
+    return default_decimal_point;
+  }
+  //---------------------------------------------------------------
+  std::string get_unit(unsigned int decimal_point)
+  {
+    if (decimal_point == (unsigned int)-1)
+      decimal_point = default_decimal_point;
+    switch (std::atomic_load(&default_decimal_point))
+    {
+      case 12:
+        return "monero";
+      case 9:
+        return "millinero";
+      case 6:
+        return "micronero";
+      case 3:
+        return "nanonero";
+      case 0:
+        return "piconero";
+      default:
+        ASSERT_MES_AND_THROW("Invalid decimal point specificatin: " << default_decimal_point);
+    }
+  }
+  //---------------------------------------------------------------
+  std::string print_money(uint64_t amount, unsigned int decimal_point)
+  {
+    if (decimal_point == (unsigned int)-1)
+      decimal_point = default_decimal_point;
+    std::string s = std::to_string(amount);
+    if(s.size() < decimal_point+1)
+    {
+      s.insert(0, decimal_point+1 - s.size(), '0');
+    }
+    if (decimal_point > 0)
+      s.insert(s.size() - decimal_point, ".");
     return s;
   }
   //---------------------------------------------------------------
