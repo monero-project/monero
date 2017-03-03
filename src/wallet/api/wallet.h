@@ -78,7 +78,7 @@ public:
     bool store(const std::string &path);
     std::string filename() const;
     std::string keysFilename() const;
-    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0);
+    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "");
     bool connectToDaemon();
     ConnectionStatus connected() const;
     void setTrustedDaemon(bool arg);
@@ -170,6 +170,7 @@ private:
     std::atomic<bool>   m_rebuildWalletCache;
     // cache connection status to avoid unnecessary RPC calls
     mutable std::atomic<bool>   m_is_connected;
+    boost::optional<epee::net_utils::http::login> m_daemon_login{};
 };
 
 
