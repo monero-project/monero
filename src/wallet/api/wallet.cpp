@@ -99,10 +99,10 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
     {
 
-        std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
@@ -114,10 +114,10 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+    virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
     {
 
-        std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": unconfirmed money received. height:  " << height
                      << ", tx: " << tx_hash
@@ -129,11 +129,11 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount,
+    virtual void on_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount,
                                 const cryptonote::transaction& spend_tx)
     {
         // TODO;
-        std::string tx_hash = epee::string_tools::pod_to_hex(get_transaction_hash(spend_tx));
+        std::string tx_hash = epee::string_tools::pod_to_hex(txid);
         LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
@@ -144,7 +144,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
+    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid)
     {
         // TODO;
     }
