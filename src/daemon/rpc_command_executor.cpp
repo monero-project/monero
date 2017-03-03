@@ -1494,7 +1494,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     {
       return true;
     }
-    if (!m_rpc_client->rpc_request(fereq, feres, "/get_fee_estimate", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(fereq, feres, "get_fee_estimate", fail_message.c_str()))
     {
       return true;
     }
@@ -1525,7 +1525,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     bhreq.end_height = ires.height - 1;
     if (m_is_rpc)
     {
-      if (!m_rpc_client->rpc_request(bhreq, bhres, "/getblockheadersrange", fail_message.c_str()))
+      if (!m_rpc_client->json_rpc_request(bhreq, bhres, "getblockheadersrange", fail_message.c_str()))
       {
         return true;
       }
