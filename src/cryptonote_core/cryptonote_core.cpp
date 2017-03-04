@@ -1128,7 +1128,7 @@ namespace cryptonote
       return true;
 
     std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
-    MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
+    MCLOG_CYAN(el::Level::Info, "global", "Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
 
     if (check_updates_level == UPDATES_NOTIFY)
       return true;
@@ -1168,7 +1168,7 @@ namespace cryptonote
           {
             MCERROR("updates", "Download from " << uri << " does not match the expected hash");
           }
-          MGINFO("New version downloaded to " << path);
+          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path);
         }
         else
         {
