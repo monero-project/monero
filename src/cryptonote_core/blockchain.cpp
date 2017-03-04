@@ -2796,6 +2796,19 @@ void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const 
 }
 
 //------------------------------------------------------------------
+static uint64_t get_fee_quantization_mask()
+{
+  static uint64_t mask = 0;
+  if (mask == 0)
+  {
+    mask = 1;
+    for (size_t n = PER_KB_FEE_QUANTIZATION_DECIMALS; n < CRYPTONOTE_DISPLAY_DECIMAL_POINT; ++n)
+      mask *= 10;
+  }
+  return mask;
+}
+
+//------------------------------------------------------------------
 uint64_t Blockchain::get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size)
 {
   if (median_block_size < CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2)
@@ -2810,7 +2823,12 @@ uint64_t Blockchain::get_dynamic_per_kb_fee(uint64_t block_reward, size_t median
   div128_32(hi, lo, 1000000, &hi, &lo);
   assert(hi == 0);
 
-  return lo;
+  // quantize fee up to 8 decimals
+  uint64_t mask = get_fee_quantization_mask();
+  uint64_t qlo = (lo + mask - 1) / mask * mask;
+  MDEBUG("lo " << print_money(lo) << ", qlo " << print_money(qlo) << ", mask " << mask);
+
+  return qlo;
 }
 
 //------------------------------------------------------------------
