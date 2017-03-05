@@ -372,16 +372,21 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
 
 bool simple_wallet::change_password(const std::vector<std::string> &args)
 { 
-  const auto orig_pwd_container = get_and_verify_password();
+  const auto orig_pwd_container = tools::password_container::prompt(false, "Current password");
 
   if(orig_pwd_container == boost::none)
   {
+    fail_msg_writer() << tr("Failed to read password.");
+    return true;
+  }
+  if (!m_wallet->verify_password(orig_pwd_container->password()))
+  {
     fail_msg_writer() << tr("Your original password was incorrect.");
-    return false;
+    return true;
   }
 
-  // prompts for a new password, this is not a new wallet so pass in false.
-  const auto pwd_container = tools::wallet2::password_prompt(false);
+  // prompts for a new password
+  const auto pwd_container = tools::password_container::prompt(true, "New password");
   
   try
   {
@@ -391,7 +396,6 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
   catch (const tools::error::wallet_logic_error& e)
   {
     fail_msg_writer() << tr("Error with wallet rewrite: ") << e.what();
-    return false;
   }
 
   return true;
@@ -676,6 +680,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("export_outputs", boost::bind(&simple_wallet::export_outputs, this, _1), tr("Export a set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("import_outputs", boost::bind(&simple_wallet::import_outputs, this, _1), tr("Import set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("show_transfer", boost::bind(&simple_wallet::show_transfer, this, _1), tr("Show information about a transfer to/from this address"));
+  m_cmd_binder.set_handler("change_password", boost::bind(&simple_wallet::change_password, this, _1), tr("Change password"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
