@@ -624,7 +624,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_input_file = {"input-file", "Specify input file", "", true};
-  const command_line::arg_descriptor<uint32_t> arg_log_level   = {"log-level",  "", log_level};
+  const command_line::arg_descriptor<std::string> arg_log_level   = {"log-level",  "0-4 or categories", ""};
   const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
   const command_line::arg_descriptor<uint64_t> arg_pop_blocks  = {"pop-blocks", "Remove blocks from end of blockchain", num_blocks};
@@ -684,7 +684,6 @@ int main(int argc, char* argv[])
   if (! r)
     return 1;
 
-  log_level     = command_line::get_arg(vm, arg_log_level);
   opt_verify    = command_line::get_arg(vm, arg_verify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
@@ -727,7 +726,11 @@ int main(int argc, char* argv[])
   db_arg_str = command_line::get_arg(vm, arg_database);
 
   mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
-  mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
+  if (!vm["log-level"].defaulted())
+    mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
+  else
+    mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
+
   MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
