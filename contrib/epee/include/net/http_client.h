@@ -337,6 +337,11 @@ using namespace std;
 				return true;
 			}
 			//---------------------------------------------------------------------------
+			virtual bool on_header(const http_response_info &headers)
+      {
+        return true;
+      }
+			//---------------------------------------------------------------------------
 			inline 
 				bool invoke_get(const boost::string_ref uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
 			{
@@ -505,6 +510,12 @@ using namespace std;
 					m_header_cache.erase(m_header_cache.begin()+pos+4, m_header_cache.end());
 
 					analize_cached_header_and_invoke_state();
+          if (!on_header(m_response_info))
+          {
+            MDEBUG("Connection cancelled by on_header");
+            m_state = reciev_machine_state_done;
+            return false;
+          }
 					m_header_cache.clear();
 					if(!recv_buff.size() && (m_state != reciev_machine_state_error && m_state != reciev_machine_state_done))
 						need_more_data = true;
@@ -527,7 +538,11 @@ using namespace std;
 				}
 				CHECK_AND_ASSERT_MES(m_len_in_remain >= recv_buff.size(), false, "m_len_in_remain >= recv_buff.size()");
 				m_len_in_remain -= recv_buff.size();
-				m_pcontent_encoding_handler->update_in(recv_buff);
+				if (!m_pcontent_encoding_handler->update_in(recv_buff))
+				{
+					m_state = reciev_machine_state_done;
+					return false;
+				}
 
 				if(m_len_in_remain == 0)
 					m_state = reciev_machine_state_done;
@@ -700,7 +715,11 @@ using namespace std;
 								m_len_in_remain = 0;
 							}
 
-							m_pcontent_encoding_handler->update_in(chunk_body);
+							if (!m_pcontent_encoding_handler->update_in(chunk_body))
+							{
+								m_state = reciev_machine_state_error;
+								return false;
+							}
 
 							if(!m_len_in_remain)
 								m_chunked_state = http_chunked_state_chunk_head;
