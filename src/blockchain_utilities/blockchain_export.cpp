@@ -57,6 +57,8 @@ std::string join_set_strings(const std::unordered_set<std::string>& db_types_all
 
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   std::string default_db_type = "lmdb";
@@ -226,4 +228,7 @@ int main(int argc, char* argv[])
   }
   CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
+  return 0;
+
+  CATCH_ENTRY("Export error", 1);
 }
