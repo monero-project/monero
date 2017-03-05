@@ -456,7 +456,14 @@ namespace tools
       a & m_tx_notes;
       if(ver < 13)
         return;
-      a & m_unconfirmed_payments;
+      if (ver < 17)
+      {
+        // we're loading an old version, where m_unconfirmed_payments was a std::map
+        std::unordered_map<crypto::hash, payment_details> m;
+        a & m;
+        for (std::unordered_map<crypto::hash, payment_details>::const_iterator i = m.begin(); i != m.end(); ++i)
+          m_unconfirmed_payments.insert(*i);
+      }
       if(ver < 14)
         return;
       if(ver < 15)
@@ -475,6 +482,9 @@ namespace tools
       if(ver < 16)
         return;
       a & m_address_book;
+      if(ver < 17)
+        return;
+      a & m_unconfirmed_payments;
     }
 
     /*!
@@ -633,7 +643,7 @@ namespace tools
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
-    std::unordered_map<crypto::hash, payment_details> m_unconfirmed_payments;
+    std::unordered_multimap<crypto::hash, payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
 
     transfer_container m_transfers;
@@ -668,7 +678,7 @@ namespace tools
     NodeRPCProxy m_node_rpc_proxy;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 16)
+BOOST_CLASS_VERSION(tools::wallet2, 17)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
