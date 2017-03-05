@@ -529,7 +529,7 @@ namespace cryptonote
         default_decimal_point = decimal_point;
         break;
       default:
-        ASSERT_MES_AND_THROW("Invalid decimal point specificatin: " << decimal_point);
+        ASSERT_MES_AND_THROW("Invalid decimal point specification: " << decimal_point);
     }
   }
   //---------------------------------------------------------------
@@ -555,7 +555,7 @@ namespace cryptonote
       case 0:
         return "piconero";
       default:
-        ASSERT_MES_AND_THROW("Invalid decimal point specificatin: " << default_decimal_point);
+        ASSERT_MES_AND_THROW("Invalid decimal point specification: " << default_decimal_point);
     }
   }
   //---------------------------------------------------------------
