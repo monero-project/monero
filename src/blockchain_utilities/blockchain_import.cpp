@@ -596,6 +596,8 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   std::string default_db_type = "lmdb";
@@ -852,4 +854,6 @@ int main(int argc, char* argv[])
   // calls delete on its BlockchainDB derived class' object, which closes its
   // files.
   return 0;
+
+  CATCH_ENTRY("Import error", 1);
 }
