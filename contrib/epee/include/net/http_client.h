@@ -337,6 +337,11 @@ using namespace std;
 				return true;
 			}
 			//---------------------------------------------------------------------------
+			virtual bool on_header(const http_response_info &headers)
+      {
+        return true;
+      }
+			//---------------------------------------------------------------------------
 			inline 
 				bool invoke_get(const boost::string_ref uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list())
 			{
@@ -505,6 +510,12 @@ using namespace std;
 					m_header_cache.erase(m_header_cache.begin()+pos+4, m_header_cache.end());
 
 					analize_cached_header_and_invoke_state();
+          if (!on_header(m_response_info))
+          {
+            MDEBUG("Connection cancelled by on_header");
+            m_state = reciev_machine_state_done;
+            return false;
+          }
 					m_header_cache.clear();
 					if(!recv_buff.size() && (m_state != reciev_machine_state_error && m_state != reciev_machine_state_done))
 						need_more_data = true;

@@ -35,6 +35,7 @@
 #include "common/dns_utils.h"
 #include "common/util.h"
 #include "common/updates.h"
+#include "common/download.h"
 #include "version.h"
 #include "net/http_client.h"
 
@@ -473,6 +474,10 @@ std::tuple<bool, std::string, std::string, std::string, std::string> WalletManag
     return std::make_tuple(false, "", "", "", "");
 }
 
+bool WalletManager::download(const std::string &path, const std::string &uri, std::function<bool(size_t, ssize_t)> cb)
+{
+  return tools::download(path, uri, cb);
+}
 
 ///////////////////// WalletManagerFactory implementation //////////////////////
 WalletManager *WalletManagerFactory::getWalletManager()

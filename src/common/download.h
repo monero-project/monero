@@ -32,5 +32,12 @@
 
 namespace tools
 {
-  bool download(const std::string &path, const std::string &url);
+  typedef void *download_async_handle;
+  bool download(const std::string &path, const std::string &url, std::function<bool(size_t, ssize_t)> cb = NULL);
+  download_async_handle download_async(const std::string &path, const std::string &url, std::function<void(bool)> result, std::function<bool(size_t, ssize_t)> progress = NULL);
+  bool download_error(download_async_handle h);
+  bool download_finished(download_async_handle h);
+  bool download_wait(download_async_handle h);
+  bool download_cancel(download_async_handle h);
+  void download_clear(download_async_handle h);
 }
