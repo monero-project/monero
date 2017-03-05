@@ -114,7 +114,7 @@ namespace tools
     static void init_options(boost::program_options::options_description& desc_params);
 
     //! \return Password retrieved from prompt. Logs error on failure.
-    static boost::optional<password_container> password_prompt(const bool is_new_wallet);
+    static boost::optional<password_container> password_prompt(const bool new_password);
 
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
     static std::unique_ptr<wallet2> make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file);

@@ -380,9 +380,9 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
     return false;
   }
 
-  // prompts for a new password, this is not a new wallet so pass in false.
-  const auto pwd_container = tools::wallet2::password_prompt(false);
-  
+  // prompts for a new password, pass true to verify the password
+  const auto pwd_container = tools::wallet2::password_prompt(true);
+
   try
   {
     m_wallet->rewrite(m_wallet_file, pwd_container->password());
@@ -676,6 +676,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("export_outputs", boost::bind(&simple_wallet::export_outputs, this, _1), tr("Export a set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("import_outputs", boost::bind(&simple_wallet::import_outputs, this, _1), tr("Import set of outputs owned by this wallet"));
   m_cmd_binder.set_handler("show_transfer", boost::bind(&simple_wallet::show_transfer, this, _1), tr("Show information about a transfer to/from this address"));
+  m_cmd_binder.set_handler("password", boost::bind(&simple_wallet::change_password, this, _1), tr("Change wallet password"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
