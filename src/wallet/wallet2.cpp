@@ -452,10 +452,10 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.restricted);
 }
 
-boost::optional<password_container> wallet2::password_prompt(const bool is_new_wallet)
+boost::optional<password_container> wallet2::password_prompt(const bool new_password)
 {
   auto pwd_container = tools::password_container::prompt(
-    is_new_wallet, (is_new_wallet ? tr("Enter a password for your new wallet") : tr("Wallet password"))
+    new_password, (new_password ? tr("Enter new wallet password") : tr("Wallet password"))
   );
   if (!pwd_container)
   {
