@@ -57,6 +57,8 @@ std::string join_set_strings(const std::unordered_set<std::string>& db_types_all
 
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   std::string default_db_type = "lmdb";
@@ -80,7 +82,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_output_file = {"output-file", "Specify output file", "", true};
-  const command_line::arg_descriptor<uint32_t> arg_log_level  = {"log-level",  "", log_level};
+  const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
   const command_line::arg_descriptor<uint64_t> arg_block_stop = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<bool>     arg_testnet_on = {
     "testnet"
@@ -124,11 +126,13 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  log_level    = command_line::get_arg(vm, arg_log_level);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-export.log"), true);
+  if (!vm["log-level"].defaulted())
+    mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
+  else
+    mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   block_stop = command_line::get_arg(vm, arg_block_stop);
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-export.log"), true);
-  mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
   LOG_PRINT_L0("Starting...");
 
   bool opt_testnet = command_line::get_arg(vm, arg_testnet_on);
@@ -226,4 +230,7 @@ int main(int argc, char* argv[])
   }
   CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
+  return 0;
+
+  CATCH_ENTRY("Export error", 1);
 }
