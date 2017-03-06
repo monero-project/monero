@@ -28,6 +28,7 @@
 
 #include "rpc/daemon_rpc_client.h"
 #include "serialization/json_object.h"
+#include "include_base_utils.h"
 
 namespace cryptonote
 {
@@ -736,6 +737,7 @@ cryptonote::rpc::error DaemonRPCClient::parseError(rapidjson::Value& err)
 {
   cryptonote::rpc::error error;
   cryptonote::json::fromJsonValue(err, error);
+  LOG_ERROR("ZMQ RPC client received error: " << error.error_str);
   return error;
 }
 

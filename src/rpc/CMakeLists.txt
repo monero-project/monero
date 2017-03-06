@@ -133,6 +133,7 @@ target_link_libraries(daemon_rpc_client
     cryptonote_core
     cryptonote_protocol
     daemon_messages
+    epee
     serialization
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
