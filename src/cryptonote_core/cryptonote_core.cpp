@@ -75,7 +75,8 @@ namespace cryptonote
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
               m_last_dns_checkpoints_update(0),
-              m_last_json_checkpoints_update(0)
+              m_last_json_checkpoints_update(0),
+              m_update_download(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -134,6 +135,15 @@ namespace cryptonote
   void core::stop()
   {
     m_blockchain_storage.cancel();
+
+    tools::download_async_handle handle;
+    {
+      boost::lock_guard<boost::mutex> lock(m_update_mutex);
+      handle = m_update_download;
+      m_update_download = 0;
+    }
+    if (handle)
+      tools::download_cancel(handle);
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)
@@ -1118,7 +1128,7 @@ namespace cryptonote
       return true;
 
     std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
-    MGINFO("Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
+    MCLOG_CYAN(el::Level::Info, "global", "Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
 
     if (check_updates_level == UPDATES_NOTIFY)
       return true;
@@ -1133,31 +1143,54 @@ namespace cryptonote
     boost::filesystem::path path(epee::string_tools::get_current_module_folder());
     path /= filename;
 
+    boost::unique_lock<boost::mutex> lock(m_update_mutex);
+
+    if (m_update_download != 0)
+    {
+      MCDEBUG("updates", "Already downloading update");
+      return true;
+    }
+
     crypto::hash file_hash;
     if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
     {
       MCDEBUG("updates", "We don't have that file already, downloading");
-      if (!tools::download(path.string(), url))
-      {
-        MCERROR("updates", "Failed to download " << url);
-        return false;
-      }
-      if (!tools::sha256sum(path.string(), file_hash))
-      {
-        MCERROR("updates", "Failed to hash " << path);
-        return false;
-      }
-      if (hash != epee::string_tools::pod_to_hex(file_hash))
-      {
-        MCERROR("updates", "Download from " << url << " does not match the expected hash");
-        return false;
-      }
-      MGINFO("New version downloaded to " << path);
+      m_last_update_length = 0;
+      m_update_download = tools::download_async(path.string(), url, [this, hash](const std::string &path, const std::string &uri, bool success) {
+        if (success)
+        {
+          crypto::hash file_hash;
+          if (!tools::sha256sum(path, file_hash))
+          {
+            MCERROR("updates", "Failed to hash " << path);
+          }
+          if (hash != epee::string_tools::pod_to_hex(file_hash))
+          {
+            MCERROR("updates", "Download from " << uri << " does not match the expected hash");
+          }
+          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path);
+        }
+        else
+        {
+          MCERROR("updates", "Failed to download " << uri);
+        }
+        boost::unique_lock<boost::mutex> lock(m_update_mutex);
+        m_update_download = 0;
+      }, [this](const std::string &path, const std::string &uri, size_t length, ssize_t content_length) {
+        if (length >= m_last_update_length + 1024 * 1024 * 10)
+        {
+          m_last_update_length = length;
+          MCDEBUG("updates", "Downloaded " << length << "/" << (content_length ? std::to_string(content_length) : "unknown"));
+        }
+        return true;
+      });
     }
     else
     {
       MCDEBUG("updates", "We already have " << path << " with expected hash");
     }
+
+    lock.unlock();
 
     if (check_updates_level == UPDATES_DOWNLOAD)
       return true;
