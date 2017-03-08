@@ -86,7 +86,7 @@ Monero uses a fixed-schedule hard fork mechanism to implement new features. This
 Dates are provided in the format YYYY-MM-DD. 
 
 
-| Fork Dat          | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
+| Fork Date          | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
 | ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ |
 | 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
 | 2017-01-05        | v4                | v0.10.1                 | v0.10.2.2                   | Allow normal and RingCT transactions | 
