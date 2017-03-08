@@ -228,8 +228,8 @@ if(STATIC)
   endif()
 endif()
 
-# default database:
-# should be lmdb for testing, memory for production still
+# Set default blockchain storage location:
+# memory was the default in Cryptonote before Monero implimented LMDB, it still works but is unneccessary.
 # set(DATABASE memory)
 set(DATABASE lmdb)
 
