@@ -37,7 +37,7 @@
 #include "cryptonote_protocol/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
-#include "cryptonote_core/hardfork.h"
+#include "cryptonote_basic/hardfork.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -768,7 +768,7 @@ public:
    *
    * @return the block requested
    */
-  block get_block(const crypto::hash& h) const;
+  virtual block get_block(const crypto::hash& h) const;
 
   /**
    * @brief gets the height of the block with a given hash
@@ -821,7 +821,7 @@ public:
    *
    * @return the block
    */
-  block get_block_from_height(const uint64_t& height) const;
+  virtual block get_block_from_height(const uint64_t& height) const;
 
   /**
    * @brief fetch a block's timestamp
@@ -1041,7 +1041,7 @@ public:
    *
    * @return the transaction with the given hash
    */
-  transaction get_tx(const crypto::hash& h) const;
+  virtual transaction get_tx(const crypto::hash& h) const;
 
   /**
    * @brief fetches the transaction with the given hash
@@ -1052,7 +1052,7 @@ public:
    *
    * @return true iff the transaction was found
    */
-  bool get_tx(const crypto::hash& h, transaction &tx) const;
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
 
   /**
    * @brief fetches the transaction blob with the given hash
