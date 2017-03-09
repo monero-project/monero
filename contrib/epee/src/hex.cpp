@@ -38,7 +38,7 @@ namespace epee
   namespace
   {
     template<typename T>
-    void write_hex(T&& out, const view<std::uint8_t> src)
+    void write_hex(T&& out, const span<const std::uint8_t> src)
     {
       static constexpr const char hex[] = u8"0123456789abcdef";
       static_assert(sizeof(hex) == 17, "bad string size");
@@ -52,7 +52,7 @@ namespace epee
     }
   }
 
-  std::string to_hex::string(const view<std::uint8_t> src)
+  std::string to_hex::string(const span<const std::uint8_t> src)
   {
     if (std::numeric_limits<std::size_t>::max() / 2 < src.size())
       throw std::range_error("hex_view::to_string exceeded maximum size");
@@ -63,19 +63,19 @@ namespace epee
     return out;
   }
 
-  void to_hex::buffer(std::ostream& out, const view<std::uint8_t> src)
+  void to_hex::buffer(std::ostream& out, const span<const std::uint8_t> src)
   {
     write_hex(std::ostreambuf_iterator<char>{out}, src);
   }
 
-  void to_hex::formatted(std::ostream& out, const view<std::uint8_t> src)
+  void to_hex::formatted(std::ostream& out, const span<const std::uint8_t> src)
   {
     out.put('<');
     buffer(out, src);
     out.put('>');
   }
 
-  void to_hex::buffer_unchecked(char* out, const view<std::uint8_t> src) noexcept
+  void to_hex::buffer_unchecked(char* out, const span<const std::uint8_t> src) noexcept
   {
     return write_hex(out, src);
   }
