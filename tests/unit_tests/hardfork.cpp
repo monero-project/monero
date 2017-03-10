@@ -33,7 +33,7 @@
 
 #include "blockchain_db/lmdb/db_lmdb.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "cryptonote_core/hardfork.h"
+#include "cryptonote_basic/hardfork.h"
 
 using namespace cryptonote;
 
