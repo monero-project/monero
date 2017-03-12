@@ -605,7 +605,7 @@ namespace cryptonote
           NOTIFY_NEW_BLOCK::request reg_arg = AUTO_VAL_INIT(reg_arg);
           reg_arg.hop = arg.hop;
           reg_arg.current_blockchain_height = arg.current_blockchain_height;
-          reg_arg.b.block = b.block;
+          reg_arg.b = b;
           relay_block(reg_arg, context);
         }
         else if( bvc.m_marked_as_orphaned )
