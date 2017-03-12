@@ -796,7 +796,7 @@ namespace cryptonote
   {
     // we attempt to relay txes that should be relayed, but were not
     std::list<std::pair<crypto::hash, cryptonote::transaction>> txs;
-    if (m_mempool.get_relayable_transactions(txs))
+    if (m_mempool.get_relayable_transactions(txs) && !txs.empty())
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
