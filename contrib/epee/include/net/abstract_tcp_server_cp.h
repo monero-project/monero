@@ -230,7 +230,7 @@ PRAGMA_WARNING_POP
 	};
 }
 }
-#include "abstract_tcp_server_cp.inl"
+#include "abstract_tcp_server_cp.inl.h"
 
 
 #endif //_LEVIN_SERVER_H_

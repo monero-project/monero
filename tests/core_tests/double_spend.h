@@ -149,4 +149,4 @@ public:
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 
 
-#include "double_spend.inl"
+#include "double_spend.inl.h"

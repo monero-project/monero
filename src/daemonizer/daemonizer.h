@@ -62,5 +62,5 @@ namespace daemonizer
 #ifdef WIN32
 #  include "daemonizer/windows_daemonizer.inl"
 #else
-#  include "daemonizer/posix_daemonizer.inl"
+#  include "daemonizer/posix_daemonizer.inl.h"
 #endif

@@ -164,6 +164,6 @@ namespace cryptonote
 } // namespace
 
 
-#include "cryptonote_protocol_handler.inl"
+#include "cryptonote_protocol_handler.inl.h"
 
 POP_WARNINGS

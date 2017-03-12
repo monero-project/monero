@@ -62,12 +62,12 @@ set(daemon_private_headers
   ../cryptonote_protocol/blobdatatype.h
   ../cryptonote_protocol/cryptonote_protocol_defs.h
   ../cryptonote_protocol/cryptonote_protocol_handler.h
-  ../cryptonote_protocol/cryptonote_protocol_handler.inl
+  ../cryptonote_protocol/cryptonote_protocol_handler.inl.h
   ../cryptonote_protocol/cryptonote_protocol_handler_common.h
 
   # p2p
   ../p2p/net_node.h
-  ../p2p/net_node.inl
+  ../p2p/net_node.inl.h
   ../p2p/net_node_common.h
   ../p2p/net_peerlist.h
   ../p2p/net_peerlist_boost_serialization.h

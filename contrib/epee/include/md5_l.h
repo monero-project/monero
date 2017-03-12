@@ -92,6 +92,6 @@ namespace md5
 
 }
 
-#include "md5_l.inl"
+#include "md5_l.inl.h"
 
 #endif

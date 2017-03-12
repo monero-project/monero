@@ -222,6 +222,6 @@ namespace net_utils
 }
 }
 
-#include "http_protocol_handler.inl"
+#include "http_protocol_handler.inl.h"
 
 #endif //_HTTP_SERVER_H_

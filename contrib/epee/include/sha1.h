@@ -46,6 +46,6 @@ namespace sha1 {
 
 }  // namespace sha1
 
-#include "sha1.inl"
+#include "sha1.inl.h"
 
 #endif // SHA1_DEFINED

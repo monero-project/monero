@@ -50,7 +50,7 @@ set(core_tests_headers
   chaingen.h
   chaingen_tests_list.h
   double_spend.h
-  double_spend.inl
+  double_spend.inl.h
   integer_overflow.h
   ring_signature_1.h
   transaction_tests.h
