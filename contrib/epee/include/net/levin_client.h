@@ -84,6 +84,6 @@ namespace net_utils
 }
 }
 
-#include "levin_client.inl"
+#include "levin_client.inl.h"
 
 #endif //_LEVIN_CLIENT_H_

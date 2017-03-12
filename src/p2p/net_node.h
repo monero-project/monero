@@ -324,6 +324,6 @@ namespace nodetool
   };
 }
 
-#include "net_node.inl"
+#include "net_node.inl.h"
 
 POP_WARNINGS

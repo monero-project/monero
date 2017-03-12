@@ -29,12 +29,12 @@
 if(MSVC OR MINGW)
   set(daemonizer_sources
     windows_service.cpp
-    windows_daemonizer.inl
+    windows_daemonizer.inl.h
   )
 else()
   set(daemonizer_sources
     posix_fork.cpp
-    posix_daemonizer.inl
+    posix_daemonizer.inl.h
   )
 endif()
 
