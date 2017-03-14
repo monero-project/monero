@@ -3320,20 +3320,35 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_fee_multiplier(uint32_t priority, bool use_new_fee) const
+uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm) const
 {
   static const uint64_t old_multipliers[3] = {1, 2, 3};
   static const uint64_t new_multipliers[3] = {1, 20, 166};
+  static const uint64_t newer_multipliers[4] = {1, 4, 20, 166};
 
-  // 0 -> default (here, x1)
+  // 0 -> default (here, x1 till fee algorithm 2, x4 from it)
   if (priority == 0)
     priority = m_default_priority;
   if (priority == 0)
-    priority = 1;
+  {
+    if (fee_algorithm >= 2)
+      priority = 2;
+    else
+      priority = 1;
+  }
 
-  // 1 to 3 are allowed as priorities
-  if (priority >= 1 && priority <= 3)
-    return (use_new_fee ? new_multipliers : old_multipliers)[priority-1];
+  // 1 to 3/4 are allowed as priorities
+  uint32_t max_priority = (fee_algorithm >= 2) ? 4 : 3;
+  if (priority >= 1 && priority <= max_priority)
+  {
+    switch (fee_algorithm)
+    {
+      case 0: return old_multipliers[priority-1];
+      case 1: return new_multipliers[priority-1];
+      case 2: return newer_multipliers[priority-1];
+      default: THROW_WALLET_EXCEPTION_IF (true, error::invalid_priority);
+    }
+  }
 
   THROW_WALLET_EXCEPTION_IF (false, error::invalid_priority);
   return 1;
@@ -3358,6 +3373,16 @@ uint64_t wallet2::get_per_kb_fee()
   return get_dynamic_per_kb_fee_estimate();
 }
 //----------------------------------------------------------------------------------------------------
+int wallet2::get_fee_algorithm()
+{
+  // changes at v3 and v5
+  if (use_fork_rules(5, -720 * 14))
+    return 2;
+  if (use_fork_rules(3, -720 * 14))
+   return 1;
+  return 0;
+}
+//----------------------------------------------------------------------------------------------------
 // separated the call(s) to wallet2::transfer into their own function
 //
 // this function will make multiple calls to wallet2::transfer if multiple
@@ -3366,9 +3391,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
 {
   const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, true, trusted_daemon);
 
-  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
   const uint64_t fee_per_kb  = get_per_kb_fee();
-  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
 
   // failsafe split attempt counter
   size_t attempt_count = 0;
@@ -4147,9 +4171,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
 
-  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
   const uint64_t fee_per_kb  = get_per_kb_fee();
-  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
 
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
@@ -4474,9 +4497,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   std::vector<std::vector<get_outs_entry>> outs;
 
   const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
-  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
   const uint64_t fee_per_kb  = get_per_kb_fee();
-  const uint64_t fee_multiplier = get_fee_multiplier(priority, use_new_fee);
+  const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
 
   LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
 
@@ -4637,7 +4659,7 @@ uint64_t wallet2::get_upper_tranaction_size_limit()
 {
   if (m_upper_transaction_size_limit > 0)
     return m_upper_transaction_size_limit;
-  uint64_t full_reward_zone = use_fork_rules(2, 10) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+  uint64_t full_reward_zone = use_fork_rules(5, 10) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5 : use_fork_rules(2, 10) ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
   return ((full_reward_zone * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4763,7 +4785,6 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
   tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
-  const bool use_new_fee  = use_fork_rules(3, -720 * 14);
   const uint64_t fee_per_kb  = get_per_kb_fee();
 
   // may throw

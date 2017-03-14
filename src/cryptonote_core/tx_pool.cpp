@@ -59,8 +59,6 @@ namespace cryptonote
     //      codebase.  As it stands, it is at best nontrivial to test
     //      whether or not changing these parameters (or adding new)
     //      will work correctly.
-    size_t const TRANSACTION_SIZE_LIMIT_V1 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
-    size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
     float const ACCEPT_THRESHOLD = 1.0f;
@@ -77,6 +75,11 @@ namespace cryptonote
     uint64_t template_accept_threshold(uint64_t amount)
     {
       return amount * ACCEPT_THRESHOLD;
+    }
+
+    uint64_t get_transaction_size_limit(uint8_t version)
+    {
+      return get_min_block_size(version) * 125 / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     }
   }
   //---------------------------------------------------------------------------------
@@ -149,7 +152,7 @@ namespace cryptonote
       return false;
     }
 
-    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    size_t tx_size_limit = get_transaction_size_limit(version);
     if (!kept_by_block && blob_size >= tx_size_limit)
     {
       LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
@@ -641,15 +644,6 @@ namespace cryptonote
         continue;
       }
 
-#if 1
-      // If we've exceeded the penalty free size,
-      // stop including more tx
-      if (total_size > median_size)
-      {
-        LOG_PRINT_L2("  would exceed median block size");
-        break;
-      }
-#else
       // If we're getting lower coinbase tx,
       // stop including more tx
       uint64_t block_reward;
@@ -666,7 +660,6 @@ namespace cryptonote
         sorted_it++;
         continue;
       }
-#endif
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
@@ -705,7 +698,7 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     size_t n_removed = 0;
-    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    size_t tx_size_limit = get_transaction_size_limit(version);
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
       if (it->second.blob_size >= tx_size_limit) {
         LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
