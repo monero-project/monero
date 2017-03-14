@@ -494,7 +494,7 @@ void slow_hash_free_state(void)
  * buffer of pseudorandom data by hashing the supplied data.  It then uses this
  * random data to fill a large 2MB buffer with pseudorandom data by iteratively
  * encrypting it using 10 rounds of AES per entry.  After this initialization,
- * it executes 500,000 rounds of mixing through the random 2MB buffer using
+ * it executes 524,288 rounds of mixing through the random 2MB buffer using
  * AES (typically provided in hardware on modern CPUs) and a 64 bit multiply.
  * Finally, it re-mixes this large buffer back into
  * the 200 byte "text" buffer, and then hashes this buffer using one of four
@@ -578,8 +578,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     U64(b)[0] = U64(&state.k[16])[0] ^ U64(&state.k[48])[0];
     U64(b)[1] = U64(&state.k[16])[1] ^ U64(&state.k[48])[1];
 
-    /* CryptoNight Step 3:  Bounce randomly 1 million times through the mixing buffer,
-     * using 500,000 iterations of the following mixing function.  Each execution
+    /* CryptoNight Step 3:  Bounce randomly 1,048,576 times (1<<20) through the mixing buffer,
+     * using 524,288 iterations of the following mixing function.  Each execution
      * performs two reads and writes from the mixing buffer.
      */
 
@@ -895,8 +895,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     U64(b)[0] = U64(&state.k[16])[0] ^ U64(&state.k[48])[0];
     U64(b)[1] = U64(&state.k[16])[1] ^ U64(&state.k[48])[1];
 
-    /* CryptoNight Step 3:  Bounce randomly 1 million times through the mixing buffer,
-     * using 500,000 iterations of the following mixing function.  Each execution
+    /* CryptoNight Step 3:  Bounce randomly 1,048,576 times (1<<20) through the mixing buffer,
+     * using 524,288 iterations of the following mixing function.  Each execution
      * performs two reads and writes from the mixing buffer.
      */
 
