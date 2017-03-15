@@ -537,6 +537,7 @@ namespace tools
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
+    int get_fee_algorithm();
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
@@ -622,7 +623,7 @@ namespace tools
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     uint64_t get_upper_tranaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();
-    uint64_t get_fee_multiplier(uint32_t priority, bool use_new_fee) const;
+    uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm) const;
     uint64_t get_dynamic_per_kb_fee_estimate();
     uint64_t get_per_kb_fee();
     float get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const;

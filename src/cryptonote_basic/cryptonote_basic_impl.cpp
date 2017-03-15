@@ -67,6 +67,15 @@ namespace cryptonote {
   /* Cryptonote helper functions                                          */
   /************************************************************************/
   //-----------------------------------------------------------------------------------------------
+  size_t get_min_block_size(uint8_t version)
+  {
+    if (version < 2)
+      return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+    if (version < 5)
+      return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
+    return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
+  }
+  //-----------------------------------------------------------------------------------------------
   size_t get_max_block_size()
   {
     return CRYPTONOTE_MAX_BLOCK_SIZE;
@@ -89,7 +98,7 @@ namespace cryptonote {
       base_reward = FINAL_SUBSIDY_PER_MINUTE*target_minutes;
     }
 
-    uint64_t full_reward_zone = version < 2 ? CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 : CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
+    uint64_t full_reward_zone = get_min_block_size(version);
 
     //make it soft
     if (median_size < full_reward_zone) {
