@@ -548,7 +548,16 @@ namespace cryptonote
           tx_ids.push_back(tx_hash);
           if (m_core.get_transactions(tx_ids, txes, missing) && missing.empty())
           {
-            have_tx.push_back(tx_to_blob(tx));
+            if (txes.size() == 1)
+            {
+              have_tx.push_back(tx_to_blob(txes.front()));
+            }
+            else
+            {
+              MERROR("1 tx requested, none not found, but " << txes.size() << " returned");
+              m_core.resume_mine();
+              return 1;
+            }
           }
           else
           {
