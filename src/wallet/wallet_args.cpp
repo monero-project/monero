@@ -86,6 +86,7 @@ namespace wallet_args
     const command_line::arg_descriptor<std::string> arg_log_level = {"log-level", "0-4 or categories", ""};
     const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", wallet_args::tr("Max number of threads to use for a parallel job"), DEFAULT_MAX_CONCURRENCY};
     const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", wallet_args::tr("Specify log file"), ""};
+    const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "", true};
 
 
     std::string lang = i18n_get_language();
@@ -101,6 +102,7 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_log_file, "");
     command_line::add_arg(desc_params, arg_log_level);
     command_line::add_arg(desc_params, arg_max_concurrency);
+    command_line::add_arg(desc_params, arg_config_file);
 
     i18n_set_language("translations", "monero", lang);
 
@@ -111,6 +113,23 @@ namespace wallet_args
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
       po::store(parser.run(), vm);
+
+      if(command_line::has_arg(vm, arg_config_file))
+      {
+        std::string config = command_line::get_arg(vm, arg_config_file);
+        bf::path config_path(config);
+        boost::system::error_code ec;
+        if (bf::exists(config_path, ec))
+        {
+          po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), desc_params), vm);
+        }
+        else
+        {
+          tools::fail_msg_writer() << wallet_args::tr("Can't find config file ") << config;
+          return false;
+        }
+      }
+
       po::notify(vm);
       return true;
     });
