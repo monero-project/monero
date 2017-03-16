@@ -405,21 +405,23 @@ std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec
   return addresses;
 }
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid)
+std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, bool cli_confirm)
 {
   // attempt to get address from dns query
   auto addresses = addresses_from_url(url, dnssec_valid);
   if (addresses.empty())
   {
-    std::cout << tr("wrong address: ") << url;
+    LOG_ERROR("wrong address: " << url);
     return {};
   }
   // for now, move on only if one address found
   if (addresses.size() > 1)
   {
-    std::cout << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
+    LOG_ERROR("not yet supported: Multiple Monero addresses found for given URL: " << url);
     return {};
   }
+  if (!cli_confirm)
+    return addresses[0];
   // prompt user for confirmation.
   // inform user of DNSSEC validation status as well.
   std::string dnssec_str;
