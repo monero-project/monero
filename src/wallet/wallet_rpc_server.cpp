@@ -300,7 +300,7 @@ namespace tools
       cryptonote::tx_destination_entry de;
       bool has_payment_id;
       crypto::hash8 new_payment_id;
-      if(!get_account_integrated_address_from_str(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address))
+      if(!get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet.testnet(), it->address, false))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
@@ -945,7 +945,7 @@ namespace tools
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id;
-    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet.testnet(), req.address))
+    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet.testnet(), req.address, false))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "";
@@ -1308,7 +1308,7 @@ namespace tools
     bool has_payment_id;
     crypto::hash8 payment_id8;
     crypto::hash payment_id = cryptonote::null_hash;
-    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id8, m_wallet.testnet(), req.address))
+    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet.testnet(), req.address, false))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;

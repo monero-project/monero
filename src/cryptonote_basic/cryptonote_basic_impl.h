@@ -107,12 +107,14 @@ namespace cryptonote {
     , crypto::hash8& payment_id
     , bool testnet
     , const std::string& str_or_url
+    , bool cli_confirm = true
     );
 
   bool get_account_address_from_str_or_url(
       cryptonote::account_public_address& address
     , bool testnet
     , const std::string& str_or_url
+    , bool cli_confirm = true
     );
 
   bool is_coinbase(const transaction& tx);
