@@ -168,7 +168,7 @@ namespace command_line
     {
       return parser();
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       std::cerr << "Failed to parse arguments: " << e.what() << std::endl;
       std::cerr << desc << std::endl;

@@ -252,7 +252,7 @@ namespace tools
       res.balance = m_wallet.balance();
       res.unlocked_balance = m_wallet.unlocked_balance();
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -267,7 +267,7 @@ namespace tools
     {
       res.address = m_wallet.get_account().get_public_address_str(m_wallet.testnet());
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -282,7 +282,7 @@ namespace tools
     {
       res.height = m_wallet.get_blockchain_current_height();
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -636,7 +636,7 @@ namespace tools
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
-    catch (std::exception &e)
+    catch (const std::exception &e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -669,7 +669,7 @@ namespace tools
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
-    catch (std::exception &e)
+    catch (const std::exception &e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -691,7 +691,7 @@ namespace tools
     {
       m_wallet.store();
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -911,7 +911,7 @@ namespace tools
     {
       m_wallet.rescan_blockchain();
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -970,7 +970,7 @@ namespace tools
       m_wallet.store();
       m_stop.store(true, std::memory_order_relaxed);
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();

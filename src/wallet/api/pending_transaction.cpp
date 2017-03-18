@@ -124,7 +124,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
         m_errorString = writer.str();
         if (!reason.empty())
           m_errorString  += string(tr(". Reason: ")) + reason;
-    } catch (std::exception &e) {
+    } catch (const std::exception &e) {
         m_errorString = string(tr("Unknown exception: ")) + e.what();
         m_status = Status_Error;
     } catch (...) {

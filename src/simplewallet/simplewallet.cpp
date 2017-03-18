@@ -1327,7 +1327,7 @@ std::string simple_wallet::get_mnemonic_language()
         fail_msg_writer() << tr("invalid language choice passed. Please try again.\n");
       }
     }
-    catch (std::exception &e)
+    catch (const std::exception &e)
     {
       fail_msg_writer() << tr("invalid language choice passed. Please try again.\n");
     }
@@ -4053,7 +4053,7 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
       return true;
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     LOG_ERROR("Error exporting key images: " << e.what());
     fail_msg_writer() << "Error exporting key images: " << e.what();
