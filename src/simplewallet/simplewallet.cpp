@@ -2298,6 +2298,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         break;
     }
 
+    if (ptx_vector.empty())
+    {
+      fail_msg_writer() << tr("No outputs found, or daemon is not ready");
+      return true;
+    }
+
     // if more than one tx necessary, prompt user to confirm
     if (m_wallet->always_confirm_transfers() || ptx_vector.size() > 1)
     {
@@ -2764,7 +2770,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 
     if (ptx_vector.empty())
     {
-      fail_msg_writer() << tr("No outputs found");
+      fail_msg_writer() << tr("No outputs found, or daemon is not ready");
       return true;
     }
 
