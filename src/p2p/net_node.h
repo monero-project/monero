@@ -191,7 +191,6 @@ namespace nodetool
     bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
-      , bool testnet
       );
     bool idle_worker();
     bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
@@ -218,6 +217,7 @@ namespace nodetool
     void cache_connect_fail_info(const net_address& addr);
     bool is_addr_recently_failed(const net_address& addr);
     bool is_priority_node(const net_address& na);
+    std::set<std::string> get_seed_nodes(bool testnet) const;
 
     template <class Container>
     bool connect_to_peerlist(const Container& peers);
@@ -321,6 +321,8 @@ namespace nodetool
 
     epee::critical_section m_ip_fails_score_lock;
     std::map<uint32_t, uint64_t> m_ip_fails_score;
+
+    bool m_testnet;
   };
 }
 

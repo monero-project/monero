@@ -65,6 +65,7 @@
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
+#define MIN_WANTED_SEED_NODES 12
 
 namespace nodetool
 {
@@ -287,10 +288,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(
       const boost::program_options::variables_map& vm
-    , bool testnet
     )
   {
-    auto p2p_bind_arg = testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
+    auto p2p_bind_arg = m_testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
 
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
     m_port = command_line::get_arg(vm, p2p_bind_arg);
@@ -309,7 +309,7 @@ namespace nodetool
         bool r = parse_peer_from_string(pe.adr, pr_str);
         CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
         if (pe.adr.port == 0)
-          pe.adr.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
+          pe.adr.port = m_testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
         m_command_line_peers.push_back(pe);
       }
     }
@@ -398,19 +398,42 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes(bool testnet) const
   {
     std::set<std::string> full_addrs;
-    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
-
     if (testnet)
     {
-      memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
       full_addrs.insert("212.83.175.67:28080");
       full_addrs.insert("5.9.100.248:28080");
       full_addrs.insert("163.172.182.165:28080");
       full_addrs.insert("195.154.123.123:28080");
       full_addrs.insert("212.83.172.165:28080");
+    }
+    else
+    {
+      full_addrs.insert("107.152.130.98:18080");
+      full_addrs.insert("212.83.175.67:18080");
+      full_addrs.insert("5.9.100.248:18080");
+      full_addrs.insert("163.172.182.165:18080");
+      full_addrs.insert("161.67.132.39:18080");
+      full_addrs.insert("198.74.231.92:18080");
+      full_addrs.insert("195.154.123.123:28080");
+      full_addrs.insert("212.83.172.165:28080");
+    }
+    return full_addrs;
+  }
+
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
+  {
+    std::set<std::string> full_addrs;
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+
+    if (m_testnet)
+    {
+      memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
+      full_addrs = get_seed_nodes(true);
     }
     else
     {
@@ -483,18 +506,16 @@ namespace nodetool
         ++i;
       }
 
-      if (!full_addrs.size())
+      // append the fallback nodes if we have too few seed nodes to start with
+      if (full_addrs.size() < MIN_WANTED_SEED_NODES)
       {
-        MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
+        if (full_addrs.empty())
+          MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
+        else
+          MINFO("Not enough DNS seed nodes found, using fallback defaults too");
 
-        full_addrs.insert("107.152.130.98:18080");
-        full_addrs.insert("212.83.175.67:18080");
-        full_addrs.insert("5.9.100.248:18080");
-        full_addrs.insert("163.172.182.165:18080");
-        full_addrs.insert("161.67.132.39:18080");
-        full_addrs.insert("198.74.231.92:18080");
-        full_addrs.insert("195.154.123.123:28080");
-        full_addrs.insert("212.83.172.165:28080");
+        for (const auto &peer: get_seed_nodes(false))
+          full_addrs.insert(peer);
       }
     }
 
@@ -505,14 +526,14 @@ namespace nodetool
     }
     MDEBUG("Number of seed nodes: " << m_seed_nodes.size());
 
-    bool res = handle_command_line(vm, testnet);
+    bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
 
-    auto config_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    auto config_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, config_arg);
 
-    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
-        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+    if ((!m_testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (m_testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
       m_config_folder = m_config_folder + "/" + m_port;
     }
 
@@ -1082,6 +1103,7 @@ namespace nodetool
     {
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
+      bool fallback_nodes_added = false;
       while(true)
       {
         if(m_net_server.is_stop_signal_sent())
@@ -1091,8 +1113,22 @@ namespace nodetool
           break;
         if(++try_count > m_seed_nodes.size())
         {
-          MWARNING("Failed to connect to any of seed peers, continuing without seeds");
-          break;
+          if (!fallback_nodes_added)
+          {
+            MWARNING("Failed to connect to any of seed peers, trying fallback seeds");
+            for (const auto &peer: get_seed_nodes(m_testnet))
+            {
+              MDEBUG("Fallback seed node: " << peer);
+              append_net_address(m_seed_nodes, peer);
+            }
+            fallback_nodes_added = true;
+            // continue for another few cycles
+          }
+          else
+          {
+            MWARNING("Failed to connect to any of seed peers, continuing without seeds");
+            break;
+          }
         }
         if(++current_index >= m_seed_nodes.size())
           current_index = 0;
@@ -1654,7 +1690,6 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container)
   {
     std::vector<std::string> perrs = command_line::get_arg(vm, arg);
-    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     for(const std::string& pr_str: perrs)
     {
@@ -1662,7 +1697,7 @@ namespace nodetool
       bool r = parse_peer_from_string(na, pr_str);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
       if (na.port == 0)
-        na.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
+        na.port = m_testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
       container.push_back(na);
     }
 
