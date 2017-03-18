@@ -1444,6 +1444,8 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
 
 bool t_rpc_command_executor::alt_chain_info()
 {
+  cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+  cryptonote::COMMAND_RPC_GET_INFO::response ires;
   cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::request req;
   cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::response res;
   epee::json_rpc::error error_resp;
@@ -1452,6 +1454,10 @@ bool t_rpc_command_executor::alt_chain_info()
 
   if (m_is_rpc)
   {
+    if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
+    {
+      return true;
+    }
     if (!m_rpc_client->json_rpc_request(req, res, "get_alternate_chains", fail_message.c_str()))
     {
       return true;
@@ -1459,6 +1465,11 @@ bool t_rpc_command_executor::alt_chain_info()
   }
   else
   {
+    if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << fail_message.c_str();
+      return true;
+    }
     if (!m_rpc_server->on_get_alternate_chains(req, res, error_resp))
     {
       tools::fail_msg_writer() << fail_message.c_str();
@@ -1469,8 +1480,9 @@ bool t_rpc_command_executor::alt_chain_info()
   tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
   for (const auto chain: res.chains)
   {
-    tools::msg_writer() << chain.length << " blocks long, branching at height " << (chain.height - chain.length + 1)
-        << ", difficulty " << chain.difficulty << ": " << chain.block_hash;
+    uint64_t start_height = (chain.height - chain.length + 1);
+    tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+        << " deep, diff " << chain.difficulty << ": " << chain.block_hash;
   }
   return true;
 }
