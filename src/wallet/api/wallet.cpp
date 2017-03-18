@@ -833,7 +833,7 @@ bool WalletImpl::exportKeyImages(const string &filename)
       return false;
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     LOG_ERROR("Error exporting key images: " << e.what());
     m_errorString = e.what();
