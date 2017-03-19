@@ -29,6 +29,7 @@
 #ifndef _NET_UTILS_BASE_H_
 #define _NET_UTILS_BASE_H_
 
+#include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid.hpp>
 #include "string_tools.h"
 #include "misc_log_ex.h"

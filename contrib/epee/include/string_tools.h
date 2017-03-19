@@ -29,17 +29,21 @@
 #ifndef _STRING_TOOLS_H_
 #define _STRING_TOOLS_H_
 
+// Previously pulled in by ASIO, further cleanup still required ...
+#ifdef _WIN32
+# include <winsock2.h>
+# include <windows.h>
+#endif
+
 //#include <objbase.h>
 #include <locale>
 #include <cstdlib>
 #include <iomanip>
+#include <map>
 #include <type_traits>
-//#include <strsafe.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/asio.hpp>
-#include <boost/algorithm/string/compare.hpp>
 #include <boost/algorithm/string.hpp>
 #include "warnings.h"
 
@@ -327,26 +331,9 @@ POP_WARNINGS
   }
 
 	//----------------------------------------------------------------------------
-//#ifdef _WINSOCK2API_
-	inline std::string get_ip_string_from_int32(uint32_t ip)
-	{
-		in_addr adr;
-		adr.s_addr = ip;
-		const char* pbuf = inet_ntoa(adr);
-		if(pbuf)
-			return pbuf;
-		else
-			return "[failed]";
-	}
+	std::string get_ip_string_from_int32(uint32_t ip);
 	//----------------------------------------------------------------------------
-	inline bool get_ip_int32_from_string(uint32_t& ip, const std::string& ip_str)
-	{
-		ip = inet_addr(ip_str.c_str());
-		if(INADDR_NONE == ip)
-			return false;
-
-		return true;
-	}
+	bool get_ip_int32_from_string(uint32_t& ip, const std::string& ip_str);
   //----------------------------------------------------------------------------
   inline bool parse_peer_from_string(uint32_t& ip, uint32_t& port, const std::string& addres)
   {
@@ -376,7 +363,6 @@ POP_WARNINGS
     return true;
   }
 
-//#endif
 	//----------------------------------------------------------------------------
   template<typename t>
 	inline std::string get_t_as_hex_nwidth(const t& v, std::streamsize w = 8)
