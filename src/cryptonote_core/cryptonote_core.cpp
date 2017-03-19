@@ -887,11 +887,28 @@ namespace cryptonote
     m_miner.resume();
   }
   //-----------------------------------------------------------------------------------------------
+  block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
+  {
+    block_complete_entry bce;
+    bce.block = cryptonote::block_to_blob(b);
+    for (const auto &tx_hash: b.tx_hashes)
+    {
+      cryptonote::transaction tx;
+      CHECK_AND_ASSERT_THROW_MES(pool.get_transaction(tx_hash, tx), "Transaction not found in pool");
+      bce.txs.push_back(cryptonote::tx_to_blob(tx));
+    }
+    return bce;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_block_found(block& b)
   {
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_miner.pause();
+    std::list<block_complete_entry> blocks;
+    blocks.push_back(get_block_complete_entry(b, m_mempool));
+    prepare_handle_incoming_blocks(blocks);
     m_blockchain_storage.add_new_block(b, bvc);
+    cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
     update_miner_block_template();
     m_miner.resume();
