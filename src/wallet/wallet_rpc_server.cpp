@@ -1146,7 +1146,7 @@ namespace tools
     std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
     m_wallet.get_payments(payments, 0);
     for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
-      if (i->first == txid)
+      if (i->second.m_tx_hash == txid)
       {
         fill_transfer_entry(res.transfer, i->second.m_tx_hash, i->first, i->second);
         return true;
