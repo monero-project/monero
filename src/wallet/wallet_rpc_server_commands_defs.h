@@ -872,5 +872,42 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_START_MINING
+  {
+    struct request
+    {
+      uint64_t    threads_count;
+      bool        do_background_mining;
+      bool        ignore_battery;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(threads_count)
+        KV_SERIALIZE(do_background_mining)        
+        KV_SERIALIZE(ignore_battery)        
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_STOP_MINING
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }
 }
