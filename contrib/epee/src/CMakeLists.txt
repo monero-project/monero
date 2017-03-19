@@ -26,8 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_library(epee STATIC http_auth.cpp mlog.cpp)
-
+add_library(epee STATIC http_auth.cpp mlog.cpp string_tools.cpp)
 # Build and install libepee if we're building for GUI
 if (BUILD_GUI_DEPS)
     if(IOS)
