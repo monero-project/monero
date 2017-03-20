@@ -559,7 +559,7 @@ else()
   endif()
 
   if(NOT DEFINED USE_LTO_DEFAULT)
-    set(USE_LTO_DEFAULT true)
+    set(USE_LTO_DEFAULT false)
   endif()
   set(USE_LTO ${USE_LTO_DEFAULT} CACHE BOOL "Use Link-Time Optimization (Release mode only)")
 
