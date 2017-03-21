@@ -56,6 +56,10 @@ namespace daemonize
         boost::program_options::variables_map const & vm
       );
 
+    bool run_non_interactive(
+        boost::program_options::variables_map const & vm
+      );
+
     bool run_interactive(
         boost::program_options::variables_map const & vm
       );

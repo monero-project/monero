@@ -43,6 +43,10 @@ namespace daemonizer
       "detach"
     , "Run as daemon"
     };
+    const command_line::arg_descriptor<bool> arg_non_interactive = {
+      "non-interactive"
+    , "Run non-interactive"
+    };
   }
 
   inline void init_options(
@@ -51,6 +55,7 @@ namespace daemonizer
     )
   {
     command_line::add_arg(normal_options, arg_detach);
+    command_line::add_arg(normal_options, arg_non_interactive);
   }
 
   inline boost::filesystem::path get_default_data_dir()
@@ -78,6 +83,10 @@ namespace daemonizer
       posix::fork();
       auto daemon = executor.create_daemon(vm);
       return daemon.run();
+    }
+    else if (command_line::has_arg(vm, arg_non_interactive))
+    {
+      return executor.run_non_interactive(vm);
     }
     else
     {

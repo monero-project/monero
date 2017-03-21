@@ -63,6 +63,13 @@ namespace daemonize
     return t_daemon{vm};
   }
 
+  bool t_executor::run_non_interactive(
+      boost::program_options::variables_map const & vm
+    )
+  {
+    return t_daemon{vm}.run(false);
+  }
+
   bool t_executor::run_interactive(
       boost::program_options::variables_map const & vm
     )
