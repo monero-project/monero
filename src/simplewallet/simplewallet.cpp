@@ -851,21 +851,7 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
     fail_msg_writer() << tr("usage: set_log <log_level_number_0-4> | <categories>");
     return true;
   }
-  uint16_t l = 0;
-  if(epee::string_tools::get_xtype_from_string(l, args[0]))
-  {
-    if(4 < l)
-    {
-      fail_msg_writer() << tr("wrong number range, use: set_log <log_level_number_0-4>");
-      return true;
-    }
-
-    mlog_set_log_level(l);
-  }
-  else
-  {
-    mlog_set_categories(args.front().c_str());
-  }
+  mlog_set_log(args[0].c_str());
   return true;
 }
 //----------------------------------------------------------------------------------------------------
