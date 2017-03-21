@@ -485,6 +485,10 @@ namespace tools
       if(ver < 17)
         return;
       a & m_unconfirmed_payments;
+      if(ver < 18)
+        return;
+      a & m_scanned_pool_txs[0];
+      a & m_scanned_pool_txs[1];
     }
 
     /*!
@@ -679,9 +683,10 @@ namespace tools
     bool m_confirm_missing_payment_id;
     bool m_ask_password;
     NodeRPCProxy m_node_rpc_proxy;
+    std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 17)
+BOOST_CLASS_VERSION(tools::wallet2, 18)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)

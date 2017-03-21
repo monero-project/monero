@@ -1381,6 +1381,8 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
 //----------------------------------------------------------------------------------------------------
 void wallet2::update_pool_state()
 {
+  MDEBUG("update_pool_state start");
+
   // get the pool state
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
@@ -1390,6 +1392,7 @@ void wallet2::update_pool_state()
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_transaction_pool");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_transaction_pool");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+  MDEBUG("update_pool_state got pool");
 
   // remove any pending tx that's not in the pool
   std::unordered_map<crypto::hash, wallet2::unconfirmed_transfer_details>::iterator it = m_unconfirmed_txs.begin();
@@ -1444,6 +1447,7 @@ void wallet2::update_pool_state()
       }
     }
   }
+  MDEBUG("update_pool_state done first loop");
 
   // remove pool txes to us that aren't in the pool anymore
   std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
@@ -1465,6 +1469,7 @@ void wallet2::update_pool_state()
       m_unconfirmed_payments.erase(pit);
     }
   }
+  MDEBUG("update_pool_state done second loop");
 
   // add new pool txes to us
   for (auto it: res.transactions)
@@ -1473,6 +1478,11 @@ void wallet2::update_pool_state()
     if(epee::string_tools::parse_hexstr_to_binbuff(it.id_hash, txid_data) && txid_data.size() == sizeof(crypto::hash))
     {
       const crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+      if (m_scanned_pool_txs[0].find(txid) != m_scanned_pool_txs[0].end() || m_scanned_pool_txs[1].find(txid) != m_scanned_pool_txs[1].end())
+      {
+        LOG_PRINT_L2("Already seen " << txid << ", skipped");
+        continue;
+      }
       if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())
       {
         LOG_PRINT_L1("Found new pool tx: " << txid);
@@ -1491,9 +1501,11 @@ void wallet2::update_pool_state()
           cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
           cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
           req.txs_hashes.push_back(it.id_hash);
+          MDEBUG("asking for " << it.id_hash);
           req.decode_as_json = false;
           m_daemon_rpc_mutex.lock();
           bool r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
+          MDEBUG("asked for " << it.id_hash << ", got " << r << " and " << res.status);
           m_daemon_rpc_mutex.unlock();
           if (r && res.status == CORE_RPC_STATUS_OK)
           {
@@ -1512,6 +1524,12 @@ void wallet2::update_pool_state()
                     if (tx_hash == txid)
                     {
                       process_new_transaction(txid, tx, std::vector<uint64_t>(), 0, time(NULL), false, true);
+                      m_scanned_pool_txs[0].insert(txid);
+                      if (m_scanned_pool_txs[0].size() > 5000)
+                      {
+                        std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
+                        m_scanned_pool_txs[0].clear();
+                      }
                     }
                     else
                     {
@@ -1550,7 +1568,7 @@ void wallet2::update_pool_state()
       }
       else
       {
-        LOG_PRINT_L1("Already saw that one");
+        LOG_PRINT_L1("Already saw that one, it's for us");
       }
     }
     else
@@ -1558,6 +1576,7 @@ void wallet2::update_pool_state()
       LOG_PRINT_L0("Failed to parse txid");
     }
   }
+  MDEBUG("update_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history)
