@@ -494,7 +494,7 @@ void WalletManagerFactory::setLogLevel(int level)
 
 void WalletManagerFactory::setLogCategories(const std::string &categories)
 {
-    mlog_set_categories(categories.c_str());
+    mlog_set_log(categories.c_str());
 }
 
 
