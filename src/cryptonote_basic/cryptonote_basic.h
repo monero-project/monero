@@ -190,11 +190,24 @@ namespace cryptonote
     std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
     rct::rctSig rct_signatures;
 
+    // hash cash
+    mutable crypto::hash hash;
+    mutable size_t blob_size;
+    mutable bool hash_valid;
+    mutable bool blob_size_valid;
+
     transaction();
     virtual ~transaction();
     void set_null();
+    void invalidate_hashes();
 
     BEGIN_SERIALIZE_OBJECT()
+      if (!typename Archive<W>::is_saving())
+      {
+        hash_valid = false;
+        blob_size_valid = false;
+      }
+
       FIELDS(*static_cast<transaction_prefix *>(this))
 
       if (version == 1)
@@ -299,6 +312,15 @@ namespace cryptonote
     extra.clear();
     signatures.clear();
     rct_signatures.type = rct::RCTTypeNull;
+    hash_valid = false;
+    blob_size_valid = false;
+  }
+
+  inline
+  void transaction::invalidate_hashes()
+  {
+    hash_valid = false;
+    blob_size_valid = false;
   }
 
   inline
@@ -339,10 +361,20 @@ namespace cryptonote
 
   struct block: public block_header
   {
+    block(): block_header(), hash_valid(false) {}
+    void invalidate_hashes() { hash_valid = false; }
+
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
 
+    // hash cash
+    mutable crypto::hash hash;
+    mutable bool hash_valid;
+
     BEGIN_SERIALIZE_OBJECT()
+      if (!typename Archive<W>::is_saving())
+        hash_valid = false;
+
       FIELDS(*static_cast<block_header *>(this))
       FIELD(miner_tx)
       FIELD(tx_hashes)
