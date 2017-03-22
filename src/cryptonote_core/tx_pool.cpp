@@ -718,20 +718,21 @@ namespace cryptonote
     size_t tx_size_limit = get_transaction_size_limit(version);
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
       bool remove = false;
+      const crypto::hash &txid = get_transaction_hash(it->second.tx);
       if (it->second.blob_size >= tx_size_limit) {
-        LOG_PRINT_L1("Transaction " << it->first << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        LOG_PRINT_L1("Transaction " << txid << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
         remove = true;
       }
-      else if (m_blockchain.have_tx(it->first)) {
-        LOG_PRINT_L1("Transaction " << it->first << " is in the blockchain, removing it from pool");
+      else if (m_blockchain.have_tx(txid)) {
+        LOG_PRINT_L1("Transaction " << txid << " is in the blockchain, removing it from pool");
         remove = true;
       }
       if (remove) {
         remove_transaction_keyimages(it->second.tx);
-        auto sorted_it = find_tx_in_sorted_container(it->first);
+        auto sorted_it = find_tx_in_sorted_container(txid);
         if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
-          LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
+          LOG_PRINT_L1("Removing tx " << txid << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
