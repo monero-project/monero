@@ -614,7 +614,7 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
-    uint64_t best_coinbase = 0, coinbase;
+    uint64_t best_coinbase = 0, coinbase = 0;
     total_size = 0;
     fee = 0;
     
