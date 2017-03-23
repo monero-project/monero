@@ -91,6 +91,13 @@ namespace {
       s = boost::lexical_cast<std::string>(dt/(3600*24)) + " days";
     return s + " " + (t > now ? "in the future" : "ago");
   }
+
+  std::string make_error(const std::string &base, const std::string &status)
+  {
+    if (status == CORE_RPC_STATUS_OK)
+      return base;
+    return base + " -- " + status;
+  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor(
@@ -207,7 +214,7 @@ bool t_rpc_command_executor::save_blockchain() {
   {
     if (!m_rpc_server->on_save_bc(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -235,7 +242,7 @@ bool t_rpc_command_executor::show_hash_rate() {
   {
     if (!m_rpc_server->on_set_log_hash_rate(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
     }
   }
 
@@ -262,7 +269,7 @@ bool t_rpc_command_executor::hide_hash_rate() {
   {
     if (!m_rpc_server->on_set_log_hash_rate(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -289,7 +296,7 @@ bool t_rpc_command_executor::show_difficulty() {
   {
     if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message.c_str(), res.status);
       return true;
     }
   }
@@ -373,12 +380,12 @@ bool t_rpc_command_executor::show_status() {
   {
     if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
     if (!m_rpc_server->on_hard_fork_info(hfreq, hfres, error_resp) || hfres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, hfres.status);
       return true;
     }
     if (!m_rpc_server->on_mining_status(mreq, mres))
@@ -393,7 +400,7 @@ bool t_rpc_command_executor::show_status() {
     }
     else if (mres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, mres.status);
       return true;
     }
   }
@@ -439,7 +446,7 @@ bool t_rpc_command_executor::print_connections() {
   {
     if (!m_rpc_server->on_get_connections(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -504,7 +511,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   {
     if (!m_rpc_server->on_get_block_headers_range(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -544,7 +551,7 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
   {
     if (!m_rpc_server->on_set_log_level(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -572,7 +579,7 @@ bool t_rpc_command_executor::set_log_categories(const std::string &categories) {
   {
     if (!m_rpc_server->on_set_log_categories(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -599,7 +606,7 @@ bool t_rpc_command_executor::print_height() {
   {
     if (!m_rpc_server->on_get_height(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -629,7 +636,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
   {
     if (!m_rpc_server->on_get_block(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -660,7 +667,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
   {
     if (!m_rpc_server->on_get_block(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -689,7 +696,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   {
     if (!m_rpc_server->on_get_transactions(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -752,7 +759,7 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
   {
     if (!m_rpc_server->on_is_key_image_spent(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -787,7 +794,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -870,7 +877,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -918,7 +925,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -978,7 +985,7 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
   {
     if (!m_rpc_server->on_start_mining(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1003,7 +1010,7 @@ bool t_rpc_command_executor::stop_mining() {
   {
     if (!m_rpc_server->on_stop_mining(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1044,7 +1051,7 @@ bool t_rpc_command_executor::stop_daemon()
   {
     if (!m_rpc_server->on_stop_daemon(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1142,7 +1149,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 	{
 		if (!m_rpc_server->on_out_peers(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1170,7 +1177,7 @@ bool t_rpc_command_executor::start_save_graph()
     {
 		if (!m_rpc_server->on_start_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1196,7 +1203,7 @@ bool t_rpc_command_executor::stop_save_graph()
     {
 		if (!m_rpc_server->on_stop_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1223,7 +1230,7 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
     {
         if (!m_rpc_server->on_hard_fork_info(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1254,7 +1261,7 @@ bool t_rpc_command_executor::print_bans()
     {
         if (!m_rpc_server->on_get_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1296,7 +1303,7 @@ bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
     {
         if (!m_rpc_server->on_set_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1332,7 +1339,7 @@ bool t_rpc_command_executor::unban(const std::string &ip)
     {
         if (!m_rpc_server->on_set_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1359,9 +1366,9 @@ bool t_rpc_command_executor::flush_txpool(const std::string &txid)
     }
     else
     {
-        if (!m_rpc_server->on_flush_txpool(req, res, error_resp))
+        if (!m_rpc_server->on_flush_txpool(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1390,9 +1397,9 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
     }
     else
     {
-        if (!m_rpc_server->on_get_output_histogram(req, res, error_resp))
+        if (!m_rpc_server->on_get_output_histogram(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1427,9 +1434,9 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   }
   else
   {
-    if (!m_rpc_server->on_get_coinbase_tx_sum(req, res, error_resp))
+    if (!m_rpc_server->on_get_coinbase_tx_sum(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1467,12 +1474,12 @@ bool t_rpc_command_executor::alt_chain_info()
   {
     if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
     if (!m_rpc_server->on_get_alternate_chains(req, res, error_resp))
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1515,12 +1522,12 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
   {
     if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
     if (!m_rpc_server->on_get_per_kb_fee_estimate(fereq, feres, error_resp) || feres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, feres.status);
       return true;
     }
   }
@@ -1546,7 +1553,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     {
       if (!m_rpc_server->on_get_block_headers_range(bhreq, bhres, error_resp) || bhres.status != CORE_RPC_STATUS_OK)
       {
-        tools::fail_msg_writer() << fail_message.c_str();
+        tools::fail_msg_writer() << make_error(fail_message, bhres.status);
         return true;
       }
     }
@@ -1612,7 +1619,7 @@ bool t_rpc_command_executor::update(const std::string &command)
   {
     if (!m_rpc_server->on_update(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
