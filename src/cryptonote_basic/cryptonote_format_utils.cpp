@@ -43,6 +43,8 @@ using namespace epee;
 
 #define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
 
+// #define ENABLE_HASH_CASH_INTEGRITY_CHECK
+
 static const uint64_t valid_decomposed_outputs[] = {
   (uint64_t)1, (uint64_t)2, (uint64_t)3, (uint64_t)4, (uint64_t)5, (uint64_t)6, (uint64_t)7, (uint64_t)8, (uint64_t)9, // 1 piconero
   (uint64_t)10, (uint64_t)20, (uint64_t)30, (uint64_t)40, (uint64_t)50, (uint64_t)60, (uint64_t)70, (uint64_t)80, (uint64_t)90,
@@ -67,6 +69,11 @@ static const uint64_t valid_decomposed_outputs[] = {
 };
 
 static std::atomic<unsigned int> default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
+
+static std::atomic<uint64_t> tx_hashes_calculated_count(0);
+static std::atomic<uint64_t> tx_hashes_cached_count(0);
+static std::atomic<uint64_t> block_hashes_calculated_count(0);
+static std::atomic<uint64_t> block_hashes_cached_count(0);
 
 namespace cryptonote
 {
@@ -93,6 +100,8 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    tx.hash_valid = false;
+    tx.blob_size_valid = false;
     return true;
   }
   //---------------------------------------------------------------
@@ -113,6 +122,8 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    tx.hash_valid = false;
+    tx.blob_size_valid = false;
     //TODO: validate tx
 
     get_transaction_hash(tx, tx_hash);
@@ -592,7 +603,7 @@ namespace cryptonote
     return get_transaction_hash(t, res, NULL);
   }
   //---------------------------------------------------------------
-  bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
+  bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
   {
     // v1 transactions hash the entire blob
     if (t.version == 1)
@@ -647,6 +658,40 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
+  {
+    if (t.hash_valid)
+    {
+#ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
+      CHECK_AND_ASSERT_THROW_MES(!calculate_transaction_hash(t, res, blob_size) || t.hash == res, "tx hash cash integrity failure");
+#endif
+      res = t.hash;
+      if (blob_size)
+      {
+        if (!t.blob_size_valid)
+        {
+          t.blob_size = get_object_blobsize(t);
+          t.blob_size_valid = true;
+        }
+        *blob_size = t.blob_size;
+      }
+      ++tx_hashes_cached_count;
+      return true;
+    }
+    ++tx_hashes_calculated_count;
+    bool ret = calculate_transaction_hash(t, res, blob_size);
+    if (!ret)
+      return false;
+    t.hash = res;
+    t.hash_valid = true;
+    if (blob_size)
+    {
+      t.blob_size = *blob_size;
+      t.blob_size_valid = true;
+    }
+    return true;
+  }
+  //---------------------------------------------------------------
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t& blob_size)
   {
     return get_transaction_hash(t, res, &blob_size);
@@ -661,7 +706,7 @@ namespace cryptonote
     return blob;
   }
   //---------------------------------------------------------------
-  bool get_block_hash(const block& b, crypto::hash& res)
+  bool calculate_block_hash(const block& b, crypto::hash& res)
   {
     // EXCEPTION FOR BLOCK 202612
     const std::string correct_blob_hash_202612 = "3a8a2b3a29b50fc86ff73dd087ea43c6f0d6b8f936c849194d5c84c737903966";
@@ -686,6 +731,26 @@ namespace cryptonote
       }
     }
     return hash_result;
+  }
+  //---------------------------------------------------------------
+  bool get_block_hash(const block& b, crypto::hash& res)
+  {
+    if (b.hash_valid)
+    {
+#ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
+      CHECK_AND_ASSERT_THROW_MES(!calculate_block_hash(b, res) || b.hash == res, "block hash cash integrity failure");
+#endif
+      res = b.hash;
+      ++block_hashes_cached_count;
+      return true;
+    }
+    ++block_hashes_calculated_count;
+    bool ret = calculate_block_hash(b, res);
+    if (!ret)
+      return false;
+    b.hash = res;
+    b.hash_valid = true;
+    return true;
   }
   //---------------------------------------------------------------
   crypto::hash get_block_hash(const block& b)
@@ -744,6 +809,9 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, b);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");
+    b.hash_valid = false;
+    b.miner_tx.hash_valid = false;
+    b.miner_tx.blob_size_valid = false;
     return true;
   }
   //---------------------------------------------------------------
@@ -798,4 +866,11 @@ namespace cryptonote
     return std::binary_search(begin, end, amount);
   }
   //---------------------------------------------------------------
+  void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached)
+  {
+    tx_hashes_calculated = tx_hashes_calculated_count;
+    tx_hashes_cached = tx_hashes_cached_count;
+    block_hashes_calculated = block_hashes_calculated_count;
+    block_hashes_cached = block_hashes_cached_count;
+  }
 }

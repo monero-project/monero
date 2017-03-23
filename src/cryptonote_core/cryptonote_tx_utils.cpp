@@ -132,6 +132,9 @@ namespace cryptonote
     //lock
     tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
     tx.vin.push_back(in);
+
+    tx.hash_valid = tx.blob_size_valid = false;
+
     //LOG_PRINT("MINER_TX generated ok, block_reward=" << print_money(block_reward) << "("  << print_money(block_reward - fee) << "+" << print_money(fee)
     //  << "), current_block_size=" << current_block_size << ", already_generated_coins=" << already_generated_coins << ", tx_id=" << get_transaction_hash(tx), LOG_LEVEL_2);
     return true;
@@ -451,6 +454,8 @@ namespace cryptonote
       MCINFO("construct_tx", "transaction_created: " << get_transaction_hash(tx) << ENDL << obj_to_json_str(tx) << ENDL);
     }
 
+    tx.hash_valid = tx.blob_size_valid = false;
+
     return true;
   }
   //---------------------------------------------------------------
@@ -487,6 +492,7 @@ namespace cryptonote
     bl.timestamp = 0;
     bl.nonce = nonce;
     miner::find_nonce_for_given_block(bl, 1, 0);
+    bl.hash_valid = false;
     return true;
   }
   //---------------------------------------------------------------

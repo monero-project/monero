@@ -234,6 +234,13 @@ namespace cryptonote
     void get_transactions(std::list<transaction>& txs) const;
 
     /**
+     * @brief get a list of all transaction hashes in the pool
+     *
+     * @param txs return-by-reference the list of transactions
+     */
+    void get_transaction_hashes(std::vector<crypto::hash>& txs) const;
+
+    /**
      * @brief get information about all transactions and key images in the pool
      *
      * see documentation on tx_info and spent_key_image_info for more details
