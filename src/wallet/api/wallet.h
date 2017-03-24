@@ -99,7 +99,8 @@ public:
     bool watchOnly() const;
     bool rescanSpent();
     bool testnet() const {return m_wallet->testnet();}
-
+    void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
+    bool useForkRules(uint8_t version, int64_t early_blocks) const;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
