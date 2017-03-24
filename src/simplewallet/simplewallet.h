@@ -117,6 +117,8 @@ namespace cryptonote
     bool set_confirm_missing_payment_id(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ask_password(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_unit(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_min_output_count(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_min_output_value(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
