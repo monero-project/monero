@@ -46,6 +46,7 @@ using namespace epee;
 #include "string_tools.h"
 #include "crypto/hash.h"
 #include "rpc/rpc_args.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -171,6 +172,8 @@ namespace tools
       }
       LOG_PRINT_L0(tr("RPC username/password is stored in file ") << temp);
     } // end auth enabled
+
+    m_http_client.set_server(m_wallet.get_daemon_address(), m_wallet.get_daemon_login());
 
     m_net_server.set_threads_prefix("RPC");
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
@@ -1419,6 +1422,54 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_start_mining(const wallet_rpc::COMMAND_RPC_START_MINING::request& req, wallet_rpc::COMMAND_RPC_START_MINING::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_trusted_daemon)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "This command requires a trusted daemon.";
+      return false;
+    }
+
+    size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
+    if (req.threads_count < 1 || max_mining_threads_count < req.threads_count)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "The specified number of threads is inappropriate.";
+      return false;
+    }
+
+    cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req); 
+    daemon_req.miner_address = m_wallet.get_account().get_public_address_str(m_wallet.testnet());
+    daemon_req.threads_count        = req.threads_count;
+    daemon_req.do_background_mining = req.do_background_mining;
+    daemon_req.ignore_battery       = req.ignore_battery;
+
+    cryptonote::COMMAND_RPC_START_MINING::response daemon_res;
+    bool r = net_utils::invoke_http_json("/start_mining", daemon_req, daemon_res, m_http_client);
+    if (!r || daemon_res.status != CORE_RPC_STATUS_OK)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Couldn't start mining due to unknown error.";
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_stop_mining(const wallet_rpc::COMMAND_RPC_STOP_MINING::request& req, wallet_rpc::COMMAND_RPC_STOP_MINING::response& res, epee::json_rpc::error& er)
+  {
+    cryptonote::COMMAND_RPC_STOP_MINING::request daemon_req;
+    cryptonote::COMMAND_RPC_STOP_MINING::response daemon_res;
+    bool r = net_utils::invoke_http_json("/stop_mining", daemon_req, daemon_res, m_http_client);
+    if (!r || daemon_res.status != CORE_RPC_STATUS_OK)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Couldn't stop mining due to unknown error.";
       return false;
     }
     return true;
