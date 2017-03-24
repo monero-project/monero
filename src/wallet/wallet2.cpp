@@ -1927,6 +1927,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(cryptonote::get_default_decimal_point());
   json.AddMember("default_decimal_point", value2, json.GetAllocator());
 
+  value2.SetInt(m_merge_destinations ? 1 :0);
+  json.AddMember("merge_destinations", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -1997,6 +2000,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_ask_password = true;
     m_min_output_count = 0;
     m_min_output_value = 0;
+    m_merge_destinations = false;
   }
   else
   {
@@ -2065,6 +2069,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_min_output_count = field_min_output_count;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, min_output_value, uint64_t, Uint64, false, 0);
     m_min_output_value = field_min_output_value;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, merge_destinations, int, Int, false, false);
+    m_merge_destinations = field_merge_destinations;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
@@ -4238,10 +4244,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     pending_tx ptx;
     size_t bytes;
 
-    void add(const account_public_address &addr, uint64_t amount) {
+    void add(const account_public_address &addr, uint64_t amount, bool merge_destinations) {
       std::vector<cryptonote::tx_destination_entry>::iterator i;
       i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &addr, sizeof(addr)); });
-      if (i == dsts.end())
+      if (!merge_destinations || i == dsts.end())
         dsts.push_back(tx_destination_entry(amount,addr));
       else
         i->amount += amount;
@@ -4408,7 +4414,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         // we can fully pay that destination
         LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
           " for " << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, dsts[0].amount);
+        tx.add(dsts[0].addr, dsts[0].amount, m_merge_destinations);
         available_amount -= dsts[0].amount;
         dsts[0].amount = 0;
         pop_index(dsts, 0);
@@ -4418,7 +4424,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         // we can partially fill that destination
         LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, available_amount);
+        tx.add(dsts[0].addr, available_amount, m_merge_destinations);
         dsts[0].amount -= available_amount;
         available_amount = 0;
       }
