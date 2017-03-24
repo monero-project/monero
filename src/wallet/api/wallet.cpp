@@ -1413,6 +1413,18 @@ bool WalletImpl::rescanSpent()
   }
   return true;
 }
+
+
+void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
+{
+    m_wallet->get_hard_fork_info(version, earliest_height);
+}
+
+bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const 
+{
+    return m_wallet->use_fork_rules(version,early_blocks);
+}
+
 } // namespace
 
 namespace Bitmonero = Monero;

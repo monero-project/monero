@@ -59,7 +59,6 @@ public:
     uint64_t blockchainTargetHeight() const;
     uint64_t networkDifficulty() const;
     double miningHashRate() const;
-    void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     uint64_t blockTarget() const;
     bool isMining() const;
     bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true);

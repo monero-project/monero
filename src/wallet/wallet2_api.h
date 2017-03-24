@@ -296,7 +296,10 @@ struct Wallet
     virtual std::string address() const = 0;
     virtual std::string path() const = 0;
     virtual bool testnet() const = 0;
-    
+    //! returns current hard fork info
+    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
+    //! check if hard fork rules should be used
+    virtual bool useForkRules(uint8_t version, int64_t early_blocks) const = 0;  
     /*!
      * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
      *                            if passed "payment_id" param is an empty string or not-valid payment id string
@@ -685,9 +688,6 @@ struct WalletManager
 
     //! returns current mining hash rate (0 if not mining)
     virtual double miningHashRate() const = 0;
-
-    //! returns current hard fork info
-    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
 
     //! returns current block target
     virtual uint64_t blockTarget() const = 0;

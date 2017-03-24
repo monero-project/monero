@@ -377,26 +377,6 @@ double WalletManagerImpl::miningHashRate() const
     return mres.speed;
 }
 
-void WalletManagerImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
-{
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_HARD_FORK_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_HARD_FORK_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-
-    version = 0;
-    earliest_height = 0;
-
-    epee::net_utils::http::http_simple_client http_client;
-    req_t.jsonrpc = "2.0";
-    req_t.id = epee::serialization::storage_entry(0);
-    req_t.method = "hard_fork_info";
-    req_t.params.version = 0;
-    bool r = connect_and_invoke(m_daemonAddress, "/json_rpc", req_t, resp_t);
-    if (!r || resp_t.result.status != CORE_RPC_STATUS_OK)
-        return;
-    version = resp_t.result.version;
-    earliest_height = resp_t.result.earliest_height;
-}
-
 uint64_t WalletManagerImpl::blockTarget() const
 {
     cryptonote::COMMAND_RPC_GET_INFO::request ireq;
