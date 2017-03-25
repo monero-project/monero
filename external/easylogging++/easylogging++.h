@@ -1066,7 +1066,14 @@ static std::string getCurrentThreadId(void) {
 /// @brief Gets ID of currently running threading using std::this_thread::get_id()
 static std::string getCurrentThreadId(void) {
   std::stringstream ss;
+  char prev_fill = ss.fill(' ');
+  auto prev_flags = ss.flags(std::ios::hex);
+  //ss.setf(std::ios::hex);
+  auto prev_width = ss.width(16);
   ss << std::this_thread::get_id();
+  ss.fill(prev_fill);
+  ss.flags(prev_flags);
+  ss.width(prev_width);
   return ss.str();
 }
 #  endif  // !ELPP_USE_STD_THREADING
