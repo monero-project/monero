@@ -100,8 +100,7 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-    tx.hash_valid = false;
-    tx.blob_size_valid = false;
+    tx.invalidate_hashes();
     return true;
   }
   //---------------------------------------------------------------
@@ -122,8 +121,7 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-    tx.hash_valid = false;
-    tx.blob_size_valid = false;
+    tx.invalidate_hashes();
     //TODO: validate tx
 
     get_transaction_hash(tx, tx_hash);
@@ -660,7 +658,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
   {
-    if (t.hash_valid)
+    if (t.is_hash_valid())
     {
 #ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
       CHECK_AND_ASSERT_THROW_MES(!calculate_transaction_hash(t, res, blob_size) || t.hash == res, "tx hash cash integrity failure");
@@ -668,10 +666,10 @@ namespace cryptonote
       res = t.hash;
       if (blob_size)
       {
-        if (!t.blob_size_valid)
+        if (!t.is_blob_size_valid())
         {
           t.blob_size = get_object_blobsize(t);
-          t.blob_size_valid = true;
+          t.set_blob_size_valid(true);
         }
         *blob_size = t.blob_size;
       }
@@ -683,11 +681,11 @@ namespace cryptonote
     if (!ret)
       return false;
     t.hash = res;
-    t.hash_valid = true;
+    t.set_hash_valid(true);
     if (blob_size)
     {
       t.blob_size = *blob_size;
-      t.blob_size_valid = true;
+      t.set_blob_size_valid(true);
     }
     return true;
   }
@@ -735,7 +733,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_block_hash(const block& b, crypto::hash& res)
   {
-    if (b.hash_valid)
+    if (b.is_hash_valid())
     {
 #ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
       CHECK_AND_ASSERT_THROW_MES(!calculate_block_hash(b, res) || b.hash == res, "block hash cash integrity failure");
@@ -749,7 +747,7 @@ namespace cryptonote
     if (!ret)
       return false;
     b.hash = res;
-    b.hash_valid = true;
+    b.set_hash_valid(true);
     return true;
   }
   //---------------------------------------------------------------
@@ -769,7 +767,6 @@ namespace cryptonote
       string_tools::hex_to_pod(longhash_202612, res);
       return true;
     }
-    block b_local = b; //workaround to avoid const errors with do_serialize
     blobdata bd = get_block_hashing_blob(b);
     crypto::cn_slow_hash(bd.data(), bd.size(), res);
     return true;
@@ -809,9 +806,8 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, b);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");
-    b.hash_valid = false;
-    b.miner_tx.hash_valid = false;
-    b.miner_tx.blob_size_valid = false;
+    b.invalidate_hashes();
+    b.miner_tx.invalidate_hashes();
     return true;
   }
   //---------------------------------------------------------------

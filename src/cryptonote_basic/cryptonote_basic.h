@@ -35,6 +35,7 @@
 #include <vector>
 #include <cstring>  // memcmp
 #include <sstream>
+#include <atomic>
 #include "serialization/serialization.h"
 #include "serialization/variant.h"
 #include "serialization/vector.h"
@@ -186,6 +187,11 @@ namespace cryptonote
 
   class transaction: public transaction_prefix
   {
+  private:
+    // hash cash
+    mutable std::atomic<bool> hash_valid;
+    mutable std::atomic<bool> blob_size_valid;
+
   public:
     std::vector<std::vector<crypto::signature> > signatures; //count signatures  always the same as inputs count
     rct::rctSig rct_signatures;
@@ -193,19 +199,23 @@ namespace cryptonote
     // hash cash
     mutable crypto::hash hash;
     mutable size_t blob_size;
-    mutable bool hash_valid;
-    mutable bool blob_size_valid;
 
     transaction();
+    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
+    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } return *this; }
     virtual ~transaction();
     void set_null();
     void invalidate_hashes();
+    bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
+    void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
+    bool is_blob_size_valid() const { return hash_valid.load(std::memory_order_acquire); }
+    void set_blob_size_valid(bool v) const { blob_size_valid.store(v,std::memory_order_release); }
 
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())
       {
-        hash_valid = false;
-        blob_size_valid = false;
+        set_hash_valid(false);
+        set_blob_size_valid(false);
       }
 
       FIELDS(*static_cast<transaction_prefix *>(this))
@@ -312,15 +322,15 @@ namespace cryptonote
     extra.clear();
     signatures.clear();
     rct_signatures.type = rct::RCTTypeNull;
-    hash_valid = false;
-    blob_size_valid = false;
+    set_hash_valid(false);
+    set_blob_size_valid(false);
   }
 
   inline
   void transaction::invalidate_hashes()
   {
-    hash_valid = false;
-    blob_size_valid = false;
+    set_hash_valid(false);
+    set_blob_size_valid(false);
   }
 
   inline
@@ -361,19 +371,27 @@ namespace cryptonote
 
   struct block: public block_header
   {
+  private:
+    // hash cash
+    mutable std::atomic<bool> hash_valid;
+
+  public:
     block(): block_header(), hash_valid(false) {}
-    void invalidate_hashes() { hash_valid = false; }
+    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
+    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
+    void invalidate_hashes() { set_hash_valid(false); }
+    bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
+    void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
 
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
 
     // hash cash
     mutable crypto::hash hash;
-    mutable bool hash_valid;
 
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())
-        hash_valid = false;
+        set_hash_valid(false);
 
       FIELDS(*static_cast<block_header *>(this))
       FIELD(miner_tx)

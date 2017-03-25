@@ -355,11 +355,11 @@ namespace cryptonote
 
       if(check_hash(h, diffic))
       {
-        bl.hash_valid = false;
+        bl.invalidate_hashes();
         return true;
       }
     }
-    bl.hash_valid = false;
+    bl.invalidate_hashes();
     return false;
   }
   //-----------------------------------------------------------------------------------------------------
