@@ -1711,6 +1711,8 @@ void TypedConfigurations::insertFile(Level level, const std::string& fullFilenam
   m_fileStreamMap.insert(std::make_pair(level, base::FileStreamPtr(nullptr)));
   return;
 #endif
+  if (fullFilename.empty())
+    return;
   std::string resolvedFilename = resolveFilename(fullFilename);
   if (resolvedFilename.empty()) {
     std::cerr << "Could not load empty file for logging, please re-check your configurations for level ["
