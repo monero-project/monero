@@ -51,9 +51,7 @@ namespace Language
   class Italian: public Base
   {
   public:
-    Italian()
-    {
-      word_list = new std::vector<std::string>({
+    Italian(): Base("Italian", std::vector<std::string>({
         "abbinare",
         "abbonato",
         "abisso",
@@ -1680,11 +1678,8 @@ namespace Language
         "zolfo",
         "zombie",
         "zucchero"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Italian";
+      }), 4)
+    {
       populate_maps();
     }
   };

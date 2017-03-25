@@ -49,9 +49,7 @@ namespace Language
   class French: public Base
   {
   public:
-    French()
-    {
-      word_list = new std::vector<std::string>({
+    French(): Base("French", std::vector<std::string>({
         "abandon",
         "abattre",
         "aboi",
@@ -1678,11 +1676,8 @@ namespace Language
         "zinc",
         "zone",
         "zoom"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "French";
+      }), 4)
+    {
       populate_maps();
     }
   };

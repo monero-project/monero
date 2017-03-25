@@ -49,9 +49,7 @@ namespace Language
   class English: public Base
   {
   public:
-    English()
-    {
-      word_list = new std::vector<std::string>({
+    English(): Base("English", std::vector<std::string>({
         "abbey",
         "abducts",
         "ability",
@@ -1678,11 +1676,8 @@ namespace Language
         "zombie",
         "zones",
         "zoom"
-      });
-      unique_prefix_length = 3;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "English";
+      }), 3)
+    {
       populate_maps();
     }
   };

@@ -51,9 +51,7 @@ namespace Language
   class Russian: public Base
   {
   public:
-    Russian()
-    {
-      word_list = new std::vector<std::string>({
+    Russian(): Base("Russian", std::vector<std::string>({
         "абажур",
         "абзац",
         "абонент",
@@ -1680,11 +1678,8 @@ namespace Language
         "яхта",
         "ячейка",
         "ящик"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Russian";
+      }), 4)
+    {
       populate_maps();
     }
   };

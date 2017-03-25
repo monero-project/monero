@@ -49,9 +49,7 @@ namespace Language
   class Portuguese: public Base
   {
   public:
-    Portuguese()
-    {
-      word_list = new std::vector<std::string>({
+    Portuguese(): Base("Portuguese", std::vector<std::string>({
         "abaular",
         "abdominal",
         "abeto",
@@ -1678,11 +1676,8 @@ namespace Language
         "zeloso",
         "zenite",
         "zumbi"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Portuguese";
+      }), 4)
+    {
       populate_maps();
     }
   };
