@@ -348,8 +348,9 @@ endif()
 include_directories(${UNBOUND_INCLUDE})
 link_directories(${UNBOUND_LIBRARY_DIRS})
 
-# Final setup for rapidjson
-include_directories(external/rapidjson)
+# Final setup for easylogging++
+include_directories(${EASYLOGGING_INCLUDE})
+link_directories(${EASYLOGGING_LIBRARY_DIRS})
 
 # Final setup for liblmdb
 include_directories(${LMDB_INCLUDE})
