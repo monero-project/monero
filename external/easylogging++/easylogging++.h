@@ -2183,7 +2183,7 @@ class RegisteredHitCounters : public base::utils::RegistryWithPred<base::HitCoun
 };
 /// @brief Action to be taken for dispatching
 enum class DispatchAction : base::type::EnumType {
-  None = 1, NormalLog = 2, SysLog = 4
+  None = 1, NormalLog = 2, SysLog = 4, FileOnlyLog = 8,
 };
 }  // namespace base
 template <typename T>
