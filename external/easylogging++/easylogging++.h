@@ -3256,7 +3256,19 @@ class Writer : base::NoCopy {
   }
 
   template <typename T>
-  inline Writer& operator<<(const T& log) {
+  inline typename std::enable_if<std::is_integral<T>::value, Writer&>::type
+  operator<<(T log) {
+#if ELPP_LOGGING_ENABLED
+  if (m_proceed) {
+    m_messageBuilder << log;
+  }
+#endif  // ELPP_LOGGING_ENABLED
+  return *this;
+  }
+
+  template <typename T>
+  inline typename std::enable_if<!std::is_integral<T>::value, Writer&>::type
+  operator<<(const T& log) {
 #if ELPP_LOGGING_ENABLED
     if (m_proceed) {
       m_messageBuilder << log;
