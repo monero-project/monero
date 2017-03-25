@@ -365,6 +365,7 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #include <string>
 #include <vector>
 #include <map>
+#include <deque>
 #include <utility>
 #include <functional>
 #include <algorithm>
@@ -581,6 +582,10 @@ class LevelHelper : base::StaticClass {
   /// @brief Converts level to associated const char*
   /// @return Upper case string based level.
   static const char* convertToString(Level level);
+  /// @brief Converts from prefix of levelStr to Level
+  /// @param levelStr Upper case string based level.
+  ///        Lower case is also valid but providing upper case is recommended.
+  static Level convertFromStringPrefix(const char* levelStr);
   /// @brief Converts from levelStr to Level
   /// @param levelStr Upper case string based level.
   ///        Lower case is also valid but providing upper case is recommended.
@@ -2454,12 +2459,21 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
     return m_level;
   }
 
+  inline void clearCategories(void) {
+    base::threading::ScopedLock scopedLock(lock());
+    m_categories.clear();
+  }
+
   inline void clearModules(void) {
     base::threading::ScopedLock scopedLock(lock());
     m_modules.clear();
   }
 
+  void setCategories(const char* categories, bool clear = true);
+
   void setModules(const char* modules);
+
+  bool allowed(Level level, const char* category);
 
   bool allowed(base::type::VerboseLevel vlevel, const char* file);
 
@@ -2478,6 +2492,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   base::type::VerboseLevel m_level;
   base::type::EnumType* m_pFlags;
   std::map<std::string, base::type::VerboseLevel> m_modules;
+  std::deque<std::pair<std::string, Level>> m_categories;
 };
 }  // namespace base
 class LogMessage {
@@ -3897,8 +3912,12 @@ class Loggers : base::StaticClass {
   static base::type::VerboseLevel verboseLevel(void);
   /// @brief Sets vmodules as specified (on the fly)
   static void setVModules(const char* modules);
+  /// @brief Sets categories as specified (on the fly)
+  static void setCategories(const char* categories, bool clear = true);
   /// @brief Clears vmodules
   static void clearVModules(void);
+  /// @brief Clears categories
+  static void clearCategories(void);
 };
 class VersionInfo : base::StaticClass {
  public:

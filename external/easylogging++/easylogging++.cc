@@ -84,6 +84,26 @@ Level LevelHelper::convertFromString(const char* levelStr) {
   return Level::Unknown;
 }
 
+Level LevelHelper::convertFromStringPrefix(const char* levelStr) {
+  if ((strncmp(levelStr, "GLOBAL", 6) == 0) || (strncmp(levelStr, "global", 6) == 0))
+      return Level::Global;
+  if ((strncmp(levelStr, "DEBUG", 5) == 0) || (strncmp(levelStr, "debug", 5) == 0))
+      return Level::Debug;
+  if ((strncmp(levelStr, "INFO", 4) == 0) || (strncmp(levelStr, "info", 4) == 0))
+      return Level::Info;
+  if ((strncmp(levelStr, "WARNING", 7) == 0) || (strncmp(levelStr, "warning", 7) == 0))
+      return Level::Warning;
+  if ((strncmp(levelStr, "ERROR", 5) == 0) || (strncmp(levelStr, "error", 5) == 0))
+      return Level::Error;
+  if ((strncmp(levelStr, "FATAL", 5) == 0) || (strncmp(levelStr, "fatal", 5) == 0))
+      return Level::Fatal;
+  if ((strncmp(levelStr, "VERBOSE", 7) == 0) || (strncmp(levelStr, "verbose", 7) == 0))
+      return Level::Verbose;
+  if ((strncmp(levelStr, "TRACE", 5) == 0) || (strncmp(levelStr, "trace", 5) == 0))
+      return Level::Trace;
+  return Level::Unknown;
+}
+
 void LevelHelper::forEachLevel(base::type::EnumType* startIndex, const std::function<bool(void)>& fn) {
   base::type::EnumType lIndexMax = LevelHelper::kMaxValid;
   do {
@@ -1928,6 +1948,79 @@ void VRegistry::setModules(const char* modules) {
   }
 }
 
+void VRegistry::setCategories(const char* categories, bool clear) {
+  base::threading::ScopedLock scopedLock(lock());
+  auto insert = [&](std::stringstream& ss, Level level) {
+    m_categories.push_back(std::make_pair(ss.str(), level));
+  };
+
+  if (clear)
+    m_categories.clear();
+  if (!categories)
+    return;
+
+  bool isCat = true;
+  bool isLevel = false;
+  std::stringstream ss;
+  Level level = Level::Unknown;
+  for (; *categories; ++categories) {
+    switch (*categories) {
+      case ':':
+        isLevel = true;
+        isCat = false;
+        break;
+      case ',':
+        isLevel = false;
+        isCat = true;
+        if (!ss.str().empty() && level != Level::Unknown) {
+          insert(ss, level);
+          ss.str(std::string(""));
+          level = Level::Unknown;
+        }
+        break;
+      default:
+        if (isCat) {
+          ss << *categories;
+        } else if (isLevel) {
+          level = LevelHelper::convertFromStringPrefix(categories);
+          if (level != Level::Unknown)
+            categories += strlen(LevelHelper::convertToString(level)) - 1;
+        }
+        break;
+    }
+  }
+  if (!ss.str().empty() && level != Level::Unknown) {
+    insert(ss, level);
+  }
+}
+
+// Log levels are sorted in a weird way...
+static int priority(Level level) {
+  if (level == Level::Fatal) return 0;
+  if (level == Level::Error) return 1;
+  if (level == Level::Warning) return 2;
+  if (level == Level::Info) return 3;
+  if (level == Level::Debug) return 4;
+  if (level == Level::Verbose) return 5;
+  if (level == Level::Trace) return 6;
+  return 7;
+}
+
+bool VRegistry::allowed(Level level, const char* category) {
+  base::threading::ScopedLock scopedLock(lock());
+  if (m_categories.empty() || category == nullptr) {
+    return false;
+  } else {
+    std::deque<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
+    for (; it != m_categories.rend(); ++it) {
+      if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
+        return priority(level) <= priority(it->second);
+      }
+    }
+    return false;
+  }
+}
+
 bool VRegistry::allowed(base::type::VerboseLevel vlevel, const char* file) {
   base::threading::ScopedLock scopedLock(lock());
   if (m_modules.empty() || file == nullptr) {
@@ -2445,7 +2538,7 @@ void Writer::initializeLogger(const std::string& loggerId, bool lookup, bool nee
     }
     if (ELPP->hasFlag(LoggingFlag::HierarchicalLogging)) {
       m_proceed = m_level == Level::Verbose ? m_logger->enabled(m_level) :
-                  LevelHelper::castToInt(m_level) >= LevelHelper::castToInt(ELPP->m_loggingLevel);
+                  ELPP->vRegistry()->allowed(m_level, loggerId.c_str());
     } else {
       m_proceed = m_logger->enabled(m_level);
     }
@@ -2964,6 +3057,14 @@ void Loggers::setVModules(const char* modules) {
 
 void Loggers::clearVModules(void) {
   ELPP->vRegistry()->clearModules();
+}
+
+void Loggers::setCategories(const char* categories, bool clear) {
+  ELPP->vRegistry()->setCategories(categories, clear);
+}
+
+void Loggers::clearCategories(void) {
+  ELPP->vRegistry()->clearCategories();
 }
 
 // VersionInfo
