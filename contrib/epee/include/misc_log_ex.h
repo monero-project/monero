@@ -109,7 +109,7 @@
 #define _warn(x) MWARNING(x)
 #define _erro(x) MERROR(x)
 
-#define MLOG_SET_THREAD_NAME(x) el::Loggers::setThreadName(x)
+#define MLOG_SET_THREAD_NAME(x) el::Helpers::setThreadName(x)
 
 #ifndef LOCAL_ASSERT
 #include <assert.h>
