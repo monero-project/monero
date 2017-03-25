@@ -767,7 +767,11 @@ std::string File::extractPathFromFilename(const std::string& fullPath, const cha
   return fullPath.substr(0, lastSlashAt + 1);
 }
 
-void File::buildStrippedFilename(const char* filename, char buff[], std::size_t limit) {
+void File::buildStrippedFilename(const char* filename, char buff[], const std::string &commonPrefix, std::size_t limit) {
+  if (!commonPrefix.empty()) {
+    if (!strncmp(filename, commonPrefix.c_str(), commonPrefix.size()))
+      filename += commonPrefix.size();
+  }
   std::size_t sizeOfFilename = strlen(filename);
   if (sizeOfFilename >= limit) {
     filename += (sizeOfFilename - limit);
@@ -2394,7 +2398,7 @@ base::type::string_t DefaultLogBuilder::build(const LogMessage* logMessage, bool
   if (logFormat->hasFlag(base::FormatFlags::File)) {
     // File
     base::utils::Str::clearBuff(buff, base::consts::kSourceFilenameMaxLength);
-    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff);
+    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff, ELPP->vRegistry()->getFilenameCommonPrefix());
     base::utils::Str::replaceFirstWithEscape(logLine, base::consts::kLogFileFormatSpecifier, std::string(buff));
   }
   if (logFormat->hasFlag(base::FormatFlags::FileBase)) {
@@ -2413,7 +2417,7 @@ base::type::string_t DefaultLogBuilder::build(const LogMessage* logMessage, bool
     // Location
     char* buf = base::utils::Str::clearBuff(buff,
                                             base::consts::kSourceFilenameMaxLength + base::consts::kSourceLineMaxLength);
-    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff);
+    base::utils::File::buildStrippedFilename(logMessage->file().c_str(), buff, ELPP->vRegistry()->getFilenameCommonPrefix());
     buf = base::utils::Str::addToBuff(buff, buf, bufLim);
     buf = base::utils::Str::addToBuff(":", buf, bufLim);
     buf = base::utils::Str::convertAndAddToBuff(logMessage->line(),  base::consts::kSourceLineMaxLength, buf, bufLim,
@@ -3070,6 +3074,14 @@ void Loggers::setCategories(const char* categories, bool clear) {
 
 void Loggers::clearCategories(void) {
   ELPP->vRegistry()->clearCategories();
+}
+
+void Loggers::setFilenameCommonPrefix(const std::string &prefix) {
+  ELPP->vRegistry()->setFilenameCommonPrefix(prefix);
+}
+
+const std::string &Loggers::getFilenameCommonPrefix() {
+  return ELPP->vRegistry()->getFilenameCommonPrefix();
 }
 
 // VersionInfo

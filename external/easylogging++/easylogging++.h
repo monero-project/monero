@@ -1103,7 +1103,7 @@ class File : base::StaticClass {
   static std::string extractPathFromFilename(const std::string& fullPath,
       const char* seperator = base::consts::kFilePathSeperator);
   /// @brief builds stripped filename and puts it in buff
-  static void buildStrippedFilename(const char* filename, char buff[],
+  static void buildStrippedFilename(const char* filename, char buff[], const std::string &commonPrefix = NULL,
                                     std::size_t limit = base::consts::kSourceFilenameMaxLength);
   /// @brief builds base filename and puts it in buff
   static void buildBaseFilename(const std::string& fullPath, char buff[],
@@ -2495,11 +2495,20 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
     return !base::utils::hasFlag(LoggingFlag::DisableVModules, *m_pFlags);
   }
 
+  inline void setFilenameCommonPrefix(const std::string &prefix) {
+    m_filenameCommonPrefix = prefix;
+  }
+
+  inline const std::string &getFilenameCommonPrefix() const {
+    return m_filenameCommonPrefix;
+  }
+
  private:
   base::type::VerboseLevel m_level;
   base::type::EnumType* m_pFlags;
   std::map<std::string, base::type::VerboseLevel> m_modules;
   std::deque<std::pair<std::string, Level>> m_categories;
+  std::string m_filenameCommonPrefix;
 };
 }  // namespace base
 class LogMessage {
@@ -2735,6 +2744,7 @@ class Storage : base::NoCopy, public base::threading::ThreadSafe {
     }
     return it->second;
   }
+
  private:
   base::RegisteredHitCounters* m_registeredHitCounters;
   base::RegisteredLoggers* m_registeredLoggers;
@@ -3925,6 +3935,10 @@ class Loggers : base::StaticClass {
   static void clearVModules(void);
   /// @brief Clears categories
   static void clearCategories(void);
+  /// @brief Sets filename common prefix
+  static void setFilenameCommonPrefix(const std::string &prefix);
+  /// @brief Gets filename common prefix
+  static const std::string &getFilenameCommonPrefix();
 };
 class VersionInfo : base::StaticClass {
  public:
