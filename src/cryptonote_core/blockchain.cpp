@@ -97,7 +97,7 @@ static const struct {
   // version 4 starts from block 1220516, which is on or around the 5th of January, 2017. Fork time finalised on 2016-09-18.
   { 4, 1220516, 0, 1483574400 },
   
-  // version 5 starts from block 1288616, which is on or around the 15th of april, 2017. Fork time finalised on 2016-03-14.
+  // version 5 starts from block 1288616, which is on or around the 15th of April, 2017. Fork time finalised on 2017-03-14.
   { 5, 1288616, 0, 1489520158 },  
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 1009826;
