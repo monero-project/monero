@@ -1918,6 +1918,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_ask_password ? 1 :0);
   json.AddMember("ask_password", value2, json.GetAllocator());
 
+  value2.SetUint(m_min_output_count);
+  json.AddMember("min_output_count", value2, json.GetAllocator());
+
+  value2.SetUint64(m_min_output_value);
+  json.AddMember("min_output_value", value2, json.GetAllocator());
+
   value2.SetInt(cryptonote::get_default_decimal_point());
   json.AddMember("default_decimal_point", value2, json.GetAllocator());
 
@@ -1989,6 +1995,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_refresh_type = RefreshType::RefreshDefault;
     m_confirm_missing_payment_id = true;
     m_ask_password = true;
+    m_min_output_count = 0;
+    m_min_output_value = 0;
   }
   else
   {
@@ -2053,6 +2061,10 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_ask_password = field_ask_password;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_decimal_point, int, Int, false, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
     cryptonote::set_default_decimal_point(field_default_decimal_point);
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, min_output_count, uint32_t, Uint, false, 0);
+    m_min_output_count = field_min_output_count;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, min_output_value, uint64_t, Uint64, false, 0);
+    m_min_output_value = field_min_output_value;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
@@ -4189,6 +4201,15 @@ std::vector<size_t> wallet2::get_only_rct(const std::vector<size_t> &unused_dust
   return indices;
 }
 
+static uint32_t get_count_above(const std::vector<wallet2::transfer_details> &transfers, const std::vector<size_t> &indices, uint64_t threshold)
+{
+  uint32_t count = 0;
+  for (size_t idx: indices)
+    if (transfers[idx].amount() >= threshold)
+      ++count;
+  return count;
+}
+
 // Another implementation of transaction creation that is hopefully better
 // While there is anything left to pay, it goes through random outputs and tries
 // to fill the next destination/amount. If it fully fills it, it will use the
@@ -4339,12 +4360,20 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       std::vector<size_t> indices = get_only_rct(unused_dust_indices, unused_transfers_indices);
       idx = pop_best_value(indices, tx.selected_transfers, true);
 
+      // we might not want to add it if it's a large output and we don't have many left
+      if (m_transfers[idx].amount() >= m_min_output_value) {
+        if (get_count_above(m_transfers, unused_transfers_indices, m_min_output_value) < m_min_output_count) {
+          LOG_PRINT_L2("Second output was not strictly needed, and we're running out of outputs above " << print_money(m_min_output_value) << ", not adding");
+          break;
+        }
+      }
+
       // since we're trying to add a second output which is not strictly needed,
       // we only add it if it's unrelated enough to the first one
       float relatedness = get_output_relatedness(m_transfers[idx], m_transfers[tx.selected_transfers.front()]);
       if (relatedness > SECOND_OUTPUT_RELATEDNESS_THRESHOLD)
       {
-        LOG_PRINT_L2("Second outout was not strictly needed, and relatedness " << relatedness << ", not adding");
+        LOG_PRINT_L2("Second output was not strictly needed, and relatedness " << relatedness << ", not adding");
         break;
       }
       pop_if_present(unused_transfers_indices, idx);
