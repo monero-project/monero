@@ -29,6 +29,7 @@
 #ifndef _NET_UTILS_BASE_H_
 #define _NET_UTILS_BASE_H_
 
+#include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid.hpp>
 #include "string_tools.h"
 #include "misc_log_ex.h"
@@ -159,11 +160,11 @@ inline MAKE_LOGGABLE(connection_context_base, ct, os)
 #define LOG_TRACE_CC(ct, message) MTRACE(ct << message)
 #define LOG_CC(level, ct, message) MLOG(level, ct << message)
 
-#define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0(epee::net_utils::print_connection_context_short(ct) << message)
-#define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1(epee::net_utils::print_connection_context_short(ct) << message)
-#define LOG_PRINT_CC_L2(ct, message) LOG_PRINT_L2(epee::net_utils::print_connection_context_short(ct) << message)
-#define LOG_PRINT_CC_L3(ct, message) LOG_PRINT_L3(epee::net_utils::print_connection_context_short(ct) << message)
-#define LOG_PRINT_CC_L4(ct, message) LOG_PRINT_L4(epee::net_utils::print_connection_context_short(ct) << message)
+#define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0(ct << message)
+#define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1(ct << message)
+#define LOG_PRINT_CC_L2(ct, message) LOG_PRINT_L2(ct << message)
+#define LOG_PRINT_CC_L3(ct, message) LOG_PRINT_L3(ct << message)
+#define LOG_PRINT_CC_L4(ct, message) LOG_PRINT_L4(ct << message)
 
 #define LOG_PRINT_CCONTEXT_L0(message) LOG_PRINT_CC_L0(context, message)
 #define LOG_PRINT_CCONTEXT_L1(message) LOG_PRINT_CC_L1(context, message)

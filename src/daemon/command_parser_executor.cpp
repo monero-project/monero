@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -37,11 +37,11 @@ namespace daemonize {
 t_command_parser_executor::t_command_parser_executor(
     uint32_t ip
   , uint16_t port
-  , const std::string &user_agent
+  , const boost::optional<tools::login>& login
   , bool is_rpc
   , cryptonote::core_rpc_server* rpc_server
   )
-  : m_executor(ip, port, user_agent, is_rpc, rpc_server)
+  : m_executor(ip, port, login, is_rpc, rpc_server)
 {}
 
 bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& args)
@@ -49,6 +49,13 @@ bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& 
   if (!args.empty()) return false;
 
   return m_executor.print_peer_list();
+}
+
+bool t_command_parser_executor::print_peer_list_stats(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+
+  return m_executor.print_peer_list_stats();
 }
 
 bool t_command_parser_executor::save_blockchain(const std::vector<std::string>& args)
@@ -271,17 +278,30 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   if(testnet)
     std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
-  if(args.size() > 2)
+  bool do_background_mining = false;  
+  bool ignore_battery = false;  
+  if(args.size() > 4)
   {
     return false;
   }
-  else if(args.size() == 2)
+  
+  if(args.size() == 4)
+  {
+    ignore_battery = args[3] == "true";
+  }  
+  
+  if(args.size() >= 3)
+  {
+    do_background_mining = args[2] == "true";
+  }
+  
+  if(args.size() >= 2)
   {
     bool ok = epee::string_tools::get_xtype_from_string(threads_count, args[1]);
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
-  m_executor.start_mining(adr, threads_count, testnet);
+  m_executor.start_mining(adr, threads_count, testnet, do_background_mining, ignore_battery);
 
   return true;
 }
@@ -530,6 +550,17 @@ bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector
   }
 
   return m_executor.print_blockchain_dynamic_stats(nblocks);
+}
+
+bool t_command_parser_executor::update(const std::vector<std::string>& args)
+{
+  if(args.size() != 1)
+  {
+    std::cout << "Exactly one parameter is needed: check, download, or update" << std::endl;
+    return false;
+  }
+
+  return m_executor.update(args.front());
 }
 
 } // namespace daemonize

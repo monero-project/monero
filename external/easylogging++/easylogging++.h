@@ -104,8 +104,13 @@
 #else
 #   define ELPP_OS_SOLARIS 0
 #endif
+#if (defined(__DragonFly__))
+#   define ELPP_OS_DRAGONFLY 1
+#else
+#   define ELPP_OS_DRAGONFLY 0
+#endif
 // Unix
-#if ((ELPP_OS_LINUX || ELPP_OS_MAC || ELPP_OS_FREEBSD || ELPP_OS_SOLARIS) && (!ELPP_OS_WINDOWS))
+#if ((ELPP_OS_LINUX || ELPP_OS_MAC || ELPP_OS_FREEBSD || ELPP_OS_SOLARIS || ELPP_OS_DRAGONFLY) && (!ELPP_OS_WINDOWS))
 #   define ELPP_OS_UNIX 1
 #else
 #   define ELPP_OS_UNIX 0
@@ -193,12 +198,15 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #   if (ELPP_COMPILER_GCC && !ELPP_MINGW)
 #      define ELPP_STACKTRACE 1
 #   else
+#      define ELPP_STACKTRACE 0
 #      if ELPP_COMPILER_MSVC
 #         pragma message("Stack trace not available for this compiler")
 #      else
 #         warning "Stack trace not available for this compiler";
 #      endif  // ELPP_COMPILER_MSVC
 #   endif  // ELPP_COMPILER_GCC
+#else
+#  define ELPP_STACKTRACE 0
 #endif  // (defined(ELPP_STACKTRACE_ON_CRASH))
 // Miscellaneous macros
 #define ELPP_UNUSED(x) (void)x
@@ -276,11 +284,11 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 (ELPP_COMPILER_GCC || ELPP_COMPILER_CLANG || ELPP_COMPILER_INTEL || (ELPP_COMPILER_MSVC && _MSC_VER >= 1800))
 // Logging Enable/Disable macros
 #define ELPP_LOGGING_ENABLED (!defined(ELPP_DISABLE_LOGS))
-#if (!defined(ELPP_DISABLE_DEBUG_LOGS) && (ELPP_LOGGING_ENABLED) && ((defined(_DEBUG)) || (!defined(NDEBUG))))
+#if (!defined(ELPP_DISABLE_DEBUG_LOGS) && (ELPP_LOGGING_ENABLED))
 #   define ELPP_DEBUG_LOG 1
 #else
 #   define ELPP_DEBUG_LOG 0
-#endif  // (!defined(ELPP_DISABLE_DEBUG_LOGS) && (ELPP_LOGGING_ENABLED) && ((defined(_DEBUG)) || (!defined(NDEBUG))))
+#endif  // (!defined(ELPP_DISABLE_DEBUG_LOGS) && (ELPP_LOGGING_ENABLED))
 #if (!defined(ELPP_DISABLE_INFO_LOGS) && (ELPP_LOGGING_ENABLED))
 #   define ELPP_INFO_LOG 1
 #else
@@ -1001,7 +1009,11 @@ namespace el {
                                     public:
                                         Mutex(void) {
 #   if ELPP_OS_UNIX
-                                            pthread_mutex_init(&m_underlyingMutex, nullptr);
+                                            pthread_mutexattr_t attr;
+                                            pthread_mutexattr_init(&attr);
+                                            pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+                                            pthread_mutex_init(&m_underlyingMutex, &attr);
+                                            pthread_mutexattr_destroy(&attr);
 #   elif ELPP_OS_WINDOWS
                                             InitializeCriticalSection(&m_underlyingMutex);
 #   endif  // ELPP_OS_UNIX
@@ -1095,8 +1107,8 @@ namespace el {
                                     ELPP_UNUSED(ms);
 #      endif  // ELPP_ASYNC_LOGGING
                                 }
-                                typedef std::mutex Mutex;
-                                typedef std::lock_guard<std::mutex> ScopedLock;
+                                typedef std::recursive_mutex Mutex;
+                                typedef std::lock_guard<std::recursive_mutex> ScopedLock;
 #   endif  // !ELPP_USE_STD_THREADING
 #else
                                 namespace internal {
@@ -3979,10 +3991,12 @@ inline void FUNCTION_NAME(const T&);
             }
 
             void setThreadName(const std::string &name) {
+                const base::threading::ScopedLock scopedLock(lock());
                 m_threadNames[base::threading::getCurrentThreadId()] = name;
             }
             
             std::string getThreadName(const std::string& name) {
+                const base::threading::ScopedLock scopedLock(lock());
                 std::map<std::string, std::string>::const_iterator it = m_threadNames.find(name);
                 if (it == m_threadNames.end())
                     return name;

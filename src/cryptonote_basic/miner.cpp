@@ -1,0 +1,847 @@
+// Copyright (c) 2014-2017, The Monero Project
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+
+#include <sstream>
+#include <numeric>
+#include <boost/utility/value_init.hpp>
+#include <boost/interprocess/detail/atomic.hpp>
+#include <boost/limits.hpp>
+#include "misc_language.h"
+#include "include_base_utils.h"
+#include "cryptonote_basic_impl.h"
+#include "cryptonote_format_utils.h"
+#include "file_io_utils.h"
+#include "common/command_line.h"
+#include "string_coding.h"
+#include "storages/portable_storage_template_helper.h"
+#include "boost/logic/tribool.hpp"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "miner"
+
+using namespace epee;
+
+#include "miner.h"
+
+
+extern "C" void slow_hash_allocate_state();
+extern "C" void slow_hash_free_state();
+namespace cryptonote
+{
+
+  namespace
+  {
+    const command_line::arg_descriptor<std::string> arg_extra_messages =  {"extra-messages-file", "Specify file for extra messages to include into coinbase transactions", "", true};
+    const command_line::arg_descriptor<std::string> arg_start_mining =    {"start-mining", "Specify wallet address to mining for", "", true};
+    const command_line::arg_descriptor<uint32_t>      arg_mining_threads =  {"mining-threads", "Specify mining threads count", 0, true};
+    const command_line::arg_descriptor<bool>        arg_bg_mining_enable =  {"bg-mining-enable", "enable/disable background mining", true, true};
+    const command_line::arg_descriptor<bool>        arg_bg_mining_ignore_battery =  {"bg-mining-ignore-battery", "if true, assumes plugged in when unable to query system power status", false, true};    
+    const command_line::arg_descriptor<uint64_t>    arg_bg_mining_min_idle_interval_seconds =  {"bg-mining-min-idle-interval", "Specify min lookback interval in seconds for determining idle state", miner::BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS, true};
+    const command_line::arg_descriptor<uint8_t>     arg_bg_mining_idle_threshold_percentage =  {"bg-mining-idle-threshold", "Specify minimum avg idle percentage over lookback interval", miner::BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE, true};
+    const command_line::arg_descriptor<uint8_t>     arg_bg_mining_miner_target_percentage =  {"bg-mining-miner-target", "Specificy maximum percentage cpu use by miner(s)", miner::BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE, true};
+  }
+
+
+  miner::miner(i_miner_handler* phandler):m_stop(1),
+    m_template(boost::value_initialized<block>()),
+    m_template_no(0),
+    m_diffic(0),
+    m_thread_index(0),
+    m_phandler(phandler),
+    m_height(0),
+    m_pausers_count(0),
+    m_threads_total(0),
+    m_starter_nonce(0),
+    m_last_hr_merge_time(0),
+    m_hashes(0),
+    m_do_print_hashrate(false),
+    m_do_mining(false),
+    m_current_hash_rate(0),
+    m_is_background_mining_enabled(false),
+    m_min_idle_seconds(BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS),
+    m_idle_threshold(BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE),
+    m_mining_target(BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE),
+    m_miner_extra_sleep(BACKGROUND_MINING_DEFAULT_MINER_EXTRA_SLEEP_MILLIS)
+  {
+
+  }
+  //-----------------------------------------------------------------------------------------------------
+  miner::~miner()
+  {
+    stop();
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::set_block_template(const block& bl, const difficulty_type& di, uint64_t height)
+  {
+    CRITICAL_REGION_LOCAL(m_template_lock);
+    m_template = bl;
+    m_diffic = di;
+    m_height = height;
+    ++m_template_no;
+    m_starter_nonce = crypto::rand<uint32_t>();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::on_block_chain_update()
+  {
+    if(!is_mining())
+      return true;
+
+    return request_block_template();
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::request_block_template()
+  {
+    block bl = AUTO_VAL_INIT(bl);
+    difficulty_type di = AUTO_VAL_INIT(di);
+    uint64_t height = AUTO_VAL_INIT(height);
+    cryptonote::blobdata extra_nonce;
+    if(m_extra_messages.size() && m_config.current_extra_message_index < m_extra_messages.size())
+    {
+      extra_nonce = m_extra_messages[m_config.current_extra_message_index];
+    }
+
+    if(!m_phandler->get_block_template(bl, m_mine_address, di, height, extra_nonce))
+    {
+      LOG_ERROR("Failed to get_block_template(), stopping mining");
+      return false;
+    }
+    set_block_template(bl, di, height);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::on_idle()
+  {
+    m_update_block_template_interval.do_call([&](){
+      if(is_mining())request_block_template();
+      return true;
+    });
+
+    m_update_merge_hr_interval.do_call([&](){
+      merge_hr();
+      return true;
+    });
+    
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::do_print_hashrate(bool do_hr)
+  {
+    m_do_print_hashrate = do_hr;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::merge_hr()
+  {
+    if(m_last_hr_merge_time && is_mining())
+    {
+      m_current_hash_rate = m_hashes * 1000 / ((misc_utils::get_tick_count() - m_last_hr_merge_time + 1));
+      CRITICAL_REGION_LOCAL(m_last_hash_rates_lock);
+      m_last_hash_rates.push_back(m_current_hash_rate);
+      if(m_last_hash_rates.size() > 19)
+        m_last_hash_rates.pop_front();
+      if(m_do_print_hashrate)
+      {
+        uint64_t total_hr = std::accumulate(m_last_hash_rates.begin(), m_last_hash_rates.end(), 0);
+        float hr = static_cast<float>(total_hr)/static_cast<float>(m_last_hash_rates.size());
+        std::cout << "hashrate: " << std::setprecision(4) << std::fixed << hr << ENDL;
+      }
+    }
+    m_last_hr_merge_time = misc_utils::get_tick_count();
+    m_hashes = 0;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::init_options(boost::program_options::options_description& desc)
+  {
+    command_line::add_arg(desc, arg_extra_messages);
+    command_line::add_arg(desc, arg_start_mining);
+    command_line::add_arg(desc, arg_mining_threads);
+    command_line::add_arg(desc, arg_bg_mining_enable);
+    command_line::add_arg(desc, arg_bg_mining_ignore_battery);    
+    command_line::add_arg(desc, arg_bg_mining_min_idle_interval_seconds);
+    command_line::add_arg(desc, arg_bg_mining_idle_threshold_percentage);
+    command_line::add_arg(desc, arg_bg_mining_miner_target_percentage);
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::init(const boost::program_options::variables_map& vm, bool testnet)
+  {
+    if(command_line::has_arg(vm, arg_extra_messages))
+    {
+      std::string buff;
+      bool r = file_io_utils::load_file_to_string(command_line::get_arg(vm, arg_extra_messages), buff);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to load file with extra messages: " << command_line::get_arg(vm, arg_extra_messages));
+      std::vector<std::string> extra_vec;
+      boost::split(extra_vec, buff, boost::is_any_of("\n"), boost::token_compress_on );
+      m_extra_messages.resize(extra_vec.size());
+      for(size_t i = 0; i != extra_vec.size(); i++)
+      {
+        string_tools::trim(extra_vec[i]);
+        if(!extra_vec[i].size())
+          continue;
+        std::string buff = string_encoding::base64_decode(extra_vec[i]);
+        if(buff != "0")
+          m_extra_messages[i] = buff;
+      }
+      m_config_folder_path = boost::filesystem::path(command_line::get_arg(vm, arg_extra_messages)).parent_path().string();
+      m_config = AUTO_VAL_INIT(m_config);
+      epee::serialization::load_t_from_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
+      MINFO("Loaded " << m_extra_messages.size() << " extra messages, current index " << m_config.current_extra_message_index);
+    }
+
+    if(command_line::has_arg(vm, arg_start_mining))
+    {
+      if(!cryptonote::get_account_address_from_str(m_mine_address, testnet, command_line::get_arg(vm, arg_start_mining)))
+      {
+        LOG_ERROR("Target account address " << command_line::get_arg(vm, arg_start_mining) << " has wrong format, starting daemon canceled");
+        return false;
+      }
+      m_threads_total = 1;
+      m_do_mining = true;
+      if(command_line::has_arg(vm, arg_mining_threads))
+      {
+        m_threads_total = command_line::get_arg(vm, arg_mining_threads);
+      }
+    }
+
+    // Background mining parameters
+    // Let init set all parameters even if background mining is not enabled, they can start later with params set
+    if(command_line::has_arg(vm, arg_bg_mining_enable))
+      set_is_background_mining_enabled( command_line::get_arg(vm, arg_bg_mining_enable) );
+    if(command_line::has_arg(vm, arg_bg_mining_ignore_battery))
+      set_ignore_battery( command_line::get_arg(vm, arg_bg_mining_ignore_battery) );      
+    if(command_line::has_arg(vm, arg_bg_mining_min_idle_interval_seconds))
+      set_min_idle_seconds( command_line::get_arg(vm, arg_bg_mining_min_idle_interval_seconds) );
+    if(command_line::has_arg(vm, arg_bg_mining_idle_threshold_percentage))
+      set_idle_threshold( command_line::get_arg(vm, arg_bg_mining_idle_threshold_percentage) );
+    if(command_line::has_arg(vm, arg_bg_mining_miner_target_percentage))
+      set_mining_target( command_line::get_arg(vm, arg_bg_mining_miner_target_percentage) );
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::is_mining() const
+  {
+    return !m_stop;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  const account_public_address& miner::get_mining_address() const
+  {
+    return m_mine_address;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint32_t miner::get_threads_count() const {
+    return m_threads_total;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background, bool ignore_battery)
+  {
+    m_mine_address = adr;
+    m_threads_total = static_cast<uint32_t>(threads_count);
+    m_starter_nonce = crypto::rand<uint32_t>();
+    CRITICAL_REGION_LOCAL(m_threads_lock);
+    if(is_mining())
+    {
+      LOG_ERROR("Starting miner but it's already started");
+      return false;
+    }
+
+    if(!m_threads.empty())
+    {
+      LOG_ERROR("Unable to start miner because there are active mining threads");
+      return false;
+    }
+
+    if(!m_template_no)
+      request_block_template();//lets update block template
+
+    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
+    boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
+    set_is_background_mining_enabled(do_background);
+    set_ignore_battery(ignore_battery);
+    
+    for(size_t i = 0; i != threads_count; i++)
+    {
+      m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
+    }
+
+    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
+
+    if( get_is_background_mining_enabled() )
+    {
+      m_background_mining_thread = boost::thread(attrs, boost::bind(&miner::background_worker_thread, this));
+      LOG_PRINT_L0("Background mining controller thread started" );
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint64_t miner::get_speed() const
+  {
+    if(is_mining()) {
+      return m_current_hash_rate;
+    }
+    else {
+      return 0;
+    }
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::send_stop_signal()
+  {
+    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::stop()
+  {
+    MTRACE("Miner has received stop signal");
+
+    if (!is_mining())
+    {
+      MDEBUG("Not mining - nothing to stop" );
+      return true;
+    }
+
+    send_stop_signal();
+    CRITICAL_REGION_LOCAL(m_threads_lock);
+
+    // In case background mining was active and the miner threads are waiting
+    // on the background miner to signal start. 
+    m_is_background_mining_started_cond.notify_all();
+
+    for(boost::thread& th: m_threads)
+      th.join();
+
+    // The background mining thread could be sleeping for a long time, so we
+    // interrupt it just in case
+    m_background_mining_thread.interrupt();
+    m_background_mining_thread.join();
+
+    MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
+    m_threads.clear();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::find_nonce_for_given_block(block& bl, const difficulty_type& diffic, uint64_t height)
+  {
+    for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
+    {
+      crypto::hash h;
+      get_block_longhash(bl, h, height);
+
+      if(check_hash(h, diffic))
+      {
+        bl.invalidate_hashes();
+        return true;
+      }
+    }
+    bl.invalidate_hashes();
+    return false;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::on_synchronized()
+  {
+    if(m_do_mining)
+    {
+      boost::thread::attributes attrs;
+      attrs.set_stack_size(THREAD_STACK_SIZE);
+
+      start(m_mine_address, m_threads_total, attrs, get_is_background_mining_enabled());
+    }
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::pause()
+  {
+    CRITICAL_REGION_LOCAL(m_miners_count_lock);
+    ++m_pausers_count;
+    if(m_pausers_count == 1 && is_mining())
+      MDEBUG("MINING PAUSED");
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::resume()
+  {
+    CRITICAL_REGION_LOCAL(m_miners_count_lock);
+    --m_pausers_count;
+    if(m_pausers_count < 0)
+    {
+      m_pausers_count = 0;
+      MERROR("Unexpected miner::resume() called");
+    }
+    if(!m_pausers_count && is_mining())
+      MDEBUG("MINING RESUMED");
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::worker_thread()
+  {
+    uint32_t th_local_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index);
+    MGINFO("Miner thread was started ["<< th_local_index << "]");
+    MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
+    uint32_t nonce = m_starter_nonce + th_local_index;
+    uint64_t height = 0;
+    difficulty_type local_diff = 0;
+    uint32_t local_template_ver = 0;
+    block b;
+    slow_hash_allocate_state();
+    while(!m_stop)
+    {
+      if(m_pausers_count)//anti split workaround
+      {
+        misc_utils::sleep_no_w(100);
+        continue;
+      }
+      else if( m_is_background_mining_enabled )
+      {
+        misc_utils::sleep_no_w(m_miner_extra_sleep);
+        while( !m_is_background_mining_started )
+        {
+          MGINFO("background mining is enabled, but not started, waiting until start triggers");
+          boost::unique_lock<boost::mutex> started_lock( m_is_background_mining_started_mutex );        
+          m_is_background_mining_started_cond.wait( started_lock );
+          if( m_stop ) break;
+        }
+        
+        if( m_stop ) continue;         
+      }
+
+      if(local_template_ver != m_template_no)
+      {
+        CRITICAL_REGION_BEGIN(m_template_lock);
+        b = m_template;
+        local_diff = m_diffic;
+        height = m_height;
+        CRITICAL_REGION_END();
+        local_template_ver = m_template_no;
+        nonce = m_starter_nonce + th_local_index;
+      }
+
+      if(!local_template_ver)//no any set_block_template call
+      {
+        LOG_PRINT_L2("Block template not set yet");
+        epee::misc_utils::sleep_no_w(1000);
+        continue;
+      }
+
+      b.nonce = nonce;
+      crypto::hash h;
+      get_block_longhash(b, h, height);
+
+      if(check_hash(h, local_diff))
+      {
+        //we lucky!
+        ++m_config.current_extra_message_index;
+        MGINFO_GREEN("Found block for difficulty: " << local_diff);
+        if(!m_phandler->handle_block_found(b))
+        {
+          --m_config.current_extra_message_index;
+        }else
+        {
+          //success update, lets update config
+          if (!m_config_folder_path.empty())
+            epee::serialization::store_t_to_json_file(m_config, m_config_folder_path + "/" + MINER_CONFIG_FILE_NAME);
+        }
+      }
+      nonce+=m_threads_total;
+      ++m_hashes;
+    }
+    slow_hash_free_state();
+    MGINFO("Miner thread stopped ["<< th_local_index << "]");
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::get_is_background_mining_enabled() const
+  {
+    return m_is_background_mining_enabled;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::get_ignore_battery() const
+  {
+    return m_ignore_battery;
+  }  
+  //-----------------------------------------------------------------------------------------------------
+  /**
+  * This has differing behaviour depending on if mining has been started/etc.
+  * Note: add documentation
+  */
+  bool miner::set_is_background_mining_enabled(bool is_background_mining_enabled)
+  {
+    m_is_background_mining_enabled = is_background_mining_enabled;
+    // Extra logic will be required if we make this function public in the future
+    // and allow toggling smart mining without start/stop
+    //m_is_background_mining_enabled_cond.notify_one();
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::set_ignore_battery(bool ignore_battery)
+  {
+    m_ignore_battery = ignore_battery;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint64_t miner::get_min_idle_seconds() const
+  {
+    return m_min_idle_seconds;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::set_min_idle_seconds(uint64_t min_idle_seconds)
+  {
+    if(min_idle_seconds > BACKGROUND_MINING_MAX_MIN_IDLE_INTERVAL_IN_SECONDS) return false;
+    if(min_idle_seconds < BACKGROUND_MINING_MIN_MIN_IDLE_INTERVAL_IN_SECONDS) return false;
+    m_min_idle_seconds = min_idle_seconds;
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint8_t miner::get_idle_threshold() const
+  {
+    return m_idle_threshold;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::set_idle_threshold(uint8_t idle_threshold)
+  {
+    if(idle_threshold > BACKGROUND_MINING_MAX_IDLE_THRESHOLD_PERCENTAGE) return false;
+    if(idle_threshold < BACKGROUND_MINING_MIN_IDLE_THRESHOLD_PERCENTAGE) return false;
+    m_idle_threshold = idle_threshold;
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  uint8_t miner::get_mining_target() const
+  {
+    return m_mining_target;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::set_mining_target(uint8_t mining_target)
+  {
+    if(mining_target > BACKGROUND_MINING_MAX_MINING_TARGET_PERCENTAGE) return false;
+    if(mining_target < BACKGROUND_MINING_MIN_MINING_TARGET_PERCENTAGE) return false;
+    m_mining_target = mining_target;
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::background_worker_thread()
+  {
+    uint64_t prev_total_time, current_total_time;
+    uint64_t prev_idle_time, current_idle_time;
+    uint64_t previous_process_time = 0, current_process_time = 0;
+    m_is_background_mining_started = false;
+
+    if(!get_system_times(prev_total_time, prev_idle_time))
+    {
+      LOG_ERROR("get_system_times call failed, background mining will NOT work!");
+      return false;
+    }
+    
+    while(!m_stop)
+    {
+        
+      try
+      {
+        // Commenting out the below since we're going with privatizing the bg mining enabled
+        // function, but I'll leave the code/comments here for anyone that wants to modify the
+        // patch in the future
+        // -------------------------------------------------------------------------------------
+        // All of this might be overkill if we just enforced some simple requirements
+        // about changing this variable before/after the miner starts, but I envision
+        // in the future a checkbox that you can tick on/off for background mining after
+        // you've clicked "start mining". There's still an issue here where if background
+        // mining is disabled when start is called, this thread is never created, and so
+        // enabling after does nothing, something I have to fix in the future. However,
+        // this should take care of the case where mining is started with bg-enabled, 
+        // and then the user decides to un-check background mining, and just do
+        // regular full-speed mining. I might just be over-doing it and thinking up 
+        // non-existant use-cases, so if the concensus is to simplify, we can remove all this fluff.
+        /*
+        while( !m_is_background_mining_enabled )
+        {
+          MGINFO("background mining is disabled, waiting until enabled!");
+          boost::unique_lock<boost::mutex> enabled_lock( m_is_background_mining_enabled_mutex );        
+          m_is_background_mining_enabled_cond.wait( enabled_lock );
+        } 
+        */       
+        
+        // If we're already mining, then sleep for the miner monitor interval.
+        // If we're NOT mining, then sleep for the idle monitor interval
+        uint64_t sleep_for_seconds = BACKGROUND_MINING_MINER_MONITOR_INVERVAL_IN_SECONDS;
+        if( !m_is_background_mining_started ) sleep_for_seconds = get_min_idle_seconds();
+        boost::this_thread::sleep_for(boost::chrono::seconds(sleep_for_seconds));
+      }
+      catch(const boost::thread_interrupted&)
+      {
+        MDEBUG("background miner thread interrupted ");
+        continue; // if interrupted because stop called, loop should end ..
+      }
+
+      boost::tribool battery_powered(on_battery_power());
+      bool on_ac_power = false;
+      if(indeterminate( battery_powered ))
+      {
+        // name could be better, only ignores battery requirement if we failed
+        // to get the status of the system
+        if( m_ignore_battery )
+        {
+          on_ac_power = true;
+        }
+      }
+      else
+      {
+        on_ac_power = !battery_powered;
+      }
+
+      if( m_is_background_mining_started )
+      {
+        // figure out if we need to stop, and monitor mining usage
+        
+        // If we get here, then previous values are initialized.
+        // Let's get some current data for comparison.
+
+        if(!get_system_times(current_total_time, current_idle_time))
+        {
+          MERROR("get_system_times call failed");
+          continue;
+        }
+
+        if(!get_process_time(current_process_time))
+        {
+          MERROR("get_process_time call failed!");
+          continue;
+        }
+
+        uint64_t total_diff = (current_total_time - prev_total_time);
+        uint64_t idle_diff = (current_idle_time - prev_idle_time);
+        uint64_t process_diff = (current_process_time - previous_process_time);
+        uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
+        uint8_t process_percentage = get_percent_of_total(process_diff, total_diff);
+
+        MGINFO("idle percentage is " << unsigned(idle_percentage) << "\%, miner percentage is " << unsigned(process_percentage) << "\%, ac power : " << on_ac_power);
+        if( idle_percentage + process_percentage < get_idle_threshold() || !on_ac_power )
+        {
+          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining stopping, thanks for your contribution!");
+          m_is_background_mining_started = false;
+
+          // reset process times
+          previous_process_time = 0;
+          current_process_time = 0;
+        }
+        else
+        {
+          previous_process_time = current_process_time;
+
+          // adjust the miner extra sleep variable
+          int64_t miner_extra_sleep_change = (-1 * (get_mining_target() - process_percentage) );
+          int64_t new_miner_extra_sleep = m_miner_extra_sleep + miner_extra_sleep_change;
+          // if you start the miner with few threads on a multicore system, this could
+          // fall below zero because all the time functions aggregate across all processors.
+          // I'm just hard limiting to 5 millis min sleep here, other options?
+          m_miner_extra_sleep = std::max( new_miner_extra_sleep , (int64_t)5 );
+          MDEBUG("m_miner_extra_sleep " << m_miner_extra_sleep);
+        }
+        
+        prev_total_time = current_total_time;
+        prev_idle_time = current_idle_time;
+      }
+      else if( on_ac_power )
+      {
+        // figure out if we need to start
+
+        if(!get_system_times(current_total_time, current_idle_time))
+        {
+          MERROR("get_system_times call failed");
+          continue;
+        }
+
+        uint64_t total_diff = (current_total_time - prev_total_time);
+        uint64_t idle_diff = (current_idle_time - prev_idle_time);
+        uint8_t idle_percentage = get_percent_of_total(idle_diff, total_diff);
+
+        MGINFO("idle percentage is " << unsigned(idle_percentage));
+        if( idle_percentage >= get_idle_threshold() && on_ac_power )
+        {
+          MGINFO("cpu is " << unsigned(idle_percentage) << "% idle, idle threshold is " << unsigned(get_idle_threshold()) << "\%, ac power : " << on_ac_power << ", background mining started, good luck!");
+          m_is_background_mining_started = true;
+          m_is_background_mining_started_cond.notify_all();
+
+          // Wait for a little mining to happen ..
+          boost::this_thread::sleep_for(boost::chrono::seconds( 1 ));
+
+          // Starting data ...
+          if(!get_process_time(previous_process_time))
+          {
+            m_is_background_mining_started = false;
+            MERROR("get_process_time call failed!");
+          }
+        }
+
+        prev_total_time = current_total_time;
+        prev_idle_time = current_idle_time;
+      }
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::get_system_times(uint64_t& total_time, uint64_t& idle_time)
+  {
+    #ifdef _WIN32
+
+    	FILETIME idleTime;
+    	FILETIME kernelTime;
+    	FILETIME userTime;
+    	if ( GetSystemTimes( &idleTime, &kernelTime, &userTime ) != -1 )
+    	{
+        total_time =
+          ( (((uint64_t)(kernelTime.dwHighDateTime)) << 32) | ((uint64_t)kernelTime.dwLowDateTime) )
+          + ( (((uint64_t)(userTime.dwHighDateTime)) << 32) | ((uint64_t)userTime.dwLowDateTime) );
+
+        idle_time = ( (((uint64_t)(idleTime.dwHighDateTime)) << 32) | ((uint64_t)idleTime.dwLowDateTime) );
+
+        return true;
+    	}
+
+    #elif defined(__linux__)
+
+      const std::string STR_CPU("cpu");
+      const std::size_t STR_CPU_LEN = STR_CPU.size();
+      const std::string STAT_FILE_PATH = "/proc/stat";
+
+      if( !epee::file_io_utils::is_file_exist(STAT_FILE_PATH) )
+      {
+        LOG_ERROR("'" << STAT_FILE_PATH << "' file does not exist");
+        return false;
+      }
+
+      std::ifstream stat_file_stream(STAT_FILE_PATH);
+      if( stat_file_stream.fail() )
+      {
+        LOG_ERROR("failed to open '" << STAT_FILE_PATH << "'");
+        return false;
+      }
+
+      std::string line;
+      std::getline(stat_file_stream, line);
+      std::istringstream stat_file_iss(line);
+      stat_file_iss.ignore(65536, ' '); // skip cpu label ...
+      uint64_t utime, ntime, stime, itime;
+      if( !(stat_file_iss >> utime && stat_file_iss >> ntime && stat_file_iss >> stime && stat_file_iss >> itime) )
+      {
+        LOG_ERROR("failed to read '" << STAT_FILE_PATH << "'");
+        return false;
+      }
+
+      idle_time = itime;
+      total_time = utime + ntime + stime + itime;
+
+      return true;
+
+    #endif
+
+    return false; // unsupported systemm..
+  }
+  //-----------------------------------------------------------------------------------------------------
+  bool miner::get_process_time(uint64_t& total_time)
+  {
+    #ifdef _WIN32
+
+      FILETIME createTime;
+      FILETIME exitTime;
+      FILETIME kernelTime;
+      FILETIME userTime;
+      if ( GetProcessTimes( GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime ) != -1 )
+      {
+        total_time =
+          ( (((uint64_t)(kernelTime.dwHighDateTime)) << 32) | ((uint64_t)kernelTime.dwLowDateTime) )
+          + ( (((uint64_t)(userTime.dwHighDateTime)) << 32) | ((uint64_t)userTime.dwLowDateTime) );
+
+        return true;
+      }
+
+    #elif defined(__linux__) && defined(_SC_CLK_TCK)
+
+      struct tms tms;
+      if ( times(&tms) != (clock_t)-1 )
+      {
+    		total_time = tms.tms_utime + tms.tms_stime;
+        return true;
+      }
+
+    #endif
+
+    return false; // unsupported system..
+  }
+  //-----------------------------------------------------------------------------------------------------  
+  uint8_t miner::get_percent_of_total(uint64_t other, uint64_t total)
+  {
+    return (uint8_t)( ceil( (other * 1.f / total * 1.f) * 100) );    
+  }
+  //-----------------------------------------------------------------------------------------------------    
+  boost::logic::tribool miner::on_battery_power()
+  {
+    #ifdef _WIN32
+
+      SYSTEM_POWER_STATUS power_status;
+    	if ( GetSystemPowerStatus( &power_status ) != 0 )
+    	{
+        return boost::logic::tribool(power_status.ACLineStatus != 1);
+    	}
+
+    #elif defined(__linux__)
+
+      // i've only tested on UBUNTU, these paths might be different on other systems
+      // need to figure out a way to make this more flexible
+      std::string power_supply_path = "";
+      const std::string POWER_SUPPLY_STATUS_PATHS[] = 
+      {
+        "/sys/class/power_supply/ACAD/online",
+        "/sys/class/power_supply/AC/online"        
+      };
+      
+      for(const std::string& path : POWER_SUPPLY_STATUS_PATHS)
+      {
+        if( epee::file_io_utils::is_file_exist(path) )
+        {
+          power_supply_path = path;
+          break;
+        }
+      }
+      
+      if( power_supply_path.empty() )
+      {
+        LOG_ERROR("Couldn't find battery/power status file, can't determine if plugged in!");
+        return boost::logic::tribool(boost::logic::indeterminate);;
+      }
+
+      std::ifstream power_stream(power_supply_path);
+      if( power_stream.fail() )
+      {
+        LOG_ERROR("failed to open '" << power_supply_path << "'");
+        return boost::logic::tribool(boost::logic::indeterminate);;
+      }
+
+      return boost::logic::tribool( (power_stream.get() != '1') );
+
+    #endif
+    
+    LOG_ERROR("couldn't query power status");
+    return boost::logic::tribool(boost::logic::indeterminate);
+  }
+}

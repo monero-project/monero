@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,3 +42,4 @@
 #define WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE         -9
 #define WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE        -10
 #define WALLET_RPC_ERROR_CODE_WRONG_URI              -11
+#define WALLET_RPC_ERROR_CODE_WRONG_INDEX            -12

@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
 /// @brief This is the orginal cryptonote protocol network-events handler, modified by us
 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,9 +42,9 @@
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
 #include "cryptonote_protocol_handler_common.h"
-#include "cryptonote_core/connection_context.h"
-#include "cryptonote_core/cryptonote_stat_info.h"
-#include "cryptonote_core/verification_context.h"
+#include "cryptonote_basic/connection_context.h"
+#include "cryptonote_basic/cryptonote_stat_info.h"
+#include "cryptonote_basic/verification_context.h"
 // #include <netinet/in.h>
 #include <boost/circular_buffer.hpp>
 
@@ -135,6 +135,7 @@ namespace cryptonote
     std::atomic<bool> m_synchronized;
     bool m_one_request = true;
     std::atomic<bool> m_stopping;
+    epee::critical_section m_sync_lock;
 
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();

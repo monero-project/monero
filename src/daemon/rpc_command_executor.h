@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,6 +38,9 @@
 
 #pragma once
 
+#include <boost/optional/optional_fwd.hpp>
+
+#include "common/common_fwd.h"
 #include "common/rpc_client.h"
 #include "misc_log_ex.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -60,7 +63,7 @@ public:
   t_rpc_command_executor(
       uint32_t ip
     , uint16_t port
-    , const std::string &user_agent
+    , const boost::optional<tools::login>& user
     , bool is_rpc = true
     , cryptonote::core_rpc_server* rpc_server = NULL
     );
@@ -68,6 +71,8 @@ public:
   ~t_rpc_command_executor();
 
   bool print_peer_list();
+
+  bool print_peer_list_stats();
 
   bool save_blockchain();
 
@@ -103,7 +108,7 @@ public:
 
   bool print_transaction_pool_stats();
 
-  bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet);
+  bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet, bool do_background_mining = false, bool ignore_battery = false);
 
   bool stop_mining();
 
@@ -146,6 +151,8 @@ public:
   bool alt_chain_info();
 
   bool print_blockchain_dynamic_stats(uint64_t nblocks);
+
+  bool update(const std::string &command);
 };
 
 } // namespace daemonize

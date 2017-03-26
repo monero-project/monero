@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,8 +41,8 @@
 #include "string_tools.h"
 #include "syncobj.h"
 #include "math_helper.h"
-#include "cryptonote_basic_impl.h"
-#include "verification_context.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 
@@ -232,6 +232,13 @@ namespace cryptonote
      * @param txs return-by-reference the list of transactions
      */
     void get_transactions(std::list<transaction>& txs) const;
+
+    /**
+     * @brief get a list of all transaction hashes in the pool
+     *
+     * @param txs return-by-reference the list of transactions
+     */
+    void get_transaction_hashes(std::vector<crypto::hash>& txs) const;
 
     /**
      * @brief get information about all transactions and key images in the pool

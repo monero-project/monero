@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -29,7 +29,7 @@
 #include "common/command_line.h"
 #include "common/i18n.h"
 #include "common/dns_utils.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include <cstring>
 #include <sstream>
 // check local first (in the event of static or in-source compilation of libunbound)
@@ -37,6 +37,7 @@
 
 #include <stdlib.h>
 #include "include_base_utils.h"
+#include <random>
 #include <boost/filesystem/fstream.hpp>
 using namespace epee;
 namespace bf = boost::filesystem;
@@ -404,21 +405,23 @@ std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec
   return addresses;
 }
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid)
+std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, bool cli_confirm)
 {
   // attempt to get address from dns query
   auto addresses = addresses_from_url(url, dnssec_valid);
   if (addresses.empty())
   {
-    std::cout << tr("wrong address: ") << url;
+    LOG_ERROR("wrong address: " << url);
     return {};
   }
   // for now, move on only if one address found
   if (addresses.size() > 1)
   {
-    std::cout << tr("not yet supported: Multiple Monero addresses found for given URL: ") << url;
+    LOG_ERROR("not yet supported: Multiple Monero addresses found for given URL: " << url);
     return {};
   }
+  if (!cli_confirm)
+    return addresses[0];
   // prompt user for confirmation.
   // inform user of DNSSEC validation status as well.
   std::string dnssec_str;
@@ -451,20 +454,108 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
   return addresses[0];
 }
 
-bool get_account_address_from_str_or_url(
-    cryptonote::account_public_address& address
-  , bool& has_payment_id
-  , crypto::hash8& payment_id
-  , bool testnet
-  , const std::string& str_or_url
-  )
+namespace
 {
-  if (cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, str_or_url))
+  bool dns_records_match(const std::vector<std::string>& a, const std::vector<std::string>& b)
+  {
+    if (a.size() != b.size()) return false;
+
+    for (const auto& record_in_a : a)
+    {
+      bool ok = false;
+      for (const auto& record_in_b : b)
+      {
+	if (record_in_a == record_in_b)
+	{
+	  ok = true;
+	  break;
+	}
+      }
+      if (!ok) return false;
+    }
+
     return true;
-  bool dnssec_valid;
-  std::string address_str = get_account_address_as_str_from_url(str_or_url, dnssec_valid);
-  return !address_str.empty() &&
-          cryptonote::get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_str);
+  }
+}
+
+bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std::vector<std::string> &dns_urls)
+{
+  // Prevent infinite recursion when distributing
+  if (dns_urls.empty()) return false;
+
+  std::vector<std::vector<std::string> > records;
+  records.resize(dns_urls.size());
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
+  size_t first_index = dis(gen);
+
+  bool avail, valid;
+  size_t cur_index = first_index;
+  do
+  {
+    std::string url = dns_urls[cur_index];
+
+    records[cur_index] = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
+    if (!avail)
+    {
+      records[cur_index].clear();
+      LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
+    }
+    if (!valid)
+    {
+      records[cur_index].clear();
+      LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
+    }
+
+    cur_index++;
+    if (cur_index == dns_urls.size())
+    {
+      cur_index = 0;
+    }
+  } while (cur_index != first_index);
+
+  size_t num_valid_records = 0;
+
+  for( const auto& record_set : records)
+  {
+    if (record_set.size() != 0)
+    {
+      num_valid_records++;
+    }
+  }
+
+  if (num_valid_records < 2)
+  {
+    LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
+    return false;
+  }
+
+  int good_records_index = -1;
+  for (size_t i = 0; i < records.size() - 1; ++i)
+  {
+    if (records[i].size() == 0) continue;
+
+    for (size_t j = i + 1; j < records.size(); ++j)
+    {
+      if (dns_records_match(records[i], records[j]))
+      {
+        good_records_index = i;
+        break;
+      }
+    }
+    if (good_records_index >= 0) break;
+  }
+
+  if (good_records_index < 0)
+  {
+    LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+    return false;
+  }
+
+  good_records = records[good_records_index];
+  return true;
 }
 
 }  // namespace tools::dns_utils

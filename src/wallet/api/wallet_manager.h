@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -41,6 +41,13 @@ public:
                           const std::string &language, bool testnet);
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
+    virtual Wallet * createWalletFromKeys(const std::string &path, 
+                                                    const std::string &language,
+                                                    bool testnet, 
+                                                    uint64_t restoreHeight,
+                                                    const std::string &addressString,
+                                                    const std::string &viewKeyString,
+                                                    const std::string &spendKeyString = "");
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
     std::vector<std::string> findWallets(const std::string &path);
@@ -52,10 +59,9 @@ public:
     uint64_t blockchainTargetHeight() const;
     uint64_t networkDifficulty() const;
     double miningHashRate() const;
-    void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     uint64_t blockTarget() const;
     bool isMining() const;
-    bool startMining(const std::string &address, uint32_t threads = 1);
+    bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true);
     bool stopMining();
     std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
 

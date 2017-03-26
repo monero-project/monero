@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -72,7 +72,9 @@ namespace wallet_args
     int argc, char** argv,
     const char* const usage,
     boost::program_options::options_description desc_params,
-    const boost::program_options::positional_options_description& positional_options)
+    const boost::program_options::positional_options_description& positional_options,
+    const char *default_log_name,
+    bool log_to_console)
   
   {
     namespace bf = boost::filesystem;
@@ -84,6 +86,7 @@ namespace wallet_args
     const command_line::arg_descriptor<std::string> arg_log_level = {"log-level", "0-4 or categories", ""};
     const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", wallet_args::tr("Max number of threads to use for a parallel job"), DEFAULT_MAX_CONCURRENCY};
     const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", wallet_args::tr("Specify log file"), ""};
+    const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "", true};
 
 
     std::string lang = i18n_get_language();
@@ -99,6 +102,7 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_log_file, "");
     command_line::add_arg(desc_params, arg_log_level);
     command_line::add_arg(desc_params, arg_max_concurrency);
+    command_line::add_arg(desc_params, arg_config_file);
 
     i18n_set_language("translations", "monero", lang);
 
@@ -107,42 +111,57 @@ namespace wallet_args
     po::variables_map vm;
     bool r = command_line::handle_error_helper(desc_all, [&]()
     {
-      po::store(command_line::parse_command_line(argc, argv, desc_general, true), vm);
-
-      if (command_line::get_arg(vm, command_line::arg_help))
-      {
-        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-        tools::msg_writer() << wallet_args::tr("Usage:") << ' ' << usage;
-        tools::msg_writer() << desc_all;
-        return false;
-      }
-      else if (command_line::get_arg(vm, command_line::arg_version))
-      {
-        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-        return false;
-      }
-
-      auto parser = po::command_line_parser(argc, argv).options(desc_params).positional(positional_options);
+      auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
       po::store(parser.run(), vm);
+
+      if(command_line::has_arg(vm, arg_config_file))
+      {
+        std::string config = command_line::get_arg(vm, arg_config_file);
+        bf::path config_path(config);
+        boost::system::error_code ec;
+        if (bf::exists(config_path, ec))
+        {
+          po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), desc_params), vm);
+        }
+        else
+        {
+          tools::fail_msg_writer() << wallet_args::tr("Can't find config file ") << config;
+          return false;
+        }
+      }
+
       po::notify(vm);
       return true;
     });
     if (!r)
       return boost::none;
 
-    if(command_line::has_arg(vm, arg_max_concurrency))
-      tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
-
     std::string log_path;
     if (!vm["log-file"].defaulted())
       log_path = command_line::get_arg(vm, arg_log_file);
     else
-      log_path = mlog_get_default_log_path("monero-wallet-cli,log");
-    mlog_configure(log_path, false);
+      log_path = mlog_get_default_log_path(default_log_name);
+    mlog_configure(log_path, log_to_console);
     if (!vm["log-level"].defaulted())
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
     }
+
+    if (command_line::get_arg(vm, command_line::arg_help))
+    {
+      tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+      tools::msg_writer() << wallet_args::tr("Usage:") << ' ' << usage;
+      tools::msg_writer() << desc_all;
+      return boost::none;
+    }
+    else if (command_line::get_arg(vm, command_line::arg_version))
+    {
+      tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+      return boost::none;
+    }
+
+    if(command_line::has_arg(vm, arg_max_concurrency))
+      tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
 
     tools::scoped_message_writer(epee::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,18 +28,24 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <boost/foreach.hpp>
 #include "include_base_utils.h"
 using namespace epee;
 
 #include "core_rpc_server.h"
 #include "common/command_line.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "common/updates.h"
+#include "common/download.h"
+#include "common/util.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "misc_language.h"
 #include "crypto/hash.h"
+#include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
@@ -50,11 +56,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, arg_rpc_bind_ip);
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
-    command_line::add_arg(desc, arg_user_agent);
+    cryptonote::rpc_args::init_options(desc);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -65,29 +70,29 @@ namespace cryptonote
     , m_p2p(p2p)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::handle_command_line(
-      const boost::program_options::variables_map& vm
-    )
-  {
-    auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
-
-    m_bind_ip = command_line::get_arg(vm, arg_rpc_bind_ip);
-    m_port = command_line::get_arg(vm, p2p_bind_arg);
-    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
       const boost::program_options::variables_map& vm
     )
   {
     m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
-    std::string m_user_agent = command_line::get_arg(vm, command_line::arg_user_agent);
-
     m_net_server.set_threads_prefix("RPC");
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to process command line in core_rpc_server");
-    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(m_port, m_bind_ip, m_user_agent);
+
+    auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;
+
+    auto rpc_config = cryptonote::rpc_args::process(vm);
+    if (!rpc_config)
+      return false;
+
+    m_restricted = command_line::get_arg(vm, arg_restricted_rpc);
+
+    boost::optional<epee::net_utils::http::login> http_login{};
+    std::string port = command_line::get_arg(vm, p2p_bind_arg);
+    if (rpc_config->login)
+      http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
+
+    return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
+      std::move(port), std::move(rpc_config->bind_ip), std::move(http_login)
+    );
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_busy()
@@ -149,10 +154,27 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  static cryptonote::blobdata get_pruned_tx_blob(const cryptonote::blobdata &blobdata)
+  {
+    cryptonote::transaction tx;
+
+    if (!cryptonote::parse_and_validate_tx_from_blob(blobdata, tx))
+    {
+      MERROR("Failed to parse and validate tx from blob");
+      return blobdata;
+    }
+
+    std::stringstream ss;
+    binary_archive<true> ba(ss);
+    bool r = tx.serialize_base(ba);
+    CHECK_AND_ASSERT_MES(r, blobdata, "Failed to serialize rct signatures base");
+    return ss.str();
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     CHECK_CORE_BUSY();
-    std::list<std::pair<block, std::list<transaction> > > bs;
+    std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > > bs;
 
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
@@ -160,24 +182,39 @@ namespace cryptonote
       return false;
     }
 
-    BOOST_FOREACH(auto& b, bs)
+    size_t pruned_size = 0, unpruned_size = 0, ntxes = 0;
+    for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
-      res.blocks.back().block = block_to_blob(b.first);
+      res.blocks.back().block = bd.first;
+      pruned_size += bd.first.size();
+      unpruned_size += bd.first.size();
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
       res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.first.miner_tx), res.output_indices.back().indices.back().indices);
+      block b;
+      if (!parse_and_validate_block_from_blob(bd.first, b))
+      {
+        res.status = "Invalid block";
+        return false;
+      }
+      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.miner_tx), res.output_indices.back().indices.back().indices);
       if (!r)
       {
         res.status = "Failed";
         return false;
       }
       size_t txidx = 0;
-      BOOST_FOREACH(auto& t, b.second)
+      ntxes += bd.second.size();
+      for(const auto& t: bd.second)
       {
-        res.blocks.back().txs.push_back(tx_to_blob(t));
+        if (req.prune)
+          res.blocks.back().txs.push_back(get_pruned_tx_blob(t));
+        else
+          res.blocks.back().txs.push_back(t);
+        pruned_size += res.blocks.back().txs.back().size();
+        unpruned_size += t.size();
         res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        bool r = m_core.get_tx_outputs_gindexs(b.first.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
+        bool r = m_core.get_tx_outputs_gindexs(b.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
         if (!r)
         {
           res.status = "Failed";
@@ -186,6 +223,7 @@ namespace cryptonote
       }
     }
 
+    MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, pruned size " << pruned_size << ", unpruned size " << unpruned_size);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -205,7 +243,7 @@ namespace cryptonote
       }
       catch (...)
       {
-        res.status = "Error retrieving block at height " + height;
+        res.status = "Error retrieving block at height " + std::to_string(height);
         return true;
       }
       std::list<transaction> txs;
@@ -381,7 +419,7 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     std::vector<crypto::hash> vh;
-    BOOST_FOREACH(const auto& tx_hex_str, req.txs_hashes)
+    for(const auto& tx_hex_str: req.txs_hashes)
     {
       blobdata b;
       if(!string_tools::parse_hexstr_to_binbuff(tx_hex_str, b))
@@ -433,7 +471,7 @@ namespace cryptonote
 
     std::list<std::string>::const_iterator txhi = req.txs_hashes.begin();
     std::vector<crypto::hash>::const_iterator vhi = vh.begin();
-    BOOST_FOREACH(auto& tx, txs)
+    for(auto& tx: txs)
     {
       res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
       COMMAND_RPC_GET_TRANSACTIONS::entry &e = res.txs.back();
@@ -471,7 +509,7 @@ namespace cryptonote
       }
     }
 
-    BOOST_FOREACH(const auto& miss_tx, missed_txs)
+    for(const auto& miss_tx: missed_txs)
     {
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
     }
@@ -485,7 +523,7 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     std::vector<crypto::key_image> key_images;
-    BOOST_FOREACH(const auto& ki_hex_str, req.key_images)
+    for(const auto& ki_hex_str: req.key_images)
     {
       blobdata b;
       if(!string_tools::parse_hexstr_to_binbuff(ki_hex_str, b))
@@ -616,10 +654,27 @@ namespace cryptonote
       return true;
     }
 
+    unsigned int concurrency_count = boost::thread::hardware_concurrency() * 4;
+
+    // if we couldn't detect threads, set it to a ridiculously high number
+    if(concurrency_count == 0)
+    {
+      concurrency_count = 257;
+    }
+
+    // if there are more threads requested than the hardware supports
+    // then we fail and log that.
+    if(req.threads_count > concurrency_count)
+    {
+      res.status = "Failed, too many threads relative to CPU cores.";
+      LOG_PRINT_L0(res.status);
+      return true;
+    }
+
     boost::thread::attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
 
-    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs))
+    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
     {
       res.status = "Failed, mining not started";
       LOG_PRINT_L0(res.status);
@@ -643,10 +698,11 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res)
   {
-    CHECK_CORE_READY();
+    CHECK_CORE_BUSY();
 
     const miner& lMiner = m_core.get_miner();
     res.active = lMiner.is_mining();
+    res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
     
     if ( lMiner.is_mining() ) {
       res.speed = lMiner.get_speed();
@@ -720,7 +776,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_log_categories(const COMMAND_RPC_SET_LOG_CATEGORIES::request& req, COMMAND_RPC_SET_LOG_CATEGORIES::response& res)
   {
-    mlog_set_categories(req.categories.c_str());
+    mlog_set_log(req.categories.c_str());
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -729,6 +785,14 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_transaction_pool_hashes(const COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::request& req, COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::response& res)
+  {
+    CHECK_CORE_BUSY();
+    m_core.get_pool_transaction_hashes(res.tx_hashes);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -908,7 +972,7 @@ namespace cryptonote
   uint64_t core_rpc_server::get_block_reward(const block& blk)
   {
     uint64_t reward = 0;
-    BOOST_FOREACH(const tx_out& out, blk.miner_tx.vout)
+    for(const tx_out& out: blk.miner_tx.vout)
     {
       reward += out.amount;
     }
@@ -985,7 +1049,8 @@ namespace cryptonote
       return false;
     }
     block blk;
-    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    bool orphan = false;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk, &orphan);
     if (!have_block)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -999,7 +1064,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1123,7 +1188,8 @@ namespace cryptonote
       block_hash = m_core.get_block_id_by_height(req.height);
     }
     block blk;
-    bool have_block = m_core.get_block_by_hash(block_hash, blk);
+    bool orphan = false;
+    bool have_block = m_core.get_block_by_hash(block_hash, blk, &orphan);
     if (!have_block)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1137,7 +1203,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1368,6 +1434,7 @@ namespace cryptonote
     std::pair<uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
     res.emission_amount = amounts.first;
     res.fee_amount = amounts.second;
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1418,21 +1485,109 @@ namespace cryptonote
   bool core_rpc_server::on_start_save_graph(const COMMAND_RPC_START_SAVE_GRAPH::request& req, COMMAND_RPC_START_SAVE_GRAPH::response& res)
   {
 	  m_p2p.set_save_graph(true);
+	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_stop_save_graph(const COMMAND_RPC_STOP_SAVE_GRAPH::request& req, COMMAND_RPC_STOP_SAVE_GRAPH::response& res)
   {
 	  m_p2p.set_save_graph(false);
+	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_update(const COMMAND_RPC_UPDATE::request& req, COMMAND_RPC_UPDATE::response& res)
+  {
+    static const char software[] = "monero";
+#ifdef BUILD_TAG
+    static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
+#else
+    static const char buildtag[] = "source";
+#endif
 
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_ip   = {
-      "rpc-bind-ip"
-    , "IP for RPC server"
-    , "127.0.0.1"
-    };
+    if (req.command != "check" && req.command != "download" && req.command != "update")
+    {
+      res.status = std::string("unknown command: '") + req.command + "'";
+      return true;
+    }
+
+    std::string version, hash;
+    if (!tools::check_updates(software, buildtag, version, hash))
+    {
+      res.status = "Error checking for updates";
+      return true;
+    }
+    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+    {
+      res.update = false;
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+    res.update = true;
+    res.version = version;
+    res.user_uri = tools::get_update_url(software, "cli", buildtag, version, true);
+    res.auto_uri = tools::get_update_url(software, "cli", buildtag, version, false);
+    res.hash = hash;
+    if (req.command == "check")
+    {
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+
+    boost::filesystem::path path;
+    if (req.path.empty())
+    {
+      std::string filename;
+      const char *slash = strrchr(res.auto_uri.c_str(), '/');
+      if (slash)
+        filename = slash + 1;
+      else
+        filename = std::string(software) + "-update-" + version;
+      path = epee::string_tools::get_current_module_folder();
+      path /= filename;
+    }
+    else
+    {
+      path = req.path;
+    }
+
+    crypto::hash file_hash;
+    if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
+    {
+      MDEBUG("We don't have that file already, downloading");
+      if (!tools::download(path.string(), res.auto_uri))
+      {
+        MERROR("Failed to download " << res.auto_uri);
+        return false;
+      }
+      if (!tools::sha256sum(path.string(), file_hash))
+      {
+        MERROR("Failed to hash " << path);
+        return false;
+      }
+      if (hash != epee::string_tools::pod_to_hex(file_hash))
+      {
+        MERROR("Download from " << res.auto_uri << " does not match the expected hash");
+        return false;
+      }
+      MINFO("New version downloaded to " << path);
+    }
+    else
+    {
+      MDEBUG("We already have " << path << " with expected hash");
+    }
+    res.path = path.string();
+
+    if (req.command == "download")
+    {
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+
+    res.status = "'update' not implemented yet";
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
@@ -1451,11 +1606,4 @@ namespace cryptonote
     , "Restrict RPC to view only commands"
     , false
     };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_user_agent = {
-      "user-agent"
-    , "Restrict RPC to clients using this user agent"
-    , ""
-    };
-
 }  // namespace cryptonote

@@ -1,6 +1,6 @@
 // Word list originally created as part of the Electrum project, Copyright (C) 2014 Thomas Voegtlin
 // 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -51,9 +51,7 @@ namespace Language
   class OldEnglish: public Base
   {
   public:
-    OldEnglish()
-    {
-      word_list = new std::vector<std::string>({
+    OldEnglish(): Base("OldEnglish", std::vector<std::string>({
         "like",
         "just",
         "love",
@@ -1680,12 +1678,9 @@ namespace Language
         "unseen",
         "weapon",
         "weary"
-      });
-      unique_prefix_length = 4;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "OldEnglish";
-      populate_maps();
+      }), 4)
+    {
+      populate_maps(ALLOW_DUPLICATE_PREFIXES | ALLOW_SHORT_WORDS);
     }
   };
 }

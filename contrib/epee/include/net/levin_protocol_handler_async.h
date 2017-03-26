@@ -25,6 +25,7 @@
 // 
 
 #pragma once
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/interprocess/detail/atomic.hpp>

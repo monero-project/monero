@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,7 +34,7 @@
 #include <boost/filesystem.hpp>
 #include "bootstrap_file.h"
 #include "bootstrap_serialization.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
 #include "serialization/json_utils.h" // dump_json()
 #include "include_base_utils.h"
@@ -374,7 +374,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
       return 2;
     }
     bytes_read += chunk_size;
-    MINFO("Total bytes read: " << bytes_read);
+    MDEBUG("Total bytes read: " << bytes_read);
 
     if (h + NUM_BLOCKS_PER_CHUNK < start_height + 1)
     {
@@ -596,6 +596,10 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
 
 int main(int argc, char* argv[])
 {
+  TRY_ENTRY();
+
+  epee::string_tools::set_module_name_and_folder(argv[0]);
+
   std::string default_db_type = "lmdb";
   std::string default_db_engine_compiled = "blockchain_db";
 
@@ -620,7 +624,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_input_file = {"input-file", "Specify input file", "", true};
-  const command_line::arg_descriptor<uint32_t> arg_log_level   = {"log-level",  "", log_level};
+  const command_line::arg_descriptor<std::string> arg_log_level   = {"log-level",  "0-4 or categories", ""};
   const command_line::arg_descriptor<uint64_t> arg_block_stop  = {"block-stop", "Stop at block number", block_stop};
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
   const command_line::arg_descriptor<uint64_t> arg_pop_blocks  = {"pop-blocks", "Remove blocks from end of blockchain", num_blocks};
@@ -680,7 +684,6 @@ int main(int argc, char* argv[])
   if (! r)
     return 1;
 
-  log_level     = command_line::get_arg(vm, arg_log_level);
   opt_verify    = command_line::get_arg(vm, arg_verify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
@@ -722,7 +725,12 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
-  mlog_configure("monero-blockchain-import", true);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
+  if (!vm["log-level"].defaulted())
+    mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
+  else
+    mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
+
   MINFO("Starting...");
 
   boost::filesystem::path fs_import_file_path;
@@ -759,7 +767,11 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if ((db_type == "lmdb") || (db_type == "berkeley"))
+  if ((db_type == "lmdb")
+#if defined(BERKELEY_DB)
+   || (db_type == "berkeley")
+#endif
+  )
   {
     db_engine_compiled = "blockchain_db";
   }
@@ -796,13 +808,11 @@ int main(int argc, char* argv[])
   // properties to do so. Both ways work, but fake core isn't necessary in that
   // circumstance.
 
-  // for multi_db_runtime:
-  if (db_type == "lmdb" || db_type == "berkeley")
-  {
-    fake_core_db simple_core(m_config_folder, opt_testnet, opt_batch, db_type, db_flags);
-    import_from_file(simple_core, import_file_path, block_stop);
-  }
-  else
+  if (db_type != "lmdb"
+#if defined(BERKELEY_DB)
+  && db_type != "berkeley"
+#endif
+  )
   {
     std::cerr << "database type unrecognized" << ENDL;
     return 1;
@@ -847,4 +857,6 @@ int main(int argc, char* argv[])
   // calls delete on its BlockchainDB derived class' object, which closes its
   // files.
   return 0;
+
+  CATCH_ENTRY("Import error", 1);
 }

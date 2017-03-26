@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -33,7 +33,7 @@
 #include <cstdint>
 
 #include "common/base58.cpp"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "serialization/binary_utils.h"
 
 using namespace tools;

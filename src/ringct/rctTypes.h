@@ -40,11 +40,11 @@
 #include <cinttypes>
 
 extern "C" {
-#include "crypto/generic-ops.h"
 #include "crypto/crypto-ops.h"
 #include "crypto/random.h"
 #include "crypto/keccak.h"
 }
+#include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
 
 #include "serialization/serialization.h"

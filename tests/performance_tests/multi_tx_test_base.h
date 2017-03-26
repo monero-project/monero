@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,9 +32,9 @@
 
 #include <vector>
 
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "crypto/crypto.h"
 
 template<size_t a_ring_size>

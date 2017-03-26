@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -53,6 +53,10 @@ namespace daemonize
     std::string const & name();
 
     t_daemon create_daemon(
+        boost::program_options::variables_map const & vm
+      );
+
+    bool run_non_interactive(
         boost::program_options::variables_map const & vm
       );
 

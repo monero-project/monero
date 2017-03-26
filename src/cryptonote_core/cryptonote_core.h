@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -39,11 +39,12 @@
 #include "p2p/net_node_common.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
+#include "common/download.h"
 #include "tx_pool.h"
 #include "blockchain.h"
-#include "miner.h"
-#include "connection_context.h"
-#include "cryptonote_core/cryptonote_stat_info.h"
+#include "cryptonote_basic/miner.h"
+#include "cryptonote_basic/connection_context.h"
+#include "cryptonote_basic/cryptonote_stat_info.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 
@@ -287,16 +288,23 @@ namespace cryptonote
      bool get_blockchain_top(uint64_t& height, crypto::hash& top_id) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<block>&, std::list<transaction>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<block>&, std::list<transaction>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<block>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<block>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      */
+     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const;
+
+     /**
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      *
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
       */
      bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
 
@@ -323,6 +331,13 @@ namespace cryptonote
       *
       * @note see Blockchain::get_transactions
       */
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::blobdata>& txs, std::list<crypto::hash>& missed_txs) const;
+
+     /**
+      * @copydoc Blockchain::get_transactions
+      *
+      * @note see Blockchain::get_transactions
+      */
      bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs) const;
 
      /**
@@ -330,7 +345,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_block_by_hash
       */
-     bool get_block_by_hash(const crypto::hash &h, block &blk) const;
+     bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
 
      /**
       * @copydoc Blockchain::get_alternative_blocks
@@ -389,6 +404,13 @@ namespace cryptonote
      bool get_pool_transactions(std::list<transaction>& txs) const;
      
      /**
+      * @copydoc tx_memory_pool::get_transactions
+      *
+      * @note see tx_memory_pool::get_transactions
+      */
+     bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs) const;
+
+     /**
       * @copydoc tx_memory_pool::get_transaction
       *
       * @note see tx_memory_pool::get_transaction
@@ -438,11 +460,11 @@ namespace cryptonote
      bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const;
 
      /**
-      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<block, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
+      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >&, uint64_t&, uint64_t&, size_t) const
       *
-      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<block, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
+      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
 
      /**
       * @brief gets some stats about the daemon
@@ -759,6 +781,16 @@ namespace cryptonote
      bool check_tx_inputs_keyimages_diff(const transaction& tx) const;
 
      /**
+      * @brief verify that each input key image in a transaction is in
+      * the valid domain
+      *
+      * @param tx the transaction to check
+      *
+      * @return false if any key image is not in the valid domain, otherwise true
+      */
+     bool check_tx_inputs_keyimages_domain(const transaction& tx) const;
+
+     /**
       * @brief checks HardFork status and prints messages about it
       *
       * Checks the status of HardFork and logs/prints if an update to
@@ -778,22 +810,11 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
-      * @brief locks a file in the BlockchainDB directory
+      * @brief checks DNS versions
       *
-      * @param path the directory in which to place the file
-      *
-      * @return true if lock acquired successfully, otherwise false
+      * @return true on success, false otherwise
       */
-     bool lock_db_directory(const boost::filesystem::path &path);
-
-     /**
-      * @brief unlocks the db directory
-      *
-      * @note see lock_db_directory()
-      *
-      * @return true
-      */
-     bool unlock_db_directory();
+     bool check_updates();
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
@@ -815,10 +836,10 @@ namespace cryptonote
      cryptonote_protocol_stub m_protocol_stub; //!< cryptonote protocol stub instance
 
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
-     epee::math_helper::once_a_time_seconds<60*60*2, false> m_fork_moaner; //!< interval for checking HardFork status
+     epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
+     epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
 
-     friend class tx_validate_inputs;
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
      uint64_t m_target_blockchain_height; //!< blockchain height target
@@ -833,11 +854,22 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
 
-     boost::interprocess::file_lock db_lock; //!< a lock object for a file lock in the db directory
-
      size_t block_sync_size;
 
      time_t start_time;
+
+     std::unordered_set<crypto::hash> bad_semantics_txes[2];
+
+     enum {
+       UPDATES_DISABLED,
+       UPDATES_NOTIFY,
+       UPDATES_DOWNLOAD,
+       UPDATES_UPDATE,
+     } check_updates_level;
+
+     tools::download_async_handle m_update_download;
+     size_t m_last_update_length;
+     boost::mutex m_update_mutex;
    };
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -40,11 +40,11 @@
 #include <boost/optional/optional.hpp>
 #include <boost/program_options/variables_map.hpp>
 
-#include "cryptonote_core/account.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
-#include "wallet/password_container.h"
+#include "common/password.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -115,6 +115,11 @@ namespace cryptonote
     bool set_auto_refresh(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_refresh_type(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_confirm_missing_payment_id(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_ask_password(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_unit(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_min_output_count(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_min_output_value(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_merge_destinations(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -162,6 +167,7 @@ namespace cryptonote
     bool export_outputs(const std::vector<std::string> &args);
     bool import_outputs(const std::vector<std::string> &args);
     bool show_transfer(const std::vector<std::string> &args);
+    bool change_password(const std::vector<std::string>& args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);
@@ -188,10 +194,10 @@ namespace cryptonote
 
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount);
-    virtual void on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount);
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx);
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx);
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount);
+    virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount);
+    virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx);
+    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx);
     //----------------------------------------------------------
 
     friend class refresh_progress_reporter_t;

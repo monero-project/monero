@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,11 +29,12 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "string_tools.h"
+#include "common/password.h"
 #include "common/scoped_message_writer.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/hardfork.h"
+#include "cryptonote_basic/hardfork.h"
 #include <boost/format.hpp>
 #include <ctime>
 #include <string>
@@ -90,12 +91,19 @@ namespace {
       s = boost::lexical_cast<std::string>(dt/(3600*24)) + " days";
     return s + " " + (t > now ? "in the future" : "ago");
   }
+
+  std::string make_error(const std::string &base, const std::string &status)
+  {
+    if (status == CORE_RPC_STATUS_OK)
+      return base;
+    return base + " -- " + status;
+  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor(
     uint32_t ip
   , uint16_t port
-  , const std::string &user_agent
+  , const boost::optional<tools::login>& login
   , bool is_rpc
   , cryptonote::core_rpc_server* rpc_server
   )
@@ -103,7 +111,10 @@ t_rpc_command_executor::t_rpc_command_executor(
 {
   if (is_rpc)
   {
-    m_rpc_client = new tools::t_rpc_client(ip, port);
+    boost::optional<epee::net_utils::http::login> http_login{};
+    if (login)
+      http_login.emplace(login->username, login->password.password());
+    m_rpc_client = new tools::t_rpc_client(ip, port, std::move(http_login));
   }
   else
   {
@@ -158,6 +169,34 @@ bool t_rpc_command_executor::print_peer_list() {
   return true;
 }
 
+bool t_rpc_command_executor::print_peer_list_stats() {
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
+  cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
+
+  std::string failure_message = "Couldn't retrieve peer list";
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_peer_list", failure_message.c_str()))
+    {
+      return false;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_peer_list(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << failure_message;
+      return false;
+    }
+  }
+
+  tools::msg_writer()
+    << "White list size: " << res.white_list.size() << "/" << P2P_LOCAL_WHITE_PEERLIST_LIMIT << " (" << res.white_list.size() *  100.0 / P2P_LOCAL_WHITE_PEERLIST_LIMIT << "%)" << std::endl
+    << "Gray list size: " << res.gray_list.size() << "/" << P2P_LOCAL_GRAY_PEERLIST_LIMIT << " (" << res.gray_list.size() *  100.0 / P2P_LOCAL_GRAY_PEERLIST_LIMIT << "%)";
+
+  return true;
+}
+
 bool t_rpc_command_executor::save_blockchain() {
   cryptonote::COMMAND_RPC_SAVE_BC::request req;
   cryptonote::COMMAND_RPC_SAVE_BC::response res;
@@ -175,7 +214,7 @@ bool t_rpc_command_executor::save_blockchain() {
   {
     if (!m_rpc_server->on_save_bc(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -203,7 +242,7 @@ bool t_rpc_command_executor::show_hash_rate() {
   {
     if (!m_rpc_server->on_set_log_hash_rate(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
     }
   }
 
@@ -230,7 +269,7 @@ bool t_rpc_command_executor::hide_hash_rate() {
   {
     if (!m_rpc_server->on_set_log_hash_rate(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -257,7 +296,7 @@ bool t_rpc_command_executor::show_difficulty() {
   {
     if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message.c_str(), res.status);
       return true;
     }
   }
@@ -341,12 +380,12 @@ bool t_rpc_command_executor::show_status() {
   {
     if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
     if (!m_rpc_server->on_hard_fork_info(hfreq, hfres, error_resp) || hfres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, hfres.status);
       return true;
     }
     if (!m_rpc_server->on_mining_status(mreq, mres))
@@ -361,26 +400,28 @@ bool t_rpc_command_executor::show_status() {
     }
     else if (mres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, mres.status);
       return true;
     }
   }
 
   std::time_t uptime = std::time(nullptr) - ires.start_time;
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u+%u connections, uptime %uh %um %us")
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
     % (unsigned long long)ires.height
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
-    % (mining_busy ? "syncing" : mres.active ? "mining at " + get_mining_speed(mres.speed) : "not mining")
+    % (mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
     % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
-    % (unsigned)ires.outgoing_connections_count % (unsigned)ires.incoming_connections_count
-    % (unsigned int)floor(uptime / 3600.0)
-    % (unsigned int)floor(fmod(uptime, 3600.0) / 60.0)
+    % (unsigned)ires.outgoing_connections_count
+    % (unsigned)ires.incoming_connections_count
+    % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
+    % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
+    % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
     % (unsigned int)fmod(uptime, 60.0)
   ;
 
@@ -405,7 +446,7 @@ bool t_rpc_command_executor::print_connections() {
   {
     if (!m_rpc_server->on_get_connections(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -470,7 +511,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   {
     if (!m_rpc_server->on_get_block_headers_range(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -510,7 +551,7 @@ bool t_rpc_command_executor::set_log_level(int8_t level) {
   {
     if (!m_rpc_server->on_set_log_level(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -538,7 +579,7 @@ bool t_rpc_command_executor::set_log_categories(const std::string &categories) {
   {
     if (!m_rpc_server->on_set_log_categories(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -565,7 +606,7 @@ bool t_rpc_command_executor::print_height() {
   {
     if (!m_rpc_server->on_get_height(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -595,7 +636,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
   {
     if (!m_rpc_server->on_get_block(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -626,7 +667,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
   {
     if (!m_rpc_server->on_get_block(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -655,7 +696,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
   {
     if (!m_rpc_server->on_get_transactions(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -718,7 +759,7 @@ bool t_rpc_command_executor::is_key_image_spent(const crypto::key_image &ki) {
   {
     if (!m_rpc_server->on_is_key_image_spent(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -753,7 +794,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -836,7 +877,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -884,7 +925,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   {
     if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -923,12 +964,14 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   return true;
 }
 
-bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet) {
+bool t_rpc_command_executor::start_mining(cryptonote::account_public_address address, uint64_t num_threads, bool testnet, bool do_background_mining, bool ignore_battery) {
   cryptonote::COMMAND_RPC_START_MINING::request req;
   cryptonote::COMMAND_RPC_START_MINING::response res;
   req.miner_address = cryptonote::get_account_address_as_str(testnet, address);
   req.threads_count = num_threads;
-
+  req.do_background_mining = do_background_mining;
+  req.ignore_battery = ignore_battery;
+  
   std::string fail_message = "Mining did not start";
 
   if (m_is_rpc)
@@ -942,7 +985,7 @@ bool t_rpc_command_executor::start_mining(cryptonote::account_public_address add
   {
     if (!m_rpc_server->on_start_mining(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -967,7 +1010,7 @@ bool t_rpc_command_executor::stop_mining() {
   {
     if (!m_rpc_server->on_stop_mining(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1008,7 +1051,7 @@ bool t_rpc_command_executor::stop_daemon()
   {
     if (!m_rpc_server->on_stop_daemon(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1106,7 +1149,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 	{
 		if (!m_rpc_server->on_out_peers(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1134,7 +1177,7 @@ bool t_rpc_command_executor::start_save_graph()
     {
 		if (!m_rpc_server->on_start_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1160,7 +1203,7 @@ bool t_rpc_command_executor::stop_save_graph()
     {
 		if (!m_rpc_server->on_stop_save_graph(req, res) || res.status != CORE_RPC_STATUS_OK)
 		{
-			tools::fail_msg_writer() << fail_message.c_str();
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
 			return true;
 		}
 	}
@@ -1187,7 +1230,7 @@ bool t_rpc_command_executor::hard_fork_info(uint8_t version)
     {
         if (!m_rpc_server->on_hard_fork_info(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1218,7 +1261,7 @@ bool t_rpc_command_executor::print_bans()
     {
         if (!m_rpc_server->on_get_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1260,7 +1303,7 @@ bool t_rpc_command_executor::ban(const std::string &ip, time_t seconds)
     {
         if (!m_rpc_server->on_set_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1296,7 +1339,7 @@ bool t_rpc_command_executor::unban(const std::string &ip)
     {
         if (!m_rpc_server->on_set_bans(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1323,9 +1366,9 @@ bool t_rpc_command_executor::flush_txpool(const std::string &txid)
     }
     else
     {
-        if (!m_rpc_server->on_flush_txpool(req, res, error_resp))
+        if (!m_rpc_server->on_flush_txpool(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1354,9 +1397,9 @@ bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_c
     }
     else
     {
-        if (!m_rpc_server->on_get_output_histogram(req, res, error_resp))
+        if (!m_rpc_server->on_get_output_histogram(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
         {
-            tools::fail_msg_writer() << fail_message.c_str();
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
     }
@@ -1391,9 +1434,9 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   }
   else
   {
-    if (!m_rpc_server->on_get_coinbase_tx_sum(req, res, error_resp))
+    if (!m_rpc_server->on_get_coinbase_tx_sum(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1408,6 +1451,8 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
 
 bool t_rpc_command_executor::alt_chain_info()
 {
+  cryptonote::COMMAND_RPC_GET_INFO::request ireq;
+  cryptonote::COMMAND_RPC_GET_INFO::response ires;
   cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::request req;
   cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::response res;
   epee::json_rpc::error error_resp;
@@ -1416,6 +1461,10 @@ bool t_rpc_command_executor::alt_chain_info()
 
   if (m_is_rpc)
   {
+    if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
+    {
+      return true;
+    }
     if (!m_rpc_client->json_rpc_request(req, res, "get_alternate_chains", fail_message.c_str()))
     {
       return true;
@@ -1423,9 +1472,14 @@ bool t_rpc_command_executor::alt_chain_info()
   }
   else
   {
+    if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
+      return true;
+    }
     if (!m_rpc_server->on_get_alternate_chains(req, res, error_resp))
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
@@ -1433,8 +1487,9 @@ bool t_rpc_command_executor::alt_chain_info()
   tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
   for (const auto chain: res.chains)
   {
-    tools::msg_writer() << chain.length << " blocks long, branching at height " << (chain.height - chain.length + 1)
-        << ", difficulty " << chain.difficulty << ": " << chain.block_hash;
+    uint64_t start_height = (chain.height - chain.length + 1);
+    tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+        << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
   }
   return true;
 }
@@ -1451,13 +1506,14 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
 
   std::string fail_message = "Problem fetching info";
 
+  fereq.grace_blocks = 0;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(ireq, ires, "/getinfo", fail_message.c_str()))
     {
       return true;
     }
-    if (!m_rpc_client->rpc_request(fereq, feres, "/get_fee_estimate", fail_message.c_str()))
+    if (!m_rpc_client->json_rpc_request(fereq, feres, "get_fee_estimate", fail_message.c_str()))
     {
       return true;
     }
@@ -1466,12 +1522,12 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
   {
     if (!m_rpc_server->on_get_info(ireq, ires) || ires.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
     if (!m_rpc_server->on_get_per_kb_fee_estimate(fereq, feres, error_resp) || feres.status != CORE_RPC_STATUS_OK)
     {
-      tools::fail_msg_writer() << fail_message.c_str();
+      tools::fail_msg_writer() << make_error(fail_message, feres.status);
       return true;
     }
   }
@@ -1488,7 +1544,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     bhreq.end_height = ires.height - 1;
     if (m_is_rpc)
     {
-      if (!m_rpc_client->rpc_request(bhreq, bhres, "/getblockheadersrange", fail_message.c_str()))
+      if (!m_rpc_client->json_rpc_request(bhreq, bhres, "getblockheadersrange", fail_message.c_str()))
       {
         return true;
       }
@@ -1497,7 +1553,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     {
       if (!m_rpc_server->on_get_block_headers_range(bhreq, bhres, error_resp) || bhres.status != CORE_RPC_STATUS_OK)
       {
-        tools::fail_msg_writer() << fail_message.c_str();
+        tools::fail_msg_writer() << make_error(fail_message, bhres.status);
         return true;
       }
     }
@@ -1540,6 +1596,53 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
         s += (s.empty() ? "" : ", ") + boost::lexical_cast<std::string>(minor_versions[n]) + std::string(" v") + boost::lexical_cast<std::string>(n);
     tools::msg_writer() << "Voting for: " << s;
   }
+  return true;
+}
+
+bool t_rpc_command_executor::update(const std::string &command)
+{
+  cryptonote::COMMAND_RPC_UPDATE::request req;
+  cryptonote::COMMAND_RPC_UPDATE::response res;
+  epee::json_rpc::error error_resp;
+
+  std::string fail_message = "Problem fetching info";
+
+  req.command = command;
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/update", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_update(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
+      return true;
+    }
+  }
+
+  if (!res.update)
+  {
+    tools::msg_writer() << "No update available";
+    return true;
+  }
+
+  tools::msg_writer() << "Update available: v" << res.version << ": " << res.user_uri << ", hash " << res.hash;
+  if (command == "check")
+    return true;
+
+  if (!res.path.empty())
+    tools::msg_writer() << "Update downloaded to: " << res.path;
+  else
+    tools::msg_writer() << "Update download failed: " << res.status;
+  if (command == "download")
+    return true;
+
+  tools::msg_writer() << "'update' not implemented yet";
+
   return true;
 }
 

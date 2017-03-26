@@ -1,7 +1,7 @@
 #pragma once
 
 #include "crypto/hash.h"
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "ringct/rctSigs.h"
 
 #include <unordered_map>

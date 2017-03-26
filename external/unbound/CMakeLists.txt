@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -29,22 +29,6 @@
 cmake_minimum_required(VERSION 2.8.7)
 
 project(unbound C)
-
-if (APPLE)
-  if (NOT OpenSSL_DIR)
-      EXECUTE_PROCESS(COMMAND brew --prefix openssl
-        OUTPUT_VARIABLE OPENSSL_ROOT_DIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "Using OpenSSL found at ${OPENSSL_ROOT_DIR}")
-  endif()
-endif()
-
-find_package(OpenSSL REQUIRED)
-if(STATIC)
-  if(UNIX)
-    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS}")
-  endif()
-endif()
 
 find_package(Threads)
 

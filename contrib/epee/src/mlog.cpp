@@ -33,7 +33,6 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-//#define MLOG_BASE_FORMAT "%datetime{%Y-%M-%d %H:%m:%s.%g}\t%thread\t%level\t%logger\t%fbase:%line\t%msg"
 #define MLOG_BASE_FORMAT "%datetime{%Y-%M-%d %H:%m:%s.%g}\t%thread\t%level\t%logger\t%loc\t%msg"
 
 using namespace epee;
@@ -44,7 +43,12 @@ static std::string generate_log_filename(const char *base)
   char tmp[200];
   struct tm tm;
   time_t now = time(NULL);
-  if (!gmtime_r(&now, &tm))
+  if
+#ifdef WIN32
+  (!gmtime_s(&tm, &now))
+#else
+  (!gmtime_r(&now, &tm))
+#endif
     strcpy(tmp, "unknown");
   else
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", &tm);
@@ -78,12 +82,41 @@ static void mlog_set_common_prefix()
   el::Loggers::setFilenameCommonPrefix(std::string(path, expected_ptr - path));
 }
 
+static const char *get_default_categories(int level)
+{
+  const char *categories = "";
+  switch (level)
+  {
+    case 0:
+      categories = "*:WARNING,net:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO";
+      break;
+    case 1:
+      categories = "*:WARNING,global:INFO,stacktrace:INFO";
+      break;
+    case 2:
+      categories = "*:DEBUG";
+      break;
+    case 3:
+      categories = "*:TRACE";
+      break;
+    case 4:
+      categories = "*:TRACE";
+      break;
+    default:
+      break;
+  }
+  return categories;
+}
+
 void mlog_configure(const std::string &filename_base, bool console)
 {
   el::Configurations c;
   c.setGlobally(el::ConfigurationType::Filename, filename_base);
   c.setGlobally(el::ConfigurationType::ToFile, "true");
-  c.setGlobally(el::ConfigurationType::Format, MLOG_BASE_FORMAT);
+  const char *log_format = getenv("MONERO_LOG_FORMAT");
+  if (!log_format)
+    log_format = MLOG_BASE_FORMAT;
+  c.setGlobally(el::ConfigurationType::Format, log_format);
   c.setGlobally(el::ConfigurationType::ToStandardOutput, console ? "true" : "false");
   c.setGlobally(el::ConfigurationType::MaxLogFileSize, "104850000"); // 100 MB - 7600 bytes
   el::Loggers::setDefaultConfigurations(c, true);
@@ -101,7 +134,7 @@ void mlog_configure(const std::string &filename_base, bool console)
   const char *monero_log = getenv("MONERO_LOGS");
   if (!monero_log)
   {
-    monero_log = "*:WARNING,net*:FATAL,global:INFO,verify:FATAL";
+    monero_log = get_default_categories(0);
   }
   mlog_set_categories(monero_log);
 }
@@ -109,36 +142,15 @@ void mlog_configure(const std::string &filename_base, bool console)
 void mlog_set_categories(const char *categories)
 {
   el::Loggers::setCategories(categories);
-  MINFO("Mew log categories: " << categories);
+  MGINFO("New log categories: " << categories);
 }
 
 // maps epee style log level to new logging system
 void mlog_set_log_level(int level)
 {
-    const char *settings = NULL;
-    switch (level)
-    {
-      case 0:
-        settings = "*:FATAL,net*:FATAL,global:INFO,verify:FATAL";
-        break;
-      case 1:
-        settings = "*:WARNING,global:INFO";
-        break;
-      case 2:
-        settings = "*:INFO";
-        break;
-      case 3:
-        settings = "*:DEBUG";
-        break;
-      case 4:
-        settings = "*:TRACE";
-        break;
-      default:
-        return;
-    }
-
-    el::Loggers::setCategories(settings);
-    MINFO("Mew log categories: " << settings);
+  const char *categories = get_default_categories(level);
+  el::Loggers::setCategories(categories);
+  MGINFO("New log categories: " << categories);
 }
 
 void mlog_set_log(const char *log)
@@ -149,7 +161,14 @@ void mlog_set_log(const char *log)
   level = strtoll(log, &ptr, 10);
   if (ptr && *ptr)
   {
-    mlog_set_categories(log);
+    // we can have a default level, eg, 2,foo:ERROR
+    if (*ptr == ',') {
+      std::string new_categories = std::string(get_default_categories(level)) + ptr;
+      mlog_set_categories(new_categories.c_str());
+    }
+    else {
+      mlog_set_categories(log);
+    }
   }
   else if (level >= 0 && level <= 4)
   {

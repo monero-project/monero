@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -86,6 +86,14 @@ if(WIN32 OR ARM)
   set(OPT_FLAGS_RELEASE "-O2")
 else()
   set(OPT_FLAGS_RELEASE "-Ofast")
+endif()
+
+# BUILD_TAG is used to select the build type to check for a new version
+if(BUILD_TAG)
+  message(STATUS "Building build tag ${BUILD_TAG}")
+  add_definitions("-DBUILD_TAG=${BUILD_TAG}")
+else()
+  message(STATUS "Building without build tag")
 endif()
 
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
@@ -194,6 +202,7 @@ endif()
 if (BUILD_SHARED_LIBS)
   message(STATUS "Building internal libraries with position independent code")
   set(PIC_FLAG "-fPIC")
+  add_definitions("-DBUILD_SHARED_LIBS")
 else()
   message(STATUS "Building internal libraries as static")
 endif()
@@ -219,8 +228,8 @@ if(STATIC)
   endif()
 endif()
 
-# default database:
-# should be lmdb for testing, memory for production still
+# Set default blockchain storage location:
+# memory was the default in Cryptonote before Monero implimented LMDB, it still works but is unneccessary.
 # set(DATABASE memory)
 set(DATABASE lmdb)
 
@@ -275,17 +284,23 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
 # On ARM, having libunwind package (with .so's only) installed breaks static link.
-if(APPLE OR (ARM AND STATIC))
+if (APPLE)
+  set(DEFAULT_STACK_TRACE OFF)
+  set(LIBUNWIND_LIBRARIES "")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
+  set(DEFAULT_STACK_TRACE ON)
+  set(LIBUNWIND_LIBRARIES "")
+elseif (ARM AND STATIC)
   set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
 else()
   find_package(Libunwind)
-    if(LIBUNWIND_FOUND)
-      set(DEFAULT_STACK_TRACE ON)
-    else()
-      set(DEFAULT_STACK_TRACE OFF)
-      set(LIBUNWIND_LIBRARIES "")
-    endif()
+  if(LIBUNWIND_FOUND)
+    set(DEFAULT_STACK_TRACE ON)
+  else()
+    set(DEFAULT_STACK_TRACE OFF)
+    set(LIBUNWIND_LIBRARIES "")
+  endif()
 endif()
 
 option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
@@ -294,6 +309,23 @@ if(STACK_TRACE)
   message(STATUS "Stack trace on exception enabled")
 else()
   message(STATUS "Stack trace on exception disabled")
+endif()
+
+# Handle OpenSSL, used for sha256sum on binary updates
+if (APPLE)
+  if (NOT OpenSSL_DIR)
+      EXECUTE_PROCESS(COMMAND brew --prefix openssl
+        OUTPUT_VARIABLE OPENSSL_ROOT_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Using OpenSSL found at ${OPENSSL_ROOT_DIR}")
+  endif()
+endif()
+
+find_package(OpenSSL REQUIRED)
+if(STATIC)
+  if(UNIX)
+    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS}")
+  endif()
 endif()
 
 if (UNIX AND NOT APPLE)
@@ -527,7 +559,7 @@ else()
   endif()
 
   if(NOT DEFINED USE_LTO_DEFAULT)
-    set(USE_LTO_DEFAULT true)
+    set(USE_LTO_DEFAULT false)
   endif()
   set(USE_LTO ${USE_LTO_DEFAULT} CACHE BOOL "Use Link-Time Optimization (Release mode only)")
 
@@ -601,11 +633,13 @@ endif()
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi)
-elseif(APPLE OR FREEBSD OR OPENBSD OR ANDROID)
+elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
+elseif(FREEBSD)
+  set(EXTRA_LIBRARIES execinfo)
 elseif(DRAGONFLY)
   find_library(COMPAT compat)
-  set(EXTRA_LIBRARIES ${COMPAT})
+  set(EXTRA_LIBRARIES execinfo ${COMPAT})
 elseif(NOT MSVC)
   find_library(RT rt)
   set(EXTRA_LIBRARIES ${RT})
@@ -613,6 +647,9 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
+if(ANDROID)
+  set(ATOMIC libatomic.a)
+endif()
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32")
   find_library(ATOMIC atomic)
   list(APPEND EXTRA_LIBRARIES ${ATOMIC})

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -40,11 +40,11 @@ namespace p = std::placeholders;
 t_command_server::t_command_server(
     uint32_t ip
   , uint16_t port
-  , const std::string &user_agent
+  , const boost::optional<tools::login>& login
   , bool is_rpc
   , cryptonote::core_rpc_server* rpc_server
   )
-  : m_parser(ip, port, user_agent, is_rpc, rpc_server)
+  : m_parser(ip, port, login, is_rpc, rpc_server)
   , m_command_lookup()
   , m_is_rpc(is_rpc)
 {
@@ -67,6 +67,11 @@ t_command_server::t_command_server(
       "print_pl"
     , std::bind(&t_command_parser_executor::print_peer_list, &m_parser, p::_1)
     , "Print peer list"
+    );
+  m_command_lookup.set_handler(
+      "print_pl_stats"
+    , std::bind(&t_command_parser_executor::print_peer_list_stats, &m_parser, p::_1)
+    , "Print peer list stats"
     );
   m_command_lookup.set_handler(
       "print_cn"
@@ -96,7 +101,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "start_mining"
     , std::bind(&t_command_parser_executor::start_mining, &m_parser, p::_1)
-    , "Start mining for specified address, start_mining <addr> [<threads>], default 1 thread"
+    , "Start mining for specified address, start_mining <addr> [<threads>] [do_background_mining] [ignore_battery], default 1 thread, no background mining"
     );
   m_command_lookup.set_handler(
       "stop_mining"
@@ -237,6 +242,11 @@ t_command_server::t_command_server(
       "bc_dyn_stats"
     , std::bind(&t_command_parser_executor::print_blockchain_dynamic_stats, &m_parser, p::_1)
     , "Print information about current blockchain dynamic state"
+    );
+    m_command_lookup.set_handler(
+      "update"
+    , std::bind(&t_command_parser_executor::update, &m_parser, p::_1)
+    , "subcommands: check (check if an update is available), download (download it is there is), update (not implemented)"
     );
 }
 

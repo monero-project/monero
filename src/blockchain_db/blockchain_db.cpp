@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,7 +29,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "blockchain_db.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -130,12 +130,6 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   uint64_t prev_height = height();
 
-  // call out to subclass implementation to add the block & metadata
-  time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
-  TIME_MEASURE_FINISH(time1);
-  time_add_block1 += time1;
-
   // call out to add the transactions
 
   time1 = epee::misc_utils::get_tick_count();
@@ -150,6 +144,12 @@ uint64_t BlockchainDB::add_block( const block& blk
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
+
+  // call out to subclass implementation to add the block & metadata
+  time1 = epee::misc_utils::get_tick_count();
+  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
+  TIME_MEASURE_FINISH(time1);
+  time_add_block1 += time1;
 
   m_hardfork->add(blk, prev_height);
 
@@ -198,6 +198,45 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 
   // need tx as tx.vout has the tx outputs, and the output amounts are needed
   remove_transaction_data(tx_hash, tx);
+}
+
+block BlockchainDB::get_block_from_height(const uint64_t& height) const
+{
+  blobdata bd = get_block_blob_from_height(height);
+  block b;
+  if (!parse_and_validate_block_from_blob(bd, b))
+    throw new DB_ERROR("Failed to parse block from blob retrieved from the db");
+
+  return b;
+}
+
+block BlockchainDB::get_block(const crypto::hash& h) const
+{
+  blobdata bd = get_block_blob(h);
+  block b;
+  if (!parse_and_validate_block_from_blob(bd, b))
+    throw new DB_ERROR("Failed to parse block from blob retrieved from the db");
+
+  return b;
+}
+
+bool BlockchainDB::get_tx(const crypto::hash& h, cryptonote::transaction &tx) const
+{
+  blobdata bd;
+  if (!get_tx_blob(h, bd))
+    return false;
+  if (!parse_and_validate_tx_from_blob(bd, tx))
+    throw new DB_ERROR("Failed to parse transaction from blob retrieved from the db");
+
+  return true;
+}
+
+transaction BlockchainDB::get_tx(const crypto::hash& h) const
+{
+  transaction tx;
+  if (!get_tx(h, tx))
+    throw new TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
+  return tx;
 }
 
 void BlockchainDB::reset_stats()

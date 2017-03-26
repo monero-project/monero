@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,8 +34,8 @@
 #include <vector>
 
 #include "tx_pool.h"
-#include "cryptonote_format_utils.h"
-#include "cryptonote_boost_serialization.h"
+#include "cryptonote_tx_utils.h"
+#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_config.h"
 #include "blockchain.h"
 #include "common/boost_serialization_helper.h"
@@ -59,11 +59,9 @@ namespace cryptonote
     //      codebase.  As it stands, it is at best nontrivial to test
     //      whether or not changing these parameters (or adding new)
     //      will work correctly.
-    size_t const TRANSACTION_SIZE_LIMIT_V1 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
-    size_t const TRANSACTION_SIZE_LIMIT_V2 = (((CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 * 125) / 100) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE);
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
-    float const ACCEPT_THRESHOLD = 0.99f;
+    float const ACCEPT_THRESHOLD = 1.0f;
 
     // a kind of increasing backoff within min/max bounds
     time_t get_relay_delay(time_t now, time_t received)
@@ -77,6 +75,11 @@ namespace cryptonote
     uint64_t template_accept_threshold(uint64_t amount)
     {
       return amount * ACCEPT_THRESHOLD;
+    }
+
+    uint64_t get_transaction_size_limit(uint8_t version)
+    {
+      return get_min_block_size(version) * 125 / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     }
   }
   //---------------------------------------------------------------------------------
@@ -149,7 +152,7 @@ namespace cryptonote
       return false;
     }
 
-    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    size_t tx_size_limit = get_transaction_size_limit(version);
     if (!kept_by_block && blob_size >= tx_size_limit)
     {
       LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
@@ -240,7 +243,7 @@ namespace cryptonote
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
 
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
       std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
@@ -253,8 +256,9 @@ namespace cryptonote
 
     tvc.m_verifivation_failed = false;
 
-    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>((double)blob_size / fee, receive_time), id);
+    m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
 
+    MINFO("Transaction " << id << " added to pool");
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -275,7 +279,7 @@ namespace cryptonote
     // ND: Speedup
     // 1. Move transaction hash calcuation outside of loop. ._.
     crypto::hash actual_hash = get_transaction_hash(tx);
-    BOOST_FOREACH(const txin_v& vi, tx.vin)
+    for(const txin_v& vi: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(vi, const txin_to_key, txin, false);
       auto it = m_spent_key_images.find(txin.k_image);
@@ -415,8 +419,15 @@ namespace cryptonote
   void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& tx_vt, m_transactions)
+    for(const auto& tx_vt: m_transactions)
       txs.push_back(tx_vt.second.tx);
+  }
+  //------------------------------------------------------------------
+  void tx_memory_pool::get_transaction_hashes(std::vector<crypto::hash>& txs) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    for(const auto& tx_vt: m_transactions)
+      txs.push_back(get_transaction_hash(tx_vt.second.tx));
   }
   //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
@@ -488,7 +499,7 @@ namespace cryptonote
   bool tx_memory_pool::have_tx_keyimges_as_spent(const transaction& tx) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
       if(have_tx_keyimg_as_spent(tokey_in.k_image))
@@ -628,11 +639,17 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
-    uint64_t best_coinbase = 0;
+    uint64_t best_coinbase = 0, coinbase = 0;
     total_size = 0;
     fee = 0;
+    
+    //baseline empty block
+    get_block_reward(median_size, total_size, already_generated_coins, best_coinbase, version);
 
-    size_t max_total_size = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+
+    size_t max_total_size_pre_v5 = (130 * median_size) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t max_total_size_v5 = 2 * median_size - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    size_t max_total_size = version >= 5 ? max_total_size_v5 : max_total_size_pre_v5;
     std::unordered_set<crypto::key_image> k_images;
 
     LOG_PRINT_L2("Filling block template, median size " << median_size << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
@@ -650,29 +667,49 @@ namespace cryptonote
         continue;
       }
 
-      // If we're getting lower coinbase tx,
-      // stop including more tx
-      uint64_t block_reward;
-      if(!get_block_reward(median_size, total_size + tx_it->second.blob_size, already_generated_coins, block_reward, version))
+      // start using the optimal filling algorithm from v5
+      if (version >= 5)
       {
-        LOG_PRINT_L2("  would exceed maximum block size");
-        sorted_it++;
-        continue;
+        // If we're getting lower coinbase tx,
+        // stop including more tx
+        uint64_t block_reward;
+        if(!get_block_reward(median_size, total_size + tx_it->second.blob_size, already_generated_coins, block_reward, version))
+        {
+          LOG_PRINT_L2("  would exceed maximum block size");
+          sorted_it++;
+          continue;
+        }
+        coinbase = block_reward + fee + tx_it->second.fee;
+        if (coinbase < template_accept_threshold(best_coinbase))
+        {
+          LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
+          sorted_it++;
+          continue;
+        }
       }
-      uint64_t coinbase = block_reward + fee;
-      if (coinbase < template_accept_threshold(best_coinbase))
+      else
       {
-        LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
-        sorted_it++;
-        continue;
+        // If we've exceeded the penalty free size,
+        // stop including more tx
+        if (total_size > median_size)
+        {
+          LOG_PRINT_L2("  would exceed median block size");
+          break;
+        }
       }
 
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
-      if (!is_transaction_ready_to_go(tx_it->second) || have_key_images(k_images, tx_it->second.tx))
+      if (!is_transaction_ready_to_go(tx_it->second))
       {
-        LOG_PRINT_L2("  not ready to go, or key images already seen");
+        LOG_PRINT_L2("  not ready to go");
+        sorted_it++;
+        continue;
+      }
+      if (have_key_images(k_images, tx_it->second.tx))
+      {
+        LOG_PRINT_L2("  key images already seen");
         sorted_it++;
         continue;
       }
@@ -696,15 +733,24 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     size_t n_removed = 0;
-    size_t tx_size_limit = (version < 2 ? TRANSACTION_SIZE_LIMIT_V1 : TRANSACTION_SIZE_LIMIT_V2);
+    size_t tx_size_limit = get_transaction_size_limit(version);
     for (auto it = m_transactions.begin(); it != m_transactions.end(); ) {
+      bool remove = false;
+      const crypto::hash &txid = get_transaction_hash(it->second.tx);
       if (it->second.blob_size >= tx_size_limit) {
-        LOG_PRINT_L1("Transaction " << get_transaction_hash(it->second.tx) << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        LOG_PRINT_L1("Transaction " << txid << " is too big (" << it->second.blob_size << " bytes), removing it from pool");
+        remove = true;
+      }
+      else if (m_blockchain.have_tx(txid)) {
+        LOG_PRINT_L1("Transaction " << txid << " is in the blockchain, removing it from pool");
+        remove = true;
+      }
+      if (remove) {
         remove_transaction_keyimages(it->second.tx);
-        auto sorted_it = find_tx_in_sorted_container(it->first);
+        auto sorted_it = find_tx_in_sorted_container(txid);
         if (sorted_it == m_txs_by_fee_and_receive_time.end())
         {
-          LOG_PRINT_L1("Removing tx " << it->first << " from tx pool, but it was not found in the sorted txs container!");
+          LOG_PRINT_L1("Removing tx " << txid << " from tx pool, but it was not found in the sorted txs container!");
         }
         else
         {
@@ -746,7 +792,7 @@ namespace cryptonote
     // no need to store queue of sorted transactions, as it's easy to generate.
     for (const auto& tx : m_transactions)
     {
-      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>((double)tx.second.blob_size / tx.second.fee, tx.second.receive_time), tx.first);
+      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(tx.second.fee / (double)tx.second.blob_size, tx.second.receive_time), tx.first);
     }
 
     // Ignore deserialization error

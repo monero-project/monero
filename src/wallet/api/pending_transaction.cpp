@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,9 +32,8 @@
 #include "wallet.h"
 #include "common_defines.h"
 
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "cryptonote_core/cryptonote_basic_impl.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 
 #include <memory>
 #include <vector>
@@ -125,7 +124,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
         m_errorString = writer.str();
         if (!reason.empty())
           m_errorString  += string(tr(". Reason: ")) + reason;
-    } catch (std::exception &e) {
+    } catch (const std::exception &e) {
         m_errorString = string(tr("Unknown exception: ")) + e.what();
         m_status = Status_Error;
     } catch (...) {

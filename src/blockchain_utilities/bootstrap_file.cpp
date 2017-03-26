@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -458,7 +458,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
     bytes_read += chunk_size;
 
     // std::cout << refresh_string;
-    MINFO("Number bytes scanned: " << bytes_read);
+    MDEBUG("Number bytes scanned: " << bytes_read);
   }
 
   import_file.close();

@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -27,7 +27,8 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(rpc_sources
-  core_rpc_server.cpp)
+  core_rpc_server.cpp
+  rpc_args.cpp)
 
 set(daemon_messages_sources
   "message.cpp"
@@ -42,7 +43,8 @@ set(daemon_rpc_client_sources
   daemon_rpc_client.cpp)
 
 
-set(rpc_headers)
+set(rpc_headers
+  rpc_args.h)
 
 set(daemon_rpc_server_headers)
 
@@ -101,9 +103,11 @@ monero_add_library(daemon_rpc_client
 
 target_link_libraries(rpc
   PUBLIC
+    common
     cryptonote_core
     cryptonote_protocol
     epee
+    ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -63,6 +63,7 @@ target_link_libraries(blockchain_db
   PUBLIC
     common
     crypto
+    ringct
     ${LMDB_LIBRARY}
     ${BDB_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

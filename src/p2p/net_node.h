@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,7 +31,6 @@
 #pragma once
 #include <boost/thread.hpp>
 #include <boost/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/bimap.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -110,7 +109,12 @@ namespace nodetool
     void serialize(Archive &a,  const t_version_type ver)
     {
       a & m_peerlist;
-      a & m_config.m_peer_id;
+      if (ver == 0)
+      {
+        // from v1, we do not store the peer id anymore
+        peerid_type peer_id = AUTO_VAL_INIT (peer_id);
+        a & peer_id;
+      }
     }
     // debug functions
     bool log_peerlist();
@@ -162,6 +166,7 @@ namespace nodetool
 #endif
     int handle_get_support_flags(int command, COMMAND_REQUEST_SUPPORT_FLAGS::request& arg, COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context);
     bool init_config();
+    bool make_default_peer_id();
     bool make_default_config();
     bool store_config();
     bool check_trust(const proof_of_trust& tr);
@@ -186,7 +191,6 @@ namespace nodetool
     bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
-      , bool testnet
       );
     bool idle_worker();
     bool handle_remote_peerlist(const std::list<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
@@ -213,6 +217,7 @@ namespace nodetool
     void cache_connect_fail_info(const net_address& addr);
     bool is_addr_recently_failed(const net_address& addr);
     bool is_priority_node(const net_address& na);
+    std::set<std::string> get_seed_nodes(bool testnet) const;
 
     template <class Container>
     bool connect_to_peerlist(const Container& peers);
@@ -226,6 +231,11 @@ namespace nodetool
     bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
     bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
+
+    bool has_too_many_connections(const uint32_t ip);
+
+    bool check_connection_and_handshake_with_peer(const net_address& na, uint64_t last_seen_stamp);
+    bool gray_peerlist_housekeeping();
 
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
@@ -287,6 +297,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<P2P_DEFAULT_HANDSHAKE_INTERVAL> m_peer_handshake_idle_maker_interval;
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
+    epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
 
     std::string m_bind_ip;
     std::string m_port;
@@ -310,6 +321,8 @@ namespace nodetool
 
     epee::critical_section m_ip_fails_score_lock;
     std::map<uint32_t, uint64_t> m_ip_fails_score;
+
+    bool m_testnet;
   };
 }
 

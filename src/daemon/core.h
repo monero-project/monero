@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -45,7 +45,6 @@ public:
   static void init_options(boost::program_options::options_description & option_spec)
   {
     cryptonote::core::init_options(option_spec);
-    cryptonote::miner::init_options(option_spec);
   }
 private:
   typedef cryptonote::t_cryptonote_protocol_handler<cryptonote::core> t_protocol_raw;

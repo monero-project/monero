@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -31,7 +31,6 @@
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
-  password_container.cpp
   wallet2.cpp
   wallet_args.cpp
   node_rpc_proxy.cpp
@@ -49,7 +48,6 @@ set(wallet_api_headers
     
 
 set(wallet_private_headers
-  password_container.h
   wallet2.h
   wallet_args.h
   wallet_errors.h
@@ -74,6 +72,7 @@ monero_add_library(wallet
   ${wallet_private_headers})
 target_link_libraries(wallet
   PUBLIC
+    common
     cryptonote_core
     mnemonics
     p2p
@@ -128,7 +127,7 @@ endif()
 
 # build and install libwallet_merged only if we building for GUI
 if (BUILD_GUI_DEPS)
-    set(libs_to_merge wallet cryptonote_core mnemonics common crypto ringct)
+    set(libs_to_merge wallet cryptonote_core cryptonote_basic mnemonics common crypto ringct)
 
     foreach(lib ${libs_to_merge})
         list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt

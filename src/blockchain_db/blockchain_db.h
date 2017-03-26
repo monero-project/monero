@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,9 +34,10 @@
 #include <string>
 #include <exception>
 #include "crypto/hash.h"
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/difficulty.h"
-#include "cryptonote_core/hardfork.h"
+#include "cryptonote_protocol/blobdatatype.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/difficulty.h"
+#include "cryptonote_basic/hardfork.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -754,7 +755,20 @@ public:
    *
    * @return the block requested
    */
-  virtual block get_block(const crypto::hash& h) const = 0;
+  virtual cryptonote::blobdata get_block_blob(const crypto::hash& h) const = 0;
+
+  /**
+   * @brief fetches the block with the given hash
+   *
+   * Returns the requested block.
+   *
+   * If the block does not exist, the subclass should throw BLOCK_DNE
+   *
+   * @param h the hash to look for
+   *
+   * @return the block requested
+   */
+  virtual block get_block(const crypto::hash& h) const;
 
   /**
    * @brief gets the height of the block with a given hash
@@ -784,7 +798,7 @@ public:
   virtual block_header get_block_header(const crypto::hash& h) const = 0;
 
   /**
-   * @brief fetch a block by height
+   * @brief fetch a block blob by height
    *
    * The subclass should return the block at the given height.
    *
@@ -793,9 +807,21 @@ public:
    *
    * @param height the height to look for
    *
+   * @return the block blob
+   */
+  virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const = 0;
+
+  /**
+   * @brief fetch a block by height
+   *
+   * If the block does not exist, that is to say if the blockchain is not
+   * that high, then the subclass should throw BLOCK_DNE
+   *
+   * @param height the height to look for
+   *
    * @return the block
    */
-  virtual block get_block_from_height(const uint64_t& height) const = 0;
+  virtual block get_block_from_height(const uint64_t& height) const;
 
   /**
    * @brief fetch a block's timestamp
@@ -1009,19 +1035,27 @@ public:
   /**
    * @brief fetches the transaction with the given hash
    *
-   * The subclass should return the transaction stored which has the given
-   * hash.
-   *
    * If the transaction does not exist, the subclass should throw TX_DNE.
    *
    * @param h the hash to look for
    *
    * @return the transaction with the given hash
    */
-  virtual transaction get_tx(const crypto::hash& h) const = 0;
+  virtual transaction get_tx(const crypto::hash& h) const;
 
   /**
    * @brief fetches the transaction with the given hash
+   *
+   * If the transaction does not exist, the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found
+   */
+  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+
+  /**
+   * @brief fetches the transaction blob with the given hash
    *
    * The subclass should return the transaction stored which has the given
    * hash.
@@ -1032,7 +1066,7 @@ public:
    *
    * @return true iff the transaction was found
    */
-  virtual bool get_tx(const crypto::hash& h, transaction &tx) const = 0;
+  virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
 
   /**
    * @brief fetches the total number of transactions ever
@@ -1184,7 +1218,7 @@ public:
    * @param offsets a list of amount-specific output indices
    * @param outputs return-by-reference a list of outputs' metadata
    */
-  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) = 0;
+  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) = 0;
   
   /*
    * FIXME: Need to check with git blame and ask what this does to

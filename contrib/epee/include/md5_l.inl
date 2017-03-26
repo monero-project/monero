@@ -58,14 +58,11 @@ These notices must be retained in any copies of any part of this
 documentation and/or software.
 */
 
-/* do i need all of this just for htonl()? damn. */
-//#include <sys/types.h>
-//#include <sys/param.h>
-//#include <sys/socket.h>
-//#include <netinet/in.h>
-
-
-
+#ifdef _WIN32
+# include <winsock2.h>
+#else
+# include <arpa/inet.h>
+#endif
 #include "md5global.h"
 #include "md5_l.h"
 #include "hmac-md5.h"

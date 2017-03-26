@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -40,17 +40,19 @@ set(unit_tests_sources
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
+  epee_utils.cpp
   fee.cpp
   get_xtype_from_string.cpp
   json_serialization.cpp
   http_auth.cpp
+  http.cpp
   main.cpp
   mnemonics.cpp
   mul_div.cpp
   parse_amount.cpp
   serialization.cpp
   slow_memmem.cpp
-  test_format_utils.cpp
+  test_tx_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
   thread_group.cpp
@@ -59,7 +61,8 @@ set(unit_tests_sources
   uri.cpp
   varint.cpp
   ringct.cpp
-  output_selection.cpp)
+  output_selection.cpp
+  vercmp.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -77,6 +80,8 @@ target_link_libraries(unit_tests
     wallet
     p2p
     epee
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

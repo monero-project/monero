@@ -1,6 +1,6 @@
 // Word list originally created by dabura667
 // 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -51,9 +51,7 @@ namespace Language
   class Japanese: public Base
   {
   public:
-    Japanese()
-    {
-      word_list = new std::vector<std::string>({
+    Japanese(): Base("Japanese", std::vector<std::string>({
         "あいこくしん",
         "あいさつ",
         "あいだ",
@@ -1680,11 +1678,8 @@ namespace Language
         "ひさん",
         "びじゅつかん",
         "ひしょ"
-      });
-      unique_prefix_length = 3;
-      word_map = new std::unordered_map<std::string, uint32_t>;
-      trimmed_word_map = new std::unordered_map<std::string, uint32_t>;
-      language_name = "Japanese";
+      }), 3)
+    {
       populate_maps();
     }
   };

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -45,6 +45,9 @@
 using namespace std;
 using namespace cryptonote;
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
+
 namespace Monero {
 
 namespace {
@@ -86,18 +89,21 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
 
     virtual void on_new_block(uint64_t height, const cryptonote::block& block)
     {
-        //LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
-
-        if (m_listener) {
-            m_listener->newBlock(height);
-            //  m_listener->updated();
+        // Don't flood the GUI with signals. On fast refresh - send signal every 1000th block
+        // get_refresh_from_block_height() returns the blockheight from when the wallet was 
+        // created or the restore height specified when wallet was recovered
+        if(height >= m_wallet->m_wallet->get_refresh_from_block_height() || height % 1000 == 0) {
+            // LOG_PRINT_L3(__FUNCTION__ << ": new block. height: " << height);
+            if (m_listener) {
+                m_listener->newBlock(height);
+            }
         }
     }
 
-    virtual void on_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+    virtual void on_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
     {
 
-        std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": money received. height:  " << height
                      << ", tx: " << tx_hash
@@ -109,10 +115,10 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_unconfirmed_money_received(uint64_t height, const cryptonote::transaction& tx, uint64_t amount)
+    virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
     {
 
-        std::string tx_hash =  epee::string_tools::pod_to_hex(get_transaction_hash(tx));
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
 
         LOG_PRINT_L3(__FUNCTION__ << ": unconfirmed money received. height:  " << height
                      << ", tx: " << tx_hash
@@ -124,11 +130,11 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_money_spent(uint64_t height, const cryptonote::transaction& in_tx, uint64_t amount,
+    virtual void on_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount,
                                 const cryptonote::transaction& spend_tx)
     {
         // TODO;
-        std::string tx_hash = epee::string_tools::pod_to_hex(get_transaction_hash(spend_tx));
+        std::string tx_hash = epee::string_tools::pod_to_hex(txid);
         LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount));
@@ -139,7 +145,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_skip_transaction(uint64_t height, const cryptonote::transaction& tx)
+    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid)
     {
         // TODO;
     }
@@ -198,6 +204,44 @@ bool Wallet::addressValid(const std::string &str, bool testnet)
   return get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, str);
 }
 
+bool Wallet::keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)
+{
+  bool has_payment_id;
+  cryptonote::account_public_address address;
+  crypto::hash8 pid;
+  if(!get_account_integrated_address_from_str(address, has_payment_id, pid, testnet, address_string)) {
+      error = tr("Failed to parse address");
+      return false;
+  }
+  
+  cryptonote::blobdata key_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(secret_key_string, key_data) || key_data.size() != sizeof(crypto::secret_key))
+  {
+      error = tr("Failed to parse key");
+      return false;
+  }
+  crypto::secret_key key = *reinterpret_cast<const crypto::secret_key*>(key_data.data());
+
+  // check the key match the given address
+  crypto::public_key pkey;
+  if (!crypto::secret_key_to_public_key(key, pkey)) {
+      error = tr("failed to verify key");
+      return false;
+  }
+  bool matchAddress = false;
+  if(isViewKey)
+      matchAddress = address.m_view_public_key == pkey;
+  else
+      matchAddress = address.m_spend_public_key == pkey;
+
+  if(!matchAddress) {
+      error = tr("key does not match address");
+      return false;
+  }
+  
+  return true;
+}
+
 std::string Wallet::paymentIdFromAddress(const std::string &str, bool testnet)
 {
   bool has_payment_id;
@@ -215,6 +259,14 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
+void Wallet::init(const char *argv0, const char *default_log_base_name) {
+    epee::string_tools::set_module_name_and_folder(argv0);
+    mlog_configure(mlog_get_default_log_path(default_log_base_name), true);
+}
+
+void Wallet::debug(const std::string &str) {
+    MDEBUG(str);
+}
 
 ///////////////////////// WalletImpl implementation ////////////////////////
 WalletImpl::WalletImpl(bool testnet)
@@ -338,6 +390,98 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
     return true;
 }
 
+bool WalletImpl::recoverFromKeys(const std::string &path,
+                                const std::string &language,
+                                const std::string &address_string,
+                                const std::string &viewkey_string,
+                                const std::string &spendkey_string)
+{
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 new_payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, m_wallet->testnet(), address_string))
+    {
+        m_errorString = tr("failed to parse address");
+        m_status = Status_Error;
+        return false;
+    }
+
+    // parse optional spend key
+    crypto::secret_key spendkey;
+    bool has_spendkey = false;
+    if (!spendkey_string.empty()) {
+        cryptonote::blobdata spendkey_data;
+        if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
+        {
+            m_errorString = tr("failed to parse secret spend key");
+            m_status = Status_Error;
+            return false;
+        }
+        has_spendkey = true;
+        spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+    }
+
+    // parse view secret key
+    if (viewkey_string.empty()) {
+        m_errorString = tr("No view key supplied, cancelled");
+        m_status = Status_Error;
+        return false;
+    }
+    cryptonote::blobdata viewkey_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
+    {
+        m_errorString = tr("failed to parse secret view key");
+        m_status = Status_Error;
+        return false;
+    }
+    crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+
+    // check the spend and view keys match the given address
+    crypto::public_key pkey;
+    if(has_spendkey) {
+        if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
+            m_errorString = tr("failed to verify secret spend key");
+            m_status = Status_Error;
+            return false;
+        }
+        if (address.m_spend_public_key != pkey) {
+            m_errorString = tr("spend key does not match address");
+            m_status = Status_Error;
+            return false;
+        }
+    }
+    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+        m_errorString = tr("failed to verify secret view key");
+        m_status = Status_Error;
+        return false;
+    }
+    if (address.m_view_public_key != pkey) {
+        m_errorString = tr("view key does not match address");
+        m_status = Status_Error;
+        return false;
+    }
+
+    try
+    {
+        if (has_spendkey) {
+            m_wallet->generate(path, "", address, spendkey, viewkey);
+            LOG_PRINT_L1("Generated new wallet from keys");
+        }
+        else {
+            m_wallet->generate(path, "", address, viewkey);
+            LOG_PRINT_L1("Generated new view only wallet from keys");
+        }
+        
+    }
+    catch (const std::exception& e) {
+        m_errorString = string(tr("failed to generate new wallet: ")) + e.what();
+        m_status = Status_Error;
+        return false;
+    }
+    return true;
+}
+
+
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
@@ -386,7 +530,6 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, "", recovery_key, true, false);
-        // TODO: wallet->init(daemon_address);
 
     } catch (const std::exception &e) {
         m_status = Status_Critical;
@@ -406,7 +549,7 @@ bool WalletImpl::close()
         if (status() != Status_Critical)
             m_wallet->store();
         else
-            LOG_PRINT_L3("Status_Critical - not storing wallet");
+            LOG_ERROR("Status_Critical - not storing wallet");
         LOG_PRINT_L1("wallet::store done");
         LOG_PRINT_L1("Calling wallet::stop...");
         m_wallet->stop();
@@ -514,22 +657,12 @@ string WalletImpl::keysFilename() const
     return m_wallet->get_keys_file();
 }
 
-bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit)
+bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transaction_size_limit, const std::string &daemon_username, const std::string &daemon_password)
 {
     clearStatus();
-    doInit(daemon_address, upper_transaction_size_limit);
-    bool result = this->refresh();
-    // enabling background refresh thread
-    startRefresh();
-    return result;
-
-}
-
-void WalletImpl::initAsync(const string &daemon_address, uint64_t upper_transaction_size_limit)
-{
-    clearStatus();
-    doInit(daemon_address, upper_transaction_size_limit);
-    startRefresh();
+    if(daemon_username != "")
+        m_daemon_login.emplace(daemon_username, daemon_password);
+    return doInit(daemon_address, upper_transaction_size_limit);
 }
 
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
@@ -701,7 +834,7 @@ bool WalletImpl::exportKeyImages(const string &filename)
       return false;
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     LOG_ERROR("Error exporting key images: " << e.what());
     m_errorString = e.what();
@@ -835,8 +968,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         } catch (const tools::error::wallet_rpc_error& e) {
             m_errorString = tr("RPC error: ") +  e.to_string();
             m_status = Status_Error;
-        } catch (const tools::error::get_random_outs_error&) {
-            m_errorString = tr("failed to get random outputs to mix");
+        } catch (const tools::error::get_random_outs_error &e) {
+            m_errorString = (boost::format(tr("failed to get random outputs to mix: %s")) % e.what()).str();
             m_status = Status_Error;
 
         } catch (const tools::error::not_enough_money& e) {
@@ -1033,7 +1166,7 @@ void WalletImpl::setDefaultMixin(uint32_t arg)
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return false;
     const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -1044,7 +1177,7 @@ bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
 std::string WalletImpl::getUserNote(const std::string &txid) const
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return "";
     const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -1054,7 +1187,7 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
 std::string WalletImpl::getTxKey(const std::string &txid) const
 {
     cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data))
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
     {
       return "";
     }
@@ -1195,8 +1328,8 @@ void WalletImpl::doRefresh()
 
 void WalletImpl::startRefresh()
 {
-    LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
     if (!m_refreshEnabled) {
+        LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
         m_refreshEnabled = true;
         m_refreshCV.notify_one();
     }
@@ -1234,9 +1367,10 @@ bool WalletImpl::isNewWallet() const
     return !(blockChainHeight() > 1 || m_recoveringFromSeed || m_rebuildWalletCache) && !watchOnly();
 }
 
-void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
+bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
-    m_wallet->init(daemon_address, upper_transaction_size_limit);
+    if (!m_wallet->init(daemon_address, m_daemon_login, upper_transaction_size_limit))
+       return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
     // If daemon isn't synced a calculated block height will be used instead
@@ -1255,8 +1389,7 @@ void WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
         this->setTrustedDaemon(false);
         m_refreshIntervalMillis = DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
     }
-        
-
+    return true;
 }
 
 bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
@@ -1282,6 +1415,18 @@ bool WalletImpl::rescanSpent()
   }
   return true;
 }
+
+
+void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
+{
+    m_wallet->get_hard_fork_info(version, earliest_height);
+}
+
+bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const 
+{
+    return m_wallet->use_fork_rules(version,early_blocks);
+}
+
 } // namespace
 
 namespace Bitmonero = Monero;

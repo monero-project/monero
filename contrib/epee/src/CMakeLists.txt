@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2016, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -26,4 +26,21 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_library(epee STATIC http_auth.cpp mlog.cpp)
+add_library(epee STATIC http_auth.cpp mlog.cpp string_tools.cpp)
+# Build and install libepee if we're building for GUI
+if (BUILD_GUI_DEPS)
+    if(IOS)
+        set(lib_folder lib-${ARCH})
+    else()
+        set(lib_folder lib)
+    endif()
+    install(TARGETS epee
+        ARCHIVE DESTINATION ${lib_folder})
+endif()
+
+target_link_libraries(epee
+  PUBLIC
+    crypto
+    ${Boost_FILESYSTEM_LIBRARY}
+  PRIVATE
+    ${EXTRA_LIBRARIES})

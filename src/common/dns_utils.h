@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,7 +29,7 @@
 
 #include <vector>
 #include <string>
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
 namespace tools
 {
@@ -163,14 +163,9 @@ namespace dns_utils
 std::string address_from_txt_record(const std::string& s);
 std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid);
-bool get_account_address_from_str_or_url(
-    cryptonote::account_public_address& address
-  , bool& has_payment_id
-  , crypto::hash8& payment_id
-  , bool testnet
-  , const std::string& str_or_url
-  );
+std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, bool cli_confirm = true);
+
+bool load_txt_records_from_dns(std::vector<std::string> &records, const std::vector<std::string> &dns_urls);
 
 }  // namespace tools::dns_utils
 

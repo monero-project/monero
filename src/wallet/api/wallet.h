@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -58,6 +58,11 @@ public:
                             const std::string &language) const;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path, const std::string &seed);
+    bool recoverFromKeys(const std::string &path,
+                            const std::string &language,
+                            const std::string &address_string, 
+                            const std::string &viewkey_string,
+                            const std::string &spendkey_string = "");
     bool close();
     std::string seed() const;
     std::string getSeedLanguage() const;
@@ -73,8 +78,7 @@ public:
     bool store(const std::string &path);
     std::string filename() const;
     std::string keysFilename() const;
-    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
-    void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
+    bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "");
     bool connectToDaemon();
     ConnectionStatus connected() const;
     void setTrustedDaemon(bool arg);
@@ -94,7 +98,9 @@ public:
     void setRecoveringFromSeed(bool recoveringFromSeed);
     bool watchOnly() const;
     bool rescanSpent();
-
+    bool testnet() const {return m_wallet->testnet();}
+    void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
+    bool useForkRules(uint8_t version, int64_t early_blocks) const;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
@@ -127,8 +133,7 @@ private:
     bool daemonSynced() const;
     void stopRefresh();
     bool isNewWallet() const;
-    void doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
-
+    bool doInit(const std::string &daemon_address, uint64_t upper_transaction_size_limit);
 
 private:
     friend class PendingTransactionImpl;
@@ -166,6 +171,7 @@ private:
     std::atomic<bool>   m_rebuildWalletCache;
     // cache connection status to avoid unnecessary RPC calls
     mutable std::atomic<bool>   m_is_connected;
+    boost::optional<epee::net_utils::http::login> m_daemon_login{};
 };
 
 

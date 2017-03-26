@@ -34,7 +34,7 @@
 #include "common/thread_group.h"
 #include "common/util.h"
 #include "rctSigs.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace crypto;
 using namespace std;
@@ -797,23 +797,6 @@ namespace rct {
         tools::thread_group threadpool(tools::thread_group::optimal_with_max(threads));
 
         if (semantics) {
-          results.clear();
-          results.resize(rv.outPk.size());
-          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
-            for (size_t i = 0; i < rv.outPk.size(); i++) {
-              region.run([&, i] {
-                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              });
-            }
-          });
-
-          for (size_t i = 0; i < results.size(); ++i) {
-            if (!results[i]) {
-              LOG_PRINT_L1("Range proof verified failed for output " << i);
-              return false;
-            }
-          }
-
           key sumOutpks = identity();
           for (size_t i = 0; i < rv.outPk.size(); i++) {
               addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
@@ -832,6 +815,23 @@ namespace rct {
           if (!equalKeys(sumPseudoOuts, sumOutpks)) {
               LOG_PRINT_L1("Sum check failed");
               return false;
+          }
+
+          results.clear();
+          results.resize(rv.outPk.size());
+          tools::task_region(threadpool, [&] (tools::task_region_handle& region) {
+            for (size_t i = 0; i < rv.outPk.size(); i++) {
+              region.run([&, i] {
+                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              });
+            }
+          });
+
+          for (size_t i = 0; i < results.size(); ++i) {
+            if (!results[i]) {
+              LOG_PRINT_L1("Range proof verified failed for output " << i);
+              return false;
+            }
           }
         }
         else {
@@ -873,8 +873,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number    
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "decodeRct called on non-full rctSig");
-        CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
-        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
 
         //mask amount and mask
@@ -902,8 +901,7 @@ namespace rct {
 
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "decodeRct called on non simple rctSig");
-        CHECK_AND_ASSERT_THROW_MES(rv.p.rangeSigs.size() > 0, "Empty rv.p.rangeSigs");
-        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.p.rangeSigs.size(), "Mismatched sizes of rv.outPk and rv.p.rangeSigs");
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
 
         //mask amount and mask

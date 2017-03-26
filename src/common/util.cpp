@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,10 +31,12 @@
 #include <cstdio>
 
 #include "include_base_utils.h"
+#include "file_io_utils.h"
 using namespace epee;
 
 #include "util.h"
 #include "cryptonote_config.h"
+#include "net/http_client.h"                        // epee::net_utils::...
 
 #ifdef WIN32
 #include <windows.h>
@@ -44,7 +46,8 @@ using namespace epee;
 #include <sys/utsname.h>
 #endif
 #include <boost/filesystem.hpp>
-
+#include <boost/asio.hpp>
+#include <openssl/sha.h>
 
 namespace tools
 {
@@ -530,5 +533,101 @@ std::string get_nix_version_display_string()
   {
     boost::lock_guard<boost::mutex> lock(max_concurrency_lock);
     return max_concurrency;
+  }
+
+  bool is_local_address(const std::string &address)
+  {
+    // extract host
+    epee::net_utils::http::url_content u_c;
+    if (!epee::net_utils::parse_url(address, u_c))
+    {
+      MWARNING("Failed to determine whether address '" << address << "' is local, assuming not");
+      return false;
+    }
+    if (u_c.host.empty())
+    {
+      MWARNING("Failed to determine whether address '" << address << "' is local, assuming not");
+      return false;
+    }
+
+    // resolve to IP
+    boost::asio::io_service io_service;
+    boost::asio::ip::tcp::resolver resolver(io_service);
+    boost::asio::ip::tcp::resolver::query query(u_c.host, "");
+    boost::asio::ip::tcp::resolver::iterator i = resolver.resolve(query);
+    while (i != boost::asio::ip::tcp::resolver::iterator())
+    {
+      const boost::asio::ip::tcp::endpoint &ep = *i;
+      if (ep.address().is_loopback())
+      {
+        MDEBUG("Address '" << address << "' is local");
+        return true;
+      }
+      ++i;
+    }
+
+    MDEBUG("Address '" << address << "' is not local");
+    return false;
+  }
+  int vercmp(const char *v0, const char *v1)
+  {
+    std::vector<std::string> f0, f1;
+    boost::split(f0, v0, boost::is_any_of("."));
+    boost::split(f1, v1, boost::is_any_of("."));
+    while (f0.size() < f1.size())
+      f0.push_back("0");
+    while (f1.size() < f0.size())
+      f1.push_back("0");
+    for (size_t i = 0; i < f0.size(); ++i) {
+      int f0i = atoi(f0[i].c_str()), f1i = atoi(f1[i].c_str());
+      int n = f0i - f1i;
+      if (n)
+        return n;
+    }
+    return 0;
+  }
+
+  bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash)
+  {
+    SHA256_CTX ctx;
+    if (!SHA256_Init(&ctx))
+      return false;
+    if (!SHA256_Update(&ctx, data, len))
+      return false;
+    if (!SHA256_Final((unsigned char*)hash.data, &ctx))
+      return false;
+    return true;
+  }
+
+  bool sha256sum(const std::string &filename, crypto::hash &hash)
+  {
+    if (!epee::file_io_utils::is_file_exist(filename))
+      return false;
+    std::ifstream f;
+    f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    f.open(filename, std::ios_base::binary | std::ios_base::in | std::ios::ate);
+    if (!f)
+      return false;
+    std::ifstream::pos_type file_size = f.tellg();
+    SHA256_CTX ctx;
+    if (!SHA256_Init(&ctx))
+      return false;
+    size_t size_left = file_size;
+    f.seekg(0, std::ios::beg);
+    while (size_left)
+    {
+      char buf[4096];
+      std::ifstream::pos_type read_size = size_left > sizeof(buf) ? sizeof(buf) : size_left;
+      f.read(buf, read_size);
+      if (!f || !f.good())
+        return false;
+      if (!SHA256_Update(&ctx, buf, read_size))
+        return false;
+      size_left -= read_size;
+    }
+    f.close();
+    if (!SHA256_Final((unsigned char*)hash.data, &ctx))
+      return false;
+    return true;
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -33,7 +33,6 @@
 #include <list>
 #include <set>
 #include <map>
-#include <boost/foreach.hpp>
 //#include <boost/bimap.hpp>
 //#include <boost/bimap/multiset_of.hpp>
 #include <boost/archive/binary_iarchive.hpp>
@@ -45,6 +44,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 
 #include "syncobj.h"
@@ -81,6 +81,8 @@ namespace nodetool
     bool set_peer_just_seen(peerid_type peer, const net_address& addr);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_ip_allowed(uint32_t ip);
+    bool get_random_gray_peer(peerlist_entry& pe);
+    bool remove_from_peer_gray(const peerlist_entry& pe);
 
     
   private:
@@ -228,7 +230,7 @@ namespace nodetool
   bool peerlist_manager::merge_peerlist(const std::list<peerlist_entry>& outer_bs)
   {
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    BOOST_FOREACH(const peerlist_entry& be,  outer_bs)
+    for(const peerlist_entry& be:  outer_bs)
     {
       append_with_peer_gray(be);
     }
@@ -281,13 +283,15 @@ namespace nodetool
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index=m_peers_white.get<by_time>();
     uint32_t cnt = 0;
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
       if(!vl.last_seen)
         continue;
-      bs_head.push_back(vl);      
-      if(cnt++ > depth)
+
+      if(cnt++ >= depth)
         break;
+
+      bs_head.push_back(vl);
     }
     return true;
   }
@@ -297,13 +301,13 @@ namespace nodetool
   {    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_gr)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
     {
       pl_gray.push_back(vl);      
     }
 
     peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
-    BOOST_REVERSE_FOREACH(const peers_indexed::value_type& vl, by_time_index_wt)
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
     {
       pl_white.push_back(vl);      
     }
@@ -391,9 +395,47 @@ namespace nodetool
     }
     return true;
     CATCH_ENTRY_L0("peerlist_manager::append_with_peer_gray()", false);
-    return true;
   }
   //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::get_random_gray_peer(peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    if (m_peers_gray.empty()) {
+      return false;
+    }
+
+    size_t random_index = crypto::rand<size_t>() % m_peers_gray.size();
+
+    peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
+    pe = *epee::misc_utils::move_it_backward(--by_time_index.end(), random_index);
+
+    return true;
+
+    CATCH_ENTRY_L0("peerlist_manager::get_random_gray_peer()", false);
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::remove_from_peer_gray(const peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    peers_indexed::index_iterator<by_addr>::type iterator = m_peers_gray.get<by_addr>().find(pe.adr);
+
+    if (iterator != m_peers_gray.get<by_addr>().end()) {
+      m_peers_gray.erase(iterator);
+    }
+
+    return true;
+
+    CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_gray()", false);
+  }
+    //--------------------------------------------------------------------------------------------------
 }
 
 BOOST_CLASS_VERSION(nodetool::peerlist_manager, CURRENT_PEERLIST_STORAGE_ARCHIVE_VER)

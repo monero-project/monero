@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -170,13 +170,13 @@ public:
 
   virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const;
 
-  virtual block get_block(const crypto::hash& h) const;
-
   virtual uint64_t get_block_height(const crypto::hash& h) const;
 
   virtual block_header get_block_header(const crypto::hash& h) const;
 
-  virtual block get_block_from_height(const uint64_t& height) const;
+  virtual cryptonote::blobdata get_block_blob(const crypto::hash& h) const;
+
+  virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const;
 
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
@@ -207,9 +207,7 @@ public:
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
-  virtual transaction get_tx(const crypto::hash& h) const;
-
-  virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+  virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
 
   virtual uint64_t get_tx_count() const;
 
@@ -221,7 +219,7 @@ public:
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);
   virtual output_data_t get_output_key(const uint64_t& global_index) const;
-  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs);
+  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false);
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
   virtual void get_output_tx_and_index_from_global(const std::vector<uint64_t> &global_indices,
@@ -312,6 +310,8 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
+  uint64_t num_outputs() const;
+
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);
   virtual uint8_t get_hard_fork_version(uint64_t height) const;
@@ -369,10 +369,8 @@ private:
 
   MDB_dbi m_properties;
 
-  uint64_t m_num_txs;
-  uint64_t m_num_outputs;
   mutable uint64_t m_cum_size;	// used in batch size estimation
-  mutable int m_cum_count;
+  mutable unsigned int m_cum_count;
   std::string m_folder;
   mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
   mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB

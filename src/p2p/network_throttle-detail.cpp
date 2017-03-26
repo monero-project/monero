@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief implementaion for throttling of connection (count and rate-limit speed etc)
 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -54,7 +54,6 @@
 #include "../../contrib/epee/include/net/net_utils_base.h" 
 #include "../../contrib/epee/include/misc_log_ex.h" 
 #include <boost/lambda/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
@@ -217,7 +216,7 @@ void network_throttle::_handle_trafic_exact(size_t packet_size, size_t orginal_s
 	std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 	std::string history_str = oss.str();
 
-	MDEBUG("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)"
+	MTRACE("Throttle " << m_name << ": packet of ~"<<packet_size<<"b " << " (from "<<orginal_size<<" b)"
         << " Speed AVG=" << std::setw(4) <<  ((long int)(cts .average/1024)) <<"[w="<<cts .window<<"]"
         <<           " " << std::setw(4) <<  ((long int)(cts2.average/1024)) <<"[w="<<cts2.window<<"]"
 				<<" / " << " Limit="<< ((long int)(m_target_speed/1024)) <<" KiB/sec "
@@ -307,7 +306,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	if (dbg) {
 		std::ostringstream oss; oss << "["; 	for (auto sample: m_history) oss << sample.m_size << " ";	 oss << "]" << std::ends;
 		std::string history_str = oss.str();
-		MDEBUG((cts.delay > 0 ? "SLEEP" : "")
+		MTRACE((cts.delay > 0 ? "SLEEP" : "")
 			<< "dbg " << m_name << ": " 
 			<< "speed is A=" << std::setw(8) <<cts.average<<" vs "
 			<< "Max=" << std::setw(8) <<M<<" "

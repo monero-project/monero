@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,7 +30,7 @@
 
 #pragma once
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "crypto/hash.h"
 #include "wallet_rpc_server_error_codes.h"
 
@@ -119,7 +119,6 @@ namespace wallet_rpc
       uint64_t unlock_time;
       std::string payment_id;
       bool get_tx_key;
-      bool trusted_daemon;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
@@ -128,7 +127,6 @@ namespace wallet_rpc
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(get_tx_key)
-        KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -158,7 +156,6 @@ namespace wallet_rpc
       uint64_t unlock_time;
       std::string payment_id;
       bool get_tx_keys;
-      bool trusted_daemon;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
@@ -167,7 +164,6 @@ namespace wallet_rpc
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(get_tx_keys)
-        KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -199,11 +195,9 @@ namespace wallet_rpc
     struct request
     {
       bool get_tx_keys;
-      bool trusted_daemon;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(get_tx_keys)
-        KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -240,7 +234,6 @@ namespace wallet_rpc
       uint64_t unlock_time;
       std::string payment_id;
       bool get_tx_keys;
-      bool trusted_daemon;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -249,7 +242,6 @@ namespace wallet_rpc
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(get_tx_keys)
-        KV_SERIALIZE(trusted_daemon)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -782,6 +774,137 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(uri);
         KV_SERIALIZE(unknown_parameters);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_ADD_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      std::string address;
+      std::string payment_id;
+      std::string description;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(description)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      std::list<uint64_t> entries;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(entries)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      uint64_t index;
+      std::string address;
+      std::string payment_id;
+      std::string description;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(description)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<entry> entries;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(entries)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_DELETE_ADDRESS_BOOK_ENTRY
+  {
+    struct request
+    {
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_RESCAN_SPENT
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_START_MINING
+  {
+    struct request
+    {
+      uint64_t    threads_count;
+      bool        do_background_mining;
+      bool        ignore_battery;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(threads_count)
+        KV_SERIALIZE(do_background_mining)        
+        KV_SERIALIZE(ignore_battery)        
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_STOP_MINING
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
       END_KV_SERIALIZE_MAP()
     };
   };

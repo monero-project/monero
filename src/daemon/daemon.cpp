@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 //
@@ -35,6 +35,7 @@
 #include "rpc/daemon_handler.h"
 #include "rpc/zmq_server.h"
 
+#include "common/password.h"
 #include "common/util.h"
 #include "daemon/core.h"
 #include "daemon/p2p.h"
@@ -136,11 +137,12 @@ bool t_daemon::run(bool interactive)
       return false;
     mp_internals->rpc.run();
 
-    daemonize::t_command_server* rpc_commands;
+    std::unique_ptr<daemonize::t_command_server> rpc_commands;
 
     if (interactive)
     {
-      rpc_commands = new daemonize::t_command_server(0, 0, "", false, mp_internals->rpc.get_server());
+      // The first three variables are not used when the fourth is false
+      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpc.get_server()));
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
@@ -170,7 +172,7 @@ bool t_daemon::run(bool interactive)
 
     mp_internals->p2p.run(); // blocks until p2p goes down
 
-    if (interactive)
+    if (rpc_commands)
     {
       rpc_commands->stop_handling();
     }
@@ -178,6 +180,7 @@ bool t_daemon::run(bool interactive)
     zmq_server.stop();
 
     mp_internals->rpc.stop();
+    mp_internals->core.get().get_miner().stop();
     MGINFO("Node stopped.");
     return true;
   }
@@ -199,6 +202,7 @@ void t_daemon::stop()
   {
     throw std::runtime_error{"Can't stop stopped daemon"};
   }
+  mp_internals->core.get().get_miner().stop();
   mp_internals->p2p.stop();
   mp_internals->rpc.stop();
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return

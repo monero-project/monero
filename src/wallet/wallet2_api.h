@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -295,7 +295,11 @@ struct Wallet
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address() const = 0;
     virtual std::string path() const = 0;
-    
+    virtual bool testnet() const = 0;
+    //! returns current hard fork info
+    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
+    //! check if hard fork rules should be used
+    virtual bool useForkRules(uint8_t version, int64_t early_blocks) const = 0;  
     /*!
      * \brief integratedAddress - returns integrated address for current wallet address and given payment_id.
      *                            if passed "payment_id" param is an empty string or not-valid payment id string
@@ -331,25 +335,15 @@ struct Wallet
      */
     virtual std::string keysFilename() const = 0;
     /*!
-     * \brief init - initializes wallet with daemon connection params. implicitly connects to the daemon
-     *               and refreshes the wallet. "refreshed" callback will be invoked. if daemon_address is
-     *               local address, "trusted daemon" will be set to true forcibly
+     * \brief init - initializes wallet with daemon connection params.
+     *               if daemon_address is local address, "trusted daemon" will be set to true forcibly
+     *               startRefresh() should be called when wallet is initialized.
      *
      * \param daemon_address - daemon address in "hostname:port" format
      * \param upper_transaction_size_limit
-     * \return  - true if initialized and refreshed successfully
+     * \return  - true on success
      */
-    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
-
-    /*!
-     * \brief init - initalizes wallet asynchronously. logic is the same as "init" but returns immediately.
-     *               "refreshed" callback will be invoked.
-     *
-     * \param daemon_address - daemon address in "hostname:port" format
-     * \param upper_transaction_size_limit
-     * \return  - true if initialized and refreshed successfully
-     */
-    virtual void initAsync(const std::string &daemon_address, uint64_t upper_transaction_size_limit) = 0;
+    virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit, const std::string &daemon_username = "", const std::string &daemon_password = "") = 0;
 
    /*!
     * \brief createWatchOnly - Creates a watch only wallet
@@ -434,8 +428,12 @@ struct Wallet
     static std::string genPaymentId();
     static bool paymentIdValid(const std::string &paiment_id);
     static bool addressValid(const std::string &str, bool testnet);
+    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error);
     static std::string paymentIdFromAddress(const std::string &str, bool testnet);
     static uint64_t maximumAllowedAmount();
+    // Easylogger wrapper
+    static void init(const char *argv0, const char *default_log_base_name);
+    static void debug(const std::string &str);
 
    /**
     * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
@@ -613,6 +611,25 @@ struct WalletManager
      */
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet = false, uint64_t restoreHeight = 0) = 0;
 
+   /*!
+    * \brief  recovers existing wallet using keys. Creates a view only wallet if spend key is omitted
+    * \param  path           Name of wallet file to be created
+    * \param  language       language
+    * \param  testnet        testnet
+    * \param  restoreHeight  restore from start height
+    * \param  addressString  public address
+    * \param  viewKeyString  view key
+    * \param  spendKeyString spend key (optional)
+    * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
+    */
+    virtual Wallet * createWalletFromKeys(const std::string &path, 
+                                                    const std::string &language,
+                                                    bool testnet, 
+                                                    uint64_t restoreHeight,
+                                                    const std::string &addressString,
+                                                    const std::string &viewKeyString,
+                                                    const std::string &spendKeyString = "") = 0;
+
     /*!
      * \brief Closes wallet. In case operation succeded, wallet object deleted. in case operation failed, wallet object not deleted
      * \param wallet        previously opened / created wallet instance
@@ -672,9 +689,6 @@ struct WalletManager
     //! returns current mining hash rate (0 if not mining)
     virtual double miningHashRate() const = 0;
 
-    //! returns current hard fork info
-    virtual void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const = 0;
-
     //! returns current block target
     virtual uint64_t blockTarget() const = 0;
 
@@ -682,13 +696,16 @@ struct WalletManager
     virtual bool isMining() const = 0;
 
     //! starts mining with the set number of threads
-    virtual bool startMining(const std::string &address, uint32_t threads = 1) = 0;
+    virtual bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) = 0;
 
     //! stops mining
     virtual bool stopMining() = 0;
 
     //! resolves an OpenAlias address to a monero address
     virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
+
+    //! checks for an update and returns version, hash and url
+    static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(const std::string &software, const std::string &subdir);
 };
 
 
@@ -708,6 +725,7 @@ struct WalletManagerFactory
 
     static WalletManager * getWalletManager();
     static void setLogLevel(int level);
+    static void setLogCategories(const std::string &categories);
 };
 
 

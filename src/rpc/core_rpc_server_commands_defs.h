@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,8 +30,8 @@
 
 #pragma once
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "cryptonote_core/cryptonote_basic.h"
-#include "cryptonote_core/difficulty.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
 
 namespace cryptonote
@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 6
+#define CORE_RPC_VERSION_MINOR 8
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -80,9 +80,11 @@ namespace cryptonote
     {
       std::list<crypto::hash> block_ids; //*first 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block */
       uint64_t    start_height;
+      bool        prune;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(block_ids)
         KV_SERIALIZE(start_height)
+        KV_SERIALIZE(prune)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -500,10 +502,14 @@ namespace cryptonote
     {
       std::string miner_address;
       uint64_t    threads_count;
+      bool        do_background_mining;
+      bool        ignore_battery;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(miner_address)
         KV_SERIALIZE(threads_count)
+        KV_SERIALIZE(do_background_mining)        
+        KV_SERIALIZE(ignore_battery)        
       END_KV_SERIALIZE_MAP()
     };
 
@@ -608,6 +614,7 @@ namespace cryptonote
       uint64_t speed;
       uint32_t threads_count;
       std::string address;
+      bool is_background_mining_enabled;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -615,6 +622,7 @@ namespace cryptonote
         KV_SERIALIZE(speed)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(address)
+        KV_SERIALIZE(is_background_mining_enabled)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -1013,6 +1021,26 @@ namespace cryptonote
         KV_SERIALIZE(status)
         KV_SERIALIZE(transactions)
         KV_SERIALIZE(spent_key_images)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL_HASHES
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<crypto::hash> tx_hashes;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(tx_hashes)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -1429,6 +1457,41 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(chains)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_UPDATE
+  {
+    struct request
+    {
+      std::string command;
+      std::string path;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(command);
+        KV_SERIALIZE(path);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      bool update;
+      std::string version;
+      std::string user_uri;
+      std::string auto_uri;
+      std::string hash;
+      std::string path;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(update)
+        KV_SERIALIZE(version)
+        KV_SERIALIZE(user_uri)
+        KV_SERIALIZE(auto_uri)
+        KV_SERIALIZE(hash)
+        KV_SERIALIZE(path)
       END_KV_SERIALIZE_MAP()
     };
   };

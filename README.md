@@ -1,6 +1,6 @@
 # Monero
 
-Copyright (c) 2014-2016, The Monero Project
+Copyright (c) 2014-2017, The Monero Project
 
 ## Development Resources
 
@@ -21,7 +21,8 @@ Copyright (c) 2014-2016, The Monero Project
 | OSX 10.10             |  amd64   | [![OSX 10.10 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.10)](https://build.getmonero.org/builders/monero-static-osx-10.10)
 | OSX 10.11             |  amd64   | [![OSX 10.11 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.11)](https://build.getmonero.org/builders/monero-static-osx-10.11)
 | OSX 10.12             |  amd64   | [![OSX 10.12 amd64](https://build.getmonero.org/png?builder=monero-static-osx-10.12)](https://build.getmonero.org/builders/monero-static-osx-10.12)
-| FreeBSD 10.3          |  amd64   | [![FreeBSD 10.3 amd64](https://build.getmonero.org/png?builder=monero-static-freebsd64)](https://build.getmonero.org/builders/monero-static-freebsd64)
+| FreeBSD 11            |  amd64   | [![FreeBSD 11 amd64](https://build.getmonero.org/png?builder=monero-static-freebsd64)](https://build.getmonero.org/builders/monero-static-freebsd64)
+| DragonFly BSD 4.6     |  amd64   | [![DragonFly BSD amd64](https://build.getmonero.org/png?builder=monero-static-dragonflybsd-amd64)](https://build.getmonero.org/builders/monero-static-dragonflybsd-amd64)
 | Windows (MSYS2/MinGW) |  i686    | [![Windows (MSYS2/MinGW) i686](https://build.getmonero.org/png?builder=monero-static-win32)](https://build.getmonero.org/builders/monero-static-win32)
 | Windows (MSYS2/MinGW) |  amd64   | [![Windows (MSYS2/MinGW) amd64](https://build.getmonero.org/png?builder=monero-static-win64)](https://build.getmonero.org/builders/monero-static-win64)
 
@@ -79,25 +80,26 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
-## Monero software updates and consensus protocol changes (hard forking)
+## Monero software updates and consensus protocol changes (hard fork schedule)
 
-Monero uses a hardforking mechanism to implement new features which requires that 
-users of Monero software run current versions and update their software on a 
-regular schedule. Here is the current schedule, versions, and compatibility.
-Dates are provided in the format YYYYMMDD. 
+Monero uses a fixed-schedule hard fork mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and update their software on a regular schedule. Here is the current schedule, versions, and compatibility.
+Dates are provided in the format YYYY-MM-DD. 
 
 
-| Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
+| Fork Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
 | ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ |
 | 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
-| 2017-01-05        | v4                | v0.10.1                 | v0.10.1                   | Allow normal and RingCT transactions | 
-| 2017-09-21        | v5                | v0.10.1                | v0.10.1                    | Allow only RingCT transactions      |
+| 2017-01-05        | v4                | v0.10.1                 | v0.10.2.1                   | Allow normal and RingCT transactions |
+| 2017-04-15        | v5                | v0.10.2.1               | v0.10.3                    | Adjusted minimum blocksize and fee algorithm      |
+| 2017-09-21        | v6                | Not determined as of 2017-03-06                | Not determined as of 2017-03-06                    | Allow only RingCT transactions      |
 
 ## Installing Monero from a Package
 
 Packages are available for
 
-* Arch Linux via AUR: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
+* Arch Linux (via [AUR](https://aur.archlinux.org/)):
+  - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
+  - Bleeding edge: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
 
 * OS X via [Homebrew](http://brew.sh)
 
@@ -135,7 +137,7 @@ library archives (`.a`).
 | CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
 | pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
 | Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       | C++ libraries  |
-| libevent       | 2.0           | NO       | `libevent-dev`     | `libevent`     | NO       | Network IO     |
+| OpenSSL        | basically any | NO       | `libssl-dev`       | `openssl`      | NO       | sha256 sum     |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
 | libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
@@ -143,7 +145,6 @@ library archives (`.a`).
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | SSL toolkit    |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | XML parsing    |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
-| BerkeleyDB     | 4.8           | NO       | `libdb{,++}-dev`   | `db`           | YES      | Historic DB    |
 | Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | Documentation  |
 | Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | Documentation  |
 
@@ -288,7 +289,7 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above.
+The project can be built from scratch by following instructions for Linux above. If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
@@ -384,6 +385,50 @@ If you want to help out, see CONTRIBUTING for a set of guidelines.
 # Debugging
 
 This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the github repo.
+
+## Obtaining Stack Traces and Core Dumps on Unix Systems
+
+We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
+
+* To use gdb in order to obtain a stack trace for a build that has stalled:
+
+Run the build.
+
+Once it stalls, enter the following command:
+
+```
+gdb /path/to/monerod `pidof monerod` 
+```
+
+Type `thread apply all bt` within gdb in order to obtain the stack trace
+
+* If however the core dumps or segfaults:
+
+Enter `ulimit -c unlimited` on the command line to enable unlimited filesizes for core dumps
+
+Run the build.
+
+When it terminates with an output along the lines of "Segmentation fault (core dumped)", there should be a core dump file in the same directory as monerod.
+
+You can now analyse this core dump with `gdb` as follows:
+
+`gdb /path/to/monerod /path/to/dumpfile`
+
+Print the stack trace with `bt`
+
+* To run monero within gdb:
+
+Type `gdb /path/to/monerod`
+
+Pass command-line options with `--args` followed by the relevant arguments
+
+Type `run` to run monerod
+
+## Analysing Memory Corruption
+
+We use the tool `valgrind` for this.
+
+Run with `valgrind /path/to/monerod`. It will be slow.
 
 ## LMDB
 

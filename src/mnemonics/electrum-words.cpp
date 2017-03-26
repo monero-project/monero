@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -52,6 +52,8 @@
 #include <boost/algorithm/string/join.hpp>
 
 #include "english.h"
+#include "dutch.h"
+#include "french.h"
 #include "italian.h"
 #include "german.h"
 #include "spanish.h"
@@ -83,6 +85,8 @@ namespace
     // If there's a new language added, add an instance of it here.
     std::vector<Language::Base*> language_instances({
       Language::Singleton<Language::English>::instance(),
+      Language::Singleton<Language::Dutch>::instance(),
+      Language::Singleton<Language::French>::instance(),
       Language::Singleton<Language::Spanish>::instance(),
       Language::Singleton<Language::German>::instance(),
       Language::Singleton<Language::Italian>::instance(),
@@ -312,6 +316,14 @@ namespace crypto
       {
         language = Language::Singleton<Language::English>::instance();
       }
+      else if (language_name == "Dutch")
+      {
+        language = Language::Singleton<Language::Dutch>::instance();
+      }
+      else if (language_name == "French")
+      {
+        language = Language::Singleton<Language::French>::instance();
+      }
       else if (language_name == "Spanish")
       {
         language = Language::Singleton<Language::Spanish>::instance();
@@ -382,6 +394,8 @@ namespace crypto
     {
       std::vector<Language::Base*> language_instances({
         Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Dutch>::instance(),
+        Language::Singleton<Language::French>::instance(),
         Language::Singleton<Language::Spanish>::instance(),
         Language::Singleton<Language::German>::instance(),
         Language::Singleton<Language::Italian>::instance(),

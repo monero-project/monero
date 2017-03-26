@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -40,7 +40,7 @@
 #ifdef BERKELEY_DB
 #include "blockchain_db/berkeleydb/db_bdb.h"
 #endif
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
@@ -288,7 +288,7 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   ASSERT_TRUE(compare_blocks(this->m_blocks[0], b));
 
   // assert that we can't add the same block twice
-  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), BLOCK_EXISTS);
+  ASSERT_THROW(this->m_db->add_block(this->m_blocks[0], t_sizes[0], t_diffs[0], t_coins[0], this->m_txs[0]), TX_EXISTS);
 
   for (auto& h : this->m_blocks[0].tx_hashes)
   {

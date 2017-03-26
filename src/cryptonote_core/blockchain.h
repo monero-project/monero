@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+#include <boost/asio/io_service.hpp>
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/version.hpp>
 #include <boost/serialization/list.hpp>
@@ -36,23 +37,22 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/foreach.hpp>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "syncobj.h"
 #include "string_tools.h"
-#include "cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/core_rpc_server_commands_defs.h"
-#include "difficulty.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
-#include "verification_context.h"
+#include "cryptonote_basic/difficulty.h"
+#include "cryptonote_tx_utils.h"
+#include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
-#include "checkpoints.h"
-#include "hardfork.h"
+#include "cryptonote_basic/checkpoints.h"
+#include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
 namespace cryptonote
@@ -154,7 +154,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs) const;
+    bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
 
     /**
      * @brief get blocks from blocks based on start height and count
@@ -165,7 +165,7 @@ namespace cryptonote
      *
      * @return false if start_offset > blockchain height, else true
      */
-    bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
+    bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const;
 
     /**
      * @brief compiles a list of all blocks stored as alternative chains
@@ -197,10 +197,11 @@ namespace cryptonote
      *
      * @param h the hash to look for
      * @param blk return-by-reference variable to put result block in
+     * @param orphan if non-NULL, will be set to true if not in the main chain, false otherwise
      *
      * @return true if the block was found, else false
      */
-    bool get_block_by_hash(const crypto::hash &h, block &blk) const;
+    bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
 
     /**
      * @brief get all block hashes (main chain, alt chains, and invalid blocks)
@@ -423,7 +424,7 @@ namespace cryptonote
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -576,10 +577,11 @@ namespace cryptonote
      *
      * @param block_reward the current block reward
      * @param median_block_size the median blob's size in the past window
+     * @param version hard fork version for rules and constants to use
      *
      * @return the per kB fee
      */
-    static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size);
+    static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size, uint8_t version);
 
     /**
      * @brief get dynamic per kB fee estimate for the next few blocks
@@ -677,8 +679,9 @@ namespace cryptonote
      * @return false if an unexpected exception occurs, else true
      */
     template<class t_ids_container, class t_tx_container, class t_missed_container>
+    bool get_transactions_blobs(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
+    template<class t_ids_container, class t_tx_container, class t_missed_container>
     bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
-
 
     //debug functions
 

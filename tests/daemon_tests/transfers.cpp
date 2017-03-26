@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,7 +32,7 @@
 #include <sstream>
 #include "wallet/wallet.h"
 #include "rpc/core_rpc_server.h"
-#include "cryptonote_core/account.h"
+#include "cryptonote_basic/account.h"
 #include "net/http_client_abstract_invoke.h"
 using namespace std;
 using namespace epee::misc_utils;

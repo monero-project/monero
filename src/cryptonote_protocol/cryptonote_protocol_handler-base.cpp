@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief This is the place to implement our handlers for protocol network actions, e.g. for ratelimit for download-requests
 
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -52,7 +52,6 @@
 #include "../../contrib/epee/include/net/net_utils_base.h" 
 #include "../../contrib/epee/include/misc_log_ex.h" 
 #include <boost/lambda/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
@@ -123,7 +122,7 @@ cryptonote_protocol_handler_base::~cryptonote_protocol_handler_base() {
 void cryptonote_protocol_handler_base::handler_request_blocks_history(std::list<crypto::hash>& ids) {
 	using namespace epee::net_utils;
 	MDEBUG("### ~~~RRRR~~~~ ### sending request (type 2), limit = " << ids.size());
-	MWARNING("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)");
+	MDEBUG("RATE LIMIT NOT IMPLEMENTED HERE YET (download at unlimited speed?)");
 	// TODO
 }
 

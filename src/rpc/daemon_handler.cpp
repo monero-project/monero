@@ -31,7 +31,8 @@
 // likely included by daemon_handler.h's includes,
 // but including here for clarity
 #include "cryptonote_core/tx_pool.h"
-#include "cryptonote_core/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_protocol/blobdatatype.h"
 #include "ringct/rctSigs.h"
 
 namespace cryptonote
@@ -49,7 +50,7 @@ namespace rpc
 
   void DaemonHandler::handle(const GetBlocksFast::Request& req, GetBlocksFast::Response& res)
   {
-    std::list<std::pair<block, std::list<transaction> > > blocks;
+    std::list<std::pair<blobdata, std::list<blobdata> > > blocks;
 
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
@@ -71,17 +72,21 @@ namespace rpc
     {
       cryptonote::rpc::block_with_transactions& bwt = res.blocks[block_count];
 
-      block& blk = it->first;
-      bwt.block = blk;
+      parse_and_validate_block_from_blob(it->first, bwt.block);
 
-      std::list<transaction>& txs = it->second;
+      std::list<transaction> txs;
+      for (auto& blob : it->second)
+      {
+        txs.resize(txs.size() + 1);
+        parse_and_validate_tx_from_blob(blob, txs.back());
+      }
 
       cryptonote::rpc::block_output_indices& indices = res.output_indices[block_count];
 
       // miner tx output indices
       {
         cryptonote::rpc::tx_output_indices tx_indices;
-        bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(blk.miner_tx), tx_indices);
+        bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(bwt.block.miner_tx), tx_indices);
         if (!r)
         {
           res.status = Message::STATUS_FAILED;
@@ -94,7 +99,7 @@ namespace rpc
       // assume each block returned is returned with all its transactions
       // in the correct order.
       auto tx_it = txs.begin();
-      for (crypto::hash& h : blk.tx_hashes)
+      for (crypto::hash& h : bwt.block.tx_hashes)
       {
         bwt.transactions.emplace(h, *tx_it);
         tx_it++;

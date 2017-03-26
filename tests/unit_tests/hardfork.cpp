@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,7 +32,8 @@
 #include "gtest/gtest.h"
 
 #include "blockchain_db/lmdb/db_lmdb.h"
-#include "cryptonote_core/hardfork.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_basic/hardfork.h"
 
 using namespace cryptonote;
 
@@ -51,7 +52,7 @@ public:
   virtual std::string get_db_name() const { return std::string(); }
   virtual bool lock() { return true; }
   virtual void unlock() { }
-  virtual bool batch_start(uint64_t batch_num_blocks=0) {}
+  virtual bool batch_start(uint64_t batch_num_blocks=0) { return true; }
   virtual void batch_stop() {}
   virtual void set_batch_transactions(bool) {}
   virtual void block_txn_start(bool readonly=false) {}
@@ -59,7 +60,9 @@ public:
   virtual void block_txn_abort() {}
   virtual void drop_hard_fork_info() {}
   virtual bool block_exists(const crypto::hash& h, uint64_t *height) const { return false; }
-  virtual block get_block(const crypto::hash& h) const { return block(); }
+  virtual blobdata get_block_blob_from_height(const uint64_t& height) const { return cryptonote::t_serializable_object_to_blob(get_block_from_height(height)); }
+  virtual blobdata get_block_blob(const crypto::hash& h) const { return blobdata(); }
+  virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
   virtual block_header get_block_header(const crypto::hash& h) const { return block_header(); }
   virtual uint64_t get_block_timestamp(const uint64_t& height) const { return 0; }
@@ -89,7 +92,7 @@ public:
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const { return tx_out_index(); }
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const { return tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const {}
-  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) {}
+  virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) {}
   virtual bool can_thread_bulk_indices() const { return false; }
   virtual std::vector<uint64_t> get_tx_output_indices(const crypto::hash& h) const { return std::vector<uint64_t>(); }
   virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_index) const { return std::vector<uint64_t>(); }

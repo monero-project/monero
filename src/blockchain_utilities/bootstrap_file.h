@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,7 +34,7 @@
 
 #include <boost/iostreams/filtering_streambuf.hpp>
 
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_core/blockchain.h"
 
 #include <algorithm>

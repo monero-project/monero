@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,8 +32,8 @@
 
 #include <boost/program_options/variables_map.hpp>
 
-#include "cryptonote_core/cryptonote_basic_impl.h"
-#include "cryptonote_core/verification_context.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/verification_context.h"
 #include <unordered_map>
 
 namespace tests
@@ -91,6 +91,8 @@ namespace tests
     virtual void on_transaction_relayed(const cryptonote::blobdata& tx) {}
     bool get_testnet() const { return false; }
     bool get_pool_transaction(const crypto::hash& id, cryptonote::transaction& tx) const { return false; }
-    bool get_blocks(uint64_t start_offset, size_t count, std::list<cryptonote::block>& blocks, std::list<cryptonote::transaction>& txs) const { return false; }
+    bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::list<cryptonote::blobdata>& txs) const { return false; }
+    bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::transaction>& txs, std::list<crypto::hash>& missed_txs) const { return false; }
+    bool get_block_by_hash(const crypto::hash &h, cryptonote::block &blk, bool *orphan = NULL) const { return false; }
   };
 }

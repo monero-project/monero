@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -61,6 +61,13 @@ namespace daemonize
   {
     LOG_PRINT_L0("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ") Daemonised");
     return t_daemon{vm};
+  }
+
+  bool t_executor::run_non_interactive(
+      boost::program_options::variables_map const & vm
+    )
+  {
+    return t_daemon{vm}.run(false);
   }
 
   bool t_executor::run_interactive(

@@ -32,7 +32,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/message_data_structs.h"
 #include "rpc/daemon_rpc_version.h"
-#include "cryptonote_core/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
 namespace cryptonote
 {

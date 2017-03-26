@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,18 +31,20 @@
 #include "include_base_utils.h"
 using namespace epee;
 
-#include <boost/foreach.hpp>
 #include <unordered_set>
 #include "cryptonote_core.h"
 #include "common/command_line.h"
 #include "common/util.h"
+#include "common/updates.h"
+#include "common/download.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
-#include "cryptonote_format_utils.h"
+#include "cryptonote_tx_utils.h"
 #include "misc_language.h"
 #include <csignal>
-#include "cryptonote_core/checkpoints.h"
+#include <p2p/net_node.h>
+#include "cryptonote_basic/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
@@ -58,6 +60,8 @@ DISABLE_VS_WARNINGS(4355)
 
 #define MERROR_VER(x) MCERROR("verify", x)
 
+#define BAD_SEMANTICS_TXES_MAX_SIZE 100
+
 namespace cryptonote
 {
 
@@ -71,7 +75,8 @@ namespace cryptonote
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
               m_last_dns_checkpoints_update(0),
-              m_last_json_checkpoints_update(0)
+              m_last_json_checkpoints_update(0),
+              m_update_download(0)
   {
     set_cryptonote_protocol(pprotocol);
   }
@@ -130,6 +135,15 @@ namespace cryptonote
   void core::stop()
   {
     m_blockchain_storage.cancel();
+
+    tools::download_async_handle handle;
+    {
+      boost::lock_guard<boost::mutex> lock(m_update_mutex);
+      handle = m_update_download;
+      m_update_download = 0;
+    }
+    if (handle)
+      tools::download_cancel(handle);
   }
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)
@@ -148,6 +162,13 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
+    command_line::add_arg(desc, command_line::arg_check_updates);
+
+    // we now also need some of net_node's options (p2p bind arg, for separate data dir)
+    command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
+    command_line::add_arg(desc, nodetool::arg_p2p_bind_port, false);
+
+    miner::init_options(desc);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
@@ -195,15 +216,31 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const
   {
     return m_blockchain_storage.get_blocks(start_offset, count, blocks, txs);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const
   {
     return m_blockchain_storage.get_blocks(start_offset, count, blocks);
-  }  //-----------------------------------------------------------------------------------------------
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const
+  {
+    std::list<std::pair<cryptonote::blobdata, cryptonote::block>> bs;
+    if (!m_blockchain_storage.get_blocks(start_offset, count, bs))
+      return false;
+    for (const auto &b: bs)
+      blocks.push_back(b.second);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::blobdata>& txs, std::list<crypto::hash>& missed_txs) const
+  {
+    return m_blockchain_storage.get_transactions_blobs(txs_ids, txs, missed_txs);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs) const
   {
     return m_blockchain_storage.get_transactions(txs_ids, txs, missed_txs);
@@ -219,54 +256,30 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::lock_db_directory(const boost::filesystem::path &path)
-  {
-    // boost doesn't like locking directories...
-    const boost::filesystem::path lock_path = path / ".daemon_lock";
-
-    try
-    {
-      // ensure the file exists
-      std::ofstream(lock_path.string(), std::ios::out).close();
-
-      db_lock = boost::interprocess::file_lock(lock_path.string().c_str());
-      LOG_PRINT_L1("Locking " << lock_path.string());
-      if (!db_lock.try_lock())
-      {
-        LOG_ERROR("Failed to lock " << lock_path.string());
-        return false;
-      }
-      return true;
-    }
-    catch (const std::exception &e)
-    {
-      LOG_ERROR("Error trying to lock " << lock_path.string() << ": " << e.what());
-      return false;
-    }
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::unlock_db_directory()
-  {
-    db_lock.unlock();
-    db_lock = boost::interprocess::file_lock();
-    LOG_PRINT_L1("Blockchain directory successfully unlocked");
-    return true;
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options)
   {
     start_time = std::time(nullptr);
 
     m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
+    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    auto p2p_bind_arg = testnet ? nodetool::arg_testnet_p2p_bind_port : nodetool::arg_p2p_bind_port;
+    std::string m_port = command_line::get_arg(vm, p2p_bind_arg);
+    std::string m_config_folder_mempool = m_config_folder;
 
-    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder);
+    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+      m_config_folder_mempool = m_config_folder_mempool + "/" + m_port;
+    }
+
+    r = m_mempool.init(m_fakechain ? std::string() : m_config_folder_mempool);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
+    std::string check_updates_string = command_line::get_arg(vm, command_line::arg_check_updates);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
@@ -275,11 +288,6 @@ namespace cryptonote
     // make sure the data directory exists, and try to lock it
     CHECK_AND_ASSERT_MES (boost::filesystem::exists(folder) || boost::filesystem::create_directories(folder), false,
       std::string("Failed to create directory ").append(folder.string()).c_str());
-    if (!lock_db_directory (folder))
-    {
-      LOG_ERROR ("Failed to lock " << folder);
-      return false;
-    }
 
     // check for blockchain.bin
     try
@@ -409,6 +417,20 @@ namespace cryptonote
     // with respect to what blocks we already have
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
+   // DNS versions checking
+    if (check_updates_string == "disabled")
+      check_updates_level = UPDATES_DISABLED;
+    else if (check_updates_string == "notify")
+      check_updates_level = UPDATES_NOTIFY;
+    else if (check_updates_string == "download")
+      check_updates_level = UPDATES_DOWNLOAD;
+    else if (check_updates_string == "update")
+      check_updates_level = UPDATES_UPDATE;
+    else {
+      MERROR("Invalid argument to --dns-versions-check: " << check_updates_string);
+      return false;
+    }
+
     r = m_miner.init(vm, m_testnet);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
 
@@ -431,7 +453,6 @@ namespace cryptonote
     m_miner.stop();
     m_mempool.deinit();
     m_blockchain_storage.deinit();
-    unlock_db_directory();
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -487,6 +508,16 @@ namespace cryptonote
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
 
+    for (int idx = 0; idx < 2; ++idx)
+    {
+      if (bad_semantics_txes[idx].find(tx_hash) != bad_semantics_txes[idx].end())
+      {
+        LOG_PRINT_L1("Transaction already seen with bad semantics, rejected");
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+    }
+
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
     const size_t max_tx_version = version == 1 ? 1 : 2;
     if (tx.version == 0 || tx.version > max_tx_version)
@@ -494,6 +525,18 @@ namespace cryptonote
       // v2 is the latest one we know
       tvc.m_verifivation_failed = true;
       return false;
+    }
+
+    if(m_mempool.have_tx(tx_hash))
+    {
+      LOG_PRINT_L2("tx " << tx_hash << "already have transaction in tx_pool");
+      return true;
+    }
+
+    if(m_blockchain_storage.have_tx(tx_hash))
+    {
+      LOG_PRINT_L2("tx " << tx_hash << " already have transaction in blockchain");
+      return true;
     }
 
     if(!check_tx_syntax(tx))
@@ -513,6 +556,7 @@ namespace cryptonote
       if (rv.outPk.size() != tx.vout.size())
       {
         LOG_PRINT_L1("WRONG TRANSACTION BLOB, Bad outPk size in tx " << tx_hash << ", rejected");
+        tvc.m_verifivation_failed = true;
         return false;
       }
       for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
@@ -523,6 +567,12 @@ namespace cryptonote
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
       tvc.m_verifivation_failed = true;
+      bad_semantics_txes[0].insert(tx_hash);
+      if (bad_semantics_txes[0].size() >= BAD_SEMANTICS_TXES_MAX_SIZE)
+      {
+        std::swap(bad_semantics_txes[0], bad_semantics_txes[1]);
+        bad_semantics_txes[0].clear();
+      }
       return false;
     }
 
@@ -609,6 +659,12 @@ namespace cryptonote
       return false;
     }
 
+    if (!check_tx_inputs_keyimages_domain(tx))
+    {
+      MERROR_VER("tx uses key image not in the valid domain");
+      return false;
+    }
+
     if (tx.version >= 2)
     {
       const rct::rctSig &rv = tx.rct_signatures;
@@ -648,7 +704,7 @@ namespace cryptonote
   bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
   {
     spent.clear();
-    BOOST_FOREACH(auto& ki, key_im)
+    for(auto& ki: key_im)
     {
       spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
     }
@@ -666,14 +722,14 @@ namespace cryptonote
     uint64_t emission_amount = 0;
     uint64_t total_fee_amount = 0;
     this->get_blocks(start_offset, count, blocks);
-    BOOST_FOREACH(auto& b, blocks)
+    for(auto& b: blocks)
     {
       std::list<transaction> txs;
       std::list<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
       this->get_transactions(b.tx_hashes, txs, missed_txs);      
       uint64_t tx_fee_amount = 0;
-      BOOST_FOREACH(const auto& tx, txs)
+      for(const auto& tx: txs)
       {
         tx_fee_amount += get_tx_fee(tx);
       }
@@ -688,10 +744,22 @@ namespace cryptonote
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
   {
     std::unordered_set<crypto::key_image> ki;
-    BOOST_FOREACH(const auto& in, tx.vin)
+    for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
       if(!ki.insert(tokey_in.k_image).second)
+        return false;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_tx_inputs_keyimages_domain(const transaction& tx) const
+  {
+    std::unordered_set<crypto::key_image> ki;
+    for(const auto& in: tx.vin)
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+      if (!(rct::scalarmultKey(rct::ki2rct(tokey_in.k_image), rct::curveOrder()) == rct::identity()))
         return false;
     }
     return true;
@@ -733,7 +801,7 @@ namespace cryptonote
   {
     // we attempt to relay txes that should be relayed, but were not
     std::list<std::pair<crypto::hash, cryptonote::transaction>> txs;
-    if (m_mempool.get_relayable_transactions(txs))
+    if (m_mempool.get_relayable_transactions(txs) && !txs.empty())
     {
       cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -774,7 +842,7 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, resp);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<block, std::list<transaction> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const
+  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const
   {
     return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, start_height, max_count);
   }
@@ -824,11 +892,28 @@ namespace cryptonote
     m_miner.resume();
   }
   //-----------------------------------------------------------------------------------------------
+  block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
+  {
+    block_complete_entry bce;
+    bce.block = cryptonote::block_to_blob(b);
+    for (const auto &tx_hash: b.tx_hashes)
+    {
+      cryptonote::transaction tx;
+      CHECK_AND_ASSERT_THROW_MES(pool.get_transaction(tx_hash, tx), "Transaction not found in pool");
+      bce.txs.push_back(cryptonote::tx_to_blob(tx));
+    }
+    return bce;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_block_found(block& b)
   {
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_miner.pause();
+    std::list<block_complete_entry> blocks;
+    blocks.push_back(get_block_complete_entry(b, m_mempool));
+    prepare_handle_incoming_blocks(blocks);
     m_blockchain_storage.add_new_block(b, bvc);
+    cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
     update_miner_block_template();
     m_miner.resume();
@@ -842,8 +927,8 @@ namespace cryptonote
       arg.hop = 0;
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::list<crypto::hash> missed_txs;
-      std::list<transaction> txs;
-      m_blockchain_storage.get_transactions(b.tx_hashes, txs, missed_txs);
+      std::list<cryptonote::blobdata> txs;
+      m_blockchain_storage.get_transactions_blobs(b.tx_hashes, txs, missed_txs);
       if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
       {
         LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
@@ -854,8 +939,8 @@ namespace cryptonote
 
       block_to_blob(b, arg.b.block);
       //pack transactions
-      BOOST_FOREACH(auto& tx,  txs)
-        arg.b.txs.push_back(t_serializable_object_to_blob(tx));
+      for(auto& tx:  txs)
+        arg.b.txs.push_back(tx);
 
       m_pprotocol->relay_block(arg, exclude_context);
     }
@@ -961,7 +1046,13 @@ namespace cryptonote
     m_mempool.get_transactions(txs);
     return true;
   }
-  //-----------------------------------------------------------------------------------------------  
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_pool_transaction_hashes(std::vector<crypto::hash>& txs) const
+  {
+    m_mempool.get_transaction_hashes(txs);
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transaction(const crypto::hash &id, transaction& tx) const
   {
     return m_mempool.get_transaction(id, tx);
@@ -987,9 +1078,9 @@ namespace cryptonote
     return m_blockchain_storage.get_block_id_by_height(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_by_hash(const crypto::hash &h, block &blk) const
+  bool core::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
   {
-    return m_blockchain_storage.get_block_by_hash(h, blk);
+    return m_blockchain_storage.get_block_by_hash(h, blk, orphan);
   }
   //-----------------------------------------------------------------------------------------------
   std::string core::print_pool(bool short_format) const
@@ -1010,17 +1101,17 @@ namespace cryptonote
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
         << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL
         << ENDL
-        << "You can set the level of process detailization* through \"set_log <level|categories>\" command*, where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)" << ENDL
+        << "You can set the level of process detailization* through \"set_log <level|categories>\" command*," << ENDL
+        << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)" << ENDL
         << ENDL
-        << "Use \"help\" command to see the list of available commands." << ENDL
-        << ENDL
-        << "Note: in case you need to interrupt the process, use \"exit\" command. Otherwise, the current progress won't be saved." << ENDL
-        << "**********************************************************************");
+        << "Use the \"help\" command to see the list of available commands." << ENDL
+        << "**********************************************************************" << ENDL);
       m_starter_message_showed = true;
     }
 
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
+    m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1045,6 +1136,99 @@ namespace cryptonote
       default:
         break;
     }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_updates()
+  {
+    static const char software[] = "monero";
+    static const char subdir[] = "cli"; // because it can never be simple
+#ifdef BUILD_TAG
+    static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
+#else
+    static const char buildtag[] = "source";
+#endif
+
+    if (check_updates_level == UPDATES_DISABLED)
+      return true;
+
+    std::string version, hash;
+    MCDEBUG("updates", "Checking for a new " << software << " version for " << buildtag);
+    if (!tools::check_updates(software, buildtag, version, hash))
+      return false;
+
+    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+      return true;
+
+    std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
+    MCLOG_CYAN(el::Level::Info, "global", "Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
+
+    if (check_updates_level == UPDATES_NOTIFY)
+      return true;
+
+    url = tools::get_update_url(software, subdir, buildtag, version, false);
+    std::string filename;
+    const char *slash = strrchr(url.c_str(), '/');
+    if (slash)
+      filename = slash + 1;
+    else
+      filename = std::string(software) + "-update-" + version;
+    boost::filesystem::path path(epee::string_tools::get_current_module_folder());
+    path /= filename;
+
+    boost::unique_lock<boost::mutex> lock(m_update_mutex);
+
+    if (m_update_download != 0)
+    {
+      MCDEBUG("updates", "Already downloading update");
+      return true;
+    }
+
+    crypto::hash file_hash;
+    if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
+    {
+      MCDEBUG("updates", "We don't have that file already, downloading");
+      m_last_update_length = 0;
+      m_update_download = tools::download_async(path.string(), url, [this, hash](const std::string &path, const std::string &uri, bool success) {
+        if (success)
+        {
+          crypto::hash file_hash;
+          if (!tools::sha256sum(path, file_hash))
+          {
+            MCERROR("updates", "Failed to hash " << path);
+          }
+          if (hash != epee::string_tools::pod_to_hex(file_hash))
+          {
+            MCERROR("updates", "Download from " << uri << " does not match the expected hash");
+          }
+          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path);
+        }
+        else
+        {
+          MCERROR("updates", "Failed to download " << uri);
+        }
+        boost::unique_lock<boost::mutex> lock(m_update_mutex);
+        m_update_download = 0;
+      }, [this](const std::string &path, const std::string &uri, size_t length, ssize_t content_length) {
+        if (length >= m_last_update_length + 1024 * 1024 * 10)
+        {
+          m_last_update_length = length;
+          MCDEBUG("updates", "Downloaded " << length << "/" << (content_length ? std::to_string(content_length) : "unknown"));
+        }
+        return true;
+      });
+    }
+    else
+    {
+      MCDEBUG("updates", "We already have " << path << " with expected hash");
+    }
+
+    lock.unlock();
+
+    if (check_updates_level == UPDATES_DOWNLOAD)
+      return true;
+
+    MCERROR("updates", "Download/update not implemented yet");
     return true;
   }
   //-----------------------------------------------------------------------------------------------

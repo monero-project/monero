@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2016, The Monero Project
+// Copyright (c) 2014-2017, The Monero Project
 //
 // All rights reserved.
 //
@@ -65,6 +65,7 @@
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
+#define MIN_WANTED_SEED_NODES 12
 
 namespace nodetool
 {
@@ -108,8 +109,8 @@ namespace nodetool
   void node_server<t_payload_net_handler>::init_options(boost::program_options::options_description& desc)
   {
     command_line::add_arg(desc, arg_p2p_bind_ip);
-    command_line::add_arg(desc, arg_p2p_bind_port);
-    command_line::add_arg(desc, arg_testnet_p2p_bind_port);
+    command_line::add_arg(desc, arg_p2p_bind_port, false);
+    command_line::add_arg(desc, arg_testnet_p2p_bind_port, false);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -173,6 +174,9 @@ namespace nodetool
       make_default_config();
     }
 
+    // always recreate a new peer id
+    make_default_peer_id();
+
     //at this moment we have hardcoded config
     m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
     m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE; //20 MB limit
@@ -205,17 +209,23 @@ namespace nodetool
     if(time(nullptr) >= it->second)
     {
       m_blocked_ips.erase(it);
-      MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
+      MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
       return true;
     }
     return false;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::make_default_config()
+  bool node_server<t_payload_net_handler>::make_default_peer_id()
   {
     m_config.m_peer_id  = crypto::rand<uint64_t>();
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::make_default_config()
+  {
+    return make_default_peer_id();
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -237,7 +247,7 @@ namespace nodetool
     for (const auto &c: conns)
       m_net_server.get_config_object().close(c);
 
-    MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.");
+    MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " blocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -249,7 +259,7 @@ namespace nodetool
     if (i == m_blocked_ips.end())
       return false;
     m_blocked_ips.erase(i);
-    MLOG_CYAN(el::Level::Info, "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
+    MCLOG_CYAN(el::Level::Info, "global", "IP " << epee::string_tools::get_ip_string_from_int32(addr) << " unblocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -278,10 +288,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(
       const boost::program_options::variables_map& vm
-    , bool testnet
     )
   {
-    auto p2p_bind_arg = testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
+    auto p2p_bind_arg = m_testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
 
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
     m_port = command_line::get_arg(vm, p2p_bind_arg);
@@ -300,7 +309,7 @@ namespace nodetool
         bool r = parse_peer_from_string(pe.adr, pr_str);
         CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
         if (pe.adr.port == 0)
-          pe.adr.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
+          pe.adr.port = m_testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
         m_command_line_peers.push_back(pe);
       }
     }
@@ -389,17 +398,42 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes(bool testnet) const
+  {
+    std::set<std::string> full_addrs;
+    if (testnet)
+    {
+      full_addrs.insert("212.83.175.67:28080");
+      full_addrs.insert("5.9.100.248:28080");
+      full_addrs.insert("163.172.182.165:28080");
+      full_addrs.insert("195.154.123.123:28080");
+      full_addrs.insert("212.83.172.165:28080");
+    }
+    else
+    {
+      full_addrs.insert("107.152.130.98:18080");
+      full_addrs.insert("212.83.175.67:18080");
+      full_addrs.insert("5.9.100.248:18080");
+      full_addrs.insert("163.172.182.165:18080");
+      full_addrs.insert("161.67.132.39:18080");
+      full_addrs.insert("198.74.231.92:18080");
+      full_addrs.insert("195.154.123.123:28080");
+      full_addrs.insert("212.83.172.165:28080");
+    }
+    return full_addrs;
+  }
+
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
     std::set<std::string> full_addrs;
-    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
-    if (testnet)
+    if (m_testnet)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
-      full_addrs.insert("163.172.182.165:28080");
-      full_addrs.insert("204.12.248.66:28080");
-      full_addrs.insert("5.9.100.248:28080");
+      full_addrs = get_seed_nodes(true);
     }
     else
     {
@@ -472,14 +506,16 @@ namespace nodetool
         ++i;
       }
 
-      if (!full_addrs.size())
+      // append the fallback nodes if we have too few seed nodes to start with
+      if (full_addrs.size() < MIN_WANTED_SEED_NODES)
       {
-        MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
-        full_addrs.insert("198.74.231.92:18080");
-        full_addrs.insert("161.67.132.39:18080");
-        full_addrs.insert("163.172.182.165:18080");
-        full_addrs.insert("204.12.248.66:18080");
-        full_addrs.insert("5.9.100.248:18080");
+        if (full_addrs.empty())
+          MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
+        else
+          MINFO("Not enough DNS seed nodes found, using fallback defaults too");
+
+        for (const auto &peer: get_seed_nodes(false))
+          full_addrs.insert(peer);
       }
     }
 
@@ -490,11 +526,16 @@ namespace nodetool
     }
     MDEBUG("Number of seed nodes: " << m_seed_nodes.size());
 
-    bool res = handle_command_line(vm, testnet);
+    bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
 
-    auto config_arg = testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    auto config_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, config_arg);
+
+    if ((!m_testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (m_testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
+      m_config_folder = m_config_folder + "/" + m_port;
+    }
 
     res = init_config();
     CHECK_AND_ASSERT_MES(res, false, "Failed to init config.");
@@ -926,6 +967,50 @@ namespace nodetool
     return true;
   }
 
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::check_connection_and_handshake_with_peer(const net_address& na, uint64_t last_seen_stamp)
+  {
+    LOG_PRINT_L1("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
+                                  << epee::string_tools::num_to_string_fast(na.port) << "(last_seen: "
+                                  << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
+                                  << ")...");
+
+    typename net_server::t_connection_context con = AUTO_VAL_INIT(con);
+    bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(na.ip),
+                                    epee::string_tools::num_to_string_fast(na.port),
+                                    m_config.m_net_config.connection_timeout,
+                                    con);
+
+    if (!res) {
+      bool is_priority = is_priority_node(na);
+
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, con, "Connect failed to "
+              << epee::string_tools::get_ip_string_from_int32(na.ip)
+              << ":" << epee::string_tools::num_to_string_fast(na.port));
+
+      return false;
+    }
+
+    peerid_type pi = AUTO_VAL_INIT(pi);
+    res = do_handshake_with_peer(pi, con, true);
+
+    if (!res) {
+      bool is_priority = is_priority_node(na);
+
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, con, "Failed to HANDSHAKE with peer "
+              << epee::string_tools::get_ip_string_from_int32(na.ip)
+              << ":" << epee::string_tools::num_to_string_fast(na.port));
+
+      return false;
+    }
+
+    m_net_server.get_config_object().close(con.m_connection_id);
+
+    LOG_DEBUG_CC(con, "CONNECTION HANDSHAKED OK AND CLOSED.");
+
+    return true;
+  }
+
 #undef LOG_PRINT_CC_PRIORITY_NODE
 
   //-----------------------------------------------------------------------------------
@@ -959,7 +1044,14 @@ namespace nodetool
     while(rand_count < (max_random_index+1)*3 &&  try_count < 10 && !m_net_server.is_stop_signal_sent())
     {
       ++rand_count;
-      size_t random_index = get_random_index_with_fixed_probability(max_random_index);
+      size_t random_index;
+
+      if (use_white_list) {
+        random_index = get_random_index_with_fixed_probability(max_random_index);
+      } else {
+        random_index = crypto::rand<size_t>() % m_peerlist.get_gray_peers_count();
+      }
+
       CHECK_AND_ASSERT_MES(random_index < local_peers_count, false, "random_starter_index < peers_local.size() failed!!");
 
       if(tried_peers.count(random_index))
@@ -1011,6 +1103,7 @@ namespace nodetool
     {
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
+      bool fallback_nodes_added = false;
       while(true)
       {
         if(m_net_server.is_stop_signal_sent())
@@ -1020,8 +1113,22 @@ namespace nodetool
           break;
         if(++try_count > m_seed_nodes.size())
         {
-          MWARNING("Failed to connect to any of seed peers, continuing without seeds");
-          break;
+          if (!fallback_nodes_added)
+          {
+            MWARNING("Failed to connect to any of seed peers, trying fallback seeds");
+            for (const auto &peer: get_seed_nodes(m_testnet))
+            {
+              MDEBUG("Fallback seed node: " << peer);
+              append_net_address(m_seed_nodes, peer);
+            }
+            fallback_nodes_added = true;
+            // continue for another few cycles
+          }
+          else
+          {
+            MWARNING("Failed to connect to any of seed peers, continuing without seeds");
+            break;
+          }
         }
         if(++current_index >= m_seed_nodes.size())
           current_index = 0;
@@ -1097,6 +1204,7 @@ namespace nodetool
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
     m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
+    m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     return true;
   }
@@ -1128,7 +1236,7 @@ namespace nodetool
     time(&now);
     delta = now - local_time;
 
-    BOOST_FOREACH(peerlist_entry& be, local_peerlist)
+    for(peerlist_entry& be: local_peerlist)
     {
       if(be.last_seen > local_time)
       {
@@ -1266,7 +1374,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::relay_notify_to_list(int command, const std::string& data_buff, const std::list<boost::uuids::uuid> &connections)
   {
-    BOOST_FOREACH(const auto& c_id, connections)
+    for(const auto& c_id: connections)
     {
       m_net_server.get_config_object().notify(command, data_buff, c_id);
     }
@@ -1456,6 +1564,14 @@ namespace nodetool
       drop_connection(context);
       return 1;
     }
+
+    if(has_too_many_connections(context.m_remote_ip))
+    {
+      LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << epee::string_tools::get_ip_string_from_int32(context.m_remote_ip) << " REFUSED, too many connections from the same address");
+      drop_connection(context);
+      return 1;
+    }
+
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;
 
@@ -1574,7 +1690,6 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container)
   {
     std::vector<std::string> perrs = command_line::get_arg(vm, arg);
-    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
 
     for(const std::string& pr_str: perrs)
     {
@@ -1582,7 +1697,7 @@ namespace nodetool
       bool r = parse_peer_from_string(na, pr_str);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse address from string: " << pr_str);
       if (na.port == 0)
-        na.port = testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
+        na.port = m_testnet ? ::config::testnet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT;
       container.push_back(na);
     }
 
@@ -1671,6 +1786,54 @@ namespace nodetool
       epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit(limit_down);
       MINFO("Set limit-down to " << limit_down/1024 << " kB/s");
     }
+
+    return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::has_too_many_connections(const uint32_t ip)
+  {
+    const uint8_t max_connections = 1;
+    uint8_t count = 0;
+
+    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    {
+      if (cntxt.m_is_income && cntxt.m_remote_ip == ip) {
+        count++;
+
+        if (count > max_connections) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return count > max_connections;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
+  {
+    peerlist_entry pe = AUTO_VAL_INIT(pe);
+
+    if (!m_peerlist.get_random_gray_peer(pe)) {
+        return false;
+    }
+
+    bool success = check_connection_and_handshake_with_peer(pe.adr, pe.last_seen);
+
+    if (!success) {
+      m_peerlist.remove_from_peer_gray(pe);
+
+      LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
+
+      return true;
+    }
+
+    m_peerlist.set_peer_just_seen(pe.id, pe.adr);
+
+    LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
 
     return true;
   }
