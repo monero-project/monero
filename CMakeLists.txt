@@ -541,7 +541,7 @@ else()
   endif(ARM)
 
   if(ANDROID AND NOT BUILD_GUI_DEPS STREQUAL "ON")
-    #From Android 5: "only position independent executables (PIE) are supported" 
+    #From Android 5: "only position independent executables (PIE) are supported"
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIE")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_CXX_FLAGS} -fPIE -pie")
@@ -705,5 +705,3 @@ option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
 # This is not nice, distribution packagers should not enable this, but depend
 # on libunbound shipped with their distribution instead
 option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source vendored with this repo." OFF)
-
-
