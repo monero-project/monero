@@ -77,7 +77,7 @@ if (ARM_TEST STREQUAL "arm")
   endif()
 endif()
 
-if (ARM_ID STREQUAL "aarch64")
+if (ARM_ID STREQUAL "aarch64" OR ARM_TEST STREQUAL "armv8")
   set(ARM 1)
   set(ARM8 1)
 endif()
@@ -705,5 +705,3 @@ option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
 # This is not nice, distribution packagers should not enable this, but depend
 # on libunbound shipped with their distribution instead
 option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source vendored with this repo." OFF)
-
-
