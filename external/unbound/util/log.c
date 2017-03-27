@@ -191,80 +191,82 @@ void
 log_vmsg(int pri, const char* type,
 	const char *format, va_list args)
 {
-	char message[MAXSYSLOGMSGLEN];
-	unsigned int* tid = (unsigned int*)ub_thread_key_get(logkey);
-	time_t now;
-#if defined(HAVE_STRFTIME) && defined(HAVE_LOCALTIME_R) 
-	char tmbuf[32];
-	struct tm tm;
-#elif defined(UB_ON_WINDOWS)
-	char tmbuf[128], dtbuf[128];
-#endif
-	(void)pri;
-	vsnprintf(message, sizeof(message), format, args);
-#ifdef HAVE_SYSLOG_H
-	if(logging_to_syslog) {
-		syslog(pri, "[%d:%x] %s: %s", 
-			(int)getpid(), tid?*tid:0, type, message);
-		return;
-	}
-#elif defined(UB_ON_WINDOWS)
-	if(logging_to_syslog) {
-		char m[32768];
-		HANDLE* s;
-		LPCTSTR str = m;
-		DWORD tp = MSG_GENERIC_ERR;
-		WORD wt = EVENTLOG_ERROR_TYPE;
-		if(strcmp(type, "info") == 0) {
-			tp=MSG_GENERIC_INFO;
-			wt=EVENTLOG_INFORMATION_TYPE;
-		} else if(strcmp(type, "warning") == 0) {
-			tp=MSG_GENERIC_WARN;
-			wt=EVENTLOG_WARNING_TYPE;
-		} else if(strcmp(type, "notice") == 0 
-			|| strcmp(type, "debug") == 0) {
-			tp=MSG_GENERIC_SUCCESS;
-			wt=EVENTLOG_SUCCESS;
-		}
-		snprintf(m, sizeof(m), "[%s:%x] %s: %s", 
-			ident, tid?*tid:0, type, message);
-		s = RegisterEventSource(NULL, SERVICE_NAME);
-		if(!s) return;
-		ReportEvent(s, wt, 0, tp, NULL, 1, 0, &str, NULL);
-		DeregisterEventSource(s);
-		return;
-	}
-#endif /* HAVE_SYSLOG_H */
-	lock_quick_lock(&log_lock);
-	if(!logfile) {
-		lock_quick_unlock(&log_lock);
-		return;
-	}
-	if(log_now)
-		now = (time_t)*log_now;
-	else	now = (time_t)time(NULL);
-#if defined(HAVE_STRFTIME) && defined(HAVE_LOCALTIME_R) 
-	if(log_time_asc && strftime(tmbuf, sizeof(tmbuf), "%b %d %H:%M:%S",
-		localtime_r(&now, &tm))%(sizeof(tmbuf)) != 0) {
-		/* %sizeof buf!=0 because old strftime returned max on error */
-		fprintf(logfile, "%s %s[%d:%x] %s: %s\n", tmbuf, 
-			ident, (int)getpid(), tid?*tid:0, type, message);
-	} else
-#elif defined(UB_ON_WINDOWS)
-	if(log_time_asc && GetTimeFormat(LOCALE_USER_DEFAULT, 0, NULL, NULL,
-		tmbuf, sizeof(tmbuf)) && GetDateFormat(LOCALE_USER_DEFAULT, 0,
-		NULL, NULL, dtbuf, sizeof(dtbuf))) {
-		fprintf(logfile, "%s %s %s[%d:%x] %s: %s\n", dtbuf, tmbuf, 
-			ident, (int)getpid(), tid?*tid:0, type, message);
-	} else
-#endif
-	fprintf(logfile, "[" ARG_LL "d] %s[%d:%x] %s: %s\n", (long long)now, 
-		ident, (int)getpid(), tid?*tid:0, type, message);
-#ifdef UB_ON_WINDOWS
+return;
+/* Contents commented out for Monero as logging is handled outside of unbound */
+//	char message[MAXSYSLOGMSGLEN];
+//	unsigned int* tid = (unsigned int*)ub_thread_key_get(logkey);
+//	time_t now;
+//#if defined(HAVE_STRFTIME) && defined(HAVE_LOCALTIME_R) 
+//	char tmbuf[32];
+//	struct tm tm;
+//#elif defined(UB_ON_WINDOWS)
+//	char tmbuf[128], dtbuf[128];
+//#endif
+//	(void)pri;
+//	vsnprintf(message, sizeof(message), format, args);
+//#ifdef HAVE_SYSLOG_H
+//	if(logging_to_syslog) {
+//		syslog(pri, "[%d:%x] %s: %s", 
+//			(int)getpid(), tid?*tid:0, type, message);
+//		return;
+//	}
+//#elif defined(UB_ON_WINDOWS)
+//	if(logging_to_syslog) {
+//		char m[32768];
+//		HANDLE* s;
+//		LPCTSTR str = m;
+//		DWORD tp = MSG_GENERIC_ERR;
+//		WORD wt = EVENTLOG_ERROR_TYPE;
+//		if(strcmp(type, "info") == 0) {
+//			tp=MSG_GENERIC_INFO;
+//			wt=EVENTLOG_INFORMATION_TYPE;
+//		} else if(strcmp(type, "warning") == 0) {
+//			tp=MSG_GENERIC_WARN;
+//			wt=EVENTLOG_WARNING_TYPE;
+//		} else if(strcmp(type, "notice") == 0 
+//			|| strcmp(type, "debug") == 0) {
+//			tp=MSG_GENERIC_SUCCESS;
+//			wt=EVENTLOG_SUCCESS;
+//		}
+//		snprintf(m, sizeof(m), "[%s:%x] %s: %s", 
+//			ident, tid?*tid:0, type, message);
+//		s = RegisterEventSource(NULL, SERVICE_NAME);
+//		if(!s) return;
+//		ReportEvent(s, wt, 0, tp, NULL, 1, 0, &str, NULL);
+//		DeregisterEventSource(s);
+//		return;
+//	}
+//#endif /* HAVE_SYSLOG_H */
+//	lock_quick_lock(&log_lock);
+//	if(!logfile) {
+//		lock_quick_unlock(&log_lock);
+//		return;
+//	}
+//	if(log_now)
+//		now = (time_t)*log_now;
+//	else	now = (time_t)time(NULL);
+//#if defined(HAVE_STRFTIME) && defined(HAVE_LOCALTIME_R) 
+//	if(log_time_asc && strftime(tmbuf, sizeof(tmbuf), "%b %d %H:%M:%S",
+//		localtime_r(&now, &tm))%(sizeof(tmbuf)) != 0) {
+//		/* %sizeof buf!=0 because old strftime returned max on error */
+//		fprintf(logfile, "%s %s[%d:%x] %s: %s\n", tmbuf, 
+//			ident, (int)getpid(), tid?*tid:0, type, message);
+//	} else
+//#elif defined(UB_ON_WINDOWS)
+//	if(log_time_asc && GetTimeFormat(LOCALE_USER_DEFAULT, 0, NULL, NULL,
+//		tmbuf, sizeof(tmbuf)) && GetDateFormat(LOCALE_USER_DEFAULT, 0,
+//		NULL, NULL, dtbuf, sizeof(dtbuf))) {
+//		fprintf(logfile, "%s %s %s[%d:%x] %s: %s\n", dtbuf, tmbuf, 
+//			ident, (int)getpid(), tid?*tid:0, type, message);
+//	} else
+//#endif
+//	fprintf(logfile, "[" ARG_LL "d] %s[%d:%x] %s: %s\n", (long long)now, 
+//		ident, (int)getpid(), tid?*tid:0, type, message);
+//#ifdef UB_ON_WINDOWS
 	/* line buffering does not work on windows */
-	fflush(logfile);
-#endif
-	lock_quick_unlock(&log_lock);
+//	fflush(logfile);
+//#endif
+//	lock_quick_unlock(&log_lock);
 }
 
 /**
