@@ -705,6 +705,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
+  m_cmd_binder.set_handler("gen_tx_proof", boost::bind(&simple_wallet::gen_tx_proof, this, _1), tr("Generate a signature proving authorship of <txid> using the tx private key"));
   m_cmd_binder.set_handler("show_transfers", boost::bind(&simple_wallet::show_transfers, this, _1), tr("show_transfers [in|out|pending|failed|pool] [<min_height> [<max_height>]] - Show incoming/outgoing transfers within an optional height range"));
   m_cmd_binder.set_handler("unspent_outputs", boost::bind(&simple_wallet::unspent_outputs, this, _1), tr("unspent_outputs [<min_amount> <max_amount>] - Show unspent outputs within an optional amount range)"));
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
@@ -3296,7 +3297,6 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   LOCK_IDLE_SCOPE();
 
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
   if (m_wallet->get_tx_key(txid, tx_key))
   {
     success_msg_writer() << tr("Tx key: ") << epee::string_tools::pod_to_hex(tx_key);
@@ -3478,6 +3478,35 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
     }
   }
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::gen_tx_proof(const std::vector<std::string> &args)
+{
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: gen_tx_proof <txid>");
+    return true;
+  }
+
+  cryptonote::blobdata txid_data;
+  if(!epee::string_tools::parse_hexstr_to_binbuff(args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
+  {
+    fail_msg_writer() << tr("failed to parse txid");
+    return false;
+  }
+  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+  LOCK_IDLE_SCOPE();
+
+  try
+  {
+    success_msg_writer() << tr("Signature: ") << m_wallet->gen_tx_proof(txid);;
+  }
+  catch (const std::runtime_error& e)
+  {
+    fail_msg_writer() << tr(e.what());
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
