@@ -323,11 +323,12 @@ namespace cryptonote
      * @param miner_address address new coins for the block will go to
      * @param di return-by-reference tells the miner what the difficulty target is
      * @param height return-by-reference tells the miner what height it's mining against
+     * @param expected_reward return-by-reference the total reward awarded to the miner finding this block, including transaction fees
      * @param ex_nonce extra data to be added to the miner transaction's extra
      *
      * @return true if block template filled in successfully, else false
      */
-    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, const blobdata& ex_nonce);
+    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce);
 
     /**
      * @brief checks if a block is known about with a given hash
