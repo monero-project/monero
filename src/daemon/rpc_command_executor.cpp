@@ -31,6 +31,7 @@
 #include "string_tools.h"
 #include "common/password.h"
 #include "common/scoped_message_writer.h"
+#include "common/base58.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -1642,6 +1643,95 @@ bool t_rpc_command_executor::update(const std::string &command)
     return true;
 
   tools::msg_writer() << "'update' not implemented yet";
+
+  return true;
+}
+
+bool t_rpc_command_executor::verify_tx_proof(const crypto::hash &txid, const std::string &signature_str)
+{
+  // decode signature string
+  const size_t header_len = strlen("SigV1");
+  if (signature_str.size() < header_len || signature_str.substr(0, header_len) != "SigV1") {
+    tools::fail_msg_writer() << "Signature header check error";
+    return true;
+  }
+  std::string decoded;
+  if (!tools::base58::decode(signature_str.substr(header_len), decoded)) {
+    tools::fail_msg_writer() << "Signature decoding error";
+    return true;
+  }
+  crypto::signature s;
+  if (sizeof(s) != decoded.size()) {
+    tools::fail_msg_writer() << "Signature decoding error";
+    return true;
+  }
+  memcpy(&s, decoded.data(), sizeof(s));
+
+  // get tx pubkey
+  crypto::public_key tx_pubkey;
+  {
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
+
+    std::string fail_message = "Problem fetching transaction";
+
+    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->rpc_request(req, res, "/gettransactions", fail_message.c_str()))
+      {
+        return true;
+      }
+    }
+    else
+    {
+      if (!m_rpc_server->on_get_transactions(req, res) || res.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << make_error(fail_message, res.status);
+        return true;
+      }
+    }
+
+    if (1 != res.txs.size() && 1 != res.txs_as_hex.size())
+    {
+      tools::fail_msg_writer() << "transaction wasn't found: " << txid << std::endl;
+    }
+
+    const std::string &as_hex = (1 == res.txs.size()) ? res.txs.front().as_hex : res.txs_as_hex.front();
+    crypto::hash tx_hash, tx_prefix_hash;
+    cryptonote::transaction tx;
+    cryptonote::blobdata blob;
+    if (!string_tools::parse_hexstr_to_binbuff(as_hex, blob))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx";
+      return true;
+    }
+    if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx blob";
+      return true;
+    }
+
+    // parse tx extra to get tx pubkey
+    std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+    if(!cryptonote::parse_tx_extra(tx.extra, tx_extra_fields))
+    {
+      tools::fail_msg_writer() << "Failed to parse tx extra";
+      return true;
+    }
+    cryptonote::tx_extra_pub_key pub_key_field;
+    if(!cryptonote::find_tx_extra_field_by_type(tx_extra_fields, pub_key_field/*, 0*/))  // TODO: is it necessary to check for the possible second pubkey?
+    {
+      tools::fail_msg_writer() << "Public key wasn't found in tx extra";
+      return true;
+    }
+    tx_pubkey = pub_key_field.pub_key;
+  }
+
+  if (crypto::check_signature(txid, tx_pubkey, s))
+    tools::success_msg_writer() << "Good signature";
+  else
+    tools::success_msg_writer() << "Bad signature";
 
   return true;
 }

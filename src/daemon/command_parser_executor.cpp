@@ -563,4 +563,22 @@ bool t_command_parser_executor::update(const std::vector<std::string>& args)
   return m_executor.update(args.front());
 }
 
+bool t_command_parser_executor::verify_tx_proof(const std::vector<std::string>& args)
+{
+  if(args.size() != 2)
+  {
+    std::cout << "expected: verify_tx_proof <txid> <signature>" << std::endl;
+    return true;
+  }
+
+  crypto::hash txid;
+  if (!parse_hash256(args[0], txid))
+  {
+    std::cout << "failed to parse tx id" << std::endl;
+    return true;
+  }
+
+  return m_executor.verify_tx_proof(txid, args[1]);
+}
+
 } // namespace daemonize

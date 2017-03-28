@@ -5039,6 +5039,19 @@ bool wallet2::verify(const std::string &data, const cryptonote::account_public_a
   return crypto::check_signature(hash, address.m_spend_public_key, s);
 }
 //----------------------------------------------------------------------------------------------------
+std::string wallet2::gen_tx_proof(const crypto::hash &txid) const
+{
+  const std::unordered_map<crypto::hash, crypto::secret_key>::const_iterator i = m_tx_keys.find(txid);
+  if (i == m_tx_keys.end())
+    throw std::runtime_error("no tx key found for this txid");
+  crypto::secret_key tx_key = i->second;
+  crypto::signature sig;
+  crypto::public_key tx_pubkey;
+  crypto::secret_key_to_public_key(tx_key, tx_pubkey);
+  crypto::generate_signature(txid, tx_pubkey, tx_key, sig);
+  return std::string("SigV1") + tools::base58::encode(std::string((const char *)&sig, sizeof(crypto::signature)));
+}
+//----------------------------------------------------------------------------------------------------
 crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const
 {
   std::vector<tx_extra_field> tx_extra_fields;

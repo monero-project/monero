@@ -132,6 +132,8 @@ public:
   bool print_blockchain_dynamic_stats(const std::vector<std::string>& args);
 
   bool update(const std::vector<std::string>& args);
+
+  bool verify_tx_proof(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize
