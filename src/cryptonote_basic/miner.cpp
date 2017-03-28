@@ -812,9 +812,11 @@ namespace cryptonote
       const std::string POWER_SUPPLY_STATUS_PATHS[] = 
       {
         "/sys/class/power_supply/ACAD/online",
-        "/sys/class/power_supply/AC/online"        
+        "/sys/class/power_supply/AC/online",
+        "/sys/class/power_supply/AC0/online",
+        "/sys/class/power_supply/ADP0/online"
       };
-      
+
       for(const std::string& path : POWER_SUPPLY_STATUS_PATHS)
       {
         if( epee::file_io_utils::is_file_exist(path) )
@@ -823,7 +825,7 @@ namespace cryptonote
           break;
         }
       }
-      
+
       if( power_supply_path.empty() )
       {
         LOG_ERROR("Couldn't find battery/power status file, can't determine if plugged in!");
