@@ -38,6 +38,14 @@
 #include "math_helper.h"
 #ifdef _WIN32
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach/mach_init.h>
+#include <mach/mach_error.h>
+#include <mach/mach_host.h>
+#include <mach/vm_map.h>
+#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/times.h>
 #elif defined(__linux__)
 #include <unistd.h>
 #include <sys/resource.h>

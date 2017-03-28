@@ -718,6 +718,17 @@ namespace cryptonote
         return true;
     	}
 
+    #elif defined(__APPLE__)
+    
+      host_cpu_load_info_data_t cpuinfo;
+      mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
+      if (host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, (host_info_t)&cpuinfo, &count) == KERN_SUCCESS)
+      {
+        for(int i=0; i<CPU_STATE_MAX; i++) total_time += cpuinfo.cpu_ticks[i];
+        idle_time = cpuinfo.cpu_ticks[CPU_STATE_IDLE];
+        return true;
+      }
+      
     #elif defined(__linux__)
 
       const std::string STR_CPU("cpu");
@@ -775,7 +786,7 @@ namespace cryptonote
         return true;
       }
 
-    #elif defined(__linux__) && defined(_SC_CLK_TCK)
+    #elif defined(_SC_CLK_TCK)
 
       struct tms tms;
       if ( times(&tms) != (clock_t)-1 )
