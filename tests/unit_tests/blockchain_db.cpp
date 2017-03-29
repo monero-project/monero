@@ -242,27 +242,31 @@ TYPED_TEST_CASE(BlockchainDBTest, implementations);
 
 TYPED_TEST(BlockchainDBTest, OpenAndClose)
 {
-  std::string fname(tmpnam(NULL));
+  boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+  std::string dirPath = tempPath.string();
 
-  this->set_prefix(fname);
+  this->set_prefix(dirPath);
 
   // make sure open does not throw
-  ASSERT_NO_THROW(this->m_db->open(fname));
+  ASSERT_NO_THROW(this->m_db->open(dirPath));
   this->get_filenames();
 
   // make sure open when already open DOES throw
-  ASSERT_THROW(this->m_db->open(fname), DB_OPEN_FAILURE);
+  ASSERT_THROW(this->m_db->open(dirPath), DB_OPEN_FAILURE);
 
   ASSERT_NO_THROW(this->m_db->close());
 }
 
 TYPED_TEST(BlockchainDBTest, AddBlock)
 {
-  std::string fname(tmpnam(NULL));
-  this->set_prefix(fname);
+
+  boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+  std::string dirPath = tempPath.string();
+
+  this->set_prefix(dirPath);
 
   // make sure open does not throw
-  ASSERT_NO_THROW(this->m_db->open(fname));
+  ASSERT_NO_THROW(this->m_db->open(dirPath));
   this->get_filenames();
   this->init_hard_fork();
 
@@ -302,11 +306,13 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
 
 TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
 {
-  std::string fname(tmpnam(NULL));
-  this->set_prefix(fname);
+  boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+  std::string dirPath = tempPath.string();
+
+  this->set_prefix(dirPath);
 
   // make sure open does not throw
-  ASSERT_NO_THROW(this->m_db->open(fname));
+  ASSERT_NO_THROW(this->m_db->open(dirPath));
   this->get_filenames();
   this->init_hard_fork();
 
