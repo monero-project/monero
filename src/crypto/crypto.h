@@ -111,6 +111,8 @@ namespace crypto {
     friend bool check_key(const public_key &);
     static bool secret_key_to_public_key(const secret_key &, public_key &);
     friend bool secret_key_to_public_key(const secret_key &, public_key &);
+    static bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
+    friend bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
     static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
@@ -123,6 +125,10 @@ namespace crypto {
     friend void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     static bool check_signature(const hash &, const public_key &, const signature &);
     friend bool check_signature(const hash &, const public_key &, const signature &);
+    static void generate_signature_custom_base(const hash &, const public_key &, const secret_key &, const public_key &, signature &);
+    friend void generate_signature_custom_base(const hash &, const public_key &, const secret_key &, const public_key &, signature &);
+    static bool check_signature_custom_base(const hash &, const public_key &, const public_key &, const signature &);
+    friend bool check_signature_custom_base(const hash &, const public_key &, const public_key &, const signature &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -170,6 +176,12 @@ namespace crypto {
     return crypto_ops::secret_key_to_public_key(sec, pub);
   }
 
+  /* Multiply secret key to public key
+   */
+  inline bool secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    return crypto_ops::secret_key_mult_public_key(sec, pub, result);
+  }
+
   /* To generate an ephemeral key used to send money to:
    * * The sender generates a new key pair, which becomes the transaction key. The public transaction key is included in "extra" field.
    * * Both the sender and the receiver generate key derivation from the transaction key, the receivers' "view" key and the output index.
@@ -198,6 +210,17 @@ namespace crypto {
   }
   inline bool check_signature(const hash &prefix_hash, const public_key &pub, const signature &sig) {
     return crypto_ops::check_signature(prefix_hash, pub, sig);
+  }
+
+  /* Generation and checking of a signature using 'custom base'; i.e. instead of using the standard basepoint G and 
+   * proving the knowledge of x such that P=x*G, we introduce another pubkey A as the 'custom basepoint' and prove the 
+   * knowledge of x such that P=x*A
+   */
+  inline void generate_signature_custom_base(const hash &prefix_hash, const public_key &pub, const secret_key &sec, const public_key &custom_base, signature &sig) {
+    crypto_ops::generate_signature_custom_base(prefix_hash, pub, sec, custom_base, sig);
+  }
+  inline bool check_signature_custom_base(const hash &prefix_hash, const public_key &pub, const public_key &custom_base, const signature &sig) {
+    return crypto_ops::check_signature_custom_base(prefix_hash, pub, custom_base, sig);
   }
 
   /* To send money to a key:
