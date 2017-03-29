@@ -111,6 +111,8 @@ namespace crypto {
     friend bool check_key(const public_key &);
     static bool secret_key_to_public_key(const secret_key &, public_key &);
     friend bool secret_key_to_public_key(const secret_key &, public_key &);
+    static bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
+    friend bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
     static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
@@ -123,6 +125,10 @@ namespace crypto {
     friend void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     static bool check_signature(const hash &, const public_key &, const signature &);
     friend bool check_signature(const hash &, const public_key &, const signature &);
+    static void generate_signature_2(const hash &, const public_key &, const secret_key &, const public_key &, const secret_key &, const public_key &, std::pair<signature, signature> &);
+    friend void generate_signature_2(const hash &, const public_key &, const secret_key &, const public_key &, const secret_key &, const public_key &, std::pair<signature, signature> &);
+    static bool check_signature_2(const hash &, const public_key &, const public_key &, const public_key &, const std::pair<signature, signature> &);
+    friend bool check_signature_2(const hash &, const public_key &, const public_key &, const public_key &, const std::pair<signature, signature> &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -170,6 +176,12 @@ namespace crypto {
     return crypto_ops::secret_key_to_public_key(sec, pub);
   }
 
+  /* Multiply secret key to public key
+   */
+  inline bool secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    return crypto_ops::secret_key_mult_public_key(sec, pub, result);
+  }
+
   /* To generate an ephemeral key used to send money to:
    * * The sender generates a new key pair, which becomes the transaction key. The public transaction key is included in "extra" field.
    * * Both the sender and the receiver generate key derivation from the transaction key, the receivers' "view" key and the output index.
@@ -198,6 +210,16 @@ namespace crypto {
   }
   inline bool check_signature(const hash &prefix_hash, const public_key &pub, const signature &sig) {
     return crypto_ops::check_signature(prefix_hash, pub, sig);
+  }
+
+  /* A variant of the Schorr signature scheme where the signer proves the knowledge of two scalars x and y such that 
+   * P=x*G and Q=y*A where G is the basepoint and (P, Q, A) are known to the verifier.
+   */
+  inline void generate_signature_2(const hash &prefix_hash, const public_key &P, const secret_key &x, const public_key &Q, const secret_key &y, const public_key &A, std::pair<signature, signature> &sig) {
+    crypto_ops::generate_signature_2(prefix_hash, P, x, Q, y, A, sig);
+  }
+  inline bool check_signature_2(const hash &prefix_hash, const public_key &P, const public_key &Q, const public_key &A, const std::pair<signature, signature> &sig) {
+    return crypto_ops::check_signature_2(prefix_hash, P, Q, A, sig);
   }
 
   /* To send money to a key:
