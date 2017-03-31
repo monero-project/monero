@@ -106,6 +106,7 @@ void ZmqClient::createSocket()
   static int linger_time = 0;
   try
   {
+    LOG_PRINT_L2("Creating ZMQ Socket at: " << connect_address);
     new_socket = new zmq::socket_t(context, ZMQ_REQ);
     new_socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
     new_socket->setsockopt(ZMQ_LINGER, &linger_time, sizeof(linger_time));
@@ -114,8 +115,9 @@ void ZmqClient::createSocket()
     req_socket = new_socket;
     LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
   }
-  catch (...)
+  catch (std::exception& e)
   {
+    LOG_PRINT_L2("Exception thrown while creating ZMQ Socket at: " << connect_address + ", e.what(): " << e.what());
     if (new_socket)
     {
       delete new_socket;
