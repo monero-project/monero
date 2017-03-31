@@ -377,6 +377,7 @@ namespace cryptonote
   void miner::pause()
   {
     CRITICAL_REGION_LOCAL(m_miners_count_lock);
+    MDEBUG("miner::pause: " << m_pausers_count << " -> " << (m_pausers_count + 1));
     ++m_pausers_count;
     if(m_pausers_count == 1 && is_mining())
       MDEBUG("MINING PAUSED");
@@ -385,6 +386,7 @@ namespace cryptonote
   void miner::resume()
   {
     CRITICAL_REGION_LOCAL(m_miners_count_lock);
+    MDEBUG("miner::resume: " << m_pausers_count << " -> " << (m_pausers_count - 1));
     --m_pausers_count;
     if(m_pausers_count < 0)
     {
