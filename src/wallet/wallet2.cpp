@@ -506,7 +506,7 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
-  m_daemon.connect(daemon_address);
+  m_daemon.connect(m_daemon_address);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
