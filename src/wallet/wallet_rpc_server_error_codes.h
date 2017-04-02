@@ -43,3 +43,4 @@
 #define WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE        -10
 #define WALLET_RPC_ERROR_CODE_WRONG_URI              -11
 #define WALLET_RPC_ERROR_CODE_WRONG_INDEX            -12
+#define WALLET_RPC_ERROR_CODE_NOT_OPEN               -13

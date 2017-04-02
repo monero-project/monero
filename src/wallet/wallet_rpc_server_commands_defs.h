@@ -909,5 +909,61 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_GET_LANGUAGES
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    struct response
+    {
+      std::vector<std::string> languages;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(languages)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CREATE_WALLET
+  {
+    struct request
+    {
+      std::string filename;
+      std::string password;
+      std::string language;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(filename)
+        KV_SERIALIZE(password)
+        KV_SERIALIZE(language)
+      END_KV_SERIALIZE_MAP()
+    };
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_OPEN_WALLET
+  {
+    struct request
+    {
+      std::string filename;
+      std::string password;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(filename)
+        KV_SERIALIZE(password)
+      END_KV_SERIALIZE_MAP()
+    };
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 }
