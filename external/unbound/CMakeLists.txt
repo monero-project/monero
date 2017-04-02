@@ -215,6 +215,11 @@ endif ()
 
 
 if (INSTALL_VENDORED_LIBUNBOUND)
+    if(IOS)
+        set(lib_folder lib-${ARCH})
+    else()
+        set(lib_folder lib)
+    endif()
     install(TARGETS unbound
-        ARCHIVE DESTINATION lib)
+        ARCHIVE DESTINATION ${lib_folder})
 endif()    

@@ -93,7 +93,7 @@ endif()
 # Because of the way Qt works on android with JNI, the code does not live in the main android thread
 # So this code runs with a 1 MB default stack size. 
 # This will force the use of the heap for the allocation of the scratchpad
-if (ANDROID)
+if (ANDROID OR IOS)
   if( BUILD_GUI_DEPS )
     add_definitions(-DFORCE_USE_HEAP=1)
   endif()

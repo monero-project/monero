@@ -132,8 +132,13 @@ if (BUILD_GUI_DEPS)
         list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt
     endforeach()
     add_library(wallet_merged STATIC ${objlibs})
+    if(IOS)
+        set(lib_folder lib-${ARCH})
+    else()
+        set(lib_folder lib)
+    endif()
     install(TARGETS wallet_merged
-        ARCHIVE DESTINATION lib)
+        ARCHIVE DESTINATION ${lib_folder})
 
     install(FILES ${wallet_api_headers}
         DESTINATION include/wallet)
