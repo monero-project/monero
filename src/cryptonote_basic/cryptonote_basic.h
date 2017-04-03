@@ -208,7 +208,7 @@ namespace cryptonote
     void invalidate_hashes();
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
-    bool is_blob_size_valid() const { return hash_valid.load(std::memory_order_acquire); }
+    bool is_blob_size_valid() const { return blob_size_valid.load(std::memory_order_acquire); }
     void set_blob_size_valid(bool v) const { blob_size_valid.store(v,std::memory_order_release); }
 
     BEGIN_SERIALIZE_OBJECT()
