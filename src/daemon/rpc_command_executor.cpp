@@ -960,7 +960,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   size_t avg_bytes = n_transactions ? bytes / n_transactions : 0;
 
   tools::msg_writer() << n_transactions << " tx(es), " << bytes << " bytes total (min " << min_bytes << ", max " << max_bytes << ", avg " << avg_bytes << ")" << std::endl
-      << "fees " << cryptonote::print_money(fee) << " (avg " << cryptonote::print_money(n_transactions ? fee / n_transactions : 0) << " per tx)" << std::endl
+      << "fees " << cryptonote::print_money(fee) << " (avg " << cryptonote::print_money(n_transactions ? fee / n_transactions : 0) << " per tx" << ", " << cryptonote::print_money(bytes ? fee / bytes : 0) << " per byte )" << std::endl
       << n_not_relayed << " not relayed, " << n_failing << " failing, " << n_10m << " older than 10 minutes (oldest " << (oldest == 0 ? "-" : get_human_time_ago(oldest, now)) << ")" << std::endl;
 
   return true;
