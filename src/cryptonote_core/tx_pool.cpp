@@ -258,7 +258,7 @@ namespace cryptonote
 
     m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
 
-    MINFO("Transaction " << id << " added to pool");
+    MINFO("Transaction added to pool: txid " << id << " bytes: " << blob_size << " fee/byte: " << (fee / (double)blob_size));
     return true;
   }
   //---------------------------------------------------------------------------------
