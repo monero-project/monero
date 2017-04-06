@@ -751,7 +751,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_timestamps = timestamps;
     m_difficulties = difficulties;
   }
-  size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+  size_t target = get_difficulty_target();
   return next_difficulty(timestamps, difficulties, target);
 }
 //------------------------------------------------------------------
@@ -4073,6 +4073,11 @@ HardFork::State Blockchain::get_hard_fork_state() const
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
+}
+
+uint64_t Blockchain::get_difficulty_target() const
+{
+  return get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 }
 
 std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const
