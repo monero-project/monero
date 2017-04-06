@@ -69,7 +69,7 @@ namespace rpc
 
       virtual ~Message() { }
 
-      virtual rapidjson::Value toJson(rapidjson::Document& doc);
+      virtual rapidjson::Value toJson(rapidjson::Document& doc) const;
 
       virtual void fromJson(rapidjson::Value& val);
 

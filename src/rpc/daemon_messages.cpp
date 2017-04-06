@@ -61,7 +61,7 @@ const char* const GetPerKBFeeEstimate::name = "get_dynamic_per_kb_fee_estimate";
 
 
 
-rapidjson::Value GetHeight::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetHeight::Request::toJson(rapidjson::Document& doc) const
 {
   return Message::toJson(doc);
 }
@@ -70,7 +70,7 @@ void GetHeight::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetHeight::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetHeight::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -87,7 +87,7 @@ void GetHeight::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -105,7 +105,7 @@ void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, start_height, start_height);
 }
 
-rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -128,7 +128,7 @@ void GetBlocksFast::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetHashesFast::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -146,7 +146,7 @@ void GetHashesFast::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, start_height, start_height);
 }
 
-rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetHashesFast::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -167,7 +167,7 @@ void GetHashesFast::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTransactions::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -183,7 +183,7 @@ void GetTransactions::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, tx_hashes, tx_hashes);
 }
 
-rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTransactions::Response::toJson(rapidjson::Document& doc) const
 {
   rapidjson::Value val(rapidjson::kObjectType);
 
@@ -202,7 +202,7 @@ void GetTransactions::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value KeyImagesSpent::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -218,7 +218,7 @@ void KeyImagesSpent::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, key_images, key_images);
 }
 
-rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value KeyImagesSpent::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -235,7 +235,7 @@ void KeyImagesSpent::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTxGlobalOutputIndices::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -251,7 +251,7 @@ void GetTxGlobalOutputIndices::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, tx_hash, tx_hash);
 }
 
-rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTxGlobalOutputIndices::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -268,7 +268,7 @@ void GetTxGlobalOutputIndices::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetRandomOutputsForAmounts::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -286,7 +286,7 @@ void GetRandomOutputsForAmounts::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, count, count);
 }
 
-rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetRandomOutputsForAmounts::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -303,7 +303,7 @@ void GetRandomOutputsForAmounts::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value SendRawTx::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -321,7 +321,7 @@ void SendRawTx::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, relay, relay);
 }
 
-rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -338,7 +338,7 @@ void SendRawTx::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetInfo::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetInfo::Request::toJson(rapidjson::Document& doc) const
 {
   return Message::toJson(doc);
 }
@@ -347,7 +347,7 @@ void GetInfo::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -388,7 +388,7 @@ void GetInfo::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value SaveBC::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value SaveBC::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -401,7 +401,7 @@ void SaveBC::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value SaveBC::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value SaveBC::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -415,7 +415,7 @@ void SaveBC::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHash::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -431,7 +431,7 @@ void GetBlockHash::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, height, height);
 }
 
-rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHash::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -448,7 +448,7 @@ void GetBlockHash::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetLastBlockHeader::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetLastBlockHeader::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -461,7 +461,7 @@ void GetLastBlockHeader::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetLastBlockHeader::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -478,7 +478,7 @@ void GetLastBlockHeader::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetBlockHeaderByHash::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHeaderByHash::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -494,7 +494,7 @@ void GetBlockHeaderByHash::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, hash, hash);
 }
 
-rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHeaderByHash::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -511,7 +511,7 @@ void GetBlockHeaderByHash::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetBlockHeaderByHeight::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHeaderByHeight::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -527,7 +527,7 @@ void GetBlockHeaderByHeight::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, height, height);
 }
 
-rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -544,7 +544,7 @@ void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetPeerList::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetPeerList::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -557,7 +557,7 @@ void GetPeerList::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetPeerList::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -576,7 +576,7 @@ void GetPeerList::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value SetLogLevel::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value SetLogLevel::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -592,7 +592,7 @@ void SetLogLevel::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, level, level);
 }
 
-rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value SetLogLevel::Response::toJson(rapidjson::Document& doc) const
 {
   return Message::toJson(doc);
 }
@@ -602,7 +602,7 @@ void SetLogLevel::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetTransactionPool::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTransactionPool::Request::toJson(rapidjson::Document& doc) const
 {
   return Message::toJson(doc);
 }
@@ -611,7 +611,7 @@ void GetTransactionPool::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetTransactionPool::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -630,7 +630,7 @@ void GetTransactionPool::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value HardForkInfo::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -646,7 +646,7 @@ void HardForkInfo::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, version, version);
 }
 
-rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value HardForkInfo::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -663,7 +663,7 @@ void HardForkInfo::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetOutputHistogram::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -687,7 +687,7 @@ void GetOutputHistogram::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, recent_cutoff, recent_cutoff);
 }
 
-rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetOutputHistogram::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -704,7 +704,7 @@ void GetOutputHistogram::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetOutputKeys::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetOutputKeys::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -720,7 +720,7 @@ void GetOutputKeys::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, outputs, outputs);
 }
 
-rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetOutputKeys::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -737,7 +737,7 @@ void GetOutputKeys::Response::fromJson(rapidjson::Value& val)
 }
 
 
-rapidjson::Value GetRPCVersion::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetRPCVersion::Request::toJson(rapidjson::Document& doc) const
 {
   return Message::toJson(doc);
 }
@@ -746,7 +746,7 @@ void GetRPCVersion::Request::fromJson(rapidjson::Value& val)
 {
 }
 
-rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetRPCVersion::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -762,7 +762,7 @@ void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, version, version);
 }
 
-rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc)
+rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -778,7 +778,7 @@ void GetPerKBFeeEstimate::Request::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, num_grace_blocks, num_grace_blocks);
 }
 
-rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc)
+rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 

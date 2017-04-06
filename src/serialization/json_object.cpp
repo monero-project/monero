@@ -691,6 +691,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx
   val.SetObject();
 
   INSERT_INTO_JSON_OBJECT(val, doc, tx, tx.tx);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_hash, tx.tx_hash);
   INSERT_INTO_JSON_OBJECT(val, doc, blob_size, tx.blob_size);
   INSERT_INTO_JSON_OBJECT(val, doc, fee, tx.fee);
   INSERT_INTO_JSON_OBJECT(val, doc, max_used_block_hash, tx.max_used_block_hash);
@@ -701,6 +702,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx
   INSERT_INTO_JSON_OBJECT(val, doc, receive_time, tx.receive_time);
   INSERT_INTO_JSON_OBJECT(val, doc, last_relayed_time, tx.last_relayed_time);
   INSERT_INTO_JSON_OBJECT(val, doc, relayed, tx.relayed);
+  INSERT_INTO_JSON_OBJECT(val, doc, do_not_relay, tx.do_not_relay);
 }
 
 

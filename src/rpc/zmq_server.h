@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,33 +27,58 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include <boost/program_options.hpp>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#include <boost/thread/thread.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include "common/command_line.h"
 
-namespace daemonize {
+#include <zmq.hpp>
+#include <string>
 
-struct t_internals;
+#include "rpc_handler.h"
 
-class t_daemon final {
-public:
-  static void init_options(boost::program_options::options_description & option_spec);
-private:
-  void stop_p2p();
-private:
-  std::unique_ptr<t_internals> mp_internals;
-  std::string zmq_rpc_bind_address;
-  std::string zmq_rpc_bind_port;
-public:
-  t_daemon(
-      boost::program_options::variables_map const & vm
-    );
-  t_daemon(t_daemon && other);
-  t_daemon & operator=(t_daemon && other);
-  ~t_daemon();
+namespace cryptonote
+{
 
-  bool run(bool interactive = false);
-  void stop();
+namespace rpc
+{
+
+static constexpr int DEFAULT_NUM_ZMQ_THREADS = 1;
+static constexpr int DEFAULT_RPC_RECV_TIMEOUT_MS = 1000;
+
+class ZmqServer
+{
+  public:
+
+    ZmqServer(RpcHandler& h);
+
+    ~ZmqServer();
+
+    static void init_options(boost::program_options::options_description& desc);
+
+    void serve();
+
+    bool addIPCSocket(std::string address, std::string port);
+    bool addTCPSocket(std::string address, std::string port);
+
+    void run();
+    void stop();
+
+  private:
+    RpcHandler& handler;
+
+    volatile bool stop_signal;
+    volatile bool running;
+
+    zmq::context_t context;
+
+    boost::thread run_thread;
+
+    std::vector<zmq::socket_t*> sockets;
 };
-}
+
+
+}  // namespace cryptonote
+
+}  // namespace rpc

@@ -80,11 +80,10 @@ namespace rpc
     uint64_t last_seen;
   };
 
-  // hate to duplicate tx_memory_pool::tx_details here, but
-  // including tx_pool.h seems unnecessarily heavy
   struct tx_in_pool
   {
     cryptonote::transaction tx;
+    crypto::hash tx_hash;
     uint64_t blob_size;
     uint64_t fee;
     crypto::hash max_used_block_hash;
@@ -93,12 +92,12 @@ namespace rpc
     crypto::hash last_failed_block_hash;
     uint64_t last_failed_block_height;
     uint64_t receive_time;
-
-    // parameters present in tx_memory_pool::tx_details but
-    // not in the old RPC.  May as well include.
     uint64_t last_relayed_time;
     bool relayed;
+    bool do_not_relay;
   };
+
+  typedef std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images_with_tx_hashes;
 
   struct output_amount_count
   {

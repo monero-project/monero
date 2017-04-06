@@ -45,14 +45,11 @@ const char* Message::STATUS_FAILED = "Failed";
 const char* Message::STATUS_BAD_REQUEST = "Invalid request type";
 const char* Message::STATUS_BAD_JSON = "Malformed json";
 
-rapidjson::Value Message::toJson(rapidjson::Document& doc)
+rapidjson::Value Message::toJson(rapidjson::Document& doc) const
 {
   rapidjson::Value val(rapidjson::kObjectType);
 
   auto& al = doc.GetAllocator();
-
-  // if status not explicitly set, assume OK.
-  if (status.empty()) status = STATUS_OK;
 
   val.AddMember("status", rapidjson::StringRef(status.c_str()), al);
   val.AddMember("error_details", rapidjson::StringRef(error_details.c_str()), al);
