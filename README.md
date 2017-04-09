@@ -380,7 +380,7 @@ Note: rlwrap will save things like your seed and private keys, if you supply the
 
 # Contributing
 
-If you want to help out, see CONTRIBUTING for a set of guidelines.
+If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
 # Debugging
 
