@@ -80,6 +80,10 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
+# Contributing
+
+If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
+
 ## Monero software updates and consensus protocol changes (hard fork schedule)
 
 Monero uses a fixed-schedule hard fork mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and update their software on a regular schedule. Here is the current schedule, versions, and compatibility.
@@ -377,10 +381,6 @@ While monerod and monero-wallet-cli do not use readline directly, most of the fu
 `rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`
 
 Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
-
-# Contributing
-
-If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
 # Debugging
 
