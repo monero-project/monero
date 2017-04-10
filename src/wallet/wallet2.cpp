@@ -4102,6 +4102,14 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   return size;
 }
 
+static size_t estimate_tx_size(bool use_rct, int n_inputs, int mixin, int n_outputs)
+{
+  if (use_rct)
+    return estimate_rct_tx_size(n_inputs, mixin, n_outputs + 1);
+  else
+    return n_inputs * (mixin+1) * APPROXIMATE_INPUT_BYTES;
+}
+
 std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money) const
 {
   std::vector<size_t> picks;
@@ -4409,7 +4417,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
     else
     {
-      while (!dsts.empty() && dsts[0].amount <= available_amount)
+      while (!dsts.empty() && dsts[0].amount <= available_amount && estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()) < TX_SIZE_TARGET(upper_transaction_size_limit))
       {
         // we can fully pay that destination
         LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
@@ -4420,7 +4428,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         pop_index(dsts, 0);
       }
 
-      if (available_amount > 0 && !dsts.empty()) {
+      if (available_amount > 0 && !dsts.empty() && estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()) < TX_SIZE_TARGET(upper_transaction_size_limit)) {
         // we can partially fill that destination
         LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
@@ -4441,11 +4449,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
     else
     {
-      size_t estimated_rct_tx_size;
-      if (use_rct)
-        estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
-      else
-        estimated_rct_tx_size = tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES;
+      const size_t estimated_rct_tx_size = estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size());
       try_tx = dsts.empty() || (estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
     }
 
@@ -4633,11 +4637,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     // here, check if we need to sent tx and start a new one
     LOG_PRINT_L2("Considering whether to create a tx now, " << tx.selected_transfers.size() << " inputs, tx limit "
       << upper_transaction_size_limit);
-    size_t estimated_rct_tx_size;
-    if (use_rct)
-      estimated_rct_tx_size = estimate_rct_tx_size(tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
-    else
-      estimated_rct_tx_size = tx.selected_transfers.size() * (fake_outs_count+1) * APPROXIMATE_INPUT_BYTES;
+    const size_t estimated_rct_tx_size = estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 1);
     bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_size >= TX_SIZE_TARGET(upper_transaction_size_limit));
 
     if (try_tx) {
