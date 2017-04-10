@@ -248,6 +248,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::update, &m_parser, p::_1)
     , "subcommands: check (check if an update is available), download (download it is there is), update (not implemented)"
     );
+    m_command_lookup.set_handler(
+      "relay_tx"
+    , std::bind(&t_command_parser_executor::relay_tx, &m_parser, p::_1)
+    , "Relay a given transaction by its txid"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

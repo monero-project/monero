@@ -153,6 +153,8 @@ public:
   bool print_blockchain_dynamic_stats(uint64_t nblocks);
 
   bool update(const std::string &command);
+
+  bool relay_tx(const std::string &txid);
 };
 
 } // namespace daemonize

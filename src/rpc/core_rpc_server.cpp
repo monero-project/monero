@@ -1588,6 +1588,52 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    bool failed = false;
+    for (const auto &str: req.txids)
+    {
+      cryptonote::blobdata txid_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(str, txid_data))
+      {
+        res.status = std::string("Invalid transaction id: ") + str;
+        failed = true;
+      }
+      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+      cryptonote::transaction tx;
+      bool r = m_core.get_pool_transaction(txid, tx);
+      if (r)
+      {
+        cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+        NOTIFY_NEW_TRANSACTIONS::request r;
+        r.txs.push_back(cryptonote::tx_to_blob(tx));
+        m_core.get_protocol()->relay_transactions(r, fake_context);
+        //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
+      }
+      else
+      {
+        res.status = std::string("Transaction not found in pool: ") + str;
+        failed = true;
+      }
+    }
+
+    if (failed)
+    {
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
