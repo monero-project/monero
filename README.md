@@ -90,8 +90,8 @@ Dates are provided in the format YYYY-MM-DD.
 | ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ |
 | 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
 | 2017-01-05        | v4                | v0.10.1                 | v0.10.2.1                   | Allow normal and RingCT transactions |
-| 2017-04-15        | v5                | v0.10.2.1               | v0.10.3                    | Adjusted minimum blocksize and fee algorithm      |
-| 2017-09-21        | v6                | Not determined as of 2017-03-06                | Not determined as of 2017-03-06                    | Allow only RingCT transactions      |
+| 2017-04-15        | v5                | v0.10.3.0               | v0.10.3.1                    | Adjusted minimum blocksize and fee algorithm      |
+| 2017-09-21        | v6                | Not determined as of 2017-03-27                | Not determined as of 2017-03-27                    | Allow only RingCT transactions      |
 
 ## Installing Monero from a Package
 
