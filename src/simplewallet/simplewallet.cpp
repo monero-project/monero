@@ -744,6 +744,21 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
   }
   else
   {
+
+#define CHECK_SIMPLE_VARIABLE(name, f, help) do \
+  if (args[0] == name) { \
+    if (args.size() <= 1) \
+    { \
+      fail_msg_writer() << "set " << #name << ": " << tr("needs an argument") << " (" << help << ")"; \
+      return true; \
+    } \
+    else \
+    { \
+      f(args); \
+      return true; \
+    } \
+  } while(0)
+
     if (args[0] == "seed")
     {
       if (args.size() == 1)
@@ -757,176 +772,19 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         return true;
       }
     }
-    else if (args[0] == "always-confirm-transfers")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set always-confirm-transfers: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_always_confirm_transfers(args);
-        return true;
-      }
-    }
-    else if (args[0] == "print-ring-members")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set print-ring-members: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_print_ring_members(args);
-        return true;
-      }
-    }
-    else if (args[0] == "store-tx-info")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set store-tx-info: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_store_tx_info(args);
-        return true;
-      }
-    }
-    else if (args[0] == "default-mixin")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set default-mixin: needs an argument (integer >= 2)");
-        return true;
-      }
-      else
-      {
-        set_default_mixin(args);
-        return true;
-      }
-    }
-    else if (args[0] == "auto-refresh")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set auto-refresh: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_auto_refresh(args);
-        return true;
-      }
-    }
-    else if (args[0] == "refresh-type")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set refresh-type: needs an argument:") <<
-          tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)");
-        return true;
-      }
-      else
-      {
-        set_refresh_type(args);
-        return true;
-      }
-    }
-    else if (args[0] == "priority")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set priority: needs an argument: 0, 1, 2, 3, or 4");
-        return true;
-      }
-      else
-      {
-        set_default_priority(args);
-        return true;
-      }
-    }
-    else if (args[0] == "confirm-missing-payment-id")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set confirm-missing-payment-id: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_confirm_missing_payment_id(args);
-        return true;
-      }
-    }
-    else if (args[0] == "ask-password")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set ask-password: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_ask_password(args);
-        return true;
-      }
-    }
-    else if (args[0] == "unit")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set unit: needs an argument (monero, millinero, micronero, nanop, piconero)");
-        return true;
-      }
-      else
-      {
-        set_unit(args);
-        return true;
-      }
-    }
-    else if (args[0] == "min-outputs-count")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set min-outputs-count: needs an argument (unsigned integer)");
-        return true;
-      }
-      else
-      {
-        set_min_output_count(args);
-        return true;
-      }
-    }
-    else if (args[0] == "min-outputs-value")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set min-outputs-value: needs an argument (unsigned integer)");
-        return true;
-      }
-      else
-      {
-        set_min_output_value(args);
-        return true;
-      }
-    }
-    else if (args[0] == "merge-destinations")
-    {
-      if (args.size() <= 1)
-      {
-        fail_msg_writer() << tr("set merge-destinations: needs an argument (0 or 1)");
-        return true;
-      }
-      else
-      {
-        set_merge_destinations(args);
-        return true;
-      }
-    }
+    CHECK_SIMPLE_VARIABLE("always-confirm-transfers", set_always_confirm_transfers, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("print-ring-members", set_print_ring_members, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("default-mixin", set_default_mixin, tr("integer >= 2"));
+    CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
+    CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
+    CHECK_SIMPLE_VARIABLE("confirm-missing-payment-id", set_confirm_missing_payment_id, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("ask-password", set_ask_password, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("unit", set_unit, tr("monero, millinero, micronero, nanop, piconero"));
+    CHECK_SIMPLE_VARIABLE("min-outputs-count", set_min_output_count, tr("unsigned integer"));
+    CHECK_SIMPLE_VARIABLE("min-outputs-value", set_min_output_value, tr("amount"));
+    CHECK_SIMPLE_VARIABLE("merge-destinations", set_merge_destinations, tr("0 or 1"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
