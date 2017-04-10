@@ -514,6 +514,15 @@ namespace cryptonote
     return m_spent_key_images.end() != m_spent_key_images.find(key_im);
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::have_key_images_as_spent(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    for (const auto& image : key_images)
+    {
+      spent.push_back(have_tx_keyimg_as_spent(image));
+    }
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::lock() const
   {
     m_transactions_lock.lock();
@@ -566,6 +575,15 @@ namespace cryptonote
 
     //transaction is ok.
     return true;
+  }
+
+  //---------------------------------------------------------------------------------
+    void tx_memory_pool::get_transactions_and_key_images(transactions_container& txs, key_images_container& key_images) const
+  {
+    // need to lock so the transactions container doesn't change during copy
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    txs = m_transactions;
+    key_images = m_spent_key_images;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_key_images(const std::unordered_set<crypto::key_image>& k_images, const transaction& tx)

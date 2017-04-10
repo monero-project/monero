@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017, The Monero Project
+# Copyright (c) 2016, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,76 +26,29 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(unit_tests_sources
-  address_from_url.cpp
-  ban.cpp
-  base58.cpp
-  blockchain_db.cpp
-  block_reward.cpp
-  canonical_amounts.cpp
-  chacha8.cpp
-  checkpoints.cpp
-  command_line.cpp
-  decompose_amount_into_digits.cpp
-  dns_resolver.cpp
-  epee_boosted_tcp_server.cpp
-  epee_levin_protocol_handler_async.cpp
-  epee_utils.cpp
-  fee.cpp
-  get_xtype_from_string.cpp
-  json_serialization.cpp
-  http_auth.cpp
-  http.cpp
-  main.cpp
-  mnemonics.cpp
-  mul_div.cpp
-  parse_amount.cpp
-  serialization.cpp
-  slow_memmem.cpp
-  test_tx_utils.cpp
-  test_peerlist.cpp
-  test_protocol_pack.cpp
-  thread_group.cpp
-  hardfork.cpp
-  unbound.cpp
-  uri.cpp
-  varint.cpp
-  ringct.cpp
-  output_selection.cpp
-  vercmp.cpp)
+set(serialization_sources
+  json_object.cpp)
 
-set(unit_tests_headers
-  unit_tests_utils.h)
+set(serialization_headers)
 
-add_executable(unit_tests
-  ${unit_tests_sources}
-  ${unit_tests_headers})
-target_link_libraries(unit_tests
-  PRIVATE
-    ringct
+set(serialization_private_headers
+  json_object.h)
+
+monero_private_headers(serialization
+  ${serialization_private_headers})
+monero_add_library(serialization
+  ${serialization_sources}
+  ${serialization_headers}
+  ${serialization_private_headers})
+target_link_libraries(serialization
+  LINK_PRIVATE
     cryptonote_core
-    blockchain_db
-    rpc
-    serialization
-    wallet
-    p2p
-    epee
+    cryptonote_protocol
     ${Boost_CHRONO_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${GTEST_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-set_property(TARGET unit_tests
-  PROPERTY
-    FOLDER "tests")
+add_dependencies(serialization
+  version)
 
-if (NOT MSVC)
-  set_property(TARGET unit_tests
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif ()
-
-add_test(
-  NAME    unit_tests
-  COMMAND unit_tests)

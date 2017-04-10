@@ -711,6 +711,11 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::is_testnet() const
+  {
+    return m_testnet;
+  }
+  //-----------------------------------------------------------------------------------------------
   std::pair<uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
   {
     std::list<block> blocks;
@@ -1029,6 +1034,11 @@ namespace cryptonote
   bool core::check_tx_syntax(const transaction& tx) const
   {
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  tx_memory_pool& core::get_pool()
+  {
+    return m_mempool;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions(std::list<transaction>& txs) const

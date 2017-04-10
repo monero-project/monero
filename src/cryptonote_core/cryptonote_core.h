@@ -390,6 +390,13 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      /**
+      * @brief get a reference to the transaction pool
+      *
+      * @return a reference to the transaction pool
+      */
+     tx_memory_pool& get_pool();
+
+     /**
       * @copydoc tx_memory_pool::get_transactions
       *
       * @note see tx_memory_pool::get_transactions
@@ -633,6 +640,13 @@ namespace cryptonote
       * @return true
       */
      bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
+
+     /**
+      * @brief Are we on testnet?
+      *
+      * @return true if on testnet
+      */
+     bool is_testnet() const;
 
      /**
       * @brief get the number of blocks to sync in one go

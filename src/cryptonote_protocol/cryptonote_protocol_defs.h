@@ -31,6 +31,7 @@
 #pragma once
 
 #include <list>
+#include <unordered_map>
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_protocol/blobdatatype.h"

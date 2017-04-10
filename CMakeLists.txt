@@ -658,6 +658,8 @@ endif()
 
 include(version.cmake)
 
+find_library(ZMQ_LIB zmq)
+
 function (treat_warnings_as_errors dirs)
   foreach(dir ${ARGV})
     set_property(DIRECTORY ${dir}

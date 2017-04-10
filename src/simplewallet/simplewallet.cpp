@@ -60,6 +60,7 @@
 #include "ringct/rctSigs.h"
 #include "wallet/wallet_args.h"
 #include <stdexcept>
+#include "rpc/daemon_rpc_version.h"
 
 using namespace std;
 using namespace epee;
@@ -1212,10 +1213,10 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
         "Please make sure daemon is running or restart the wallet with the correct daemon address.");
     return false;
   }
-  if (!m_allow_mismatched_daemon_version && ((*version >> 16) != CORE_RPC_VERSION_MAJOR))
+  if (!m_allow_mismatched_daemon_version && ((*version >> 16) != cryptonote::rpc::DAEMON_RPC_VERSION_MAJOR))
   {
     if (!silent)
-      fail_msg_writer() << boost::format(tr("Daemon uses a different RPC major version (%u) than the wallet (%u): %s. Either update one of them, or use --allow-mismatched-daemon-version.")) % (*version>>16) % CORE_RPC_VERSION_MAJOR % m_wallet->get_daemon_address();
+      fail_msg_writer() << boost::format(tr("Daemon uses a different RPC major version (%u) than the wallet (%u): %s. Either update one of them, or use --allow-mismatched-daemon-version.")) % (*version>>16) % cryptonote::rpc::DAEMON_RPC_VERSION_MAJOR % m_wallet->get_daemon_address();
     return false;
   }
   return true;
@@ -1883,11 +1884,7 @@ uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
     throw std::runtime_error("simple_wallet null wallet");
   }
 
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  bool r = net_utils::invoke_http_json("/getheight", req, res, m_http_client);
-  err = interpret_rpc_response(r, res.status);
-  return res.height;
+  return m_wallet->get_daemon_blockchain_height(err);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
@@ -2353,9 +2350,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
+    for (const auto& outs : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs.first) << ", " << tr("found outputs to mix") << " = " << outs.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -2532,9 +2529,9 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
+    for (const auto& outs : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs.first) << ", " << tr("found outputs to mix") << " = " << outs.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -3083,9 +3080,9 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   {
     auto writer = fail_msg_writer();
     writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
+    for (const auto& outs : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs.first) << ", " << tr("found outputs to mix") << " = " << outs.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)

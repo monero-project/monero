@@ -35,6 +35,7 @@
 #include "transaction_history.h"
 #include "address_book.h"
 #include "common_defines.h"
+#include "rpc/message_data_structs.h"
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
@@ -1088,8 +1089,9 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
         } catch (const tools::error::not_enough_outs_to_mix& e) {
             std::ostringstream writer;
             writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-            for (const std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs()) {
-                writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+            for (const auto& outs : e.scanty_outs())
+            {
+                writer << "\n" << tr("output amount") << " = " << print_money(outs.first) << ", " << tr("found outputs to mix") << " = " << outs.second;
             }
             m_errorString = writer.str();
             m_status = Status_Error;

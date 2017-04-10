@@ -253,6 +253,15 @@ namespace cryptonote
     bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
     /**
+     * @brief for each key image, check if spent in a transaction in the pool
+     *
+     * @param key_images the spent key images to look for
+     *
+     * @return vector of spent or not for each key image
+     */
+    void have_key_images_as_spent(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const;
+
+    /**
      * @brief get a specific transaction from the pool
      *
      * @param h the hash of the transaction to get
@@ -376,6 +385,28 @@ namespace cryptonote
       bool do_not_relay; //!< to avoid relay this transaction to the network
     };
 
+
+    //! map transactions (and related info) by their hashes
+    typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
+
+    //TODO: confirm the below comments and investigate whether or not this
+    //      is the desired behavior
+    //! map key images to transactions which spent them
+    /*! this seems odd, but it seems that multiple transactions can exist
+     *  in the pool which both have the same spent key.  This would happen
+     *  in the event of a reorg where someone creates a new/different
+     *  transaction on the assumption that the original will not be in a
+     *  block again.
+     */
+    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
+
+    /**
+     * @brief get the pool's transactions (with tx_details) and key images (with spending tx hashes)
+     *
+     * @return return-by-reference the pool's transactions and key images
+     */
+    void get_transactions_and_key_images(transactions_container& txs, key_images_container& key_images) const;
+
   private:
 
     /**
@@ -453,20 +484,6 @@ namespace cryptonote
      * @return true if the transaction is good to go, otherwise false
      */
     bool is_transaction_ready_to_go(tx_details& txd) const;
-
-    //! map transactions (and related info) by their hashes
-    typedef std::unordered_map<crypto::hash, tx_details > transactions_container;
-
-    //TODO: confirm the below comments and investigate whether or not this
-    //      is the desired behavior
-    //! map key images to transactions which spent them
-    /*! this seems odd, but it seems that multiple transactions can exist
-     *  in the pool which both have the same spent key.  This would happen
-     *  in the event of a reorg where someone creates a new/different
-     *  transaction on the assumption that the original will not be in a
-     *  block again.
-     */
-    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash> > key_images_container;
 
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 public:

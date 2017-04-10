@@ -38,6 +38,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "include_base_utils.h"
+#include "rpc/message_data_structs.h"
 
 
 namespace tools
@@ -420,9 +421,9 @@ namespace tools
       {
         std::ostringstream ss;
         ss << transfer_error::to_string() << ", mixin_count = " << m_mixin_count << ", scanty_outs:";
-        for (const auto& out: m_scanty_outs)
+        for (const auto& outs : m_scanty_outs)
         {
-          ss << '\n' << cryptonote::print_money(out.first) << " - " << out.second;
+          ss << '\n' << cryptonote::print_money(outs.first) << " - " << outs.second;
         }
         return ss.str();
       }
