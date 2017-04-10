@@ -26,22 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_library(epee STATIC http_auth.cpp mlog.cpp string_tools.cpp)
-# Build and install libepee if we're building for GUI
-if (BUILD_GUI_DEPS)
-    if(IOS)
-        set(lib_folder lib-${ARCH})
-    else()
-        set(lib_folder lib)
-    endif()
-    install(TARGETS epee
-        ARCHIVE DESTINATION ${lib_folder})
-endif()
+cmake_minimum_required(VERSION 2.8.7)
 
-target_link_libraries(epee
-  PUBLIC
-    crypto
-    easylogging
-    ${Boost_FILESYSTEM_LIBRARY}
+project(easylogging CXX)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+find_package(Threads)
+
+add_library(easylogging
+  easylogging++.cc)
+
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(easylogging
   PRIVATE
-    ${EXTRA_LIBRARIES})
+    ${CMAKE_THREAD_LIBS_INIT})
+

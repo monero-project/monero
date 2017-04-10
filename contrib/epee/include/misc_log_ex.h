@@ -49,15 +49,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-#define ELPP_THREAD_SAFE
-#define ELPP_DEFAULT_LOG_FILE ""
-#if !defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__
-#else
-#define ELPP_STACKTRACE_ON_CRASH 1
-#endif
-#define ELPP_DISABLE_DEFAULT_CRASH_HANDLING
-#define ELPP_FEATURE_CRASH_LOG 1
-#define ELPP_DISABLE_CHECK_MACROS
 #include "easylogging++.h"
 
 #define MONERO_DEFAULT_LOG_CATEGORY "default"
@@ -118,7 +109,7 @@
 #define _warn(x) MWARNING(x)
 #define _erro(x) MERROR(x)
 
-#define MLOG_SET_THREAD_NAME(x) el::Loggers::setThreadName(x)
+#define MLOG_SET_THREAD_NAME(x) el::Helpers::setThreadName(x)
 
 #ifndef LOCAL_ASSERT
 #include <assert.h>
