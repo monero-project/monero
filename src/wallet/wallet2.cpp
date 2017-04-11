@@ -675,7 +675,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     std::deque<crypto::key_image> ki(tx.vout.size());
     std::deque<uint64_t> amount(tx.vout.size());
     std::deque<rct::key> mask(tx.vout.size());
-    int threads = tools::get_max_concurrency();
     const cryptonote::account_keys& keys = m_account.get_keys();
     crypto::key_derivation derivation;
     generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
@@ -711,24 +710,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           ++num_vouts_received;
 
           // process the other outs from that tx
-          boost::asio::io_service ioservice;
-          boost::thread_group threadpool;
-          std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
-          for (int i = 0; i < threads; i++)
-          {
-            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-          }
-
           std::vector<uint64_t> money_transfered(tx.vout.size());
           std::deque<bool> error(tx.vout.size());
           std::deque<bool> received(tx.vout.size());
           // the first one was already checked
           for (size_t i = 1; i < tx.vout.size(); ++i)
-          {
-            ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), i,
-              std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
-          }
-          KILL_IOSERVICE();
+            check_acc_out_precomp(keys.m_account_address.m_spend_public_key, tx.vout[i], derivation, i, received[i], money_transfered[i], error[i]);
+
           for (size_t i = 1; i < tx.vout.size(); ++i)
           {
             if (error[i])
@@ -752,50 +740,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               ++num_vouts_received;
             }
           }
-        }
-      }
-    }
-    else if (tx.vout.size() > 1 && threads > 1)
-    {
-      boost::asio::io_service ioservice;
-      boost::thread_group threadpool;
-      std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
-      for (int i = 0; i < threads; i++)
-      {
-        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-      }
-
-      std::vector<uint64_t> money_transfered(tx.vout.size());
-      std::deque<bool> error(tx.vout.size());
-      std::deque<bool> received(tx.vout.size());
-      for (size_t i = 0; i < tx.vout.size(); ++i)
-      {
-        ioservice.dispatch(boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(keys.m_account_address.m_spend_public_key), std::cref(tx.vout[i]), std::cref(derivation), i,
-          std::ref(received[i]), std::ref(money_transfered[i]), std::ref(error[i])));
-      }
-      KILL_IOSERVICE();
-      tx_money_got_in_outs = 0;
-      for (size_t i = 0; i < tx.vout.size(); ++i)
-      {
-        if (error[i])
-        {
-          r = false;
-          break;
-        }
-        if (received[i])
-        {
-          wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
-          THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
-              error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
-
-          outs.push_back(i);
-          if (money_transfered[i] == 0)
-          {
-            money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
-          }
-          tx_money_got_in_outs += money_transfered[i];
-          amount[i] = money_transfered[i];
-          ++num_vouts_received;
         }
       }
     }
@@ -846,11 +790,11 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
       for(size_t o: outs)
       {
-	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
-				  std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
+         THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
+           std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
 
         auto kit = m_pub_keys.find(in_ephemeral[o].pub);
-	THROW_WALLET_EXCEPTION_IF(kit != m_pub_keys.end() && kit->second >= m_transfers.size(),
+            THROW_WALLET_EXCEPTION_IF(kit != m_pub_keys.end() && kit->second >= m_transfers.size(),
             error::wallet_internal_error, std::string("Unexpected transfer index from public key: ")
             + "got " + (kit == m_pub_keys.end() ? "<none>" : boost::lexical_cast<std::string>(kit->second))
             + ", m_transfers.size() is " + boost::lexical_cast<std::string>(m_transfers.size()));
@@ -858,13 +802,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         {
           if (!pool)
           {
-	    m_transfers.push_back(boost::value_initialized<transfer_details>());
-	    transfer_details& td = m_transfers.back();
-	    td.m_block_height = height;
-	    td.m_internal_output_index = o;
-	    td.m_global_output_index = o_indices[o];
-	    td.m_tx = (const cryptonote::transaction_prefix&)tx;
-	    td.m_txid = txid;
+            m_transfers.push_back(boost::value_initialized<transfer_details>());
+            transfer_details& td = m_transfers.back();
+            td.m_block_height = height;
+            td.m_internal_output_index = o;
+            td.m_global_output_index = o_indices[o];
+            td.m_tx = (const cryptonote::transaction_prefix&)tx;
+            td.m_txid = txid;
             td.m_key_image = ki[o];
             td.m_key_image_known = !m_watch_only;
             td.m_amount = tx.vout[o].amount;
@@ -885,12 +829,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_mask = rct::identity();
               td.m_rct = false;
             }
-	    set_unspent(m_transfers.size()-1);
-	    m_key_images[td.m_key_image] = m_transfers.size()-1;
-	    m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
-	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
-	    if (0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount);
+            set_unspent(m_transfers.size()-1);
+            m_key_images[td.m_key_image] = m_transfers.size()-1;
+            m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
+            LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
+
+            if (0 != m_callback)
+              m_callback->on_money_received(height, txid, tx, td.m_amount);
           }
         }
 	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
@@ -1240,73 +1185,7 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   size_t tx_o_indices_idx = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "size mismatch");
-
-  int threads = tools::get_max_concurrency();
-  if (threads > 1)
-  {
-    std::vector<crypto::hash> round_block_hashes(threads);
-    std::vector<cryptonote::block> round_blocks(threads);
-    std::deque<bool> error(threads);
-    size_t blocks_size = blocks.size();
-    std::list<block_complete_entry>::const_iterator blocki = blocks.begin();
-    for (size_t b = 0; b < blocks_size; b += threads)
-    {
-      size_t round_size = std::min((size_t)threads, blocks_size - b);
-
-      boost::asio::io_service ioservice;
-      boost::thread_group threadpool;
-      std::unique_ptr < boost::asio::io_service::work > work(new boost::asio::io_service::work(ioservice));
-      for (size_t i = 0; i < round_size; i++)
-      {
-        threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &ioservice));
-      }
-
-      std::list<block_complete_entry>::const_iterator tmpblocki = blocki;
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        ioservice.dispatch(boost::bind(&wallet2::parse_block_round, this, std::cref(tmpblocki->block),
-          std::ref(round_blocks[i]), std::ref(round_block_hashes[i]), std::ref(error[i])));
-        ++tmpblocki;
-      }
-      KILL_IOSERVICE();
-      tmpblocki = blocki;
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        THROW_WALLET_EXCEPTION_IF(error[i], error::block_parse_error, tmpblocki->block);
-        ++tmpblocki;
-      }
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        const crypto::hash &bl_id = round_block_hashes[i];
-        cryptonote::block &bl = round_blocks[i];
-
-        if(current_index >= m_blockchain.size())
-        {
-          process_new_blockchain_entry(bl, *blocki, bl_id, current_index, o_indices[b+i]);
-          ++blocks_added;
-        }
-        else if(bl_id != m_blockchain[current_index])
-        {
-          //split detected here !!!
-          THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
-            "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-            " (height " + std::to_string(start_height) + "), local block id at this height: " +
-            string_tools::pod_to_hex(m_blockchain[current_index]));
-
-          detach_blockchain(current_index);
-          process_new_blockchain_entry(bl, *blocki, bl_id, current_index, o_indices[b+i]);
-        }
-        else
-        {
-          LOG_PRINT_L2("Block is already in blockchain: " << string_tools::pod_to_hex(bl_id));
-        }
-        ++current_index;
-        ++blocki;
-      }
-    }
-  }
-  else
-  {
+  
   for(auto& bl_entry: blocks)
   {
     cryptonote::block bl;
@@ -1337,7 +1216,6 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
 
     ++current_index;
     ++tx_o_indices_idx;
-  }
   }
 }
 //----------------------------------------------------------------------------------------------------
