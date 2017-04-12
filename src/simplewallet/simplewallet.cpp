@@ -378,7 +378,7 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
   if(orig_pwd_container == boost::none)
   {
     fail_msg_writer() << tr("Your original password was incorrect.");
-    return false;
+    return true;
   }
 
   // prompts for a new password, pass true to verify the password
@@ -392,7 +392,7 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
   catch (const tools::error::wallet_logic_error& e)
   {
     fail_msg_writer() << tr("Error with wallet rewrite: ") << e.what();
-    return false;
+    return true;
   }
 
   return true;
@@ -2199,8 +2199,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
      {
        fail_msg_writer() << tr("transaction cancelled.");
 
-       // would like to return false, because no tx made, but everything else returns true
-       // and I don't know what returning false might adversely affect.  *sigh*
        return true; 
      }
   }
@@ -2294,8 +2292,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         {
           fail_msg_writer() << tr("transaction cancelled.");
 
-          // would like to return false, because no tx made, but everything else returns true
-          // and I don't know what returning false might adversely affect.  *sigh*
           return true; 
         }
     }
@@ -2474,8 +2470,6 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     {
       fail_msg_writer() << tr("transaction cancelled.");
 
-      // would like to return false, because no tx made, but everything else returns true
-      // and I don't know what returning false might adversely affect.  *sigh*
       return true;
     }
 
@@ -2692,8 +2686,6 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
      {
        fail_msg_writer() << tr("transaction cancelled.");
 
-       // would like to return false, because no tx made, but everything else returns true
-       // and I don't know what returning false might adversely affect.  *sigh*
        return true; 
      }
   }
@@ -2739,8 +2731,6 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
     {
       fail_msg_writer() << tr("transaction cancelled.");
 
-      // would like to return false, because no tx made, but everything else returns true
-      // and I don't know what returning false might adversely affect.  *sigh*
       return true;
     }
 
@@ -3159,7 +3149,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
-    return false;
+    return true;
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -3844,7 +3834,7 @@ bool simple_wallet::set_tx_note(const std::vector<std::string> &args)
   if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
-    return false;
+    return true;
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -3872,7 +3862,7 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
   if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
-    return false;
+    return true;
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -4172,7 +4162,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   if(!epee::string_tools::parse_hexstr_to_binbuff(args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
     fail_msg_writer() << tr("failed to parse txid");
-    return false;
+    return true;
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
