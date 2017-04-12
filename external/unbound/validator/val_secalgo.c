@@ -345,7 +345,11 @@ setup_key_digest(int algo, EVP_PKEY** evp_key, const EVP_MD** digest_type,
 					"EVP_PKEY_assign_DSA failed");
 				return 0;
 			}
+#ifdef HAVE_EVP_DSS1
 			*digest_type = EVP_dss1();
+#else
+			*digest_type = EVP_sha1();
+#endif
 
 			break;
 		case LDNS_RSASHA1:
