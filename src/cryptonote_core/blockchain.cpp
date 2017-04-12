@@ -3665,6 +3665,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     std::vector<std::unordered_map<crypto::hash, crypto::hash>> maps(threads);
     std::vector < std::vector < block >> blocks(threads);
     auto it = blocks_entry.begin();
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
 
     for (uint64_t i = 0; i < threads; i++)
     {
@@ -3724,7 +3726,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
       m_blocks_longhash_table.clear();
       for (uint64_t i = 0; i < threads; i++)
       {
-        thread_list.push_back(new boost::thread(&Blockchain::block_longhash_worker, this, height + (i * batches), std::cref(blocks[i]), std::ref(maps[i])));
+        thread_list.push_back(new boost::thread(attrs, boost::bind(&Blockchain::block_longhash_worker, this, height + (i * batches), std::cref(blocks[i]), std::ref(maps[i]))));
       }
 
       for (size_t j = 0; j < thread_list.size(); j++)
