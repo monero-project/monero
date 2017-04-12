@@ -1110,56 +1110,6 @@ void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::bl
     bl_id = get_block_hash(bl);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices)
-{
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-  req.block_ids = short_chain_history;
-
-  uint32_t rpc_version;
-  boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_version(rpc_version);
-  // no error
-  if (!!result)
-  {
-    // empty string -> not connection
-    THROW_WALLET_EXCEPTION_IF(result->empty(), tools::error::no_connection_to_daemon, "getversion");
-    THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
-    if (*result != CORE_RPC_STATUS_OK)
-    {
-      MDEBUG("Cannot determined daemon RPC version, not asking for pruned blocks");
-      req.prune = false; // old daemon
-    }
-  }
-  else
-  {
-    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 7))
-    {
-      MDEBUG("Daemon is recent enough, asking for pruned blocks");
-      req.prune = true;
-    }
-    else
-    {
-      MDEBUG("Daemon is too old, not asking for pruned blocks");
-      req.prune = false;
-    }
-  }
-
-  req.start_height = start_height;
-  m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_bin("/getblocks.bin", req, res, m_http_client, rpc_timeout);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
-  THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
-      "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
-      boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
-
-  blocks_start_height = res.start_height;
-  blocks = res.blocks;
-  o_indices = res.output_indices;
-}
-//----------------------------------------------------------------------------------------------------
 void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes)
 {
   cryptonote::COMMAND_RPC_GET_HASHES_FAST::request req = AUTO_VAL_INIT(req);
@@ -1229,32 +1179,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched)
 {
   bool received_money = false;
   refresh(start_height, blocks_fetched, received_money);
-}
-//----------------------------------------------------------------------------------------------------
-void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, bool &error)
-{
-  error = false;
-
-  try
-  {
-    // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-    cryptonote::block bl;
-    std::list<cryptonote::block_complete_entry>::const_reverse_iterator i = prev_blocks.rbegin();
-    for (size_t n = 0; n < std::min((size_t)3, prev_blocks.size()); ++n)
-    {
-      bool ok = cryptonote::parse_and_validate_block_from_blob(i->block, bl);
-      THROW_WALLET_EXCEPTION_IF(!ok, error::block_parse_error, i->block);
-      short_chain_history.push_front(cryptonote::get_block_hash(bl));
-      ++i;
-    }
-
-    // pull the new blocks
-    pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
-  }
-  catch(...)
-  {
-    error = true;
-  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::update_pool_state()
@@ -1546,7 +1470,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 {
   received_money = false;
   blocks_fetched = 0;
-  uint64_t added_blocks = 0;
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? m_transfers.back().m_txid : null_hash;
   std::list<crypto::hash> short_chain_history;
@@ -1558,55 +1481,40 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
   m_run.store(true, std::memory_order_relaxed);
-  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
+  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) 
+  {
     if (!start_height)
       start_height = m_refresh_from_block_height;
+
     // we can shortcut by only pulling hashes up to the start_height
     fast_refresh(start_height, blocks_start_height, short_chain_history);
+
     // regenerate the history now that we've got a full set of hashes
     short_chain_history.clear();
     get_short_chain_history(short_chain_history);
-    start_height = 0;
-    // and then fall through to regular refresh processing
   }
 
   // If stop() is called during fast refresh we don't need to continue
   if(!m_run.load(std::memory_order_relaxed))
     return;
-  pull_blocks(start_height, blocks_start_height, short_chain_history, blocks, o_indices);
-  // always reset start_height to 0 to force short_chain_ history to be used on
-  // subsequent pulls in this refresh.
-  start_height = 0;
+  
+  sthd_blk_fetcher s_fetch(get_daemon_address(), get_daemon_login());
 
   while(m_run.load(std::memory_order_relaxed))
   {
+    uint64_t added_blocks = 0;
     try
     {
-      // pull the next set of blocks while we're processing the current one
-      uint64_t next_blocks_start_height;
-      std::list<cryptonote::block_complete_entry> next_blocks;
-      std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> next_o_indices;
-      bool error = false;
-      pull_thread = boost::thread([&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, next_o_indices, error);});
-
+      s_fetch.pull_blocks(blocks_start_height, short_chain_history, blocks, o_indices);
       process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
       blocks_fetched += added_blocks;
-      pull_thread.join();
-      if(blocks_start_height == next_blocks_start_height)
+
+      short_chain_history.push_front(m_blockchain.back());
+
+      if(added_blocks == 0)
       {
         m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
-      }
-
-      // switch to the new blocks from the daemon
-      blocks_start_height = next_blocks_start_height;
-      blocks = next_blocks;
-      o_indices = next_o_indices;
-
-      // handle error from async fetching thread
-      if (error)
-      {
-        throw std::runtime_error("proxy exception in refresh thread");
       }
     }
     catch (const std::exception&)

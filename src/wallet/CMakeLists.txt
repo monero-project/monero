@@ -32,6 +32,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
   wallet2.cpp
+  wallet_para_helpers.cpp
   wallet_args.cpp
   node_rpc_proxy.cpp
   api/wallet.cpp
