@@ -73,6 +73,7 @@ namespace nodetool
   {
     const int64_t default_limit_up = 2048;
     const int64_t default_limit_down = 8192;
+    const int64_t LAST_SEEN_EVICT_THRESHOLD = 3600 * 24 * 10; // 10 days before removing from gray list
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol", "0.0.0.0"};
     const command_line::arg_descriptor<std::string> arg_p2p_bind_port = {
         "p2p-bind-port"
@@ -1824,9 +1825,12 @@ namespace nodetool
     bool success = check_connection_and_handshake_with_peer(pe.adr, pe.last_seen);
 
     if (!success) {
-      m_peerlist.remove_from_peer_gray(pe);
+      time_t now = time(NULL);
+      if (now - pe.last_seen >= LAST_SEEN_EVICT_THRESHOLD) {
+        m_peerlist.remove_from_peer_gray(pe);
 
-      LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
+        LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip) << " Peer ID: " << std::hex << pe.id);
+      }
 
       return true;
     }
