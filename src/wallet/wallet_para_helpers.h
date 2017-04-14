@@ -35,6 +35,14 @@
 #pragma once
 
 #include <string>
+#include <queue>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <exception>
+#include <stdexcept>
+#include <assert.h>
 
 #include "include_base_utils.h"
 #include "wallet_errors.h"
@@ -46,14 +54,48 @@
 #include "crypto/hash.h"
 
 //COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT=1000
+//BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT=10000 
 namespace tools
 {
+
+//Structure for efficiently managing memory alloc
+struct blk_batch
+{
+	size_t start_height; //32-bits will be good for another 1000 years
+	std::list<cryptonote::block_complete_entry> blocks; //vector is a much more appropriate structure here
+	std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
+	
+	blk_batch()
+	{
+	}
+	
+	blk_batch(blk_batch&& from) : 
+		start_height(from.start_height), blocks(std::move(from.blocks)), o_indices(std::move(from.o_indices))
+	{
+		
+	}
+	
+	blk_batch& operator=(blk_batch&& from)
+	{
+		assert(this != &from);
+		
+		start_height = from.start_height;
+		blocks = std::move(from.blocks);
+		o_indices = std::move(from.o_indices);
+		
+		return *this;
+	}
+	
+	// Delete the copy operators to make sure we are moving
+	blk_batch(blk_batch const&) = delete;
+	blk_batch& operator=(blk_batch const&) = delete;
+};
 
 class sthd_blk_fetcher
 {
 public:
 	sthd_blk_fetcher(const std::string &daemon_address, boost::optional<epee::net_utils::http::login> daemon_login);
-	void pull_blocks(uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices);
+	void pull_blocks(const std::list<crypto::hash> &short_chain_history, blk_batch &output);
 
 private:
 	void check_rpc_connect();
@@ -63,6 +105,36 @@ private:
 	
 	epee::net_utils::http::http_simple_client m_http_client;
 	uint32_t m_rpc_version;
+};
+
+//Since network is not exactly a CPU intensive task, one size will fit all
+class mthd_blk_fetcher
+{
+public:
+	mthd_blk_fetcher(size_t max_q_cap, const std::string &daemon_address, boost::optional<epee::net_utils::http::login> daemon_login);
+	void start_fetching(std::list<crypto::hash> &&short_chain_history);
+	bool get_batch(blk_batch &output);
+	void join_thread();
+	
+private:
+	bool is_finished();
+	void fetch_thd_main();
+	
+	sthd_blk_fetcher fetcher;
+		
+	std::thread thd;
+	std::atomic<bool> thd_exit;
+	std::atomic<bool> thd_run;
+
+	size_t max_q_cap;
+	std::mutex q_cvm;
+	std::condition_variable cv_q_nempty;
+	std::condition_variable cv_q_nfull;
+	std::queue<blk_batch> dataq;
+	
+	std::exception_ptr error;
+	
+	std::list<crypto::hash> fetched_history;
 };
 
 }

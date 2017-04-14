@@ -1498,20 +1498,23 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   if(!m_run.load(std::memory_order_relaxed))
     return;
   
-  sthd_blk_fetcher s_fetch(get_daemon_address(), get_daemon_login());
-
+  mthd_blk_fetcher m_fetch(tools::get_max_concurrency() * 8, get_daemon_address(), get_daemon_login());
+  m_fetch.start_fetching(std::move(short_chain_history));
+  
   while(m_run.load(std::memory_order_relaxed))
   {
     uint64_t added_blocks = 0;
+    blk_batch batch;
+    
     try
     {
-      s_fetch.pull_blocks(blocks_start_height, short_chain_history, blocks, o_indices);
-      process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
-      blocks_fetched += added_blocks;
-
-      short_chain_history.push_front(m_blockchain.back());
-
-      if(added_blocks == 0)
+      added_blocks = 0;
+      if(m_fetch.get_batch(batch))
+      {
+        process_blocks(batch.start_height, batch.blocks, batch.o_indices, added_blocks);
+        blocks_fetched += added_blocks;
+      }
+      else
       {
         m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
@@ -1520,8 +1523,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
-      if (pull_thread.joinable())
-        pull_thread.join();
       if(try_count < 3)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
@@ -1534,6 +1535,9 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       }
     }
   }
+  
+  m_fetch.join_thread();
+  
   if(last_tx_hash_id != (m_transfers.size() ? m_transfers.back().m_txid : null_hash))
     received_money = true;
 
