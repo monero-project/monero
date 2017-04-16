@@ -36,10 +36,10 @@
 
 #include <string>
 #include <queue>
-#include <thread>
 #include <atomic>
-#include <mutex>
-#include <condition_variable>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include <exception>
 #include <stdexcept>
 #include <assert.h>
@@ -122,14 +122,14 @@ private:
 	
 	sthd_blk_fetcher fetcher;
 		
-	std::thread thd;
+	boost::thread thd;
 	std::atomic<bool> thd_exit;
 	std::atomic<bool> thd_run;
 
 	size_t max_q_cap;
-	std::mutex q_cvm;
-	std::condition_variable cv_q_nempty;
-	std::condition_variable cv_q_nfull;
+	boost::mutex q_cvm;
+	boost::condition_variable cv_q_nempty;
+	boost::condition_variable cv_q_nfull;
 	std::queue<blk_batch> dataq;
 	
 	std::exception_ptr error;

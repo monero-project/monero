@@ -167,7 +167,7 @@ void mthd_blk_fetcher::fetch_thd_main()
 			}
 			
 			//Lock and update mutex
-			std::unique_lock<std::mutex> lock(q_cvm);
+			boost::unique_lock<boost::mutex> lock(q_cvm);
 			cv_q_nfull.wait(lock, [this]{ return !(dataq.size() >= max_q_cap); } );
 			dataq.push(std::move(local_data));
 			lock.unlock();
@@ -189,7 +189,7 @@ void mthd_blk_fetcher::start_fetching(std::list<crypto::hash> &&short_chain_hist
 	thd_exit.store(false, std::memory_order_relaxed);
 	thd_run.store(true, std::memory_order_relaxed);
 	
-	thd = std::thread(&mthd_blk_fetcher::fetch_thd_main, this);
+	thd = boost::thread(&mthd_blk_fetcher::fetch_thd_main, this);
 }
 
 
@@ -198,7 +198,7 @@ void mthd_blk_fetcher::join_thread()
 	thd_run.store(false, std::memory_order_relaxed);
 	
 	//Dump any data if we are still fetching
-	std::unique_lock<std::mutex> qlock(q_cvm);
+	boost::unique_lock<boost::mutex> qlock(q_cvm);
 	while(!dataq.empty())
 		dataq.pop();
 	qlock.unlock();
@@ -222,7 +222,7 @@ bool mthd_blk_fetcher::is_finished()
 
 bool mthd_blk_fetcher::get_batch(blk_batch &output)
 {
-	std::unique_lock<std::mutex> qlock(q_cvm);
+	boost::unique_lock<boost::mutex> qlock(q_cvm);
 	
 	if(is_finished())
 		return false;
