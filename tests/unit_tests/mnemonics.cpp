@@ -34,16 +34,17 @@
 #include <time.h>
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include "mnemonics/chinese_simplified.h"
+#include "mnemonics/dutch.h"
 #include "mnemonics/english.h"
-#include "mnemonics/spanish.h"
-#include "mnemonics/portuguese.h"
-#include "mnemonics/japanese.h"
+#include "mnemonics/old_english.h"
+#include "mnemonics/french.h"
 #include "mnemonics/german.h"
 #include "mnemonics/italian.h"
+#include "mnemonics/japanese.h"
+#include "mnemonics/portuguese.h"
 #include "mnemonics/russian.h"
-#include "mnemonics/french.h"
-#include "mnemonics/dutch.h"
-#include "mnemonics/old_english.h"
+#include "mnemonics/spanish.h"
 #include "mnemonics/language_base.h"
 #include "mnemonics/singleton.h"
 
@@ -155,15 +156,15 @@ TEST(mnemonics, all_languages)
 {
   srand(time(NULL));
   std::vector<Language::Base*> languages({
+    Language::Singleton<Language::Chinese_Simplified>::instance(),
+    Language::Singleton<Language::Dutch>::instance(),
     Language::Singleton<Language::English>::instance(),
-    Language::Singleton<Language::Spanish>::instance(),
-    Language::Singleton<Language::Portuguese>::instance(),
-    Language::Singleton<Language::Japanese>::instance(),
+    Language::Singleton<Language::French>::instance(),
     Language::Singleton<Language::German>::instance(),
     Language::Singleton<Language::Italian>::instance(),
+    Language::Singleton<Language::Japanese>::instance(),
+    Language::Singleton<Language::Portuguese>::instance(),
     Language::Singleton<Language::Russian>::instance(),
-    Language::Singleton<Language::French>::instance(),
-    Language::Singleton<Language::Dutch>::instance(),
   });
 
   for (std::vector<Language::Base*>::iterator it = languages.begin(); it != languages.end(); it++)
