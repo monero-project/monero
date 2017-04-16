@@ -14,7 +14,7 @@
  * full exclusive copyright is transferred to The Monero Project, which is free to 
  * re-release the work under whatever conditions they see fit.
  * 
- * 3. Unless point 2 comes into effect, this licence will expire on 01/08/2017. All 
+ * 3. Unless point 2 comes into effect, this licence will expire on the 1st of August 2017. All 
  * your rights to use this work will cease. A payment after the date stated will not 
  * be accepted.
  * 
