@@ -51,6 +51,7 @@
 #include <boost/crc.hpp>
 #include <boost/algorithm/string/join.hpp>
 
+#include "chinese_simplified.h"
 #include "english.h"
 #include "dutch.h"
 #include "french.h"
@@ -84,6 +85,7 @@ namespace
   {
     // If there's a new language added, add an instance of it here.
     std::vector<Language::Base*> language_instances({
+      Language::Singleton<Language::Chinese_Simplified>::instance(),
       Language::Singleton<Language::English>::instance(),
       Language::Singleton<Language::Dutch>::instance(),
       Language::Singleton<Language::French>::instance(),
@@ -348,6 +350,10 @@ namespace crypto
       {
         language = Language::Singleton<Language::Russian>::instance();
       }
+      else if (language_name == "Chinese (Simplified)")
+      {
+        language = Language::Singleton<Language::Chinese_Simplified>::instance();
+      }
       else
       {
         return false;
@@ -393,6 +399,7 @@ namespace crypto
     void get_language_list(std::vector<std::string> &languages)
     {
       std::vector<Language::Base*> language_instances({
+        Language::Singleton<Language::Chinese_Simplified>::instance(),
         Language::Singleton<Language::English>::instance(),
         Language::Singleton<Language::Dutch>::instance(),
         Language::Singleton<Language::French>::instance(),

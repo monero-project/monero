@@ -33,6 +33,7 @@ set(mnemonics_headers)
 
 set(mnemonics_private_headers
   electrum-words.h
+  chinese_simplified.h
   english.h
   dutch.h
   french.h
