@@ -240,7 +240,7 @@ namespace crypto
       std::vector<std::string> seed;
 
       boost::algorithm::trim(words);
-      boost::split(seed, words, boost::is_any_of(" "));
+      boost::split(seed, words, boost::is_any_of(" "), boost::token_compress_on);
 
       // error on non-compliant word list
       if (seed.size() != seed_length/2 && seed.size() != seed_length &&
