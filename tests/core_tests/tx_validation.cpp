@@ -163,6 +163,15 @@ namespace
     throw std::runtime_error("invalid public key wasn't found");
     return crypto::public_key();
   }
+
+  crypto::key_image generate_invalid_key_image()
+  {
+    crypto::key_image key_image;
+    // a random key image plucked from the blockchain
+    if (!epee::string_tools::hex_to_pod("6b9f5d1be7c950dc6e4e258c6ef75509412ba9ecaaf90e6886140151d1365b5e", key_image))
+      throw std::runtime_error("invalid key image wasn't found");
+    return key_image;
+  }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -541,8 +550,7 @@ bool gen_tx_key_image_is_invalid::generate(std::vector<test_event_entry>& events
   builder.step2_fill_inputs(miner_account.get_keys(), sources);
 
   txin_to_key& in_to_key = boost::get<txin_to_key>(builder.m_tx.vin.front());
-  crypto::public_key pub = generate_invalid_pub_key();
-  memcpy(&in_to_key.k_image, &pub, sizeof(crypto::ec_point));
+  in_to_key.k_image = generate_invalid_key_image();
 
   builder.step3_fill_outputs(destinations);
   builder.step4_calc_hash();
