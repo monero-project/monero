@@ -952,7 +952,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                                                                           static_cast<uint32_t>(priority),
                                                                           extra, m_trustedDaemon);
             } else {
-                transaction->m_pending_tx = m_wallet->create_transactions_all(addr, fake_outs_count, 0 /* unlock_time */,
+                transaction->m_pending_tx = m_wallet->create_transactions_all(0, addr, fake_outs_count, 0 /* unlock_time */,
                                                                           static_cast<uint32_t>(priority),
                                                                           extra, m_trustedDaemon);
             }

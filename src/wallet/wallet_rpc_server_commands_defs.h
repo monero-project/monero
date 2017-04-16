@@ -234,6 +234,7 @@ namespace wallet_rpc
       uint64_t unlock_time;
       std::string payment_id;
       bool get_tx_keys;
+      uint64_t below_amount;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -242,6 +243,7 @@ namespace wallet_rpc
         KV_SERIALIZE(unlock_time)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(get_tx_keys)
+        KV_SERIALIZE(below_amount)
       END_KV_SERIALIZE_MAP()
     };
 
