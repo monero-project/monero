@@ -891,6 +891,15 @@ void simple_wallet::print_seed(std::string seed)
   std::cout << seed << std::endl;
 }
 //----------------------------------------------------------------------------------------------------
+static bool might_be_partial_seed(std::string words)
+{
+  std::vector<std::string> seed;
+
+  boost::algorithm::trim(words);
+  boost::split(seed, words, boost::is_any_of(" "), boost::token_compress_on);
+  return seed.size() < 24;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   if (!handle_command_line(vm))
@@ -920,14 +929,20 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
       if (m_electrum_seed.empty())
       {
-        m_electrum_seed = command_line::input_line("Specify Electrum seed: ");
-        if (std::cin.eof())
-          return false;
-        if (m_electrum_seed.empty())
+        m_electrum_seed = "";
+        do
         {
-          fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"words list here\"");
-          return false;
-        }
+          const char *prompt = m_electrum_seed.empty() ? "Specify Electrum seed: " : "Electrum seed continued: ";
+          std::string electrum_seed = command_line::input_line(prompt);
+          if (std::cin.eof())
+            return false;
+          if (electrum_seed.empty())
+          {
+            fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"words list here\"");
+            return false;
+          }
+          m_electrum_seed += electrum_seed + " ";
+        } while (might_be_partial_seed(m_electrum_seed));
       }
 
       if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
