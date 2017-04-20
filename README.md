@@ -161,7 +161,7 @@ invokes cmake commands as needed.
 * Install the dependencies
 * Change to the root of the source code directory and build:
 
-        cd monero
+        cd monero-master
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
