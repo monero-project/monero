@@ -2095,6 +2095,7 @@ Storage::Storage(const LogBuilderPtr& defaultLogBuilder) :
   sysLogLogger->reconfigure();
 #endif //  defined(ELPP_SYSLOG)
   addFlag(LoggingFlag::AllowVerboseIfModuleNotSpecified);
+  addFlag(LoggingFlag::CreateLoggerAutomatically);
 #if ELPP_ASYNC_LOGGING
   installLogDispatchCallback<base::AsyncLogDispatchCallback>(std::string("AsyncLogDispatchCallback"));
 #else
