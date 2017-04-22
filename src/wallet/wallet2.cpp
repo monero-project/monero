@@ -3643,7 +3643,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           uint64_t i;
           if (num_found - 1 < recent_outputs_count) // -1 to account for the real one we seeded with
           {
-            // equiprobable distribution over the recent outs
+            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
             uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
             double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
             i = (uint64_t)(frac*num_recent_outs) + num_outs - num_recent_outs;
