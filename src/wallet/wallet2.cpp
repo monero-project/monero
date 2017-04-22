@@ -82,8 +82,8 @@ using namespace cryptonote;
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
 #define SIGNED_TX_PREFIX "Monero signed tx set\003"
 
-#define RECENT_OUTPUT_RATIO (0.25) // 25% of outputs are from the recent zone
-#define RECENT_OUTPUT_ZONE (5 * 86400) // last 5 days are the recent zone
+#define RECENT_OUTPUT_RATIO (0.5) // 50% of outputs are from the recent zone
+#define RECENT_OUTPUT_ZONE ((time_t)(1.8 * 86400)) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
 
 #define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
 
