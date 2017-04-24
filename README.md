@@ -84,6 +84,10 @@ See [LICENSE](LICENSE).
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
+## Vulnerability Response Process
+
+See [Vulnerability Response Process](VULNERABILITY_RESPONSE_PROCESS.md).
+
 ## Monero software updates and consensus protocol changes (hard fork schedule)
 
 Monero uses a fixed-schedule hard fork mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and update their software on a regular schedule. Here is the current schedule, versions, and compatibility.
