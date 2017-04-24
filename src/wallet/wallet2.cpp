@@ -1461,7 +1461,7 @@ void wallet2::update_pool_state()
   std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
   while (uit != m_unconfirmed_payments.end())
   {
-    const crypto::hash &txid = uit->first;
+    const crypto::hash &txid = uit->second.m_tx_hash;
     bool found = false;
     for (const auto &it2: res.tx_hashes)
     {
