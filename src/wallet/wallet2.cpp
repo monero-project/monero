@@ -498,6 +498,12 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const 
   return {make_basic(vm, opts), std::move(*pwd)};
 }
 
+std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::variables_map& vm)
+{
+  const options opts{};
+  return make_basic(vm, opts);
+}
+
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit)
 {
