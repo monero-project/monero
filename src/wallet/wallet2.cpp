@@ -4258,13 +4258,23 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     pending_tx ptx;
     size_t bytes;
 
-    void add(const account_public_address &addr, uint64_t amount, bool merge_destinations) {
-      std::vector<cryptonote::tx_destination_entry>::iterator i;
-      i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &addr, sizeof(addr)); });
-      if (!merge_destinations || i == dsts.end())
-        dsts.push_back(tx_destination_entry(amount,addr));
-      else
+    void add(const account_public_address &addr, uint64_t amount, unsigned int original_output_index, bool merge_destinations) {
+      if (merge_destinations)
+      {
+        std::vector<cryptonote::tx_destination_entry>::iterator i;
+        i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &addr, sizeof(addr)); });
+        if (i == dsts.end())
+          dsts.push_back(tx_destination_entry(0,addr));
         i->amount += amount;
+      }
+      else
+      {
+        THROW_WALLET_EXCEPTION_IF(original_output_index > dsts.size(), error::wallet_internal_error, "original_output_index too large");
+        if (original_output_index == dsts.size())
+          dsts.push_back(tx_destination_entry(0,addr));
+        THROW_WALLET_EXCEPTION_IF(memcmp(&dsts[original_output_index].addr, &addr, sizeof(addr)), error::wallet_internal_error, "Mismatched destination address");
+        dsts[original_output_index].amount += amount;
+      }
     }
   };
   std::vector<TX> txes;
@@ -4353,6 +4363,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // - we have something to send
   // - or we need to gather more fee
   // - or we have just one input in that tx, which is rct (to try and make all/most rct txes 2/2)
+  unsigned int original_output_index = 0;
   while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee || should_pick_a_second_output(use_rct, txes.back().selected_transfers.size(), unused_transfers_indices, unused_dust_indices)) {
     TX &tx = txes.back();
 
@@ -4428,17 +4439,18 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         // we can fully pay that destination
         LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
           " for " << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, dsts[0].amount, m_merge_destinations);
+        tx.add(dsts[0].addr, dsts[0].amount, original_output_index, m_merge_destinations);
         available_amount -= dsts[0].amount;
         dsts[0].amount = 0;
         pop_index(dsts, 0);
+        ++original_output_index;
       }
 
       if (available_amount > 0 && !dsts.empty() && estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()) < TX_SIZE_TARGET(upper_transaction_size_limit)) {
         // we can partially fill that destination
         LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_testnet, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, available_amount, m_merge_destinations);
+        tx.add(dsts[0].addr, available_amount, original_output_index, m_merge_destinations);
         dsts[0].amount -= available_amount;
         available_amount = 0;
       }
