@@ -60,7 +60,7 @@ namespace crypto
   {
 
     const int seed_length = 24;
-    const std::string old_language_name = "OldEnglish";
+    const std::string old_language_name = "EnglishOld";
     /*!
      * \brief Converts seed words to bytes (secret key).
      * \param  words           String containing the words separated by spaces.

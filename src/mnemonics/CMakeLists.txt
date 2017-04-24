@@ -41,7 +41,7 @@ set(mnemonics_private_headers
   italian.h
   japanese.h
   language_base.h
-  old_english.h
+  english_old.h
   portuguese.h
   russian.h
   singleton.h
