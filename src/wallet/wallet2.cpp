@@ -213,8 +213,10 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
   return tools::wallet2::password_prompt(verify);
 }
 
-std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, bool testnet, bool restricted)
+std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, const options& opts)
 {
+  const bool testnet = command_line::get_arg(vm, opts.testnet);
+
   /* GET_FIELD_FROM_JSON_RETURN_ON_ERROR Is a generic macro that can return
   false. Gcc will coerce this into unique_ptr(nullptr), but clang correctly
   fails. This large wrapper is for the use of that macro */
@@ -355,7 +357,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       return false;
     }
 
-    wallet.reset(new tools::wallet2(testnet, restricted));
+    wallet.reset(make_basic(vm, opts).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
 
     try
@@ -467,7 +469,7 @@ boost::optional<password_container> wallet2::password_prompt(const bool new_pass
 std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file)
 {
   const options opts{};
-  return generate_from_json(json_file, command_line::get_arg(vm, opts.testnet), command_line::get_arg(vm, opts.restricted));
+  return generate_from_json(json_file, vm, opts);
 }
 
 std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
