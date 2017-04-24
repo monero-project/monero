@@ -613,7 +613,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint8_t version)
+  bool tx_memory_pool::fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint64_t &expected_reward, uint8_t version)
   {
     // Warning: This function takes already_generated_
     // coins as an argument and appears to do nothing
@@ -705,6 +705,7 @@ namespace cryptonote
       LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
     }
 
+    expected_reward = best_coinbase;
     LOG_PRINT_L2("Block template filled with " << bl.tx_hashes.size() << " txes, size "
         << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase)
         << " (including " << print_money(fee) << " in fees)");

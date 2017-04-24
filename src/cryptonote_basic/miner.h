@@ -51,7 +51,7 @@ namespace cryptonote
   struct i_miner_handler
   {
     virtual bool handle_block_found(block& b) = 0;
-    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, const blobdata& ex_nonce) = 0;
+    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce) = 0;
   protected:
     ~i_miner_handler(){};
   };
