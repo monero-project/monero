@@ -722,32 +722,24 @@ union cn_slow_hash_state
  * key schedule. Don't try to use this for vanilla AES.
 */
 static void aes_expand_key(const uint8_t *key, uint8_t *expandedKey) {
-__asm__("mov x2, %1\n\t" : : "r"(key), "r"(expandedKey));
+static const int rcon[] = {
+	0x01,0x01,0x01,0x01,
+	0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,	// rotate-n-splat
+	0x1b,0x1b,0x1b,0x1b };
 __asm__(
-"	adr	x3,Lrcon\n"
-"\n"
 "	eor	v0.16b,v0.16b,v0.16b\n"
-"	ld1	{v3.16b},[x0],#16\n"
-"	ld1	{v1.4s,v2.4s},[x3],#32\n"
-"	b	L256\n"
-".align 5\n"
-"Lrcon:\n"
-".long	0x01,0x01,0x01,0x01\n"
-".long	0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d	// rotate-n-splat\n"
-".long	0x1b,0x1b,0x1b,0x1b\n"
+"	ld1	{v3.16b},[%0],#16\n"
+"	ld1	{v1.4s,v2.4s},[%2],#32\n"
+"	ld1	{v4.16b},[%0]\n"
+"	mov	w2,#5\n"
+"	st1	{v3.4s},[%1],#16\n"
 "\n"
-".align 4\n"
-"L256:\n"
-"	ld1	{v4.16b},[x0]\n"
-"	mov	w1,#5\n"
-"	st1	{v3.4s},[x2],#16\n"
-"\n"
-"Loop256:\n"
+"1:\n"
 "	tbl	v6.16b,{v4.16b},v2.16b\n"
 "	ext	v5.16b,v0.16b,v3.16b,#12\n"
-"	st1	{v4.4s},[x2],#16\n"
+"	st1	{v4.4s},[%1],#16\n"
 "	aese	v6.16b,v0.16b\n"
-"	subs	w1,w1,#1\n"
+"	subs	w2,w2,#1\n"
 "\n"
 "	eor	v3.16b,v3.16b,v5.16b\n"
 "	ext	v5.16b,v0.16b,v5.16b,#12\n"
@@ -757,8 +749,8 @@ __asm__(
 "	eor	v3.16b,v3.16b,v5.16b\n"
 "	shl	v1.16b,v1.16b,#1\n"
 "	eor	v3.16b,v3.16b,v6.16b\n"
-"	st1	{v3.4s},[x2],#16\n"
-"	b.eq	Ldone\n"
+"	st1	{v3.4s},[%1],#16\n"
+"	b.eq	2f\n"
 "\n"
 "	dup	v6.4s,v3.s[3]		// just splat\n"
 "	ext	v5.16b,v0.16b,v4.16b,#12\n"
@@ -771,9 +763,9 @@ __asm__(
 "	eor	v4.16b,v4.16b,v5.16b\n"
 "\n"
 "	eor	v4.16b,v4.16b,v6.16b\n"
-"	b	Loop256\n"
+"	b	1b\n"
 "\n"
-"Ldone:\n");
+"2:\n" : : "r"(key), "r"(expandedKey), "r"(rcon));
 }
 
 /* An ordinary AES round is a sequence of SubBytes, ShiftRows, MixColumns, AddRoundKey. There

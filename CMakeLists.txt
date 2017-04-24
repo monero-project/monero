@@ -80,9 +80,10 @@ if (ARM_TEST STREQUAL "arm")
   endif()
 endif()
 
-if (ARM_ID STREQUAL "aarch64" OR ARM_ID STREQUAL "arm64")
+if (ARM_ID STREQUAL "aarch64" OR ARM_ID STREQUAL "arm64" OR ARM_ID STREQUAL "armv8-a")
   set(ARM 1)
   set(ARM8 1)
+  set(ARCH "armv8-a")
 endif()
 
 if(WIN32 OR ARM)
