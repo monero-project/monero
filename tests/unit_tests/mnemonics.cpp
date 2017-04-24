@@ -34,6 +34,7 @@
 #include <time.h>
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include "mnemonics/chinese_simplified.h"
 #include "mnemonics/english.h"
 #include "mnemonics/spanish.h"
 #include "mnemonics/portuguese.h"
@@ -155,6 +156,7 @@ TEST(mnemonics, all_languages)
 {
   srand(time(NULL));
   std::vector<Language::Base*> languages({
+    Language::Singleton<Language::Chinese_Simplified>::instance(),
     Language::Singleton<Language::English>::instance(),
     Language::Singleton<Language::Spanish>::instance(),
     Language::Singleton<Language::Portuguese>::instance(),
@@ -163,7 +165,7 @@ TEST(mnemonics, all_languages)
     Language::Singleton<Language::Italian>::instance(),
     Language::Singleton<Language::Russian>::instance(),
     Language::Singleton<Language::French>::instance(),
-    Language::Singleton<Language::Dutch>::instance(),
+    Language::Singleton<Language::Dutch>::instance()
   });
 
   for (std::vector<Language::Base*>::iterator it = languages.begin(); it != languages.end(); it++)
