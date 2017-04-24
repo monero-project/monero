@@ -82,8 +82,8 @@ using namespace cryptonote;
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
 #define SIGNED_TX_PREFIX "Monero signed tx set\003"
 
-#define RECENT_OUTPUT_RATIO (0.25) // 25% of outputs are from the recent zone
-#define RECENT_OUTPUT_ZONE (5 * 86400) // last 5 days are the recent zone
+#define RECENT_OUTPUT_RATIO (0.5) // 50% of outputs are from the recent zone
+#define RECENT_OUTPUT_ZONE ((time_t)(1.8 * 86400)) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
 
 #define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
 
@@ -3651,7 +3651,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           uint64_t i;
           if (num_found - 1 < recent_outputs_count) // -1 to account for the real one we seeded with
           {
-            // equiprobable distribution over the recent outs
+            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
             uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
             double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
             i = (uint64_t)(frac*num_recent_outs) + num_outs - num_recent_outs;
