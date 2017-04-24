@@ -47,6 +47,8 @@ extern "C" {
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
 
+#include "hex.h"
+#include "span.h"
 #include "serialization/serialization.h"
 #include "serialization/debug_archive.h"
 #include "serialization/binary_archive.h"
@@ -443,8 +445,9 @@ namespace cryptonote {
     static inline bool operator!=(const crypto::secret_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
 }
 
-template<typename T> std::ostream &print256(std::ostream &o, const T &v);
-inline std::ostream &operator <<(std::ostream &o, const rct::key &v) { return print256(o, v); }
+inline std::ostream &operator <<(std::ostream &o, const rct::key &v) {
+  epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+}
 
 
 BLOB_SERIALIZER(rct::key);

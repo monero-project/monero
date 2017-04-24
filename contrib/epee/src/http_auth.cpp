@@ -67,6 +67,7 @@
 #include <type_traits>
 
 #include "crypto/crypto.h"
+#include "hex.h"
 #include "md5_l.h"
 #include "string_coding.h"
 
@@ -104,25 +105,6 @@ namespace
 
   //// Digest Algorithms
 
-  template<std::size_t N>
-  std::array<char, N * 2> to_hex(const std::array<std::uint8_t, N>& digest) noexcept
-  {
-    static constexpr const char alphabet[] = u8"0123456789abcdef";
-    static_assert(sizeof(alphabet) == 17, "bad alphabet size");
-
-    // TODO upgrade (improve performance) of to hex in epee string tools
-    std::array<char, N * 2> out{{}};
-    auto current = out.begin();
-    for (const std::uint8_t byte : digest)
-    {
-      *current = alphabet[byte >> 4];
-      ++current;
-      *current = alphabet[byte & 0x0F];
-      ++current;
-    }
-    return out;
-  }
-
   struct md5_
   {
     static constexpr const boost::string_ref name = ceref(u8"MD5");
@@ -156,7 +138,7 @@ namespace
 
       std::array<std::uint8_t, 16> digest{{}};
       md5::MD5Final(digest.data(), std::addressof(ctx));
-      return to_hex(digest);
+      return epee::to_hex::array(digest);
     }
   };
   constexpr const boost::string_ref md5_::name;

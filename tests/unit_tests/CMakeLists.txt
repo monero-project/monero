@@ -36,6 +36,7 @@ set(unit_tests_sources
   chacha8.cpp
   checkpoints.cpp
   command_line.cpp
+  crypto.cpp
   decompose_amount_into_digits.cpp
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
