@@ -264,7 +264,7 @@ monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
 ## Internationalization
 
-See README.i18n
+See [README.i18n](README.i18n).
 
 ## Using Tor
 
