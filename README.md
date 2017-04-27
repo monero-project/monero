@@ -101,6 +101,10 @@ Dates are provided in the format YYYY-MM-DD.
 
 Packages are available for
 
+* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems.
+
+    snap install monero --beta
+
 * Arch Linux (via [AUR](https://aur.archlinux.org/)):
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
   - Bleeding edge: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
