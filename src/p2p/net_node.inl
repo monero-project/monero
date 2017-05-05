@@ -874,6 +874,30 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_peer_used(const anchor_peerlist_entry& peer)
+  {
+    if(m_config.m_peer_id == peer.id) {
+        return true;//dont make connections to ourself
+    }
+
+    bool used = false;
+
+    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    {
+      if(cntxt.peer_id == peer.id || (!cntxt.m_is_income && peer.adr.ip == cntxt.m_remote_ip && peer.adr.port == cntxt.m_remote_port))
+      {
+        used = true;
+
+        return false;//stop enumerating
+      }
+
+      return true;
+    });
+
+    return used;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_addr_connected(const net_address& peer)
   {
     bool connected = false;
@@ -900,7 +924,7 @@ namespace nodetool
   } while(0)
 
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, bool white)
+  bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, PeerType peer_type, uint64_t first_seen_stamp)
   {
     if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
     {
@@ -913,7 +937,7 @@ namespace nodetool
       return false;
     }
     MDEBUG("Connecting to " << epee::string_tools::get_ip_string_from_int32(na.ip)  << ":"
-        << epee::string_tools::num_to_string_fast(na.port) << "(white=" << white << ", last_seen: "
+        << epee::string_tools::num_to_string_fast(na.port) << "(peer_type=" << peer_type << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
         << ")...");
 
@@ -962,6 +986,13 @@ namespace nodetool
     pe_local.last_seen = static_cast<int64_t>(last_seen);
     m_peerlist.append_with_peer_white(pe_local);
     //update last seen and push it to peerlist manager
+
+    anchor_peerlist_entry ape = AUTO_VAL_INIT(ape);
+    ape.adr = na;
+    ape.id = pi;
+    ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
+
+    m_peerlist.append_with_peer_anchor(ape);
 
     LOG_DEBUG_CC(con, "CONNECTION HANDSHAKED OK.");
     return true;
@@ -1029,6 +1060,41 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist)
+  {
+    for (const auto& pe: anchor_peerlist) {
+      _note("Considering connecting (out) to peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)  << ":" << boost::lexical_cast<std::string>(pe.adr.port));
+
+      if(is_peer_used(pe)) {
+        _note("Peer is used");
+        continue;
+      }
+
+      if(!is_remote_ip_allowed(pe.adr.ip)) {
+        continue;
+      }
+
+      if(is_addr_recently_failed(pe.adr)) {
+        continue;
+      }
+
+      MDEBUG("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
+                               << ":" << boost::lexical_cast<std::string>(pe.adr.port)
+                               << "[peer_type=" << anchor
+                               << "] first_seen: " << epee::misc_utils::get_time_interval_string(time(NULL) - pe.first_seen));
+
+      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, 0, anchor, pe.first_seen)) {
+        _note("Handshake failed");
+        continue;
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::make_new_connection_from_peerlist(bool use_white_list)
   {
     size_t local_peers_count = use_white_list ? m_peerlist.get_white_peers_count():m_peerlist.get_gray_peers_count();
@@ -1079,10 +1145,10 @@ namespace nodetool
 
       MDEBUG("Selected peer: " << pe.id << " " << epee::string_tools::get_ip_string_from_int32(pe.adr.ip)
                     << ":" << boost::lexical_cast<std::string>(pe.adr.port)
-                    << "[white=" << use_white_list
+                    << "[peer_list=" << (use_white_list ? white : gray)
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
 
-      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list)) {
+      if(!try_to_connect_and_handshake_with_new_peer(pe.adr, false, pe.last_seen, use_white_list ? white : gray)) {
         _note("Handshake failed");
         continue;
       }
@@ -1144,19 +1210,22 @@ namespace nodetool
     {
       if(conn_count < expected_white_connections)
       {
-        //start from white list
-        if(!make_expected_connections_count(true, expected_white_connections))
+        //start from anchor list
+        if(!make_expected_connections_count(anchor, P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT))
           return false;
-        //and then do grey list
-        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
+        //then do white list
+        if(!make_expected_connections_count(white, expected_white_connections))
+          return false;
+        //then do grey list
+        if(!make_expected_connections_count(gray, m_config.m_net_config.connections_count))
           return false;
       }else
       {
         //start from grey list
-        if(!make_expected_connections_count(false, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(gray, m_config.m_net_config.connections_count))
           return false;
         //and then do white list
-        if(!make_expected_connections_count(true, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(white, m_config.m_net_config.connections_count))
           return false;
       }
     }
@@ -1165,10 +1234,16 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::make_expected_connections_count(bool white_list, size_t expected_connections)
+  bool node_server<t_payload_net_handler>::make_expected_connections_count(PeerType peer_type, size_t expected_connections)
   {
     if (m_offline)
       return true;
+
+    std::vector<anchor_peerlist_entry> apl;
+
+    if (peer_type == anchor) {
+      m_peerlist.get_and_empty_anchor_peerlist(apl);
+    }
 
     size_t conn_count = get_outgoing_connections_count();
     //add new connections from white peers
@@ -1177,8 +1252,18 @@ namespace nodetool
       if(m_net_server.is_stop_signal_sent())
         return false;
 
-      if(!make_new_connection_from_peerlist(white_list))
+      if (peer_type == anchor && !make_new_connection_from_anchor_peerlist(apl)) {
         break;
+      }
+
+      if (peer_type == white && !make_new_connection_from_peerlist(true)) {
+        break;
+      }
+
+      if (peer_type == gray && !make_new_connection_from_peerlist(false)) {
+        break;
+      }
+
       conn_count = get_outgoing_connections_count();
     }
     return true;
@@ -1660,6 +1745,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::on_connection_close(p2p_connection_context& context)
   {
+    if (!m_net_server.is_stop_signal_sent() && !context.m_is_income) {
+      nodetool::net_address na = AUTO_VAL_INIT(na);
+      na.ip = context.m_remote_ip;
+      na.port = context.m_remote_port;
+
+      m_peerlist.remove_from_peer_anchor(na);
+    }
+
     MINFO("["<< epee::net_utils::print_connection_context(context) << "] CLOSE CONNECTION");
   }
 

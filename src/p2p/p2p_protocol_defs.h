@@ -56,6 +56,13 @@ namespace nodetool
     int64_t last_seen;
   };
 
+  struct anchor_peerlist_entry
+  {
+    net_address adr;
+    peerid_type id;
+    int64_t first_seen;
+  };
+
   struct connection_entry
   {
     net_address adr;
