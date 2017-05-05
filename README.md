@@ -207,7 +207,7 @@ invokes cmake commands as needed.
 
         HAVE_DOT=YES doxygen Doxyfile
 
-#### On the Raspberry Pi
+#### On the Raspberry Pi 2
 
 Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from https://www.raspberrypi.org/downloads/raspbian/
 
@@ -225,23 +225,23 @@ Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from ht
 * Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
 ```
 	cd  
-	wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2  
-	tar xvfo boost_1_62_0.tar.bz2  
-	cd boost_1_62_0  
+	wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2  
+	tar xvfo boost_1_64_0.tar.bz2  
+	cd boost_1_64_0  
 	./bootstrap.sh  
 	sudo ./b2  
 ```
 * Wait ~8 hours
-
+```
 	sudo ./bjam install
-
+```
 * Wait ~4 hours
 
 * Change to the root of the source code directory and build:
-
+```
         cd monero
         make release
-
+```
 * Wait ~4 hours
 
 * The resulting executables can be found in `build/release/bin`
