@@ -35,11 +35,9 @@
 # include <windows.h>
 #endif
 
-//#include <objbase.h>
 #include <locale>
 #include <cstdlib>
-#include <iomanip>
-#include <map>
+#include <string>
 #include <type_traits>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -62,36 +60,10 @@ namespace epee
 {
 namespace string_tools
 {
-	inline std::wstring get_str_from_guid(const boost::uuids::uuid& rid)
-	{
-		return boost::lexical_cast<std::wstring>(rid);
-	}
 	//----------------------------------------------------------------------------
 	inline std::string get_str_from_guid_a(const boost::uuids::uuid& rid)
 	{
 		return boost::lexical_cast<std::string>(rid);
-	}
-	//----------------------------------------------------------------------------
-	inline bool get_guid_from_string( boost::uuids::uuid& inetifer, std::wstring str_id)
-	{
-		if(str_id.size() < 36)
-			return false;
-
-		if('{' == *str_id.begin())
-			str_id.erase(0, 1);
-
-		if('}' == *(--str_id.end()))
-			str_id.erase(--str_id.end());
-
-		try
-		{
-			inetifer = boost::lexical_cast<boost::uuids::uuid>(str_id);
-			return true;
-		}
-		catch(...)
-		{
-			return false;
-		}
 	}
 	//----------------------------------------------------------------------------
 	inline bool get_guid_from_string(OUT boost::uuids::uuid& inetifer, const std::string& str_id)
@@ -201,22 +173,6 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     return true;
   }
 POP_WARNINGS
-	//---------------------------------------------------
-	template<typename int_t>
-	bool get_xnum_from_hex_string(const std::string str, int_t& res )
-	{
-		try
-		{
-			std::stringstream ss;
-			ss << std::hex << str;
-			ss >> res;
-			return true;	
-		}
-		catch(...)
-		{
-			return false;
-		}
-	}
 	//----------------------------------------------------------------------------
 	template<class XType>
 	inline bool xtype_to_string(const  XType& val, std::string& str)
@@ -232,83 +188,6 @@ POP_WARNINGS
 
 		return true;
 	}
-    
-	typedef std::map<std::string, std::string> command_line_params_a;
-	typedef std::map<std::wstring, std::wstring> command_line_params_w;
-
-	template<class t_string>
-	bool parse_commandline(std::map<t_string, t_string>& res, int argc, char** argv)
-	{
-    t_string key;
-    for(int i = 1; i < argc; i++)
-    {
-      if(!argv[i])
-        break;
-      t_string s = argv[i];
-      std::string::size_type p = s.find('=');
-      if(std::string::npos == p)
-      {
-        res[s] = "";
-      }else
-      {
-        std::string ss;
-        t_string nm = s.substr(0, p);
-        t_string vl = s.substr(p+1, s.size());
-        res[nm] = vl;
-      }
-    }
-    return true;
-	}
-
-/*  template<typename t_type>
-  bool get_xparam_from_command_line(const std::map<std::string, std::string>& res, const std::basic_string<typename t_string::value_type> & key, t_type& val)
-  {
-
-  }
-  */
-
-	template<class t_string, typename t_type>
-	bool get_xparam_from_command_line(const std::map<t_string, t_string>& res, const t_string & key, t_type& val)
-	{
-		typename std::map<t_string, t_string>::const_iterator it = res.find(key);
-		if(it == res.end())
-			return false;
-
-		if(it->second.size())
-		{
-			return get_xtype_from_string(val, it->second);
-		}
-
-		return true;
-	}
-
-    template<class t_string, typename t_type>
-    t_type get_xparam_from_command_line(const std::map<t_string, t_string>& res, const t_string & key, const t_type& default_value)
-    {
-        typename std::map<t_string, t_string>::const_iterator it = res.find(key);
-        if(it == res.end())
-            return default_value;
-
-        if(it->second.size())
-        {
-            t_type s;
-            get_xtype_from_string(s, it->second);
-            return s;
-        }
-
-        return default_value;
-    }
-
-  template<class t_string>
-  bool have_in_command_line(const std::map<t_string, t_string>& res, const std::basic_string<typename t_string::value_type>& key)
-  {
-    typename std::map<t_string, t_string>::const_iterator it = res.find(key);
-    if(it == res.end())
-      return false;
-
-    return true;
-  }
-
 	//----------------------------------------------------------------------------
 	std::string get_ip_string_from_int32(uint32_t ip);
 	//----------------------------------------------------------------------------
@@ -342,16 +221,6 @@ POP_WARNINGS
     return true;
   }
 
-	//----------------------------------------------------------------------------
-  template<typename t>
-	inline std::string get_t_as_hex_nwidth(const t& v, std::streamsize w = 8)
-  {
-    std::stringstream ss;
-    ss << std::setfill ('0') << std::setw (w) << std::hex << std::noshowbase;
-    ss << v;
-    return ss.str();
-  }
-
 	inline std::string num_to_string_fast(int64_t val)
 	{
 		/*
@@ -361,100 +230,11 @@ POP_WARNINGS
 		return boost::lexical_cast<std::string>(val);
 	}
 	//----------------------------------------------------------------------------
-	inline bool string_to_num_fast(const std::string& buff, int64_t& val)
-	{
-		//return get_xtype_from_string(val, buff);
-#if (defined _MSC_VER)
-    val = _atoi64(buff.c_str());
-#else
-    val = atoll(buff.c_str());
-#endif
-		/*
-		 * val = atoi64(buff.c_str());
-     */
-		if(buff != "0" && val == 0)
-			return false;
-		return true;
-	}
-	//----------------------------------------------------------------------------
-	inline bool string_to_num_fast(const std::string& buff, int& val)
-	{
-		val = atoi(buff.c_str());
-		if(buff != "0" && val == 0)
-			return false;
-
-		return true;
-	}
-	//----------------------------------------------------------------------------
-#ifdef WINDOWS_PLATFORM
-	inline std::string system_time_to_string(const SYSTEMTIME& st)
-	{
-	
-		/*
-		TIME_ZONE_INFORMATION tzi;
-		GetTimeZoneInformation(&tzi);
-		SystemTimeToTzSpecificLocalTime(&tzi, &stUTC, &stLocal);
-		*/
-
-		char szTime[25], szDate[25];
-		::GetTimeFormatA(
-			LOCALE_USER_DEFAULT,    // locale
-			TIME_FORCE24HOURFORMAT, // options
-			&st,					// time
-			NULL,                   // time format string
-			szTime,                 // formatted string buffer
-			25                      // size of string buffer
-			);
-
-		::GetDateFormatA(
-			LOCALE_USER_DEFAULT,    // locale
-			NULL,                   // options
-			&st,					// date
-			NULL,                   // date format
-			szDate,                 // formatted string buffer
-			25                      // size of buffer
-			);
-		szTime[24] = szDate[24] = 0; //be happy :)
-		
-		std::string res = szDate;
-		(res += " " )+= szTime;
-		return res; 
-
-	}
-#endif
-	//----------------------------------------------------------------------------
 	
 	inline bool compare_no_case(const std::string& str1, const std::string& str2)
 	{
 		
 		return !boost::iequals(str1, str2);
-	}
-	//----------------------------------------------------------------------------
-	inline bool compare_no_case(const std::wstring& str1, const std::wstring& str2)
-	{
-		return !boost::iequals(str1, str2);
-	}
-	//----------------------------------------------------------------------------
-	inline bool is_match_prefix(const std::wstring& str1, const std::wstring& prefix)
-	{	
-		if(prefix.size()>str1.size())
-			return false;
-
-		if(!compare_no_case(str1.substr(0, prefix.size()), prefix))
-			return true;
-		else
-			return false;
-	}
-	//----------------------------------------------------------------------------
-	inline bool is_match_prefix(const std::string& str1, const std::string& prefix)
-	{	
-		if(prefix.size()>str1.size())
-			return false;
-
-		if(!compare_no_case(str1.substr(0, prefix.size()), prefix))
-			return true;
-		else
-			return false;
 	}
 	//----------------------------------------------------------------------------
 	inline std::string& get_current_module_name()
@@ -569,20 +349,6 @@ POP_WARNINGS
 		return res;
 	}
 	//----------------------------------------------------------------------------
-	inline std::string get_filename_from_path(const std::string& str)
-	{
-		std::string res;
-		std::string::size_type pos = str.rfind('\\');
-		if(std::string::npos == pos)
-			return str;
-
-		res = str.substr(pos+1, str.size()-pos);
-		return res;
-	}
-	//----------------------------------------------------------------------------
-
-
-
 	inline std::string cut_off_extension(const std::string& str)
 	{
 		std::string res;
@@ -593,127 +359,6 @@ POP_WARNINGS
 		res = str.substr(0, pos);
 		return res;
 	}
-
-	//----------------------------------------------------------------------------
-#ifdef _WININET_
-	inline std::string get_string_from_systemtime(const SYSTEMTIME& sys_time)
-	{
-		std::string result_string;
-
-		char buff[100] = {0};
-		BOOL res = ::InternetTimeFromSystemTimeA(&sys_time, INTERNET_RFC1123_FORMAT, buff, 99);
-		if(!res)
-		{
-			LOG_ERROR("Failed to load SytemTime to string");
-		}
-
-		result_string = buff;
-		return result_string;
-
-	}
-	//-------------------------------------------------------------------------------------
-	inline SYSTEMTIME get_systemtime_from_string(const std::string& buff)
-	{
-		SYSTEMTIME result_time = {0};
-
-		BOOL res = ::InternetTimeToSystemTimeA(buff.c_str(), &result_time, NULL);
-		if(!res)
-		{
-			LOG_ERROR("Failed to load SytemTime from string " << buff << "interval set to 15 minutes");
-		}
-
-		return result_time;
-	}
-#endif
-
-#ifdef WINDOWS_PLATFORM
-	static const DWORD INFO_BUFFER_SIZE = 10000;
-
-	static const wchar_t* get_pc_name()
-	{
-		static wchar_t	info[INFO_BUFFER_SIZE];
-		static DWORD	bufCharCount = INFO_BUFFER_SIZE;
-		static bool		init = false;
-
-		if (!init) {
-			if (!GetComputerNameW( info, &bufCharCount ))
-				info[0] = 0;
-			else
-				init = true;
-		}
-
-		return info;
-	}
-
-	static const wchar_t* get_user_name()
-	{
-		static wchar_t	info[INFO_BUFFER_SIZE];
-		static DWORD	bufCharCount = INFO_BUFFER_SIZE;
-		static bool		init = false;
-
-		if (!init) {
-			if (!GetUserNameW( info, &bufCharCount ))
-				info[0] = 0;
-			else
-				init = true;
-		}
-
-		return info;
-	}
-#endif
-
-#ifdef _LM_
-	static const wchar_t* get_domain_name()
-	{
-		static wchar_t	info[INFO_BUFFER_SIZE];
-		static DWORD	bufCharCount = 0;
-		static bool		init = false;
-
-		if (!init) {
-			LPWSTR domain( NULL );
-			NETSETUP_JOIN_STATUS status;
-			info[0] = 0;
-
-			if (NET_API_STATUS result = NetGetJoinInformation( NULL, &domain, &status )) 
-			{
-				LOG_ERROR("get_domain_name error: " << log_space::get_win32_err_descr(result));
-			} else
-			{
-				StringCchCopyW( info, sizeof(info)/sizeof( info[0] ), domain );
-				NetApiBufferFree((void*)domain);
-				init = true;
-			}
-		}
-
-		return info;
-	}
-#endif
-#ifdef WINDOWS_PLATFORM
-	inline
-	std::string load_resource_string_a(int id, const char* pmodule_name = NULL)
-	{
-		//slow realization 
-		HMODULE h = ::GetModuleHandleA( pmodule_name );
-		
-		char buff[2000] = {0};
-		
-		::LoadStringA( h, id, buff, sizeof(buff));
-		buff[sizeof(buff)-1] = 0; //be happy :)
-		return buff;
-	}
-	inline
-	std::wstring load_resource_string_w(int id, const char* pmodule_name = NULL)
-	{
-		//slow realization 
-		HMODULE h = ::GetModuleHandleA( pmodule_name );
-		
-		wchar_t buff[2000] = {0};
-		
-		::LoadStringW( h, id, buff, sizeof(buff) / sizeof( buff[0] ) );
-		buff[(sizeof(buff)/sizeof(buff[0]))-1] = 0; //be happy :)
-		return buff;	
-	}
-#endif
 }
 }
 #endif //_STRING_TOOLS_H_
