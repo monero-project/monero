@@ -105,6 +105,12 @@ Dates are provided in the format YYYY-MM-DD.
 
 Packages are available for
 
+* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
+
+    snap install monero --beta
+
+Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
+
 * Arch Linux (via [AUR](https://aur.archlinux.org/)):
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
   - Bleeding edge: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
