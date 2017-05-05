@@ -684,6 +684,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("locked_transfer [<mixin_count>] <addr> <amount> <lockblocks>(Number of blocks to lock the transaction for, max 1000000) [<payment_id>]"));
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address"));
+  m_cmd_binder.set_handler("sweep_below", boost::bind(&simple_wallet::sweep_below, this, _1), tr("sweep_below <amount_threshold> [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address"));
   m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<mixin_count>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
@@ -2600,7 +2601,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
+bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &args_)
 {
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
@@ -2708,7 +2709,7 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
+    auto ptx_vector = m_wallet->create_transactions_all(below, address, fake_outs_count, 0 /* unlock_time */, 0 /* unused fee arg*/, extra, m_trusted_daemon);
 
     if (ptx_vector.empty())
     {
@@ -2859,6 +2860,27 @@ bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
   }
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
+{
+  return sweep_main(0, args_);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
+{
+  uint64_t below = 0;
+  if (args_.size() < 1)
+  {
+    fail_msg_writer() << tr("missing amount threshold");
+    return true;
+  }
+  if (!cryptonote::parse_amount(below, args_[0]))
+  {
+    fail_msg_writer() << tr("invalid amount threshold");
+    return true;
+  }
+  return sweep_main(below, std::vector<std::string>(++args_.begin(), args_.end()));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::donate(const std::vector<std::string> &args_)

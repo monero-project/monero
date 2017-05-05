@@ -631,7 +631,7 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
 
       m_wallet->commit_tx(ptx_vector);
 

@@ -4581,7 +4581,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   return ptx_vector;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t> extra, bool trusted_daemon)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -4593,10 +4593,13 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(const cryptono
     const transfer_details& td = m_transfers[i];
     if (!td.m_spent && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
     {
-      if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
-        unused_transfers_indices.push_back(i);
-      else
-        unused_dust_indices.push_back(i);
+      if (below == 0 || td.amount() < below)
+      {
+        if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
+          unused_transfers_indices.push_back(i);
+        else
+          unused_dust_indices.push_back(i);
+      }
     }
   }
 
