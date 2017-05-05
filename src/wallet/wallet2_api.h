@@ -312,10 +312,28 @@ struct Wallet
     virtual std::string integratedAddress(const std::string &payment_id) const = 0;
     
    /*!
-    * \brief privateViewKey    - returns private view key
-    * \return                  - private view key
+    * \brief secretViewKey     - returns secret view key
+    * \return                  - secret view key
     */
-    virtual std::string privateViewKey() const = 0;
+    virtual std::string secretViewKey() const = 0;
+
+   /*!
+    * \brief publicViewKey     - returns public view key
+    * \return                  - public view key
+    */
+    virtual std::string publicViewKey() const = 0;
+
+   /*!
+    * \brief secretSpendKey    - returns secret spend key
+    * \return                  - secret spend key
+    */
+    virtual std::string secretSpendKey() const = 0;
+
+   /*!
+    * \brief publicSpendKey    - returns public spend key
+    * \return                  - public spend key
+    */
+    virtual std::string publicSpendKey() const = 0;
 
     /*!
      * \brief store - stores wallet to file.

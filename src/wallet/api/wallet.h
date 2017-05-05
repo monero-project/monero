@@ -73,7 +73,10 @@ public:
     bool setPassword(const std::string &password);
     std::string address() const;
     std::string integratedAddress(const std::string &payment_id) const;
-    std::string privateViewKey() const;
+    std::string secretViewKey() const;
+    std::string publicViewKey() const;
+    std::string secretSpendKey() const;
+    std::string publicSpendKey() const;
     std::string path() const;
     bool store(const std::string &path);
     std::string filename() const;

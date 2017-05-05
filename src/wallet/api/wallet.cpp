@@ -618,9 +618,24 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
     return m_wallet->get_account().get_public_integrated_address_str(pid, m_wallet->testnet());
 }
 
-std::string WalletImpl::privateViewKey() const
+std::string WalletImpl::secretViewKey() const
 {
     return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+}
+
+std::string WalletImpl::publicViewKey() const
+{
+    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_view_public_key);
+}
+
+std::string WalletImpl::secretSpendKey() const
+{
+    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key);
+}
+
+std::string WalletImpl::publicSpendKey() const
+{
+    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key);
 }
 
 std::string WalletImpl::path() const
