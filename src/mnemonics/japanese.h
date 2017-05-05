@@ -71,7 +71,7 @@ namespace Language
   class Japanese: public Base
   {
   public:
-    Japanese(): Base("Japanese", std::vector<std::string>({
+    Japanese(): Base("日本語", std::vector<std::string>({
         "あいこくしん",
         "あいさつ",
         "あいだ",

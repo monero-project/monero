@@ -29,13 +29,13 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /*!
- * \file old_english.h
+ * \file english_old.h
  * 
- * \brief Old English word list and map.
+ * \brief Older version of English word list and map.
  */
 
-#ifndef OLD_ENGLISH_H
-#define OLD_ENGLISH_H
+#ifndef ENGLISH_OLD_H
+#define ENGLISH_OLD_H
 
 #include <vector>
 #include <unordered_map>
@@ -48,10 +48,10 @@
  */
 namespace Language
 {
-  class OldEnglish: public Base
+  class EnglishOld: public Base
   {
   public:
-    OldEnglish(): Base("OldEnglish", std::vector<std::string>({
+    EnglishOld(): Base("EnglishOld", std::vector<std::string>({
         "like",
         "just",
         "love",

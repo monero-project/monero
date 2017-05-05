@@ -72,7 +72,7 @@ namespace Language
   class Spanish: public Base
   {
   public:
-    Spanish(): Base("Spanish", std::vector<std::string>({
+    Spanish(): Base("Español", std::vector<std::string>({
         "ábaco",
         "abdomen",
         "abeja",
