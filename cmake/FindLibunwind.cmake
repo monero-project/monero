@@ -34,6 +34,18 @@ if(NOT LIBLZMA_LIBRARIES STREQUAL "LIBLZMA_LIBRARIES-NOTFOUND")
   set(LIBUNWIND_LIBRARIES "${LIBUNWIND_LIBRARIES};${LIBLZMA_LIBRARIES}")
 endif()
 
+# some versions of libunwind need liblzma, and we don't use pkg-config
+# so we just look whether liblzma is installed, and add it if it is.
+# It might not be actually needed, but doesn't hurt if it is not.
+# We don't need any headers, just the lib, as it's privately needed.
+message(STATUS "looking for lzma")
+find_library(LIBLZMA_LIBRARIES lzma )
+if(NOT LIBLZMA_LIBRARIES STREQUAL "LIBLZMA_LIBRARIES-NOTFOUND")
+  message(STATUS "lzma found")
+  set(LIBUNWIND_LIBRARY_DIRS "${LIBUNWIND_LIBRARY_DIRS} ${LIBLZMA_LIBRARY_DIRS}")
+  set(LIBUNWIND_LIBRARIES "${LIBUNWIND_LIBRARIES} ${LIBLZMA_LIBRARIES}")
+endif()
+
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Libunwind "Could not find libunwind" LIBUNWIND_INCLUDE_DIR LIBUNWIND_LIBRARIES)
 # show the LIBUNWIND_INCLUDE_DIR and LIBUNWIND_LIBRARIES variables only in the advanced view
