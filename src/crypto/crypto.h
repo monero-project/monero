@@ -94,6 +94,8 @@ namespace crypto {
   };
 #pragma pack(pop)
 
+  void hash_to_scalar(const void *data, size_t length, ec_scalar &res);
+
   static_assert(sizeof(ec_point) == 32 && sizeof(ec_scalar) == 32 &&
     sizeof(public_key) == 32 && sizeof(secret_key) == 32 &&
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
@@ -111,6 +113,12 @@ namespace crypto {
     friend bool check_key(const public_key &);
     static bool secret_key_to_public_key(const secret_key &, public_key &);
     friend bool secret_key_to_public_key(const secret_key &, public_key &);
+    static bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
+    friend bool secret_key_mult_public_key(const secret_key &, const public_key &, public_key &);
+    static bool add_public_key(const public_key &, const public_key &, public_key &);
+    friend bool add_public_key(const public_key &, const public_key &, public_key &);
+    static bool sub_public_key(const public_key &, const public_key &, public_key &);
+    friend bool sub_public_key(const public_key &, const public_key &, public_key &);
     static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
     static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
@@ -119,6 +127,8 @@ namespace crypto {
     friend bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
     static void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
     friend void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
+    static bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
+    friend bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
     static void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     friend void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     static bool check_signature(const hash &, const public_key &, const signature &);
@@ -170,6 +180,24 @@ namespace crypto {
     return crypto_ops::secret_key_to_public_key(sec, pub);
   }
 
+  /* Multiply secret key to public key
+   */
+  inline bool secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    return crypto_ops::secret_key_mult_public_key(sec, pub, result);
+  }
+
+  /* Adds two curve points: A+B=C
+   */
+  inline bool add_public_key(const public_key &A, const public_key &B, public_key &C) {
+    return crypto_ops::add_public_key(A, B, C);
+  }
+
+  /* Subtract a curve point from another curve point: A-B=C
+   */
+  inline bool sub_public_key(const public_key &A, const public_key &B, public_key &C) {
+    return crypto_ops::sub_public_key(A, B, C);
+  }
+
   /* To generate an ephemeral key used to send money to:
    * * The sender generates a new key pair, which becomes the transaction key. The public transaction key is included in "extra" field.
    * * Both the sender and the receiver generate key derivation from the transaction key, the receivers' "view" key and the output index.
@@ -189,6 +217,9 @@ namespace crypto {
   inline void derive_secret_key(const key_derivation &derivation, std::size_t output_index,
     const secret_key &base, secret_key &derived_key) {
     crypto_ops::derive_secret_key(derivation, output_index, base, derived_key);
+  }
+  inline bool derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &result) {
+    return crypto_ops::derive_subaddress_public_key(out_key, derivation, output_index, result);
   }
 
   /* Generation and checking of a standard signature.
@@ -237,5 +268,6 @@ namespace crypto {
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
+CRYPTO_MAKE_HASHABLE(secret_key)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)

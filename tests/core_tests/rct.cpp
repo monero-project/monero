@@ -117,7 +117,9 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     destinations.push_back(td); // 30 -> 7.39 * 4
 
     crypto::secret_key tx_key;
-    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), sources, destinations, std::vector<uint8_t>(), rct_txes[n], 0, tx_key, true);
+    std::unordered_map<crypto::public_key, size_t> subaddresses;
+    subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = 0;
+    bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, std::vector<uint8_t>(), false, false, rct_txes[n], 0, tx_key, true);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
     events.push_back(rct_txes[n]);
     starting_rct_tx_hashes.push_back(get_transaction_hash(rct_txes[n]));
@@ -215,7 +217,9 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
   transaction tx;
   crypto::secret_key tx_key;
-  bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), sources, destinations, std::vector<uint8_t>(), tx, 0, tx_key, true);
+  std::unordered_map<crypto::public_key, size_t> subaddresses;
+  subaddresses[miner_accounts[0].get_keys().m_account_address.m_spend_public_key] = 0;
+  bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, std::vector<uint8_t>(), false, false, tx, 0, tx_key, true);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
   if (post_tx)

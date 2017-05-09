@@ -499,6 +499,7 @@ struct Wallet
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                                    optional<uint64_t> amount, uint32_t mixin_count,
+                                                   bool is_subaddress, bool is_disposable,
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
 
     /*!

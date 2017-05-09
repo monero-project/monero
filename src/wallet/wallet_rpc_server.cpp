@@ -239,6 +239,8 @@ namespace tools
     entry.fee = 0; // TODO
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = "in";
+    entry.subaddr_index = pd.m_index;
+    entry.is_disposable = pd.m_is_disposable;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::confirmed_transfer_details &pd)
@@ -262,6 +264,8 @@ namespace tools
     }
 
     entry.type = "out";
+    entry.subaddr_index = 0;
+    entry.is_disposable = false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::unconfirmed_transfer_details &pd)
@@ -278,6 +282,8 @@ namespace tools
     entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
     entry.note = m_wallet->get_tx_note(txid);
     entry.type = is_failed ? "failed" : "pending";
+    entry.subaddr_index = 0;
+    entry.is_disposable = false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd)
@@ -292,6 +298,8 @@ namespace tools
     entry.fee = 0; // TODO
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = "pool";
+    entry.subaddr_index = pd.m_index;
+    entry.is_disposable = pd.m_is_disposable;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er)
@@ -316,7 +324,10 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+      cryptonote::account_public_address addr = m_wallet->get_subaddress(req.index);
+      res.address = req.index == 0 ?
+        cryptonote::get_account_address_as_str(m_wallet->testnet(), addr) :
+        cryptonote::get_account_subaddress_as_str(m_wallet->testnet(), addr);
     }
     catch (const std::exception& e)
     {
@@ -343,25 +354,40 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
+  bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool& is_subaddress, bool& is_disposable, cryptonote::account_public_address& disposable_addr, epee::json_rpc::error& er)
   {
     crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
     std::string extra_nonce;
+    is_subaddress = false;
+    is_disposable = false;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
+      cryptonote::address_parse_info info;
       cryptonote::tx_destination_entry de;
-      bool has_payment_id;
-      crypto::hash8 new_payment_id;
-      if(!get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), it->address, false))
+      if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), it->address, false))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
         return false;
       }
+
+      if (info.is_subaddress)
+      {
+        if (destinations.size() != 1)
+        {
+          er.code = WALLET_RPC_ERROR_CODE_SUBADDRESS_MULTI_DEST;
+          er.message = std::string("Only one subaddress can be used per transaction.");
+          return false;
+        }
+        is_subaddress = true;
+        is_disposable = info.is_disposable;
+      }
+
+      de.addr = info.address;
       de.amount = it->amount;
       dsts.push_back(de);
 
-      if (has_payment_id)
+      if (info.has_payment_id)
       {
         if (!payment_id.empty() || integrated_payment_id != cryptonote::null_hash8)
         {
@@ -369,7 +395,7 @@ namespace tools
           er.message = "A single payment id is allowed per transaction";
           return false;
         }
-        integrated_payment_id = new_payment_id;
+        integrated_payment_id = info.payment_id;
         cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, integrated_payment_id);
 
         /* Append Payment ID data into extra */
@@ -432,7 +458,10 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    bool is_subaddress;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_subaddress, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -444,7 +473,7 @@ namespace tools
         LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
         mixin = 2;
       }
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_subaddress, is_disposable, m_trusted_daemon);
 
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
@@ -468,6 +497,12 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::reuse_disposable_addr& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_REUSE_DISPOSABLE_ADDR;
       er.message = e.what();
       return false;
     }
@@ -501,7 +536,10 @@ namespace tools
     }
 
     // validate the transfer requested and populate dsts & extra; RPC_TRANSFER::request and RPC_TRANSFER_SPLIT::request are identical types.
-    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, er))
+    bool is_subaddress;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
+    if (!validate_transfer(req.destinations, req.payment_id, dsts, extra, is_subaddress, is_disposable, disposable_addr, er))
     {
       return false;
     }
@@ -515,7 +553,7 @@ namespace tools
       }
       std::vector<wallet2::pending_tx> ptx_vector;
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
+      ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, is_subaddress, is_disposable, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       LOG_PRINT_L2("on_transfer_split calling commit_txyy");
@@ -538,6 +576,12 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::reuse_disposable_addr& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_REUSE_DISPOSABLE_ADDR;
       er.message = e.what();
       return false;
     }
@@ -624,14 +668,17 @@ namespace tools
     destination.push_back(wallet_rpc::transfer_destination());
     destination.back().amount = 0;
     destination.back().address = req.address;
-    if (!validate_transfer(destination, req.payment_id, dsts, extra, er))
+    bool is_subaddress;
+    bool is_disposable;
+    cryptonote::account_public_address disposable_addr;
+    if (!validate_transfer(destination, req.payment_id, dsts, extra, is_subaddress, is_disposable, disposable_addr, er))
     {
       return false;
     }
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, is_subaddress, is_disposable, m_trusted_daemon);
 
       m_wallet->commit_tx(ptx_vector);
 
@@ -651,6 +698,12 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::reuse_disposable_addr& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_REUSE_DISPOSABLE_ADDR;
       er.message = e.what();
       return false;
     }
@@ -689,11 +742,32 @@ namespace tools
         }
       }
 
-      res.integrated_address = m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
+      cryptonote::account_public_address addr = m_wallet->get_subaddress(req.index);
+      res.integrated_address = req.index == 0 ?
+        cryptonote::get_account_integrated_address_as_str(m_wallet->testnet(), addr, payment_id) :
+        cryptonote::get_account_integrated_subaddress_as_str(m_wallet->testnet(), addr, payment_id);
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
     catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_disposable_address(const wallet_rpc::COMMAND_RPC_MAKE_DISPOSABLE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_DISPOSABLE_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      std::pair<cryptonote::account_public_address, crypto::hash8> r = m_wallet->make_disposable_address(req.index);
+      res.disposable_address = cryptonote::get_account_disposable_address_as_str(m_wallet->testnet(), r.first, r.second);
+      res.payment_id = epee::string_tools::pod_to_hex(r.second);
+      return true;
+    }
+    catch (std::exception &e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = e.what();
@@ -707,24 +781,56 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      cryptonote::account_public_address address;
-      crypto::hash8 payment_id;
-      bool has_payment_id;
+      cryptonote::address_parse_info info;
 
-      if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), req.integrated_address))
+      if(!get_account_address_from_str(info, m_wallet->testnet(), req.integrated_address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = "Invalid address";
         return false;
       }
-      if(!has_payment_id)
+      if(!info.has_payment_id || info.is_subaddress)
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = "Address is not an integrated address";
         return false;
       }
-      res.standard_address = get_account_address_as_str(m_wallet->testnet(),address);
-      res.payment_id = epee::string_tools::pod_to_hex(payment_id);
+      res.standard_address = get_account_address_as_str(m_wallet->testnet(),info.address);
+      res.payment_id = epee::string_tools::pod_to_hex(info.payment_id);
+      return true;
+    }
+    catch (std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_address(const wallet_rpc::COMMAND_RPC_PARSE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_PARSE_ADDRESS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      cryptonote::address_parse_info info;
+
+      if(!get_account_address_from_str(info, m_wallet->testnet(), req.address))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+        er.message = "Invalid address";
+        return false;
+      }
+      if (info.has_payment_id)
+      {
+        res.payment_id = epee::string_tools::pod_to_hex(info.payment_id);
+      }
+      res.has_payment_id = info.has_payment_id;
+      res.is_subaddress = info.is_subaddress;
+      res.is_disposable = info.is_disposable;
+      res.address = info.is_disposable ?
+        req.address : info.is_subaddress ?
+        cryptonote::get_account_subaddress_as_str(m_wallet->testnet(), info.address) :
+        cryptonote::get_account_address_as_str(m_wallet->testnet(), info.address);
       return true;
     }
     catch (const std::exception &e)
@@ -800,6 +906,8 @@ namespace tools
       rpc_payment.amount       = payment.m_amount;
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
+      rpc_payment.subaddr_index = payment.m_index;
+      rpc_payment.is_disposable = payment.m_is_disposable;
       res.payments.push_back(rpc_payment);
     }
 
@@ -825,6 +933,8 @@ namespace tools
         rpc_payment.amount       = payment.second.m_amount;
         rpc_payment.block_height = payment.second.m_block_height;
         rpc_payment.unlock_time  = payment.second.m_unlock_time;
+        rpc_payment.subaddr_index = payment.second.m_index;
+        rpc_payment.is_disposable = payment.second.m_is_disposable;
         res.payments.push_back(std::move(rpc_payment));
       }
 
@@ -874,6 +984,8 @@ namespace tools
         rpc_payment.amount       = payment.m_amount;
         rpc_payment.block_height = payment.m_block_height;
         rpc_payment.unlock_time  = payment.m_unlock_time;
+        rpc_payment.subaddr_index = payment.m_index;
+        rpc_payment.is_disposable = payment.m_is_disposable;
         res.payments.push_back(std::move(rpc_payment));
       }
     }
@@ -1008,17 +1120,15 @@ namespace tools
       return false;
     }
 
-    cryptonote::account_public_address address;
-    bool has_payment_id;
-    crypto::hash8 payment_id;
-    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), req.address, false))
+    cryptonote::address_parse_info info;
+    if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), req.address, false))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "";
       return false;
     }
 
-    res.good = m_wallet->verify(req.data, address, req.signature);
+    res.good = m_wallet->verify(req.data, info.address, req.signature);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1401,24 +1511,22 @@ namespace tools
       return false;
     }
 
-    cryptonote::account_public_address address;
-    bool has_payment_id;
-    crypto::hash8 payment_id8;
+    cryptonote::address_parse_info info;
     crypto::hash payment_id = cryptonote::null_hash;
-    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), req.address, false))
+    if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), req.address, false))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;
       return false;
     }
-    if (has_payment_id)
+    if (info.has_payment_id)
     {
-      memcpy(payment_id.data, payment_id8.data, 8);
+      memcpy(payment_id.data, info.payment_id.data, 8);
       memset(payment_id.data + 8, 0, 24);
     }
     if (!req.payment_id.empty())
     {
-      if (has_payment_id)
+      if (info.has_payment_id)
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
         er.message = "Separate payment ID given with integrated address";
@@ -1430,7 +1538,7 @@ namespace tools
 
       if (!wallet2::parse_long_payment_id(req.payment_id, payment_id))
       {
-        if (!wallet2::parse_short_payment_id(req.payment_id, payment_id8))
+        if (!wallet2::parse_short_payment_id(req.payment_id, info.payment_id))
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
           er.message = "Payment id has invalid format: \"" + req.payment_id + "\", expected 16 or 64 character string";
@@ -1438,12 +1546,12 @@ namespace tools
         }
         else
         {
-          memcpy(payment_id.data, payment_id8.data, 8);
+          memcpy(payment_id.data, info.payment_id.data, 8);
           memset(payment_id.data + 8, 0, 24);
         }
       }
     }
-    if (!m_wallet->add_address_book_row(address, payment_id, req.description))
+    if (!m_wallet->add_address_book_row(info.address, payment_id, req.description))
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Failed to add address book entry";

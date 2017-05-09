@@ -68,7 +68,9 @@ namespace wallet_rpc
   {
     struct request
     {
+      uint64_t index;
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -292,6 +294,8 @@ namespace wallet_rpc
     uint64_t amount;
     uint64_t block_height;
     uint64_t unlock_time;
+    uint64_t subaddr_index;
+    bool is_disposable;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(payment_id)
@@ -299,6 +303,8 @@ namespace wallet_rpc
       KV_SERIALIZE(amount)
       KV_SERIALIZE(block_height)
       KV_SERIALIZE(unlock_time)
+      KV_SERIALIZE(subaddr_index)
+      KV_SERIALIZE(is_disposable)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -411,9 +417,11 @@ namespace wallet_rpc
     struct request
     {
       std::string payment_id;
+      uint64_t index;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(index)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -424,6 +432,29 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(integrated_address)
+        KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_MAKE_DISPOSABLE_ADDRESS
+  {
+    struct request
+    {
+      uint64_t index;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string disposable_address;
+      std::string payment_id;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(disposable_address)
         KV_SERIALIZE(payment_id)
       END_KV_SERIALIZE_MAP()
     };
@@ -448,6 +479,35 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(standard_address)
         KV_SERIALIZE(payment_id)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PARSE_ADDRESS
+  {
+    struct request
+    {
+      std::string address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string address;
+      std::string payment_id;
+      bool has_payment_id;
+      bool is_subaddress;
+      bool is_disposable;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(payment_id)
+        KV_SERIALIZE(has_payment_id)
+        KV_SERIALIZE(is_subaddress)
+        KV_SERIALIZE(is_disposable)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -534,6 +594,8 @@ namespace wallet_rpc
     std::string note;
     std::list<transfer_destination> destinations;
     std::string type;
+    uint64_t subaddr_index;
+    bool is_disposable;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -545,6 +607,8 @@ namespace wallet_rpc
       KV_SERIALIZE(note);
       KV_SERIALIZE(destinations);
       KV_SERIALIZE(type);
+      KV_SERIALIZE(subaddr_index);
+      KV_SERIALIZE(is_disposable);
     END_KV_SERIALIZE_MAP()
   };
 

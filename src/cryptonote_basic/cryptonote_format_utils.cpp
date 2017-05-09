@@ -78,6 +78,22 @@ static std::atomic<uint64_t> block_hashes_cached_count(0);
 namespace cryptonote
 {
   //---------------------------------------------------------------
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
+  {
+    if (destinations.empty())
+      return null_pkey;
+    for (size_t n = 1; n < destinations.size(); ++n)
+    {
+      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
+        continue;
+      if (destinations[n].amount == 0)
+        continue;
+      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
+        return null_pkey;
+    }
+    return destinations[0].addr.m_view_public_key;
+  }
+  //---------------------------------------------------------------
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h)
   {
     std::ostringstream s;
@@ -129,16 +145,57 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+  bool generate_key_image_helper(const account_keys& ack, const std::unordered_map<crypto::public_key, size_t>& subaddresses, const boost::optional<keypair>& disposable_key, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
   {
     crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
     bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
     CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
 
-    r = crypto::derive_public_key(recv_derivation, real_output_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub);
-    CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to derive_public_key(" << recv_derivation << ", " << real_output_index <<  ", " << ack.m_account_address.m_spend_public_key << ")");
+    received_info received = is_out_to_acc_precomp(subaddresses, disposable_key, out_key, recv_derivation, real_output_index);
+    CHECK_AND_ASSERT_MES(received.index, false, "key image helper: given output pubkey doesn't seem to belong to this address");
 
-    crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, in_ephemeral.sec);
+    if (ack.m_spend_secret_key == null_skey)
+    {
+      // for watch-only wallet, simply copy the known output pubkey
+      in_ephemeral.pub = out_key;
+      in_ephemeral.sec = null_skey;
+    }
+    else
+    {
+      // derive secret key with subaddress - step 1: original CN derivation
+      crypto::secret_key scalar_step1;
+      crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, scalar_step1); // computes Hs(a*R) + b
+
+      // step 2: add Hs(a || index)
+      crypto::secret_key scalar_step2;
+      if (*received.index > 0)
+      {
+        uint64_t index = static_cast<uint64_t>(*received.index);
+        char data[HASH_SIZE + 8];
+        memcpy(data            , &ack.m_view_secret_key, HASH_SIZE);
+        memcpy(data + HASH_SIZE, &index                , 8);
+        crypto::secret_key m;
+        crypto::hash_to_scalar(data, HASH_SIZE + 8, m);
+        sc_add((unsigned char*)&scalar_step2, (unsigned char*)&scalar_step1, (unsigned char*)&m);
+      }
+      else
+      {
+        scalar_step2 = scalar_step1;
+      }
+
+      // step 3: add Hs(a || pid) if applicable
+      crypto::secret_key scalar_step3;
+      if (received.is_disposable)
+      {
+        sc_add((unsigned char*)&scalar_step3, (unsigned char*)&scalar_step2, (unsigned char*)&disposable_key->sec);
+      }
+      else
+      {
+        scalar_step3 = scalar_step2;
+      }
+      in_ephemeral.sec = scalar_step3;
+      crypto::secret_key_to_public_key(in_ephemeral.sec, in_ephemeral.pub);
+    }
 
     crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
     return true;
@@ -360,6 +417,56 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool set_payment_id8_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_source_entry& src)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    tx_extra_nonce extra_nonce;
+    src.payment_id8 = null_hash8;
+    if (parse_tx_extra(tx_extra, tx_extra_fields) && find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+    {
+      crypto::hash8 payment_id8;
+      if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+      {
+        src.payment_id8 = payment_id8;
+        return true;
+      }
+    }
+    return false;
+  }
+  //----------------------------------------------------------------------------------------------------
+  payment_id_info get_payment_id_info(const std::vector<tx_extra_field>& tx_extra_fields, const crypto::secret_key& viewkey)
+  {
+    payment_id_info pID_info;
+    pID_info.payment_id32 = null_hash;
+    pID_info.payment_id8  = null_hash8;
+    pID_info.has_payment_id32 = false;
+    pID_info.has_payment_id8  = false;
+    pID_info.disposable_key = boost::none;
+    if (find_tx_extra_field_by_type(tx_extra_fields, pID_info.extra_nonce))
+    {
+      pID_info.has_payment_id32 = get_payment_id_from_tx_extra_nonce          (pID_info.extra_nonce.nonce, pID_info.payment_id32);
+      pID_info.has_payment_id8  = get_encrypted_payment_id_from_tx_extra_nonce(pID_info.extra_nonce.nonce, pID_info.payment_id8 );
+      if (pID_info.has_payment_id8)
+      {
+        char data[HASH_SIZE + 8];
+        memcpy(data            , &viewkey             , HASH_SIZE);
+        memcpy(data + HASH_SIZE, &pID_info.payment_id8, 8);
+        crypto::secret_key disposable_seckey;
+        crypto::hash_to_scalar(data, HASH_SIZE + 8, disposable_seckey);
+        // check if the following equation holds: (H(viewkey, pID) - pID) mod 256 == 0
+        if (pID_info.payment_id8.data[0] == disposable_seckey.data[0])
+        {
+          crypto::public_key disposable_pubkey;
+          crypto::secret_key_to_public_key(disposable_seckey, disposable_pubkey);
+          pID_info.disposable_key = cryptonote::keypair{};
+          pID_info.disposable_key->pub = disposable_pubkey;
+          pID_info.disposable_key->sec = disposable_seckey;
+        }
+      }
+    }
+    return pID_info;
+  }
+  //---------------------------------------------------------------
   bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
   {
     crypto::key_derivation derivation;
@@ -489,11 +596,25 @@ namespace cryptonote
     return pk == out_key.key;
   }
   //---------------------------------------------------------------
-  bool is_out_to_acc_precomp(const crypto::public_key& spend_public_key, const txout_to_key& out_key, const crypto::key_derivation& derivation, size_t output_index)
+  received_info is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, size_t>& subaddresses, const boost::optional<keypair>& disposable_key, const crypto::public_key& out_key, const crypto::key_derivation& derivation, size_t output_index)
   {
-    crypto::public_key pk;
-    derive_public_key(derivation, output_index, spend_public_key, pk);
-    return pk == out_key.key;
+    size_t received_index;
+    crypto::public_key subaddress_spendkey;
+    derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey);
+    auto found = subaddresses.find(subaddress_spendkey);
+    if (found != subaddresses.end())
+    {
+      return { found->second, false };
+    }
+    else if (disposable_key)
+    {
+      crypto::public_key subaddress_spendkey2;
+      crypto::sub_public_key(subaddress_spendkey, disposable_key->pub, subaddress_spendkey2);
+      found = subaddresses.find(subaddress_spendkey2);
+      if (found != subaddresses.end())
+        return { found->second, true };
+    }
+    return { boost::none, false };
   }
   //---------------------------------------------------------------
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered)
