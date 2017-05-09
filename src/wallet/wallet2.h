@@ -635,7 +635,7 @@ namespace tools
     crypto::hash8 get_short_payment_id(const pending_tx &ptx) const;
     void check_acc_out_precomp(const crypto::public_key &spend_public_key, const cryptonote::tx_out &o, const crypto::key_derivation &derivation, size_t i, bool &received, uint64_t &money_transfered, bool &error) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
-    uint64_t get_upper_tranaction_size_limit();
+    uint64_t get_upper_transaction_size_limit();
     std::vector<uint64_t> get_unspent_amounts_vector();
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm) const;
     uint64_t get_dynamic_per_kb_fee_estimate();
@@ -1022,7 +1022,7 @@ namespace tools
     // throw if attempting a transaction with no destinations
     THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
-    uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+    uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
     uint64_t needed_money = fee;
 
     // calculate total amount being sent to all destinations
