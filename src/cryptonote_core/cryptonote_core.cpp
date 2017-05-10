@@ -1089,7 +1089,7 @@ namespace cryptonote
     if(!m_starter_message_showed)
     {
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
-        << "The daemon will start synchronizing with the network. It may take up to several hours." << ENDL
+        << "The daemon will start synchronizing with the network. This may take a long time to complete." << ENDL
         << ENDL
         << "You can set the level of process detailization* through \"set_log <level|categories>\" command*," << ENDL
         << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)" << ENDL
