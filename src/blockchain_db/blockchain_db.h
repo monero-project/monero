@@ -124,6 +124,27 @@ struct tx_data_t
 };
 #pragma pack(pop)
 
+/**
+ * @brief a struct containing txpool per transaction metadata
+ */
+struct txpool_tx_meta_t
+{
+  crypto::hash max_used_block_id;
+  crypto::hash last_failed_id;
+  uint64_t blob_size;
+  uint64_t fee;
+  uint64_t max_used_block_height;
+  uint64_t last_failed_height;
+  uint64_t receive_time;
+  uint64_t last_relayed_time;
+  // 112 bytes
+  uint8_t kept_by_block;
+  uint8_t relayed;
+  uint8_t do_not_relay;
+
+  uint8_t padding[77]; // till 192 bytes
+};
+
 /***********************************
  * Exception Definitions
  ***********************************/
@@ -1250,6 +1271,71 @@ public:
    * @return true if the image is present, otherwise false
    */
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
+
+  /**
+   * @brief add a txpool transaction
+   *
+   * @param details the details of the transaction to add
+   */
+  virtual void add_txpool_tx(const transaction &tx, const txpool_tx_meta_t& details) = 0;
+
+  /**
+   * @brief update a txpool transaction's metadata
+   *
+   * @param txid the txid of the transaction to update
+   * @param details the details of the transaction to update
+   */
+  virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& details) = 0;
+
+  /**
+   * @brief get the number of transactions in the txpool
+   */
+  virtual uint64_t get_txpool_tx_count() const = 0;
+
+  /**
+   * @brief check whether a txid is in the txpool
+   */
+  virtual bool txpool_has_tx(const crypto::hash &txid) const = 0;
+
+  /**
+   * @brief remove a txpool transaction
+   *
+   * @param txid the transaction id of the transation to remove
+   */
+  virtual void remove_txpool_tx(const crypto::hash& txid) = 0;
+
+  /**
+   * @brief get a txpool transaction's metadata
+   *
+   * @param txid the transaction id of the transation to lookup
+   *
+   * @return the metadata associated with that transaction
+   */
+  virtual txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const = 0;
+
+  /**
+   * @brief get a txpool transaction's blob
+   *
+   * @param txid the transaction id of the transation to lookup
+   *
+   * @return the blob for that transaction
+   */
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const = 0;
+
+  /**
+   * @brief runs a function over all txpool transactions
+   *
+   * The subclass should run the passed function for each txpool tx it has
+   * stored, passing the tx id and metadata as its parameters.
+   *
+   * If any call to the function returns false, the subclass should return
+   * false.  Otherwise, the subclass returns true.
+   *
+   * @param std::function fn the function to run
+   *
+   * @return false if the function returns false for any transaction, otherwise true
+   */
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false) const = 0;
 
   /**
    * @brief runs a function over all key images stored

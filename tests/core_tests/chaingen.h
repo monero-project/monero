@@ -472,6 +472,16 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
     MERROR("Failed to init core");
     return false;
   }
+
+  // start with a clean pool
+  std::vector<crypto::hash> pool_txs;
+  if (!c.get_pool_transaction_hashes(pool_txs))
+  {
+    MERROR("Failed to flush txpool");
+    return false;
+  }
+  c.get_blockchain_storage().flush_txes_from_pool(std::list<crypto::hash>(pool_txs.begin(), pool_txs.end()));
+
   t_test_class validator;
   bool ret = replay_events_through_core<t_test_class>(c, events, validator);
   c.deinit();

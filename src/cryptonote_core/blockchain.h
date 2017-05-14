@@ -854,6 +854,17 @@ namespace cryptonote
      */
     std::list<std::pair<block_extended_info,uint64_t>> get_alternative_chains() const;
 
+    void add_txpool_tx(transaction &tx, const txpool_tx_meta_t &meta);
+    void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t &meta);
+    void remove_txpool_tx(const crypto::hash &txid);
+    uint64_t get_txpool_tx_count() const;
+    txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const;
+    cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const;
+    bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false) const;
+
+    void lock();
+    void unlock();
+
     void cancel();
 
   private:
@@ -1238,7 +1249,7 @@ namespace cryptonote
      * @return true
      */
     bool update_next_cumulative_size_limit();
-    void return_tx_to_pool(const std::vector<transaction> &txs);
+    void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**
      * @brief make sure a transaction isn't attempting a double-spend

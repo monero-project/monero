@@ -1608,13 +1608,13 @@ namespace cryptonote
       }
       crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
-      cryptonote::transaction tx;
-      bool r = m_core.get_pool_transaction(txid, tx);
+      cryptonote::blobdata txblob;
+      bool r = m_core.get_pool_transaction(txid, txblob);
       if (r)
       {
         cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
         NOTIFY_NEW_TRANSACTIONS::request r;
-        r.txs.push_back(cryptonote::tx_to_blob(tx));
+        r.txs.push_back(txblob);
         m_core.get_protocol()->relay_transactions(r, fake_context);
         //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
       }

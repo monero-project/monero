@@ -112,6 +112,15 @@ public:
   virtual bool is_read_only() const { return false; }
   virtual std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const { return std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>(); }
 
+  virtual void add_txpool_tx(const transaction &tx, const txpool_tx_meta_t& details) {}
+  virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& details) {}
+  virtual uint64_t get_txpool_tx_count() const { return 0; }
+  virtual bool txpool_has_tx(const crypto::hash &txid) const { return false; }
+  virtual void remove_txpool_tx(const crypto::hash& txid) {}
+  virtual txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const { return txpool_tx_meta_t(); }
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const { return ""; }
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false) const { return false; }
+
   virtual void add_block( const block& blk
                         , const size_t& block_size
                         , const difficulty_type& cumulative_difficulty

@@ -59,8 +59,6 @@ struct fake_core_db
   // for multi_db_runtime:
   fake_core_db(const boost::filesystem::path &path, const bool use_testnet=false, const bool do_batch=true, const std::string& db_type="lmdb", const int db_flags=0) : m_pool(m_storage), m_storage(m_pool)
   {
-    m_pool.init(path.string());
-
     BlockchainDB* db = nullptr;
     if (db_type == "lmdb")
       db = new BlockchainLMDB();
@@ -97,6 +95,8 @@ struct fake_core_db
     m_hardfork = new HardFork(*db, 1, hard_fork_version_1_till);
 
     m_storage.init(db, m_hardfork, use_testnet);
+
+    m_pool.init();
 
     if (do_batch)
       m_storage.get_db().set_batch_transactions(do_batch);

@@ -55,6 +55,9 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_txpool_meta;
+  MDB_cursor *m_txc_txpool_blob;
+
   MDB_cursor *m_txc_hf_versions;
 } mdb_txn_cursors;
 
@@ -67,6 +70,8 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
+#define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
 
 typedef struct mdb_rflags
@@ -81,6 +86,8 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_txpool_meta;
+  bool m_rf_txpool_blob;
   bool m_rf_hf_versions;
 } mdb_rflags;
 
@@ -232,6 +239,15 @@ public:
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
+  virtual void add_txpool_tx(const transaction &tx, const txpool_tx_meta_t& meta);
+  virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& meta);
+  virtual uint64_t get_txpool_tx_count() const;
+  virtual bool txpool_has_tx(const crypto::hash &txid) const;
+  virtual void remove_txpool_tx(const crypto::hash& txid);
+  virtual txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const;
+  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const;
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob = false) const;
+
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
   virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const;
@@ -363,6 +379,9 @@ private:
   MDB_dbi m_output_amounts;
 
   MDB_dbi m_spent_keys;
+
+  MDB_dbi m_txpool_meta;
+  MDB_dbi m_txpool_blob;
 
   MDB_dbi m_hf_starting_heights;
   MDB_dbi m_hf_versions;
