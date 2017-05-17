@@ -192,9 +192,9 @@ TEST(mnemonics, language_detection_with_bad_checksum)
 
     res = crypto::ElectrumWords::words_to_bytes(base_seed, key, language_name);
     ASSERT_EQ(true, res);
-    ASSERT_STREQ(language_name.c_str(), "Portuguese");
+    ASSERT_STREQ(language_name.c_str(), "Português");
 
     res = crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name);
     ASSERT_EQ(true, res);
-    ASSERT_STREQ(language_name.c_str(), "Portuguese");
+    ASSERT_STREQ(language_name.c_str(), "Português");
 }
