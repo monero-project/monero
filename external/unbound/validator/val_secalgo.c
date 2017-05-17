@@ -546,15 +546,15 @@ verify_canonrrset(sldns_buffer* buf, int algo, unsigned char* sigblock,
 
 	/* do the signature cryptography work */
 	EVP_MD_CTX_init(&ctx);
-	if(EVP_VerifyInit(&ctx, digest_type) == 0) {
-		verbose(VERB_QUERY, "verify: EVP_VerifyInit failed");
+	if(EVP_DigestInit(&ctx, digest_type) == 0) {
+		verbose(VERB_QUERY, "verify: EVP_DigestInit failed");
 		EVP_PKEY_free(evp_key);
 		if(dofree) free(sigblock);
 		return sec_status_unchecked;
 	}
-	if(EVP_VerifyUpdate(&ctx, (unsigned char*)sldns_buffer_begin(buf), 
+	if(EVP_DigestUpdate(&ctx, (unsigned char*)sldns_buffer_begin(buf), 
 		(unsigned int)sldns_buffer_limit(buf)) == 0) {
-		verbose(VERB_QUERY, "verify: EVP_VerifyUpdate failed");
+		verbose(VERB_QUERY, "verify: EVP_DigestUpdate failed");
 		EVP_PKEY_free(evp_key);
 		if(dofree) free(sigblock);
 		return sec_status_unchecked;
