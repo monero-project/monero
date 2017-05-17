@@ -338,6 +338,8 @@ if (UNIX AND NOT APPLE)
   find_package(Threads)
 endif()
 
+add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
+
 add_subdirectory(external)
 
 # Final setup for miniupnpc

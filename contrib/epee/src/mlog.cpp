@@ -31,8 +31,6 @@
 #include <atomic>
 #include "misc_log_ex.h"
 
-INITIALIZE_EASYLOGGINGPP
-
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "logging"
 
