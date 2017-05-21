@@ -79,7 +79,7 @@ monero_add_library(common
 target_link_libraries(common
   PUBLIC
     epee
-    crypto
+    cncrypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}

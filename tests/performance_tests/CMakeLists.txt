@@ -53,7 +53,7 @@ target_link_libraries(performance_tests
   PRIVATE
     cryptonote_core
     common
-    crypto
+    cncrypto
     epee
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}

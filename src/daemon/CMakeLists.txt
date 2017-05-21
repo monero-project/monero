@@ -87,7 +87,7 @@ target_link_libraries(daemon
     rpc
     blockchain_db
     cryptonote_core
-    crypto
+    cncrypto
     common
     p2p
     cryptonote_protocol

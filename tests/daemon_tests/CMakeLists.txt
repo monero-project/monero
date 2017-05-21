@@ -39,7 +39,7 @@ target_link_libraries(transfers
     useragent
     rpc
     cryptonote_core
-    crypto
+    cncrypto
     common
     epee
     ${GTEST_LIBRARIES})

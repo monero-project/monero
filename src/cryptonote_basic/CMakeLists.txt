@@ -62,7 +62,7 @@ monero_add_library(cryptonote_basic
 target_link_libraries(cryptonote_basic
   PUBLIC
     common
-    crypto
+    cncrypto
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}

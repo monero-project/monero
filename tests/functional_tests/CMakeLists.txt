@@ -43,7 +43,7 @@ target_link_libraries(functional_tests
     cryptonote_core
     wallet
     common
-    crypto
+    cncrypto
     epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
