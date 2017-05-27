@@ -134,17 +134,12 @@ namespace cryptonote
       << std::setw(13) << "Up(now)"
       << ENDL;
 
-    uint32_t ip;
     m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
-      bool local_ip = false;
-      ip = ntohl(cntxt.m_remote_ip);
-      // TODO: local ip in calss A, B
-      if (ip > 3232235520 && ip < 3232301055) // 192.168.x.x
-      local_ip = true;
+      bool local_ip = cntxt.m_remote_address.is_local();
       auto connection_time = time(NULL) - cntxt.m_started;
       ss << std::setw(30) << std::left << std::string(cntxt.m_is_income ? " [INC]":"[OUT]") +
-        epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip) + ":" + std::to_string(cntxt.m_remote_port)
+        cntxt.m_remote_address.str()
         << std::setw(20) << std::hex << peer_id
         << std::setw(20) << std::hex << support_flags
         << std::setw(30) << std::to_string(cntxt.m_recv_cnt)+ "(" + std::to_string(time(NULL) - cntxt.m_last_recv) + ")" + "/" + std::to_string(cntxt.m_send_cnt) + "(" + std::to_string(time(NULL) - cntxt.m_last_send) + ")"
@@ -155,7 +150,7 @@ namespace cryptonote
         << std::setw(10) << std::fixed << (connection_time == 0 ? 0.0 : cntxt.m_send_cnt / connection_time / 1024)
         << std::setw(13) << std::fixed << cntxt.m_current_speed_up / 1024
         << (local_ip ? "[LAN]" : "")
-        << std::left << (ip == LOCALHOST_INT ? "[LOCALHOST]" : "") // 127.0.0.1
+        << std::left << (cntxt.m_remote_address.is_loopback() ? "[LOCALHOST]" : "") // 127.0.0.1
         << ENDL;
 
       if (connection_time > 1)
@@ -193,8 +188,15 @@ namespace cryptonote
 
       cnx.incoming = cntxt.m_is_income ? true : false;
 
-      cnx.ip = epee::string_tools::get_ip_string_from_int32(cntxt.m_remote_ip);
-      cnx.port = std::to_string(cntxt.m_remote_port);
+      cnx.address = cntxt.m_remote_address.str();
+      cnx.host = cntxt.m_remote_address.host_str();
+      cnx.ip = "";
+      cnx.port = "";
+      if (cntxt.m_remote_address.type() == typeid(epee::net_utils::ipv4_network_address))
+      {
+        cnx.ip = cnx.host;
+        cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv4_network_address>().port());
+      }
 
       std::stringstream peer_id_str;
       peer_id_str << std::hex << peer_id;
@@ -212,25 +214,8 @@ namespace cryptonote
 
       cnx.live_time = timestamp - cntxt.m_started;
 
-      uint32_t ip;
-      ip = ntohl(cntxt.m_remote_ip);
-      if (ip == LOCALHOST_INT)
-      {
-        cnx.localhost = true;
-      }
-      else
-      {
-        cnx.localhost = false;
-      }
-
-      if (ip > 3232235520 && ip < 3232301055) // 192.168.x.x
-      {
-        cnx.local_ip = true;
-      }
-      else
-      {
-        cnx.local_ip = false;
-      }
+      cnx.localhost = cntxt.m_remote_address.is_loopback();
+      cnx.local_ip = cntxt.m_remote_address.is_local();
 
       auto connection_time = time(NULL) - cntxt.m_started;
       if (connection_time == 0)
@@ -980,7 +965,7 @@ namespace cryptonote
           {
             LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
             m_p2p->drop_connection(context);
-            m_p2p->add_ip_fail(context.m_remote_ip);
+            m_p2p->add_host_fail(context.m_remote_address);
             m_core.cleanup_handle_incoming_blocks();
             return 1;
           }
@@ -988,7 +973,7 @@ namespace cryptonote
           {
             LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
             m_p2p->drop_connection(context);
-            m_p2p->add_ip_fail(context.m_remote_ip);
+            m_p2p->add_host_fail(context.m_remote_address);
             m_core.cleanup_handle_incoming_blocks();
             return 1;
           }
@@ -1140,7 +1125,7 @@ skip:
     {
       LOG_ERROR_CCONTEXT("sent empty m_block_ids, dropping connection");
       m_p2p->drop_connection(context);
-      m_p2p->add_ip_fail(context.m_remote_ip);
+      m_p2p->add_host_fail(context.m_remote_address);
       return 1;
     }
 
@@ -1149,7 +1134,7 @@ skip:
       LOG_ERROR_CCONTEXT("sent m_block_ids starting from unknown id: "
                                               << epee::string_tools::pod_to_hex(arg.m_block_ids.front()) << " , dropping connection");
       m_p2p->drop_connection(context);
-      m_p2p->add_ip_fail(context.m_remote_ip);
+      m_p2p->add_host_fail(context.m_remote_address);
       return 1;
     }
 

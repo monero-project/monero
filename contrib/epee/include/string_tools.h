@@ -193,7 +193,7 @@ POP_WARNINGS
 	//----------------------------------------------------------------------------
 	bool get_ip_int32_from_string(uint32_t& ip, const std::string& ip_str);
   //----------------------------------------------------------------------------
-  inline bool parse_peer_from_string(uint32_t& ip, uint32_t& port, const std::string& addres)
+  inline bool parse_peer_from_string(uint32_t& ip, uint16_t& port, const std::string& addres)
   {
     //parse ip and address
     std::string::size_type p = addres.find(':');

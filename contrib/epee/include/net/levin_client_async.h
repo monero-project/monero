@@ -492,8 +492,7 @@ namespace levin
 		{
 
 			net_utils::connection_context_base conn_context;
-			conn_context.m_remote_ip = m_ip;
-			conn_context.m_remote_port = m_port;
+			conn_context.m_remote_address = m_address;
 			if(head.m_have_to_return_data)
 			{
 				std::string return_buff;

@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 10
+#define CORE_RPC_VERSION_MINOR 11
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -861,18 +861,23 @@ namespace cryptonote
 
   struct peer {
     uint64_t id;
+    std::string host;
     uint32_t ip;
     uint16_t port;
     uint64_t last_seen;
 
     peer() = default;
 
+    peer(uint64_t id, const std::string &host, uint64_t last_seen)
+      : id(id), host(host), ip(0), port(0), last_seen(last_seen)
+    {}
     peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen)
-      : id(id), ip(ip), port(port), last_seen(last_seen)
+      : id(id), host(std::to_string(ip)), ip(ip), port(port), last_seen(last_seen)
     {}
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id)
+      KV_SERIALIZE(host)
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
       KV_SERIALIZE(last_seen)
@@ -1226,10 +1231,12 @@ namespace cryptonote
   {
     struct ban
     {
+      std::string host;
       uint32_t ip;
       uint32_t seconds;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(host)
         KV_SERIALIZE(ip)
         KV_SERIALIZE(seconds)
       END_KV_SERIALIZE_MAP()
@@ -1257,11 +1264,13 @@ namespace cryptonote
   {
     struct ban
     {
+      std::string host;
       uint32_t ip;
       bool ban;
       uint32_t seconds;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(host)
         KV_SERIALIZE(ip)
         KV_SERIALIZE(ban)
         KV_SERIALIZE(seconds)

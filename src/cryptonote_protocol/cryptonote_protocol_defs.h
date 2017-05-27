@@ -49,6 +49,8 @@ namespace cryptonote
     bool localhost;
     bool local_ip;
 
+    std::string address;
+    std::string host;
     std::string ip;
     std::string port;
 
@@ -76,6 +78,8 @@ namespace cryptonote
       KV_SERIALIZE(incoming)
       KV_SERIALIZE(localhost)
       KV_SERIALIZE(local_ip)
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(host)
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
       KV_SERIALIZE(peer_id)

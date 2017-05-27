@@ -51,10 +51,10 @@ namespace nodetool
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
     virtual uint64_t get_connections_count()=0;
     virtual void for_each_connection(std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
-    virtual bool block_ip(uint32_t adress, time_t seconds = 0)=0;
-    virtual bool unblock_ip(uint32_t adress)=0;
-    virtual std::map<uint32_t, time_t> get_blocked_ips()=0;
-    virtual bool add_ip_fail(uint32_t adress)=0;
+    virtual bool block_host(const epee::net_utils::network_address &address, time_t seconds = 0)=0;
+    virtual bool unblock_host(const epee::net_utils::network_address &address)=0;
+    virtual std::map<std::string, time_t> get_blocked_hosts()=0;
+    virtual bool add_host_fail(const epee::net_utils::network_address &address)=0;
   };
 
   template<class t_connection_context>
@@ -93,19 +93,19 @@ namespace nodetool
     {
       return false;
     }
-    virtual bool block_ip(uint32_t adress, time_t seconds)
+    virtual bool block_host(const epee::net_utils::network_address &address, time_t seconds)
     {
       return true;
     }
-    virtual bool unblock_ip(uint32_t adress)
+    virtual bool unblock_host(const epee::net_utils::network_address &address)
     {
       return true;
     }
-    virtual std::map<uint32_t, time_t> get_blocked_ips()
+    virtual std::map<std::string, time_t> get_blocked_hosts()
     {
-      return std::map<uint32_t, time_t>();
+      return std::map<std::string, time_t>();
     }
-    virtual bool add_ip_fail(uint32_t adress)
+    virtual bool add_host_fail(const epee::net_utils::network_address &address)
     {
       return true;
     }

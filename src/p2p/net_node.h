@@ -123,9 +123,9 @@ namespace nodetool
     size_t get_outgoing_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
     void delete_connections(size_t count);
-    virtual bool block_ip(uint32_t adress, time_t seconds = P2P_IP_BLOCKTIME);
-    virtual bool unblock_ip(uint32_t address);
-    virtual std::map<uint32_t, time_t> get_blocked_ips() { CRITICAL_REGION_LOCAL(m_blocked_ips_lock); return m_blocked_ips; }
+    virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
+    virtual bool unblock_host(const epee::net_utils::network_address &address);
+    virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
   private:
     const std::vector<std::string> m_seed_nodes_list =
     { "seeds.moneroseeds.se"
@@ -186,11 +186,11 @@ namespace nodetool
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
-    virtual bool add_ip_fail(uint32_t address);
+    virtual bool add_host_fail(const epee::net_utils::network_address &address);
     //----------------- i_connection_filter  --------------------------------------------------------
-    virtual bool is_remote_ip_allowed(uint32_t adress);
+    virtual bool is_remote_host_allowed(const epee::net_utils::network_address &address);
     //-----------------------------------------------------------------------------------------------
-    bool parse_peer_from_string(nodetool::net_address& pe, const std::string& node_addr);
+    bool parse_peer_from_string(epee::net_utils::network_address& pe, const std::string& node_addr, uint16_t default_port = 0);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
       );
@@ -209,18 +209,18 @@ namespace nodetool
 
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(bool use_white_list);
-    bool try_to_connect_and_handshake_with_new_peer(const net_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
+    bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
-    bool is_addr_connected(const net_address& peer);
+    bool is_addr_connected(const epee::net_utils::network_address& peer);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(PeerType peer_type, size_t expected_connections);
-    void cache_connect_fail_info(const net_address& addr);
-    bool is_addr_recently_failed(const net_address& addr);
-    bool is_priority_node(const net_address& na);
+    void cache_connect_fail_info(const epee::net_utils::network_address& addr);
+    bool is_addr_recently_failed(const epee::net_utils::network_address& addr);
+    bool is_priority_node(const epee::net_utils::network_address& na);
     std::set<std::string> get_seed_nodes(bool testnet) const;
 
     template <class Container>
@@ -236,9 +236,9 @@ namespace nodetool
     bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
-    bool has_too_many_connections(const uint32_t ip);
+    bool has_too_many_connections(const epee::net_utils::network_address &address);
 
-    bool check_connection_and_handshake_with_peer(const net_address& na, uint64_t last_seen_stamp);
+    bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
 
     void kill() { ///< will be called e.g. from deinit()
@@ -308,23 +308,23 @@ namespace nodetool
 #ifdef ALLOW_DEBUG_COMMANDS
     uint64_t m_last_stat_request_time;
 #endif
-    std::list<net_address>   m_priority_peers;
-    std::vector<net_address> m_exclusive_peers;
-    std::vector<net_address> m_seed_nodes;
+    std::list<epee::net_utils::network_address>   m_priority_peers;
+    std::vector<epee::net_utils::network_address> m_exclusive_peers;
+    std::vector<epee::net_utils::network_address> m_seed_nodes;
     std::list<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
     net_server m_net_server;
     boost::uuids::uuid m_network_id;
 
-    std::map<net_address, time_t> m_conn_fails_cache;
+    std::map<epee::net_utils::network_address, time_t> m_conn_fails_cache;
     epee::critical_section m_conn_fails_cache_lock;
 
-    epee::critical_section m_blocked_ips_lock;
-    std::map<uint32_t, time_t> m_blocked_ips;
+    epee::critical_section m_blocked_hosts_lock;
+    std::map<std::string, time_t> m_blocked_hosts;
 
-    epee::critical_section m_ip_fails_score_lock;
-    std::map<uint32_t, uint64_t> m_ip_fails_score;
+    epee::critical_section m_host_fails_score_lock;
+    std::map<std::string, uint64_t> m_host_fails_score;
 
     bool m_testnet;
   };
