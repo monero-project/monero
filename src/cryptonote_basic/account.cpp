@@ -123,6 +123,13 @@ DISABLE_VS_WARNINGS(4244 4345)
     create_from_keys(address, fake, viewkey);
   }
   //-----------------------------------------------------------------
+  bool account_base::make_multisig(const crypto::secret_key &view_secret_key, const crypto::public_key &spend_public_key)
+  {
+    m_keys.m_account_address.m_spend_public_key = spend_public_key;
+    m_keys.m_view_secret_key = view_secret_key;
+    return crypto::secret_key_to_public_key(view_secret_key, m_keys.m_account_address.m_view_public_key);
+  }
+  //-----------------------------------------------------------------
   const account_keys& account_base::get_keys() const
   {
     return m_keys;

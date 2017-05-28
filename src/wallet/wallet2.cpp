@@ -2181,6 +2181,15 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
   json.AddMember("watch_only", value2, json.GetAllocator());
 
+  value2.SetInt(m_multisig ? 1 :0);
+  json.AddMember("multisig", value2, json.GetAllocator());
+
+  value2.SetUint(m_multisig_threshold);
+  json.AddMember("multisig_threshold", value2, json.GetAllocator());
+
+  value2.SetUint(m_multisig_total);
+  json.AddMember("multisig_total", value2, json.GetAllocator());
+
   value2.SetInt(m_always_confirm_transfers ? 1 :0);
   json.AddMember("always_confirm_transfers", value2, json.GetAllocator());
 
@@ -2292,6 +2301,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   {
     is_old_file_format = true;
     m_watch_only = false;
+    m_multisig = false;
+    m_multisig_threshold = 0;
+    m_multisig_total = 0;
     m_always_confirm_transfers = false;
     m_print_ring_members = false;
     m_default_mixin = 0;
@@ -2328,6 +2340,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, watch_only, int, Int, false, false);
     m_watch_only = field_watch_only;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig, int, Int, false, false);
+    m_multisig = field_multisig;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig_threshold, unsigned int, Uint, m_multisig, 0);
+    m_multisig_threshold = field_multisig_threshold;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, multisig_total, unsigned int, Uint, m_multisig, 0);
+    m_multisig_total = field_multisig_total;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, always_confirm_transfers, int, Int, false, true);
     m_always_confirm_transfers = field_always_confirm_transfers;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, print_ring_members, int, Int, false, true);
@@ -2394,7 +2412,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   const cryptonote::account_keys& keys = m_account.get_keys();
   r = epee::serialization::load_t_from_binary(m_account, account_data);
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  if(!m_watch_only)
+  if(!m_watch_only && !m_multisig)
     r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
   return true;
@@ -2412,7 +2430,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
  */
 bool wallet2::verify_password(const epee::wipeable_string& password) const
 {
-  return verify_password(m_keys_file, password, m_watch_only);
+  return verify_password(m_keys_file, password, m_watch_only || m_multisig);
 }
 
 /*!
@@ -2427,7 +2445,7 @@ bool wallet2::verify_password(const epee::wipeable_string& password) const
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only)
+bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
@@ -2461,7 +2479,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   const cryptonote::account_keys& keys = account_data_check.get_keys();
 
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  if(!watch_only)
+  if(!no_spend_key)
     r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   return r;
 }
@@ -2489,6 +2507,9 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
 
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
+  m_multisig = false;
+  m_multisig_threshold = 0;
+  m_multisig_total = 0;
 
   // -1 month for fluctuations in block time and machine date/time setup.
   // avg seconds per block
@@ -2569,6 +2590,9 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_account.create_from_viewkey(account_public_address, viewkey);
   m_account_public_address = account_public_address;
   m_watch_only = true;
+  m_multisig = false;
+  m_multisig_threshold = 0;
+  m_multisig_total = 0;
 
   bool r = store_keys(m_keys_file, password, true);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
@@ -2605,6 +2629,69 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_account.create_from_keys(account_public_address, spendkey, viewkey);
   m_account_public_address = account_public_address;
   m_watch_only = false;
+  m_multisig = false;
+  m_multisig_threshold = 0;
+  m_multisig_total = 0;
+
+  bool r = store_keys(m_keys_file, password, false);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+
+  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+  if(!r) MERROR("String with address text not saved");
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+
+  store();
+}
+
+void wallet2::make_multisig(const epee::wipeable_string &password,
+  const std::vector<crypto::secret_key> &view_keys,
+  const std::vector<crypto::public_key> &spend_keys,
+  uint32_t threshold)
+{
+  CHECK_AND_ASSERT_THROW_MES(!view_keys.empty(), "empty view keys");
+  CHECK_AND_ASSERT_THROW_MES(view_keys.size() == spend_keys.size(), "Mismatched view/spend key sizes");
+  CHECK_AND_ASSERT_THROW_MES(threshold > 0 && threshold <= spend_keys.size() + 1, "Invalid threshold");
+  CHECK_AND_ASSERT_THROW_MES(threshold == spend_keys.size() || threshold == spend_keys.size() + 1, "Unsupported threshold case");
+
+  clear();
+
+  MINFO("Creating spend key...");
+  rct::key spend_pkey = rct::pk2rct(get_account().get_keys().m_account_address.m_spend_public_key);
+  if (threshold == spend_keys.size() + 1)
+  {
+    // the multisig spend public key is the sum of all spend public keys
+    for (const auto &k: spend_keys)
+      rct::addKeys(spend_pkey, spend_pkey, rct::pk2rct(k));
+  }
+  else
+  {
+    // the multisig spend public key is the sum of keys derived from all spend public keys
+    const rct::key spend_skey = rct::sk2rct(get_account().get_keys().m_spend_secret_key);
+    for (const auto &k: spend_keys)
+    {
+      rct::addKeys(spend_pkey, spend_pkey, rct::scalarmultBase(rct::cn_fast_hash(rct::scalarmultKey(rct::pk2rct(k), spend_skey))));
+    }
+  }
+
+  // the multisig view key is shared by all, make one all can derive
+  MINFO("Creating view key...");
+  rct::key view_skey = rct::sk2rct(get_account().get_keys().m_view_secret_key);
+  for (const auto &k: view_keys)
+    sc_add(view_skey.bytes, view_skey.bytes, rct::sk2rct(k).bytes);
+  sc_reduce32(view_skey.bytes);
+
+  MINFO("Creating multisig address...");
+  CHECK_AND_ASSERT_THROW_MES(m_account.make_multisig(rct::rct2sk(view_skey), rct::rct2pk(spend_pkey)),
+      "Failed to create multisig wallet due to bad keys");
+
+  m_account_public_address = m_account.get_keys().m_account_address;
+  m_watch_only = false;
+  m_multisig = true;
+  m_multisig_threshold = threshold;
+  m_multisig_total = spend_keys.size() + 1;
 
   bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
@@ -2618,6 +2705,74 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   add_subaddress_account(tr("Primary account"));
 
   store();
+}
+
+std::string wallet2::get_multisig_info() const
+{
+  // It's a signed package of private view key and public spend key
+  const crypto::secret_key &skey = get_account().get_keys().m_view_secret_key;
+  const crypto::public_key &pkey = get_account().get_keys().m_account_address.m_spend_public_key;
+
+  std::string data;
+  data += std::string((const char *)&skey, sizeof(crypto::secret_key));
+  data += std::string((const char *)&pkey, sizeof(crypto::public_key));
+
+  data.resize(data.size() + sizeof(crypto::signature));
+  crypto::hash hash;
+  crypto::cn_fast_hash(data.data(), data.size() - sizeof(signature), hash);
+  crypto::signature &signature = *(crypto::signature*)&data[data.size() - sizeof(crypto::signature)];
+  crypto::generate_signature(hash, pkey, get_account().get_keys().m_spend_secret_key, signature);
+
+  return std::string("MultisigV1") + tools::base58::encode(data);
+}
+
+bool wallet2::verify_multisig_info(const std::string &data, crypto::secret_key &skey, crypto::public_key &pkey)
+{
+  const size_t header_len = strlen("MultisigV1");
+  if (data.size() < header_len || data.substr(0, header_len) != "MultisigV1")
+  {
+    MERROR("Multisig info header check error");
+    return false;
+  }
+  std::string decoded;
+  if (!tools::base58::decode(data.substr(header_len), decoded))
+  {
+    MERROR("Multisig info decoding error");
+    return false;
+  }
+  if (decoded.size() != sizeof(crypto::secret_key) + sizeof(crypto::public_key) + sizeof(crypto::signature))
+  {
+    MERROR("Multisig info is corrupt");
+    return false;
+  }
+
+  size_t offset = 0;
+  skey = *(const crypto::secret_key*)(decoded.data() + offset);
+  offset += sizeof(skey);
+  pkey = *(const crypto::public_key*)(decoded.data() + offset);
+  offset += sizeof(pkey);
+  const crypto::signature &signature = *(const crypto::signature*)(decoded.data() + offset);
+
+  crypto::hash hash;
+  crypto::cn_fast_hash(decoded.data(), decoded.size() - sizeof(signature), hash);
+  if (!crypto::check_signature(hash, pkey, signature))
+  {
+    MERROR("Multisig info signature is invalid");
+    return false;
+  }
+
+  return true;
+}
+
+bool wallet2::multisig(uint32_t *threshold, uint32_t *total) const
+{
+  if (!m_multisig)
+    return false;
+  if (threshold)
+    *threshold = m_multisig_threshold;
+  if (total)
+    *total = m_multisig_total;
+  return true;
 }
 
 /*!

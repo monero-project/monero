@@ -587,6 +587,133 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   return true;
 }
 
+bool simple_wallet::prepare_multisig(const std::vector<std::string> &args)
+{
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is already multisig");
+    return true;
+  }
+
+  if(m_wallet->get_num_transfer_details())
+  {
+    fail_msg_writer() << tr("This wallet has been used before, please use a new wallet to create a multisig wallet");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your password is incorrect.");
+    return true;
+  }
+
+  std::string multisig_info = m_wallet->get_multisig_info();
+  success_msg_writer() << multisig_info;
+  success_msg_writer() << "Send this multisig info to all other participants, then use make_multisig <info1> [<info2>...] with others' multisig info";
+  success_msg_writer() << "This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ";
+  return true;
+}
+
+bool simple_wallet::make_multisig(const std::vector<std::string> &args)
+{
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is already multisig");
+    return true;
+  }
+
+  if(m_wallet->get_num_transfer_details())
+  {
+    fail_msg_writer() << tr("This wallet has been used before, please use a new wallet to create a multisig wallet");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your original password was incorrect.");
+    return true;
+  }
+
+  if (args.size() < 2)
+  {
+    fail_msg_writer() << tr("usage: make_multisig <threshold> <multisiginfo1> [<multisiginfo2>...]");
+    return true;
+  }
+
+  // parse threshold
+  uint32_t threshold;
+  if (!string_tools::get_xtype_from_string(threshold, args[0]))
+  {
+    fail_msg_writer() << tr("Invalid threshold");
+    return true;
+  }
+
+  // parse all multisig info
+  std::vector<crypto::secret_key> secret_keys(args.size() - 1);
+  std::vector<crypto::public_key> public_keys(args.size() - 1);
+  for (size_t i = 1; i < args.size(); ++i)
+  {
+    if (!tools::wallet2::verify_multisig_info(args[i], secret_keys[i - 1], public_keys[i - 1]))
+    {
+      fail_msg_writer() << tr("Bad multisig info: ") << args[i];
+      return true;
+    }
+  }
+
+  // remove duplicates
+  for (size_t i = 1; i < secret_keys.size(); ++i)
+  {
+    if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(secret_keys[0]))
+    {
+      message_writer() << tr("Duplicate key found, ignoring");
+      secret_keys[i] = secret_keys.back();
+      public_keys[i] = public_keys.back();
+      secret_keys.pop_back();
+      public_keys.pop_back();
+      --i;
+    }
+  }
+
+  // people may include their own, weed it out
+  for (size_t i = 0; i < secret_keys.size(); ++i)
+  {
+    if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(m_wallet->get_account().get_keys().m_view_secret_key))
+    {
+      message_writer() << tr("Local key is present, ignoring");
+      secret_keys[i] = secret_keys.back();
+      public_keys[i] = public_keys.back();
+      secret_keys.pop_back();
+      public_keys.pop_back();
+      --i;
+    }
+    else if (rct::pk2rct(public_keys[i]) == rct::pk2rct(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key))
+    {
+      fail_msg_writer() << "Found local spend public key, but not local view secret key - something very weird";
+      return true;
+    }
+  }
+
+  LOCK_IDLE_SCOPE();
+
+  try
+  {
+    m_wallet->make_multisig(orig_pwd_container->password(), secret_keys, public_keys, threshold);
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << "Error creating multisig: " << e.what();
+    return true;
+  }
+
+  uint32_t total = secret_keys.size() + 1;
+  success_msg_writer() << std::to_string(threshold) << "/" << total << " multisig address: "
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -1165,10 +1292,16 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("fee",
                            boost::bind(&simple_wallet::print_fee_info, this, _1),
                            tr("Print the information about the current fee and transaction backlog."));
+  m_cmd_binder.set_handler("prepare_multisig", boost::bind(&simple_wallet::prepare_multisig, this, _1),
+                           tr("Export data needed to create a multisig wallet"));
+  m_cmd_binder.set_handler("make_multisig", boost::bind(&simple_wallet::make_multisig, this, _1),
+                           tr("make_multisig <threshold> <string1> [<string>...]"),
+                           tr("Turn this wallet into a multisig wallet"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),
                            tr("Show the help section or the documentation about a <command>."));
+  m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_variable(const std::vector<std::string> &args)
@@ -2098,9 +2231,16 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       return false;
     }
 
+    std::string prefix;
+    uint32_t threshold, total;
+    if (m_wallet->watch_only())
+      prefix = tr("Opened watch-only wallet");
+    else if (m_wallet->multisig(&threshold, &total))
+      prefix = (boost::format(tr("Opened %u/%u multisig wallet")) % threshold % total).str();
+    else
+      prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<
-      (m_wallet->watch_only() ? tr("Opened watch-only wallet") : tr("Opened wallet")) << ": "
-      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+      prefix << ": " << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     // If the wallet file is deprecated, we should ask for mnemonic language again and store
     // everything in the new format.
     // NOTE: this is_deprecated() refers to the wallet file format before becoming JSON. It does not refer to the "old english" seed words form of "deprecated" used elsewhere.

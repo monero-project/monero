@@ -166,7 +166,7 @@ namespace tools
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
-    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key);
 
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshDefault), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
 
@@ -419,6 +419,21 @@ namespace tools
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& viewkey = crypto::secret_key());
     /*!
+     * \brief Creates a multisig wallet
+     */
+    void make_multisig(const epee::wipeable_string &password,
+      const std::vector<crypto::secret_key> &view_keys,
+      const std::vector<crypto::public_key> &spend_keys,
+      uint32_t threshold);
+    /*!
+     * Get a packaged multisig information string
+     */
+    std::string get_multisig_info() const;
+    /*!
+     * Verifies and extracts keys from a packaged multisig information string
+     */
+    static bool verify_multisig_info(const std::string &data, crypto::secret_key &skey, crypto::public_key &pkey);
+    /*!
      * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
      * \param wallet_name Name of wallet file (should exist)
      * \param password    Password for wallet file
@@ -512,6 +527,7 @@ namespace tools
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
+    bool multisig(uint32_t *threshold = NULL, uint32_t *total = NULL) const;
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;
@@ -724,6 +740,7 @@ namespace tools
     bool delete_address_book_row(std::size_t row_id);
         
     uint64_t get_num_rct_outputs();
+    size_t get_num_transfer_details() const { return m_transfers.size(); }
     const transfer_details &get_transfer_details(size_t idx) const;
 
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
@@ -921,6 +938,9 @@ namespace tools
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     bool m_watch_only; /*!< no spend key */
+    bool m_multisig; /*!< if > 1 spend secret key will not match spend public key */
+    uint32_t m_multisig_threshold;
+    uint32_t m_multisig_total;
     bool m_always_confirm_transfers;
     bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
