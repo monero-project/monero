@@ -286,6 +286,10 @@ WalletImpl::WalletImpl(bool testnet)
     m_refreshEnabled = false;
     m_addressBook = new AddressBookImpl(this);
 
+    // Attempt to fix crash when refreshing on win32 machines.
+#ifdef WIN32
+    tools::set_max_concurrency(1);
+#endif
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
 
