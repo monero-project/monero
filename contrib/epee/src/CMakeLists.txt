@@ -26,7 +26,12 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp string_tools.cpp)
+if (USE_READLINE AND GNU_READLINE_FOUND)
+  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp string_tools.cpp readline_buffer.cpp)
+else()
+  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp string_tools.cpp)
+endif()
+
 # Build and install libepee if we're building for GUI
 if (BUILD_GUI_DEPS)
     if(IOS)
