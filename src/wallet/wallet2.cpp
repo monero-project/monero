@@ -4266,7 +4266,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         std::vector<cryptonote::tx_destination_entry>::iterator i;
         i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &addr, sizeof(addr)); });
         if (i == dsts.end())
+        {
           dsts.push_back(tx_destination_entry(0,addr));
+          i = dsts.end() - 1;
+        }
         i->amount += amount;
       }
       else
