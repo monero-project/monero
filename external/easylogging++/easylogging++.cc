@@ -1164,19 +1164,19 @@ unsigned long long DateTime::getTimeDifference(const struct timeval& endTime, co
 struct ::tm* DateTime::buildTimeInfo(struct timeval* currTime, struct ::tm* timeInfo) {
 #if ELPP_OS_UNIX
   time_t rawTime = currTime->tv_sec;
-  ::localtime_r(&rawTime, timeInfo);
+  ::gmtime_r(&rawTime, timeInfo);
   return timeInfo;
 #else
 #  if ELPP_COMPILER_MSVC
   ELPP_UNUSED(currTime);
   time_t t;
   _time64(&t);
-  localtime_s(timeInfo, &t);
+  gmtime_s(timeInfo, &t);
   return timeInfo;
 #  else
   // For any other compilers that don't have CRT warnings issue e.g, MinGW or TDM GCC- we use different method
   time_t rawTime = currTime->tv_sec;
-  struct tm* tmInf = localtime(&rawTime);
+  struct tm* tmInf = gmtime(&rawTime);
   *timeInfo = *tmInf;
   return timeInfo;
 #  endif  // ELPP_COMPILER_MSVC
