@@ -479,7 +479,7 @@ namespace cryptonote
           
           // we might already have the tx that the peer
           // sent in our pool, so don't verify again..
-          if(!m_core.get_pool_transaction(tx_hash, tx))
+          if(!m_core.pool_has_tx(tx_hash))
           {
             MDEBUG("Incoming tx " << tx_hash << " not in pool, adding");
             cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);                        
@@ -536,9 +536,10 @@ namespace cryptonote
       size_t tx_idx = 0;
       for(auto& tx_hash: new_block.tx_hashes)
       {
-        if(m_core.get_pool_transaction(tx_hash, tx))
+        cryptonote::blobdata txblob;
+        if(m_core.get_pool_transaction(tx_hash, txblob))
         {
-          have_tx.push_back(tx_to_blob(tx));
+          have_tx.push_back(txblob);
         }
         else
         {
@@ -730,6 +731,15 @@ namespace cryptonote
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
+
+    // while syncing, core will lock for a long time, so we ignore
+    // those txes as they aren't really needed anyway, and avoid a
+    // long block before replying
+    if(!is_synchronized())
+    {
+      LOG_DEBUG_CC(context, "Received new tx while syncing, ignored");
+      return 1;
+    }
 
     for(auto tx_blob_it = arg.txs.begin(); tx_blob_it!=arg.txs.end();)
     {

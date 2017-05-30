@@ -443,7 +443,7 @@ int import_from_file(FakeCore& simple_core, const std::string& import_file_path,
         // tx number 1: coinbase tx
         // tx number 2 onwards: archived_txs
         unsigned int tx_num = 1;
-        for (const transaction& tx : archived_txs)
+        for (transaction tx : archived_txs)
         {
           ++tx_num;
           // if tx is invalid

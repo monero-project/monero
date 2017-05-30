@@ -3047,7 +3047,7 @@ bool Blockchain::check_block_timestamp(const block& b) const
   return check_block_timestamp(timestamps, b);
 }
 //------------------------------------------------------------------
-void Blockchain::return_tx_to_pool(const std::vector<transaction> &txs)
+void Blockchain::return_tx_to_pool(std::vector<transaction> &txs)
 {
   uint8_t version = get_current_hard_fork_version();
   for (auto& tx : txs)
@@ -3565,7 +3565,7 @@ void Blockchain::block_longhash_worker(const uint64_t height, const std::vector<
 bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 {
   MTRACE("Blockchain::" << __func__);
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  CRITICAL_REGION_BEGIN(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
   m_db->batch_stop();
@@ -3601,6 +3601,9 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
+  CRITICAL_REGION_END();
+  m_tx_pool.unlock();
+
   return true;
 }
 
@@ -3634,14 +3637,32 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
   bool stop_batch;
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  // Order of locking must be:
+  //  m_incoming_tx_lock (optional)
+  //  m_tx_pool lock
+  //  blockchain lock
+  //
+  //  Something which takes the blockchain lock may never take the txpool lock
+  //  if it has not provably taken the txpool lock earlier
+  //
+  //  The txpool lock is now taken in prepare_handle_incoming_blocks
+  //  and released in cleanup_handle_incoming_blocks. This avoids issues
+  //  when something uses the pool, which now uses the blockchain and
+  //  needs a batch, since a batch could otherwise be active while the
+  //  txpool and blockchain locks were not held
+
+  m_tx_pool.lock();
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
   if(blocks_entry.size() == 0)
     return false;
 
   while (!(stop_batch = m_db->batch_start(blocks_entry.size()))) {
     m_blockchain_lock.unlock();
+    m_tx_pool.unlock();
     epee::misc_utils::sleep_no_w(1000);
+    m_tx_pool.lock();
     m_blockchain_lock.lock();
   }
 
@@ -3959,6 +3980,41 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   return true;
 }
 
+void Blockchain::add_txpool_tx(transaction &tx, const txpool_tx_meta_t &meta)
+{
+  m_db->add_txpool_tx(tx, meta);
+}
+
+void Blockchain::update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t &meta)
+{
+  m_db->update_txpool_tx(txid, meta);
+}
+
+void Blockchain::remove_txpool_tx(const crypto::hash &txid)
+{
+  m_db->remove_txpool_tx(txid);
+}
+
+uint64_t Blockchain::get_txpool_tx_count() const
+{
+  return m_db->get_txpool_tx_count();
+}
+
+txpool_tx_meta_t Blockchain::get_txpool_tx_meta(const crypto::hash& txid) const
+{
+  return m_db->get_txpool_tx_meta(txid);
+}
+
+cryptonote::blobdata Blockchain::get_txpool_tx_blob(const crypto::hash& txid) const
+{
+  return m_db->get_txpool_tx_blob(txid);
+}
+
+bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob) const
+{
+  return m_db->for_all_txpool_txes(f, include_blob);
+}
+
 void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync, blockchain_db_sync_mode sync_mode, bool fast_sync)
 {
   m_db_sync_mode = sync_mode;
@@ -4073,6 +4129,8 @@ void Blockchain::load_compiled_in_block_hashes()
         // The core will not call check_tx_inputs(..) for these
         // transactions in this case. Consequently, the sanity check
         // for tx hashes will fail in handle_block_to_main_chain(..)
+        CRITICAL_REGION_LOCAL(m_tx_pool);
+
         std::list<transaction> txs;
         m_tx_pool.get_transactions(txs);
 
@@ -4090,6 +4148,16 @@ void Blockchain::load_compiled_in_block_hashes()
   }
 }
 #endif
+
+void Blockchain::lock()
+{
+  m_blockchain_lock.lock();
+}
+
+void Blockchain::unlock()
+{
+  m_blockchain_lock.unlock();
+}
 
 bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
 {

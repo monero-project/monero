@@ -390,6 +390,13 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      /**
+      * @copydoc tx_memory_pool::have_tx
+      *
+      * @note see tx_memory_pool::have_tx
+      */
+     bool pool_has_tx(const crypto::hash &txid) const;
+
+     /**
       * @copydoc tx_memory_pool::get_transactions
       *
       * @note see tx_memory_pool::get_transactions
@@ -408,7 +415,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_transaction
       */
-     bool get_pool_transaction(const crypto::hash& id, transaction& tx) const;     
+     bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_transactions_and_spent_keys_info
@@ -658,7 +665,7 @@ namespace cryptonote
    private:
 
      /**
-      * @copydoc add_new_tx(const transaction&, tx_verification_context&, bool)
+      * @copydoc add_new_tx(transaction&, tx_verification_context&, bool)
       *
       * @param tx_hash the transaction's hash
       * @param tx_prefix_hash the transaction prefix' hash
@@ -667,7 +674,7 @@ namespace cryptonote
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -684,7 +691,7 @@ namespace cryptonote
       * is already in a block on the Blockchain, or is successfully added
       * to the transaction pool
       */
-     bool add_new_tx(const transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @copydoc Blockchain::add_new_block
