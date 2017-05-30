@@ -127,7 +127,7 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
     CHECK_AND_ASSERT_MES(r, std::string(), "Failed to connect to daemon");
     CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, resp_t.result.status, "Failed to connect to daemon");
     CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, resp_t.result.status, "Failed to get hard fork status");
-    m_earliest_height[version] = resp_t.result.earliest_height;
+    m_earliest_height[version] = resp_t.result.enabled ? resp_t.result.earliest_height : std::numeric_limits<uint64_t>::max();
   }
 
   earliest_height = m_earliest_height[version];
