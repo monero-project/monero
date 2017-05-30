@@ -464,7 +464,8 @@ bool WalletImpl::recoverFromKeys(const std::string &path,
     {
         if (has_spendkey) {
             m_wallet->generate(path, "", address, spendkey, viewkey);
-            LOG_PRINT_L1("Generated new wallet from keys");
+            setSeedLanguage(language);
+            LOG_PRINT_L1("Generated new wallet from keys with seed language: " + language);
         }
         else {
             m_wallet->generate(path, "", address, viewkey);
