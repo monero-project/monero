@@ -56,7 +56,7 @@ monero_add_library(cryptonote_core
 target_link_libraries(cryptonote_core
   PUBLIC
     common
-    crypto
+    cncrypto
     blockchain_db
     ringct
     ${Boost_DATE_TIME_LIBRARY}
