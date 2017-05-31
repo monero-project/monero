@@ -911,57 +911,35 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
 }
 
 bool t_rpc_command_executor::print_transaction_pool_stats() {
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL::response res;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_STATS::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_STATS::response res;
 
-  std::string fail_message = "Problem fetching transaction pool";
+  std::string fail_message = "Problem fetching transaction pool stats";
 
   if (m_is_rpc)
   {
-    if (!m_rpc_client->rpc_request(req, res, "/get_transaction_pool", fail_message.c_str()))
+    if (!m_rpc_client->rpc_request(req, res, "/get_transaction_pool_stats", fail_message.c_str()))
     {
       return true;
     }
   }
   else
   {
-    if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
+    memset(&res.pool_stats, 0, sizeof(res.pool_stats));
+    if (!m_rpc_server->on_get_transaction_pool_stats(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
     }
   }
 
-  size_t n_transactions = res.transactions.size();
-  size_t bytes = 0, min_bytes = 0, max_bytes = 0;
-  size_t n_not_relayed = 0;
-  uint64_t fee = 0;
-  uint64_t oldest = 0;
-  size_t n_10m = 0;
-  size_t n_failing = 0;
+  size_t n_transactions = res.pool_stats.txs_total;
   const uint64_t now = time(NULL);
-  for (const auto &tx_info: res.transactions)
-  {
-    bytes += tx_info.blob_size;
-    if (min_bytes == 0 || tx_info.blob_size < min_bytes)
-      min_bytes = tx_info.blob_size;
-    if (tx_info.blob_size > max_bytes)
-      max_bytes = tx_info.blob_size;
-    if (!tx_info.relayed)
-      n_not_relayed++;
-    fee += tx_info.fee;
-    if (oldest == 0 || tx_info.receive_time < oldest)
-      oldest = tx_info.receive_time;
-    if (tx_info.receive_time < now - 600)
-      n_10m++;
-    if (tx_info.last_failed_height)
-      ++n_failing;
-  }
-  size_t avg_bytes = n_transactions ? bytes / n_transactions : 0;
+  size_t avg_bytes = n_transactions ? res.pool_stats.bytes_total / n_transactions : 0;
 
-  tools::msg_writer() << n_transactions << " tx(es), " << bytes << " bytes total (min " << min_bytes << ", max " << max_bytes << ", avg " << avg_bytes << ")" << std::endl
-      << "fees " << cryptonote::print_money(fee) << " (avg " << cryptonote::print_money(n_transactions ? fee / n_transactions : 0) << " per tx" << ", " << cryptonote::print_money(bytes ? fee / bytes : 0) << " per byte )" << std::endl
-      << n_not_relayed << " not relayed, " << n_failing << " failing, " << n_10m << " older than 10 minutes (oldest " << (oldest == 0 ? "-" : get_human_time_ago(oldest, now)) << ")" << std::endl;
+  tools::msg_writer() << n_transactions << " tx(es), " << res.pool_stats.bytes_total << " bytes total (min " << res.pool_stats.bytes_min << ", max " << res.pool_stats.bytes_max << ", avg " << avg_bytes << ")" << std::endl
+      << "fees " << cryptonote::print_money(res.pool_stats.fee_total) << " (avg " << cryptonote::print_money(n_transactions ? res.pool_stats.fee_total / n_transactions : 0) << " per tx" << ", " << cryptonote::print_money(res.pool_stats.bytes_total ? res.pool_stats.fee_total / res.pool_stats.bytes_total : 0) << " per byte )" << std::endl
+      << res.pool_stats.num_not_relayed << " not relayed, " << res.pool_stats.num_failing << " failing, " << res.pool_stats.num_10m << " older than 10 minutes (oldest " << (res.pool_stats.oldest == 0 ? "-" : get_human_time_ago(res.pool_stats.oldest, now)) << ")" << std::endl;
 
   return true;
 }

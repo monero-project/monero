@@ -546,6 +546,31 @@ namespace cryptonote
     });
   }
   //------------------------------------------------------------------
+  void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    const uint64_t now = time(NULL);
+    stats.txs_total = m_blockchain.get_txpool_tx_count();
+    m_blockchain.for_all_txpool_txes([&stats, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+      stats.bytes_total += meta.blob_size;
+      if (!stats.bytes_min || meta.blob_size < stats.bytes_min)
+        stats.bytes_min = meta.blob_size;
+      if (meta.blob_size > stats.bytes_max)
+        stats.bytes_max = meta.blob_size;
+      if (!meta.relayed)
+        stats.num_not_relayed++;
+      stats.fee_total += meta.fee;
+      if (!stats.oldest || meta.receive_time < stats.oldest)
+        stats.oldest = meta.receive_time;
+      if (meta.receive_time < now - 600)
+        stats.num_10m++;
+      if (meta.last_failed_height)
+        stats.num_failing++;
+      return true;
+    });
+  }
+  //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
   bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {
