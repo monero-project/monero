@@ -3930,7 +3930,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   // throw if attempting a transaction with no destinations
   THROW_WALLET_EXCEPTION_IF(dsts.empty(), error::zero_destination);
 
-  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+  uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
   uint64_t needed_money = fee;
   LOG_PRINT_L2("transfer_selected_rct: starting with fee " << print_money (needed_money));
   LOG_PRINT_L0("selected transfers: ");
@@ -4285,7 +4285,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   std::vector<TX> txes;
   bool adding_fee; // true if new outputs go towards fee, rather than destinations
   uint64_t needed_fee, available_for_fee = 0;
-  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+  uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
 
   const uint64_t fee_per_kb  = get_per_kb_fee();
@@ -4621,7 +4621,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   };
   std::vector<TX> txes;
   uint64_t needed_fee, available_for_fee = 0;
-  uint64_t upper_transaction_size_limit = get_upper_tranaction_size_limit();
+  uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
   std::vector<std::vector<get_outs_entry>> outs;
 
   const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
@@ -4779,7 +4779,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
   return close_enough;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_upper_tranaction_size_limit()
+uint64_t wallet2::get_upper_transaction_size_limit()
 {
   if (m_upper_transaction_size_limit > 0)
     return m_upper_transaction_size_limit;
