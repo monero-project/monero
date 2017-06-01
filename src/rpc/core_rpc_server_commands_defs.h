@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 10
+#define CORE_RPC_VERSION_MINOR 11
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1043,6 +1043,51 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(tx_hashes)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct txpool_stats
+  {
+    uint64_t bytes_total;
+    uint32_t bytes_min;
+    uint32_t bytes_max;
+    uint64_t fee_total;
+    uint64_t oldest;
+    uint32_t txs_total;
+    uint32_t num_failing;
+    uint32_t num_10m;
+    uint32_t num_not_relayed;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(bytes_total)
+      KV_SERIALIZE(bytes_min)
+      KV_SERIALIZE(bytes_max)
+      KV_SERIALIZE(fee_total)
+      KV_SERIALIZE(oldest)
+      KV_SERIALIZE(txs_total)
+      KV_SERIALIZE(num_failing)
+      KV_SERIALIZE(num_10m)
+      KV_SERIALIZE(num_not_relayed)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL_STATS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      txpool_stats pool_stats;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(pool_stats)
       END_KV_SERIALIZE_MAP()
     };
   };
