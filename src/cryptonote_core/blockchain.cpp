@@ -4164,9 +4164,9 @@ bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)
   return m_db->for_all_key_images(f);
 }
 
-bool Blockchain::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)> f) const
+bool Blockchain::for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const block&)> f) const
 {
-  return m_db->for_all_blocks(f);
+  return m_db->for_blocks_range(h1, h2, f);
 }
 
 bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f) const

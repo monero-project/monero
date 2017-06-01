@@ -106,7 +106,7 @@ public:
   virtual void remove_spent_key(const crypto::key_image& k_image) {}
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const { return true; }
-  virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const { return true; }
+  virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const { return true; }
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const { return true; }
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const { return true; }
   virtual bool is_read_only() const { return false; }

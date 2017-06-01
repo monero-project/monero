@@ -2380,7 +2380,7 @@ bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_ima
   return ret;
 }
 
-bool BlockchainLMDB::for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)> f) const
+bool BlockchainLMDB::for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)> f) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2392,7 +2392,15 @@ bool BlockchainLMDB::for_all_blocks(std::function<bool(uint64_t, const crypto::h
   MDB_val v;
   bool ret = true;
 
-  MDB_cursor_op op = MDB_FIRST;
+  MDB_cursor_op op;
+  if (h1)
+  {
+    MDB_val_set(k, h1);
+	op = MDB_SET;
+  } else
+  {
+    op = MDB_FIRST;
+  }
   while (1)
   {
     int ret = mdb_cursor_get(m_cur_blocks, &k, &v, op);
@@ -2414,6 +2422,8 @@ bool BlockchainLMDB::for_all_blocks(std::function<bool(uint64_t, const crypto::h
       ret = false;
       break;
     }
+    if (height >= h2)
+      break;
   }
 
   TXN_POSTFIX_RDONLY();
