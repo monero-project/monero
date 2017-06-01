@@ -790,13 +790,15 @@ namespace cryptonote
     bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
 
     /**
-     * @brief perform a check on all blocks in the blockchain
+     * @brief perform a check on all blocks in the blockchain in the given range
      *
+     * @param h1 the start height
+     * @param h2 the end height
      * @param std::function the check to perform, pass/fail
      *
      * @return false if any block fails the check, otherwise true
      */
-    bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const block&)>) const;
+    bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const block&)>) const;
 
     /**
      * @brief perform a check on all transactions in the blockchain

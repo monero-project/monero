@@ -1353,10 +1353,10 @@ public:
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const = 0;
 
   /**
-   * @brief runs a function over all blocks stored
+   * @brief runs a function over a range of blocks
    *
-   * The subclass should run the passed function for each block it has
-   * stored, passing (block_height, block_hash, block) as its parameters.
+   * The subclass should run the passed function for each block in the
+   * specified range, passing (block_height, block_hash, block) as its parameters.
    *
    * If any call to the function returns false, the subclass should return
    * false.  Otherwise, the subclass returns true.
@@ -1364,11 +1364,13 @@ public:
    * The subclass should throw DB_ERROR if any of the expected values are
    * not found.  Current implementations simply return false.
    *
+   * @param h1 the start height
+   * @param h2 the end height
    * @param std::function fn the function to run
    *
    * @return false if the function returns false for any block, otherwise true
    */
-  virtual bool for_all_blocks(std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const = 0;
+  virtual bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const = 0;
 
   /**
    * @brief runs a function over all transactions stored
