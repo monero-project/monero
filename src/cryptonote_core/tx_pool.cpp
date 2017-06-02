@@ -556,8 +556,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
+    std::map<uint64_t, txpool_histo> agebytes;
     stats.txs_total = m_blockchain.get_txpool_tx_count();
-    m_blockchain.for_all_txpool_txes([&stats, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+    m_blockchain.for_all_txpool_txes([&stats, now, &agebytes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       stats.bytes_total += meta.blob_size;
       if (!stats.bytes_min || meta.blob_size < stats.bytes_min)
         stats.bytes_min = meta.blob_size;
@@ -572,8 +573,53 @@ namespace cryptonote
         stats.num_10m++;
       if (meta.last_failed_height)
         stats.num_failing++;
+      uint64_t age = now - meta.receive_time;
+      agebytes[age].txs++;
+      agebytes[age].bytes += meta.blob_size;
       return true;
     });
+    if (stats.txs_total > 1)
+    {
+      /* looking for 98th percentile */
+      size_t end = stats.txs_total * 0.02;
+      uint64_t delta, factor;
+      std::map<uint64_t, txpool_histo>::iterator it, i2;
+      if (end)
+      {
+        /* If enough txs, spread the first 98% of results across
+         * the first 9 bins, drop final 2% in last bin.
+         */
+        it=agebytes.end();
+        for (size_t n=0; n <= end; n++, it--);
+        stats.histo_98pc = it->first;
+        factor = 9;
+        delta = it->first;
+        stats.histo.resize(10);
+      } else
+      {
+        /* If not enough txs, don't reserve the last slot;
+         * spread evenly across all 10 bins.
+         */
+        stats.histo_98pc = 0;
+        it = agebytes.end();
+        factor = stats.txs_total > 9 ? 10 : stats.txs_total;
+        delta = now - stats.oldest;
+        stats.histo.resize(factor);
+      }
+      if (!delta)
+        delta = 1;
+      for (i2 = agebytes.begin(); i2 != it; i2++)
+      {
+        size_t i = (i2->first * factor - 1) / delta;
+        stats.histo[i].txs += i2->second.txs;
+        stats.histo[i].bytes += i2->second.bytes;
+      }
+      for (; i2 != agebytes.end(); i2++)
+      {
+        stats.histo[factor].txs += i2->second.txs;
+        stats.histo[factor].bytes += i2->second.bytes;
+      }
+    }
   }
   //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate

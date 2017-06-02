@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 11
+#define CORE_RPC_VERSION_MINOR 12
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1047,6 +1047,17 @@ namespace cryptonote
     };
   };
 
+  struct txpool_histo
+  {
+    uint32_t txs;
+    uint64_t bytes;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(txs)
+      KV_SERIALIZE(bytes)
+    END_KV_SERIALIZE_MAP()
+  };
+
   struct txpool_stats
   {
     uint64_t bytes_total;
@@ -1058,6 +1069,8 @@ namespace cryptonote
     uint32_t num_failing;
     uint32_t num_10m;
     uint32_t num_not_relayed;
+    uint64_t histo_98pc;
+    std::vector<txpool_histo> histo;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(bytes_total)
@@ -1069,6 +1082,8 @@ namespace cryptonote
       KV_SERIALIZE(num_failing)
       KV_SERIALIZE(num_10m)
       KV_SERIALIZE(num_not_relayed)
+      KV_SERIALIZE(histo_98pc)
+      KV_SERIALIZE_CONTAINER_POD_AS_BLOB(histo)
     END_KV_SERIALIZE_MAP()
   };
 
