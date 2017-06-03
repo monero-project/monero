@@ -136,6 +136,20 @@ namespace crypto {
     return true;
   }
 
+  bool crypto_ops::secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    if (sc_check(&sec) != 0) {
+      return false;
+    }
+    ge_p3 point;
+    if (ge_frombytes_vartime(&point, &pub) != 0) {
+      return false;
+    }
+    ge_p2 point2;
+    ge_scalarmult(&point2, &sec, &point);
+    ge_tobytes(&result, &point2);
+    return true;
+  }
+
   bool crypto_ops::generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation) {
     ge_p3 point;
     ge_p2 point2;
@@ -237,6 +251,75 @@ namespace crypto {
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
+    hash_to_scalar(&buf, sizeof(s_comm), c);
+    sc_sub(&c, &c, &sig.c);
+    return sc_isnonzero(&c) == 0;
+  }
+
+  void crypto_ops::generate_signature_custom_base(const hash &prefix_hash, const public_key &pub, const secret_key &sec, const public_key &custom_base, signature &sig) {
+    boost::lock_guard<boost::mutex> lock(random_lock);
+    ge_p2 tmp2;
+    ec_scalar k;
+    s_comm buf;
+#if !defined(NDEBUG)
+    {
+      ge_p3 t;
+      public_key t2;
+      assert(sc_check(&sec) == 0);
+      ge_scalarmult_base(&t, &sec);
+      ge_p3_tobytes(&t2, &t);
+      assert(pub == t2);
+    }
+#endif
+    buf.h = prefix_hash;
+    buf.key = pub;
+    random_scalar(k);
+    ge_p3 tmp3;
+    int ret = ge_frombytes_vartime(&tmp3, &custom_base);
+    assert(ret == 0);
+    ge_scalarmult(&tmp2, &k, &tmp3);
+    ge_tobytes(&buf.comm, &tmp2);
+    hash_to_scalar(&buf, sizeof(s_comm), sig.c);
+    sc_mulsub(&sig.r, &sig.c, &sec, &k);
+  }
+
+  bool crypto_ops::check_signature_custom_base(const hash &prefix_hash, const public_key &P, const public_key &A, const signature &sig) {
+    s_comm buf;
+    assert(check_key(P));
+    buf.h = prefix_hash;
+    buf.key = P;
+    ge_p3 P_p3;
+    if (ge_frombytes_vartime(&P_p3, &P) != 0) {
+      return false;
+    }
+    ge_p3 A_p3;
+    if (ge_frombytes_vartime(&A_p3, &A) != 0) {
+      return false;
+    }
+    if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0) {
+      return false;
+    }
+    // ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);  // TODO
+    ge_p2 cP_p2;
+    ge_p2 rA_p2;
+    ge_scalarmult(&cP_p2, &sig.c, &P_p3);
+    ge_scalarmult(&rA_p2, &sig.r, &A_p3);
+    public_key cP;
+    public_key rA;
+    ge_tobytes(&cP, &cP_p2);
+    ge_tobytes(&rA, &rA_p2);
+    ge_p3 cP_p3;
+    ge_p3 rA_p3;
+    if (ge_frombytes_vartime(&cP_p3, &cP) != 0) { return false; }
+    if (ge_frombytes_vartime(&rA_p3, &rA) != 0) { return false; }
+    ge_cached rA_cached;
+    ge_p3_to_cached(&rA_cached, &rA_p3);
+    ge_p1p1 R_p1p1;
+    ge_add(&R_p1p1, &cP_p3, &rA_cached);
+    ge_p2 R_p2;
+    ge_p1p1_to_p2(&R_p2, &R_p1p1);
+    ge_tobytes(&buf.comm, &R_p2);
+    ec_scalar c;
     hash_to_scalar(&buf, sizeof(s_comm), c);
     sc_sub(&c, &c, &sig.c);
     return sc_isnonzero(&c) == 0;
