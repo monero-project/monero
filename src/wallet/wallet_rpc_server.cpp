@@ -324,6 +324,7 @@ namespace tools
     {
       res.balance = m_wallet->balance(req.account_index);
       res.unlocked_balance = m_wallet->unlocked_balance(req.account_index);
+      res.multisig_import_needed = m_wallet->multisig() && m_wallet->has_multisig_partial_key_images();
       std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(req.account_index);
       std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(req.account_index);
       std::vector<tools::wallet2::transfer_details> transfers;

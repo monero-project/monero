@@ -78,11 +78,13 @@ namespace wallet_rpc
     {
       uint64_t 	 balance;
       uint64_t 	 unlocked_balance;
+      bool       multisig_import_needed;
       std::vector<per_subaddress_info> per_subaddress;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(balance)
         KV_SERIALIZE(unlocked_balance)
+        KV_SERIALIZE(multisig_import_needed)
         KV_SERIALIZE(per_subaddress)
       END_KV_SERIALIZE_MAP()
     };
