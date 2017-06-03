@@ -136,6 +136,20 @@ namespace crypto {
     return true;
   }
 
+  bool crypto_ops::secret_key_mult_public_key(const secret_key &sec, const public_key &pub, public_key &result) {
+    if (sc_check(&sec) != 0) {
+      return false;
+    }
+    ge_p3 point;
+    if (ge_frombytes_vartime(&point, &pub) != 0) {
+      return false;
+    }
+    ge_p2 point2;
+    ge_scalarmult(&point2, &sec, &point);
+    ge_tobytes(&result, &point2);
+    return true;
+  }
+
   bool crypto_ops::generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation) {
     ge_p3 point;
     ge_p2 point2;
@@ -197,6 +211,15 @@ namespace crypto {
     ec_point comm;
   };
 
+  struct s_comm_2 {
+    hash h;
+    ec_point key1;
+    ec_point key2;
+    ec_point key3;
+    ec_point comm1;
+    ec_point comm2;
+  };
+
   void crypto_ops::generate_signature(const hash &prefix_hash, const public_key &pub, const secret_key &sec, signature &sig) {
     boost::lock_guard<boost::mutex> lock(random_lock);
     ge_p3 tmp3;
@@ -239,6 +262,128 @@ namespace crypto {
     ge_tobytes(&buf.comm, &tmp2);
     hash_to_scalar(&buf, sizeof(s_comm), c);
     sc_sub(&c, &c, &sig.c);
+    return sc_isnonzero(&c) == 0;
+  }
+
+  void crypto_ops::generate_signature_2(const hash &prefix_hash, const public_key &P, const secret_key &x, const public_key &Q, const secret_key &y, const public_key &A, std::pair<signature, signature> &sig) {
+    boost::lock_guard<boost::mutex> lock(random_lock);
+
+    // pick k randomly and compute R1=k*G
+    ec_scalar k;
+    random_scalar(k);
+    ge_p3 R1_p3;
+    ge_scalarmult_base(&R1_p3, &k);
+
+    // pick l randomly and compute R2=l*A
+    ec_scalar l;
+    random_scalar(l);
+    ge_p3 A_p3;
+    if (ge_frombytes_vartime(&A_p3, &A) != 0)
+    {
+      throw std::runtime_error("given pubkey is invalid");
+    }
+    ge_p2 R2_p2;
+    ge_scalarmult(&R2_p2, &l, &A_p3);
+
+#ifndef NDEBUG
+    {
+      // check if P==x*G
+      assert(sc_check(&x) == 0);
+      ge_p3 PP_p3;
+      ge_scalarmult_base(&PP_p3, &x);
+      public_key PP;
+      ge_p3_tobytes(&PP, &PP_p3);
+      assert(P == PP);
+      // check if Q==y*A
+      assert(sc_check(&y) == 0);
+      ge_p2 QQ_p2;
+      ge_scalarmult(&QQ_p2, &y, &A_p3);
+      public_key QQ;
+      ge_tobytes(&QQ, &QQ_p2);
+      assert(Q == QQ);
+    }
+#endif
+
+    // compute c1 = Hs(Msg || R1 || R2)
+    s_comm_2 buf;
+    buf.h = prefix_hash;
+    buf.key1 = P;
+    buf.key2 = Q;
+    buf.key3 = A;
+    ge_p3_tobytes(&buf.comm1, &R1_p3);
+    ge_tobytes   (&buf.comm2, &R2_p2);
+    hash_to_scalar(&buf, sizeof(buf), sig.first.c);
+
+    // comptue r1 = k - c1*x
+    sc_mulsub(&sig.first.r, &sig.first.c, &x, &k);
+
+    // pick c2 randomly and compute r2 = l - c2*y
+    random_scalar(sig.second.c);
+    sc_mulsub(&sig.second.r, &sig.second.c, &y, &l);
+  }
+
+  bool crypto_ops::check_signature_2(const hash &prefix_hash, const public_key &P, const public_key &Q, const public_key &A, const std::pair<signature, signature> &sig) {
+    // sanity check
+    ge_p3 P_p3;
+    ge_p3 Q_p3;
+    ge_p3 A_p3;
+    if (ge_frombytes_vartime(&P_p3, &P) != 0) return false;
+    if (ge_frombytes_vartime(&Q_p3, &Q) != 0) return false;
+    if (ge_frombytes_vartime(&A_p3, &A) != 0) return false;
+    if (sc_check(&sig.first .c) != 0) return false;
+    if (sc_check(&sig.first .r) != 0) return false;
+    if (sc_check(&sig.second.c) != 0) return false;
+    if (sc_check(&sig.second.r) != 0) return false;
+
+    // compute R1 = c1*P + r1*G
+    ge_p2 cP_p2;
+    ge_p3 rG_p3;
+    ge_scalarmult(&cP_p2, &sig.first.c, &P_p3);
+    ge_scalarmult_base(&rG_p3, &sig.first.r);
+    public_key cP;
+    ge_tobytes(&cP, &cP_p2);
+    ge_p3 cP_p3;
+    if (ge_frombytes_vartime(&cP_p3, &cP) != 0) return false;
+    ge_cached cP_cached;
+    ge_p3_to_cached(&cP_cached, &cP_p3);
+    ge_p1p1 R1_p1p1;
+    ge_add(&R1_p1p1, &rG_p3, &cP_cached);
+
+    // compute R2 = c2*Q + r2*A
+    ge_p2 cQ_p2;
+    ge_p2 rA_p2;
+    ge_scalarmult(&cQ_p2, &sig.second.c, &Q_p3);
+    ge_scalarmult(&rA_p2, &sig.second.r, &A_p3);
+    public_key cQ;
+    public_key rA;
+    ge_tobytes(&cQ, &cQ_p2);
+    ge_tobytes(&rA, &rA_p2);
+    ge_p3 cQ_p3;
+    ge_p3 rA_p3;
+    if (ge_frombytes_vartime(&cQ_p3, &cQ) != 0) return false;
+    if (ge_frombytes_vartime(&rA_p3, &rA) != 0) return false;
+    ge_cached rA_cached;
+    ge_p3_to_cached(&rA_cached, &rA_p3);
+    ge_p1p1 R2_p1p1;
+    ge_add(&R2_p1p1, &cQ_p3, &rA_cached);
+
+    // compute c1' = Hs(Msg, || R1 || R2)
+    ge_p3 R1_p3;
+    ge_p2 R2_p2;
+    ge_p1p1_to_p3(&R1_p3, &R1_p1p1);
+    ge_p1p1_to_p2(&R2_p2, &R2_p1p1);
+    s_comm_2 buf;
+    buf.h = prefix_hash;
+    buf.key1 = P;
+    buf.key2 = Q;
+    buf.key3 = A;
+    ge_p3_tobytes(&buf.comm1, &R1_p3);
+    ge_tobytes   (&buf.comm2, &R2_p2);
+    ec_scalar c;
+    hash_to_scalar(&buf, sizeof(buf), c);
+
+    // test if c1==c1'
+    sc_sub(&c, &c, &sig.first.c);
     return sc_isnonzero(&c) == 0;
   }
 
