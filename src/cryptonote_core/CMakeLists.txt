@@ -65,6 +65,7 @@ target_link_libraries(cryptonote_core
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    epee
   PRIVATE
     ${Blocks}
     ${EXTRA_LIBRARIES})
