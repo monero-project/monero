@@ -814,6 +814,7 @@ namespace nodetool
     bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_TIMED_SYNC::response>(context_.m_connection_id, COMMAND_TIMED_SYNC::ID, arg, m_net_server.get_config_object(),
       [this](int code, const typename COMMAND_TIMED_SYNC::response& rsp, p2p_connection_context& context)
     {
+      context.m_in_timedsync = false;
       if(code < 0)
       {
         LOG_ERROR_CC(context, "COMMAND_TIMED_SYNC invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
@@ -1300,10 +1301,13 @@ namespace nodetool
     MDEBUG("STARTED PEERLIST IDLE HANDSHAKE");
     typedef std::list<std::pair<epee::net_utils::connection_context_base, peerid_type> > local_connects_type;
     local_connects_type cncts;
-    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    m_net_server.get_config_object().foreach_connection([&](p2p_connection_context& cntxt)
     {
-      if(cntxt.peer_id)
+      if(cntxt.peer_id && !cntxt.m_in_timedsync)
+      {
+        cntxt.m_in_timedsync = true;
         cncts.push_back(local_connects_type::value_type(cntxt, cntxt.peer_id));//do idle sync only with handshaked connections
+      }
       return true;
     });
 

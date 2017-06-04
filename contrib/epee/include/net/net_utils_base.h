@@ -56,6 +56,7 @@ namespace net_utils
     const uint32_t m_remote_port;
     const bool     m_is_income;
     const time_t   m_started;
+    bool     m_in_timedsync;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
@@ -72,6 +73,7 @@ namespace net_utils
                                             m_remote_port(remote_port),
                                             m_is_income(is_income),
                                             m_started(time(NULL)),
+                                            m_in_timedsync(false),
                                             m_last_recv(last_recv),
                                             m_last_send(last_send),
                                             m_recv_cnt(recv_cnt),
@@ -85,6 +87,7 @@ namespace net_utils
                                m_remote_port(0),
                                m_is_income(false),
                                m_started(time(NULL)),
+                               m_in_timedsync(false),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
