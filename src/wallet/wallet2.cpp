@@ -2507,7 +2507,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
 void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
   std::string what("Genesis block mismatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
 
-  THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
+  THROW_WALLET_EXCEPTION_IF(m_blockchain.size() && genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::path() const
