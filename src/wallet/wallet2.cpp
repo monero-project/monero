@@ -511,6 +511,7 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
 {
   if(m_http_client.is_connected())
     m_http_client.disconnect();
+  m_is_initialized = true;
   m_upper_transaction_size_limit = upper_transaction_size_limit;
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
@@ -1845,6 +1846,7 @@ void wallet2::detach_blockchain(uint64_t height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::deinit()
 {
+  m_is_initialized=false;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2361,6 +2363,8 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
 {
+  THROW_WALLET_EXCEPTION_IF(!m_is_initialized, error::wallet_not_initialized);
+
   boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
 
   if(!m_http_client.is_connected())
