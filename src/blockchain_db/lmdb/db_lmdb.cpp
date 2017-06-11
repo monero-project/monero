@@ -1576,7 +1576,7 @@ txpool_tx_meta_t BlockchainLMDB::get_txpool_tx_meta(const crypto::hash& txid) co
   return meta;
 }
 
-cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid) const
+bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1587,12 +1587,21 @@ cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid
   MDB_val k = {sizeof(txid), (void *)&txid};
   MDB_val v;
   auto result = mdb_cursor_get(m_cur_txpool_blob, &k, &v, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    return false;
   if (result != 0)
-      throw1(DB_ERROR(lmdb_error("Error finding txpool tx meta: ", result).c_str()));
+      throw1(DB_ERROR(lmdb_error("Error finding txpool tx blob: ", result).c_str()));
 
-  blobdata bd;
   bd.assign(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
   TXN_POSTFIX_RDONLY();
+  return true;
+}
+
+cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid) const
+{
+  cryptonote::blobdata bd;
+  if (!get_txpool_tx_blob(txid, bd))
+    throw1(DB_ERROR("Tx not found in txpool: "));
   return bd;
 }
 

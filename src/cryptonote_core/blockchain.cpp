@@ -4005,6 +4005,11 @@ txpool_tx_meta_t Blockchain::get_txpool_tx_meta(const crypto::hash& txid) const
   return m_db->get_txpool_tx_meta(txid);
 }
 
+bool Blockchain::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const
+{
+  return m_db->get_txpool_tx_blob(txid, bd);
+}
+
 cryptonote::blobdata Blockchain::get_txpool_tx_blob(const crypto::hash& txid) const
 {
   return m_db->get_txpool_tx_blob(txid);

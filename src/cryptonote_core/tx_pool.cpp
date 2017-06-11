@@ -627,8 +627,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     try
     {
-      txblob = m_blockchain.get_txpool_tx_blob(id);
-      return true;
+      return m_blockchain.get_txpool_tx_blob(id, txblob);
     }
     catch (const std::exception &e)
     {
