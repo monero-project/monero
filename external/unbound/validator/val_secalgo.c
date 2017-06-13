@@ -253,8 +253,12 @@ setup_dsa_sig(unsigned char** sig, unsigned int* len)
 	dsasig = DSA_SIG_new();
 	if(!dsasig) return 0;
 
+#if !defined OPENSSL_VERSION_NUMBER || OPENSSL_VERSION_NUMBER < 0x10100000L
 	dsasig->r = R;
 	dsasig->s = S;
+#else
+        DSA_SIG_set0(dsasig, R, S);
+#endif
 	*sig = NULL;
 	newlen = i2d_DSA_SIG(dsasig, sig);
 	if(newlen < 0) {
@@ -288,12 +292,25 @@ setup_ecdsa_sig(unsigned char** sig, unsigned int* len)
 	/* use the raw data to parse two evenly long BIGNUMs, "r | s". */
 	ecdsa_sig = ECDSA_SIG_new();
 	if(!ecdsa_sig) return 0;
+#if !defined OPENSSL_VERSION_NUMBER || OPENSSL_VERSION_NUMBER < 0x10100000L
 	ecdsa_sig->r = BN_bin2bn(*sig, bnsize, ecdsa_sig->r);
 	ecdsa_sig->s = BN_bin2bn(*sig+bnsize, bnsize, ecdsa_sig->s);
 	if(!ecdsa_sig->r || !ecdsa_sig->s) {
 		ECDSA_SIG_free(ecdsa_sig);
 		return 0;
 	}
+#else
+        {
+		BIGNUM *R = BN_new(), *S = BN_new();
+		R = BN_bin2bn(*sig, bnsize, R);
+		S = BN_bin2bn(*sig+bnsize, bnsize, S);
+		if(!R || !S) {
+			ECDSA_SIG_free(ecdsa_sig);
+			return 0;
+		}
+		ECDSA_SIG_set0(ecdsa_sig, R, S);
+        }
+#endif
 
 	/* spool it into ASN format */
 	*sig = NULL;
@@ -510,7 +527,11 @@ verify_canonrrset(sldns_buffer* buf, int algo, unsigned char* sigblock,
 	char** reason)
 {
 	const EVP_MD *digest_type;
-	EVP_MD_CTX ctx;
+#if !defined OPENSSL_VERSION_NUMBER || OPENSSL_VERSION_NUMBER < 0x10100000L
+	EVP_MD_CTX ctxs, *ctx = &ctxs;
+#else
+	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+#endif
 	int res, dofree = 0;
 	EVP_PKEY *evp_key = NULL;
 	
@@ -545,28 +566,46 @@ verify_canonrrset(sldns_buffer* buf, int algo, unsigned char* sigblock,
 #endif /* USE_ECDSA */
 
 	/* do the signature cryptography work */
-	EVP_MD_CTX_init(&ctx);
-	if(EVP_DigestInit(&ctx, digest_type) == 0) {
+	EVP_MD_CTX_init(ctx);
+	if(EVP_DigestInit(ctx, digest_type) == 0) {
 		verbose(VERB_QUERY, "verify: EVP_DigestInit failed");
 		EVP_PKEY_free(evp_key);
 		if(dofree) free(sigblock);
+#if defined OPENSSL_VERSION_NUMBER && OPENSSL_VERSION_NUMBER >= 0x10100000L
+		EVP_MD_CTX_free(ctx);
+#endif
 		return sec_status_unchecked;
 	}
-	if(EVP_DigestUpdate(&ctx, (unsigned char*)sldns_buffer_begin(buf), 
+	if(EVP_DigestUpdate(ctx, (unsigned char*)sldns_buffer_begin(buf), 
 		(unsigned int)sldns_buffer_limit(buf)) == 0) {
 		verbose(VERB_QUERY, "verify: EVP_DigestUpdate failed");
 		EVP_PKEY_free(evp_key);
 		if(dofree) free(sigblock);
+#if defined OPENSSL_VERSION_NUMBER && OPENSSL_VERSION_NUMBER >= 0x10100000L
+		EVP_MD_CTX_free(ctx);
+#endif
 		return sec_status_unchecked;
 	}
 
-	res = EVP_VerifyFinal(&ctx, sigblock, sigblock_len, evp_key);
-	if(EVP_MD_CTX_cleanup(&ctx) == 0) {
+	res = EVP_VerifyFinal(ctx, sigblock, sigblock_len, evp_key);
+
+#if defined OPENSSL_VERSION_NUMBER && OPENSSL_VERSION_NUMBER >= 0x10100000L
+	if(EVP_MD_CTX_reset(ctx) == 0) {
+		verbose(VERB_QUERY, "verify: EVP_MD_CTX_reset failed");
+		EVP_PKEY_free(evp_key);
+		if(dofree) free(sigblock);
+		EVP_MD_CTX_free(ctx);
+		return sec_status_unchecked;
+	}
+	EVP_MD_CTX_free(ctx);
+#else
+	if(EVP_MD_CTX_cleanup(ctx) == 0) {
 		verbose(VERB_QUERY, "verify: EVP_MD_CTX_cleanup failed");
 		EVP_PKEY_free(evp_key);
 		if(dofree) free(sigblock);
 		return sec_status_unchecked;
 	}
+#endif
 	EVP_PKEY_free(evp_key);
 
 	if(dofree)

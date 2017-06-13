@@ -217,10 +217,15 @@ sldns_key_buf2dsa_raw(unsigned char* key, size_t len)
 		return NULL;
 	}
 #ifndef S_SPLINT_S
+#if !defined OPENSSL_VERSION_NUMBER || OPENSSL_VERSION_NUMBER < 0x10100000L
 	dsa->p = P;
 	dsa->q = Q;
 	dsa->g = G;
 	dsa->pub_key = Y;
+#else
+	DSA_set0_pqg(dsa, P, Q, G);
+	DSA_set0_key(dsa, Y, NULL);
+#endif
 #endif /* splint */
 
 	return dsa;
@@ -275,8 +280,12 @@ sldns_key_buf2rsa_raw(unsigned char* key, size_t len)
 		return NULL;
 	}
 #ifndef S_SPLINT_S
+#if !defined OPENSSL_VERSION_NUMBER || OPENSSL_VERSION_NUMBER < 0x10100000L
 	rsa->n = modulus;
 	rsa->e = exponent;
+#else
+	RSA_set0_key(rsa, modulus, exponent, NULL);
+#endif
 #endif /* splint */
 
 	return rsa;
