@@ -46,9 +46,9 @@
 #include "util/storage/slabhash.h"
 
 struct slabhash* slabhash_create(size_t numtables, size_t start_size, 
-	size_t maxmem, lruhash_sizefunc_t sizefunc, 
-	lruhash_compfunc_t compfunc, lruhash_delkeyfunc_t delkeyfunc, 
-	lruhash_deldatafunc_t deldatafunc, void* arg)
+	size_t maxmem, lruhash_sizefunc_type sizefunc, 
+	lruhash_compfunc_type compfunc, lruhash_delkeyfunc_type delkeyfunc, 
+	lruhash_deldatafunc_type deldatafunc, void* arg)
 {
 	size_t i;
 	struct slabhash* sl = (struct slabhash*)calloc(1, 
@@ -108,24 +108,24 @@ void slabhash_clear(struct slabhash* sl)
 
 /** helper routine to calculate the slabhash index */
 static unsigned int
-slab_idx(struct slabhash* sl, hashvalue_t hash)
+slab_idx(struct slabhash* sl, hashvalue_type hash)
 {
 	return ((hash & sl->mask) >> sl->shift);
 }
 
-void slabhash_insert(struct slabhash* sl, hashvalue_t hash, 
+void slabhash_insert(struct slabhash* sl, hashvalue_type hash, 
 	struct lruhash_entry* entry, void* data, void* arg)
 {
 	lruhash_insert(sl->array[slab_idx(sl, hash)], hash, entry, data, arg);
 }
 
 struct lruhash_entry* slabhash_lookup(struct slabhash* sl, 
-	hashvalue_t hash, void* key, int wr)
+	hashvalue_type hash, void* key, int wr)
 {
 	return lruhash_lookup(sl->array[slab_idx(sl, hash)], hash, key, wr);
 }
 
-void slabhash_remove(struct slabhash* sl, hashvalue_t hash, void* key)
+void slabhash_remove(struct slabhash* sl, hashvalue_type hash, void* key)
 {
 	lruhash_remove(sl->array[slab_idx(sl, hash)], hash, key);
 }
@@ -163,7 +163,7 @@ size_t slabhash_get_mem(struct slabhash* sl)
 	return total;
 }
 
-struct lruhash* slabhash_gettable(struct slabhash* sl, hashvalue_t hash)
+struct lruhash* slabhash_gettable(struct slabhash* sl, hashvalue_type hash)
 {
 	return sl->array[slab_idx(sl, hash)];
 }
@@ -202,7 +202,7 @@ void test_slabhash_deldata(void* data, void* ATTR_UNUSED(arg))
 	deldata((struct slabhash_testdata*)data);
 }
 
-void slabhash_setmarkdel(struct slabhash* sl, lruhash_markdelfunc_t md)
+void slabhash_setmarkdel(struct slabhash* sl, lruhash_markdelfunc_type md)
 {
 	size_t i;
 	for(i=0; i<sl->size; i++) {

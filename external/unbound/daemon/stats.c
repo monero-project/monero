@@ -102,12 +102,14 @@ void server_stats_log(struct server_stats* stats, struct worker* worker,
 	int threadnum)
 {
 	log_info("server stats for thread %d: %u queries, "
-		"%u answers from cache, %u recursions, %u prefetch", 
+		"%u answers from cache, %u recursions, %u prefetch, %u rejected by "
+		"ip ratelimiting",
 		threadnum, (unsigned)stats->num_queries, 
 		(unsigned)(stats->num_queries - 
 			stats->num_queries_missed_cache),
 		(unsigned)stats->num_queries_missed_cache,
-		(unsigned)stats->num_queries_prefetch);
+		(unsigned)stats->num_queries_prefetch,
+		(unsigned)stats->num_queries_ip_ratelimited);
 	log_info("server stats for thread %d: requestlist max %u avg %g "
 		"exceeded %u jostled %u", threadnum,
 		(unsigned)stats->max_query_list_size,
@@ -226,9 +228,18 @@ void server_stats_reply(struct worker* worker, int reset)
 void server_stats_add(struct stats_info* total, struct stats_info* a)
 {
 	total->svr.num_queries += a->svr.num_queries;
+	total->svr.num_queries_ip_ratelimited += a->svr.num_queries_ip_ratelimited;
 	total->svr.num_queries_missed_cache += a->svr.num_queries_missed_cache;
 	total->svr.num_queries_prefetch += a->svr.num_queries_prefetch;
 	total->svr.sum_query_list_size += a->svr.sum_query_list_size;
+#ifdef USE_DNSCRYPT
+    total->svr.num_query_dnscrypt_crypted += a->svr.num_query_dnscrypt_crypted;
+    total->svr.num_query_dnscrypt_cert += a->svr.num_query_dnscrypt_cert;
+    total->svr.num_query_dnscrypt_cleartext += \
+        a->svr.num_query_dnscrypt_cleartext;
+    total->svr.num_query_dnscrypt_crypted_malformed += \
+        a->svr.num_query_dnscrypt_crypted_malformed;
+#endif
 	/* the max size reached is upped to higher of both */
 	if(a->svr.max_query_list_size > total->svr.max_query_list_size)
 		total->svr.max_query_list_size = a->svr.max_query_list_size;
@@ -251,6 +262,7 @@ void server_stats_add(struct stats_info* total, struct stats_info* a)
 		total->svr.qEDNS += a->svr.qEDNS;
 		total->svr.qEDNS_DO += a->svr.qEDNS_DO;
 		total->svr.ans_rcode_nodata += a->svr.ans_rcode_nodata;
+		total->svr.zero_ttl_responses += a->svr.zero_ttl_responses;
 		total->svr.ans_secure += a->svr.ans_secure;
 		total->svr.ans_bogus += a->svr.ans_bogus;
 		total->svr.rrset_bogus += a->svr.rrset_bogus;

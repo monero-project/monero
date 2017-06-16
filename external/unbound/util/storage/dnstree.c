@@ -71,17 +71,17 @@ int addr_tree_compare(const void* k1, const void* k2)
         return 0;
 }
 
-void name_tree_init(rbtree_t* tree)
+void name_tree_init(rbtree_type* tree)
 {
 	rbtree_init(tree, &name_tree_compare);
 }
 
-void addr_tree_init(rbtree_t* tree)
+void addr_tree_init(rbtree_type* tree)
 {
 	rbtree_init(tree, &addr_tree_compare);
 }
 
-int name_tree_insert(rbtree_t* tree, struct name_tree_node* node, 
+int name_tree_insert(rbtree_type* tree, struct name_tree_node* node, 
         uint8_t* name, size_t len, int labs, uint16_t dclass)
 {
 	node->node.key = node;
@@ -93,7 +93,7 @@ int name_tree_insert(rbtree_t* tree, struct name_tree_node* node,
 	return rbtree_insert(tree, &node->node) != NULL;
 }
 
-int addr_tree_insert(rbtree_t* tree, struct addr_tree_node* node,
+int addr_tree_insert(rbtree_type* tree, struct addr_tree_node* node,
         struct sockaddr_storage* addr, socklen_t addrlen, int net)
 {
 	node->node.key = node;
@@ -104,7 +104,7 @@ int addr_tree_insert(rbtree_t* tree, struct addr_tree_node* node,
 	return rbtree_insert(tree, &node->node) != NULL;
 }
 
-void addr_tree_init_parents(rbtree_t* tree)
+void addr_tree_init_parents(rbtree_type* tree)
 {
         struct addr_tree_node* node, *prev = NULL, *p;
         int m;
@@ -130,7 +130,7 @@ void addr_tree_init_parents(rbtree_t* tree)
         }
 }
 
-void name_tree_init_parents(rbtree_t* tree)
+void name_tree_init_parents(rbtree_type* tree)
 {
         struct name_tree_node* node, *prev = NULL, *p;
         int m;
@@ -156,7 +156,7 @@ void name_tree_init_parents(rbtree_t* tree)
         }
 }
 
-struct name_tree_node* name_tree_find(rbtree_t* tree, uint8_t* name, 
+struct name_tree_node* name_tree_find(rbtree_type* tree, uint8_t* name, 
         size_t len, int labs, uint16_t dclass)
 {
 	struct name_tree_node key;
@@ -168,10 +168,10 @@ struct name_tree_node* name_tree_find(rbtree_t* tree, uint8_t* name,
 	return (struct name_tree_node*)rbtree_search(tree, &key);
 }
 
-struct name_tree_node* name_tree_lookup(rbtree_t* tree, uint8_t* name,
+struct name_tree_node* name_tree_lookup(rbtree_type* tree, uint8_t* name,
         size_t len, int labs, uint16_t dclass)
 {
-        rbnode_t* res = NULL;
+        rbnode_type* res = NULL;
         struct name_tree_node *result;
         struct name_tree_node key;
         key.node.key = &key;
@@ -200,10 +200,10 @@ struct name_tree_node* name_tree_lookup(rbtree_t* tree, uint8_t* name,
 	return result;
 }
 
-struct addr_tree_node* addr_tree_lookup(rbtree_t* tree, 
+struct addr_tree_node* addr_tree_lookup(rbtree_type* tree, 
         struct sockaddr_storage* addr, socklen_t addrlen)
 {
-        rbnode_t* res = NULL;
+        rbnode_type* res = NULL;
         struct addr_tree_node* result;
         struct addr_tree_node key;
         key.node.key = &key;
@@ -231,11 +231,24 @@ struct addr_tree_node* addr_tree_lookup(rbtree_t* tree,
         return result;
 }
 
+struct addr_tree_node* addr_tree_find(rbtree_type* tree,
+        struct sockaddr_storage* addr, socklen_t addrlen, int net)
+{
+        rbnode_type* res = NULL;
+        struct addr_tree_node key;
+        key.node.key = &key;
+        memcpy(&key.addr, addr, addrlen);
+        key.addrlen = addrlen;
+        key.net = net;
+	res = rbtree_search(tree, &key);
+	return (struct addr_tree_node*)res;
+}
+
 int
-name_tree_next_root(rbtree_t* tree, uint16_t* dclass)
+name_tree_next_root(rbtree_type* tree, uint16_t* dclass)
 {
 	struct name_tree_node key;
-	rbnode_t* n;
+	rbnode_type* n;
 	struct name_tree_node* p;
 	if(*dclass == 0) {
 		/* first root item is first item in tree */

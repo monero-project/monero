@@ -343,7 +343,7 @@ int nsec_proves_nodata(struct ub_packed_rrset_key* nsec,
 		} else {
 			/* See if the next owner name covers a wildcard
 			 * empty non-terminal. */
-			while (dname_strict_subdomain_c(nm, nsec->rk.dname)) {
+			while (dname_canonical_compare(nsec->rk.dname, nm) < 0) {
 				/* wildcard does not apply if qname below
 				 * the name that exists under the '*' */
 				if (dname_subdomain_c(qinfo->qname, nm))

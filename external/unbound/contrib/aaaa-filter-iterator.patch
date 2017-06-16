@@ -1,8 +1,10 @@
---- unbound-1.4.17.orig/doc/unbound.conf.5.in
-+++ unbound-1.4.17/doc/unbound.conf.5.in
-@@ -519,6 +519,13 @@ authority servers and checks if the repl
- Disabled by default. 
- This feature is an experimental implementation of draft dns\-0x20.
+Index: trunk/doc/unbound.conf.5.in
+===================================================================
+--- trunk/doc/unbound.conf.5.in	(revision 3587)
++++ trunk/doc/unbound.conf.5.in	(working copy)
+@@ -593,6 +593,13 @@
+ possible. Best effort approach, full QNAME and original QTYPE will be sent when
+ upstream replies with a RCODE other than NOERROR. Default is off.
  .TP
 +.B aaaa\-filter: \fI<yes or no>
 +Activate behavior similar to BIND's AAAA-filter.
@@ -13,20 +15,12 @@
 +.TP
  .B private\-address: \fI<IP address or subnet>
  Give IPv4 of IPv6 addresses or classless subnets. These are addresses
- on your private network, and are not allowed to be returned for public
---- unbound-1.4.17.orig/util/config_file.c
-+++ unbound-1.4.17/util/config_file.c
-@@ -160,6 +160,7 @@ config_create(void)
- 	cfg->harden_below_nxdomain = 0;
- 	cfg->harden_referral_path = 0;
- 	cfg->use_caps_bits_for_id = 0;
-+	cfg->aaaa_filter = 0; /* ASN: default is disabled */
- 	cfg->private_address = NULL;
- 	cfg->private_domain = NULL;
- 	cfg->unwanted_threshold = 0;
---- unbound-1.4.17.orig/iterator/iter_scrub.c
-+++ unbound-1.4.17/iterator/iter_scrub.c
-@@ -580,6 +580,32 @@ static int sanitize_nsec_is_overreach(st
+ on your private network, and are not allowed to be returned for
+Index: trunk/iterator/iter_scrub.c
+===================================================================
+--- trunk/iterator/iter_scrub.c	(revision 3587)
++++ trunk/iterator/iter_scrub.c	(working copy)
+@@ -617,6 +617,32 @@
  }
  
  /**
@@ -38,7 +32,7 @@
 + */
 +static int
 +asn_lookup_a_record_from_cache(struct query_info* qinfo,
-+	struct module_env* env, struct iter_env* ie)
++	struct module_env* env, struct iter_env* ATTR_UNUSED(ie))
 +{
 +	struct ub_packed_rrset_key* akey;
 +
@@ -59,7 +53,7 @@
   * Given a response event, remove suspect RRsets from the response.
   * "Suspect" rrsets are potentially poison. Note that this routine expects
   * the response to be in a "normalized" state -- that is, all "irrelevant"
-@@ -598,6 +625,7 @@ scrub_sanitize(ldns_buffer* pkt, struct
+@@ -635,6 +661,7 @@
  	struct query_info* qinfo, uint8_t* zonename, struct module_env* env,
  	struct iter_env* ie)
  {
@@ -67,7 +61,7 @@
  	int del_addi = 0; /* if additional-holding rrsets are deleted, we
  		do not trust the normalized additional-A-AAAA any more */
  	struct rrset_parse* rrset, *prev;
-@@ -633,6 +661,13 @@ scrub_sanitize(ldns_buffer* pkt, struct
+@@ -670,6 +697,13 @@
  		rrset = rrset->rrset_all_next;
  	}
  
@@ -81,7 +75,7 @@
  	/* At this point, we brutally remove ALL rrsets that aren't 
  	 * children of the originating zone. The idea here is that, 
  	 * as far as we know, the server that we contacted is ONLY 
-@@ -644,6 +679,24 @@ scrub_sanitize(ldns_buffer* pkt, struct
+@@ -681,6 +715,24 @@
  	rrset = msg->rrset_first;
  	while(rrset) {
  
@@ -105,10 +99,24 @@
 +
  		/* remove private addresses */
  		if( (rrset->type == LDNS_RR_TYPE_A || 
- 			rrset->type == LDNS_RR_TYPE_AAAA) &&
---- unbound-1.4.17.orig/iterator/iterator.c
-+++ unbound-1.4.17/iterator/iterator.c
-@@ -1579,6 +1579,53 @@ processDSNSFind(struct module_qstate* qs
+ 			rrset->type == LDNS_RR_TYPE_AAAA)) {
+Index: trunk/iterator/iter_utils.c
+===================================================================
+--- trunk/iterator/iter_utils.c	(revision 3587)
++++ trunk/iterator/iter_utils.c	(working copy)
+@@ -175,6 +175,7 @@
+ 	}
+ 	iter_env->supports_ipv6 = cfg->do_ip6;
+ 	iter_env->supports_ipv4 = cfg->do_ip4;
++	iter_env->aaaa_filter = cfg->aaaa_filter;
+ 	return 1;
+ }
+ 
+Index: trunk/iterator/iterator.c
+===================================================================
+--- trunk/iterator/iterator.c	(revision 3587)
++++ trunk/iterator/iterator.c	(working copy)
+@@ -1776,6 +1776,53 @@
  
  	return 0;
  }
@@ -128,7 +136,7 @@
 + */
 +static int
 +asn_processQueryAAAA(struct module_qstate* qstate, struct iter_qstate* iq,
-+	struct iter_env* ie, int id)
++	struct iter_env* ATTR_UNUSED(ie), int id)
 +{
 +	struct module_qstate* subq = NULL;
 +
@@ -162,7 +170,7 @@
  	
  /** 
   * This is the request event state where the request will be sent to one of
-@@ -1626,6 +1673,13 @@ processQueryTargets(struct module_qstate
+@@ -1823,6 +1870,13 @@
  		return error_response(qstate, id, LDNS_RCODE_SERVFAIL);
  	}
  	
@@ -176,7 +184,7 @@
  	/* Make sure we have a delegation point, otherwise priming failed
  	 * or another failure occurred */
  	if(!iq->dp) {
-@@ -2568,6 +2622,62 @@ processFinished(struct module_qstate* qs
+@@ -2922,6 +2976,61 @@
  	return 0;
  }
  
@@ -195,9 +203,8 @@
 +asn_processAAAAResponse(struct module_qstate* qstate, int id,
 +	struct module_qstate* super)
 +{
-+	struct iter_qstate* iq = (struct iter_qstate*)qstate->minfo[id];
++	/*struct iter_qstate* iq = (struct iter_qstate*)qstate->minfo[id];*/
 +	struct iter_qstate* super_iq = (struct iter_qstate*)super->minfo[id];
-+	struct ub_packed_rrset_key* rrset;
 +	struct delegpt_ns* dpns = NULL;
 +	int error = (qstate->return_rcode != LDNS_RCODE_NOERROR);
 +
@@ -239,7 +246,7 @@
  /*
   * Return priming query results to interestes super querystates.
   * 
-@@ -2587,6 +2697,9 @@ iter_inform_super(struct module_qstate*
+@@ -2941,6 +3050,9 @@
  	else if(super->qinfo.qtype == LDNS_RR_TYPE_DS && ((struct iter_qstate*)
  		super->minfo[id])->state == DSNS_FIND_STATE)
  		processDSNSResponse(qstate, id, super);
@@ -249,7 +256,7 @@
  	else if(qstate->return_rcode != LDNS_RCODE_NOERROR)
  		error_supers(qstate, id, super);
  	else if(qstate->is_priming)
-@@ -2624,6 +2737,9 @@ iter_handle(struct module_qstate* qstate
+@@ -2978,6 +3090,9 @@
  			case INIT_REQUEST_3_STATE:
  				cont = processInitRequest3(qstate, iq, id);
  				break;
@@ -259,7 +266,7 @@
  			case QUERYTARGETS_STATE:
  				cont = processQueryTargets(qstate, iq, ie, id);
  				break;
-@@ -2863,6 +2979,8 @@ iter_state_to_string(enum iter_state sta
+@@ -3270,6 +3385,8 @@
  		return "INIT REQUEST STATE (stage 2)";
  	case INIT_REQUEST_3_STATE:
  		return "INIT REQUEST STATE (stage 3)";
@@ -268,7 +275,7 @@
  	case QUERYTARGETS_STATE :
  		return "QUERY TARGETS STATE";
  	case PRIME_RESP_STATE :
-@@ -2887,6 +3005,7 @@ iter_state_is_responsestate(enum iter_st
+@@ -3294,6 +3411,7 @@
  		case INIT_REQUEST_STATE :
  		case INIT_REQUEST_2_STATE :
  		case INIT_REQUEST_3_STATE :
@@ -276,29 +283,21 @@
  		case QUERYTARGETS_STATE :
  		case COLLECT_CLASS_STATE :
  			return 0;
---- unbound-1.4.17.orig/iterator/iter_utils.c
-+++ unbound-1.4.17/iterator/iter_utils.c
-@@ -128,6 +128,7 @@ iter_apply_cfg(struct iter_env* iter_env
- 	}
- 	iter_env->supports_ipv6 = cfg->do_ip6;
- 	iter_env->supports_ipv4 = cfg->do_ip4;
-+	iter_env->aaaa_filter = cfg->aaaa_filter;
- 	return 1;
- }
- 
---- unbound-1.4.17.orig/iterator/iterator.h
-+++ unbound-1.4.17/iterator/iterator.h
-@@ -110,6 +110,9 @@ struct iter_env {
- 	 * array of max_dependency_depth+1 size.
+Index: trunk/iterator/iterator.h
+===================================================================
+--- trunk/iterator/iterator.h	(revision 3587)
++++ trunk/iterator/iterator.h	(working copy)
+@@ -113,6 +113,9 @@
  	 */
  	int* target_fetch_policy;
-+
+ 
 +	/** ASN: AAAA-filter flag */
 +	int aaaa_filter;
++
+ 	/** ip6.arpa dname in wireformat, used for qname-minimisation */
+ 	uint8_t* ip6arpa_dname;
  };
- 
- /**
-@@ -135,6 +138,14 @@ enum iter_state {
+@@ -163,6 +166,14 @@
  	INIT_REQUEST_3_STATE,
  
  	/**
@@ -312,8 +311,8 @@
 +	/**
  	 * Each time a delegation point changes for a given query or a 
  	 * query times out and/or wakes up, this state is (re)visited. 
- 	 * This state is responsible for iterating through a list of 
-@@ -309,6 +320,13 @@ struct iter_qstate {
+ 	 * This state is reponsible for iterating through a list of 
+@@ -346,6 +357,13 @@
  	 */
  	int refetch_glue;
  
@@ -326,31 +325,61 @@
 +
  	/** list of pending queries to authoritative servers. */
  	struct outbound_list outlist;
- };
---- unbound-1.4.17.orig/util/config_file.h
-+++ unbound-1.4.17/util/config_file.h
-@@ -169,6 +169,8 @@ struct config_file {
- 	int harden_referral_path;
+ 
+Index: trunk/pythonmod/interface.i
+===================================================================
+--- trunk/pythonmod/interface.i	(revision 3587)
++++ trunk/pythonmod/interface.i	(working copy)
+@@ -632,6 +632,7 @@
+    int harden_dnssec_stripped;
+    int harden_referral_path;
+    int use_caps_bits_for_id;
++   int aaaa_filter; /* ASN */
+    struct config_strlist* private_address;
+    struct config_strlist* private_domain;
+    size_t unwanted_threshold;
+Index: trunk/util/config_file.c
+===================================================================
+--- trunk/util/config_file.c	(revision 3587)
++++ trunk/util/config_file.c	(working copy)
+@@ -176,6 +176,7 @@
+ 	cfg->harden_referral_path = 0;
+ 	cfg->harden_algo_downgrade = 0;
+ 	cfg->use_caps_bits_for_id = 0;
++	cfg->aaaa_filter = 0; /* ASN: default is disabled */
+ 	cfg->caps_whitelist = NULL;
+ 	cfg->private_address = NULL;
+ 	cfg->private_domain = NULL;
+Index: trunk/util/config_file.h
+===================================================================
+--- trunk/util/config_file.h	(revision 3587)
++++ trunk/util/config_file.h	(working copy)
+@@ -179,6 +179,8 @@
+ 	int harden_algo_downgrade;
  	/** use 0x20 bits in query as random ID bits */
  	int use_caps_bits_for_id;
 +	/** ASN: enable AAAA filter? */
 +	int aaaa_filter;
+ 	/** 0x20 whitelist, domains that do not use capsforid */
+ 	struct config_strlist* caps_whitelist;
  	/** strip away these private addrs from answers, no DNS Rebinding */
- 	struct config_strlist* private_address;
- 	/** allow domain (and subdomains) to use private address space */
---- unbound-1.4.17.orig/util/configlexer.lex
-+++ unbound-1.4.17/util/configlexer.lex
-@@ -177,6 +177,7 @@ harden-below-nxdomain{COLON}	{ YDVAR(1,
- harden-referral-path{COLON}	{ YDVAR(1, VAR_HARDEN_REFERRAL_PATH) }
+Index: trunk/util/configlexer.lex
+===================================================================
+--- trunk/util/configlexer.lex	(revision 3587)
++++ trunk/util/configlexer.lex	(working copy)
+@@ -267,6 +267,7 @@
  use-caps-for-id{COLON}		{ YDVAR(1, VAR_USE_CAPS_FOR_ID) }
+ caps-whitelist{COLON}		{ YDVAR(1, VAR_CAPS_WHITELIST) }
  unwanted-reply-threshold{COLON}	{ YDVAR(1, VAR_UNWANTED_REPLY_THRESHOLD) }
 +aaaa-filter{COLON}		{ YDVAR(1, VAR_AAAA_FILTER) }
  private-address{COLON}		{ YDVAR(1, VAR_PRIVATE_ADDRESS) }
  private-domain{COLON}		{ YDVAR(1, VAR_PRIVATE_DOMAIN) }
  prefetch-key{COLON}		{ YDVAR(1, VAR_PREFETCH_KEY) }
---- unbound-1.4.17.orig/util/configparser.y
-+++ unbound-1.4.17/util/configparser.y
-@@ -92,6 +92,7 @@ extern struct config_parser_state* cfg_p
+Index: trunk/util/configparser.y
+===================================================================
+--- trunk/util/configparser.y	(revision 3587)
++++ trunk/util/configparser.y	(working copy)
+@@ -92,6 +92,7 @@
  %token VAR_STATISTICS_CUMULATIVE VAR_OUTGOING_PORT_PERMIT 
  %token VAR_OUTGOING_PORT_AVOID VAR_DLV_ANCHOR_FILE VAR_DLV_ANCHOR
  %token VAR_NEG_CACHE_SIZE VAR_HARDEN_REFERRAL_PATH VAR_PRIVATE_ADDRESS
@@ -358,7 +387,7 @@
  %token VAR_PRIVATE_DOMAIN VAR_REMOTE_CONTROL VAR_CONTROL_ENABLE
  %token VAR_CONTROL_INTERFACE VAR_CONTROL_PORT VAR_SERVER_KEY_FILE
  %token VAR_SERVER_CERT_FILE VAR_CONTROL_KEY_FILE VAR_CONTROL_CERT_FILE
-@@ -151,6 +152,7 @@ content_server: server_num_threads | ser
+@@ -169,6 +170,7 @@
  	server_dlv_anchor_file | server_dlv_anchor | server_neg_cache_size |
  	server_harden_referral_path | server_private_address |
  	server_private_domain | server_extended_statistics | 
@@ -366,8 +395,8 @@
  	server_local_data_ptr | server_jostle_timeout | 
  	server_unwanted_reply_threshold | server_log_time_ascii | 
  	server_domain_insecure | server_val_sig_skew_min | 
-@@ -802,6 +803,15 @@ server_use_caps_for_id: VAR_USE_CAPS_FOR
- 		free($2);
+@@ -893,6 +895,15 @@
+ 			yyerror("out of memory");
  	}
  	;
 +server_aaaa_filter: VAR_AAAA_FILTER STRING_ARG
@@ -382,13 +411,3 @@
  server_private_address: VAR_PRIVATE_ADDRESS STRING_ARG
  	{
  		OUTYY(("P(server_private_address:%s)\n", $2));
---- unbound-1.4.17.orig/pythonmod/interface.i
-+++ unbound-1.4.17/pythonmod/interface.i
-@@ -626,6 +626,7 @@ struct config_file {
-    int harden_dnssec_stripped;
-    int harden_referral_path;
-    int use_caps_bits_for_id;
-+   int aaaa_filter; /* ASN */
-    struct config_strlist* private_address;
-    struct config_strlist* private_domain;
-    size_t unwanted_threshold;

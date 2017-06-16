@@ -56,8 +56,8 @@ struct comm_reply;
 struct comm_point;
 struct daemon_remote;
 
-/** number of seconds timeout on incoming remote control handshake */
-#define REMOTE_CONTROL_TCP_TIMEOUT 120
+/** number of milliseconds timeout on incoming remote control handshake */
+#define REMOTE_CONTROL_TCP_TIMEOUT 120000
 
 /**
  * a busy control command connection, SSL state

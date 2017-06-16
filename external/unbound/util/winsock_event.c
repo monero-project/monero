@@ -169,7 +169,7 @@ static void handle_timeouts(struct event_base* base, struct timeval* now,
 #endif
 	verbose(VERB_CLIENT, "winsock_event handle_timeouts");
 
-        while((rbnode_t*)(p = (struct event*)rbtree_first(base->times))
+        while((rbnode_type*)(p = (struct event*)rbtree_first(base->times))
                 !=RBTREE_NULL) {
 #ifndef S_SPLINT_S
                 if(p->ev_timeout.tv_sec > now->tv_sec ||
@@ -262,8 +262,9 @@ static int handle_select(struct event_base* base, struct timeval* wait)
 			break; /* sanity check */
 	}
 	log_assert(numwait <= WSA_MAXIMUM_WAIT_EVENTS);
-	verbose(VERB_CLIENT, "winsock_event bmax=%d numwait=%d wait=%x "
-		"timeout=%d", base->max, numwait, (int)wait, (int)timeout);
+	verbose(VERB_CLIENT, "winsock_event bmax=%d numwait=%d wait=%s "
+		"timeout=%d", base->max, numwait, (wait?"<wait>":"<null>"),
+		(int)timeout);
 
 	/* do the wait */
 	if(numwait == 0) {

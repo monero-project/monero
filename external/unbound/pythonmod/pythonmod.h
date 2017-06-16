@@ -55,14 +55,22 @@ int pythonmod_init(struct module_env* env, int id);
 void pythonmod_deinit(struct module_env* env, int id);
 
 /** python module operate on a query */
-void pythonmod_operate(struct module_qstate* qstate, enum module_ev event, int id, struct outbound_entry* outbound);
+void pythonmod_operate(struct module_qstate* qstate, enum module_ev event,
+	int id, struct outbound_entry* outbound);
 
 /** python module  */
-void pythonmod_inform_super(struct module_qstate* qstate, int id, struct module_qstate* super);
+void pythonmod_inform_super(struct module_qstate* qstate, int id,
+	struct module_qstate* super);
 
 /** python module cleanup query state */
 void pythonmod_clear(struct module_qstate* qstate, int id);
 
 /** python module alloc size routine */
 size_t pythonmod_get_mem(struct module_env* env, int id);
+
+/** Declared here for fptr_wlist access. The definition is in interface.i. */
+int python_inplace_cb_reply_generic(struct query_info* qinfo,
+	struct module_qstate* qstate, struct reply_info* rep, int rcode,
+	struct edns_data* edns, struct edns_option** opt_list_out,
+	struct regional* region, int id, void* python_callback);
 #endif /* PYTHONMOD_H */

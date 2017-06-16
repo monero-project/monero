@@ -174,9 +174,128 @@ struct val_anchors;
 struct val_neg_cache;
 struct iter_forwards;
 struct iter_hints;
+struct respip_set;
+struct respip_client_info;
+struct respip_addr_info;
 
 /** Maximum number of modules in operation */
-#define MAX_MODULE 5
+#define MAX_MODULE 16
+
+/** Maximum number of known edns options */
+#define MAX_KNOWN_EDNS_OPTS 256
+
+enum inplace_cb_list_type {
+	/* Inplace callbacks for when a resolved reply is ready to be sent to the
+	 * front.*/
+	inplace_cb_reply = 0,
+	/* Inplace callbacks for when a reply is given from the cache. */
+	inplace_cb_reply_cache,
+	/* Inplace callbacks for when a reply is given with local data
+	 * (or Chaos reply). */
+	inplace_cb_reply_local,
+	/* Inplace callbacks for when the reply is servfail. */
+	inplace_cb_reply_servfail,
+	/* Inplace callbacks for when a query is ready to be sent to the back.*/
+	inplace_cb_query,
+	/* Inplace callback for when a reply is received from the back. */
+	inplace_cb_query_response,
+	/* Inplace callback for when EDNS is parsed on a reply received from the
+	 * back. */
+	inplace_cb_edns_back_parsed,
+	/* Total number of types. Used for array initialization.
+	 * Should always be last. */
+	inplace_cb_types_total
+};
+
+
+/** Known edns option. Can be populated during modules' init. */
+struct edns_known_option {
+	/** type of this edns option */
+	uint16_t opt_code;
+	/** whether the option needs to bypass the cache stage */
+	int bypass_cache_stage;
+	/** whether the option needs mesh aggregation */
+	int no_aggregation;
+};
+
+/**
+ * Inplace callback list of registered routines to be called.
+ */
+struct inplace_cb {
+	/** next in list */
+	struct inplace_cb* next;
+	/** Inplace callback routine */
+	void* cb;
+	void* cb_arg;
+	/** module id */
+	int id;
+};
+
+/**
+ * Inplace callback function called before replying.
+ * Called as func(edns, qstate, opt_list_out, qinfo, reply_info, rcode,
+ *                region, python_callback)
+ * Where:
+ *	qinfo: the query info.
+ *	qstate: the module state. NULL when calling before the query reaches the
+ *		mesh states.
+ *	rep: reply_info. Could be NULL.
+ *	rcode: the return code.
+ *	edns: the edns_data of the reply. When qstate is NULL, it is also used as
+ *		the edns input.
+ *	opt_list_out: the edns options list for the reply.
+ *	region: region to store data.
+ *	python_callback: only used for registering a python callback function.
+ */
+typedef int inplace_cb_reply_func_type(struct query_info* qinfo,
+	struct module_qstate* qstate, struct reply_info* rep, int rcode,
+	struct edns_data* edns, struct edns_option** opt_list_out, 
+	struct regional* region, int id, void* callback);
+
+/**
+ * Inplace callback function called before sending the query to a nameserver.
+ * Called as func(qinfo, flags, qstate, addr, addrlen, zone, zonelen, region,
+ *                python_callback)
+ * Where:
+ *	qinfo: query info.
+ *	flags: flags of the query.
+ *	qstate: query state.
+ *	addr: to which server to send the query.
+ *	addrlen: length of addr.
+ *	zone: name of the zone of the delegation point. wireformat dname.
+ *		This is the delegation point name for which the server is deemed
+ *		authoritative.
+ *	zonelen: length of zone.
+ *	region: region to store data.
+ *	python_callback: only used for registering a python callback function.
+ */
+typedef int inplace_cb_query_func_type(struct query_info* qinfo, uint16_t flags,
+	struct module_qstate* qstate, struct sockaddr_storage* addr,
+	socklen_t addrlen, uint8_t* zone, size_t zonelen, struct regional* region,
+	int id, void* callback);
+
+/**
+ * Inplace callback function called after parsing edns on query reply.
+ * Called as func(qstate, cb_args)
+ * Where:
+ *	qstate: the query state
+ *	id: module id
+ *	cb_args: argument passed when registering callback.
+ */
+typedef int inplace_cb_edns_back_parsed_func_type(struct module_qstate* qstate, 
+	int id, void* cb_args);
+
+/**
+ * Inplace callback function called after parsing query response.
+ * Called as func(qstate, id, cb_args)
+ * Where:
+ *	qstate: the query state
+ *	response: query response
+ *	id: module id
+ *	cb_args: argument passed when registering callback.
+ */
+typedef int inplace_cb_query_response_func_type(struct module_qstate* qstate,
+	struct dns_msg* response, int id, void* cb_args);
 
 /**
  * Module environment.
@@ -202,10 +321,7 @@ struct module_env {
 	 * will cause operate() to be called with event timeout or reply.
 	 * The time until a timeout is calculated from roundtrip timing,
 	 * several UDP retries are attempted.
-	 * @param qname: query name. (host order)
-	 * @param qnamelen: length in bytes of qname, including trailing 0.
-	 * @param qtype: query type. (host order)
-	 * @param qclass: query class. (host order)
+	 * @param qinfo: query info.
 	 * @param flags: host order flags word, with opcode and CD bit.
 	 * @param dnssec: if set, EDNS record will have bits set.
 	 *	If EDNS_DO bit is set, DO bit is set in EDNS records.
@@ -218,16 +334,17 @@ struct module_env {
 	 * @param addrlen: length of addr.
 	 * @param zone: delegation point name.
 	 * @param zonelen: length of zone name.
+	 * @param ssl_upstream: use SSL for upstream queries.
 	 * @param q: wich query state to reactivate upon return.
 	 * @return: false on failure (memory or socket related). no query was
 	 *	sent. Or returns an outbound entry with qsent and qstate set.
 	 *	This outbound_entry will be used on later module invocations
 	 *	that involve this query (timeout, error or reply).
 	 */
-	struct outbound_entry* (*send_query)(uint8_t* qname, size_t qnamelen, 
-		uint16_t qtype, uint16_t qclass, uint16_t flags, int dnssec, 
-		int want_dnssec, int nocaps, struct sockaddr_storage* addr, 
-		socklen_t addrlen, uint8_t* zone, size_t zonelen,
+	struct outbound_entry* (*send_query)(struct query_info* qinfo,
+		uint16_t flags, int dnssec, int want_dnssec, int nocaps,
+		struct sockaddr_storage* addr, socklen_t addrlen,
+		uint8_t* zone, size_t zonelen, int ssl_upstream,
 		struct module_qstate* q);
 
 	/**
@@ -333,6 +450,20 @@ struct module_env {
 	struct iter_hints* hints;
 	/** module specific data. indexed by module id. */
 	void* modinfo[MAX_MODULE];
+
+	/* Shared linked list of inplace callback functions */
+	struct inplace_cb* inplace_cb_lists[inplace_cb_types_total];
+
+	/**
+	 * Shared array of known edns options (size MAX_KNOWN_EDNS_OPTS).
+	 * Filled by edns literate modules during init.
+	 */
+	struct edns_known_option* edns_known_options;
+	/* Number of known edns options */
+	size_t edns_known_options_num;
+
+	/* Make every mesh state unique, do not aggregate mesh states. */
+	int unique_mesh;
 };
 
 /**
@@ -390,6 +521,8 @@ struct sock_list {
 	struct sockaddr_storage addr;
 };
 
+struct respip_action_info;
+
 /**
  * Module state, per query.
  */
@@ -431,6 +564,32 @@ struct module_qstate {
 	struct mesh_state* mesh_info;
 	/** how many seconds before expiry is this prefetched (0 if not) */
 	time_t prefetch_leeway;
+
+	/** incoming edns options from the front end */
+	struct edns_option* edns_opts_front_in;
+	/** outgoing edns options to the back end */
+	struct edns_option* edns_opts_back_out;
+	/** incoming edns options from the back end */
+	struct edns_option* edns_opts_back_in;
+	/** outgoing edns options to the front end */
+	struct edns_option* edns_opts_front_out;
+	/** whether modules should answer from the cache */
+	int no_cache_lookup;
+	/** whether modules should store answer in the cache */
+	int no_cache_store;
+
+	/**
+	 * Attributes of clients that share the qstate that may affect IP-based
+	 * actions.
+	 */
+	struct respip_client_info* client_info;
+
+	/** Extended result of response-ip action processing, mainly
+	 *  for logging purposes. */
+	struct respip_action_info* respip_action_info;
+
+	/** whether the reply should be dropped */
+	int is_drop;
 };
 
 /** 
@@ -519,5 +678,101 @@ const char* strextstate(enum module_ext_state s);
  * @return descriptive string.
  */
 const char* strmodulevent(enum module_ev e);
+
+/**
+ * Initialize the edns known options by allocating the required space.
+ * @param env: the module environment.
+ * @return false on failure (no memory).
+ */
+int edns_known_options_init(struct module_env* env);
+
+/**
+ * Free the allocated space for the known edns options.
+ * @param env: the module environment.
+ */
+void edns_known_options_delete(struct module_env* env);
+
+/**
+ * Register a known edns option. Overwrite the flags if it is already
+ * registered. Used before creating workers to register known edns options.
+ * @param opt_code: the edns option code.
+ * @param bypass_cache_stage: whether the option interacts with the cache.
+ * @param no_aggregation: whether the option implies more specific
+ *	aggregation.
+ * @param env: the module environment.
+ * @return true on success, false on failure (registering more options than
+ *	allowed or trying to register after the environment is copied to the
+ *	threads.)
+ */
+int edns_register_option(uint16_t opt_code, int bypass_cache_stage,
+	int no_aggregation, struct module_env* env);
+
+/**
+ * Register an inplace callback function.
+ * @param cb: pointer to the callback function.
+ * @param type: inplace callback type.
+ * @param cbarg: argument for the callback function, or NULL.
+ * @param env: the module environment.
+ * @param id: module id.
+ * @return true on success, false on failure (out of memory or trying to
+ *	register after the environment is copied to the threads.)
+ */
+int
+inplace_cb_register(void* cb, enum inplace_cb_list_type type, void* cbarg,
+	struct module_env* env, int id);
+
+/**
+ * Delete callback for specified type and module id.
+ * @param env: the module environment.
+ * @param type: inplace callback type.
+ * @param id: module id.
+ */
+void
+inplace_cb_delete(struct module_env* env, enum inplace_cb_list_type type,
+	int id);
+
+/**
+ * Delete all the inplace callback linked lists.
+ * @param env: the module environment.
+ */
+void inplace_cb_lists_delete(struct module_env* env);
+
+/**
+ * Check if an edns option is known.
+ * @param opt_code: the edns option code.
+ * @param env: the module environment.
+ * @return pointer to registered option if the edns option is known,
+ *	NULL otherwise.
+ */
+struct edns_known_option* edns_option_is_known(uint16_t opt_code,
+	struct module_env* env);
+
+/**
+ * Check if an edns option needs to bypass the reply from cache stage.
+ * @param list: the edns options.
+ * @param env: the module environment.
+ * @return true if an edns option needs to bypass the cache stage,
+ *	false otherwise.
+ */
+int edns_bypass_cache_stage(struct edns_option* list,
+	struct module_env* env);
+
+/**
+ * Check if an unique mesh state is required. Might be triggered by EDNS option
+ * or set for the complete env.
+ * @param list: the edns options.
+ * @param env: the module environment.
+ * @return true if an edns option needs a unique mesh state,
+ *	false otherwise.
+ */
+int unique_mesh_state(struct edns_option* list, struct module_env* env);
+
+/**
+ * Log the known edns options.
+ * @param level: the desired verbosity level.
+ * @param env: the module environment.
+ */
+void log_edns_known_options(enum verbosity_value level,
+	struct module_env* env);
 
 #endif /* UTIL_MODULE_H */

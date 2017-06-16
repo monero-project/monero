@@ -51,6 +51,7 @@
 #include "util/module.h"
 #include "util/net_help.h"
 #include "util/regional.h"
+#include "util/config_file.h"
 #include "sldns/keyraw.h"
 #include "sldns/sbuffer.h"
 #include "sldns/parseutil.h"
@@ -318,12 +319,17 @@ int ds_digest_match_dnskey(struct module_env* env,
 	size_t dslen;
 	uint8_t* digest; /* generated digest */
 	size_t digestlen = ds_digest_size_algo(ds_rrset, ds_idx);
-	
+
 	if(digestlen == 0) {
 		verbose(VERB_QUERY, "DS fail: not supported, or DS RR "
 			"format error");
 		return 0; /* not supported, or DS RR format error */
 	}
+#ifndef USE_SHA1
+	if(fake_sha1 && ds_get_digest_algo(ds_rrset, ds_idx)==LDNS_SHA1)
+		return 1;
+#endif
+	
 	/* check digest length in DS with length from hash function */
 	ds_get_sigdata(ds_rrset, ds_idx, &ds, &dslen);
 	if(!ds || dslen != digestlen) {
@@ -483,7 +489,7 @@ dnskeyset_verify_rrset(struct module_env* env, struct val_env* ve,
 {
 	enum sec_status sec;
 	size_t i, num;
-	rbtree_t* sortree = NULL;
+	rbtree_type* sortree = NULL;
 	/* make sure that for all DNSKEY algorithms there are valid sigs */
 	struct algo_needs needs;
 	int alg;
@@ -551,7 +557,7 @@ dnskey_verify_rrset(struct module_env* env, struct val_env* ve,
 {
 	enum sec_status sec;
 	size_t i, num, numchecked = 0;
-	rbtree_t* sortree = NULL;
+	rbtree_type* sortree = NULL;
 	int buf_canon = 0;
 	uint16_t tag = dnskey_calc_keytag(dnskey, dnskey_idx);
 	int algo = dnskey_get_algo(dnskey, dnskey_idx);
@@ -585,7 +591,7 @@ enum sec_status
 dnskeyset_verify_rrset_sig(struct module_env* env, struct val_env* ve, 
 	time_t now, struct ub_packed_rrset_key* rrset, 
 	struct ub_packed_rrset_key* dnskey, size_t sig_idx, 
-	struct rbtree_t** sortree, char** reason)
+	struct rbtree_type** sortree, char** reason)
 {
 	/* find matching keys and check them */
 	enum sec_status sec = sec_status_bogus;
@@ -627,7 +633,7 @@ dnskeyset_verify_rrset_sig(struct module_env* env, struct val_env* ve,
  */
 struct canon_rr {
 	/** rbtree node, key is this structure */
-	rbnode_t node;
+	rbnode_type node;
 	/** rrset the RR is in */
 	struct ub_packed_rrset_key* rrset;
 	/** which RR in the rrset */
@@ -885,7 +891,7 @@ canonical_tree_compare(const void* k1, const void* k2)
  */
 static void
 canonical_sort(struct ub_packed_rrset_key* rrset, struct packed_rrset_data* d,
-	rbtree_t* sortree, struct canon_rr* rrs)
+	rbtree_type* sortree, struct canon_rr* rrs)
 {
 	size_t i;
 	/* insert into rbtree to sort and detect duplicates */
@@ -1043,7 +1049,7 @@ canonicalize_rdata(sldns_buffer* buf, struct ub_packed_rrset_key* rrset,
 int rrset_canonical_equal(struct regional* region,
 	struct ub_packed_rrset_key* k1, struct ub_packed_rrset_key* k2)
 {
-	struct rbtree_t sortree1, sortree2;
+	struct rbtree_type sortree1, sortree2;
 	struct canon_rr *rrs1, *rrs2, *p1, *p2;
 	struct packed_rrset_data* d1=(struct packed_rrset_data*)k1->entry.data;
 	struct packed_rrset_data* d2=(struct packed_rrset_data*)k2->entry.data;
@@ -1120,7 +1126,7 @@ int rrset_canonical_equal(struct regional* region,
 static int
 rrset_canonical(struct regional* region, sldns_buffer* buf, 
 	struct ub_packed_rrset_key* k, uint8_t* sig, size_t siglen,
-	struct rbtree_t** sortree)
+	struct rbtree_type** sortree)
 {
 	struct packed_rrset_data* d = (struct packed_rrset_data*)k->entry.data;
 	uint8_t* can_owner = NULL;
@@ -1129,8 +1135,8 @@ rrset_canonical(struct regional* region, sldns_buffer* buf,
 	struct canon_rr* rrs;
 
 	if(!*sortree) {
-		*sortree = (struct rbtree_t*)regional_alloc(region, 
-			sizeof(rbtree_t));
+		*sortree = (struct rbtree_type*)regional_alloc(region, 
+			sizeof(rbtree_type));
 		if(!*sortree)
 			return 0;
 		if(d->count > RR_COUNT_MAX)
@@ -1283,15 +1289,23 @@ adjust_ttl(struct val_env* ve, uint32_t unow,
 	/* so now:
 	 * d->ttl: rrset ttl read from message or cache. May be reduced
 	 * origttl: original TTL from signature, authoritative TTL max.
+	 * MIN_TTL: minimum TTL from config.
 	 * expittl: TTL until the signature expires.
 	 *
-	 * Use the smallest of these.
+	 * Use the smallest of these, but don't let origttl set the TTL
+	 * below the minimum.
 	 */
-	if(d->ttl > (time_t)origttl) {
-		verbose(VERB_QUERY, "rrset TTL larger than original TTL,"
-			" adjusting TTL downwards");
+	if(MIN_TTL > (time_t)origttl && d->ttl > MIN_TTL) {
+		verbose(VERB_QUERY, "rrset TTL larger than original and minimum"
+			" TTL, adjusting TTL downwards to minimum ttl");
+		d->ttl = MIN_TTL;
+	}
+	else if(MIN_TTL <= origttl && d->ttl > (time_t)origttl) {
+		verbose(VERB_QUERY, "rrset TTL larger than original TTL, "
+		"adjusting TTL downwards to original ttl");
 		d->ttl = origttl;
 	}
+
 	if(expittl > 0 && d->ttl > (time_t)expittl) {
 		verbose(VERB_ALGO, "rrset TTL larger than sig expiration ttl,"
 			" adjusting TTL downwards");
@@ -1304,7 +1318,7 @@ dnskey_verify_rrset_sig(struct regional* region, sldns_buffer* buf,
 	struct val_env* ve, time_t now,
         struct ub_packed_rrset_key* rrset, struct ub_packed_rrset_key* dnskey,
         size_t dnskey_idx, size_t sig_idx,
-	struct rbtree_t** sortree, int* buf_canon, char** reason)
+	struct rbtree_type** sortree, int* buf_canon, char** reason)
 {
 	enum sec_status sec;
 	uint8_t* sig;		/* RRSIG rdata */

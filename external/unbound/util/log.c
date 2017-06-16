@@ -67,10 +67,10 @@ static FILE* logfile = 0;
 /** if key has been created */
 static int key_created = 0;
 /** pthread key for thread ids in logfile */
-static ub_thread_key_t logkey;
+static ub_thread_key_type logkey;
 #ifndef THREADS_DISABLED
 /** pthread mutex to protect FILE* */
-static lock_quick_t log_lock;
+static lock_quick_type log_lock;
 #endif
 /** the identity of this executable/process */
 static const char* ident="unbound";

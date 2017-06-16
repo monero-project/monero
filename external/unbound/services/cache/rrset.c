@@ -91,7 +91,7 @@ struct rrset_cache* rrset_cache_adjust(struct rrset_cache *r,
 
 void 
 rrset_cache_touch(struct rrset_cache* r, struct ub_packed_rrset_key* key,
-        hashvalue_t hash, rrset_id_t id)
+        hashvalue_type hash, rrset_id_type id)
 {
 	struct lruhash* table = slabhash_gettable(&r->table, hash);
 	/* 
@@ -186,7 +186,7 @@ rrset_cache_update(struct rrset_cache* r, struct rrset_ref* ref,
 {
 	struct lruhash_entry* e;
 	struct ub_packed_rrset_key* k = ref->key;
-	hashvalue_t h = k->entry.hash;
+	hashvalue_type h = k->entry.hash;
 	uint16_t rrset_type = ntohs(k->rk.type);
 	int equal = 0;
 	log_assert(ref->id != 0 && k->id != 0);
@@ -303,10 +303,10 @@ void
 rrset_array_unlock_touch(struct rrset_cache* r, struct regional* scratch,
 	struct rrset_ref* ref, size_t count)
 {
-	hashvalue_t* h;
+	hashvalue_type* h;
 	size_t i;
-	if(count > RR_COUNT_MAX || !(h = (hashvalue_t*)regional_alloc(scratch, 
-		sizeof(hashvalue_t)*count))) {
+	if(count > RR_COUNT_MAX || !(h = (hashvalue_type*)regional_alloc(
+		scratch, sizeof(hashvalue_type)*count))) {
 		log_warn("rrset LRU: memory allocation failed");
 		h = NULL;
 	} else 	/* store hash values */

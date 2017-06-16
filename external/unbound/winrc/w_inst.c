@@ -231,8 +231,8 @@ wsvc_install(FILE* out, const char* rename)
                 NULL, /* no load ordering group */
                 NULL, /* no tag identifier */
                 NULL, /* no deps */
-                NULL, /* on LocalSystem */
-                NULL /* no password */
+		NULL, /* on LocalSystem */
+		NULL /* no password */
                 );
         if(!sv) {
                 CloseServiceHandle(scm);

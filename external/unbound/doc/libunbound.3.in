@@ -1,4 +1,4 @@
-.TH "libunbound" "3" "@date@" "NLnet Labs" "unbound @version@"
+.TH "libunbound" "3" "Jun 13, 2017" "NLnet Labs" "unbound 1.6.3"
 .\"
 .\" libunbound.3 -- unbound library functions manual
 .\"
@@ -12,13 +12,14 @@
 .B unbound.h,
 .B ub_ctx,
 .B ub_result,
-.B ub_callback_t,
+.B ub_callback_type,
 .B ub_ctx_create,
 .B ub_ctx_delete,
 .B ub_ctx_set_option,
 .B ub_ctx_get_option,
 .B ub_ctx_config,
 .B ub_ctx_set_fwd,
+.B ub_ctx_set_stub,
 .B ub_ctx_resolvconf,
 .B ub_ctx_hosts,
 .B ub_ctx_add_ta,
@@ -42,7 +43,7 @@
 .B ub_ctx_zone_remove,
 .B ub_ctx_data_add,
 .B ub_ctx_data_remove
-\- Unbound DNS validating resolver @version@ functions.
+\- Unbound DNS validating resolver 1.6.3 functions.
 .SH "SYNOPSIS"
 .B #include <unbound.h>
 .LP
@@ -63,6 +64,12 @@
 .LP
 \fIint\fR
 \fBub_ctx_set_fwd\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR addr);
+.LP
+\fIint\fR
+\fBub_ctx_set_stub\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR zone,
+\fIchar*\fR addr,
+.br
+		\fIint\fR isprime);
 .LP
 \fIint\fR
 \fBub_ctx_resolvconf\fR(\fIstruct ub_ctx*\fR ctx, \fIchar*\fR fname);
@@ -113,7 +120,7 @@
 .br
                  \fIint\fR rrtype, \fIint\fR rrclass, \fIvoid*\fR mydata, 
 .br
-                 \fIub_callback_t\fR callback, \fIint*\fR async_id);
+                 \fIub_callback_type\fR callback, \fIint*\fR async_id);
 .LP
 \fIint\fR
 \fBub_cancel\fR(\fIstruct ub_ctx*\fR ctx, \fIint\fR async_id);
@@ -173,7 +180,7 @@ and
 .B ub_ctx_hosts
 to read them.
 Before you call this, use the openssl functions CRYPTO_set_id_callback and
-CRYPTO_set_locking_callback to set up asyncronous operation if you use
+CRYPTO_set_locking_callback to set up asynchronous operation if you use
 lib openssl (the application calls these functions once for initialisation).
 Openssl 1.0.0 or later uses the CRYPTO_THREADID_set_callback function.
 .TP
@@ -204,6 +211,15 @@ IP4 or IP6 address. Forwards all DNS requests to that machine, which
 is expected to run a recursive resolver. If the proxy is not 
 DNSSEC capable, validation may fail. Can be called several times, in 
 that case the addresses are used as backup servers.
+At this time it is only possible to set configuration before the
+first resolve is done.
+.TP
+.B ub_ctx_set_stub
+Set a stub zone, authoritative dns servers to use for a particular zone.
+IP4 or IP6 address.  If the address is NULL the stub entry is removed.
+Set isprime true if you configure root hints with it.  Otherwise similar to
+the stub zone item from unbound's config file.  Can be called several times,
+for different zones, or to add multiple addresses for a particular zone.
 At this time it is only possible to set configuration before the
 first resolve is done.
 .TP

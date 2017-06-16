@@ -61,7 +61,7 @@ static int key_created = 0;
 /** if the key was deleted, i.e. we have quit */
 static int key_deleted = 0;
 /** we hide the thread debug info with this key. */
-static ub_thread_key_t thr_debug_key;
+static ub_thread_key_type thr_debug_key;
 /** the list of threads, so all threads can be examined. NULL if unused. */
 static struct thr_check* thread_infos[THRDEBUG_MAX_THREADS];
 /** do we check locking order */

@@ -45,9 +45,9 @@
 #include "util/storage/slabhash.h" /* for the test structures */
 
 /** use this type for the lruhash test key */
-typedef struct slabhash_testkey testkey_t;
+typedef struct slabhash_testkey testkey_type;
 /** use this type for the lruhash test data */
-typedef struct slabhash_testdata testdata_t;
+typedef struct slabhash_testdata testdata_type;
 
 /** delete key */
 static void delkey(struct slabhash_testkey* k) {
@@ -56,10 +56,10 @@ static void delkey(struct slabhash_testkey* k) {
 static void deldata(struct slabhash_testdata* d) {free(d);}
 
 /** hash func, very bad to improve collisions */
-static hashvalue_t myhash(int id) {return (hashvalue_t)id & 0x0f;}
+static hashvalue_type myhash(int id) {return (hashvalue_type)id & 0x0f;}
 /** allocate new key, fill in hash */
-static testkey_t* newkey(int id) {
-	testkey_t* k = (testkey_t*)calloc(1, sizeof(testkey_t));
+static testkey_type* newkey(int id) {
+	testkey_type* k = (testkey_type*)calloc(1, sizeof(testkey_type));
 	if(!k) fatal_exit("out of memory");
 	k->id = id;
 	k->entry.hash = myhash(id);
@@ -68,9 +68,9 @@ static testkey_t* newkey(int id) {
 	return k;
 }
 /** new data el */
-static testdata_t* newdata(int val) {
-	testdata_t* d = (testdata_t*)calloc(1, 
-		sizeof(testdata_t));
+static testdata_type* newdata(int val) {
+	testdata_type* d = (testdata_type*)calloc(1, 
+		sizeof(testdata_type));
 	if(!d) fatal_exit("out of memory");
 	d->data = val;
 	return d;
@@ -80,12 +80,12 @@ static testdata_t* newdata(int val) {
 static void
 test_bin_find_entry(struct lruhash* table)
 {
-	testkey_t* k = newkey(12);
-	testdata_t* d = newdata(128);
-	testkey_t* k2 = newkey(12 + 1024);
-	testkey_t* k3 = newkey(14);
-	testkey_t* k4 = newkey(12 + 1024*2);
-	hashvalue_t h = myhash(12);
+	testkey_type* k = newkey(12);
+	testdata_type* d = newdata(128);
+	testkey_type* k2 = newkey(12 + 1024);
+	testkey_type* k3 = newkey(14);
+	testkey_type* k4 = newkey(12 + 1024*2);
+	hashvalue_type h = myhash(12);
 	struct lruhash_bin bin;
 	memset(&bin, 0, sizeof(bin));
 	bin_init(&bin, 1);
@@ -161,8 +161,8 @@ test_bin_find_entry(struct lruhash* table)
 /** test lru_front lru_remove */
 static void test_lru(struct lruhash* table)
 {
-	testkey_t* k = newkey(12);
-	testkey_t* k2 = newkey(14);
+	testkey_type* k = newkey(12);
+	testkey_type* k2 = newkey(14);
 	lock_quick_lock(&table->lock);
 
 	unit_assert( table->lru_start == NULL && table->lru_end == NULL);
@@ -208,10 +208,10 @@ static void test_lru(struct lruhash* table)
 static void
 test_short_table(struct lruhash* table) 
 {
-	testkey_t* k = newkey(12);
-	testkey_t* k2 = newkey(14);
-	testdata_t* d = newdata(128);
-	testdata_t* d2 = newdata(129);
+	testkey_type* k = newkey(12);
+	testkey_type* k2 = newkey(14);
+	testdata_type* d = newdata(128);
+	testdata_type* d2 = newdata(129);
 	
 	k->entry.data = d;
 	k2->entry.data = d2;
@@ -232,11 +232,11 @@ test_short_table(struct lruhash* table)
 
 /** test adding a random element */
 static void
-testadd(struct lruhash* table, testdata_t* ref[])
+testadd(struct lruhash* table, testdata_type* ref[])
 {
 	int numtoadd = random() % HASHTESTMAX;
-	testdata_t* data = newdata(numtoadd);
-	testkey_t* key = newkey(numtoadd);
+	testdata_type* data = newdata(numtoadd);
+	testkey_type* key = newkey(numtoadd);
 	key->entry.data = data;
 	lruhash_insert(table, myhash(numtoadd), &key->entry, data, NULL);
 	ref[numtoadd] = data;
@@ -244,10 +244,10 @@ testadd(struct lruhash* table, testdata_t* ref[])
 
 /** test adding a random element */
 static void
-testremove(struct lruhash* table, testdata_t* ref[])
+testremove(struct lruhash* table, testdata_type* ref[])
 {
 	int num = random() % HASHTESTMAX;
-	testkey_t* key = newkey(num);
+	testkey_type* key = newkey(num);
 	lruhash_remove(table, myhash(num), key);
 	ref[num] = NULL;
 	delkey(key);
@@ -255,12 +255,12 @@ testremove(struct lruhash* table, testdata_t* ref[])
 
 /** test adding a random element */
 static void
-testlookup(struct lruhash* table, testdata_t* ref[])
+testlookup(struct lruhash* table, testdata_type* ref[])
 {
 	int num = random() % HASHTESTMAX;
-	testkey_t* key = newkey(num);
+	testkey_type* key = newkey(num);
 	struct lruhash_entry* en = lruhash_lookup(table, myhash(num), key, 0);
-	testdata_t* data = en? (testdata_t*)en->data : NULL;
+	testdata_type* data = en? (testdata_type*)en->data : NULL;
 	if(en) {
 		unit_assert(en->key);
 		unit_assert(en->data);
@@ -310,11 +310,11 @@ check_table(struct lruhash* table)
 
 /** test adding a random element (unlimited range) */
 static void
-testadd_unlim(struct lruhash* table, testdata_t** ref)
+testadd_unlim(struct lruhash* table, testdata_type** ref)
 {
 	int numtoadd = random() % (HASHTESTMAX * 10);
-	testdata_t* data = newdata(numtoadd);
-	testkey_t* key = newkey(numtoadd);
+	testdata_type* data = newdata(numtoadd);
+	testkey_type* key = newkey(numtoadd);
 	key->entry.data = data;
 	lruhash_insert(table, myhash(numtoadd), &key->entry, data, NULL);
 	if(ref)
@@ -323,10 +323,10 @@ testadd_unlim(struct lruhash* table, testdata_t** ref)
 
 /** test adding a random element (unlimited range) */
 static void
-testremove_unlim(struct lruhash* table, testdata_t** ref)
+testremove_unlim(struct lruhash* table, testdata_type** ref)
 {
 	int num = random() % (HASHTESTMAX*10);
-	testkey_t* key = newkey(num);
+	testkey_type* key = newkey(num);
 	lruhash_remove(table, myhash(num), key);
 	if(ref)
 		ref[num] = NULL;
@@ -335,12 +335,12 @@ testremove_unlim(struct lruhash* table, testdata_t** ref)
 
 /** test adding a random element (unlimited range) */
 static void
-testlookup_unlim(struct lruhash* table, testdata_t** ref)
+testlookup_unlim(struct lruhash* table, testdata_type** ref)
 {
 	int num = random() % (HASHTESTMAX*10);
-	testkey_t* key = newkey(num);
+	testkey_type* key = newkey(num);
 	struct lruhash_entry* en = lruhash_lookup(table, myhash(num), key, 0);
-	testdata_t* data = en? (testdata_t*)en->data : NULL;
+	testdata_type* data = en? (testdata_type*)en->data : NULL;
 	if(en) {
 		unit_assert(en->key);
 		unit_assert(en->data);
@@ -360,7 +360,7 @@ static void
 test_long_table(struct lruhash* table) 
 {
 	/* assuming it all fits in the hashtable, this check will work */
-	testdata_t* ref[HASHTESTMAX * 100];
+	testdata_type* ref[HASHTESTMAX * 100];
 	size_t i;
 	memset(ref, 0, sizeof(ref));
 	/* test assumption */
@@ -422,7 +422,7 @@ struct test_thr {
 	/** thread num, first entry. */
 	int num;
 	/** id */
-	ub_thread_t id;
+	ub_thread_type id;
 	/** hash table */
 	struct lruhash* table;
 };

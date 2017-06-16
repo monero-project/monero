@@ -60,6 +60,14 @@ int secalgo_nsec3_hash(int algo, unsigned char* buf, size_t len,
         unsigned char* res);
 
 /**
+ * Calculate the sha256 hash for the data buffer into the result.
+ * @param buf: buffer to digest.
+ * @param len: length of the buffer to digest.
+ * @param res: result is stored here (space 256/8 bytes).
+ */
+void secalgo_hash_sha256(unsigned char* buf, size_t len, unsigned char* res);
+
+/**
  * Return size of DS digest according to its hash algorithm.
  * @param algo: DS digest algo.
  * @return size in bytes of digest, or 0 if not supported. 

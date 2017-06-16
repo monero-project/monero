@@ -99,13 +99,13 @@ void worker_sighandler(int ATTR_UNUSED(sig), void* ATTR_UNUSED(arg))
 	log_assert(0);
 }
 
-struct outbound_entry* worker_send_query(uint8_t* ATTR_UNUSED(qname), 
-	size_t ATTR_UNUSED(qnamelen), uint16_t ATTR_UNUSED(qtype), 
-	uint16_t ATTR_UNUSED(qclass), uint16_t ATTR_UNUSED(flags), 
+struct outbound_entry* worker_send_query(
+	struct query_info* ATTR_UNUSED(qinfo), uint16_t ATTR_UNUSED(flags),
 	int ATTR_UNUSED(dnssec), int ATTR_UNUSED(want_dnssec),
-	int ATTR_UNUSED(nocaps), struct sockaddr_storage* ATTR_UNUSED(addr), 
+	int ATTR_UNUSED(nocaps), struct sockaddr_storage* ATTR_UNUSED(addr),
 	socklen_t ATTR_UNUSED(addrlen), uint8_t* ATTR_UNUSED(zone),
-	size_t ATTR_UNUSED(zonelen), struct module_qstate* ATTR_UNUSED(q))
+	size_t ATTR_UNUSED(zonelen), int ATTR_UNUSED(ssl_upstream),
+	struct module_qstate* ATTR_UNUSED(q))
 {
 	log_assert(0);
 	return 0;
@@ -131,13 +131,13 @@ worker_alloc_cleanup(void* ATTR_UNUSED(arg))
 	log_assert(0);
 }
 
-struct outbound_entry* libworker_send_query(uint8_t* ATTR_UNUSED(qname), 
-	size_t ATTR_UNUSED(qnamelen), uint16_t ATTR_UNUSED(qtype), 
-	uint16_t ATTR_UNUSED(qclass), uint16_t ATTR_UNUSED(flags), 
+struct outbound_entry* libworker_send_query(
+	struct query_info* ATTR_UNUSED(qinfo), uint16_t ATTR_UNUSED(flags),
 	int ATTR_UNUSED(dnssec), int ATTR_UNUSED(want_dnssec),
-	int ATTR_UNUSED(nocaps), struct sockaddr_storage* ATTR_UNUSED(addr), 
+	int ATTR_UNUSED(nocaps), struct sockaddr_storage* ATTR_UNUSED(addr),
 	socklen_t ATTR_UNUSED(addrlen), uint8_t* ATTR_UNUSED(zone),
-	size_t ATTR_UNUSED(zonelen), struct module_qstate* ATTR_UNUSED(q))
+	size_t ATTR_UNUSED(zonelen), int ATTR_UNUSED(ssl_upstream),
+	struct module_qstate* ATTR_UNUSED(q))
 {
 	log_assert(0);
 	return 0;
@@ -223,8 +223,8 @@ struct order_id {
 
 int order_lock_cmp(const void* e1, const void* e2)
 {
-        struct order_id* o1 = (struct order_id*)e1;
-        struct order_id* o2 = (struct order_id*)e2;
+        const struct order_id* o1 = e1;
+        const struct order_id* o2 = e2;
         if(o1->thr < o2->thr) return -1;
         if(o1->thr > o2->thr) return 1;
         if(o1->instance < o2->instance) return -1;
@@ -235,7 +235,7 @@ int order_lock_cmp(const void* e1, const void* e2)
 int
 codeline_cmp(const void* a, const void* b)
 {
-        return strcmp((const char*)a, (const char*)b);
+        return strcmp(a, b);
 }
 
 int replay_var_compare(const void* ATTR_UNUSED(a), const void* ATTR_UNUSED(b))

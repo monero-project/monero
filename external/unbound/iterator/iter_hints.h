@@ -59,7 +59,7 @@ struct iter_hints {
 	 * contents of type iter_hints_stub. The class IN root is in here.
 	 * uses name_tree_node from dnstree.h.
 	 */
-	rbtree_t tree;
+	rbtree_type tree;
 };
 
 /**

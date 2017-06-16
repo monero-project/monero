@@ -1,4 +1,4 @@
-.TH "unbound-control" "8" "@date@" "NLnet Labs" "unbound @version@"
+.TH "unbound-control" "8" "Jun 13, 2017" "NLnet Labs" "unbound 1.6.3"
 .\"
 .\" unbound-control.8 -- unbound remote control manual
 .\"
@@ -99,6 +99,22 @@ but if the name has become an empty nonterminal (there is still data in
 domain names below the removed name), NOERROR nodata answers are the 
 result for that name.
 .TP
+.B local_zones
+Add local zones read from stdin of unbound\-control. Input is read per line,
+with name space type on a line. For bulk additions.
+.TP
+.B local_zones_remove
+Remove local zones read from stdin of unbound\-control. Input is one name per
+line. For bulk removals.
+.TP
+.B local_datas
+Add local data RRs read from stdin of unbound\-control. Input is one RR per
+line. For bulk additions.
+.TP
+.B local_datas_remove
+Remove local data RRs read from stdin of unbound\-control. Input is one name per
+line. For bulk removals.
+.TP
 .B dump_cache
 The contents of the cache is printed in a text format to stdout. You can
 redirect it to a file to store the cache in a file.
@@ -178,7 +194,7 @@ harden\-referral\-path, prefetch, prefetch\-key, log\-queries,
 hide\-identity, hide\-version, identity, version, val\-log\-level,
 val\-log\-squelch, ignore\-cd\-flag, add\-holddown, del\-holddown,
 keep\-missing, tcp\-upstream, ssl\-upstream, max\-udp\-size, ratelimit,
-cache\-max\-ttl, cache\-min\-ttl, cache\-max\-negative\-ttl.
+ip\-ratelimit, cache\-max\-ttl, cache\-min\-ttl, cache\-max\-negative\-ttl.
 .TP
 .B get_option \fIopt
 Get the value of the option.  Give the option name without a trailing ':'.
@@ -263,6 +279,30 @@ estimated qps and qps limit from config.  With +a it prints all domains, not
 just the ratelimited domains, with their estimated qps.  The ratelimited
 domains return an error for uncached (new) queries, but cached queries work
 as normal.
+.TP
+.B ip_ratelimit_list \fR[\fI+a\fR]
+List the ip addresses that are ratelimited.  Printed one per line with current
+estimated qps and qps limit from config.  With +a it prints all ips, not
+just the ratelimited ips, with their estimated qps.  The ratelimited
+ips are dropped before checking the cache.
+.TP
+.B view_list_local_zones \fIview\fR
+\fIlist_local_zones\fR for given view.
+.TP
+.B view_local_zone \fIview\fR \fIname\fR \fItype
+\fIlocal_zone\fR for given view.
+.TP
+.B view_local_zone_remove \fIview\fR \fIname
+\fIlocal_zone_remove\fR for given view.
+.TP
+.B view_list_local_data \fIview\fR
+\fIlist_local_data\fR for given view.
+.TP
+.B view_local_data \fIview\fR \fIRR data...
+\fIlocal_data\fR for given view.
+.TP
+.B view_local_data_remove \fIview\fR \fIname
+\fIlocal_data_remove\fR for given view.
 .SH "EXIT CODE"
 The unbound\-control program exits with status code 1 on error, 0 on success.
 .SH "SET UP"
@@ -288,6 +328,9 @@ The \fIstats\fR command shows a number of statistic counters.
 .I threadX.num.queries
 number of queries received by thread
 .TP
+.I threadX.num.queries_ip_ratelimited
+number of queries rate limited by thread
+.TP
 .I threadX.num.cachehits
 number of queries that were successfully answered using a cache lookup
 .TP
@@ -300,6 +343,9 @@ cachehits, as the original query had the unprefetched answer from cache,
 and resulted in recursive processing, taking a slot in the requestlist.
 Not part of the recursivereplies (or the histogram thereof) or cachemiss,
 as a cache response was sent.
+.TP
+.I threadX.num.zero_ttl
+number of replies with ttl zero, because they served an expired cache entry.
 .TP
 .I threadX.num.recursivereplies
 The number of replies sent to queries that needed recursive processing. Could be smaller than threadX.num.cachemiss if due to timeouts no replies were sent for some queries.
@@ -350,6 +396,9 @@ summed over threads.
 .I total.num.prefetch
 summed over threads.
 .TP
+.I total.num.zero_ttl
+summed over threads.
+.TP
 .I total.num.recursivereplies
 summed over threads.
 .TP
@@ -383,9 +432,6 @@ uptime since server boot in seconds.
 .I time.elapsed
 time since last statistics printout, in seconds.
 .SH EXTENDED STATISTICS
-.TP
-.I mem.total.sbrk
-If sbrk(2) is available, an estimate of the heap size of the program in number of bytes. Close to the total memory used by the program, as reported by top and ps.  Could be wrong if the OS allocates memory non\-contiguously.
 .TP
 .I mem.cache.rrset
 Memory in bytes in use by the RRset cache.

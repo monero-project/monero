@@ -18,6 +18,7 @@ check_include_file(login_cap.h HAVE_LOGIN_CAP_H)
 check_include_file(memory.h HAVE_MEMORY_H)
 check_include_file(netdb.h HAVE_NETDB_H)
 check_include_file(netinet/in.h HAVE_NETINET_IN_H)
+check_include_file(pthread.h HAVE_PTHREAD)
 check_include_file(pwd.h HAVE_PWD_H)
 check_include_file(stdarg.h HAVE_STDARG_H)
 check_include_file(stdbool.h HAVE_STDBOOL_H)
@@ -95,6 +96,7 @@ check_function_exists(sleep HAVE_SLEEP)
 check_function_exists(snprintf HAVE_SNPRINTF)
 check_function_exists(socketpair HAVE_SOCKETPAIR)
 check_function_exists(srandom HAVE_SRANDOM)
+check_function_exists(strsep HAVE_STRSEP)
 check_function_exists(strftime HAVE_STRFTIME)
 check_function_exists(strlcat HAVE_STRLCAT)
 check_function_exists(strlcpy HAVE_STRLCPY)
@@ -165,6 +167,11 @@ endif ()
 # XXX: Check for broken vfork()?
 # XXX: Check for one-arg mkdir?
 
+check_symbol_exists(inet_pton "arpa/inet.h" HAVE_INET_PTON)
+check_symbol_exists(inet_ntop "arpa/inet.h" HAVE_INET_NTOP)
+
+check_symbol_exists(strsep "string.h" HAVE_STRSEP)
+
 check_symbol_exists(PTHREAD_PRIO_INHERIT "pthread.h" HAVE_PTHREAD_PRIO_INHERIT)
 check_symbol_exists(pthread_rwlock_t "pthread.h" HAVE_PTHREAD_RWLOCK_T)
 check_symbol_exists(pthread_spinlock_t "pthread.h" HAVE_PTHREAD_SPINLOCK_T)
@@ -189,11 +196,12 @@ check_symbol_exists(SSL_COMP_get_compression_methods "openssl/ssl.h" HAVE_DECL_S
 set(CMAKE_REQUIRED_LIBRARIES
   ${OPENSSL_LIBRARIES})
 
+check_function_exists(EVP_MD_CTX_new HAVE_EVP_MD_CTX_NEW)
 check_function_exists(EVP_sha1 HAVE_EVP_SHA1)
 check_function_exists(EVP_sha256 HAVE_EVP_SHA256)
 check_function_exists(EVP_sha512 HAVE_EVP_SHA512)
 check_function_exists(FIPS_mode HAVE_FIPS_MODE)
-check_function_exists(HMAC_CTX_init HAVE_HMAC_CTX_INIT)
+check_function_exists(HMAC_Update HAVE_HMAC_UPDATE)
 check_function_exists(OPENSSL_config HAVE_OPENSSL_CONFIG)
 check_function_exists(SHA512_Update HAVE_SHA512_UPDATE)
 

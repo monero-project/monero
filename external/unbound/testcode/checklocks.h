@@ -307,7 +307,7 @@ struct checked_lock_mutex { struct checked_lock* c_m; };
 struct checked_lock_spl { struct checked_lock* c_spl; };
 
 /** debugging rwlock */
-typedef struct checked_lock_rw lock_rw_t;
+typedef struct checked_lock_rw lock_rw_type;
 #define lock_rw_init(lock) checklock_init(check_lock_rwlock, &((lock)->c_rw), __func__, __FILE__, __LINE__)
 #define lock_rw_destroy(lock) checklock_destroy(check_lock_rwlock, &((lock)->c_rw), __func__, __FILE__, __LINE__)
 #define lock_rw_rdlock(lock) checklock_rdlock(check_lock_rwlock, (lock)->c_rw, __func__, __FILE__, __LINE__)
@@ -315,26 +315,26 @@ typedef struct checked_lock_rw lock_rw_t;
 #define lock_rw_unlock(lock) checklock_unlock(check_lock_rwlock, (lock)->c_rw, __func__, __FILE__, __LINE__)
 
 /** debugging mutex */
-typedef struct checked_lock_mutex lock_basic_t;
+typedef struct checked_lock_mutex lock_basic_type;
 #define lock_basic_init(lock) checklock_init(check_lock_mutex, &((lock)->c_m), __func__, __FILE__, __LINE__)
 #define lock_basic_destroy(lock) checklock_destroy(check_lock_mutex, &((lock)->c_m), __func__, __FILE__, __LINE__)
 #define lock_basic_lock(lock) checklock_lock(check_lock_mutex, (lock)->c_m, __func__, __FILE__, __LINE__)
 #define lock_basic_unlock(lock) checklock_unlock(check_lock_mutex, (lock)->c_m, __func__, __FILE__, __LINE__)
 
 /** debugging spinlock */
-typedef struct checked_lock_spl lock_quick_t;
+typedef struct checked_lock_spl lock_quick_type;
 #define lock_quick_init(lock) checklock_init(check_lock_spinlock, &((lock)->c_spl), __func__, __FILE__, __LINE__)
 #define lock_quick_destroy(lock) checklock_destroy(check_lock_spinlock, &((lock)->c_spl), __func__, __FILE__, __LINE__)
 #define lock_quick_lock(lock) checklock_lock(check_lock_spinlock, (lock)->c_spl, __func__, __FILE__, __LINE__)
 #define lock_quick_unlock(lock) checklock_unlock(check_lock_spinlock, (lock)->c_spl, __func__, __FILE__, __LINE__)
 
 /** we use the pthread id, our thr_check structure is kept behind the scenes */
-typedef pthread_t ub_thread_t;
+typedef pthread_t ub_thread_type;
 #define ub_thread_create(thr, func, arg) checklock_thrcreate(thr, func, arg)
 #define ub_thread_self() pthread_self()
 #define ub_thread_join(thread) checklock_thrjoin(thread)
 
-typedef pthread_key_t ub_thread_key_t;
+typedef pthread_key_t ub_thread_key_type;
 #define ub_thread_key_create(key, f) LOCKRET(pthread_key_create(key, f))
 #define ub_thread_key_set(key, v) LOCKRET(pthread_setspecific(key, v))
 #define ub_thread_key_get(key) pthread_getspecific(key)

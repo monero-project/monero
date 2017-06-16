@@ -6,7 +6,7 @@
 #include "util/locks.h"
 
 /** the lock for ctime buffer */
-static lock_basic_t ctime_lock;
+static lock_basic_type ctime_lock;
 /** has it been inited */
 static int ctime_r_init = 0;
 

@@ -46,8 +46,11 @@
 #ifdef HAVE_OPENSSL_ERR_H
 #include <openssl/err.h>
 #endif
-#ifndef HEADER_DH_H
+#ifdef HAVE_OPENSSL_DH_H
 #include <openssl/dh.h>
+#endif
+#ifdef HAVE_OPENSSL_BN_H
+#include <openssl/bn.h>
 #endif
 
 #include <ctype.h>
@@ -140,49 +143,68 @@ timeval_divide(struct timeval* avg, const struct timeval* sum, size_t d)
 
 /*
  * The following function was generated using the openssl utility, using
- * the command : "openssl dhparam -dsaparam -C 1024"
+ * the command : "openssl dhparam -C 2048"
  * (some openssl versions reject DH that is 'too small', eg. 512).
  */
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || defined(HAVE_LIBRESSL)
 #ifndef S_SPLINT_S
-DH *get_dh1024()
+static DH *get_dh2048(void)
 {
-	static unsigned char dh1024_p[]={
-		0xB3,0x67,0x2E,0x3B,0x68,0xC5,0xDA,0x58,0x46,0xD6,0x2B,0xD3,
-		0x41,0x78,0x97,0xE4,0xE1,0x61,0x71,0x68,0xE6,0x0F,0x1D,0x78,
-		0x05,0xAA,0xF0,0xFF,0x30,0xDF,0xAC,0x49,0x7F,0xE0,0x90,0xFE,
-		0xB9,0x56,0x4E,0x3F,0xE2,0x98,0x8A,0xED,0xF5,0x28,0x39,0xEF,
-		0x2E,0xA6,0xB7,0x67,0xB2,0x43,0xE4,0x53,0xF8,0xEB,0x2C,0x1F,
-		0x06,0x77,0x3A,0x6F,0x62,0x98,0xC1,0x3B,0xF7,0xBA,0x4D,0x93,
-		0xF7,0xEB,0x5A,0xAD,0xC5,0x5F,0xF0,0xB7,0x24,0x35,0x81,0xF7,
-		0x7F,0x1F,0x24,0xC0,0xDF,0xD3,0xD8,0x40,0x72,0x7E,0xF3,0x19,
-		0x2B,0x26,0x27,0xF4,0xB6,0xB3,0xD4,0x7D,0x08,0x23,0xBE,0x68,
-		0x2B,0xCA,0xB4,0x46,0xA8,0x9E,0xDD,0x6C,0x3D,0x75,0xA6,0x48,
-		0xF7,0x44,0x43,0xBF,0x91,0xC2,0xB4,0x49,
+	static unsigned char dh2048_p[]={
+		0xE7,0x36,0x28,0x3B,0xE4,0xC3,0x32,0x1C,0x01,0xC3,0x67,0xD6,
+		0xF5,0xF3,0xDA,0xDC,0x71,0xC0,0x42,0x8B,0xE6,0xEB,0x8D,0x80,
+		0x35,0x7F,0x09,0x45,0x30,0xE5,0xB2,0x92,0x81,0x3F,0x08,0xCD,
+		0x36,0x5E,0x19,0x83,0x62,0xCC,0xAE,0x9B,0x81,0x66,0x24,0xEE,
+		0x16,0x6F,0xA9,0x9E,0xF4,0x82,0x1B,0xDD,0x46,0xC7,0x33,0x5D,
+		0xF4,0xCA,0xE6,0x8F,0xFC,0xD4,0xD8,0x58,0x94,0x24,0x5D,0xFF,
+		0x0A,0xE8,0xEF,0x3D,0xCE,0xBB,0x50,0x94,0xE0,0x5F,0xE8,0x41,
+		0xC3,0x35,0x30,0x37,0xD5,0xCB,0x8F,0x3D,0x95,0x15,0x1A,0x77,
+		0x42,0xB2,0x06,0x86,0xF6,0x09,0x66,0x0E,0x9A,0x25,0x94,0x3E,
+		0xD2,0x04,0x25,0x25,0x1D,0x23,0xEB,0xDC,0x4D,0x0C,0x83,0x28,
+		0x2E,0x15,0x81,0x2D,0xC1,0xAF,0x8D,0x36,0x64,0xE3,0x9A,0x83,
+		0x78,0xC2,0x8D,0xC0,0x9D,0xD9,0x3A,0x1C,0xC5,0x2B,0x50,0x68,
+		0x07,0xA9,0x4B,0x8C,0x07,0x57,0xD6,0x15,0x03,0x4E,0x9E,0x01,
+		0xF2,0x6F,0x35,0xAC,0x26,0x9C,0x92,0x68,0x61,0x13,0xFB,0x01,
+		0xBA,0x22,0x36,0x01,0x55,0xB6,0x62,0xD9,0xB2,0x98,0xCE,0x5D,
+		0x4B,0xA5,0x41,0xD6,0xE5,0x70,0x78,0x12,0x1F,0x64,0xB6,0x6F,
+		0xB0,0x91,0x51,0x91,0x92,0xC0,0x94,0x3A,0xD1,0x28,0x4D,0x30,
+		0x84,0x3E,0xE4,0xE4,0x7F,0x47,0x89,0xB1,0xB6,0x8C,0x8E,0x0E,
+		0x26,0xDB,0xCD,0x17,0x07,0x2A,0x21,0x7A,0xCC,0x68,0xE8,0x57,
+		0x94,0x9E,0x59,0x61,0xEC,0x20,0x34,0x26,0x0D,0x66,0x44,0xEB,
+		0x6F,0x02,0x58,0xE2,0xED,0xF6,0xF3,0x1B,0xBF,0x9E,0x45,0x52,
+		0x5A,0x49,0xA1,0x5B,
 		};
-	static unsigned char dh1024_g[]={
-		0x5F,0x37,0xB5,0x80,0x4D,0xB4,0xC4,0xB2,0x37,0x12,0xD5,0x2F,
-		0x56,0x81,0xB0,0xDF,0x3D,0x27,0xA2,0x54,0xE7,0x14,0x65,0x2D,
-		0x72,0xA8,0x97,0xE0,0xA9,0x4A,0x09,0x5E,0x89,0xBE,0x34,0x9A,
-		0x90,0x98,0xC1,0xE8,0xBB,0x01,0x2B,0xC2,0x74,0x74,0x90,0x59,
-		0x0B,0x72,0x62,0x5C,0xFD,0x49,0x63,0x4B,0x38,0x91,0xF1,0x7F,
-		0x13,0x25,0xEB,0x52,0x50,0x47,0xA2,0x8C,0x32,0x28,0x42,0xAC,
-		0xBD,0x7A,0xCC,0x58,0xBE,0x36,0xDA,0x6A,0x24,0x06,0xC7,0xF1,
-		0xDA,0x8D,0x8A,0x3B,0x03,0xFA,0x6F,0x25,0xE5,0x20,0xA7,0xD6,
-		0x6F,0x74,0x61,0x53,0x14,0x81,0x29,0x04,0xB5,0x61,0x12,0x53,
-		0xA3,0xD6,0x09,0x98,0x0C,0x8F,0x1C,0xBB,0xD7,0x1C,0x2C,0xEE,
-		0x56,0x4B,0x74,0x8F,0x4A,0xF8,0xA9,0xD5,
+	static unsigned char dh2048_g[]={
+		0x02,
 		};
-	DH *dh;
+	DH *dh = NULL;
+	BIGNUM *p = NULL, *g = NULL;
 
-	if ((dh=DH_new()) == NULL) return(NULL);
-	dh->p=BN_bin2bn(dh1024_p,sizeof(dh1024_p),NULL);
-	dh->g=BN_bin2bn(dh1024_g,sizeof(dh1024_g),NULL);
-	if ((dh->p == NULL) || (dh->g == NULL))
-		{ DH_free(dh); return(NULL); }
-	dh->length = 160;
-	return(dh);
+	dh = DH_new();
+	p = BN_bin2bn(dh2048_p, sizeof(dh2048_p), NULL);
+	g = BN_bin2bn(dh2048_g, sizeof(dh2048_g), NULL);
+	if (!dh || !p || !g)
+		goto err;
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || defined(HAVE_LIBRESSL)
+	dh->p = p;
+	dh->g = g;
+#else
+	if (!DH_set0_pqg(dh, p, NULL, g))
+		goto err;
+#endif
+	return dh;
+err:
+	if (p)
+		BN_free(p);
+	if (g)
+		BN_free(g);
+	if (dh)
+		DH_free(dh);
+	return NULL;
 }
 #endif /* SPLINT */
+#endif /* OPENSSL_VERSION_NUMBER < 0x10100000 */
 
 struct daemon_remote*
 daemon_remote_create(struct config_file* cfg)
@@ -220,21 +242,53 @@ daemon_remote_create(struct config_file* cfg)
 		daemon_remote_delete(rc);
 		return NULL;
 	}
+#if defined(SSL_OP_NO_TLSv1) && defined(SSL_OP_NO_TLSv1_1)
+	/* if we have tls 1.1 disable 1.0 */
+	if((SSL_CTX_set_options(rc->ctx, SSL_OP_NO_TLSv1) & SSL_OP_NO_TLSv1)
+		!= SSL_OP_NO_TLSv1){
+		log_crypto_err("could not set SSL_OP_NO_TLSv1");
+		daemon_remote_delete(rc);
+		return NULL;
+	}
+#endif
+#if defined(SSL_OP_NO_TLSv1_1) && defined(SSL_OP_NO_TLSv1_2)
+	/* if we have tls 1.2 disable 1.1 */
+	if((SSL_CTX_set_options(rc->ctx, SSL_OP_NO_TLSv1_1) & SSL_OP_NO_TLSv1_1)
+		!= SSL_OP_NO_TLSv1_1){
+		log_crypto_err("could not set SSL_OP_NO_TLSv1_1");
+		daemon_remote_delete(rc);
+		return NULL;
+	}
+#endif
+#ifdef SHA256_DIGEST_LENGTH
+	/* if we have sha256, set the cipher list to have no known vulns */
+	if(!SSL_CTX_set_cipher_list(rc->ctx, "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"))
+		log_crypto_err("coult not set cipher list with SSL_CTX_set_cipher_list");
+#endif
 
 	if (cfg->remote_control_use_cert == 0) {
 		/* No certificates are requested */
-		if(!SSL_CTX_set_cipher_list(rc->ctx, "aNULL")) {
+#ifdef HAVE_SSL_CTX_SET_SECURITY_LEVEL
+		SSL_CTX_set_security_level(rc->ctx, 0);
+#endif
+		if(!SSL_CTX_set_cipher_list(rc->ctx, "aNULL, eNULL")) {
 			log_crypto_err("Failed to set aNULL cipher list");
+			daemon_remote_delete(rc);
 			return NULL;
 		}
 
+		/* in openssl 1.1, the securitylevel 0 allows eNULL, that
+		 * does not need the DH */
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || defined(HAVE_LIBRESSL)
 		/* Since we have no certificates and hence no source of
 		 * DH params, let's generate and set them
 		 */
-		if(!SSL_CTX_set_tmp_dh(rc->ctx,get_dh1024())) {
+		if(!SSL_CTX_set_tmp_dh(rc->ctx,get_dh2048())) {
 			log_crypto_err("Wanted to set DH param, but failed");
+			daemon_remote_delete(rc);
 			return NULL;
 		}
+#endif
 		return rc;
 	}
 	rc->use_cert = 1;
@@ -350,7 +404,7 @@ add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err,
 
 	if(ip[0] == '/') {
 		/* This looks like a local socket */
-		fd = create_local_accept_sock(ip, &noproto);
+		fd = create_local_accept_sock(ip, &noproto, cfg->use_systemd);
 		/*
 		 * Change socket ownership and permissions so users other
 		 * than root can access it provided they are in the same
@@ -359,8 +413,12 @@ add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err,
 		if(fd != -1) {
 #ifdef HAVE_CHOWN
 			if (cfg->username && cfg->username[0] &&
-				cfg_uid != (uid_t)-1)
-				chown(ip, cfg_uid, cfg_gid);
+				cfg_uid != (uid_t)-1) {
+				if(chown(ip, cfg_uid, cfg_gid) == -1)
+					log_err("cannot chown %u.%u %s: %s",
+					  (unsigned)cfg_uid, (unsigned)cfg_gid,
+					  ip, strerror(errno));
+			}
 			chmod(ip, (mode_t)(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 #else
 			(void)cfg;
@@ -389,7 +447,7 @@ add_open(const char* ip, int nr, struct listen_port** list, int noproto_is_err,
 
 		/* open fd */
 		fd = create_tcp_accept_sock(res, 1, &noproto, 0,
-			cfg->ip_transparent);
+			cfg->ip_transparent, 0, cfg->ip_freebind, cfg->use_systemd);
 		freeaddrinfo(res);
 	}
 
@@ -727,6 +785,8 @@ print_stats(SSL* ssl, const char* nm, struct stats_info* s)
 	struct timeval avg;
 	if(!ssl_printf(ssl, "%s.num.queries"SQ"%lu\n", nm, 
 		(unsigned long)s->svr.num_queries)) return 0;
+	if(!ssl_printf(ssl, "%s.num.queries_ip_ratelimited"SQ"%lu\n", nm,
+		(unsigned long)s->svr.num_queries_ip_ratelimited)) return 0;
 	if(!ssl_printf(ssl, "%s.num.cachehits"SQ"%lu\n", nm, 
 		(unsigned long)(s->svr.num_queries 
 			- s->svr.num_queries_missed_cache))) return 0;
@@ -734,8 +794,20 @@ print_stats(SSL* ssl, const char* nm, struct stats_info* s)
 		(unsigned long)s->svr.num_queries_missed_cache)) return 0;
 	if(!ssl_printf(ssl, "%s.num.prefetch"SQ"%lu\n", nm, 
 		(unsigned long)s->svr.num_queries_prefetch)) return 0;
+	if(!ssl_printf(ssl, "%s.num.zero_ttl"SQ"%lu\n", nm,
+		(unsigned long)s->svr.zero_ttl_responses)) return 0;
 	if(!ssl_printf(ssl, "%s.num.recursivereplies"SQ"%lu\n", nm, 
 		(unsigned long)s->mesh_replies_sent)) return 0;
+#ifdef USE_DNSCRYPT
+    if(!ssl_printf(ssl, "%s.num.dnscrypt.crypted"SQ"%lu\n", nm,
+        (unsigned long)s->svr.num_query_dnscrypt_crypted)) return 0;
+    if(!ssl_printf(ssl, "%s.num.dnscrypt.cert"SQ"%lu\n", nm,
+        (unsigned long)s->svr.num_query_dnscrypt_cert)) return 0;
+    if(!ssl_printf(ssl, "%s.num.dnscrypt.cleartext"SQ"%lu\n", nm,
+        (unsigned long)s->svr.num_query_dnscrypt_cleartext)) return 0;
+    if(!ssl_printf(ssl, "%s.num.dnscrypt.malformed"SQ"%lu\n", nm,
+        (unsigned long)s->svr.num_query_dnscrypt_crypted_malformed)) return 0;
+#endif
 	if(!ssl_printf(ssl, "%s.requestlist.avg"SQ"%g\n", nm,
 		(s->svr.num_queries_missed_cache+s->svr.num_queries_prefetch)?
 			(double)s->svr.sum_query_list_size/
@@ -791,17 +863,15 @@ static int
 print_mem(SSL* ssl, struct worker* worker, struct daemon* daemon)
 {
 	int m;
-	size_t msg, rrset, val, iter;
-#ifdef HAVE_SBRK
-	extern void* unbound_start_brk;
-	void* cur = sbrk(0);
-	if(!print_longnum(ssl, "mem.total.sbrk"SQ, 
-		(size_t)((char*)cur - (char*)unbound_start_brk))) return 0;
-#endif /* HAVE_SBRK */
+	size_t msg, rrset, val, iter, respip;
+#ifdef CLIENT_SUBNET
+	size_t subnet = 0;
+#endif /* CLIENT_SUBNET */
 	msg = slabhash_get_mem(daemon->env->msg_cache);
 	rrset = slabhash_get_mem(&daemon->env->rrset_cache->table);
 	val=0;
 	iter=0;
+	respip=0;
 	m = modstack_find(&worker->env.mesh->mods, "validator");
 	if(m != -1) {
 		fptr_ok(fptr_whitelist_mod_get_mem(worker->env.mesh->
@@ -816,6 +886,22 @@ print_mem(SSL* ssl, struct worker* worker, struct daemon* daemon)
 		iter = (*worker->env.mesh->mods.mod[m]->get_mem)
 			(&worker->env, m);
 	}
+	m = modstack_find(&worker->env.mesh->mods, "respip");
+	if(m != -1) {
+		fptr_ok(fptr_whitelist_mod_get_mem(worker->env.mesh->
+			mods.mod[m]->get_mem));
+		respip = (*worker->env.mesh->mods.mod[m]->get_mem)
+			(&worker->env, m);
+	}
+#ifdef CLIENT_SUBNET
+	m = modstack_find(&worker->env.mesh->mods, "subnet");
+	if(m != -1) {
+		fptr_ok(fptr_whitelist_mod_get_mem(worker->env.mesh->
+			mods.mod[m]->get_mem));
+		subnet = (*worker->env.mesh->mods.mod[m]->get_mem)
+			(&worker->env, m);
+	}
+#endif /* CLIENT_SUBNET */
 
 	if(!print_longnum(ssl, "mem.cache.rrset"SQ, rrset))
 		return 0;
@@ -825,6 +911,12 @@ print_mem(SSL* ssl, struct worker* worker, struct daemon* daemon)
 		return 0;
 	if(!print_longnum(ssl, "mem.mod.validator"SQ, val))
 		return 0;
+	if(!print_longnum(ssl, "mem.mod.respip"SQ, respip))
+		return 0;
+#ifdef CLIENT_SUBNET
+	if(!print_longnum(ssl, "mem.mod.subnet"SQ, subnet))
+		return 0;
+#endif /* CLIENT_SUBNET */
 	return 1;
 }
 
@@ -1097,8 +1189,8 @@ find_arg2(SSL* ssl, char* arg, char** arg2)
 }
 
 /** Add a new zone */
-static void
-do_zone_add(SSL* ssl, struct worker* worker, char* arg)
+static int
+perform_zone_add(SSL* ssl, struct local_zones* zones, char* arg)
 {
 	uint8_t* nm;
 	int nmlabs;
@@ -1107,81 +1199,288 @@ do_zone_add(SSL* ssl, struct worker* worker, char* arg)
 	enum localzone_type t;
 	struct local_zone* z;
 	if(!find_arg2(ssl, arg, &arg2))
-		return;
+		return 0;
 	if(!parse_arg_name(ssl, arg, &nm, &nmlen, &nmlabs))
-		return;
+		return 0;
 	if(!local_zone_str2type(arg2, &t)) {
 		ssl_printf(ssl, "error not a zone type. %s\n", arg2);
 		free(nm);
-		return;
+		return 0;
 	}
-	lock_rw_wrlock(&worker->daemon->local_zones->lock);
-	if((z=local_zones_find(worker->daemon->local_zones, nm, nmlen, 
+	lock_rw_wrlock(&zones->lock);
+	if((z=local_zones_find(zones, nm, nmlen, 
 		nmlabs, LDNS_RR_CLASS_IN))) {
 		/* already present in tree */
 		lock_rw_wrlock(&z->lock);
 		z->type = t; /* update type anyway */
 		lock_rw_unlock(&z->lock);
 		free(nm);
-		lock_rw_unlock(&worker->daemon->local_zones->lock);
-		send_ok(ssl);
-		return;
+		lock_rw_unlock(&zones->lock);
+		return 1;
 	}
-	if(!local_zones_add_zone(worker->daemon->local_zones, nm, nmlen, 
+	if(!local_zones_add_zone(zones, nm, nmlen, 
 		nmlabs, LDNS_RR_CLASS_IN, t)) {
-		lock_rw_unlock(&worker->daemon->local_zones->lock);
+		lock_rw_unlock(&zones->lock);
 		ssl_printf(ssl, "error out of memory\n");
-		return;
+		return 0;
 	}
-	lock_rw_unlock(&worker->daemon->local_zones->lock);
+	lock_rw_unlock(&zones->lock);
+	return 1;
+}
+
+/** Do the local_zone command */
+static void
+do_zone_add(SSL* ssl, struct local_zones* zones, char* arg)
+{
+	if(!perform_zone_add(ssl, zones, arg))
+		return;
 	send_ok(ssl);
 }
 
-/** Remove a zone */
+/** Do the local_zones command */
 static void
-do_zone_remove(SSL* ssl, struct worker* worker, char* arg)
+do_zones_add(SSL* ssl, struct local_zones* zones)
+{
+	char buf[2048];
+	int num = 0;
+	while(ssl_read_line(ssl, buf, sizeof(buf))) {
+		if(buf[0] == 0x04 && buf[1] == 0)
+			break; /* end of transmission */
+		if(!perform_zone_add(ssl, zones, buf)) {
+			if(!ssl_printf(ssl, "error for input line: %s\n", buf))
+				return;
+		}
+		else
+			num++;
+	}
+	(void)ssl_printf(ssl, "added %d zones\n", num);
+}
+
+/** Remove a zone */
+static int
+perform_zone_remove(SSL* ssl, struct local_zones* zones, char* arg)
 {
 	uint8_t* nm;
 	int nmlabs;
 	size_t nmlen;
 	struct local_zone* z;
 	if(!parse_arg_name(ssl, arg, &nm, &nmlen, &nmlabs))
-		return;
-	lock_rw_wrlock(&worker->daemon->local_zones->lock);
-	if((z=local_zones_find(worker->daemon->local_zones, nm, nmlen, 
+		return 0;
+	lock_rw_wrlock(&zones->lock);
+	if((z=local_zones_find(zones, nm, nmlen, 
 		nmlabs, LDNS_RR_CLASS_IN))) {
 		/* present in tree */
-		local_zones_del_zone(worker->daemon->local_zones, z);
+		local_zones_del_zone(zones, z);
 	}
-	lock_rw_unlock(&worker->daemon->local_zones->lock);
+	lock_rw_unlock(&zones->lock);
 	free(nm);
+	return 1;
+}
+
+/** Do the local_zone_remove command */
+static void
+do_zone_remove(SSL* ssl, struct local_zones* zones, char* arg)
+{
+	if(!perform_zone_remove(ssl, zones, arg))
+		return;
 	send_ok(ssl);
+}
+
+/** Do the local_zones_remove command */
+static void
+do_zones_remove(SSL* ssl, struct local_zones* zones)
+{
+	char buf[2048];
+	int num = 0;
+	while(ssl_read_line(ssl, buf, sizeof(buf))) {
+		if(buf[0] == 0x04 && buf[1] == 0)
+			break; /* end of transmission */
+		if(!perform_zone_remove(ssl, zones, buf)) {
+			if(!ssl_printf(ssl, "error for input line: %s\n", buf))
+				return;
+		}
+		else
+			num++;
+	}
+	(void)ssl_printf(ssl, "removed %d zones\n", num);
 }
 
 /** Add new RR data */
-static void
-do_data_add(SSL* ssl, struct worker* worker, char* arg)
+static int
+perform_data_add(SSL* ssl, struct local_zones* zones, char* arg)
 {
-	if(!local_zones_add_RR(worker->daemon->local_zones, arg)) {
+	if(!local_zones_add_RR(zones, arg)) {
 		ssl_printf(ssl,"error in syntax or out of memory, %s\n", arg);
-		return;
+		return 0;
 	}
+	return 1;
+}
+
+/** Do the local_data command */
+static void
+do_data_add(SSL* ssl, struct local_zones* zones, char* arg)
+{
+	if(!perform_data_add(ssl, zones, arg))
+		return;
 	send_ok(ssl);
 }
 
-/** Remove RR data */
+/** Do the local_datas command */
 static void
-do_data_remove(SSL* ssl, struct worker* worker, char* arg)
+do_datas_add(SSL* ssl, struct local_zones* zones)
+{
+	char buf[2048];
+	int num = 0;
+	while(ssl_read_line(ssl, buf, sizeof(buf))) {
+		if(buf[0] == 0x04 && buf[1] == 0)
+			break; /* end of transmission */
+		if(!perform_data_add(ssl, zones, buf)) {
+			if(!ssl_printf(ssl, "error for input line: %s\n", buf))
+				return;
+		}
+		else
+			num++;
+	}
+	(void)ssl_printf(ssl, "added %d datas\n", num);
+}
+
+/** Remove RR data */
+static int
+perform_data_remove(SSL* ssl, struct local_zones* zones, char* arg)
 {
 	uint8_t* nm;
 	int nmlabs;
 	size_t nmlen;
 	if(!parse_arg_name(ssl, arg, &nm, &nmlen, &nmlabs))
-		return;
-	local_zones_del_data(worker->daemon->local_zones, nm,
+		return 0;
+	local_zones_del_data(zones, nm,
 		nmlen, nmlabs, LDNS_RR_CLASS_IN);
 	free(nm);
+	return 1;
+}
+
+/** Do the local_data_remove command */
+static void
+do_data_remove(SSL* ssl, struct local_zones* zones, char* arg)
+{
+	if(!perform_data_remove(ssl, zones, arg))
+		return;
 	send_ok(ssl);
+}
+
+/** Do the local_datas_remove command */
+static void
+do_datas_remove(SSL* ssl, struct local_zones* zones)
+{
+	char buf[2048];
+	int num = 0;
+	while(ssl_read_line(ssl, buf, sizeof(buf))) {
+		if(buf[0] == 0x04 && buf[1] == 0)
+			break; /* end of transmission */
+		if(!perform_data_remove(ssl, zones, buf)) {
+			if(!ssl_printf(ssl, "error for input line: %s\n", buf))
+				return;
+		}
+		else
+			num++;
+	}
+	(void)ssl_printf(ssl, "removed %d datas\n", num);
+}
+
+/** Add a new zone to view */
+static void
+do_view_zone_add(SSL* ssl, struct worker* worker, char* arg)
+{
+	char* arg2;
+	struct view* v;
+	if(!find_arg2(ssl, arg, &arg2))
+		return;
+	v = views_find_view(worker->daemon->views,
+		arg, 1 /* get write lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(!v->local_zones) {
+		if(!(v->local_zones = local_zones_create())){
+			lock_rw_unlock(&v->lock);
+			ssl_printf(ssl,"error out of memory\n");
+			return;
+		}
+	}
+	do_zone_add(ssl, v->local_zones, arg2);
+	lock_rw_unlock(&v->lock);
+}
+
+/** Remove a zone from view */
+static void
+do_view_zone_remove(SSL* ssl, struct worker* worker, char* arg)
+{
+	char* arg2;
+	struct view* v;
+	if(!find_arg2(ssl, arg, &arg2))
+		return;
+	v = views_find_view(worker->daemon->views,
+		arg, 1 /* get write lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(!v->local_zones) {
+		lock_rw_unlock(&v->lock);
+		send_ok(ssl);
+		return;
+	}
+	do_zone_remove(ssl, v->local_zones, arg2);
+	lock_rw_unlock(&v->lock);
+}
+
+/** Add new RR data to view */
+static void
+do_view_data_add(SSL* ssl, struct worker* worker, char* arg)
+{
+	char* arg2;
+	struct view* v;
+	if(!find_arg2(ssl, arg, &arg2))
+		return;
+	v = views_find_view(worker->daemon->views,
+		arg, 1 /* get write lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(!v->local_zones) {
+		if(!(v->local_zones = local_zones_create())){
+			lock_rw_unlock(&v->lock);
+			ssl_printf(ssl,"error out of memory\n");
+			return;
+		}
+	}
+	do_data_add(ssl, v->local_zones, arg2);
+	lock_rw_unlock(&v->lock);
+}
+
+/** Remove RR data from view */
+static void
+do_view_data_remove(SSL* ssl, struct worker* worker, char* arg)
+{
+	char* arg2;
+	struct view* v;
+	if(!find_arg2(ssl, arg, &arg2))
+		return;
+	v = views_find_view(worker->daemon->views,
+		arg, 1 /* get write lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(!v->local_zones) {
+		lock_rw_unlock(&v->lock);
+		send_ok(ssl);
+		return;
+	}
+	do_data_remove(ssl, v->local_zones, arg2);
+	lock_rw_unlock(&v->lock);
 }
 
 /** cache lookup of nameservers */
@@ -1202,7 +1501,7 @@ static void
 do_cache_remove(struct worker* worker, uint8_t* nm, size_t nmlen,
 	uint16_t t, uint16_t c)
 {
-	hashvalue_t h;
+	hashvalue_type h;
 	struct query_info k;
 	rrset_cache_remove(worker->env.rrset_cache, nm, nmlen, t, c, 0);
 	if(t == LDNS_RR_TYPE_SOA)
@@ -1212,6 +1511,7 @@ do_cache_remove(struct worker* worker, uint8_t* nm, size_t nmlen,
 	k.qname_len = nmlen;
 	k.qtype = t;
 	k.qclass = c;
+	k.local_alias = NULL;
 	h = query_info_hash(&k, 0);
 	slabhash_remove(worker->env.msg_cache, h, &k);
 	if(t == LDNS_RR_TYPE_AAAA) {
@@ -2157,6 +2457,14 @@ do_set_option(SSL* ssl, struct worker* worker, char* arg)
 		(void)ssl_printf(ssl, "error setting option\n");
 		return;
 	}
+	/* effectuate some arguments */
+	if(strcmp(arg, "val-override-date:") == 0) {
+		int m = modstack_find(&worker->env.mesh->mods, "validator");
+		struct val_env* val_env = NULL;
+		if(m != -1) val_env = (struct val_env*)worker->env.modinfo[m];
+		if(val_env)
+			val_env->date_override = worker->env.cfg->val_date_override;
+	}
 	send_ok(ssl);
 }
 
@@ -2237,9 +2545,8 @@ do_list_stubs(SSL* ssl, struct worker* worker)
 
 /** do the list_local_zones command */
 static void
-do_list_local_zones(SSL* ssl, struct worker* worker)
+do_list_local_zones(SSL* ssl, struct local_zones* zones)
 {
-	struct local_zones* zones = worker->daemon->local_zones;
 	struct local_zone* z;
 	char buf[257];
 	lock_rw_rdlock(&zones->lock);
@@ -2260,9 +2567,8 @@ do_list_local_zones(SSL* ssl, struct worker* worker)
 
 /** do the list_local_data command */
 static void
-do_list_local_data(SSL* ssl, struct worker* worker)
+do_list_local_data(SSL* ssl, struct worker* worker, struct local_zones* zones)
 {
-	struct local_zones* zones = worker->daemon->local_zones;
 	struct local_zone* z;
 	struct local_data* d;
 	struct local_rrset* p;
@@ -2298,6 +2604,38 @@ do_list_local_data(SSL* ssl, struct worker* worker)
 	lock_rw_unlock(&zones->lock);
 }
 
+/** do the view_list_local_zones command */
+static void
+do_view_list_local_zones(SSL* ssl, struct worker* worker, char* arg)
+{
+	struct view* v = views_find_view(worker->daemon->views,
+		arg, 0 /* get read lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(v->local_zones) {
+		do_list_local_zones(ssl, v->local_zones);
+	}
+	lock_rw_unlock(&v->lock);
+}
+
+/** do the view_list_local_data command */
+static void
+do_view_list_local_data(SSL* ssl, struct worker* worker, char* arg)
+{
+	struct view* v = views_find_view(worker->daemon->views,
+		arg, 0 /* get read lock*/);
+	if(!v) {
+		ssl_printf(ssl,"no view with name: %s\n", arg);
+		return;
+	}
+	if(v->local_zones) {
+		do_list_local_data(ssl, worker, v->local_zones);
+	}
+	lock_rw_unlock(&v->lock);
+}
+
 /** struct for user arg ratelimit list */
 struct ratelimit_list_arg {
 	/** the infra cache */
@@ -2309,6 +2647,8 @@ struct ratelimit_list_arg {
 	/** current time */
 	time_t now;
 };
+
+#define ip_ratelimit_list_arg ratelimit_list_arg
 
 /** list items in the ratelimit table */
 static void
@@ -2328,6 +2668,24 @@ rate_list(struct lruhash_entry* e, void* arg)
 	ssl_printf(a->ssl, "%s %d limit %d\n", buf, max, lim);
 }
 
+/** list items in the ip_ratelimit table */
+static void
+ip_rate_list(struct lruhash_entry* e, void* arg)
+{
+	char ip[128];
+	struct ip_ratelimit_list_arg* a = (struct ip_ratelimit_list_arg*)arg;
+	struct ip_rate_key* k = (struct ip_rate_key*)e->key;
+	struct ip_rate_data* d = (struct ip_rate_data*)e->data;
+	int lim = infra_ip_ratelimit;
+	int max = infra_rate_max(d, a->now);
+	if(a->all == 0) {
+		if(max < lim)
+			return;
+	}
+	addr_to_str(&k->addr, k->addrlen, ip, sizeof(ip));
+	ssl_printf(a->ssl, "%s %d limit %d\n", ip, max, lim);
+}
+
 /** do the ratelimit_list command */
 static void
 do_ratelimit_list(SSL* ssl, struct worker* worker, char* arg)
@@ -2344,6 +2702,24 @@ do_ratelimit_list(SSL* ssl, struct worker* worker, char* arg)
 		(a.all == 0 && infra_dp_ratelimit == 0))
 		return;
 	slabhash_traverse(a.infra->domain_rates, 0, rate_list, &a);
+}
+
+/** do the ip_ratelimit_list command */
+static void
+do_ip_ratelimit_list(SSL* ssl, struct worker* worker, char* arg)
+{
+	struct ip_ratelimit_list_arg a;
+	a.all = 0;
+	a.infra = worker->env.infra_cache;
+	a.now = *worker->env.now;
+	a.ssl = ssl;
+	arg = skipwhite(arg);
+	if(strcmp(arg, "+a") == 0)
+		a.all = 1;
+	if(a.infra->client_ip_rates==NULL ||
+		(a.all == 0 && infra_ip_ratelimit == 0))
+		return;
+	slabhash_traverse(a.infra->client_ip_rates, 0, ip_rate_list, &a);
 }
 
 /** tell other processes to execute the command */
@@ -2410,13 +2786,22 @@ execute_cmd(struct daemon_remote* rc, SSL* ssl, char* cmd,
 		do_insecure_list(ssl, worker);
 		return;
 	} else if(cmdcmp(p, "list_local_zones", 16)) {
-		do_list_local_zones(ssl, worker);
+		do_list_local_zones(ssl, worker->daemon->local_zones);
 		return;
 	} else if(cmdcmp(p, "list_local_data", 15)) {
-		do_list_local_data(ssl, worker);
+		do_list_local_data(ssl, worker, worker->daemon->local_zones);
+		return;
+	} else if(cmdcmp(p, "view_list_local_zones", 21)) {
+		do_view_list_local_zones(ssl, worker, skipwhite(p+21));
+		return;
+	} else if(cmdcmp(p, "view_list_local_data", 20)) {
+		do_view_list_local_data(ssl, worker, skipwhite(p+20));
 		return;
 	} else if(cmdcmp(p, "ratelimit_list", 14)) {
 		do_ratelimit_list(ssl, worker, p+14);
+		return;
+	} else if(cmdcmp(p, "ip_ratelimit_list", 17)) {
+		do_ip_ratelimit_list(ssl, worker, p+17);
 		return;
 	} else if(cmdcmp(p, "stub_add", 8)) {
 		/* must always distribute this cmd */
@@ -2479,13 +2864,29 @@ execute_cmd(struct daemon_remote* rc, SSL* ssl, char* cmd,
 	if(cmdcmp(p, "verbosity", 9)) {
 		do_verbosity(ssl, skipwhite(p+9));
 	} else if(cmdcmp(p, "local_zone_remove", 17)) {
-		do_zone_remove(ssl, worker, skipwhite(p+17));
+		do_zone_remove(ssl, worker->daemon->local_zones, skipwhite(p+17));
+	} else if(cmdcmp(p, "local_zones_remove", 18)) {
+		do_zones_remove(ssl, worker->daemon->local_zones);
 	} else if(cmdcmp(p, "local_zone", 10)) {
-		do_zone_add(ssl, worker, skipwhite(p+10));
+		do_zone_add(ssl, worker->daemon->local_zones, skipwhite(p+10));
+	} else if(cmdcmp(p, "local_zones", 11)) {
+		do_zones_add(ssl, worker->daemon->local_zones);
 	} else if(cmdcmp(p, "local_data_remove", 17)) {
-		do_data_remove(ssl, worker, skipwhite(p+17));
+		do_data_remove(ssl, worker->daemon->local_zones, skipwhite(p+17));
+	} else if(cmdcmp(p, "local_datas_remove", 18)) {
+		do_datas_remove(ssl, worker->daemon->local_zones);
 	} else if(cmdcmp(p, "local_data", 10)) {
-		do_data_add(ssl, worker, skipwhite(p+10));
+		do_data_add(ssl, worker->daemon->local_zones, skipwhite(p+10));
+	} else if(cmdcmp(p, "local_datas", 11)) {
+		do_datas_add(ssl, worker->daemon->local_zones);
+	} else if(cmdcmp(p, "view_local_zone_remove", 22)) {
+		do_view_zone_remove(ssl, worker, skipwhite(p+22));
+	} else if(cmdcmp(p, "view_local_zone", 15)) {
+		do_view_zone_add(ssl, worker, skipwhite(p+15));
+	} else if(cmdcmp(p, "view_local_data_remove", 22)) {
+		do_view_data_remove(ssl, worker, skipwhite(p+22));
+	} else if(cmdcmp(p, "view_local_data", 15)) {
+		do_view_data_add(ssl, worker, skipwhite(p+15));
 	} else if(cmdcmp(p, "flush_zone", 10)) {
 		do_flush_zone(ssl, worker, skipwhite(p+10));
 	} else if(cmdcmp(p, "flush_type", 10)) {

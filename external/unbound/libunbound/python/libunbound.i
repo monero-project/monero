@@ -945,7 +945,7 @@ int _ub_resolve_async(struct ub_ctx* ctx, char* name, int rrtype, int rrclass, v
            :param idnname: (unicode string) IDN name
            :returns: (string) domain name
         """
-        return '.'.join([encodings.idna.ToASCII(a) for a in idnname.split('.')])
+        return '.'.join([encodings.idna.ToASCII(a) if a else '' for a in idnname.split('.')])
 
     def dname2idn(name):
         """Converts canonic domain name in IDN format to unicode string

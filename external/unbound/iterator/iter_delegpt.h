@@ -81,6 +81,8 @@ struct delegpt {
 	uint8_t has_parent_side_NS;
 	/** for assertions on type of delegpt */
 	uint8_t dp_type_mlc;
+	/** use SSL for upstream query */
+	uint8_t ssl_upstream;
 };
 
 /**
@@ -355,7 +357,7 @@ void delegpt_no_ipv4(struct delegpt* dp);
 
 /** 
  * create malloced delegation point, with the given name 
- * @param name: uncompressed wireformat of degegpt name.
+ * @param name: uncompressed wireformat of delegpt name.
  * @return NULL on alloc failure
  */
 struct delegpt* delegpt_create_mlc(uint8_t* name);

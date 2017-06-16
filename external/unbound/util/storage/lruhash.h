@@ -116,7 +116,7 @@ struct lruhash_entry;
 #define HASH_DEFAULT_MAXMEM		4*1024*1024 /* bytes */
 
 /** the type of a hash value */
-typedef uint32_t hashvalue_t;
+typedef uint32_t hashvalue_type;
 
 /** 
  * Type of function that calculates the size of an entry.
@@ -124,39 +124,39 @@ typedef uint32_t hashvalue_t;
  * Keys that are identical must also calculate to the same size.
  * size = func(key, data).
  */
-typedef size_t (*lruhash_sizefunc_t)(void*, void*);
+typedef size_t (*lruhash_sizefunc_type)(void*, void*);
 
 /** type of function that compares two keys. return 0 if equal. */
-typedef int (*lruhash_compfunc_t)(void*, void*);
+typedef int (*lruhash_compfunc_type)(void*, void*);
 
 /** old keys are deleted. 
  * The RRset type has to revoke its ID number, markdel() is used first.
  * This function is called: func(key, userarg) */
-typedef void (*lruhash_delkeyfunc_t)(void*, void*);
+typedef void (*lruhash_delkeyfunc_type)(void*, void*);
 
 /** old data is deleted. This function is called: func(data, userarg). */
-typedef void (*lruhash_deldatafunc_t)(void*, void*);
+typedef void (*lruhash_deldatafunc_type)(void*, void*);
 
 /** mark a key as pending to be deleted (and not to be used by anyone). 
  * called: func(key) */
-typedef void (*lruhash_markdelfunc_t)(void*);
+typedef void (*lruhash_markdelfunc_type)(void*);
 
 /**
  * Hash table that keeps LRU list of entries.
  */
 struct lruhash {
 	/** lock for exclusive access, to the lookup array */
-	lock_quick_t lock;
+	lock_quick_type lock;
 	/** the size function for entries in this table */
-	lruhash_sizefunc_t sizefunc;
+	lruhash_sizefunc_type sizefunc;
 	/** the compare function for entries in this table. */
-	lruhash_compfunc_t compfunc;
+	lruhash_compfunc_type compfunc;
 	/** how to delete keys. */
-	lruhash_delkeyfunc_t delkeyfunc;
+	lruhash_delkeyfunc_type delkeyfunc;
 	/** how to delete data. */
-	lruhash_deldatafunc_t deldatafunc;
+	lruhash_deldatafunc_type deldatafunc;
 	/** how to mark a key pending deletion */
-	lruhash_markdelfunc_t markdelfunc;
+	lruhash_markdelfunc_type markdelfunc;
 	/** user argument for user functions */
 	void* cb_arg;
 
@@ -188,7 +188,7 @@ struct lruhash_bin {
 	 * Lock for exclusive access to the linked list
 	 * This lock makes deletion of items safe in this overflow list.
 	 */
-	lock_quick_t lock;
+	lock_quick_type lock;
 	/** linked list of overflow entries */
 	struct lruhash_entry* overflow_list;
 };
@@ -207,7 +207,7 @@ struct lruhash_entry {
 	 * Even with a writelock, you cannot change hash and key.
 	 * You need to delete it to change hash or key.
 	 */
-	lock_rw_t lock;
+	lock_rw_type lock;
 	/** next entry in overflow chain. Covered by hashlock and binlock. */
 	struct lruhash_entry* overflow_next;
 	/** next entry in lru chain. covered by hashlock. */
@@ -215,7 +215,7 @@ struct lruhash_entry {
 	/** prev entry in lru chain. covered by hashlock. */
 	struct lruhash_entry* lru_prev;
 	/** hash value of the key. It may not change, until entry deleted. */
-	hashvalue_t hash;
+	hashvalue_type hash;
 	/** key */
 	void* key;
 	/** data */
@@ -236,9 +236,9 @@ struct lruhash_entry {
  * @return: new hash table or NULL on malloc failure.
  */
 struct lruhash* lruhash_create(size_t start_size, size_t maxmem,
-	lruhash_sizefunc_t sizefunc, lruhash_compfunc_t compfunc,
-	lruhash_delkeyfunc_t delkeyfunc, lruhash_deldatafunc_t deldatafunc, 
-	void* arg);
+	lruhash_sizefunc_type sizefunc, lruhash_compfunc_type compfunc,
+	lruhash_delkeyfunc_type delkeyfunc,
+	lruhash_deldatafunc_type deldatafunc, void* arg);
 
 /**
  * Delete hash table. Entries are all deleted.
@@ -269,7 +269,7 @@ void lruhash_clear(struct lruhash* table);
  * @param data: the data.
  * @param cb_override: if not null overrides the cb_arg for the deletefunc.
  */
-void lruhash_insert(struct lruhash* table, hashvalue_t hash, 
+void lruhash_insert(struct lruhash* table, hashvalue_type hash, 
 	struct lruhash_entry* entry, void* data, void* cb_override);
 
 /**
@@ -285,8 +285,8 @@ void lruhash_insert(struct lruhash* table, hashvalue_t hash,
  * @return: pointer to the entry or NULL. The entry is locked.
  *    The user must unlock the entry when done.
  */
-struct lruhash_entry* lruhash_lookup(struct lruhash* table, hashvalue_t hash, 
-	void* key, int wr);
+struct lruhash_entry* lruhash_lookup(struct lruhash* table,
+	hashvalue_type hash, void* key, int wr);
 
 /**
  * Touch entry, so it becomes the most recently used in the LRU list.
@@ -299,7 +299,39 @@ void lru_touch(struct lruhash* table, struct lruhash_entry* entry);
 /**
  * Set the markdelfunction (or NULL)
  */
-void lruhash_setmarkdel(struct lruhash* table, lruhash_markdelfunc_t md);
+void lruhash_setmarkdel(struct lruhash* table, lruhash_markdelfunc_type md);
+
+/************************* getdns functions ************************/
+/*** these are used by getdns only and not by unbound. ***/
+
+/**
+ * Demote entry, so it becomes the least recently used in the LRU list.
+ * Caller must hold hash table lock. The entry must be inserted already.
+ * @param table: hash table.
+ * @param entry: entry to make last in LRU.
+ */
+void lru_demote(struct lruhash* table, struct lruhash_entry* entry);
+
+/**
+ * Insert a new element into the hashtable, or retrieve the corresponding
+ * element of it exits.
+ *
+ * If key is already present data pointer in that entry is kept.
+ * If it is not present, a new entry is created. In that case, 
+ * the space calculation function is called with the key, data.
+ * If necessary the least recently used entries are deleted to make space.
+ * If necessary the hash array is grown up.
+ *
+ * @param table: hash table.
+ * @param hash: hash value. User calculates the hash.
+ * @param entry: identifies the entry.
+ * @param data: the data.
+ * @param cb_arg: if not null overrides the cb_arg for the deletefunc.
+ * @return: pointer to the existing entry if the key was already present,
+ *     or to the entry argument if it was not.
+ */
+struct lruhash_entry* lruhash_insert_or_retrieve(struct lruhash* table, hashvalue_type hash,
+        struct lruhash_entry* entry, void* data, void* cb_arg);
 
 /************************* Internal functions ************************/
 /*** these are only exposed for unit tests. ***/
@@ -311,7 +343,7 @@ void lruhash_setmarkdel(struct lruhash* table, lruhash_markdelfunc_t md);
  * @param hash: hash of key.
  * @param key: what to look for. 
  */
-void lruhash_remove(struct lruhash* table, hashvalue_t hash, void* key);
+void lruhash_remove(struct lruhash* table, hashvalue_type hash, void* key);
 
 /** init the hash bins for the table */
 void bin_init(struct lruhash_bin* array, size_t size);
@@ -328,7 +360,7 @@ void bin_delete(struct lruhash* table, struct lruhash_bin* bin);
  * @return: the entry or NULL if not found.
  */
 struct lruhash_entry* bin_find_entry(struct lruhash* table, 
-	struct lruhash_bin* bin, hashvalue_t hash, void* key);
+	struct lruhash_bin* bin, hashvalue_type hash, void* key);
 
 /**
  * Remove entry from bin overflow chain.
