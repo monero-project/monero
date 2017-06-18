@@ -118,6 +118,7 @@ public:
   virtual bool txpool_has_tx(const crypto::hash &txid) const { return false; }
   virtual void remove_txpool_tx(const crypto::hash& txid) {}
   virtual txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const { return txpool_tx_meta_t(); }
+  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const { return false; }
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const { return ""; }
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false) const { return false; }
 
