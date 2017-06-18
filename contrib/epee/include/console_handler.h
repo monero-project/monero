@@ -38,6 +38,10 @@
 #endif
 #include <boost/thread.hpp>
 
+#ifdef HAVE_READLINE
+  #include "readline_buffer.h"
+#endif
+
 namespace epee
 {
   class async_stdin_reader
@@ -49,12 +53,23 @@ namespace epee
       , m_read_status(state_init)
     {
       m_reader_thread = boost::thread(std::bind(&async_stdin_reader::reader_thread_func, this));
+#ifdef HAVE_READLINE
+      m_readline_buffer.start();
+      m_readline_thread = boost::thread(std::bind(&async_stdin_reader::readline_thread_func, this));
+#endif
     }
 
     ~async_stdin_reader()
     {
       stop();
     }
+
+#ifdef HAVE_READLINE
+    rdln::readline_buffer& get_readline_buffer()
+    {
+      return m_readline_buffer;
+    }
+#endif
 
     // Not thread safe. Only one thread can call this method at once.
     bool get_line(std::string& line)
@@ -98,6 +113,10 @@ namespace epee
 
         m_request_cv.notify_one();
         m_reader_thread.join();
+#ifdef HAVE_READLINE
+        m_readline_buffer.stop();
+        m_readline_thread.join();
+#endif
       }
     }
 
@@ -174,6 +193,16 @@ namespace epee
       return true;
     }
 
+#ifdef HAVE_READLINE
+    void readline_thread_func()
+    {
+      while (m_run.load(std::memory_order_relaxed))
+      {
+        m_readline_buffer.process();
+      }
+    }
+#endif
+
     void reader_thread_func()
     {
       while (true)
@@ -187,7 +216,11 @@ namespace epee
         {
           if (m_run.load(std::memory_order_relaxed))
           {
+#ifdef HAVE_READLINE
+            m_readline_buffer.get_line(line);
+#else
             std::getline(std::cin, line);
+#endif
             read_ok = !std::cin.eof() && !std::cin.fail();
           }
         }
@@ -229,6 +262,10 @@ namespace epee
   private:
     boost::thread m_reader_thread;
     std::atomic<bool> m_run;
+#ifdef HAVE_READLINE
+    boost::thread m_readline_thread;
+    rdln::readline_buffer m_readline_buffer;
+#endif
 
     std::string m_line;
     bool m_has_read_request;
@@ -277,12 +314,16 @@ namespace epee
     {
       if (!m_prompt.empty())
       {
+#ifdef HAVE_READLINE
+        m_stdin_reader.get_readline_buffer().set_prompt(m_prompt);
+#else
         epee::set_console_color(epee::console_color_yellow, true);
         std::cout << m_prompt;
         if (' ' != m_prompt.back())
           std::cout << ' ';
         epee::reset_console_color();
         std::cout.flush();
+#endif
       }
     }
 
