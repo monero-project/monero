@@ -92,6 +92,19 @@ namespace {
     return s + " " + (t > now ? "in the future" : "ago");
   }
 
+  std::string get_time_hms(time_t t)
+  {
+    unsigned int hours, minutes, seconds;
+    char buffer[24];
+    hours = t / 3600;
+    t %= 3600;
+    minutes = t / 60;
+    t %= 60;
+    seconds = t;
+    snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", hours, minutes, seconds);
+    return std::string(buffer);
+  }
+
   std::string make_error(const std::string &base, const std::string &status)
   {
     if (status == CORE_RPC_STATUS_OK)
@@ -939,7 +952,35 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
 
   tools::msg_writer() << n_transactions << " tx(es), " << res.pool_stats.bytes_total << " bytes total (min " << res.pool_stats.bytes_min << ", max " << res.pool_stats.bytes_max << ", avg " << avg_bytes << ")" << std::endl
       << "fees " << cryptonote::print_money(res.pool_stats.fee_total) << " (avg " << cryptonote::print_money(n_transactions ? res.pool_stats.fee_total / n_transactions : 0) << " per tx" << ", " << cryptonote::print_money(res.pool_stats.bytes_total ? res.pool_stats.fee_total / res.pool_stats.bytes_total : 0) << " per byte )" << std::endl
-      << res.pool_stats.num_not_relayed << " not relayed, " << res.pool_stats.num_failing << " failing, " << res.pool_stats.num_10m << " older than 10 minutes (oldest " << (res.pool_stats.oldest == 0 ? "-" : get_human_time_ago(res.pool_stats.oldest, now)) << ")" << std::endl;
+      << res.pool_stats.num_not_relayed << " not relayed, " << res.pool_stats.num_failing << " failing, " << res.pool_stats.num_10m << " older than 10 minutes (oldest " << (res.pool_stats.oldest == 0 ? "-" : get_human_time_ago(res.pool_stats.oldest, now)) << ")";
+
+  if (n_transactions > 1 && res.pool_stats.histo.size())
+  {
+    std::vector<uint64_t> times;
+    uint64_t numer;
+    size_t i, n = res.pool_stats.histo.size(), denom;
+    times.resize(n);
+    if (res.pool_stats.histo_98pc)
+    {
+      numer = res.pool_stats.histo_98pc;
+      denom = n-1;
+      for (i=0; i<denom; i++)
+        times[i] = i * numer / denom;
+      times[i] = res.pool_stats.oldest;
+    } else
+    {
+      numer = now - res.pool_stats.oldest;
+      denom = n;
+      for (i=0; i<denom; i++)
+        times[i] = i * numer / denom;
+    }
+    tools::msg_writer() << "   Age      Txes       Bytes";
+    for (i=0; i<n; i++)
+    {
+      tools::msg_writer() << get_time_hms(times[i]) << setw(8) << res.pool_stats.histo[i].txs << setw(12) << res.pool_stats.histo[i].bytes;
+    }
+  }
+  tools::msg_writer();
 
   return true;
 }
