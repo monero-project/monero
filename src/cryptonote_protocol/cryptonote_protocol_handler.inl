@@ -647,9 +647,6 @@ namespace cryptonote
       return 1;
     }
 
-    for (auto txidx: arg.missing_tx_indices)
-      MDEBUG("  tx " << b.tx_hashes[txidx]);
-
     std::vector<crypto::hash> txids;
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b.block = t_serializable_object_to_blob(b);
@@ -659,6 +656,7 @@ namespace cryptonote
     {
       if(tx_idx < b.tx_hashes.size())
       {
+        MDEBUG("  tx " << b.tx_hashes[tx_idx]);
         txids.push_back(b.tx_hashes[tx_idx]);
       }
       else
