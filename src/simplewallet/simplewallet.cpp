@@ -929,6 +929,11 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("can't specify both --restore-deterministic-wallet and --non-deterministic");
         return false;
       }
+      if (!m_wallet_file.empty())
+      {
+        fail_msg_writer() << tr("--restore-deterministic-wallet uses --generate-new-wallet, not --wallet-file");
+        return false;
+      }
 
       if (m_electrum_seed.empty())
       {
@@ -1090,6 +1095,10 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     else
     {
+      if (m_generate_new.empty()) {
+        fail_msg_writer() << tr("specify a wallet path with --generate-new-wallet (not --wallet-file)");
+        return false;
+      }
       m_wallet_file = m_generate_new;
       bool r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
