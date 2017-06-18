@@ -144,7 +144,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
     }
 
-    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid)
+    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx)
     {
         // TODO;
     }
