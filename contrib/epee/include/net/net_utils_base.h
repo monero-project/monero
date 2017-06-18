@@ -128,7 +128,7 @@ namespace net_utils
 				case ipv4_network_address::ID:
 					if (!is_store)
 						const_cast<network_address&>(this_ref).reset(new ipv4_network_address(0, 0));
-					KV_SERIALIZE(as<ipv4_network_address>());
+					KV_SERIALIZE(template as<ipv4_network_address>());
 					break;
 				default: MERROR("Unsupported network address type: " << type); return false;
 			}
