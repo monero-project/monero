@@ -29,8 +29,11 @@
 #ifndef _NET_UTILS_BASE_H_
 #define _NET_UTILS_BASE_H_
 
+#include <typeinfo>
 #include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid.hpp>
+#include "serialization/keyvalue_serialization.h"
+#include "net/local_ip.h"
 #include "string_tools.h"
 #include "misc_log_ex.h"
 
@@ -46,14 +49,111 @@ namespace epee
 {
 namespace net_utils
 {
+	struct network_address_base
+	{
+	public:
+		bool operator==(const network_address_base &other) const { return m_full_id == other.m_full_id; }
+		bool operator!=(const network_address_base &other) const { return !operator==(other); }
+		bool operator<(const network_address_base &other) const { return m_full_id < other.m_full_id; }
+		bool is_same_host(const network_address_base &other) const { return m_host_id == other.m_host_id; }
+		virtual std::string str() const = 0;
+		virtual std::string host_str() const = 0;
+		virtual bool is_loopback() const = 0;
+		virtual bool is_local() const = 0;
+		virtual uint8_t get_type_id() const = 0;
+	protected:
+		// A very simple non cryptographic hash function by Fowler, Noll, Vo
+		uint64_t fnv1a(const uint8_t *data, size_t len) const {
+			uint64_t h = 0xcbf29ce484222325;
+			while (len--)
+				h = (h ^ *data++) * 0x100000001b3;
+			return h;
+		}
+		uint64_t m_host_id;
+		uint64_t m_full_id;
+	};
+	struct ipv4_network_address: public network_address_base
+	{
+		void init_ids()
+		{
+			m_host_id = fnv1a((const uint8_t*)&m_ip, sizeof(m_ip));
+			m_full_id = fnv1a((const uint8_t*)&m_ip, sizeof(m_ip) + sizeof(m_port));
+		}
+	public:
+		ipv4_network_address(uint32_t ip, uint16_t port): network_address_base(), m_ip(ip), m_port(port) { init_ids(); }
+		uint32_t ip() const { return m_ip; }
+		uint16_t port() const { return m_port; }
+		virtual std::string str() const { return epee::string_tools::get_ip_string_from_int32(m_ip) + ":" + std::to_string(m_port); }
+		virtual std::string host_str() const { return epee::string_tools::get_ip_string_from_int32(m_ip); }
+		virtual bool is_loopback() const { return epee::net_utils::is_ip_loopback(m_ip); }
+		virtual bool is_local() const { return epee::net_utils::is_ip_local(m_ip); }
+		virtual uint8_t get_type_id() const { return ID; }
+	public: // serialization
+		static const uint8_t ID = 1;
+#pragma pack(push)
+#pragma pack(1)
+		uint32_t m_ip;
+		uint16_t m_port;
+#pragma pack(pop)
+		BEGIN_KV_SERIALIZE_MAP()
+			KV_SERIALIZE(m_ip)
+			KV_SERIALIZE(m_port)
+			if (!is_store)
+				const_cast<ipv4_network_address&>(this_ref).init_ids();
+		END_KV_SERIALIZE_MAP()
+	};
+	class network_address: public boost::shared_ptr<network_address_base>
+	{
+	public:
+		network_address() {}
+		network_address(ipv4_network_address *address): boost::shared_ptr<network_address_base>(address) {}
+		bool operator==(const network_address &other) const { return (*this)->operator==(*other); }
+		bool operator!=(const network_address &other) const { return (*this)->operator!=(*other); }
+		bool operator<(const network_address &other) const { return (*this)->operator<(*other); }
+		bool is_same_host(const network_address &other) const { return (*this)->is_same_host(*other); }
+		std::string str() const { return (*this) ? (*this)->str() : "<none>"; }
+		std::string host_str() const { return (*this) ? (*this)->host_str() : "<none>"; }
+		bool is_loopback() const { return (*this)->is_loopback(); }
+		bool is_local() const { return (*this)->is_local(); }
+		const std::type_info &type() const { return typeid(**this); }
+		uint8_t get_type_id() const { return (*this)->get_type_id(); }
+		template<typename Type> Type &as() { if (type() != typeid(Type)) throw std::runtime_error("Bad type"); return *(Type*)get(); }
+		template<typename Type> const Type &as() const { if (type() != typeid(Type)) throw std::runtime_error("Bad type"); return *(const Type*)get(); }
+
+		BEGIN_KV_SERIALIZE_MAP()
+			uint8_t type = is_store ? this_ref.get_type_id() : 0;
+			epee::serialization::selector<is_store>::serialize(type, stg, hparent_section, "type");
+			switch (type)
+			{
+				case ipv4_network_address::ID:
+					if (!is_store)
+						const_cast<network_address&>(this_ref).reset(new ipv4_network_address(0, 0));
+					KV_SERIALIZE(as<ipv4_network_address>());
+					break;
+				default: MERROR("Unsupported network address type: " << type); return false;
+			}
+		END_KV_SERIALIZE_MAP()
+	};
+	inline bool create_network_address(network_address &address, const std::string &string, uint16_t default_port = 0)
+	{
+		uint32_t ip;
+		uint16_t port;
+		if (epee::string_tools::parse_peer_from_string(ip, port, string))
+		{
+			if (default_port && !port)
+				port = default_port;
+			address.reset(new ipv4_network_address(ip, port));
+			return true;
+		}
+		return false;
+	}
 	/************************************************************************/
 	/*                                                                      */
 	/************************************************************************/
 	struct connection_context_base
 	{
     const boost::uuids::uuid m_connection_id;
-    const uint32_t m_remote_ip;
-    const uint32_t m_remote_port;
+    const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
     time_t   m_last_recv;
@@ -64,12 +164,11 @@ namespace net_utils
     double m_current_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
-                            long remote_ip, int remote_port, bool is_income,
+                            const network_address &remote_address, bool is_income,
                             time_t last_recv = 0, time_t last_send = 0,
                             uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
-                                            m_remote_ip(remote_ip),
-                                            m_remote_port(remote_port),
+                                            m_remote_address(remote_address),
                                             m_is_income(is_income),
                                             m_started(time(NULL)),
                                             m_last_recv(last_recv),
@@ -81,8 +180,7 @@ namespace net_utils
     {}
 
     connection_context_base(): m_connection_id(),
-                               m_remote_ip(0),
-                               m_remote_port(0),
+                               m_remote_address(new ipv4_network_address(0,0)),
                                m_is_income(false),
                                m_started(time(NULL)),
                                m_last_recv(0),
@@ -95,17 +193,17 @@ namespace net_utils
 
     connection_context_base& operator=(const connection_context_base& a)
     {
-      set_details(a.m_connection_id, a.m_remote_ip, a.m_remote_port, a.m_is_income);
+      set_details(a.m_connection_id, a.m_remote_address, a.m_is_income);
       return *this;
     }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, long remote_ip, int remote_port, bool is_income)
+    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income)
     {
       this->~connection_context_base();
-      new(this) connection_context_base(connection_id, remote_ip, remote_port, is_income);
+      new(this) connection_context_base(connection_id, remote_address, is_income);
     }
 
 	};
@@ -135,7 +233,7 @@ namespace net_utils
     std::string print_connection_context(const connection_context_base& ctx)
   {
     std::stringstream ss;
-    ss << epee::string_tools::get_ip_string_from_int32(ctx.m_remote_ip) << ":" << ctx.m_remote_port << " " << epee::string_tools::get_str_from_guid_a(ctx.m_connection_id) << (ctx.m_is_income ? " INC":" OUT");
+    ss << ctx.m_remote_address->str() << " " << epee::string_tools::get_str_from_guid_a(ctx.m_connection_id) << (ctx.m_is_income ? " INC":" OUT");
     return ss.str();
   }
 
@@ -143,7 +241,7 @@ namespace net_utils
     std::string print_connection_context_short(const connection_context_base& ctx)
   {
     std::stringstream ss;
-    ss << epee::string_tools::get_ip_string_from_int32(ctx.m_remote_ip) << ":" << ctx.m_remote_port << (ctx.m_is_income ? " INC":" OUT");
+    ss << ctx.m_remote_address->str() << (ctx.m_is_income ? " INC":" OUT");
     return ss.str();
   }
 

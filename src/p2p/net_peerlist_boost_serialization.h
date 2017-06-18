@@ -30,16 +30,43 @@
 
 #pragma once
 
+#include "net/net_utils_base.h"
+
 namespace boost
 {
   namespace serialization
   {
-    //BOOST_CLASS_VERSION(odetool::net_adress, 1)
-    template <class Archive, class ver_type>
-    inline void serialize(Archive &a,  nodetool::net_address& na, const ver_type ver)
+    enum { sertype_ipv4_address };
+    static inline uint8_t get_type(const epee::net_utils::network_address &na)
     {
-      a & na.ip;
-      a & na.port;
+      if (na.type() == typeid(epee::net_utils::ipv4_network_address))
+        return sertype_ipv4_address;
+      throw std::runtime_error("Unsupported network address type");
+      return 0;
+    }
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a, epee::net_utils::network_address& na, const ver_type ver)
+    {
+      uint8_t type;
+      if (typename Archive::is_saving())
+        type = get_type(na);
+      a & type;
+      switch (type)
+      {
+        case sertype_ipv4_address:
+          if (!typename Archive::is_saving())
+            na.reset(new epee::net_utils::ipv4_network_address(0, 0));
+          a & na.as<epee::net_utils::ipv4_network_address>();
+          break;
+        default:
+          throw std::runtime_error("Unsupported network address type");
+      }
+    }
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a, epee::net_utils::ipv4_network_address& na, const ver_type ver)
+    {
+      a & na.m_ip;
+      a & na.m_port;
     }
 
 
