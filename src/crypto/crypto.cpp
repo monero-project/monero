@@ -81,11 +81,15 @@ namespace crypto {
   }
 
   /* generate a random 32-byte (256-bit) integer and copy it to res */
-  static inline void random_scalar(ec_scalar &res) {
+  static inline void random_scalar_not_thread_safe(ec_scalar &res) {
     unsigned char tmp[64];
     generate_random_bytes_not_thread_safe(64, tmp);
     sc_reduce(tmp);
     memcpy(&res, tmp, 32);
+  }
+  static inline void random_scalar(ec_scalar &res) {
+    boost::lock_guard<boost::mutex> lock(random_lock);
+    random_scalar_not_thread_safe(res);
   }
 
   static inline void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
@@ -99,7 +103,6 @@ namespace crypto {
    * 
    */
   secret_key crypto_ops::generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover) {
-    boost::lock_guard<boost::mutex> lock(random_lock);
     ge_p3 point;
 
     secret_key rng;
@@ -205,7 +208,6 @@ namespace crypto {
   };
 
   void crypto_ops::generate_signature(const hash &prefix_hash, const public_key &pub, const secret_key &sec, signature &sig) {
-    boost::lock_guard<boost::mutex> lock(random_lock);
     ge_p3 tmp3;
     ec_scalar k;
     s_comm buf;
@@ -405,7 +407,6 @@ POP_WARNINGS
     const public_key *const *pubs, size_t pubs_count,
     const secret_key &sec, size_t sec_index,
     signature *sig) {
-    boost::lock_guard<boost::mutex> lock(random_lock);
     size_t i;
     ge_p3 image_unp;
     ge_dsmp image_pre;
