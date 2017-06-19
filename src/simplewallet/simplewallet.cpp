@@ -3355,8 +3355,6 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   }
   crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
-  LOCK_IDLE_SCOPE();
-
   if (local_args[1].size() < 64 || local_args[1].size() % 64)
   {
     fail_msg_writer() << tr("failed to parse tx key");
