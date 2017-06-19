@@ -1193,7 +1193,11 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     bool r = open_wallet(vm);
     CHECK_AND_ASSERT_MES(r, false, tr("failed to open account"));
   }
-  assert(m_wallet);
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return false;
+  }
 
   // set --trusted-daemon if local
   try
@@ -1573,7 +1577,11 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  assert(m_wallet);
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
   COMMAND_RPC_START_MINING::request req = AUTO_VAL_INIT(req); 
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
@@ -1616,7 +1624,11 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  assert(m_wallet);
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
   COMMAND_RPC_STOP_MINING::request req;
   COMMAND_RPC_STOP_MINING::response res;
   bool r = net_utils::invoke_http_json("/stop_mining", req, res, m_http_client);
@@ -1633,7 +1645,11 @@ bool simple_wallet::save_bc(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  assert(m_wallet);
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
   COMMAND_RPC_SAVE_BC::request req;
   COMMAND_RPC_SAVE_BC::response res;
   bool r = net_utils::invoke_http_json("/save_bc", req, res, m_http_client);
@@ -3326,7 +3342,11 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   if (!try_connect_to_daemon())
     return true;
 
-  assert(m_wallet);
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
   cryptonote::blobdata txid_data;
   if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
   {
