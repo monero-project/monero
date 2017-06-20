@@ -326,7 +326,7 @@ if (UNIX AND NOT APPLE)
   find_package(Threads)
 endif()
 
-# Handle OpenSSL, used for sha256sum on binary updates
+# Handle OpenSSL, used for sha256sum on binary updates and light wallet ssl http
 if (APPLE AND NOT IOS)
   if (NOT OpenSSL_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
