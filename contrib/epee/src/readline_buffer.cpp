@@ -168,8 +168,11 @@ static int handle_enter(int x, int y)
   }
   free(line);
   
-  rl_set_prompt(last_prompt.c_str());
-  rl_redisplay();
+  if(last_line != "exit")
+  {
+    rl_set_prompt(last_prompt.c_str());
+    rl_redisplay();
+  }
   
   rl_done = 1;
   return 0;
