@@ -115,7 +115,14 @@ namespace net_utils
 		std::string host_str() const { return (*this) ? (*this)->host_str() : "<none>"; }
 		bool is_loopback() const { return (*this)->is_loopback(); }
 		bool is_local() const { return (*this)->is_local(); }
+#ifdef __APPLE__
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wpotentially-evaluated-expression"
+#endif
 		const std::type_info &type() const { return typeid(**this); }
+#ifdef __APPLE__
+  #pragma clang diagnostic pop
+#endif
 		uint8_t get_type_id() const { return (*this)->get_type_id(); }
 		template<typename Type> Type &as() { if (type() != typeid(Type)) throw std::runtime_error("Bad type"); return *(Type*)get(); }
 		template<typename Type> const Type &as() const { if (type() != typeid(Type)) throw std::runtime_error("Bad type"); return *(const Type*)get(); }
