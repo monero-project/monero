@@ -52,7 +52,6 @@ namespace cryptonote
 
       const command_line::arg_descriptor<std::string> rpc_bind_ip;
       const command_line::arg_descriptor<std::string> rpc_login;
-      const command_line::arg_descriptor<bool> confirm_external_bind;
     };
 
     static const char* tr(const char* str);

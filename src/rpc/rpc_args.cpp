@@ -37,7 +37,6 @@ namespace cryptonote
   rpc_args::descriptors::descriptors()
      : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify ip to bind rpc server"), "127.0.0.1"})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
-     , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
   {}
 
   const char* rpc_args::tr(const char* str) { return i18n_translate(str, "cryptonote::rpc_args"); }
@@ -47,7 +46,6 @@ namespace cryptonote
     const descriptors arg{};
     command_line::add_arg(desc, arg.rpc_bind_ip);
     command_line::add_arg(desc, arg.rpc_login);
-    command_line::add_arg(desc, arg.confirm_external_bind);
   }
 
   boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm)
@@ -60,20 +58,10 @@ namespace cryptonote
     {
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ip, ec);
+      boost::asio::ip::address::from_string(config.bind_ip, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ip.name);
-        return boost::none;
-      }
-
-      if (!parsed_ip.is_loopback() && !command_line::get_arg(vm, arg.confirm_external_bind))
-      {
-        LOG_ERROR(
-          "--" << arg.rpc_bind_ip.name <<
-          tr(" permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --") <<
-          arg.confirm_external_bind.name
-        );
         return boost::none;
       }
     }
