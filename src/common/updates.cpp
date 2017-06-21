@@ -37,6 +37,8 @@ namespace tools
 {
   bool check_updates(const std::string &software, const std::string &buildtag, std::string &version, std::string &hash)
   {
+    MDEBUG("Disabled checking for updates");
+    return false;
     std::vector<std::string> records;
     bool found = false;
 
