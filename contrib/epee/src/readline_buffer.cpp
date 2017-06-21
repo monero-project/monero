@@ -62,7 +62,7 @@ void rdln::readline_buffer::stop()
   remove_line_handler();
 }
 
-void rdln::readline_buffer::get_line(std::string& line)
+void rdln::readline_buffer::get_line(std::string& line) const
 {
   std::unique_lock<std::mutex> lock(line_mutex);
   have_line.wait(lock);

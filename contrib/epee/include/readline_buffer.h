@@ -13,11 +13,11 @@ namespace rdln
     void start();
     void stop();
     int process();
-    bool is_running()
+    bool is_running() const
     {
       return m_cout_buf != NULL;
     }
-    void get_line(std::string& line);
+    void get_line(std::string& line) const;
     void set_prompt(const std::string& prompt);
     
   protected:
