@@ -39,7 +39,7 @@ rdln::suspend_readline::~suspend_readline()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf()
+: std::stringbuf(), m_cout_buf(NULL)
 {
   current = this;
 }
