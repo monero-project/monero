@@ -12,7 +12,7 @@ static void remove_line_handler();
 
 static std::string last_line;
 static std::string last_prompt;
-std::mutex line_mutex, sync_mutex;
+std::mutex line_mutex, sync_mutex, process_mutex;
 std::condition_variable have_line;
 
 namespace
@@ -21,6 +21,7 @@ namespace
 }
 
 rdln::suspend_readline::suspend_readline()
+: m_buffer(NULL), m_restart(false)
 {
   m_buffer = current;
   if(!m_buffer)
@@ -46,6 +47,7 @@ rdln::readline_buffer::readline_buffer()
 
 void rdln::readline_buffer::start()
 {
+  std::unique_lock<std::mutex> lock(process_mutex);
   if(m_cout_buf != NULL)
     return;
   m_cout_buf = std::cout.rdbuf();
@@ -55,6 +57,7 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
+  std::unique_lock<std::mutex> lock(process_mutex);
   if(m_cout_buf == NULL)
     return;
   std::cout.rdbuf(m_cout_buf);
@@ -80,6 +83,7 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
 
 int rdln::readline_buffer::process()
 {
+  std::unique_lock<std::mutex> lock(process_mutex);
   if(m_cout_buf == NULL)
     return 0;
   return process_input();

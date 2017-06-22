@@ -62,6 +62,15 @@
 #include "wallet/wallet_args.h"
 #include <stdexcept>
 
+#ifdef HAVE_READLINE
+  #include "readline_buffer.h"
+  #define PAUSE_READLINE() \
+    rdln::suspend_readline pause_readline; \
+    std::cout << std::endl
+#else
+  #define PAUSE_READLINE()
+#endif
+
 using namespace std;
 using namespace epee;
 using namespace cryptonote;
@@ -1831,6 +1840,8 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     }
   }
 
+  PAUSE_READLINE();
+
   tools::wallet2::transfer_container transfers;
   m_wallet->get_transfers(transfers);
 
@@ -1890,6 +1901,8 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
   }
 
   LOCK_IDLE_SCOPE();
+
+  PAUSE_READLINE();
 
   message_writer() << boost::format("%68s%68s%12s%21s%16s") %
     tr("payment") % tr("transaction") % tr("height") % tr("amount") % tr("unlock time");
@@ -3715,6 +3728,8 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   }
 
   std::multimap<uint64_t, std::pair<bool,std::string>> output;
+
+  PAUSE_READLINE();
 
   if (in) {
     std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
