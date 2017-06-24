@@ -59,14 +59,14 @@ struct sldns_buffer;
  */
 struct val_anchors {
 	/** lock on trees */
-	lock_basic_t lock;
+	lock_basic_type lock;
 	/**
 	 * Anchors are store in this tree. Sort order is chosen, so that
 	 * dnames are in nsec-like order. A lookup on class, name will return
 	 * an exact match of the closest match, with the ancestor needed.
 	 * contents of type trust_anchor.
 	 */
-	rbtree_t* tree;
+	rbtree_type* tree;
 	/** The DLV trust anchor (if one is configured, else NULL) */
 	struct trust_anchor* dlv_anchor;
 	/** Autotrust global data, anchors sorted by next probe time */
@@ -93,9 +93,9 @@ struct ta_key {
  */
 struct trust_anchor {
 	/** rbtree node, key is this structure */
-	rbnode_t node;
+	rbnode_type node;
 	/** lock on the entire anchor and its keys; for autotrust changes */
-	lock_basic_t lock;
+	lock_basic_type lock;
 	/** name of this trust anchor */
 	uint8_t* name;
 	/** length of name */
@@ -215,5 +215,16 @@ int anchors_add_insecure(struct val_anchors* anchors, uint16_t c, uint8_t* nm);
  */
 void anchors_delete_insecure(struct val_anchors* anchors, uint16_t c,
 	uint8_t* nm);
+
+/**
+ * Get a list of keytags for the trust anchor.  Zero tags for insecure points.
+ * @param ta: trust anchor (locked by caller).
+ * @param list: array of uint16_t.
+ * @param num: length of array.
+ * @return number of keytags filled into array.  If total number of keytags is
+ * bigger than the array, it is truncated at num.  On errors, less keytags
+ * are filled in.  The array is sorted.
+ */
+size_t anchor_list_keytags(struct trust_anchor* ta, uint16_t* list, size_t num);
 
 #endif /* VALIDATOR_VAL_ANCHOR_H */

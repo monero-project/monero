@@ -87,6 +87,19 @@ sldns_write_uint32(void *dst, uint32_t data)
 }
 
 
+INLINE void
+sldns_write_uint48(void *dst, uint64_t data)
+{
+        uint8_t *p = (uint8_t *) dst;
+        p[0] = (uint8_t) ((data >> 40) & 0xff);
+        p[1] = (uint8_t) ((data >> 32) & 0xff);
+        p[2] = (uint8_t) ((data >> 24) & 0xff);
+        p[3] = (uint8_t) ((data >> 16) & 0xff);
+        p[4] = (uint8_t) ((data >> 8) & 0xff);
+        p[5] = (uint8_t) (data & 0xff);
+}
+
+
 /**
  * \file sbuffer.h
  *
@@ -117,6 +130,17 @@ struct sldns_buffer
 	/** If the buffer is fixed it cannot be resized */
 	unsigned _fixed : 1;
 
+	/** If the buffer is vfixed, no more than capacity bytes willl be
+	 * written to _data, however the _position counter will be updated
+	 * with the amount that would have been written in consecutive
+	 * writes.  This allows for a modus operandi in which a sequence is
+	 * written on a fixed capacity buffer (perhaps with _data on stack).
+	 * When everything could be written, then the _data is immediately
+	 * usable, if not, then a buffer could be allocated sized precisely
+	 * to fit the data for a second attempt.
+	 */
+	unsigned _vfixed : 1;
+
 	/** The current state of the buffer. If writing to the buffer fails
 	 * for any reason, this value is changed. This way, you can perform
 	 * multiple writes in sequence and check for success afterwards. */
@@ -134,9 +158,9 @@ INLINE void
 sldns_buffer_invariant(sldns_buffer *buffer)
 {
 	assert(buffer != NULL);
-	assert(buffer->_position <= buffer->_limit);
+	assert(buffer->_position <= buffer->_limit || buffer->_vfixed);
 	assert(buffer->_limit <= buffer->_capacity);
-	assert(buffer->_data != NULL);
+	assert(buffer->_data != NULL || (buffer->_vfixed && buffer->_capacity == 0));
 }
 #endif
 
@@ -167,6 +191,19 @@ void sldns_buffer_new_frm_data(sldns_buffer *buffer, void *data, size_t size);
  * \param[in] size the size of the data
  */
 void sldns_buffer_init_frm_data(sldns_buffer *buffer, void *data, size_t size);
+
+/**
+ * Setup a buffer with the data pointed to. No data copied, no memory allocs.
+ * The buffer is "virtually" fixed.  Writes beyond size (the capacity) will
+ * only update position, but no data will be written beyond capacity.  This
+ * allows to determine how big the buffer should have been to contain all the
+ * written data, by looking at the position with sldns_buffer_position(),
+ * similarly to the return value of POSIX's snprintf.
+ * \param[in] buffer pointer to the buffer to put the data in
+ * \param[in] data the data to encapsulate in the buffer
+ * \param[in] size the size of the data
+ */
+void sldns_buffer_init_vfixed_frm_data(sldns_buffer *buffer, void *data, size_t size);
 
 /**
  * clears the buffer and make it ready for writing.  The buffer's limit
@@ -231,7 +268,7 @@ sldns_buffer_position(sldns_buffer *buffer)
 INLINE void
 sldns_buffer_set_position(sldns_buffer *buffer, size_t mark)
 {
-	assert(mark <= buffer->_limit);
+	assert(mark <= buffer->_limit || buffer->_vfixed);
 	buffer->_position = mark;
 }
 
@@ -245,7 +282,7 @@ sldns_buffer_set_position(sldns_buffer *buffer, size_t mark)
 INLINE void
 sldns_buffer_skip(sldns_buffer *buffer, ssize_t count)
 {
-	assert(buffer->_position + count <= buffer->_limit);
+	assert(buffer->_position + count <= buffer->_limit || buffer->_vfixed);
 	buffer->_position += count;
 }
 
@@ -317,7 +354,7 @@ int sldns_buffer_reserve(sldns_buffer *buffer, size_t amount);
 INLINE uint8_t *
 sldns_buffer_at(const sldns_buffer *buffer, size_t at)
 {
-	assert(at <= buffer->_limit);
+	assert(at <= buffer->_limit || buffer->_vfixed);
 	return buffer->_data + at;
 }
 
@@ -367,8 +404,8 @@ INLINE size_t
 sldns_buffer_remaining_at(sldns_buffer *buffer, size_t at)
 {
 	sldns_buffer_invariant(buffer);
-	assert(at <= buffer->_limit);
-	return buffer->_limit - at;
+	assert(at <= buffer->_limit || buffer->_vfixed);
+	return at < buffer->_limit ? buffer->_limit - at : 0;
 }
 
 /**
@@ -420,9 +457,41 @@ sldns_buffer_available(sldns_buffer *buffer, size_t count)
 INLINE void
 sldns_buffer_write_at(sldns_buffer *buffer, size_t at, const void *data, size_t count)
 {
-	assert(sldns_buffer_available_at(buffer, at, count));
+	if (!buffer->_vfixed)
+		assert(sldns_buffer_available_at(buffer, at, count));
+	else if (sldns_buffer_remaining_at(buffer, at) == 0)
+		return;
+	else if (count > sldns_buffer_remaining_at(buffer, at)) {
+		memcpy(buffer->_data + at, data,
+		    sldns_buffer_remaining_at(buffer, at));
+		return;
+	}
 	memcpy(buffer->_data + at, data, count);
 }
+
+/**
+ * set the given byte to the buffer at the specified position
+ * \param[in] buffer the buffer
+ * \param[in] at the position (in number of bytes) to write the data at
+ * \param[in] c the byte to set to the buffer
+ * \param[in] count the number of bytes of bytes to write
+ */
+
+INLINE void
+sldns_buffer_set_at(sldns_buffer *buffer, size_t at, int c, size_t count)
+{
+    if (!buffer->_vfixed)
+        assert(sldns_buffer_available_at(buffer, at, count));
+    else if (sldns_buffer_remaining_at(buffer, at) == 0)
+        return;
+    else if (count > sldns_buffer_remaining_at(buffer, at)) {
+        memset(buffer->_data + at, c,
+            sldns_buffer_remaining_at(buffer, at));
+        return;
+    }
+	memset(buffer->_data + at, c, count);
+}
+
 
 /**
  * writes count bytes of data to the current position of the buffer
@@ -469,6 +538,7 @@ sldns_buffer_write_string(sldns_buffer *buffer, const char *str)
 INLINE void
 sldns_buffer_write_u8_at(sldns_buffer *buffer, size_t at, uint8_t data)
 {
+	if (buffer->_vfixed && at + sizeof(data) > buffer->_limit) return;
 	assert(sldns_buffer_available_at(buffer, at, sizeof(data)));
 	buffer->_data[at] = data;
 }
@@ -494,6 +564,7 @@ sldns_buffer_write_u8(sldns_buffer *buffer, uint8_t data)
 INLINE void
 sldns_buffer_write_u16_at(sldns_buffer *buffer, size_t at, uint16_t data)
 {
+	if (buffer->_vfixed && at + sizeof(data) > buffer->_limit) return;
 	assert(sldns_buffer_available_at(buffer, at, sizeof(data)));
 	sldns_write_uint16(buffer->_data + at, data);
 }
@@ -519,8 +590,23 @@ sldns_buffer_write_u16(sldns_buffer *buffer, uint16_t data)
 INLINE void
 sldns_buffer_write_u32_at(sldns_buffer *buffer, size_t at, uint32_t data)
 {
+	if (buffer->_vfixed && at + sizeof(data) > buffer->_limit) return;
 	assert(sldns_buffer_available_at(buffer, at, sizeof(data)));
 	sldns_write_uint32(buffer->_data + at, data);
+}
+
+/**
+ * writes the given 6 byte integer at the given position in the buffer
+ * \param[in] buffer the buffer
+ * \param[in] at the position in the buffer
+ * \param[in] data the (lower) 48 bits to write
+ */
+INLINE void
+sldns_buffer_write_u48_at(sldns_buffer *buffer, size_t at, uint64_t data)
+{
+	if (buffer->_vfixed && at + 6 > buffer->_limit) return;
+	assert(sldns_buffer_available_at(buffer, at, 6));
+	sldns_write_uint48(buffer->_data + at, data);
 }
 
 /**
@@ -533,6 +619,18 @@ sldns_buffer_write_u32(sldns_buffer *buffer, uint32_t data)
 {
 	sldns_buffer_write_u32_at(buffer, buffer->_position, data);
 	buffer->_position += sizeof(data);
+}
+
+/**
+ * writes the given 6 byte integer at the current position in the buffer
+ * \param[in] buffer the buffer
+ * \param[in] data the 48 bits to write
+ */
+INLINE void
+sldns_buffer_write_u48(sldns_buffer *buffer, uint64_t data)
+{
+	sldns_buffer_write_u48_at(buffer, buffer->_position, data);
+	buffer->_position += 6;
 }
 
 /**

@@ -63,7 +63,7 @@
  * 	done (successfully).
  * @return expanded text, malloced. NULL on failure.
  */
-static char* macro_expand(rbtree_t* store, 
+static char* macro_expand(rbtree_type* store, 
 	struct replay_runtime* runtime, char** text);
 
 /** compare of time values */
@@ -548,7 +548,7 @@ replay_var_compare(const void* a, const void* b)
 	return strcmp(x->name, y->name);
 }
 
-rbtree_t*
+rbtree_type*
 macro_store_create(void)
 {
 	return rbtree_create(&replay_var_compare);
@@ -556,7 +556,7 @@ macro_store_create(void)
 
 /** helper function to delete macro values */
 static void
-del_macro(rbnode_t* x, void* ATTR_UNUSED(arg))
+del_macro(rbnode_type* x, void* ATTR_UNUSED(arg))
 {
 	struct replay_var* v = (struct replay_var*)x;
 	free(v->name);
@@ -565,7 +565,7 @@ del_macro(rbnode_t* x, void* ATTR_UNUSED(arg))
 }
 
 void
-macro_store_delete(rbtree_t* store)
+macro_store_delete(rbtree_type* store)
 {
 	if(!store)
 		return;
@@ -615,7 +615,7 @@ do_buf_insert(char* buf, size_t remain, char* after, char* inserted)
 
 /** do macro recursion */
 static char*
-do_macro_recursion(rbtree_t* store, struct replay_runtime* runtime,
+do_macro_recursion(rbtree_type* store, struct replay_runtime* runtime,
 	char* at, size_t remain)
 {
 	char* after = at+2;
@@ -632,7 +632,7 @@ do_macro_recursion(rbtree_t* store, struct replay_runtime* runtime,
 
 /** get var from store */
 static struct replay_var*
-macro_getvar(rbtree_t* store, char* name)
+macro_getvar(rbtree_type* store, char* name)
 {
 	struct replay_var k;
 	k.node.key = &k;
@@ -642,7 +642,7 @@ macro_getvar(rbtree_t* store, char* name)
 
 /** do macro variable */
 static char*
-do_macro_variable(rbtree_t* store, char* buf, size_t remain)
+do_macro_variable(rbtree_type* store, char* buf, size_t remain)
 {
 	struct replay_var* v;
 	char* at = buf+1;
@@ -776,7 +776,7 @@ do_macro_range(char* buf)
 }
 
 static char*
-macro_expand(rbtree_t* store, struct replay_runtime* runtime, char** text)
+macro_expand(rbtree_type* store, struct replay_runtime* runtime, char** text)
 {
 	char buf[10240];
 	char* at = *text;
@@ -844,7 +844,7 @@ macro_expand(rbtree_t* store, struct replay_runtime* runtime, char** text)
 }
 
 char*
-macro_process(rbtree_t* store, struct replay_runtime* runtime, char* text)
+macro_process(rbtree_type* store, struct replay_runtime* runtime, char* text)
 {
 	char buf[10240];
 	char* next, *expand;
@@ -872,14 +872,14 @@ macro_process(rbtree_t* store, struct replay_runtime* runtime, char* text)
 }
 
 char* 
-macro_lookup(rbtree_t* store, char* name)
+macro_lookup(rbtree_type* store, char* name)
 {
 	struct replay_var* x = macro_getvar(store, name);
 	if(!x) return strdup("");
 	return strdup(x->value);
 }
 
-void macro_print_debug(rbtree_t* store)
+void macro_print_debug(rbtree_type* store)
 {
 	struct replay_var* x;
 	RBTREE_FOR(x, struct replay_var*, store) {
@@ -888,7 +888,7 @@ void macro_print_debug(rbtree_t* store)
 }
 
 int 
-macro_assign(rbtree_t* store, char* name, char* value)
+macro_assign(rbtree_type* store, char* name, char* value)
 {
 	struct replay_var* x = macro_getvar(store, name);
 	if(x) {
@@ -918,7 +918,7 @@ macro_assign(rbtree_t* store, char* name, char* value)
 void testbound_selftest(void)
 {
 	/* test the macro store */
-	rbtree_t* store = macro_store_create();
+	rbtree_type* store = macro_store_create();
 	char* v;
 	int r;
 	int num_asserts = 0;

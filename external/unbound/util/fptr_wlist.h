@@ -80,7 +80,7 @@
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_comm_point(comm_point_callback_t *fptr);
+int fptr_whitelist_comm_point(comm_point_callback_type *fptr);
 
 /**
  * Check function pointer whitelist for raw comm_point callback values.
@@ -88,7 +88,7 @@ int fptr_whitelist_comm_point(comm_point_callback_t *fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_comm_point_raw(comm_point_callback_t *fptr);
+int fptr_whitelist_comm_point_raw(comm_point_callback_type *fptr);
 
 /**
  * Check function pointer whitelist for comm_timer callback values.
@@ -137,7 +137,7 @@ int fptr_whitelist_event(void (*fptr)(int, short, void *));
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_pending_udp(comm_point_callback_t *fptr);
+int fptr_whitelist_pending_udp(comm_point_callback_type *fptr);
 
 /**
  * Check function pointer whitelist for pending tcp callback values.
@@ -145,7 +145,7 @@ int fptr_whitelist_pending_udp(comm_point_callback_t *fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_pending_tcp(comm_point_callback_t *fptr);
+int fptr_whitelist_pending_tcp(comm_point_callback_type *fptr);
 
 /**
  * Check function pointer whitelist for serviced query callback values.
@@ -153,7 +153,7 @@ int fptr_whitelist_pending_tcp(comm_point_callback_t *fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_serviced_query(comm_point_callback_t *fptr);
+int fptr_whitelist_serviced_query(comm_point_callback_type *fptr);
 
 /**
  * Check function pointer whitelist for rbtree cmp callback values.
@@ -169,7 +169,7 @@ int fptr_whitelist_rbtree_cmp(int (*fptr) (const void *, const void *));
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_hash_sizefunc(lruhash_sizefunc_t fptr);
+int fptr_whitelist_hash_sizefunc(lruhash_sizefunc_type fptr);
 
 /**
  * Check function pointer whitelist for lruhash compfunc callback values.
@@ -177,7 +177,7 @@ int fptr_whitelist_hash_sizefunc(lruhash_sizefunc_t fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_hash_compfunc(lruhash_compfunc_t fptr);
+int fptr_whitelist_hash_compfunc(lruhash_compfunc_type fptr);
 
 /**
  * Check function pointer whitelist for lruhash delkeyfunc callback values.
@@ -185,7 +185,7 @@ int fptr_whitelist_hash_compfunc(lruhash_compfunc_t fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_hash_delkeyfunc(lruhash_delkeyfunc_t fptr);
+int fptr_whitelist_hash_delkeyfunc(lruhash_delkeyfunc_type fptr);
 
 /**
  * Check function pointer whitelist for lruhash deldata callback values.
@@ -193,7 +193,7 @@ int fptr_whitelist_hash_delkeyfunc(lruhash_delkeyfunc_t fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_hash_deldatafunc(lruhash_deldatafunc_t fptr);
+int fptr_whitelist_hash_deldatafunc(lruhash_deldatafunc_type fptr);
 
 /**
  * Check function pointer whitelist for lruhash markdel callback values.
@@ -201,7 +201,7 @@ int fptr_whitelist_hash_deldatafunc(lruhash_deldatafunc_t fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_hash_markdelfunc(lruhash_markdelfunc_t fptr);
+int fptr_whitelist_hash_markdelfunc(lruhash_markdelfunc_type fptr);
 
 /**
  * Check function pointer whitelist for module_env send_query callback values.
@@ -210,11 +210,9 @@ int fptr_whitelist_hash_markdelfunc(lruhash_markdelfunc_t fptr);
  * @return false if not in whitelist.
  */
 int fptr_whitelist_modenv_send_query(struct outbound_entry* (*fptr)(
-	uint8_t* qname, size_t qnamelen, uint16_t qtype, uint16_t qclass, 
-	uint16_t flags, int dnssec, int want_dnssec, int nocaps,
-	struct sockaddr_storage* addr, socklen_t addrlen, 
-	uint8_t* zone, size_t zonelen,
-	struct module_qstate* q));
+	struct query_info* qinfo, uint16_t flags, int dnssec, int want_dnssec,
+	int nocaps, struct sockaddr_storage* addr, socklen_t addrlen,
+	uint8_t* zone, size_t zonelen, int ssl_upstream, struct module_qstate* q));
 
 /**
  * Check function pointer whitelist for module_env detach_subs callback values.
@@ -318,7 +316,7 @@ int fptr_whitelist_alloc_cleanup(void (*fptr)(void*));
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_tube_listen(tube_callback_t* fptr);
+int fptr_whitelist_tube_listen(tube_callback_type* fptr);
 
 /**
  * Check function pointer whitelist for mesh state callback values.
@@ -326,7 +324,7 @@ int fptr_whitelist_tube_listen(tube_callback_t* fptr);
  * @param fptr: function pointer to check.
  * @return false if not in whitelist.
  */
-int fptr_whitelist_mesh_cb(mesh_cb_func_t fptr);
+int fptr_whitelist_mesh_cb(mesh_cb_func_type fptr);
 
 /**
  * Check function pointer whitelist for config_get_option func values.
@@ -334,6 +332,40 @@ int fptr_whitelist_mesh_cb(mesh_cb_func_t fptr);
  * @return false if not in whitelist.
  */
 int fptr_whitelist_print_func(void (*fptr)(char*,void*));
+
+/**
+ * Check function pointer whitelist for inplace_cb_reply,
+ * inplace_cb_reply_cache, inplace_cb_reply_local and inplace_cb_reply_servfail
+ * func values.
+ * @param fptr: function pointer to check.
+ * @param type: the type of the callback function.
+ * @return false if not in whitelist.
+ */
+int fptr_whitelist_inplace_cb_reply_generic(inplace_cb_reply_func_type* fptr,
+	enum inplace_cb_list_type type);
+
+/**
+ * Check function pointer whitelist for inplace_cb_query func values.
+ * @param fptr: function pointer to check.
+ * @return false if not in whitelist.
+ */
+int fptr_whitelist_inplace_cb_query(inplace_cb_query_func_type* fptr);
+
+/**
+ * Check function pointer whitelist for inplace_cb_edns_back_parsed func values.
+ * @param fptr: function pointer to check.
+ * @return false if not in whitelist.
+ */
+int fptr_whitelist_inplace_cb_edns_back_parsed(
+	inplace_cb_edns_back_parsed_func_type* fptr);
+
+/**
+ * Check function pointer whitelist for inplace_cb_query_response func values.
+ * @param fptr: function pointer to check.
+ * @return false if not in whitelist.
+ */
+int fptr_whitelist_inplace_cb_query_response(
+	inplace_cb_query_response_func_type* fptr);
 
 /** Due to module breakage by fptr wlist, these test app declarations
  * are presented here */

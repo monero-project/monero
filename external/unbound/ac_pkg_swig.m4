@@ -103,9 +103,20 @@ AC_DEFUN([AC_PROG_SWIG],[
                         if test -z "$available_patch" ; then
                                 [available_patch=0]
                         fi
-                        if test $available_major -ne $required_major \
-                                -o $available_minor -ne $required_minor \
-                                -o $available_patch -lt $required_patch ; then
+			[badversion=0]
+			if test $available_major -lt $required_major ; then
+				[badversion=1]
+			fi
+                        if test $available_major -eq $required_major \
+                                -a $available_minor -lt $required_minor ; then
+				[badversion=1]
+			fi
+                        if test $available_major -eq $required_major \
+                                -a $available_minor -eq $required_minor \
+                                -a $available_patch -lt $required_patch ; then
+				[badversion=1]
+			fi
+			if test $badversion -eq 1 ; then
                                 AC_MSG_WARN([SWIG version >= $1 is required.  You have $swig_version.  You should look at http://www.swig.org])
                                 SWIG='echo "Error: SWIG version >= $1 is required.  You have '"$swig_version"'.  You should look at http://www.swig.org" ; false'
                         else

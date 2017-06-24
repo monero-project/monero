@@ -1,10 +1,12 @@
 .. _log_handler:
 
 Packet logger
-=========================
+=============
 
 This example shows how to log and print details about query and response.
-As soon as the ``iterator`` has finished (event is :data:`module_event_moddone`), ``qstate.return_msg`` contains response packet or ``None``.
+As soon as the ``iterator`` has finished (event is
+:data:`module_event_moddone`), ``qstate.return_msg`` contains response packet
+or ``None``.
 This packet will be send to a client that asked for it.
 
 Complete source code
@@ -14,14 +16,16 @@ Complete source code
    :language: python
 
 Testing
-------------------
+-------
 Run the unbound server:
 
 ``root@localhost>unbound -dv -c ./test-log.conf``
 
-In case you use own configuration file, don't forget to enable python module: ``module-config: "validator python iterator"`` and use valid script path: ``python-script: "./examples/log.py"``.
+In case you use own configuration file, don't forget to enable python module:
+``module-config: "validator python iterator"`` and use valid script path:
+``python-script: "./examples/log.py"``.
 
-Example of output::	
+Example of output::
 
    [1231790168] unbound[7941:0] info: response for <f.gtld-servers.NET. AAAA IN>
    [1231790168] unbound[7941:0] info: reply from <gtld-servers.NET.> 192.5.6.31#53

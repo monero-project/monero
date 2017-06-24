@@ -280,7 +280,7 @@ struct replay_runtime {
 	struct fake_timer* timer_list;
 
 	/** callback to call for incoming queries */
-	comm_point_callback_t* callback_query;
+	comm_point_callback_type* callback_query;
 	/** user argument for incoming query callback */
 	void *cb_arg;
 
@@ -305,7 +305,7 @@ struct replay_runtime {
 	/**
 	 * Tree of macro values. Of type replay_var
 	 */
-	rbtree_t* vars;
+	rbtree_type* vars;
 };
 
 /**
@@ -325,7 +325,7 @@ struct fake_pending {
 	/** qtype */
 	int qtype;
 	/** The callback function to call when answer arrives (or timeout) */
-	comm_point_callback_t* callback;
+	comm_point_callback_type* callback;
 	/** callback user argument */
 	void* cb_arg;
 	/** original timeout in seconds from 'then' */
@@ -380,7 +380,7 @@ struct fake_timer {
  */
 struct replay_var {
 	/** rbtree node. Key is this structure. Sorted by name. */
-	rbnode_t node;
+	rbnode_type node;
 	/** the variable name */
 	char* name;
 	/** the variable value */
@@ -413,13 +413,13 @@ struct fake_timer* replay_get_oldest_timer(struct replay_runtime* runtime);
  * Create variable storage
  * @return new or NULL on failure.
  */
-rbtree_t* macro_store_create(void);
+rbtree_type* macro_store_create(void);
 
 /**
  * Delete variable storage
  * @param store: the macro storage to free up.
  */
-void macro_store_delete(rbtree_t* store);
+void macro_store_delete(rbtree_type* store);
 
 /**
  * Apply macro substitution to string.
@@ -428,7 +428,7 @@ void macro_store_delete(rbtree_t* store);
  * @param text: string to work on.
  * @return newly malloced string with result.
  */
-char* macro_process(rbtree_t* store, struct replay_runtime* runtime, 
+char* macro_process(rbtree_type* store, struct replay_runtime* runtime, 
 	char* text);
 
 /**
@@ -438,7 +438,7 @@ char* macro_process(rbtree_t* store, struct replay_runtime* runtime,
  * @return newly malloced string with result or strdup("") if not found.
  * 	or NULL on malloc failure.
  */
-char* macro_lookup(rbtree_t* store, char* name);
+char* macro_lookup(rbtree_type* store, char* name);
 
 /**
  * Set macro value.
@@ -447,10 +447,10 @@ char* macro_lookup(rbtree_t* store, char* name);
  * @param value: text to set it to.  Not expanded.
  * @return false on failure.
  */
-int macro_assign(rbtree_t* store, char* name, char* value);
+int macro_assign(rbtree_type* store, char* name, char* value);
 
 /** Print macro variables stored as debug info */
-void macro_print_debug(rbtree_t* store);
+void macro_print_debug(rbtree_type* store);
 
 /** testbounds self test */
 void testbound_selftest(void);

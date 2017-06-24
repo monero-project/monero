@@ -102,9 +102,9 @@ extern "C" {
 #endif
 
 /** the version of this header file */
-#define UNBOUND_VERSION_MAJOR @UNBOUND_VERSION_MAJOR@
-#define UNBOUND_VERSION_MINOR @UNBOUND_VERSION_MINOR@
-#define UNBOUND_VERSION_MICRO @UNBOUND_VERSION_MICRO@
+#define UNBOUND_VERSION_MAJOR 1
+#define UNBOUND_VERSION_MINOR 6
+#define UNBOUND_VERSION_MICRO 3
 
 /**
  * The validation context is created to hold the resolver status,
@@ -223,7 +223,7 @@ struct ub_result {
  *		This structure is allocated on the heap and needs to be
  *		freed with ub_resolve_free(result);
  */
-typedef void (*ub_callback_t)(void*, int, struct ub_result*);
+typedef void (*ub_callback_type)(void*, int, struct ub_result*);
 
 /**
  * Create a resolving and validation context.
@@ -302,6 +302,27 @@ int ub_ctx_config(struct ub_ctx* ctx, const char* fname);
  * @return 0 if OK, else error.
  */
 int ub_ctx_set_fwd(struct ub_ctx* ctx, const char* addr);
+
+/**
+ * Add a stub zone, with given address to send to.  This is for custom
+ * root hints or pointing to a local authoritative dns server.
+ * For dns resolvers and the 'DHCP DNS' ip address, use ub_ctx_set_fwd.
+ * This is similar to a stub-zone entry in unbound.conf.
+ *
+ * @param ctx: context.
+ *	It is only possible to set configuration before the
+ *	first resolve is done.
+ * @param zone: name of the zone, string.
+ * @param addr: address, IP4 or IP6 in string format.
+ * 	The addr is added to the list of stub-addresses if the entry exists.
+ * 	If the addr is NULL the stub entry is removed.
+ * @param isprime: set to true to set stub-prime to yes for the stub.
+ * 	For local authoritative servers, people usually set it to false,
+ * 	For root hints it should be set to true.
+ * @return 0 if OK, else error.
+ */
+int ub_ctx_set_stub(struct ub_ctx* ctx, const char* zone, const char* addr,
+	int isprime);
 
 /**
  * Read list of nameservers to use from the filename given.
@@ -498,7 +519,7 @@ int ub_resolve(struct ub_ctx* ctx, const char* name, int rrtype,
  * @return 0 if OK, else error.
  */
 int ub_resolve_async(struct ub_ctx* ctx, const char* name, int rrtype, 
-	int rrclass, void* mydata, ub_callback_t callback, int* async_id);
+	int rrclass, void* mydata, ub_callback_type callback, int* async_id);
 
 /**
  * Cancel an async query in progress.

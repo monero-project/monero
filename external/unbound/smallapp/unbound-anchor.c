@@ -37,7 +37,8 @@
  * \file
  *
  * This file checks to see that the current 5011 keys work to prime the
- * current root anchor.  If not a certificate is used to update the anchor.
+ * current root anchor.  If not a certificate is used to update the anchor,
+ * with RFC7958 https xml fetch.
  *
  * This is a concept solution for distribution of the DNSSEC root
  * trust anchor.  It is a small tool, called "unbound-anchor", that
@@ -47,7 +48,7 @@
  * Management-Abstract:
  *    * first run: fill root.key file with hardcoded DS record.
  *    * mostly: use RFC5011 tracking, quick . DNSKEY UDP query.
- *    * failover: use builtin certificate, do https and update.
+ *    * failover: use RFC7958 builtin certificate, do https and update.
  * Special considerations:
  *    * 30-days RFC5011 timer saves a lot of https traffic.
  *    * DNSKEY probe must be NOERROR, saves a lot of https traffic.
@@ -77,7 +78,7 @@
  * the file contains a list of normal DNSKEY/DS records, and uses that to
  * bootstrap 5011 (the KSK is made VALID).
  *
- * The certificate update is done by fetching root-anchors.xml and
+ * The certificate RFC7958 update is done by fetching root-anchors.xml and
  * root-anchors.p7s via SSL.  The HTTPS certificate can be logged but is
  * not validated (https for channel security; the security comes from the
  * certificate).  The 'data.iana.org' domain name A and AAAA are resolved
@@ -171,7 +172,7 @@ struct ip_list {
 
 /** Give unbound-anchor usage, and exit (1). */
 static void
-usage()
+usage(void)
 {
 	printf("Usage:	unbound-anchor [opts]\n");
 	printf("	Setup or update root anchor. "
@@ -240,7 +241,10 @@ static const char*
 get_builtin_ds(void)
 {
 	return
-". IN DS 19036 8 2 49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDDE32F24E8FB5\n";
+/* anchor 19036 is from 2010 */
+/* anchor 20326 is from 2017 */
+". IN DS 19036 8 2 49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDDE32F24E8FB5\n"
+". IN DS 20326 8 2 E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D\n";
 }
 
 /** print hex data */
@@ -419,8 +423,14 @@ read_builtin_cert(void)
 {
 	const char* builtin_cert = get_builtin_cert();
 	STACK_OF(X509)* sk;
-	BIO *bio = BIO_new_mem_buf((void*)builtin_cert,
-		(int)strlen(builtin_cert));
+	BIO *bio;
+	char* d = strdup(builtin_cert); /* to avoid const warnings in the
+		changed prototype of BIO_new_mem_buf */
+	if(!d) {
+		if(verb) printf("out of memory\n");
+		exit(0);
+	}
+	bio = BIO_new_mem_buf(d, (int)strlen(d));
 	if(!bio) {
 		if(verb) printf("out of memory\n");
 		exit(0);
@@ -431,6 +441,7 @@ read_builtin_cert(void)
 		exit(0);
 	}
 	BIO_free(bio);
+	free(d);
 	return sk;
 }
 
@@ -1836,7 +1847,7 @@ write_unsigned_root(const char* root_anchor_file)
 #ifdef HAVE_FSYNC
 	fsync(fileno(out));
 #else
-	FlushFileBuffers((HANDLE)_fileno(out));
+	FlushFileBuffers((HANDLE)_get_osfhandle(_fileno(out)));
 #endif
 	fclose(out);
 }
@@ -1868,7 +1879,7 @@ write_root_anchor(const char* root_anchor_file, BIO* ds)
 #ifdef HAVE_FSYNC
 	fsync(fileno(out));
 #else
-	FlushFileBuffers((HANDLE)_fileno(out));
+	FlushFileBuffers((HANDLE)_get_osfhandle(_fileno(out)));
 #endif
 	fclose(out);
 }
@@ -2310,10 +2321,22 @@ int main(int argc, char* argv[])
 	if(argc != 0)
 		usage();
 
+#ifdef HAVE_ERR_LOAD_CRYPTO_STRINGS
 	ERR_load_crypto_strings();
+#endif
 	ERR_load_SSL_strings();
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || !defined(HAVE_OPENSSL_INIT_CRYPTO)
 	OpenSSL_add_all_algorithms();
+#else
+	OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS
+		| OPENSSL_INIT_ADD_ALL_DIGESTS
+		| OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || !defined(HAVE_OPENSSL_INIT_SSL)
 	(void)SSL_library_init();
+#else
+	(void)OPENSSL_init_ssl(0, NULL);
+#endif
 
 	if(dolist) do_list_builtin();
 

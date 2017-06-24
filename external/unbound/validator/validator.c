@@ -156,6 +156,9 @@ val_apply_cfg(struct module_env* env, struct val_env* val_env,
 	return 1;
 }
 
+#ifdef USE_ECDSA_EVP_WORKAROUND
+void ecdsa_evp_workaround_init(void);
+#endif
 int
 val_init(struct module_env* env, int id)
 {
@@ -171,10 +174,14 @@ val_init(struct module_env* env, int id)
 	lock_basic_init(&val_env->bogus_lock);
 	lock_protect(&val_env->bogus_lock, &val_env->num_rrset_bogus,
 		sizeof(val_env->num_rrset_bogus));
+#ifdef USE_ECDSA_EVP_WORKAROUND
+	ecdsa_evp_workaround_init();
+#endif
 	if(!val_apply_cfg(env, val_env, env->cfg)) {
 		log_err("validator: could not apply configuration settings.");
 		return 0;
 	}
+
 	return 1;
 }
 
@@ -371,6 +378,7 @@ generate_request(struct module_qstate* qstate, int id, uint8_t* name,
 	ask.qname_len = namelen;
 	ask.qtype = qtype;
 	ask.qclass = qclass;
+	ask.local_alias = NULL;
 	log_query_info(VERB_ALGO, "generate request", &ask);
 	fptr_ok(fptr_whitelist_modenv_attach_sub(qstate->env->attach_sub));
 	/* enable valrec flag to avoid recursion to the same validation
@@ -2084,15 +2092,17 @@ processFinished(struct module_qstate* qstate, struct val_qstate* vq,
 	if(qstate->query_flags&BIT_RD) {
 		/* if secure, this will override cache anyway, no need
 		 * to check if from parentNS */
-		if(!dns_cache_store(qstate->env, &vq->orig_msg->qinfo, 
-			vq->orig_msg->rep, 0, qstate->prefetch_leeway, 0, NULL,
-			qstate->query_flags)) {
-			log_err("out of memory caching validator results");
+		if(!qstate->no_cache_store) {
+			if(!dns_cache_store(qstate->env, &vq->orig_msg->qinfo,
+				vq->orig_msg->rep, 0, qstate->prefetch_leeway, 0, NULL,
+				qstate->query_flags)) {
+				log_err("out of memory caching validator results");
+			}
 		}
 	} else {
 		/* for a referral, store the verified RRsets */
 		/* and this does not get prefetched, so no leeway */
-		if(!dns_cache_store(qstate->env, &vq->orig_msg->qinfo, 
+		if(!dns_cache_store(qstate->env, &vq->orig_msg->qinfo,
 			vq->orig_msg->rep, 1, 0, 0, NULL,
 			qstate->query_flags)) {
 			log_err("out of memory caching validator results");
@@ -2274,6 +2284,7 @@ val_operate(struct module_qstate* qstate, enum module_ev event, int id,
 	(void)outbound;
 	if(event == module_event_new || 
 		(event == module_event_pass && vq == NULL)) {
+
 		/* pass request to next module, to get it */
 		verbose(VERB_ALGO, "validator: pass to next module");
 		qstate->ext_state[id] = module_wait_module;
@@ -2282,6 +2293,7 @@ val_operate(struct module_qstate* qstate, enum module_ev event, int id,
 	if(event == module_event_moddone) {
 		/* check if validation is needed */
 		verbose(VERB_ALGO, "validator: nextmodule returned");
+
 		if(!needs_validation(qstate, qstate->return_rcode, 
 			qstate->return_msg)) {
 			/* no need to validate this */

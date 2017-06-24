@@ -1042,7 +1042,7 @@ service(const char* bind_str, int bindport, const char* serv_str,
 	}
 	i=0;
 	if(bindport == 0) {
-		bindport = 1024 + random()%64000;
+		bindport = 1024 + arc4random()%64000;
 		i = 100;
 	}
 	while(1) {
@@ -1058,7 +1058,7 @@ service(const char* bind_str, int bindport, const char* serv_str,
 #endif
 			if(i--==0)
 				fatal_exit("cannot bind any port");
-			bindport = 1024 + random()%64000;
+			bindport = 1024 + arc4random()%64000;
 		} else break;
 	}
 	fd_set_nonblock(s);
@@ -1138,7 +1138,6 @@ int main(int argc, char** argv)
 	verbosity = 0;
 	log_init(0, 0, 0);
 	log_ident_set("delayer");
-	srandom(time(NULL) ^ getpid());
 	if(argc == 1) usage(argv);
 	while( (c=getopt(argc, argv, "b:d:f:hm:p:")) != -1) {
 		switch(c) {

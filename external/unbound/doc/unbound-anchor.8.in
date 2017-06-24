@@ -1,4 +1,4 @@
-.TH "unbound-anchor" "8" "@date@" "NLnet Labs" "unbound @version@"
+.TH "unbound-anchor" "8" "Jun 13, 2017" "NLnet Labs" "unbound 1.6.3"
 .\"
 .\" unbound-anchor.8 -- unbound anchor maintenance utility manual
 .\"
@@ -16,6 +16,8 @@
 .SH "DESCRIPTION"
 .B Unbound\-anchor
 performs setup or update of the root trust anchor for DNSSEC validation.
+The program fetches the trust anchor with the method from RFC7958 when
+regular RFC5011 update fails to bring it up to date.
 It can be run (as root) from the commandline, or run as part of startup
 scripts.  Before you start the \fIunbound\fR(8) DNS server.
 .P
@@ -39,8 +41,8 @@ update certificate files.
 .P
 It tests if the root anchor file works, and if not, and an update is possible,
 attempts to update the root anchor using the root update certificate.
-It performs a https fetch of root-anchors.xml and checks the results, if
-all checks are successful, it updates the root anchor file.  Otherwise
+It performs a https fetch of root-anchors.xml and checks the results (RFC7958), 
+if all checks are successful, it updates the root anchor file.  Otherwise
 the root anchor file is unchanged.  It performs RFC5011 tracking if the
 DNSSEC information available via the DNS makes that possible.
 .P
@@ -65,7 +67,7 @@ List the builtin root key and builtin root update certificate on stdout.
 .B \-u \fIname
 The server name, it connects to https://name.  Specify without https:// prefix.
 The default is "data.iana.org".  It connects to the port specified with \-P.
-You can pass an IPv4 addres or IPv6 address (no brackets) if you want.
+You can pass an IPv4 address or IPv6 address (no brackets) if you want.
 .TP
 .B \-x \fIpath
 The pathname to the root\-anchors.xml file on the server. (forms URL with \-u).

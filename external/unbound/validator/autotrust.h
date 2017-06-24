@@ -58,7 +58,7 @@ typedef enum {
 	AUTR_STATE_MISSING = 3,
 	AUTR_STATE_REVOKED = 4,
 	AUTR_STATE_REMOVED = 5
-} autr_state_t;
+} autr_state_type;
 
 /** 
  * Autotrust metadata for one trust anchor key.
@@ -73,7 +73,7 @@ struct autr_ta {
 	/** last update of key state (new pending count keeps date the same) */
 	time_t last_change;
 	/** 5011 state */
-	autr_state_t s;
+	autr_state_type s;
 	/** pending count */
 	uint8_t pending_count;
 	/** fresh TA was seen */
@@ -90,7 +90,7 @@ struct autr_point_data {
 	/** file to store the trust point in. chrootdir already applied. */
 	char* file;
 	/** rbtree node for probe sort, key is struct trust_anchor */
-	rbnode_t pnode;
+	rbnode_type pnode;
 
 	/** the keys */
 	struct autr_ta* keys;
@@ -126,7 +126,7 @@ struct autr_point_data {
 struct autr_global_data {
 	/** rbtree of autotrust anchors sorted by next probe time.
 	 * When time is equal, sorted by anchor class, name. */
-	rbtree_t probe;
+	rbtree_type probe;
 };
 
 /**

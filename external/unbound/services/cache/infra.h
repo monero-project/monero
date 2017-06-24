@@ -36,7 +36,10 @@
 /**
  * \file
  *
- * This file contains the infrastructure cache.
+ * This file contains the infrastructure cache, as well as rate limiting.
+ * Note that there are two sorts of rate-limiting here:
+ *  - Pre-cache, per-query rate limiting (query ratelimits)
+ *  - Post-cache, per-domain name rate limiting (infra-ratelimits)
  */
 
 #ifndef SERVICES_CACHE_INFRA_H
@@ -44,6 +47,8 @@
 #include "util/storage/lruhash.h"
 #include "util/storage/dnstree.h"
 #include "util/rtt.h"
+#include "util/netevent.h"
+#include "util/data/msgreply.h"
 struct slabhash;
 struct config_file;
 
@@ -112,7 +117,9 @@ struct infra_cache {
 	/** hash table with query rates per name: rate_key, rate_data */
 	struct slabhash* domain_rates;
 	/** ratelimit settings for domains, struct domain_limit_data */
-	rbtree_t domain_limits;
+	rbtree_type domain_limits;
+	/** hash table with query rates per client ip: ip_rate_key, ip_rate_data */
+	struct slabhash* client_ip_rates;
 };
 
 /** ratelimit, unless overridden by domain_limits, 0 is off */
@@ -142,6 +149,21 @@ struct rate_key {
 	size_t namelen;
 };
 
+/** ip ratelimit, 0 is off */
+extern int infra_ip_ratelimit;
+
+/**
+ * key for ip_ratelimit lookups, a source IP.
+ */
+struct ip_rate_key {
+	/** lruhash key entry */
+	struct lruhash_entry entry;
+	/** client ip information */
+	struct sockaddr_storage addr;
+	/** length of address */
+	socklen_t addrlen;
+};
+
 /** number of seconds to track qps rate */
 #define RATE_WINDOW 2
 
@@ -159,6 +181,8 @@ struct rate_data {
 	 * valid for that timestamp.  Usually now and now-1. */
 	time_t timestamp[RATE_WINDOW];
 };
+
+#define ip_rate_data rate_data
 
 /** infra host cache default hash lookup size */
 #define INFRA_HOST_STARTSIZE 32
@@ -381,6 +405,16 @@ int infra_rate_max(void* data, time_t now);
 int infra_find_ratelimit(struct infra_cache* infra, uint8_t* name,
 	size_t namelen);
 
+/** Update query ratelimit hash and decide
+ *  whether or not a query should be dropped.
+ *  @param infra: infra cache
+ *  @param repinfo: information about client
+ *  @param timenow: what time it is now.
+ *  @return 1 if it could be incremented. 0 if the increment overshot the
+ *  ratelimit and the query should be dropped. */
+int infra_ip_ratelimit_inc(struct infra_cache* infra,
+	struct comm_reply* repinfo, time_t timenow);
+
 /**
  * Get memory used by the infra cache.
  * @param infra: infrastructure cache.
@@ -412,5 +446,17 @@ void rate_delkeyfunc(void* k, void* arg);
 
 /** delete data */
 void rate_deldatafunc(void* d, void* arg);
+
+/* calculate size for the client ip hashtable */
+size_t ip_rate_sizefunc(void* k, void* d);
+
+/* compare two addresses */
+int ip_rate_compfunc(void* key1, void* key2);
+
+/* delete key, and destroy the lock */
+void ip_rate_delkeyfunc(void* d, void* arg);
+
+/* delete data */
+#define ip_rate_deldatafunc rate_deldatafunc
 
 #endif /* SERVICES_CACHE_INFRA_H */

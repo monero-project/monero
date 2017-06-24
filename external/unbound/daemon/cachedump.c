@@ -563,6 +563,7 @@ load_qinfo(char* str, struct query_info* qinfo, struct regional* region)
 	qinfo->qclass = sldns_wirerr_get_class(rr, rr_len, dname_len);
 	qinfo->qname_len = dname_len;
 	qinfo->qname = (uint8_t*)regional_alloc_init(region, rr, dname_len);
+	qinfo->local_alias = NULL;
 	if(!qinfo->qname) {
 		log_warn("error out of memory");
 		return NULL;
@@ -826,6 +827,7 @@ int print_deleg_lookup(SSL* ssl, struct worker* worker, uint8_t* nm,
 	qinfo.qname_len = nmlen;
 	qinfo.qtype = LDNS_RR_TYPE_A;
 	qinfo.qclass = LDNS_RR_CLASS_IN;
+	qinfo.local_alias = NULL;
 
 	dname_str(nm, b);
 	if(!ssl_printf(ssl, "The following name servers are used for lookup "

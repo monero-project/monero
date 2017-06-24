@@ -74,7 +74,7 @@ int storeQueryInCache(struct module_qstate* qstate, struct query_info* qinfo, st
 /*  Invalidate the message associated with query_info stored in message cache */
 void invalidateQueryInCache(struct module_qstate* qstate, struct query_info* qinfo)
 { 
-    hashvalue_t h;
+    hashvalue_type h;
     struct lruhash_entry* e;
     struct reply_info *r;
     size_t i, j;
@@ -129,7 +129,8 @@ int createResponse(struct module_qstate* qstate, sldns_buffer* pkt)
 	return 0;
     }
     /* edns is not examined, but removed from message to help cache */
-    if(parse_extract_edns(prs, &edns) != LDNS_RCODE_NOERROR)
+    if(parse_extract_edns(prs, &edns, qstate->env->scratch) !=
+	    LDNS_RCODE_NOERROR)
 	return 0;
 
     /* remove CD-bit, we asked for in case we handle validation ourself */

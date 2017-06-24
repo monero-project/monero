@@ -127,7 +127,7 @@ int dname_pkt_compare(struct sldns_buffer* pkt, uint8_t* d1, uint8_t* d2);
  * @param h: initial hash value.
  * @return: result hash value.
  */
-hashvalue_t dname_query_hash(uint8_t* dname, hashvalue_t h);
+hashvalue_type dname_query_hash(uint8_t* dname, hashvalue_type h);
 
 /**
  * Hash dname, label by label, lowercasing, into hashvalue.
@@ -139,7 +139,8 @@ hashvalue_t dname_query_hash(uint8_t* dname, hashvalue_t h);
  * @return: result hash value.
  * 	Result is the same as dname_query_hash, even if compression is used.
  */
-hashvalue_t dname_pkt_hash(struct sldns_buffer* pkt, uint8_t* dname, hashvalue_t h);
+hashvalue_type dname_pkt_hash(struct sldns_buffer* pkt, uint8_t* dname,
+	hashvalue_type h);
 
 /**
  * Copy over a valid dname and decompress it.

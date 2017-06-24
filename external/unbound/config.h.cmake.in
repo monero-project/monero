@@ -45,11 +45,17 @@
 /* Whether the C compiler accepts the "unused" attribute */
 #cmakedefine HAVE_ATTR_UNUSED
 
+/* Whether the C compiler accepts the "weak" attribute */
+#cmakedefine HAVE_ATTR_WEAK
+
 /* Define to 1 if you have the `chown' function. */
 #cmakedefine HAVE_CHOWN
 
 /* Define to 1 if you have the `chroot' function. */
 #cmakedefine HAVE_CHROOT
+
+/* Define to 1 if you have the `CRYPTO_cleanup_all_ex_data' function. */
+#cmakedefine HAVE_CRYPTO_CLEANUP_ALL_EX_DATA
 
 /* Define to 1 if you have the `ctime_r' function. */
 #cmakedefine HAVE_CTIME_R
@@ -64,6 +70,14 @@
 /* Define to 1 if you have the declaration of `arc4random_uniform', and to 0
    if you don't. */
 #cmakedefine HAVE_DECL_ARC4RANDOM_UNIFORM
+
+/* Define to 1 if you have the declaration of `inet_ntop', and to 0 if you
+   don't. */
+#cmakedefine HAVE_DECL_INET_NTOP
+
+/* Define to 1 if you have the declaration of `inet_pton', and to 0 if you
+   don't. */
+#cmakedefine HAVE_DECL_INET_PTON
 
 /* Define to 1 if you have the declaration of `NID_secp384r1', and to 0 if you
    don't. */
@@ -104,14 +118,26 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #cmakedefine HAVE_DLFCN_H
 
+/* Define to 1 if you have the `DSA_SIG_set0' function. */
+#cmakedefine HAVE_DSA_SIG_SET0
+
 /* Define to 1 if you have the <endian.h> header file. */
 #cmakedefine HAVE_ENDIAN_H
 
 /* Define to 1 if you have the `endprotoent' function. */
 #cmakedefine HAVE_ENDPROTOENT
 
+/* Define to 1 if you have the `endpwent' function. */
+#cmakedefine HAVE_ENDPWENT
+
 /* Define to 1 if you have the `endservent' function. */
 #cmakedefine HAVE_ENDSERVENT
+
+/* Define to 1 if you have the `ERR_free_strings' function. */
+#cmakedefine HAVE_ERR_FREE_STRINGS
+
+/* Define to 1 if you have the `ERR_load_crypto_strings' function. */
+#cmakedefine HAVE_ERR_LOAD_CRYPTO_STRINGS
 
 /* Define to 1 if you have the `event_base_free' function. */
 #cmakedefine HAVE_EVENT_BASE_FREE
@@ -127,6 +153,15 @@
 
 /* Define to 1 if you have the <event.h> header file. */
 #cmakedefine HAVE_EVENT_H
+
+/* Define to 1 if you have the `EVP_cleanup' function. */
+#cmakedefine HAVE_EVP_CLEANUP
+
+/* Define to 1 if you have the `EVP_dss1' function. */
+#cmakedefine HAVE_EVP_DSS1
+
+/* Define to 1 if you have the `EVP_MD_CTX_new' function. */
+#cmakedefine HAVE_EVP_MD_CTX_NEW
 
 /* Define to 1 if you have the `EVP_sha1' function. */
 #cmakedefine HAVE_EVP_SHA1
@@ -191,8 +226,8 @@
 /* Define to 1 if you have the <grp.h> header file. */
 #cmakedefine HAVE_GRP_H
 
-/* If you have HMAC_CTX_init */
-#cmakedefine HAVE_HMAC_CTX_INIT
+/* If you have HMAC_Update */
+#cmakedefine HAVE_HMAC_UPDATE
 
 /* Define to 1 if you have the `inet_aton' function. */
 #cmakedefine HAVE_INET_ATON
@@ -245,11 +280,23 @@
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #cmakedefine HAVE_NETINET_IN_H
 
+/* Define to 1 if you have the <netinet/tcp.h> header file. */
+#cmakedefine HAVE_NETINET_TCP_H
+
 /* Use libnettle for crypto */
 #cmakedefine HAVE_NETTLE
 
+/* Define to 1 if you have the <nettle/dsa-compat.h> header file. */
+#cmakedefine HAVE_NETTLE_DSA_COMPAT_H
+
 /* Use libnss for crypto */
 #cmakedefine HAVE_NSS
+
+/* Define to 1 if you have the `OpenSSL_add_all_digests' function. */
+#cmakedefine HAVE_OPENSSL_ADD_ALL_DIGESTS
+
+/* Define to 1 if you have the <openssl/bn.h> header file. */
+#cmakedefine HAVE_OPENSSL_BN_H
 
 /* Define to 1 if you have the `OPENSSL_config' function. */
 #cmakedefine HAVE_OPENSSL_CONFIG
@@ -257,14 +304,29 @@
 /* Define to 1 if you have the <openssl/conf.h> header file. */
 #cmakedefine HAVE_OPENSSL_CONF_H
 
+/* Define to 1 if you have the <openssl/dh.h> header file. */
+#cmakedefine HAVE_OPENSSL_DH_H
+
+/* Define to 1 if you have the <openssl/dsa.h> header file. */
+#cmakedefine HAVE_OPENSSL_DSA_H
+
 /* Define to 1 if you have the <openssl/engine.h> header file. */
 #cmakedefine HAVE_OPENSSL_ENGINE_H
 
 /* Define to 1 if you have the <openssl/err.h> header file. */
 #cmakedefine HAVE_OPENSSL_ERR_H
 
+/* Define to 1 if you have the `OPENSSL_init_crypto' function. */
+#cmakedefine HAVE_OPENSSL_INIT_CRYPTO
+
+/* Define to 1 if you have the `OPENSSL_init_ssl' function. */
+#cmakedefine HAVE_OPENSSL_INIT_SSL
+
 /* Define to 1 if you have the <openssl/rand.h> header file. */
 #cmakedefine HAVE_OPENSSL_RAND_H
+
+/* Define to 1 if you have the <openssl/rsa.h> header file. */
+#cmakedefine HAVE_OPENSSL_RSA_H
 
 /* Define to 1 if you have the <openssl/ssl.h> header file. */
 #cmakedefine HAVE_OPENSSL_SSL_H
@@ -290,14 +352,14 @@
 /* Define to 1 if you have the `random' function. */
 #cmakedefine HAVE_RANDOM
 
+/* Define to 1 if you have the `RAND_cleanup' function. */
+#cmakedefine HAVE_RAND_CLEANUP
+
 /* Define to 1 if you have the `reallocarray' function. */
 #cmakedefine HAVE_REALLOCARRAY
 
 /* Define to 1 if you have the `recvmsg' function. */
 #cmakedefine HAVE_RECVMSG
-
-/* define if you have the sbrk() call */
-#cmakedefine HAVE_SBRK
 
 /* Define to 1 if you have the `sendmsg' function. */
 #cmakedefine HAVE_SENDMSG
@@ -326,6 +388,9 @@
 /* Define to 1 if you have the `SHA512_Update' function. */
 #cmakedefine HAVE_SHA512_UPDATE
 
+/* Define to 1 if you have the `shmget' function. */
+#cmakedefine HAVE_SHMGET
+
 /* Define to 1 if you have the `sigprocmask' function. */
 #cmakedefine HAVE_SIGPROCMASK
 
@@ -346,6 +411,9 @@
 
 /* Define if you have the SSL libraries installed. */
 #cmakedefine HAVE_SSL
+
+/* Define to 1 if you have the `SSL_CTX_set_security_level' function. */
+#cmakedefine HAVE_SSL_CTX_SET_SECURITY_LEVEL
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #cmakedefine HAVE_STDARG_H
@@ -377,6 +445,9 @@
 /* Define to 1 if you have the `strptime' function. */
 #cmakedefine HAVE_STRPTIME
 
+/* Define to 1 if you have the `strsep' function. */
+#cmakedefine HAVE_STRSEP
+
 /* Define to 1 if `ipi_spec_dst' is a member of `struct in_pktinfo'. */
 #cmakedefine HAVE_STRUCT_IN_PKTINFO_IPI_SPEC_DST
 
@@ -389,6 +460,12 @@
 /* Define to 1 if you have the <syslog.h> header file. */
 #cmakedefine HAVE_SYSLOG_H
 
+/* Define to 1 if systemd should be used */
+#undef HAVE_SYSTEMD
+
+/* Define to 1 if you have the <sys/ipc.h> header file. */
+#cmakedefine HAVE_SYS_IPC_H
+
 /* Define to 1 if you have the <sys/param.h> header file. */
 #cmakedefine01 HAVE_SYS_PARAM_H
 
@@ -397,6 +474,9 @@
 
 /* Define to 1 if you have the <sys/sha2.h> header file. */
 #cmakedefine HAVE_SYS_SHA2_H
+
+/* Define to 1 if you have the <sys/shm.h> header file. */
+#cmakedefine HAVE_SYS_SHM_H
 
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #cmakedefine HAVE_SYS_SOCKET_H
@@ -486,6 +566,9 @@
 
 /* Put -D_BSD_SOURCE define in config.h */
 #cmakedefine OMITTED__D_BSD_SOURCE
+
+/* Put -D_DEFAULT_SOURCE define in config.h */
+#cmakedefine OMITTED__D_DEFAULT_SOURCE
 
 /* Put -D_GNU_SOURCE define in config.h */
 #cmakedefine OMITTED__D_GNU_SOURCE
@@ -578,8 +661,17 @@
 /* define this to enable debug checks. */
 #cmakedefine UNBOUND_DEBUG
 
+/* Define to 1 to use cachedb support */
+#cmakedefine USE_CACHEDB
+
+/* Define to 1 to enable dnscrypt support */
+#cmakedefine USE_DNSCRYPT
+
 /* Define to 1 to enable dnstap support */
 #cmakedefine USE_DNSTAP
+
+/* Define this to enable DSA support. */
+#cmakedefine USE_DSA
 
 /* Define this to enable ECDSA support. */
 #cmakedefine USE_ECDSA
@@ -591,11 +683,23 @@
 #cmakedefine USE_GOST
 
 /* Define if you want to use internal select based events */
-/* #cmakedefine USE_MINI_EVENT */
 #define USE_MINI_EVENT 1
+
+/* Define this to enable client TCP Fast Open. */
+#cmakedefine USE_MSG_FASTOPEN
+
+/* Define this to enable client TCP Fast Open. */
+#cmakedefine USE_OSX_MSG_FASTOPEN
+
+/* Define this to enable SHA1 support. */
+#cmakedefine USE_SHA1
 
 /* Define this to enable SHA256 and SHA512 support. */
 #cmakedefine USE_SHA2
+
+/* Define this to disable code that can trigger Valgrind/AddressSanitizer
+   errors. See https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=1301 */
+#define VALGRIND
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE
@@ -618,6 +722,9 @@
 # define __EXTENSIONS__ 1
 #endif
 
+
+/* Define this to enable server TCP Fast Open. */
+#cmakedefine USE_TCP_FASTOPEN
 
 /* Whether the windows socket API is used */
 #cmakedefine USE_WINSOCK
@@ -738,35 +845,39 @@
 
 #if defined(OMITTED__D_GNU_SOURCE) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE 1
-#endif 
+#endif
 
 #if defined(OMITTED__D_BSD_SOURCE) && !defined(_BSD_SOURCE)
 #define _BSD_SOURCE 1
-#endif 
+#endif
+
+#if defined(OMITTED__D_DEFAULT_SOURCE) && !defined(_DEFAULT_SOURCE)
+#define _DEFAULT_SOURCE 1
+#endif
 
 #if defined(OMITTED__D__EXTENSIONS__) && !defined(__EXTENSIONS__)
 #define __EXTENSIONS__ 1
-#endif 
+#endif
 
 #if defined(OMITTED__D_POSIX_C_SOURCE_200112) && !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 200112
-#endif 
+#endif
 
 #if defined(OMITTED__D_XOPEN_SOURCE_600) && !defined(_XOPEN_SOURCE)
 #define _XOPEN_SOURCE 600
-#endif 
+#endif
 
 #if defined(OMITTED__D_XOPEN_SOURCE_EXTENDED_1) && !defined(_XOPEN_SOURCE_EXTENDED)
 #define _XOPEN_SOURCE_EXTENDED 1
-#endif 
+#endif
 
 #if defined(OMITTED__D_ALL_SOURCE) && !defined(_ALL_SOURCE)
 #define _ALL_SOURCE 1
-#endif 
+#endif
 
 #if defined(OMITTED__D_LARGEFILE_SOURCE_1) && !defined(_LARGEFILE_SOURCE)
 #define _LARGEFILE_SOURCE 1
-#endif 
+#endif
 
 /** Use small-ldns codebase */
 #define USE_SLDNS 1
@@ -819,6 +930,10 @@
 #include <netinet/in.h>
 #endif
 
+#ifdef HAVE_NETINET_TCP_H
+#include <netinet/tcp.h>
+#endif
+
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
@@ -842,7 +957,7 @@
 #define AF_LOCAL AF_UNIX
 #endif
 
- 
+
 #ifdef HAVE_ATTR_FORMAT
 #  define ATTR_FORMAT(archetype, string_index, first_to_check) \
     __attribute__ ((format (archetype, string_index, first_to_check)))
@@ -954,7 +1069,7 @@ void* reallocarray(void *ptr, size_t nmemb, size_t size);
 #ifdef HAVE_WINSOCK2_H
 #define FD_SET_T (u_int)
 #else
-#define FD_SET_T 
+#define FD_SET_T
 #endif
 
 
@@ -974,6 +1089,11 @@ int memcmp(const void *x, const void *y, size_t n);
 #ifndef HAVE_CTIME_R
 #define ctime_r unbound_ctime_r
 char *ctime_r(const time_t *timep, char *buf);
+#endif
+
+#ifndef HAVE_STRSEP
+#define strsep unbound_strsep
+char *strsep(char **stringp, const char *delim);
 #endif
 
 #ifndef HAVE_ISBLANK

@@ -29,3 +29,5 @@ distribution but may be helpful.
   Patch from Stephane Lapie for ASAHI Net.
 * unbound_smf22.tar.gz: Solaris SMF installation/removal scripts.
   Contributed by Yuri Voinov.
+* unbound.socket and unbound.service: systemd files for unbound, install them
+  in /usr/lib/systemd/system.  Contributed by Sami Kerola and Pavel Odintsov.

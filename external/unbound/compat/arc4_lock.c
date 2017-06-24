@@ -48,7 +48,7 @@ void _ARC4_UNLOCK(void)
 }
 #else /* !THREADS_DISABLED */
 
-static lock_quick_t arc4lock;
+static lock_quick_type arc4lock;
 static int arc4lockinit = 0;
 
 void _ARC4_LOCK(void)

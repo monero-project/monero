@@ -48,7 +48,6 @@ struct tube;
 struct tube_res_list;
 #ifdef USE_WINSOCK
 #include "util/locks.h"
-#include "util/winsock_event.h"
 #endif
 
 /**
@@ -56,7 +55,7 @@ struct tube_res_list;
  * void mycallback(tube, msg, len, error, user_argument);
  * if error is true (NETEVENT_*), msg is probably NULL.
  */
-typedef void tube_callback_t(struct tube*, uint8_t*, size_t, int, void*);
+typedef void tube_callback_type(struct tube*, uint8_t*, size_t, int, void*);
 
 /**
  * A pipe
@@ -71,7 +70,7 @@ struct tube {
 	/** listen commpoint */
 	struct comm_point* listen_com;
 	/** listen callback */
-	tube_callback_t* listen_cb;
+	tube_callback_type* listen_cb;
 	/** listen callback user arg */
 	void* listen_arg;
 	/** are we currently reading a command, 0 if not, else bytecount */
@@ -93,16 +92,16 @@ struct tube {
 
 #else /* USE_WINSOCK */
 	/** listen callback */
-	tube_callback_t* listen_cb;
+	tube_callback_type* listen_cb;
 	/** listen callback user arg */
 	void* listen_arg;
 	/** the windows sockets event (signaled if items in pipe) */
 	WSAEVENT event;
 	/** winsock event storage when registered with event base */
-	struct event ev_listen;
+	struct ub_event* ev_listen;
 
 	/** lock on the list of outstanding items */
-	lock_basic_t res_lock;
+	lock_basic_type res_lock;
 	/** list of outstanding results on pipe */
 	struct tube_res_list* res_list;
 	/** last in list */
@@ -223,7 +222,7 @@ int tube_read_fd(struct tube* tube);
  * @return true if successful, false on error.
  */
 int tube_setup_bg_listen(struct tube* tube, struct comm_base* base,
-	tube_callback_t* cb, void* arg);
+	tube_callback_type* cb, void* arg);
 
 /**
  * Remove bg listen setup from event base.

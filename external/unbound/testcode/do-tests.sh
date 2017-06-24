@@ -9,6 +9,7 @@ NEED_CURL='06-ianaports.tpkg root_anchor.tpkg'
 NEED_WHOAMI='07-confroot.tpkg'
 NEED_IPV6='fwd_ancil.tpkg fwd_tcp_tc6.tpkg stub_udp6.tpkg edns_cache.tpkg'
 NEED_NOMINGW='tcp_sigpipe.tpkg 07-confroot.tpkg 08-host-lib.tpkg fwd_ancil.tpkg'
+NEED_DNSCRYPT_PROXY='dnscrypt_queries.tpkg'
 
 # test if dig and ldns-testns are available.
 test_tool_avail "dig"
@@ -39,6 +40,7 @@ for test in `ls *.tpkg`; do
 	skip_if_in_list $test "$NEED_XXD" "xxd"
 	skip_if_in_list $test "$NEED_NC" "nc"
 	skip_if_in_list $test "$NEED_WHOAMI" "whoami"
+	skip_if_in_list $test "$NEED_DNSCRYPT_PROXY" "dnscrypt-proxy"
 
 	if echo $NEED_IPV6 | grep $test >/dev/null; then
 		if test "$HAVE_IPV6" = no; then

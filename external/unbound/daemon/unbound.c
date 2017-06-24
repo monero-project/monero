@@ -57,6 +57,7 @@
 #include "util/data/msgreply.h"
 #include "util/module.h"
 #include "util/net_help.h"
+#include "util/ub_event.h"
 #include <signal.h>
 #include <fcntl.h>
 #include <openssl/crypto.h>
@@ -77,22 +78,6 @@
 #include <login_cap.h>
 #endif
 
-#ifdef USE_MINI_EVENT
-#  ifdef USE_WINSOCK
-#    include "util/winsock_event.h"
-#  else
-#    include "util/mini_event.h"
-#  endif
-#else
-#  ifdef HAVE_EVENT_H
-#    include <event.h>
-#  else
-#    include "event2/event.h"
-#    include "event2/event_struct.h"
-#    include "event2/event_compat.h"
-#  endif
-#endif
-
 #ifdef UB_ON_WINDOWS
 #  include "winrc/win_svc.h"
 #endif
@@ -102,64 +87,14 @@
 #  include "nss.h"
 #endif
 
-#ifdef HAVE_SBRK
-/** global debug value to keep track of heap memory allocation */
-void* unbound_start_brk = 0;
-#endif
-
-#if !defined(HAVE_EVENT_BASE_GET_METHOD) && (defined(HAVE_EV_LOOP) || defined(HAVE_EV_DEFAULT_LOOP))
-static const char* ev_backend2str(int b)
-{
-	switch(b) {
-	case EVBACKEND_SELECT:	return "select";
-	case EVBACKEND_POLL:	return "poll";
-	case EVBACKEND_EPOLL:	return "epoll";
-	case EVBACKEND_KQUEUE:	return "kqueue";
-	case EVBACKEND_DEVPOLL: return "devpoll";
-	case EVBACKEND_PORT:	return "evport";
-	}
-	return "unknown";
-}
-#endif
-
-/** get the event system in use */
-static void get_event_sys(const char** n, const char** s, const char** m)
-{
-#ifdef USE_WINSOCK
-	*n = "event";
-	*s = "winsock";
-	*m = "WSAWaitForMultipleEvents";
-#elif defined(USE_MINI_EVENT)
-	*n = "mini-event";
-	*s = "internal";
-	*m = "select";
-#else
-	struct event_base* b;
-	*s = event_get_version();
-#  ifdef HAVE_EVENT_BASE_GET_METHOD
-	*n = "libevent";
-	b = event_base_new();
-	*m = event_base_get_method(b);
-#  elif defined(HAVE_EV_LOOP) || defined(HAVE_EV_DEFAULT_LOOP)
-	*n = "libev";
-	b = (struct event_base*)ev_default_loop(EVFLAG_AUTO);
-	*m = ev_backend2str(ev_backend((struct ev_loop*)b));
-#  else
-	*n = "unknown";
-	*m = "not obtainable";
-	b = NULL;
-#  endif
-#  ifdef HAVE_EVENT_BASE_FREE
-	event_base_free(b);
-#  endif
-#endif
-}
-
 /** print usage. */
-static void usage()
+static void usage(void)
 {
 	const char** m;
 	const char *evnm="event", *evsys="", *evmethod="";
+	time_t t;
+	struct timeval now;
+	struct ub_event_base* base;
 	printf("usage:  unbound [options]\n");
 	printf("	start unbound daemon DNS resolver.\n");
 	printf("-h	this help\n");
@@ -173,11 +108,16 @@ static void usage()
 	printf("   	service - used to start from services control panel\n");
 #endif
 	printf("Version %s\n", PACKAGE_VERSION);
-	get_event_sys(&evnm, &evsys, &evmethod);
+	base = ub_default_event_base(0,&t,&now);
+	ub_get_event_sys(base, &evnm, &evsys, &evmethod);
 	printf("linked libs: %s %s (it uses %s), %s\n", 
 		evnm, evsys, evmethod,
 #ifdef HAVE_SSL
+#  ifdef SSLEAY_VERSION
 		SSLeay_version(SSLEAY_VERSION)
+#  else
+		OpenSSL_version(OPENSSL_VERSION)
+#  endif
 #elif defined(HAVE_NSS)
 		NSS_GetVersion()
 #elif defined(HAVE_NETTLE)
@@ -190,6 +130,7 @@ static void usage()
 	printf("\n");
 	printf("BSD licensed, see LICENSE in source package for details.\n");
 	printf("Report bugs to %s\n", PACKAGE_BUGREPORT);
+	ub_event_base_free(base);
 }
 
 #ifndef unbound_testbound
@@ -230,7 +171,7 @@ checkrlimits(struct config_file* cfg)
 	struct rlimit rlim;
 
 	if(total > 1024 && 
-		strncmp(event_get_version(), "mini-event", 10) == 0) {
+		strncmp(ub_event_get_version(), "mini-event", 10) == 0) {
 		log_warn("too many file descriptors requested. The builtin"
 			"mini-event cannot handle more than 1024. Config "
 			"for less fds or compile with libevent");
@@ -244,7 +185,7 @@ checkrlimits(struct config_file* cfg)
 		total = 1024;
 	}
 	if(perthread > 64 && 
-		strncmp(event_get_version(), "winsock-event", 13) == 0) {
+		strncmp(ub_event_get_version(), "winsock-event", 13) == 0) {
 		log_err("too many file descriptors requested. The winsock"
 			" event handler cannot handle more than 64 per "
 			" thread. Config for less fds");
@@ -298,19 +239,37 @@ checkrlimits(struct config_file* cfg)
 #endif /* S_SPLINT_S */
 }
 
+/** set default logfile identity based on value from argv[0] at startup **/
+static void
+log_ident_set_fromdefault(struct config_file* cfg,
+	const char *log_default_identity)
+{
+	if(cfg->log_identity == NULL || cfg->log_identity[0] == 0)
+		log_ident_set(log_default_identity);
+	else
+		log_ident_set(cfg->log_identity);
+}
+
 /** set verbosity, check rlimits, cache settings */
 static void
 apply_settings(struct daemon* daemon, struct config_file* cfg, 
-	int cmdline_verbose, int debug_mode)
+	int cmdline_verbose, int debug_mode, const char* log_default_identity)
 {
 	/* apply if they have changed */
 	verbosity = cmdline_verbose + cfg->verbosity;
 	if (debug_mode > 1) {
 		cfg->use_syslog = 0;
+		free(cfg->logfile);
 		cfg->logfile = NULL;
 	}
 	daemon_apply_cfg(daemon, cfg);
 	checkrlimits(cfg);
+
+	if (cfg->use_systemd && cfg->do_daemonize) {
+		log_warn("use-systemd and do-daemonize should not be enabled at the same time");
+	}
+
+	log_ident_set_fromdefault(cfg, log_default_identity);
 }
 
 #ifdef HAVE_KILL
@@ -443,6 +402,9 @@ static void
 perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 	const char** cfgfile)
 {
+#ifdef HAVE_KILL
+	int pidinchroot;
+#endif
 #ifdef HAVE_GETPWNAM
 	struct passwd *pwd = NULL;
 
@@ -481,6 +443,12 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 #endif
 
 #ifdef HAVE_KILL
+	/* true if pidfile is inside chrootdir, or nochroot */
+	pidinchroot = !(cfg->chrootdir && cfg->chrootdir[0]) ||
+				(cfg->chrootdir && cfg->chrootdir[0] &&
+				strncmp(cfg->pidfile, cfg->chrootdir,
+				strlen(cfg->chrootdir))==0);
+
 	/* check old pid file before forking */
 	if(cfg->pidfile && cfg->pidfile[0]) {
 		/* calculate position of pidfile */
@@ -490,12 +458,7 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 				cfg, 1);
 		if(!daemon->pidfile)
 			fatal_exit("pidfile alloc: out of memory");
-		checkoldpid(daemon->pidfile,
-			/* true if pidfile is inside chrootdir, or nochroot */
-			!(cfg->chrootdir && cfg->chrootdir[0]) ||
-			(cfg->chrootdir && cfg->chrootdir[0] &&
-			strncmp(daemon->pidfile, cfg->chrootdir,
-				strlen(cfg->chrootdir))==0));
+		checkoldpid(daemon->pidfile, pidinchroot);
 	}
 #endif
 
@@ -508,10 +471,11 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 #ifdef HAVE_KILL
 	if(cfg->pidfile && cfg->pidfile[0]) {
 		writepid(daemon->pidfile, getpid());
-		if(cfg->username && cfg->username[0] && cfg_uid != (uid_t)-1) {
+		if(cfg->username && cfg->username[0] && cfg_uid != (uid_t)-1 &&
+			pidinchroot) {
 #  ifdef HAVE_CHOWN
 			if(chown(daemon->pidfile, cfg_uid, cfg_gid) == -1) {
-				log_err("cannot chown %u.%u %s: %s",
+				verbose(VERB_QUERY, "cannot chown %u.%u %s: %s",
 					(unsigned)cfg_uid, (unsigned)cfg_gid,
 					daemon->pidfile, strerror(errno));
 			}
@@ -597,7 +561,9 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
 			log_warn("unable to initgroups %s: %s",
 				cfg->username, strerror(errno));
 #  endif /* HAVE_INITGROUPS */
+#  ifdef HAVE_ENDPWENT
 		endpwent();
+#  endif
 
 #ifdef HAVE_SETRESGID
 		if(setresgid(cfg_gid,cfg_gid,cfg_gid) != 0)
@@ -633,9 +599,10 @@ perform_setup(struct daemon* daemon, struct config_file* cfg, int debug_mode,
  * @param cmdline_verbose: verbosity resulting from commandline -v.
  *    These increase verbosity as specified in the config file.
  * @param debug_mode: if set, do not daemonize.
+ * @param log_default_identity: Default identity to report in logs
  */
 static void 
-run_daemon(const char* cfgfile, int cmdline_verbose, int debug_mode)
+run_daemon(const char* cfgfile, int cmdline_verbose, int debug_mode, const char* log_default_identity)
 {
 	struct config_file* cfg = NULL;
 	struct daemon* daemon = NULL;
@@ -657,7 +624,7 @@ run_daemon(const char* cfgfile, int cmdline_verbose, int debug_mode)
 					cfgfile);
 			log_warn("Continuing with default config settings");
 		}
-		apply_settings(daemon, cfg, cmdline_verbose, debug_mode);
+		apply_settings(daemon, cfg, cmdline_verbose, debug_mode, log_default_identity);
 		if(!done_setup)
 			config_lookup_uid(cfg);
 	
@@ -665,7 +632,7 @@ run_daemon(const char* cfgfile, int cmdline_verbose, int debug_mode)
 		if(!daemon_open_shared_ports(daemon))
 			fatal_exit("could not open ports");
 		if(!done_setup) { 
-			perform_setup(daemon, cfg, debug_mode, &cfgfile); 
+			perform_setup(daemon, cfg, debug_mode, &cfgfile);
 			done_setup = 1; 
 		} else {
 			/* reopen log after HUP to facilitate log rotation */
@@ -712,19 +679,16 @@ main(int argc, char* argv[])
 	int c;
 	const char* cfgfile = CONFIGFILE;
 	const char* winopt = NULL;
+	const char* log_ident_default;
 	int cmdline_verbose = 0;
 	int debug_mode = 0;
 #ifdef UB_ON_WINDOWS
 	int cmdline_cfg = 0;
 #endif
 
-#ifdef HAVE_SBRK
-	/* take debug snapshot of heap */
-	unbound_start_brk = sbrk(0);
-#endif
-
 	log_init(NULL, 0, NULL);
-	log_ident_set(strrchr(argv[0],'/')?strrchr(argv[0],'/')+1:argv[0]);
+	log_ident_default = strrchr(argv[0],'/')?strrchr(argv[0],'/')+1:argv[0];
+	log_ident_set(log_ident_default);
 	/* parse the options */
 	while( (c=getopt(argc, argv, "c:dhvw:")) != -1) {
 		switch(c) {
@@ -735,7 +699,7 @@ main(int argc, char* argv[])
 #endif
 			break;
 		case 'v':
-			cmdline_verbose ++;
+			cmdline_verbose++;
 			verbosity++;
 			break;
 		case 'd':
@@ -768,7 +732,7 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	run_daemon(cfgfile, cmdline_verbose, debug_mode);
+	run_daemon(cfgfile, cmdline_verbose, debug_mode, log_ident_default);
 	log_init(NULL, 0, NULL); /* close logfile */
 	return 0;
 }

@@ -51,7 +51,7 @@ struct iter_forwards;
 struct iter_donotq;
 struct iter_prep_list;
 struct iter_priv;
-struct rbtree_t;
+struct rbtree_type;
 
 /** max number of targets spawned for a query and its subqueries */
 #define MAX_TARGET_COUNT	64
@@ -61,6 +61,23 @@ struct rbtree_t;
 #define MAX_REFERRAL_COUNT	130
 /** max number of queries-sent-out.  Make sure large NS set does not loop */
 #define MAX_SENT_COUNT		32
+/** max number of queries for which to perform dnsseclameness detection,
+ * (rrsigs misssing detection) after that, just pick up that response */
+#define DNSSEC_LAME_DETECT_COUNT 4
+/**
+ * max number of QNAME minimisation iterations. Limits number of queries for
+ * QNAMEs with a lot of labels.
+*/
+#define MAX_MINIMISE_COUNT	10
+/* max number of time-outs for minimised query. Prevents resolving failures
+ * when the QNAME minimisation QTYPE is blocked. */
+#define MAX_MINIMISE_TIMEOUT_COUNT 3
+/**
+ * number of labels from QNAME that are always send individually when using
+ * QNAME minimisation, even when the number of labels of the QNAME is bigger
+ * tham MAX_MINIMISE_COUNT */
+#define MINIMISE_ONE_LAB	4
+#define MINIMISE_MULTIPLE_LABS	(MAX_MINIMISE_COUNT - MINIMISE_ONE_LAB)
 /** at what query-sent-count to stop target fetch policy */
 #define TARGET_FETCH_STOP	3
 /** how nice is a server without further information, in msec 
@@ -98,7 +115,7 @@ struct iter_env {
 	struct iter_priv* priv;
 
 	/** whitelist for capsforid names */
-	struct rbtree_t* caps_white;
+	struct rbtree_type* caps_white;
 
 	/** The maximum dependency depth that this resolver will pursue. */
 	int max_dependency_depth;
@@ -349,7 +366,7 @@ struct iter_qstate {
 	/** list of pending queries to authoritative servers. */
 	struct outbound_list outlist;
 
-	/** QNAME minimisation state */
+	/** QNAME minimisation state, RFC7816 */
 	enum minimisation_state minimisation_state;
 
 	/**
@@ -357,6 +374,17 @@ struct iter_qstate {
 	 * when qname minimisation is enabled.
 	 */
 	struct query_info qinfo_out;
+
+	/**
+	 * Count number of QNAME minisation iterations. Used to limit number of
+	 * outgoing queries when QNAME minimisation is enabled.
+	 */
+	int minimise_count;
+
+	/**
+	 * Count number of time-outs. Used to prevent resolving failures when
+	 * the QNAME minimisation QTYPE is blocked. */
+	int minimise_timeout_count;
 };
 
 /**

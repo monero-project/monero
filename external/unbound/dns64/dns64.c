@@ -411,31 +411,6 @@ handle_ipv6_ptr(struct module_qstate* qstate, int id)
     return module_wait_subquery;
 }
 
-/** allocate (special) rrset keys, return 0 on error */
-static int
-repinfo_alloc_rrset_keys(struct reply_info* rep, 
-	struct regional* region)
-{
-	size_t i;
-	for(i=0; i<rep->rrset_count; i++) {
-		if(region) {
-			rep->rrsets[i] = (struct ub_packed_rrset_key*)
-				regional_alloc(region, 
-				sizeof(struct ub_packed_rrset_key));
-			if(rep->rrsets[i]) {
-				memset(rep->rrsets[i], 0, 
-					sizeof(struct ub_packed_rrset_key));
-				rep->rrsets[i]->entry.key = rep->rrsets[i];
-			}
-		}
-		else return 0;/*	rep->rrsets[i] = alloc_special_obtain(alloc);*/
-		if(!rep->rrsets[i])
-			return 0;
-		rep->rrsets[i]->entry.data = NULL;
-	}
-	return 1;
-}
-
 static enum module_ext_state
 generate_type_A_query(struct module_qstate* qstate, int id)
 {
@@ -521,13 +496,14 @@ handle_event_moddone(struct module_qstate* qstate, int id)
      *   - An internal query.
      *   - A query for a record type other than AAAA.
      *   - CD FLAG was set on querier
-     *   - An AAAA query for which an error was returned.
+     *   - An AAAA query for which an error was returned.(qstate.return_rcode)
+     *     -> treated as servfail thus synthesize (sec 5.1.3 6147), thus
+     *        synthesize in (sec 5.1.2 of RFC6147).
      *   - A successful AAAA query with an answer.
      */
 	if ( (enum dns64_qstate)qstate->minfo[id] == DNS64_INTERNAL_QUERY
             || qstate->qinfo.qtype != LDNS_RR_TYPE_AAAA
 	    || (qstate->query_flags & BIT_CD)
-	    || qstate->return_rcode != LDNS_RCODE_NOERROR  
 	    || (qstate->return_msg &&
 		    qstate->return_msg->rep &&
 		    reply_find_answer_rrset(&qstate->qinfo,
@@ -706,7 +682,7 @@ dns64_adjust_a(int id, struct module_qstate* super, struct module_qstate* qstate
 		return;
 
 	/* allocate ub_key structures special or not */
-	if(!repinfo_alloc_rrset_keys(cp, super->region)) {
+	if(!reply_info_alloc_rrset_keys(cp, NULL, super->region)) {
 		return;
 	}
 
@@ -824,8 +800,9 @@ dns64_inform_super(struct module_qstate* qstate, int id,
 	}
 
 	/* Store the generated response in cache. */
-	if (!dns_cache_store(super->env, &super->qinfo, super->return_msg->rep,
-	    0, 0, 0, NULL, super->query_flags))
+	if (!super->no_cache_store &&
+		!dns_cache_store(super->env, &super->qinfo, super->return_msg->rep,
+		0, 0, 0, NULL, super->query_flags))
 		log_err("out of memory");
 }
 
@@ -871,7 +848,7 @@ static struct module_func_block dns64_block = {
  * Function for returning the above function block.
  */
 struct module_func_block *
-dns64_get_funcblock()
+dns64_get_funcblock(void)
 {
 	return &dns64_block;
 }

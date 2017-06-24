@@ -150,7 +150,7 @@ get_state ( ) {
 			fi
 		done
 		# try to get it
-		echo $$ >$lock
+		if echo $$ >$lock ; then : ; else break; fi
 	done
 	# do not refetch if the file exists and only LEE seconds old
 	if test -f $state; then
@@ -266,7 +266,6 @@ if test "$1" = "config" ; then
 		echo "graph_args --base 1024 -l 0"
 		echo "graph_vlabel memory used in bytes"
 		echo "graph_category DNS"
-		p_config "mem.total.sbrk" "Total memory" "GAUGE"
 		p_config "mem.cache.rrset" "RRset cache memory" "GAUGE"
 		p_config "mem.cache.message" "Message cache memory" "GAUGE"
 		p_config "mem.mod.iterator" "Iterator module memory" "GAUGE"
@@ -458,20 +457,6 @@ queue)
 	done
 	;;
 memory)
-	mn=`echo mem.total.sbrk | sed $ABBREV | tr . _`
-	get_value 'mem.total.sbrk'
-	if test $value -eq 0; then
-		chk=`echo $ctrl | sed -e 's/-control$/-checkconf/'`
-		pidf=`$chk -o pidfile $conf 2>&1`
-		pid=`cat $pidf 2>&1`
-		value=`ps -p "$pid" -o rss= 2>&1`
-		if test "`expr $value + 1 - 1 2>&1`" -eq "$value" 2>&1; then
-			value=`expr $value \* 1024` 
-		else
-			value=0
-		fi
-	fi
-	echo "$mn.value" $value
 	for x in mem.cache.rrset mem.cache.message mem.mod.iterator \
 		mem.mod.validator msg.cache.count rrset.cache.count \
 		infra.cache.count key.cache.count; do

@@ -58,7 +58,7 @@ struct iter_donotq {
 	 * contents of type addr_tree_node. Each node is an address span 
 	 * that must not be used to send queries to.
 	 */
-	rbtree_t tree;
+	rbtree_type tree;
 };
 
 /**

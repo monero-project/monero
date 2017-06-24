@@ -98,6 +98,7 @@ entry_add_reply(struct entry* entry)
 	pkt->packet_sleep = 0;
 	pkt->reply_pkt = NULL;
 	pkt->reply_from_hex = NULL;
+	pkt->raw_ednsdata = NULL;
 	/* link at end */
 	while(*p)
 		p = &((*p)->next);
@@ -118,6 +119,12 @@ static void matchline(char* line, struct entry* e)
 			e->match_qtype = 1;
 		} else if(str_keyword(&parse, "qname")) {
 			e->match_qname = 1;
+		} else if(str_keyword(&parse, "rcode")) {
+			e->match_rcode = 1;
+		} else if(str_keyword(&parse, "question")) {
+			e->match_question = 1;
+		} else if(str_keyword(&parse, "answer")) {
+			e->match_answer = 1;
 		} else if(str_keyword(&parse, "subdomain")) {
 			e->match_subdomain = 1;
 		} else if(str_keyword(&parse, "all")) {
@@ -128,6 +135,8 @@ static void matchline(char* line, struct entry* e)
 			e->match_do = 1;
 		} else if(str_keyword(&parse, "noedns")) {
 			e->match_noedns = 1;
+		} else if(str_keyword(&parse, "ednsdata")) {
+			e->match_ednsdata_raw = 1;
 		} else if(str_keyword(&parse, "UDP")) {
 			e->match_transport = transport_udp;
 		} else if(str_keyword(&parse, "TCP")) {
@@ -224,6 +233,8 @@ static void adjustline(char* line, struct entry* e,
 			e->copy_id = 1;
 		} else if(str_keyword(&parse, "copy_query")) {
 			e->copy_query = 1;
+		} else if(str_keyword(&parse, "copy_ednsdata_assume_clientsubnet")) {
+			e->copy_ednsdata_assume_clientsubnet = 1;
 		} else if(str_keyword(&parse, "sleep=")) {
 			e->sleeptime = (unsigned int) strtol(parse, (char**)&parse, 10);
 			while(isspace((unsigned char)*parse)) 
@@ -239,7 +250,7 @@ static void adjustline(char* line, struct entry* e,
 }
 
 /** create new entry */
-static struct entry* new_entry()
+static struct entry* new_entry(void)
 {
 	struct entry* e = (struct entry*)malloc(sizeof(struct entry));
 	if(!e) error("out of memory");
@@ -247,6 +258,9 @@ static struct entry* new_entry()
 	e->match_opcode = 0;
 	e->match_qtype = 0;
 	e->match_qname = 0;
+	e->match_rcode = 0;
+	e->match_question = 0;
+	e->match_answer = 0;
 	e->match_subdomain = 0;
 	e->match_all = 0;
 	e->match_ttl = 0;
@@ -258,6 +272,7 @@ static struct entry* new_entry()
 	e->reply_list = NULL;
 	e->copy_id = 0;
 	e->copy_query = 0;
+	e->copy_ednsdata_assume_clientsubnet = 0;
 	e->sleeptime = 0;
 	e->next = NULL;
 	return e;
@@ -475,25 +490,28 @@ static void add_rr(char* rrstr, uint8_t* pktbuf, size_t pktsize,
 	else error("internal error bad section %d", (int)add_section);
 }
 
-/* add EDNS 4096 DO opt record */
+/* add EDNS 4096 opt record */
 static void
-add_do_flag(uint8_t* pktbuf, size_t pktsize, size_t* pktlen)
+add_edns(uint8_t* pktbuf, size_t pktsize, int do_flag, uint8_t *ednsdata,
+	uint16_t ednslen, size_t* pktlen)
 {
 	uint8_t edns[] = {0x00, /* root label */
 		0x00, LDNS_RR_TYPE_OPT, /* type */
 		0x10, 0x00, /* class is UDPSIZE 4096 */
 		0x00, /* TTL[0] is ext rcode */
 		0x00, /* TTL[1] is edns version */
-		0x80, 0x00, /* TTL[2-3] is edns flags, DO */
-		0x00, 0x00 /* rdatalength (0 options) */
+		(uint8_t)(do_flag?0x80:0x00), 0x00, /* TTL[2-3] is edns flags, DO */
+		(uint8_t)((ednslen >> 8) & 0xff),
+		(uint8_t)(ednslen  & 0xff), /* rdatalength */
 	};
 	if(*pktlen < LDNS_HEADER_SIZE)
 		return;
-	if(*pktlen + sizeof(edns) > pktsize)
+	if(*pktlen + sizeof(edns) + ednslen > pktsize)
 		error("not enough space for EDNS OPT record");
 	memmove(pktbuf+*pktlen, edns, sizeof(edns));
+	memmove(pktbuf+*pktlen+sizeof(edns), ednsdata, ednslen);
 	sldns_write_uint16(pktbuf+10, LDNS_ARCOUNT(pktbuf)+1);
-	*pktlen += sizeof(edns);
+	*pktlen += (sizeof(edns) + ednslen);
 }
 
 /* Reads one entry from file. Returns entry or NULL on error. */
@@ -507,7 +525,9 @@ read_entry(FILE* in, const char* name, struct sldns_file_parse_state* pstate,
 	sldns_pkt_section add_section = LDNS_SECTION_QUESTION;
 	struct reply_packet *cur_reply = NULL;
 	int reading_hex = 0;
+	int reading_hex_ednsdata = 0;
 	sldns_buffer* hex_data_buffer = NULL;
+	sldns_buffer* hex_ednsdata_buffer = NULL;
 	uint8_t pktbuf[MAX_PACKETLEN];
 	size_t pktlen = LDNS_HEADER_SIZE;
 	int do_flag = 0; /* DO flag in EDNS */
@@ -574,21 +594,45 @@ read_entry(FILE* in, const char* name, struct sldns_file_parse_state* pstate,
 			cur_reply->reply_from_hex = hex_buffer2wire(hex_data_buffer);
 			sldns_buffer_free(hex_data_buffer);
 			hex_data_buffer = NULL;
+		} else if(reading_hex) {
+			sldns_buffer_printf(hex_data_buffer, "%s", line);
+		} else if(str_keyword(&parse, "HEX_EDNSDATA_BEGIN")) {
+			hex_ednsdata_buffer = sldns_buffer_new(MAX_PACKETLEN);
+			reading_hex_ednsdata = 1;
+		} else if(str_keyword(&parse, "HEX_EDNSDATA_END")) {
+			if (!reading_hex_ednsdata) {
+				error("%s line %d: HEX_EDNSDATA_END read but no"
+					"HEX_EDNSDATA_BEGIN keyword seen", name, pstate->lineno);
+			}
+			reading_hex_ednsdata = 0;
+			cur_reply->raw_ednsdata = hex_buffer2wire(hex_ednsdata_buffer);
+			sldns_buffer_free(hex_ednsdata_buffer);
+			hex_ednsdata_buffer = NULL;
+		} else if(reading_hex_ednsdata) {
+			sldns_buffer_printf(hex_ednsdata_buffer, "%s", line);
 		} else if(str_keyword(&parse, "ENTRY_END")) {
 			if(hex_data_buffer)
 				sldns_buffer_free(hex_data_buffer);
+			if(hex_ednsdata_buffer)
+				sldns_buffer_free(hex_ednsdata_buffer);
 			if(pktlen != 0) {
-				if(do_flag)
-					add_do_flag(pktbuf, sizeof(pktbuf),
-						&pktlen);
+				if(do_flag || cur_reply->raw_ednsdata) {
+					if(cur_reply->raw_ednsdata &&
+						sldns_buffer_limit(cur_reply->raw_ednsdata))
+						add_edns(pktbuf, sizeof(pktbuf), do_flag,
+							sldns_buffer_begin(cur_reply->raw_ednsdata),
+							(uint16_t)sldns_buffer_limit(cur_reply->raw_ednsdata),
+							&pktlen);
+					else
+						add_edns(pktbuf, sizeof(pktbuf), do_flag,
+							NULL, 0, &pktlen);
+				}
 				cur_reply->reply_pkt = memdup(pktbuf, pktlen);
 				cur_reply->reply_len = pktlen;
 				if(!cur_reply->reply_pkt)
 					error("out of memory");
 			}
 			return current;
-		} else if(reading_hex) {
-			sldns_buffer_printf(hex_data_buffer, "%s", line);
 		} else {
 			add_rr(skip_whitespace?parse:line, pktbuf,
 				sizeof(pktbuf), &pktlen, pstate, add_section,
@@ -596,9 +640,13 @@ read_entry(FILE* in, const char* name, struct sldns_file_parse_state* pstate,
 		}
 
 	}
-	if (reading_hex) {
+	if(reading_hex) {
 		error("%s: End of file reached while still reading hex, "
 			"missing HEX_ANSWER_END\n", name);
+	}
+	if(reading_hex_ednsdata) {
+		error("%s: End of file reached while still reading edns data, "
+			"missing HEX_EDNSDATA_END\n", name);
 	}
 	if(current) {
 		error("%s: End of file reached while reading entry. "
@@ -691,6 +739,14 @@ static int get_opcode(uint8_t* pkt, size_t pktlen)
 	return (int)LDNS_OPCODE_WIRE(pkt);
 }
 
+/** returns rcode from packet */
+static int get_rcode(uint8_t* pkt, size_t pktlen)
+{
+	if(pktlen < LDNS_HEADER_SIZE)
+		return 0;
+	return (int)LDNS_RCODE_WIRE(pkt);
+}
+
 /** get authority section SOA serial value */
 static uint32_t get_serial(uint8_t* p, size_t plen)
 {
@@ -761,16 +817,16 @@ pkt_find_edns_opt(uint8_t** p, size_t* plen)
 	wlen -= LDNS_HEADER_SIZE;
 
 	/* skip other records with wire2str_scan */
-	for(i=0; i < LDNS_QDCOUNT(p); i++)
+	for(i=0; i < LDNS_QDCOUNT(*p); i++)
 		(void)sldns_wire2str_rrquestion_scan(&w, &wlen, &snull, &sl,
 			*p, *plen);
-	for(i=0; i < LDNS_ANCOUNT(p); i++)
+	for(i=0; i < LDNS_ANCOUNT(*p); i++)
 		(void)sldns_wire2str_rr_scan(&w, &wlen, &snull, &sl, *p, *plen);
-	for(i=0; i < LDNS_NSCOUNT(p); i++)
+	for(i=0; i < LDNS_NSCOUNT(*p); i++)
 		(void)sldns_wire2str_rr_scan(&w, &wlen, &snull, &sl, *p, *plen);
 
 	/* walk through additional section */
-	for(i=0; i < LDNS_ARCOUNT(p); i++) {
+	for(i=0; i < LDNS_ARCOUNT(*p); i++) {
 		/* if this is OPT then done */
 		uint8_t* dstart = w;
 		size_t dlen = wlen;
@@ -802,8 +858,8 @@ get_do_flag(uint8_t* pkt, size_t len)
 	uint16_t edns_bits;
 	uint8_t* walk = pkt;
 	size_t walk_len = len;
-	if(pkt_find_edns_opt(&walk, &walk_len)) {
-		return 1;
+	if(!pkt_find_edns_opt(&walk, &walk_len)) {
+		return 0;
 	}
 	if(walk_len < 6)
 		return 0; /* malformed */
@@ -1086,6 +1142,138 @@ static void lowercase_pkt(uint8_t* pkt, size_t pktlen)
 	}
 }
 
+/** match question section of packet */
+static int
+match_question(uint8_t* q, size_t qlen, uint8_t* p, size_t plen, int mttl)
+{
+	char* qstr, *pstr, *s, *qcmpstr, *pcmpstr;
+	uint8_t* qb = q, *pb = p;
+	int r;
+	/* zero TTLs */
+	qb = memdup(q, qlen);
+	pb = memdup(p, plen);
+	if(!qb || !pb) error("out of memory");
+	if(!mttl) {
+		zerottls(qb, qlen);
+		zerottls(pb, plen);
+	}
+	lowercase_pkt(qb, qlen);
+	lowercase_pkt(pb, plen);
+	qstr = sldns_wire2str_pkt(qb, qlen);
+	pstr = sldns_wire2str_pkt(pb, plen);
+	if(!qstr || !pstr) error("cannot pkt2string");
+
+	/* remove before ;; QUESTION */
+	s = strstr(qstr, ";; QUESTION SECTION");
+	qcmpstr = s;
+	s = strstr(pstr, ";; QUESTION SECTION");
+	pcmpstr = s;
+	if(!qcmpstr && !pcmpstr) {
+		free(qstr);
+		free(pstr);
+		free(qb);
+		free(pb);
+		return 1;
+	}
+	if(!qcmpstr || !pcmpstr) {
+		free(qstr);
+		free(pstr);
+		free(qb);
+		free(pb);
+		return 0;
+	}
+	
+	/* remove after answer section, (;; AUTH, ;; ADD, ;; MSG size ..) */
+	s = strstr(qcmpstr, ";; ANSWER SECTION");
+	if(!s) s = strstr(qcmpstr, ";; AUTHORITY SECTION");
+	if(!s) s = strstr(qcmpstr, ";; ADDITIONAL SECTION");
+	if(!s) s = strstr(qcmpstr, ";; MSG SIZE");
+	if(s) *s = 0;
+	s = strstr(pcmpstr, ";; ANSWER SECTION");
+	if(!s) s = strstr(pcmpstr, ";; AUTHORITY SECTION");
+	if(!s) s = strstr(pcmpstr, ";; ADDITIONAL SECTION");
+	if(!s) s = strstr(pcmpstr, ";; MSG SIZE");
+	if(s) *s = 0;
+
+	r = (strcmp(qcmpstr, pcmpstr) == 0);
+
+	if(!r) {
+		verbose(3, "mismatch question section '%s' and '%s'",
+			qcmpstr, pcmpstr);
+	}
+
+	free(qstr);
+	free(pstr);
+	free(qb);
+	free(pb);
+	return r;
+}
+
+/** match answer section of packet */
+static int
+match_answer(uint8_t* q, size_t qlen, uint8_t* p, size_t plen, int mttl)
+{
+	char* qstr, *pstr, *s, *qcmpstr, *pcmpstr;
+	uint8_t* qb = q, *pb = p;
+	int r;
+	/* zero TTLs */
+	qb = memdup(q, qlen);
+	pb = memdup(p, plen);
+	if(!qb || !pb) error("out of memory");
+	if(!mttl) {
+		zerottls(qb, qlen);
+		zerottls(pb, plen);
+	}
+	lowercase_pkt(qb, qlen);
+	lowercase_pkt(pb, plen);
+	qstr = sldns_wire2str_pkt(qb, qlen);
+	pstr = sldns_wire2str_pkt(pb, plen);
+	if(!qstr || !pstr) error("cannot pkt2string");
+
+	/* remove before ;; ANSWER */
+	s = strstr(qstr, ";; ANSWER SECTION");
+	qcmpstr = s;
+	s = strstr(pstr, ";; ANSWER SECTION");
+	pcmpstr = s;
+	if(!qcmpstr && !pcmpstr) {
+		free(qstr);
+		free(pstr);
+		free(qb);
+		free(pb);
+		return 1;
+	}
+	if(!qcmpstr || !pcmpstr) {
+		free(qstr);
+		free(pstr);
+		free(qb);
+		free(pb);
+		return 0;
+	}
+	
+	/* remove after answer section, (;; AUTH, ;; ADD, ;; MSG size ..) */
+	s = strstr(qcmpstr, ";; AUTHORITY SECTION");
+	if(!s) s = strstr(qcmpstr, ";; ADDITIONAL SECTION");
+	if(!s) s = strstr(qcmpstr, ";; MSG SIZE");
+	if(s) *s = 0;
+	s = strstr(pcmpstr, ";; AUTHORITY SECTION");
+	if(!s) s = strstr(pcmpstr, ";; ADDITIONAL SECTION");
+	if(!s) s = strstr(pcmpstr, ";; MSG SIZE");
+	if(s) *s = 0;
+
+	r = (strcmp(qcmpstr, pcmpstr) == 0);
+
+	if(!r) {
+		verbose(3, "mismatch answer section '%s' and '%s'",
+			qcmpstr, pcmpstr);
+	}
+
+	free(qstr);
+	free(pstr);
+	free(qb);
+	free(pb);
+	return r;
+}
+
 /** match all of the packet */
 int
 match_all(uint8_t* q, size_t qlen, uint8_t* p, size_t plen, int mttl,
@@ -1127,6 +1315,9 @@ match_all(uint8_t* q, size_t qlen, uint8_t* p, size_t plen, int mttl,
 	if(!r && noloc) {
 		/* check for reordered sections */
 		r = match_noloc(qstr, pstr, q, qlen, p, plen);
+	}
+	if(!r) {
+		verbose(3, "mismatch pkt '%s' and '%s'", qstr, pstr);
 	}
 	free(qstr);
 	free(pstr);
@@ -1186,6 +1377,31 @@ static int subdomain_dname(uint8_t* q, size_t qlen, uint8_t* p, size_t plen)
 	return 0;
 }
 
+/** Match OPT RDATA (not the EDNS payload size or flags) */
+static int
+match_ednsdata(uint8_t* q, size_t qlen, uint8_t* p, size_t plen)
+{
+	uint8_t* walk_q = q;
+	size_t walk_qlen = qlen;
+	uint8_t* walk_p = p;
+	size_t walk_plen = plen;
+
+	if(!pkt_find_edns_opt(&walk_q, &walk_qlen))
+		walk_qlen = 0;
+	if(!pkt_find_edns_opt(&walk_p, &walk_plen))
+		walk_plen = 0;
+
+	/* class + ttl + rdlen = 8 */
+	if(walk_qlen <= 8 && walk_plen <= 8) {
+		verbose(3, "NO edns opt, move on");
+		return 1;
+	}
+	if(walk_qlen != walk_plen)
+		return 0;
+
+	return (memcmp(walk_p+8, walk_q+8, walk_qlen-8) == 0);
+}
+
 /* finds entry in list, or returns NULL */
 struct entry* 
 find_match(struct entry* entries, uint8_t* query_pkt, size_t len,
@@ -1214,6 +1430,31 @@ find_match(struct entry* entries, uint8_t* query_pkt, size_t len,
 				continue;
 			}
 		}
+		if(p->match_rcode) {
+			if(get_rcode(query_pkt, len) != get_rcode(reply, rlen)) {
+				char *r1 = sldns_wire2str_rcode(get_rcode(query_pkt, len));
+				char *r2 = sldns_wire2str_rcode(get_rcode(reply, rlen));
+				verbose(3, "bad rcode %s instead of %s\n",
+					r1, r2);
+				free(r1);
+				free(r2);
+				continue;
+			}
+		}
+		if(p->match_question) {
+			if(!match_question(query_pkt, len, reply, rlen,
+				(int)p->match_ttl)) {
+				verbose(3, "bad question section\n");
+				continue;
+			}
+		}
+		if(p->match_answer) {
+			if(!match_answer(query_pkt, len, reply, rlen,
+				(int)p->match_ttl)) {
+				verbose(3, "bad answer section\n");
+				continue;
+			}
+		}
 		if(p->match_subdomain) {
 			if(!subdomain_dname(query_pkt, len, reply, rlen)) {
 				verbose(3, "bad subdomain\n");
@@ -1230,6 +1471,11 @@ find_match(struct entry* entries, uint8_t* query_pkt, size_t len,
 		}
 		if(p->match_noedns && get_has_edns(query_pkt, len)) {
 			verbose(3, "bad; EDNS OPT present\n");
+			continue;
+		}
+		if(p->match_ednsdata_raw && 
+				!match_ednsdata(query_pkt, len, reply, rlen)) {
+			verbose(3, "bad EDNS data match.\n");
 			continue;
 		}
 		if(p->match_transport != transport_any && p->match_transport != transport) {
@@ -1316,6 +1562,29 @@ adjust_packet(struct entry* match, uint8_t** answer_pkt, size_t *answer_len,
 		res[1] = orig[1];
 	if(match->copy_id && reslen >= 1)
 		res[0] = orig[0];
+
+	if(match->copy_ednsdata_assume_clientsubnet) {
+		/** Assume there is only one EDNS option, which is ECS.
+		 * Copy source mask from query to scope mask in reply. Assume
+		 * rest of ECS data in response (eg address) matches the query.
+		 */
+		uint8_t* walk_q = orig;
+		size_t walk_qlen = origlen;
+		uint8_t* walk_p = res;
+		size_t walk_plen = reslen;
+
+		if(!pkt_find_edns_opt(&walk_q, &walk_qlen)) {
+			walk_qlen = 0;
+		}
+		if(!pkt_find_edns_opt(&walk_p, &walk_plen)) {
+			walk_plen = 0;
+		}
+		/* class + ttl + rdlen + optcode + optlen + ecs fam + ecs source
+		 * + ecs scope = index 15 */
+		if(walk_qlen >= 15 && walk_plen >= 15) {
+			walk_p[15] = walk_q[14];
+		}	
+	}
 
 	if(match->sleeptime > 0) {
 		verbose(3, "sleeping for %d seconds\n", match->sleeptime);
@@ -1410,6 +1679,7 @@ void delete_replylist(struct reply_packet* replist)
 		np = p->next;
 		free(p->reply_pkt);
 		sldns_buffer_free(p->reply_from_hex);
+		sldns_buffer_free(p->raw_ednsdata);
 		free(p);
 		p=np;
 	}

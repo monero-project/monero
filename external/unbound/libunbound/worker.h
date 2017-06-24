@@ -48,13 +48,12 @@ struct comm_reply;
 struct comm_point;
 struct module_qstate;
 struct tube;
+struct edns_option;
+struct query_info;
 
 /**
  * Worker service routine to send serviced queries to authoritative servers.
- * @param qname: query name. (host order)
- * @param qnamelen: length in bytes of qname, including trailing 0.
- * @param qtype: query type. (host order)
- * @param qclass: query class. (host order)
+ * @param qinfo: query info.
  * @param flags: host order flags word, with opcode and CD bit.
  * @param dnssec: if set, EDNS record will have DO bit set.
  * @param want_dnssec: signatures needed.
@@ -63,15 +62,15 @@ struct tube;
  * @param addrlen: length of addr.
  * @param zone: delegation point name.
  * @param zonelen: length of zone name wireformat dname.
+ * @param ssl_upstream: use SSL for upstream queries.
  * @param q: wich query state to reactivate upon return.
  * @return: false on failure (memory or socket related). no query was
  *      sent.
  */
-struct outbound_entry* libworker_send_query(uint8_t* qname, size_t qnamelen,
-        uint16_t qtype, uint16_t qclass, uint16_t flags, int dnssec,
-	int want_dnssec, int nocaps, struct sockaddr_storage* addr,
-	socklen_t addrlen, uint8_t* zone, size_t zonelen,
-	struct module_qstate* q);
+struct outbound_entry* libworker_send_query(struct query_info* qinfo,
+	uint16_t flags, int dnssec, int want_dnssec, int nocaps,
+	struct sockaddr_storage* addr, socklen_t addrlen, uint8_t* zone,
+	size_t zonelen, int ssl_upstream, struct module_qstate* q);
 
 /** process incoming replies from the network */
 int libworker_handle_reply(struct comm_point* c, void* arg, int error,
@@ -106,10 +105,7 @@ void worker_sighandler(int sig, void* arg);
 
 /**
  * Worker service routine to send serviced queries to authoritative servers.
- * @param qname: query name. (host order)
- * @param qnamelen: length in bytes of qname, including trailing 0.
- * @param qtype: query type. (host order)
- * @param qclass: query class. (host order)
+ * @param qinfo: query info.
  * @param flags: host order flags word, with opcode and CD bit.
  * @param dnssec: if set, EDNS record will have DO bit set.
  * @param want_dnssec: signatures needed.
@@ -118,15 +114,15 @@ void worker_sighandler(int sig, void* arg);
  * @param addrlen: length of addr.
  * @param zone: wireformat dname of the zone.
  * @param zonelen: length of zone name.
+ * @param ssl_upstream: use SSL for upstream queries.
  * @param q: wich query state to reactivate upon return.
  * @return: false on failure (memory or socket related). no query was
  *      sent.
  */
-struct outbound_entry* worker_send_query(uint8_t* qname, size_t qnamelen, 
-	uint16_t qtype, uint16_t qclass, uint16_t flags, int dnssec, 
-	int want_dnssec, int nocaps, struct sockaddr_storage* addr,
-	socklen_t addrlen, uint8_t* zone, size_t zonelen,
-	struct module_qstate* q);
+struct outbound_entry* worker_send_query(struct query_info* qinfo,
+	uint16_t flags, int dnssec, int want_dnssec, int nocaps,
+	struct sockaddr_storage* addr, socklen_t addrlen, uint8_t* zone,
+	size_t zonelen, int ssl_upstream, struct module_qstate* q);
 
 /** 
  * process control messages from the main thread. Frees the control 

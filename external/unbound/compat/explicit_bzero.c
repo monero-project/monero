@@ -6,7 +6,11 @@
 #include "config.h"
 #include <string.h>
 
+#ifdef HAVE_ATTR_WEAK
 __attribute__((weak)) void
+#else
+void
+#endif
 __explicit_bzero_hook(void *ATTR_UNUSED(buf), size_t ATTR_UNUSED(len))
 {
 }
