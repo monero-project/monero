@@ -122,7 +122,7 @@ static int process_input()
   struct timeval t;
   
   t.tv_sec = 0;
-  t.tv_usec = 0;
+  t.tv_usec = 1000;
   
   FD_ZERO(&fds);
   FD_SET(STDIN_FILENO, &fds);
