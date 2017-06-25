@@ -92,6 +92,8 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetBlockHeaderByHeight::Request& req, GetBlockHeaderByHeight::Response& res);
 
+    void handle(const GetBlockHeadersByHeight::Request& req, GetBlockHeadersByHeight::Response& res);
+
     void handle(const GetBlock::Request& req, GetBlock::Response& res);
 
     void handle(const GetPeerList::Request& req, GetPeerList::Response& res);
@@ -107,10 +109,6 @@ class DaemonHandler : public RpcHandler
     void handle(const GetBlockHeadersRange::Request& req, GetBlockHeadersRange::Response& res);
 
     void handle(const StopDaemon::Request& req, StopDaemon::Response& res);
-
-    void handle(const FastExit::Request& req, FastExit::Response& res);
-
-    void handle(const OutPeers::Request& req, OutPeers::Response& res);
 
     void handle(const StartSaveGraph::Request& req, StartSaveGraph::Response& res);
 

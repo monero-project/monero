@@ -29,12 +29,11 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include "common/command_line.h"
-
 #include <zmq.hpp>
 #include <string>
+#include <memory>
+
+#include "common/command_line.h"
 
 #include "rpc_handler.h"
 
@@ -75,7 +74,7 @@ class ZmqServer
 
     boost::thread run_thread;
 
-    std::vector<zmq::socket_t*> sockets;
+    std::unique_ptr<zmq::socket_t> rep_socket;
 };
 
 

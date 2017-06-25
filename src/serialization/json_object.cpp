@@ -28,6 +28,7 @@
 
 #include "json_object.h"
 
+#include <limits>
 #include "string_tools.h"
 
 namespace cryptonote
@@ -35,6 +36,74 @@ namespace cryptonote
 
 namespace json
 {
+
+namespace
+{
+  template<typename Source, typename Destination>
+  constexpr bool precision_loss()
+  {
+    return
+      std::numeric_limits<Destination>::is_signed != std::numeric_limits<Source>::is_signed ||
+      std::numeric_limits<Destination>::min() > std::numeric_limits<Source>::min() ||
+      std::numeric_limits<Destination>::max() < std::numeric_limits<Source>::max();
+  }
+
+  template<typename Source, typename Type>
+  void convert_numeric(Source source, Type& i)
+  {
+    static_assert(
+      std::numeric_limits<Source>::is_signed == std::numeric_limits<Type>::is_signed,
+      "source and destination signs do not match"
+    );
+    if (source < std::numeric_limits<Type>::min())
+    {
+      throw WRONG_TYPE{"numeric underflow"};
+    }
+    if (std::numeric_limits<Type>::max() < source)
+    {
+      throw WRONG_TYPE{"numeric overflow"};
+    }
+    i = Type(source);
+  }
+
+  template<typename Type>
+  void to_int(const rapidjson::Value& val, Type& i)
+  {
+    if (!val.IsInt())
+    {
+      throw WRONG_TYPE{"integer"};
+    }
+    convert_numeric(val.GetInt(), i);
+  }
+  template<typename Type>
+  void to_int64(const rapidjson::Value& val, Type& i)
+  {
+    if (!val.IsInt64())
+    {
+      throw WRONG_TYPE{"integer"};
+    }
+    convert_numeric(val.GetInt64(), i);
+  }
+
+  template<typename Type>
+  void to_uint(const rapidjson::Value& val, Type& i)
+  {
+    if (!val.IsUint())
+    {
+      throw WRONG_TYPE{"unsigned integer"};
+    }
+    convert_numeric(val.GetUint(), i);
+  }
+  template<typename Type>
+  void to_uint64(const rapidjson::Value& val, Type& i)
+  {
+    if (!val.IsUint64())
+    {
+      throw WRONG_TYPE{"unsigned integer"};
+    }
+    convert_numeric(val.GetUint64(), i);
+  }
+}
 
 void toJsonValue(rapidjson::Document& doc, const std::string& i, rapidjson::Value& val)
 {
@@ -65,100 +134,81 @@ void fromJsonValue(const rapidjson::Value& val, bool& b)
   b = val.GetBool();
 }
 
-void toJsonValue(rapidjson::Document& doc, const uint8_t& i, rapidjson::Value& val)
+void fromJsonValue(const rapidjson::Value& val, unsigned char& i)
+{
+  to_uint(val, i);
+}
+
+void fromJsonValue(const rapidjson::Value& val, char& i)
+{
+  to_int(val, i);
+}
+
+void fromJsonValue(const rapidjson::Value& val, signed char& i)
+{
+  to_int(val, i);
+}
+
+void fromJsonValue(const rapidjson::Value& val, unsigned short& i)
+{
+  to_uint(val, i);
+}
+
+void fromJsonValue(const rapidjson::Value& val, short& i)
+{
+  to_int(val, i);
+}
+
+void toJsonValue(rapidjson::Document& doc, const unsigned int i, rapidjson::Value& val)
 {
   val = rapidjson::Value(i);
 }
 
-
-void fromJsonValue(const rapidjson::Value& val, uint8_t& i)
+void fromJsonValue(const rapidjson::Value& val, unsigned int& i)
 {
-  if (!val.IsUint())
-  {
-    throw WRONG_TYPE("unsigned integer");
-  }
-
-  i = (uint8_t)( val.GetUint() & 0xFF);
+  to_uint(val, i);
 }
 
-void toJsonValue(rapidjson::Document& doc, const int8_t& i, rapidjson::Value& val)
+void toJsonValue(rapidjson::Document& doc, const int i, rapidjson::Value& val)
 {
   val = rapidjson::Value(i);
 }
 
-
-void fromJsonValue(const rapidjson::Value& val, int8_t& i)
+void fromJsonValue(const rapidjson::Value& val, int& i)
 {
-  if (!val.IsInt())
-  {
-    throw WRONG_TYPE("integer");
-  }
-
-  i = (int8_t) ( val.GetInt() & 0xFF);
+  to_int(val, i);
 }
 
-void toJsonValue(rapidjson::Document& doc, const uint16_t& i, rapidjson::Value& val)
+void toJsonValue(rapidjson::Document& doc, const unsigned long long i, rapidjson::Value& val)
 {
-  val = rapidjson::Value(i);
+  static_assert(!precision_loss<unsigned long long, std::uint64_t>(), "precision loss");
+  val = rapidjson::Value(std::uint64_t(i));
 }
 
-
-void fromJsonValue(const rapidjson::Value& val, uint16_t& i)
+void fromJsonValue(const rapidjson::Value& val, unsigned long long& i)
 {
-  if (!val.IsUint())
-  {
-    throw WRONG_TYPE("unsigned integer");
-  }
-
-  i = (uint16_t) ( val.GetUint() & 0xFFFF);
+  to_uint64(val, i);
 }
 
-void toJsonValue(rapidjson::Document& doc, const int32_t& i, rapidjson::Value& val)
+void toJsonValue(rapidjson::Document& doc, const long long i, rapidjson::Value& val)
 {
-  val = rapidjson::Value(i);
+  static_assert(!precision_loss<long long, std::int64_t>(), "precision loss");
+  val = rapidjson::Value(std::int64_t(i));
 }
 
-
-void fromJsonValue(const rapidjson::Value& val, int32_t& i)
+void fromJsonValue(const rapidjson::Value& val, long long& i)
 {
-  if (!val.IsInt())
-  {
-    throw WRONG_TYPE("signed integer");
-  }
-
-  i = val.GetInt();
+  to_int64(val, i);
 }
 
-void toJsonValue(rapidjson::Document& doc, const uint32_t& i, rapidjson::Value& val)
+void fromJsonValue(const rapidjson::Value& val, unsigned long& i)
 {
-  val = rapidjson::Value(i);
+  to_uint64(val, i);
 }
 
-
-void fromJsonValue(const rapidjson::Value& val, uint32_t& i)
+void fromJsonValue(const rapidjson::Value& val, long& i)
 {
-  if (!val.IsUint())
-  {
-    throw WRONG_TYPE("unsigned integer");
-  }
-
-  i = val.GetUint();
-}
-
-void toJsonValue(rapidjson::Document& doc, const uint64_t& i, rapidjson::Value& val)
-{
-  val = rapidjson::Value(i);
-}
-
-
-void fromJsonValue(const rapidjson::Value& val, uint64_t& i)
-{
-  if (!val.IsUint64())
-  {
-    throw WRONG_TYPE("unsigned integer");
-  }
-
-  i = val.GetUint64();
+  to_int64(val, i);
 }
 
 void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, rapidjson::Value& val)
@@ -1061,6 +1111,53 @@ void fromJsonValue(const rapidjson::Value& val, rct::mgSig& sig)
 
   GET_FROM_JSON_OBJECT(val, sig.ss, ss);
   GET_FROM_JSON_OBJECT(val, sig.cc, cc);
+}
+
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& info, rapidjson::Value& val)
+{
+  val.SetObject();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, height, info.height);
+  INSERT_INTO_JSON_OBJECT(val, doc, target_height, info.target_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, difficulty, info.difficulty);
+  INSERT_INTO_JSON_OBJECT(val, doc, target, info.target);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_count, info.tx_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, tx_pool_size, info.tx_pool_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, alt_blocks_count, info.alt_blocks_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, outgoing_connections_count, info.outgoing_connections_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, incoming_connections_count, info.incoming_connections_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, white_peerlist_size, info.white_peerlist_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, grey_peerlist_size, info.grey_peerlist_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, testnet, info.testnet);
+  INSERT_INTO_JSON_OBJECT(val, doc, top_block_hash, info.top_block_hash);
+  INSERT_INTO_JSON_OBJECT(val, doc, cumulative_difficulty, info.cumulative_difficulty);
+  INSERT_INTO_JSON_OBJECT(val, doc, block_size_limit, info.block_size_limit);
+  INSERT_INTO_JSON_OBJECT(val, doc, start_time, info.start_time);
+}
+
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& info)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, info.height, height);
+  GET_FROM_JSON_OBJECT(val, info.target_height, target_height);
+  GET_FROM_JSON_OBJECT(val, info.difficulty, difficulty);
+  GET_FROM_JSON_OBJECT(val, info.target, target);
+  GET_FROM_JSON_OBJECT(val, info.tx_count, tx_count);
+  GET_FROM_JSON_OBJECT(val, info.tx_pool_size, tx_pool_size);
+  GET_FROM_JSON_OBJECT(val, info.alt_blocks_count, alt_blocks_count);
+  GET_FROM_JSON_OBJECT(val, info.outgoing_connections_count, outgoing_connections_count);
+  GET_FROM_JSON_OBJECT(val, info.incoming_connections_count, incoming_connections_count);
+  GET_FROM_JSON_OBJECT(val, info.white_peerlist_size, white_peerlist_size);
+  GET_FROM_JSON_OBJECT(val, info.grey_peerlist_size, grey_peerlist_size);
+  GET_FROM_JSON_OBJECT(val, info.testnet, testnet);
+  GET_FROM_JSON_OBJECT(val, info.top_block_hash, top_block_hash);
+  GET_FROM_JSON_OBJECT(val, info.cumulative_difficulty, cumulative_difficulty);
+  GET_FROM_JSON_OBJECT(val, info.block_size_limit, block_size_limit);
+  GET_FROM_JSON_OBJECT(val, info.start_time, start_time);
 }
 
 }  // namespace json

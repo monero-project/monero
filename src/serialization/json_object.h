@@ -107,16 +107,22 @@ struct PARSE_FAIL : public JSON_ERROR
   }
 };
 
+template<typename Type>
+inline constexpr bool is_to_hex()
+{
+  return std::is_pod<Type>() && !std::is_integral<Type>();
+}
+
 
 // POD to json value
 template <class Type>
-typename std::enable_if<std::is_pod<Type>::value, void>::type toJsonValue(rapidjson::Document& doc, const Type& pod, rapidjson::Value& value)
+typename std::enable_if<is_to_hex<Type>()>::type toJsonValue(rapidjson::Document& doc, const Type& pod, rapidjson::Value& value)
 {
   value = rapidjson::Value(epee::string_tools::pod_to_hex(pod).c_str(), doc.GetAllocator());
 }
 
 template <class Type>
-typename std::enable_if<std::is_pod<Type>::value, void>::type fromJsonValue(const rapidjson::Value& val, Type& t)
+typename std::enable_if<is_to_hex<Type>()>::type fromJsonValue(const rapidjson::Value& val, Type& t)
 {
   if (!val.IsString())
   {
@@ -138,23 +144,42 @@ void fromJsonValue(const rapidjson::Value& val, std::string& str);
 void toJsonValue(rapidjson::Document& doc, bool i, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, bool& b);
 
-void toJsonValue(rapidjson::Document& doc, const uint8_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, uint8_t& i);
+// integers overloads for toJsonValue are not needed for standard promotions
 
-void toJsonValue(rapidjson::Document& doc, const int8_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, int8_t& i);
+void fromJsonValue(const rapidjson::Value& val, unsigned char& i);
 
-void toJsonValue(rapidjson::Document& doc, const uint16_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, uint16_t& i);
+void fromJsonValue(const rapidjson::Value& val, signed char& i);
 
-void toJsonValue(rapidjson::Document& doc, const int32_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, int32_t& i);
+void fromJsonValue(const rapidjson::Value& val, char& i);
 
-void toJsonValue(rapidjson::Document& doc, const uint32_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, uint32_t& i);
+void fromJsonValue(const rapidjson::Value& val, unsigned short& i);
 
-void toJsonValue(rapidjson::Document& doc, const uint64_t& i, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, uint64_t& i);
+void fromJsonValue(const rapidjson::Value& val, short& i);
+
+void toJsonValue(rapidjson::Document& doc, const unsigned i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, unsigned& i);
+
+void toJsonValue(rapidjson::Document& doc, const int, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, int& i);
+
+
+void toJsonValue(rapidjson::Document& doc, const unsigned long long i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, unsigned long long& i);
+
+void toJsonValue(rapidjson::Document& doc, const long long i, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, long long& i);
+
+inline void toJsonValue(rapidjson::Document& doc, const unsigned long i, rapidjson::Value& val) {
+    toJsonValue(doc, static_cast<unsigned long long>(i), val);
+}
+void fromJsonValue(const rapidjson::Value& val, unsigned long& i);
+
+inline void toJsonValue(rapidjson::Document& doc, const long i, rapidjson::Value& val) {
+    toJsonValue(doc, static_cast<long long>(i), val);
+}
+void fromJsonValue(const rapidjson::Value& val, long& i);
+
+// end integers
 
 void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx);
@@ -255,6 +280,8 @@ void fromJsonValue(const rapidjson::Value& val, rct::boroSig& sig);
 void toJsonValue(rapidjson::Document& doc, const rct::mgSig& sig, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, rct::mgSig& sig);
 
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& info, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& info);
 
 template <typename Map>
 typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type toJsonValue(rapidjson::Document& doc, const Map& map, rapidjson::Value& val);
