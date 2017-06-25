@@ -180,11 +180,13 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
       END_KV_SERIALIZE_MAP()
     };
