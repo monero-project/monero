@@ -5010,11 +5010,10 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
-  if (m_testnet) return 0;
   // time of v2 fork
-  const time_t fork_time = 1458748658;
+  const time_t fork_time = m_testnet ? 1448285909 : 1458748658;
   // v2 fork block
-  const uint64_t fork_block = 1009827;
+  const uint64_t fork_block = m_testnet ? 624634 : 1009827;
   // avg seconds per block
   const int seconds_per_block = DIFFICULTY_TARGET_V2;
   // Calculated blockchain height

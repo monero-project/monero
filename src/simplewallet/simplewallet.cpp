@@ -920,8 +920,6 @@ static bool might_be_partial_seed(std::string words)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
-  bool need_refresh_height = false;
-
   if (!handle_command_line(vm))
     return false;
 
@@ -1119,8 +1117,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       m_wallet_file = m_generate_new;
       bool r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
-      if (!m_restore_deterministic_wallet)
-        need_refresh_height = true;
     }
     if (!m_restore_height && m_restoring)
     {
@@ -1212,14 +1208,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
   m_http_client.set_server(m_wallet->get_daemon_address(), m_wallet->get_daemon_login());
   m_wallet->callback(this);
-
-  if (need_refresh_height)
-  {
-    // for a totally new account, we don't care about older blocks.
-    MDEBUG("Calling daemon to set refresh height");
-    std::string err;
-    m_wallet->set_refresh_from_block_height(get_daemon_blockchain_height(err));
-  }
 
   return true;
 }
