@@ -42,11 +42,15 @@
 #ifndef UTIL_CONFIG_FILE_H
 #define UTIL_CONFIG_FILE_H
 struct config_stub;
+struct config_view;
 struct config_strlist;
 struct config_str2list;
+struct config_str3list;
+struct config_strbytelist;
 struct module_qstate;
 struct sock_list;
 struct ub_packed_rrset_key;
+struct regional;
 
 /**
  * The configuration options.
@@ -72,12 +76,18 @@ struct config_file {
 	int do_ip4;
 	/** do ip6 query support. */
 	int do_ip6;
+	/** prefer ip6 upstream queries. */
+	int prefer_ip6;
 	/** do udp query support. */
 	int do_udp;
 	/** do tcp query support. */
 	int do_tcp;
 	/** tcp upstream queries (no UDP upstream queries) */
 	int tcp_upstream;
+	/** maximum segment size of tcp socket which queries are answered */
+	int tcp_mss;
+	/** maximum segment size of tcp socket for outgoing queries */
+	int outgoing_tcp_mss;
 
 	/** private key file for dnstcp-ssl service (enabled if not NULL) */
 	char* ssl_service_key;
@@ -138,6 +148,8 @@ struct config_file {
 	int so_reuseport;
 	/** IP_TRANSPARENT socket option requested on port 53 sockets */
 	int ip_transparent;
+	/** IP_FREEBIND socket option request on port 53 sockets */
+	int ip_freebind;
 
 	/** number of interfaces to open. If 0 default all interfaces. */
 	int num_ifs;
@@ -156,8 +168,22 @@ struct config_file {
 	struct config_stub* stubs;
 	/** the forward zone definitions, linked list */
 	struct config_stub* forwards;
+	/** the views definitions, linked list */
+	struct config_view* views;
 	/** list of donotquery addresses, linked list */
 	struct config_strlist* donotqueryaddrs;
+#ifdef CLIENT_SUBNET
+	/** list of servers we send edns-client-subnet option to and 
+	 * accept option from, linked list */
+	struct config_strlist* client_subnet;
+	/** opcode assigned by IANA for edns0-client-subnet option */
+	uint16_t client_subnet_opcode;
+	/** Do not check whitelist if incoming query contains an ECS record */
+	int client_subnet_always_forward;
+	/** Subnet length we are willing to give up privacy for */
+	uint8_t max_client_subnet_ipv4;
+	uint8_t max_client_subnet_ipv6;
+#endif
 	/** list of access control entries, linked list */
 	struct config_str2list* acls;
 	/** use default localhost donotqueryaddr entries */
@@ -215,11 +241,17 @@ struct config_file {
 	int log_time_ascii;
 	/** log queries with one line per query */
 	int log_queries;
+	/** log replies with one line per reply */
+	int log_replies;
+	/** log identity to report */
+	char* log_identity;
 
 	/** do not report identity (id.server, hostname.bind) */
 	int hide_identity;
 	/** do not report version (version.server, version.bind) */
 	int hide_version;
+	/** do not report trustanchor (trustanchor.unbound) */
+	int hide_trustanchor;
 	/** identity, hostname is returned if "". */
 	char* identity;
 	/** version, package version returned if "". */
@@ -261,6 +293,8 @@ struct config_file {
 	int val_permissive_mode;
 	/** ignore the CD flag in incoming queries and refuse them bogus data */
 	int ignore_cd;
+	/** serve expired entries and prefetch them */
+	int serve_expired;
 	/** nsec3 maximum iterations per key size, string */
 	char* val_nsec3_key_iterations;
 	/** autotrust add holddown time, in seconds */
@@ -285,8 +319,32 @@ struct config_file {
 	struct config_strlist* local_zones_nodefault;
 	/** local data RRs configured */
 	struct config_strlist* local_data;
-	/** unblock lan zones (reverse lookups for 10/8 and so on) */
+	/** local zone override types per netblock */
+	struct config_str3list* local_zone_overrides;
+	/** unblock lan zones (reverse lookups for AS112 zones) */
 	int unblock_lan_zones;
+	/** insecure lan zones (don't validate AS112 zones) */
+	int insecure_lan_zones;
+	/** list of zonename, tagbitlist */
+	struct config_strbytelist* local_zone_tags;
+	/** list of aclname, tagbitlist */
+	struct config_strbytelist* acl_tags;
+	/** list of aclname, tagname, localzonetype */
+	struct config_str3list* acl_tag_actions;
+	/** list of aclname, tagname, redirectdata */
+	struct config_str3list* acl_tag_datas;
+	/** list of aclname, view*/
+	struct config_str2list* acl_view;
+	/** list of IP-netblock, tagbitlist */
+	struct config_strbytelist* respip_tags;
+	/** list of response-driven access control entries, linked list */
+	struct config_str2list* respip_actions;
+	/** RRs configured for response-driven access controls */
+	struct config_str2list* respip_data;
+	/** tag list, array with tagname[i] is malloced string */
+	char** tagname;
+	/** number of items in the taglist */
+	int num_tags;
 
 	/** remote control section. enable toggle. */
 	int remote_control_enable;
@@ -307,6 +365,9 @@ struct config_file {
 
 	/** Python script file */
 	char* python_script;
+
+	/** Use systemd socket activation. */
+	int use_systemd;
 
 	/** daemonize, i.e. fork into the background. */
 	int do_daemonize;
@@ -352,7 +413,19 @@ struct config_file {
 	/** true to log dnstap FORWARDER_RESPONSE message events */
 	int dnstap_log_forwarder_response_messages;
 
-	/** ratelimit 0 is off, otherwise qps (unless overridden) */
+	/** true to disable DNSSEC lameness check in iterator */
+	int disable_dnssec_lame_check;
+
+	/** ratelimit for ip addresses. 0 is off, otherwise qps (unless overridden) */
+	int ip_ratelimit;
+	/** number of slabs for ip_ratelimit cache */
+	size_t ip_ratelimit_slabs;
+	/** memory size in bytes for ip_ratelimit cache */
+	size_t ip_ratelimit_size;
+	/** ip_ratelimit factor, 0 blocks all, 10 allows 1/10 of traffic */
+	int ip_ratelimit_factor;
+
+	/** ratelimit for domains. 0 is off, otherwise qps (unless overridden) */
 	int ratelimit;
 	/** number of slabs for ratelimit cache */
 	size_t ratelimit_slabs;
@@ -366,6 +439,25 @@ struct config_file {
 	int ratelimit_factor;
 	/** minimise outgoing QNAME and hide original QTYPE if possible */
 	int qname_minimisation;
+	/** minimise QNAME in strict mode, minimise according to RFC.
+	 *  Do not apply fallback */
+	int qname_minimisation_strict;
+	/** SHM data - true if shm is enabled */
+	int shm_enable;
+	/** SHM data - key for the shm */
+	int shm_key;
+
+	/** DNSCrypt */
+	/** true to enable dnscrypt */
+	int dnscrypt;
+	/** port on which to provide dnscrypt service */
+	int dnscrypt_port;
+	/** provider name 2.dnscrypt-cert.example.com */
+	char* dnscrypt_provider;
+	/** dnscrypt secret keys 1.key */
+	struct config_strlist* dnscrypt_secret_key;
+	/** dnscrypt provider certs 1.cert */
+	struct config_strlist* dnscrypt_provider_cert;
 };
 
 /** from cfg username, after daemonise setup performed */
@@ -391,6 +483,31 @@ struct config_stub {
 	int isprime;
 	/** if forward-first is set (failover to without if fails) */
 	int isfirst;
+	/** use SSL for queries to this stub */
+	int ssl_upstream;
+};
+
+/**
+ * View config options
+ */
+struct config_view {
+	/** next in list */
+	struct config_view* next;
+	/** view name */
+	char* name;
+	/** local zones */
+	struct config_str2list* local_zones;
+	/** local data RRs */
+	struct config_strlist* local_data;
+	/** local zones nodefault list */
+	struct config_strlist* local_zones_nodefault;
+	/** Fallback to global local_zones when there is no match in the view
+	 * view specific tree. 1 for yes, 0 for no */	
+	int isfirst;
+	/** predefined actions for particular IP address responses */
+	struct config_str2list* respip_actions;
+	/** data complementing the 'redirect' response IP actions */
+	struct config_str2list* respip_data;
 };
 
 /**
@@ -413,6 +530,34 @@ struct config_str2list {
 	char* str;
 	/** second string */
 	char* str2;
+};
+
+/**
+ * List of three strings for config options
+ */
+struct config_str3list {
+	/** next item in list */
+	struct config_str3list* next;
+	/** first string */
+	char* str;
+	/** second string */
+	char* str2;
+	/** third string */
+	char* str3;
+};
+
+
+/**
+ * List of string, bytestring for config options
+ */
+struct config_strbytelist {
+	/** next item in list */
+	struct config_strbytelist* next;
+	/** first string */
+	char* str;
+	/** second bytestring */
+	uint8_t* str2;
+	size_t str2len;
 };
 
 /** List head for strlist processing, used for append operation. */
@@ -544,6 +689,10 @@ int cfg_strlist_append(struct config_strlist_head* list, char* item);
  */
 int cfg_strlist_insert(struct config_strlist** head, char* item);
 
+/** insert with region for allocation. */
+int cfg_region_strlist_insert(struct regional* region,
+	struct config_strlist** head, char* item);
+
 /**
  * Insert string into str2list.
  * @param head: pointer to str2list head variable.
@@ -552,6 +701,39 @@ int cfg_strlist_insert(struct config_strlist** head, char* item);
  * @return: true on success.
  */
 int cfg_str2list_insert(struct config_str2list** head, char* item, char* i2);
+
+/**
+ * Insert string into str3list.
+ * @param head: pointer to str3list head variable.
+ * @param item: new item. malloced by caller. If NULL the insertion fails.
+ * @param i2: 2nd string, malloced by caller. If NULL the insertion fails.
+ * @param i3: 3rd string, malloced by caller. If NULL the insertion fails.
+ * @return: true on success.
+ */
+int cfg_str3list_insert(struct config_str3list** head, char* item, char* i2,
+	char* i3);
+
+/**
+ * Insert string into strbytelist.
+ * @param head: pointer to strbytelist head variable.
+ * @param item: new item. malloced by caller. If NULL the insertion fails.
+ * @param i2: 2nd string, malloced by caller. If NULL the insertion fails.
+ * @param i2len: length of the i2 bytestring.
+ * @return: true on success.
+ */
+int cfg_strbytelist_insert(struct config_strbytelist** head, char* item,
+	uint8_t* i2, size_t i2len);
+
+/**
+ * Find stub in config list, also returns prevptr (for deletion).
+ * @param pp: call routine with pointer to a pointer to the start of the list,
+ * 	if the stub is found, on exit, the value contains a pointer to the
+ * 	next pointer that points to the found element (or to the list start
+ * 	pointer if it is the first element).
+ * @param nm: name of stub to find.
+ * @return: pointer to config_stub if found, or NULL if not found.
+ */
+struct config_stub* cfg_stub_find(struct config_stub*** pp, const char* nm);
 
 /**
  * Delete items in config string list.
@@ -566,10 +748,37 @@ void config_delstrlist(struct config_strlist* list);
 void config_deldblstrlist(struct config_str2list* list);
 
 /**
+ * Delete items in config triple string list.
+ * @param list: list.
+ */
+void config_deltrplstrlist(struct config_str3list* list);
+
+/** delete stringbytelist */
+void config_del_strbytelist(struct config_strbytelist* list);
+
+/**
+ * Delete a stub item
+ * @param p: stub item
+ */
+void config_delstub(struct config_stub* p);
+
+/**
  * Delete items in config stub list.
  * @param list: list.
  */
 void config_delstubs(struct config_stub* list);
+
+/**
+ * Delete a view item
+ * @param p: view item
+ */
+void config_delview(struct config_view* p);
+
+/**
+ * Delete items in config view list.
+ * @param list: list.
+ */
+void config_delviews(struct config_view* list);
 
 /**
  * Convert 14digit to time value
@@ -600,6 +809,54 @@ int cfg_count_numbers(const char* str);
  * is logged).
  */
 int cfg_parse_memsize(const char* str, size_t* res);
+
+/**
+ * Add a tag name to the config.  It is added at the end with a new ID value.
+ * @param cfg: the config structure.
+ * @param tag: string (which is copied) with the name.
+ * @return: false on alloc failure.
+ */
+int config_add_tag(struct config_file* cfg, const char* tag);
+
+/**
+ * Find tag ID in the tag list.
+ * @param cfg: the config structure.
+ * @param tag: string with tag name to search for.
+ * @return: 0..(num_tags-1) with tag ID, or -1 if tagname is not found.
+ */
+int find_tag_id(struct config_file* cfg, const char* tag);
+
+/**
+ * parse taglist from string into bytestring with bitlist.
+ * @param cfg: the config structure (with tagnames)
+ * @param str: the string to parse.  Parse puts 0 bytes in string. 
+ * @param listlen: returns length of in bytes.
+ * @return malloced bytes with a bitlist of the tags.  or NULL on parse error
+ * or malloc failure.
+ */
+uint8_t* config_parse_taglist(struct config_file* cfg, char* str,
+	size_t* listlen);
+
+/**
+ * convert tag bitlist to a malloced string with tag names.  For debug output.
+ * @param cfg: the config structure (with tagnames)
+ * @param taglist: the tag bitlist.
+ * @param len: length of the tag bitlist.
+ * @return malloced string or NULL.
+ */
+char* config_taglist2str(struct config_file* cfg, uint8_t* taglist,
+	size_t len);
+
+/**
+ * see if two taglists intersect (have tags in common).
+ * @param list1: first tag bitlist.
+ * @param list1len: length in bytes of first list.
+ * @param list2: second tag bitlist.
+ * @param list2len: length in bytes of second list.
+ * @return true if there are tags in common, 0 if not.
+ */
+int taglist_intersect(uint8_t* list1, size_t list1len, uint8_t* list2,
+	size_t list2len);
 
 /**
  * Parse local-zone directive into two strings and register it in the config.
@@ -745,5 +1002,8 @@ char* w_lookup_reg_str(const char* key, const char* name);
 /** Modify directory in options for module file name */
 void w_config_adjust_directory(struct config_file* cfg);
 #endif /* UB_ON_WINDOWS */
+
+/** debug option for unit tests. */
+extern int fake_dsa, fake_sha1;
 
 #endif /* UTIL_CONFIG_FILE_H */

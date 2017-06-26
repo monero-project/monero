@@ -52,7 +52,7 @@
 
 /** setup new special type */
 static void
-alloc_setup_special(alloc_special_t* t)
+alloc_setup_special(alloc_special_type* t)
 {
 	memset(t, 0, sizeof(*t));
 	lock_rw_init(&t->entry.lock);
@@ -64,12 +64,13 @@ alloc_setup_special(alloc_special_t* t)
  * @param alloc: the structure to fill up.
  */
 static void
-prealloc(struct alloc_cache* alloc)
+prealloc_setup(struct alloc_cache* alloc)
 {
-	alloc_special_t* p;
+	alloc_special_type* p;
 	int i;
 	for(i=0; i<ALLOC_SPECIAL_MAX; i++) {
-		if(!(p = (alloc_special_t*)malloc(sizeof(alloc_special_t)))) {
+		if(!(p = (alloc_special_type*)malloc(
+			sizeof(alloc_special_type)))) {
 			log_err("prealloc: out of memory");
 			return;
 		}
@@ -128,7 +129,7 @@ alloc_init(struct alloc_cache* alloc, struct alloc_cache* super,
 void 
 alloc_clear(struct alloc_cache* alloc)
 {
-	alloc_special_t* p, *np;
+	alloc_special_type* p, *np;
 	struct regional* r, *nr;
 	if(!alloc)
 		return;
@@ -187,10 +188,10 @@ alloc_get_id(struct alloc_cache* alloc)
 	return id;
 }
 
-alloc_special_t* 
+alloc_special_type* 
 alloc_special_obtain(struct alloc_cache* alloc)
 {
-	alloc_special_t* p;
+	alloc_special_type* p;
 	log_assert(alloc);
 	/* see if in local cache */
 	if(alloc->quar) {
@@ -216,8 +217,8 @@ alloc_special_obtain(struct alloc_cache* alloc)
 		}
 	}
 	/* allocate new */
-	prealloc(alloc);
-	if(!(p = (alloc_special_t*)malloc(sizeof(alloc_special_t)))) {
+	prealloc_setup(alloc);
+	if(!(p = (alloc_special_type*)malloc(sizeof(alloc_special_type)))) {
 		log_err("alloc_special_obtain: out of memory");
 		return NULL;
 	}
@@ -228,10 +229,10 @@ alloc_special_obtain(struct alloc_cache* alloc)
 
 /** push mem and some more items to the super */
 static void 
-pushintosuper(struct alloc_cache* alloc, alloc_special_t* mem)
+pushintosuper(struct alloc_cache* alloc, alloc_special_type* mem)
 {
 	int i;
-	alloc_special_t *p = alloc->quar;
+	alloc_special_type *p = alloc->quar;
 	log_assert(p);
 	log_assert(alloc && alloc->super && 
 		alloc->num_quar >= ALLOC_SPECIAL_MAX);
@@ -253,7 +254,7 @@ pushintosuper(struct alloc_cache* alloc, alloc_special_t* mem)
 }
 
 void 
-alloc_special_release(struct alloc_cache* alloc, alloc_special_t* mem)
+alloc_special_release(struct alloc_cache* alloc, alloc_special_type* mem)
 {
 	log_assert(alloc);
 	if(!mem)
@@ -286,12 +287,12 @@ alloc_stats(struct alloc_cache* alloc)
 
 size_t alloc_get_mem(struct alloc_cache* alloc)
 {
-	alloc_special_t* p;
+	alloc_special_type* p;
 	size_t s = sizeof(*alloc);
 	if(!alloc->super) { 
 		lock_quick_lock(&alloc->lock); /* superalloc needs locking */
 	}
-	s += sizeof(alloc_special_t) * alloc->num_quar;
+	s += sizeof(alloc_special_type) * alloc->num_quar;
 	for(p = alloc->quar; p; p = alloc_special_next(p)) {
 		s += lock_get_mem(&p->entry.lock);
 	}

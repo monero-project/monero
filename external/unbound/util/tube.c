@@ -44,6 +44,7 @@
 #include "util/net_help.h"
 #include "util/netevent.h"
 #include "util/fptr_wlist.h"
+#include "util/ub_event.h"
 
 #ifndef USE_WINSOCK
 /* on unix */
@@ -303,6 +304,8 @@ int tube_write_msg(struct tube* tube, uint8_t* buf, uint32_t len,
 	d = r;
 	while(d != (ssize_t)sizeof(len)) {
 		if((r=write(fd, ((char*)&len)+d, sizeof(len)-d)) == -1) {
+			if(errno == EAGAIN)
+				continue; /* temporarily unavail: try again*/
 			log_err("tube msg write failed: %s", strerror(errno));
 			(void)fd_set_nonblock(fd);
 			return 0;
@@ -312,6 +315,8 @@ int tube_write_msg(struct tube* tube, uint8_t* buf, uint32_t len,
 	d = 0;
 	while(d != (ssize_t)len) {
 		if((r=write(fd, buf+d, len-d)) == -1) {
+			if(errno == EAGAIN)
+				continue; /* temporarily unavail: try again*/
 			log_err("tube msg write failed: %s", strerror(errno));
 			(void)fd_set_nonblock(fd);
 			return 0;
@@ -421,7 +426,7 @@ int tube_read_fd(struct tube* tube)
 }
 
 int tube_setup_bg_listen(struct tube* tube, struct comm_base* base,
-        tube_callback_t* cb, void* arg)
+        tube_callback_type* cb, void* arg)
 {
 	tube->listen_cb = cb;
 	tube->listen_arg = arg;
@@ -537,7 +542,7 @@ void tube_close_write(struct tube* ATTR_UNUSED(tube))
 void tube_remove_bg_listen(struct tube* tube)
 {
 	verbose(VERB_ALGO, "tube remove_bg_listen");
-	winsock_unregister_wsaevent(&tube->ev_listen);
+	ub_winsock_unregister_wsaevent(tube->ev_listen);
 }
 
 void tube_remove_bg_write(struct tube* tube)
@@ -662,14 +667,15 @@ tube_handle_write(struct comm_point* ATTR_UNUSED(c), void* ATTR_UNUSED(arg),
 }
 
 int tube_setup_bg_listen(struct tube* tube, struct comm_base* base,
-        tube_callback_t* cb, void* arg)
+        tube_callback_type* cb, void* arg)
 {
 	tube->listen_cb = cb;
 	tube->listen_arg = arg;
 	if(!comm_base_internal(base))
 		return 1; /* ignore when no comm base - testing */
-	return winsock_register_wsaevent(comm_base_internal(base), 
-		&tube->ev_listen, tube->event, &tube_handle_signal, tube);
+	tube->ev_listen = ub_winsock_register_wsaevent(
+	    comm_base_internal(base), tube->event, &tube_handle_signal, tube);
+	return tube->ev_listen ? 1 : 0;
 }
 
 int tube_setup_bg_write(struct tube* ATTR_UNUSED(tube), 

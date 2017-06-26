@@ -53,11 +53,11 @@ struct ub_packed_rrset_key;
 struct regional;
 
 /** The special type, packed rrset. Not allowed to be used for other memory */
-typedef struct ub_packed_rrset_key alloc_special_t;
+typedef struct ub_packed_rrset_key alloc_special_type;
 /** clean the special type. Pass pointer. */
 #define alloc_special_clean(x) (x)->id = 0;
 /** access next pointer. (in available spot). Pass pointer. */
-#define alloc_special_next(x) ((alloc_special_t*)((x)->entry.overflow_next))
+#define alloc_special_next(x) ((alloc_special_type*)((x)->entry.overflow_next))
 /** set next pointer. (in available spot). Pass pointers. */
 #define alloc_set_special_next(x, y) \
 	((x)->entry.overflow_next) = (struct lruhash_entry*)(y);
@@ -71,11 +71,11 @@ typedef struct ub_packed_rrset_key alloc_special_t;
  */
 struct alloc_cache {
 	/** lock, only used for the super. */
-	lock_quick_t lock;
+	lock_quick_type lock;
 	/** global allocator above this one. NULL for none (malloc/free) */
 	struct alloc_cache* super;
 	/** singly linked lists of special type. These are free for use. */
-	alloc_special_t* quar;
+	alloc_special_type* quar;
 	/** number of items in quarantine. */
 	size_t num_quar;
 	/** thread number for id creation */
@@ -116,20 +116,20 @@ void alloc_init(struct alloc_cache* alloc, struct alloc_cache* super,
 void alloc_clear(struct alloc_cache* alloc);
 
 /**
- * Get a new special_t element.
+ * Get a new special_type element.
  * @param alloc: where to alloc it.
  * @return: memory block. Will not return NULL (instead fatal_exit).
  *    The block is zeroed.
  */
-alloc_special_t* alloc_special_obtain(struct alloc_cache* alloc);
+alloc_special_type* alloc_special_obtain(struct alloc_cache* alloc);
 
 /**
- * Return special_t back to pool.
+ * Return special_type back to pool.
  * The block is cleaned up (zeroed) which also invalidates the ID inside.
  * @param alloc: where to alloc it.
  * @param mem: block to free.
  */
-void alloc_special_release(struct alloc_cache* alloc, alloc_special_t* mem);
+void alloc_special_release(struct alloc_cache* alloc, alloc_special_type* mem);
 
 /**
  * Set ID number of special type to a fresh new ID number.

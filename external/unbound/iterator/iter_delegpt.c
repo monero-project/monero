@@ -72,6 +72,7 @@ struct delegpt* delegpt_copy(struct delegpt* dp, struct regional* region)
 		return NULL;
 	copy->bogus = dp->bogus;
 	copy->has_parent_side_NS = dp->has_parent_side_NS;
+	copy->ssl_upstream = dp->ssl_upstream;
 	for(ns = dp->nslist; ns; ns = ns->next) {
 		if(!delegpt_add_ns(copy, region, ns->name, ns->lame))
 			return NULL;

@@ -102,7 +102,7 @@ struct rrset_cache* rrset_cache_adjust(struct rrset_cache* r,
  * @param id: used to check that the item is unchanged and not deleted.
  */
 void rrset_cache_touch(struct rrset_cache* r, struct ub_packed_rrset_key* key,
-	hashvalue_t hash, rrset_id_t id);
+	hashvalue_type hash, rrset_id_type id);
 
 /**
  * Update an rrset in the rrset cache. Stores the information for later use.

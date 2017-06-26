@@ -487,6 +487,7 @@ qlist_parse_line(sldns_buffer* buf, char* p)
 	qinfo.qname = sldns_str2wire_dname(nm, &qinfo.qname_len);
 	if(!qinfo.qname)
 		return 0;
+	qinfo.local_alias = NULL;
 	qinfo_query_encode(buf, &qinfo);
 	sldns_buffer_write_u16_at(buf, 0, 0); /* zero ID */
 	if(rec) LDNS_RD_SET(sldns_buffer_begin(buf));

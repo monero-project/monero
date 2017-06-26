@@ -51,7 +51,7 @@
 #include "daemon/remote.h"
 #include "util/config_file.h"
 #include "util/netevent.h"
-#include "util/winsock_event.h"
+#include "util/ub_event.h"
 
 /** global service status */
 static SERVICE_STATUS	service_status;
@@ -60,7 +60,7 @@ static SERVICE_STATUS_HANDLE service_status_handle;
 /** global service stop event */
 static WSAEVENT service_stop_event = NULL;
 /** event struct for stop callbacks */
-static struct event service_stop_ev;
+static struct ub_event* service_stop_ev = NULL;
 /** if stop even means shutdown or restart */
 static int service_stop_shutdown = 0;
 /** config file to open. global communication to service_main() */
@@ -70,7 +70,7 @@ static int service_cmdline_verbose = 0;
 /** the cron callback */
 static struct comm_timer* service_cron = NULL;
 /** the cron thread */
-static ub_thread_t cron_thread = NULL;
+static ub_thread_type cron_thread = NULL;
 /** if cron has already done its quick check */
 static int cron_was_quick = 0;
 
@@ -453,9 +453,9 @@ service_main(DWORD ATTR_UNUSED(argc), LPTSTR* ATTR_UNUSED(argv))
 	/* exit */
 	verbose(VERB_ALGO, "winservice - cleanup.");
 	report_status(SERVICE_STOP_PENDING, NO_ERROR, 0);
+	if(service_stop_event) (void)WSACloseEvent(service_stop_event);
 	service_deinit(daemon, cfg);
 	free(service_cfgfile);
-	if(service_stop_event) (void)WSACloseEvent(service_stop_event);
 	verbose(VERB_QUERY, "winservice - full stop");
 	report_status(SERVICE_STOPPED, NO_ERROR, 0);
 }
@@ -565,7 +565,7 @@ win_do_cron(void* ATTR_UNUSED(arg))
 
 /** Set the timer for cron for the next wake up */
 static void
-set_cron_timer()
+set_cron_timer(void)
 {
 	struct timeval tv;
 	int crontime;
@@ -600,9 +600,9 @@ void wsvc_setup_worker(struct worker* worker)
 	/* if not started with -w service, do nothing */
 	if(!service_stop_event)
 		return;
-	if(!winsock_register_wsaevent(comm_base_internal(worker->base),
-		&service_stop_ev, service_stop_event,
-		&worker_win_stop_cb, worker)) {
+	if(!(service_stop_ev = ub_winsock_register_wsaevent(
+		comm_base_internal(worker->base), service_stop_event,
+		&worker_win_stop_cb, worker))) {
 		fatal_exit("could not register wsaevent");
 		return;
 	}

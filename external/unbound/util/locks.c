@@ -110,15 +110,15 @@ void ub_thread_sig_unblock(int sig)
  * @param arg: user argument to func.
  */
 void 
-ub_thr_fork_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
+ub_thr_fork_create(ub_thread_type* thr, void* (*func)(void*), void* arg)
 {
 	pid_t pid = fork();
 	switch(pid) {
 	default:	/* main */
-			*thr = (ub_thread_t)pid;
+			*thr = (ub_thread_type)pid;
 			return;
 	case 0: 	/* child */
-			*thr = (ub_thread_t)getpid();
+			*thr = (ub_thread_type)getpid();
 			(void)(*func)(arg);
 			exit(0);
 	case -1:	/* error */
@@ -128,10 +128,10 @@ ub_thr_fork_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
 
 /**
  * There is no threading. Wait for a process to terminate.
- * Note that ub_thread_t is defined as pid_t.
+ * Note that ub_thread_type is defined as pid_t.
  * @param thread: the process id to wait for.
  */
-void ub_thr_fork_wait(ub_thread_t thread)
+void ub_thr_fork_wait(ub_thread_type thread)
 {
 	int status = 0;
 	if(waitpid((pid_t)thread, &status, 0) == -1)
@@ -143,7 +143,7 @@ void ub_thr_fork_wait(ub_thread_t thread)
 #endif /* !defined(HAVE_PTHREAD) && !defined(HAVE_SOLARIS_THREADS) && !defined(HAVE_WINDOWS_THREADS) */
 
 #ifdef HAVE_SOLARIS_THREADS
-void* ub_thread_key_get(ub_thread_key_t key)
+void* ub_thread_key_get(ub_thread_key_type key)
 {
 	void* ret=NULL;
 	LOCKRET(thr_getspecific(key, &ret));
@@ -167,19 +167,19 @@ static void log_win_err(const char* str, DWORD err)
 	LocalFree(buf);
 }
 
-void lock_basic_init(lock_basic_t* lock)
+void lock_basic_init(lock_basic_type* lock)
 {
 	/* implement own lock, because windows HANDLE as Mutex usage
 	 * uses too many handles and would bog down the whole system. */
 	(void)InterlockedExchange(lock, 0);
 }
 
-void lock_basic_destroy(lock_basic_t* lock)
+void lock_basic_destroy(lock_basic_type* lock)
 {
 	(void)InterlockedExchange(lock, 0);
 }
 
-void lock_basic_lock(lock_basic_t* lock)
+void lock_basic_lock(lock_basic_type* lock)
 {
 	LONG wait = 1; /* wait 1 msec at first */
 
@@ -191,13 +191,13 @@ void lock_basic_lock(lock_basic_t* lock)
 	/* the old value was 0, but we inserted 1, we locked it! */
 }
 
-void lock_basic_unlock(lock_basic_t* lock)
+void lock_basic_unlock(lock_basic_type* lock)
 {
 	/* unlock it by inserting the value of 0. xchg for cache coherency. */
 	(void)InterlockedExchange(lock, 0);
 }
 
-void ub_thread_key_create(ub_thread_key_t* key, void* f)
+void ub_thread_key_create(ub_thread_key_type* key, void* f)
 {
 	*key = TlsAlloc();
 	if(*key == TLS_OUT_OF_INDEXES) {
@@ -207,14 +207,14 @@ void ub_thread_key_create(ub_thread_key_t* key, void* f)
 	else ub_thread_key_set(*key, f);
 }
 
-void ub_thread_key_set(ub_thread_key_t key, void* v)
+void ub_thread_key_set(ub_thread_key_type key, void* v)
 {
 	if(!TlsSetValue(key, v)) {
 		log_win_err("TlsSetValue failed", GetLastError());
 	}
 }
 
-void* ub_thread_key_get(ub_thread_key_t key)
+void* ub_thread_key_get(ub_thread_key_type key)
 {
 	void* ret = (void*)TlsGetValue(key);
 	if(ret == NULL && GetLastError() != ERROR_SUCCESS) {
@@ -223,7 +223,7 @@ void* ub_thread_key_get(ub_thread_key_t key)
 	return ret;
 }
 
-void ub_thread_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
+void ub_thread_create(ub_thread_type* thr, void* (*func)(void*), void* arg)
 {
 #ifndef HAVE__BEGINTHREADEX
 	*thr = CreateThread(NULL, /* default security (no inherit handle) */
@@ -233,7 +233,7 @@ void ub_thread_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
 		NULL); /* do not store thread identifier anywhere */
 #else
 	/* the beginthreadex routine setups for the C lib; aligns stack */
-	*thr=(ub_thread_t)_beginthreadex(NULL, 0, (void*)func, arg, 0, NULL);
+	*thr=(ub_thread_type)_beginthreadex(NULL, 0, (void*)func, arg, 0, NULL);
 #endif
 	if(*thr == NULL) {
 		log_win_err("CreateThread failed", GetLastError());
@@ -241,12 +241,12 @@ void ub_thread_create(ub_thread_t* thr, void* (*func)(void*), void* arg)
 	}
 }
 
-ub_thread_t ub_thread_self(void)
+ub_thread_type ub_thread_self(void)
 {
 	return GetCurrentThread();
 }
 
-void ub_thread_join(ub_thread_t thr)
+void ub_thread_join(ub_thread_type thr)
 {
 	DWORD ret = WaitForSingleObject(thr, INFINITE);
 	if(ret == WAIT_FAILED) {

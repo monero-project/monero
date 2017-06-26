@@ -59,6 +59,7 @@ struct query_info;
 struct reply_info;
 struct outbound_entry;
 struct timehist;
+struct respip_client_info;
 
 /**
  * Maximum number of mesh state activations. Any more is likely an
@@ -83,9 +84,9 @@ struct mesh_area {
 	struct module_env* env;
 
 	/** set of runnable queries (mesh_state.run_node) */
-	rbtree_t run;
+	rbtree_type run;
 	/** rbtree of all current queries (mesh_state.node)*/
-	rbtree_t all;
+	rbtree_type all;
 
 	/** count of the total number of mesh_reply entries */
 	size_t num_reply_addrs;
@@ -154,9 +155,9 @@ struct mesh_area {
  */
 struct mesh_state {
 	/** node in mesh_area all tree, key is this struct. Must be first. */
-	rbnode_t node;
+	rbnode_type node;
 	/** node in mesh_area runnable tree, key is this struct */
-	rbnode_t run_node;
+	rbnode_type run_node;
 	/** the query state. Note that the qinfo and query_flags 
 	 * may not change. */
 	struct module_qstate s;
@@ -166,10 +167,10 @@ struct mesh_state {
 	struct mesh_cb* cb_list;
 	/** set of superstates (that want this state's result) 
 	 * contains struct mesh_state_ref* */
-	rbtree_t super_set;
+	rbtree_type super_set;
 	/** set of substates (that this state needs to continue)
 	 * contains struct mesh_state_ref* */
-	rbtree_t sub_set;
+	rbtree_type sub_set;
 	/** number of activations for the mesh state */
 	size_t num_activated;
 
@@ -180,6 +181,8 @@ struct mesh_state {
 	/** if this state is in the forever list, jostle list, or neither */
 	enum mesh_list_select { mesh_no_list, mesh_forever_list, 
 		mesh_jostle_list } list_select;
+	/** pointer to this state for uniqueness or NULL */
+	struct mesh_state* unique;
 
 	/** true if replies have been sent out (at end for alignment) */
 	uint8_t replies_sent;
@@ -191,7 +194,7 @@ struct mesh_state {
  */
 struct mesh_state_ref {
 	/** node in rbtree for set, key is this structure */
-	rbnode_t node;
+	rbnode_type node;
 	/** the mesh state */
 	struct mesh_state* s;
 };
@@ -214,13 +217,15 @@ struct mesh_reply {
 	uint16_t qflags;
 	/** qname from this query. len same as mesh qinfo. */
 	uint8_t* qname;
+	/** same as that in query_info. */
+	struct local_rrset* local_alias;
 };
 
 /** 
  * Mesh result callback func.
  * called as func(cb_arg, rcode, buffer_with_reply, security, why_bogus);
  */
-typedef void (*mesh_cb_func_t)(void*, int, struct sldns_buffer*, enum sec_status, 
+typedef void (*mesh_cb_func_type)(void*, int, struct sldns_buffer*, enum sec_status, 
 	char*);
 
 /**
@@ -241,7 +246,7 @@ struct mesh_cb {
 	/** callback routine for results. if rcode != 0 buf has message.
 	 * called as cb(cb_arg, rcode, buf, sec_state);
 	 */
-	mesh_cb_func_t cb;
+	mesh_cb_func_type cb;
 	/** user arg for callback */
 	void* cb_arg;
 };
@@ -270,14 +275,18 @@ void mesh_delete(struct mesh_area* mesh);
  *
  * @param mesh: the mesh.
  * @param qinfo: query from client.
+ * @param cinfo: additional information associated with the query client.
+ * 	'cinfo' itself is ephemeral but data pointed to by its members
+ *      can be assumed to be valid and unchanged until the query processing is
+ *      completed.
  * @param qflags: flags from client query.
  * @param edns: edns data from client query.
  * @param rep: where to reply to.
  * @param qid: query id to reply with.
  */
 void mesh_new_client(struct mesh_area* mesh, struct query_info* qinfo,
-	uint16_t qflags, struct edns_data* edns, struct comm_reply* rep, 
-	uint16_t qid);
+	struct respip_client_info* cinfo, uint16_t qflags,
+	struct edns_data* edns, struct comm_reply* rep, uint16_t qid);
 
 /**
  * New query with callback. Create new query state if needed, and
@@ -296,7 +305,7 @@ void mesh_new_client(struct mesh_area* mesh, struct query_info* qinfo,
  */
 int mesh_new_callback(struct mesh_area* mesh, struct query_info* qinfo,
 	uint16_t qflags, struct edns_data* edns, struct sldns_buffer* buf, 
-	uint16_t qid, mesh_cb_func_t cb, void* cb_arg);
+	uint16_t qid, mesh_cb_func_type cb, void* cb_arg);
 
 /**
  * New prefetch message. Create new query state if needed.
@@ -405,14 +414,31 @@ void mesh_state_delete(struct module_qstate* qstate);
  * Does not put the mesh state into rbtrees and so on.
  * @param env: module environment to set.
  * @param qinfo: query info that the mesh is for.
+ * @param cinfo: control info for the query client (can be NULL).
  * @param qflags: flags for query (RD / CD flag).
  * @param prime: if true, it is a priming query, set is_priming on mesh state.
  * @param valrec: if true, it is a validation recursion query, and sets
  * 	is_valrec on the mesh state.
  * @return: new mesh state or NULL on allocation error.
  */
-struct mesh_state* mesh_state_create(struct module_env* env, 
-	struct query_info* qinfo, uint16_t qflags, int prime, int valrec);
+struct mesh_state* mesh_state_create(struct module_env* env,
+	struct query_info* qinfo, struct respip_client_info* cinfo,
+	uint16_t qflags, int prime, int valrec);
+
+/**
+ * Check if the mesh state is unique.
+ * A unique mesh state uses it's unique member to point to itself, else NULL.
+ * @param mstate: mesh state to check.
+ * @return true if the mesh state is unique, false otherwise.
+ */
+int mesh_state_is_unique(struct mesh_state* mstate);
+
+/**
+ * Make a mesh state unique.
+ * A unique mesh state uses it's unique member to point to itself.
+ * @param mstate: mesh state to check.
+ */
+void mesh_state_make_unique(struct mesh_state* mstate);
 
 /**
  * Cleanup a mesh state and its query state. Does not do rbtree or 
@@ -432,14 +458,17 @@ void mesh_delete_all(struct mesh_area* mesh);
  * Find a mesh state in the mesh area. Pass relevant flags.
  *
  * @param mesh: the mesh area to look in.
+ * @param cinfo: if non-NULL client specific info that may affect IP-based
+ * 	actions that apply to the query result.
  * @param qinfo: what query
  * @param qflags: if RD / CD bit is set or not.
  * @param prime: if it is a priming query.
  * @param valrec: if it is a validation-recursion query.
  * @return: mesh state or NULL if not found.
  */
-struct mesh_state* mesh_area_find(struct mesh_area* mesh, 
-	struct query_info* qinfo, uint16_t qflags, int prime, int valrec);
+struct mesh_state* mesh_area_find(struct mesh_area* mesh,
+	struct respip_client_info* cinfo, struct query_info* qinfo,
+	uint16_t qflags, int prime, int valrec);
 
 /**
  * Setup attachment super/sub relation between super and sub mesh state.
@@ -459,11 +488,12 @@ int mesh_state_attachment(struct mesh_state* super, struct mesh_state* sub);
  * @param rep: comm point reply info.
  * @param qid: ID of reply.
  * @param qflags: original query flags.
- * @param qname: original query name.
+ * @param qinfo: original query info.
  * @return: 0 on alloc error.
  */
-int mesh_state_add_reply(struct mesh_state* s, struct edns_data* edns, 
-	struct comm_reply* rep, uint16_t qid, uint16_t qflags, uint8_t* qname);
+int mesh_state_add_reply(struct mesh_state* s, struct edns_data* edns,
+	struct comm_reply* rep, uint16_t qid, uint16_t qflags,
+	const struct query_info* qinfo);
 
 /**
  * Create new callback structure and attach it to a mesh state.
@@ -478,8 +508,8 @@ int mesh_state_add_reply(struct mesh_state* s, struct edns_data* edns,
  * @return: 0 on alloc error.
  */
 int mesh_state_add_cb(struct mesh_state* s, struct edns_data* edns,
-        struct sldns_buffer* buf, mesh_cb_func_t cb, void* cb_arg, uint16_t qid, 
-	uint16_t qflags);
+        struct sldns_buffer* buf, mesh_cb_func_type cb, void* cb_arg,
+	uint16_t qid, uint16_t qflags);
 
 /**
  * Run the mesh. Run all runnable mesh states. Which can create new

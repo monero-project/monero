@@ -72,7 +72,7 @@ static int verb = 0;
 
 /** Give unbound-host usage, and exit (1). */
 static void
-usage()
+usage(void)
 {
 	printf("Usage:	unbound-host [-vdhr46] [-c class] [-t type] hostname\n");
 	printf("                     [-y key] [-f keyfile] [-F namedkeyfile]\n");
@@ -91,7 +91,7 @@ usage()
 	printf("    -F keyfile		read named.conf-style trust anchors.\n");
 	printf("    -C config		use the specified unbound.conf (none read by default)\n");
 	printf("    -r			read forwarder information from /etc/resolv.conf\n");
-	printf("      			breaks validation if the fwder does not do DNSSEC.\n");
+	printf("      			breaks validation if the forwarder does not do DNSSEC.\n");
 	printf("    -v			be more verbose, shows nodata and security.\n");
 	printf("    -d			debug, traces the action, -d -d shows more.\n");
 	printf("    -4			use ipv4 network, avoid ipv6.\n");

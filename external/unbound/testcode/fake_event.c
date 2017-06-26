@@ -318,7 +318,7 @@ answer_callback_from_entry(struct replay_runtime* runtime,
 	struct comm_point c;
 	struct comm_reply repinfo;
 	void* cb_arg = pend->cb_arg;
-	comm_point_callback_t* cb = pend->callback;
+	comm_point_callback_type* cb = pend->callback;
 
 	memset(&c, 0, sizeof(c));
 	c.fd = -1;
@@ -422,7 +422,7 @@ fake_pending_callback(struct replay_runtime* runtime,
 	struct comm_reply repinfo;
 	struct comm_point c;
 	void* cb_arg;
-	comm_point_callback_t* cb;
+	comm_point_callback_type* cb;
 
 	memset(&c, 0, sizeof(c));
 	if(!p) fatal_exit("No pending queries.");
@@ -735,7 +735,7 @@ struct listen_dnsport*
 listen_create(struct comm_base* base, struct listen_port* ATTR_UNUSED(ports),
 	size_t bufsize, int ATTR_UNUSED(tcp_accept_count),
 	void* ATTR_UNUSED(sslctx), struct dt_env* ATTR_UNUSED(dtenv),
-	comm_point_callback_t* cb, void* cb_arg)
+	comm_point_callback_type* cb, void* cb_arg)
 {
 	struct replay_runtime* runtime = (struct replay_runtime*)base;
 	struct listen_dnsport* l= calloc(1, sizeof(struct listen_dnsport));
@@ -900,6 +900,7 @@ outside_network_create(struct comm_base* base, size_t bufsize,
 	struct ub_randstate* ATTR_UNUSED(rnd), 
 	int ATTR_UNUSED(use_caps_for_id), int* ATTR_UNUSED(availports),
 	int ATTR_UNUSED(numavailports), size_t ATTR_UNUSED(unwanted_threshold),
+	int ATTR_UNUSED(outgoing_tcp_mss),
 	void (*unwanted_action)(void*), void* ATTR_UNUSED(unwanted_param),
 	int ATTR_UNUSED(do_udp), void* ATTR_UNUSED(sslctx),
 	int ATTR_UNUSED(delayclose), struct dt_env* ATTR_UNUSED(dtenv))
@@ -936,7 +937,7 @@ outside_network_quit_prepare(struct outside_network* ATTR_UNUSED(outnet))
 
 struct pending* 
 pending_udp_query(struct serviced_query* sq, sldns_buffer* packet,
-	int timeout, comm_point_callback_t* callback, void* callback_arg)
+	int timeout, comm_point_callback_type* callback, void* callback_arg)
 {
 	struct replay_runtime* runtime = (struct replay_runtime*)
 		sq->outnet->base;
@@ -986,7 +987,7 @@ pending_udp_query(struct serviced_query* sq, sldns_buffer* packet,
 
 struct waiting_tcp*
 pending_tcp_query(struct serviced_query* sq, sldns_buffer* packet,
-	int timeout, comm_point_callback_t* callback, void* callback_arg)
+	int timeout, comm_point_callback_type* callback, void* callback_arg)
 {
 	struct replay_runtime* runtime = (struct replay_runtime*)
 		sq->outnet->base;
@@ -1035,13 +1036,13 @@ pending_tcp_query(struct serviced_query* sq, sldns_buffer* packet,
 }
 
 struct serviced_query* outnet_serviced_query(struct outside_network* outnet,
-        uint8_t* qname, size_t qnamelen, uint16_t qtype, uint16_t qclass,
-	uint16_t flags, int dnssec, int ATTR_UNUSED(want_dnssec),
-	int ATTR_UNUSED(nocaps), int ATTR_UNUSED(tcp_upstream),
-	int ATTR_UNUSED(ssl_upstream), struct sockaddr_storage* addr,
-	socklen_t addrlen, uint8_t* zone, size_t zonelen,
-	comm_point_callback_t* callback, void* callback_arg,
-	sldns_buffer* ATTR_UNUSED(buff))
+	struct query_info* qinfo, uint16_t flags, int dnssec,
+	int ATTR_UNUSED(want_dnssec), int ATTR_UNUSED(nocaps),
+	int ATTR_UNUSED(tcp_upstream), int ATTR_UNUSED(ssl_upstream),
+	struct sockaddr_storage* addr, socklen_t addrlen, uint8_t* zone,
+	size_t zonelen, struct module_qstate* qstate,
+	comm_point_callback_type* callback, void* callback_arg,
+	sldns_buffer* ATTR_UNUSED(buff), struct module_env* ATTR_UNUSED(env))
 {
 	struct replay_runtime* runtime = (struct replay_runtime*)outnet->base;
 	struct fake_pending* pend = (struct fake_pending*)calloc(1,
@@ -1049,7 +1050,7 @@ struct serviced_query* outnet_serviced_query(struct outside_network* outnet,
 	char z[256];
 	log_assert(pend);
 	log_nametypeclass(VERB_OPS, "pending serviced query", 
-		qname, qtype, qclass);
+		qinfo->qname, qinfo->qtype, qinfo->qclass);
 	dname_str(zone, z);
 	verbose(VERB_OPS, "pending serviced query zone %s flags%s%s%s%s", 
 		z, (flags&BIT_RD)?" RD":"", (flags&BIT_CD)?" CD":"",
@@ -1064,18 +1065,24 @@ struct serviced_query* outnet_serviced_query(struct outside_network* outnet,
 	sldns_buffer_write_u16(pend->buffer, 0); /* ancount */
 	sldns_buffer_write_u16(pend->buffer, 0); /* nscount */
 	sldns_buffer_write_u16(pend->buffer, 0); /* arcount */
-	sldns_buffer_write(pend->buffer, qname, qnamelen);
-	sldns_buffer_write_u16(pend->buffer, qtype);
-	sldns_buffer_write_u16(pend->buffer, qclass);
+	sldns_buffer_write(pend->buffer, qinfo->qname, qinfo->qname_len);
+	sldns_buffer_write_u16(pend->buffer, qinfo->qtype);
+	sldns_buffer_write_u16(pend->buffer, qinfo->qclass);
 	sldns_buffer_flip(pend->buffer);
 	if(1) {
-		/* add edns */
 		struct edns_data edns;
+		if(!inplace_cb_query_call(env, qinfo, flags, addr, addrlen,
+			zone, zonelen, qstate, qstate->region)) {
+			free(pend);
+			return NULL;
+		}
+		/* add edns */
 		edns.edns_present = 1;
 		edns.ext_rcode = 0;
 		edns.edns_version = EDNS_ADVERTISED_VERSION;
 		edns.udp_size = EDNS_ADVERTISED_SIZE;
 		edns.bits = 0;
+		edns.opt_list = qstate->edns_opts_back_out;
 		if(dnssec)
 			edns.bits = EDNS_DO;
 		attach_edns_record(pend->buffer, &edns);
@@ -1084,7 +1091,7 @@ struct serviced_query* outnet_serviced_query(struct outside_network* outnet,
 	pend->addrlen = addrlen;
 	pend->zone = memdup(zone, zonelen);
 	pend->zonelen = zonelen;
-	pend->qtype = (int)qtype;
+	pend->qtype = (int)qinfo->qtype;
 	log_assert(pend->zone);
 	pend->callback = callback;
 	pend->cb_arg = callback_arg;
@@ -1128,6 +1135,7 @@ void outnet_serviced_query_stop(struct serviced_query* sq, void* cb_arg)
 	while(p) {
 		if(p == pend) {
 			log_assert(p->cb_arg == cb_arg);
+			(void)cb_arg;
 			log_info("serviced pending delete");
 			if(prev)
 				prev->next = p->next;
@@ -1157,7 +1165,7 @@ void listening_ports_free(struct listen_port* list)
 
 struct comm_point* comm_point_create_local(struct comm_base* ATTR_UNUSED(base),
         int ATTR_UNUSED(fd), size_t ATTR_UNUSED(bufsize),
-        comm_point_callback_t* ATTR_UNUSED(callback), 
+        comm_point_callback_type* ATTR_UNUSED(callback), 
 	void* ATTR_UNUSED(callback_arg))
 {
 	return calloc(1, 1);
@@ -1165,7 +1173,7 @@ struct comm_point* comm_point_create_local(struct comm_base* ATTR_UNUSED(base),
 
 struct comm_point* comm_point_create_raw(struct comm_base* ATTR_UNUSED(base),
         int ATTR_UNUSED(fd), int ATTR_UNUSED(writing),
-        comm_point_callback_t* ATTR_UNUSED(callback), 
+        comm_point_callback_type* ATTR_UNUSED(callback), 
 	void* ATTR_UNUSED(callback_arg))
 {
 	/* no pipe comm possible */
@@ -1386,7 +1394,7 @@ void comm_base_set_slow_accept_handlers(struct comm_base* ATTR_UNUSED(b),
 	(void)start_acc;
 }
 
-struct event_base* comm_base_internal(struct comm_base* ATTR_UNUSED(b))
+struct ub_event_base* comm_base_internal(struct comm_base* ATTR_UNUSED(b))
 {
 	/* no pipe comm possible in testbound */
 	return NULL;

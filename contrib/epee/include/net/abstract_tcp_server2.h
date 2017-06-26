@@ -69,7 +69,7 @@ namespace net_utils
 
   struct i_connection_filter
   {
-    virtual bool is_remote_ip_allowed(uint32_t adress)=0;
+    virtual bool is_remote_host_allowed(const epee::net_utils::network_address &address)=0;
   protected:
     virtual ~i_connection_filter(){}
   };

@@ -1,21 +1,21 @@
 # Copyright (c) 2014-2017, The Monero Project
-# 
+#
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -85,13 +85,16 @@ set(common_src
   iterator/iter_resptype.c
   iterator/iter_scrub.c
   iterator/iter_utils.c
+  respip/respip.c
   services/listen_dnsport.c
   services/localzone.c
   services/mesh.c
   services/modstack.c
   services/outbound_list.c
   services/outside_network.c
+  services/view.c
   util/alloc.c
+  util/as112.c
   util/config_file.c
   util/configlexer.c
   util/configparser.c
@@ -112,6 +115,7 @@ set(common_src
   util/storage/slabhash.c
   util/timehist.c
   util/tube.c
+  util/ub_event.c
   util/winsock_event.c
   validator/autotrust.c
   validator/val_anchor.c
@@ -131,7 +135,7 @@ set(common_src
 
 set(compat_src)
 
-foreach (symbol IN ITEMS ctime_r gmtime_r inet_aton inet_ntop inet_pton isblank malloc memmove snprintf strlcat strlcpy strptime explicit_bzero arc4random arc4random_uniform reallocarray)
+foreach (symbol IN ITEMS ctime_r gmtime_r inet_aton inet_ntop inet_pton isblank malloc memmove snprintf strsep strlcat strlcpy strptime explicit_bzero arc4random arc4random_uniform reallocarray)
   string(TOUPPER "${symbol}" upper_sym)
   if (NOT HAVE_${upper_sym})
     list(APPEND compat_src
@@ -222,4 +226,4 @@ if (INSTALL_VENDORED_LIBUNBOUND)
     endif()
     install(TARGETS unbound
         ARCHIVE DESTINATION ${lib_folder})
-endif()    
+endif()

@@ -637,7 +637,7 @@ int sldns_b64_ntop(uint8_t const *src, size_t srclength,
 		target[o+1] = b64[ ((src[i]&0x03)<<4) | (src[i+1]>>4) ];
 		target[o+2] = b64[ ((src[i+1]&0x0f)<<2) ];
 		target[o+3] = pad64;
-		i += 2;
+		/* i += 2; */
 		o += 4;
 		break;
 	case 1:
@@ -646,7 +646,7 @@ int sldns_b64_ntop(uint8_t const *src, size_t srclength,
 		target[o+1] = b64[ ((src[i]&0x03)<<4) ];
 		target[o+2] = pad64;
 		target[o+3] = pad64;
-		i += 1;
+		/* i += 1; */
 		o += 4;
 		break;
 	case 0:

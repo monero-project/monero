@@ -70,7 +70,7 @@ static int verb = 0;
 
 /** Give petal usage, and exit (1). */
 static void
-usage()
+usage(void)
 {
 	printf("Usage:	petal [opts]\n");
 	printf("	https daemon serves files from ./'host'/filename\n");
@@ -429,6 +429,7 @@ static void
 provide_file_chunked(SSL* ssl, char* fname)
 {
 	char buf[16384];
+	char* tmpbuf = NULL;
 	char* at = buf;
 	size_t avail = sizeof(buf);
 	size_t r;
@@ -471,9 +472,13 @@ provide_file_chunked(SSL* ssl, char* fname)
 	}
 
 	do {
-		char tmpbuf[sizeof(buf)];
+		size_t red;
+		free(tmpbuf);
+		tmpbuf = malloc(avail-16);
+		if(!tmpbuf)
+			break;
 		/* read chunk; space-16 for xxxxCRLF..CRLF0CRLFCRLF (3 spare)*/
-		size_t red = in?fread(tmpbuf, 1, avail-16, in):0;
+		red = in?fread(tmpbuf, 1, avail-16, in):0;
 		/* prepare chunk */
 		snprintf(at, avail, "%x\r\n", (unsigned)red);
 		r = strlen(at);
@@ -514,6 +519,7 @@ provide_file_chunked(SSL* ssl, char* fname)
 		avail = sizeof(buf);
 	} while(in && !feof(in) && !ferror(in));
 
+	free(tmpbuf);
 	if(in) fclose(in);
 }
 
@@ -634,16 +640,30 @@ int main(int argc, char* argv[])
 #ifdef SIGPIPE
 	(void)signal(SIGPIPE, SIG_IGN);
 #endif
+#ifdef HAVE_ERR_LOAD_CRYPTO_STRINGS
 	ERR_load_crypto_strings();
+#endif
 	ERR_load_SSL_strings();
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || !defined(HAVE_OPENSSL_INIT_CRYPTO)
 	OpenSSL_add_all_algorithms();
+#else
+	OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS
+		| OPENSSL_INIT_ADD_ALL_DIGESTS
+		| OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000 || !defined(HAVE_OPENSSL_INIT_SSL)
 	(void)SSL_library_init();
+#else
+	(void)OPENSSL_init_ssl(0, NULL);
+#endif
 
 	do_service(addr, port, key, cert);
 
+#ifdef HAVE_CRYPTO_CLEANUP_ALL_EX_DATA
 	CRYPTO_cleanup_all_ex_data();
-	ERR_remove_state(0);
+#endif
+#ifdef HAVE_ERR_FREE_STRINGS
 	ERR_free_strings();
-	RAND_cleanup();
+#endif
 	return 0;
 }

@@ -412,7 +412,7 @@ nsectest(void)
 
 /** Test hash algo - NSEC3 hash it and compare result */
 static void
-nsec3_hash_test_entry(struct entry* e, rbtree_t* ct,
+nsec3_hash_test_entry(struct entry* e, rbtree_type* ct,
 	struct alloc_cache* alloc, struct regional* region, 
 	sldns_buffer* buf)
 {
@@ -468,7 +468,7 @@ nsec3_hash_test(const char* fname)
 	 *
 	 * The test does not perform canonicalization during the compare.
 	 */
-	rbtree_t ct;
+	rbtree_type ct;
 	struct regional* region = regional_create();
 	struct alloc_cache alloc;
 	sldns_buffer* buf = sldns_buffer_new(65535);
@@ -496,24 +496,34 @@ void
 verify_test(void)
 {
 	unit_show_feature("signature verify");
+#ifdef USE_SHA1
 	verifytest_file("testdata/test_signatures.1", "20070818005004");
+#endif
+#if defined(USE_DSA) && defined(USE_SHA1)
 	verifytest_file("testdata/test_signatures.2", "20080414005004");
 	verifytest_file("testdata/test_signatures.3", "20080416005004");
 	verifytest_file("testdata/test_signatures.4", "20080416005004");
 	verifytest_file("testdata/test_signatures.5", "20080416005004");
 	verifytest_file("testdata/test_signatures.6", "20080416005004");
 	verifytest_file("testdata/test_signatures.7", "20070829144150");
+#endif /* USE_DSA */
+#ifdef USE_SHA1
 	verifytest_file("testdata/test_signatures.8", "20070829144150");
+#endif
 #if (defined(HAVE_EVP_SHA256) || defined(HAVE_NSS) || defined(HAVE_NETTLE)) && defined(USE_SHA2)
 	verifytest_file("testdata/test_sigs.rsasha256", "20070829144150");
+#  ifdef USE_SHA1
 	verifytest_file("testdata/test_sigs.sha1_and_256", "20070829144150");
+#  endif
 	verifytest_file("testdata/test_sigs.rsasha256_draft", "20090101000000");
 #endif
 #if (defined(HAVE_EVP_SHA512) || defined(HAVE_NSS) || defined(HAVE_NETTLE)) && defined(USE_SHA2)
 	verifytest_file("testdata/test_sigs.rsasha512_draft", "20070829144150");
 #endif
+#ifdef USE_SHA1
 	verifytest_file("testdata/test_sigs.hinfo", "20090107100022");
 	verifytest_file("testdata/test_sigs.revoked", "20080414005004");
+#endif
 #ifdef USE_GOST
 	if(sldns_key_EVP_load_gost_id())
 	  verifytest_file("testdata/test_sigs.gost", "20090807060504");
@@ -527,7 +537,9 @@ verify_test(void)
 	}
 	dstest_file("testdata/test_ds.sha384");
 #endif
+#ifdef USE_SHA1
 	dstest_file("testdata/test_ds.sha1");
+#endif
 	nsectest();
 	nsec3_hash_test("testdata/test_nsec3_hash.1");
 }

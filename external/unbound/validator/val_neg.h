@@ -67,9 +67,9 @@ struct ub_packed_rrset_key;
 struct val_neg_cache {
 	/** the big lock on the negative cache.  Because we use a rbtree 
 	 * for the data (quick lookup), we need a big lock */
-	lock_basic_t lock;
+	lock_basic_type lock;
 	/** The zone rbtree. contents sorted canonical, type val_neg_zone */
-	rbtree_t tree;
+	rbtree_type tree;
 	/** the first in linked list of LRU of val_neg_data */
 	struct val_neg_data* first;
 	/** last in lru (least recently used element) */
@@ -87,7 +87,7 @@ struct val_neg_cache {
  */
 struct val_neg_zone {
 	/** rbtree node element, key is this struct: the name, class */
-	rbnode_t node;
+	rbnode_type node;
 	/** name; the key */
 	uint8_t* name;
 	/** length of name */
@@ -114,7 +114,7 @@ struct val_neg_zone {
 
 	/** tree of NSEC data for this zone, sorted canonical 
 	 * by NSEC owner name */
-	rbtree_t tree;
+	rbtree_type tree;
 
 	/** class of node; host order */
 	uint16_t dclass;
@@ -135,7 +135,7 @@ struct val_neg_zone {
  */
 struct val_neg_data {
 	/** rbtree node element, key is this struct: the name */
-	rbnode_t node;
+	rbnode_type node;
 	/** name; the key */
 	uint8_t* name;
 	/** length of name */

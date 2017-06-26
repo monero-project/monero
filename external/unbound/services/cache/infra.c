@@ -61,6 +61,10 @@
 /** ratelimit value for delegation point */
 int infra_dp_ratelimit = 0;
 
+/** ratelimit value for client ip addresses,
+ *  in queries per second. */
+int infra_ip_ratelimit = 0;
+
 size_t 
 infra_sizefunc(void* k, void* ATTR_UNUSED(d))
 {
@@ -244,11 +248,19 @@ infra_create(struct config_file* cfg)
 		}
 		name_tree_init_parents(&infra->domain_limits);
 	}
+	infra_ip_ratelimit = cfg->ip_ratelimit;
+	infra->client_ip_rates = slabhash_create(cfg->ratelimit_slabs,
+	    INFRA_HOST_STARTSIZE, cfg->ip_ratelimit_size, &ip_rate_sizefunc,
+	    &ip_rate_compfunc, &ip_rate_delkeyfunc, &ip_rate_deldatafunc, NULL);
+	if(!infra->client_ip_rates) {
+		infra_delete(infra);
+		return NULL;
+	}
 	return infra;
 }
 
 /** delete domain_limit entries */
-static void domain_limit_free(rbnode_t* n, void* ATTR_UNUSED(arg))
+static void domain_limit_free(rbnode_type* n, void* ATTR_UNUSED(arg))
 {
 	if(n) {
 		free(((struct domain_limit_data*)n)->node.name);
@@ -264,6 +276,7 @@ infra_delete(struct infra_cache* infra)
 	slabhash_delete(infra->hosts);
 	slabhash_delete(infra->domain_rates);
 	traverse_postorder(&infra->domain_limits, domain_limit_free, NULL);
+	slabhash_delete(infra->client_ip_rates);
 	free(infra);
 }
 
@@ -284,31 +297,38 @@ infra_adjust(struct infra_cache* infra, struct config_file* cfg)
 	return infra;
 }
 
-/** calculate the hash value for a host key */
-static hashvalue_t
-hash_addr(struct sockaddr_storage* addr, socklen_t addrlen)
+/** calculate the hash value for a host key
+ *  set use_port to a non-0 number to use the port in
+ *  the hash calculation; 0 to ignore the port.*/
+static hashvalue_type
+hash_addr(struct sockaddr_storage* addr, socklen_t addrlen,
+  int use_port)
 {
-	hashvalue_t h = 0xab;
+	hashvalue_type h = 0xab;
 	/* select the pieces to hash, some OS have changing data inside */
 	if(addr_is_ip6(addr, addrlen)) {
 		struct sockaddr_in6* in6 = (struct sockaddr_in6*)addr;
 		h = hashlittle(&in6->sin6_family, sizeof(in6->sin6_family), h);
-		h = hashlittle(&in6->sin6_port, sizeof(in6->sin6_port), h);
+		if(use_port){
+			h = hashlittle(&in6->sin6_port, sizeof(in6->sin6_port), h);
+		}
 		h = hashlittle(&in6->sin6_addr, INET6_SIZE, h);
 	} else {
 		struct sockaddr_in* in = (struct sockaddr_in*)addr;
 		h = hashlittle(&in->sin_family, sizeof(in->sin_family), h);
-		h = hashlittle(&in->sin_port, sizeof(in->sin_port), h);
+		if(use_port){
+			h = hashlittle(&in->sin_port, sizeof(in->sin_port), h);
+		}
 		h = hashlittle(&in->sin_addr, INET_SIZE, h);
 	}
 	return h;
 }
 
 /** calculate infra hash for a key */
-static hashvalue_t
+static hashvalue_type
 hash_infra(struct sockaddr_storage* addr, socklen_t addrlen, uint8_t* name)
 {
-	return dname_query_hash(name, hash_addr(addr, addrlen));
+	return dname_query_hash(name, hash_addr(addr, addrlen, 1));
 }
 
 /** lookup version that does not check host ttl (you check it) */
@@ -726,12 +746,36 @@ int infra_find_ratelimit(struct infra_cache* infra, uint8_t* name,
 	return infra_dp_ratelimit;
 }
 
+size_t ip_rate_sizefunc(void* k, void* ATTR_UNUSED(d))
+{
+	struct ip_rate_key* key = (struct ip_rate_key*)k;
+	return sizeof(*key) + sizeof(struct ip_rate_data)
+		+ lock_get_mem(&key->entry.lock);
+}
+
+int ip_rate_compfunc(void* key1, void* key2)
+{
+	struct ip_rate_key* k1 = (struct ip_rate_key*)key1;
+	struct ip_rate_key* k2 = (struct ip_rate_key*)key2;
+	return sockaddr_cmp_addr(&k1->addr, k1->addrlen,
+		&k2->addr, k2->addrlen);
+}
+
+void ip_rate_delkeyfunc(void* k, void* ATTR_UNUSED(arg))
+{
+	struct ip_rate_key* key = (struct ip_rate_key*)k;
+	if(!key)
+		return;
+	lock_rw_destroy(&key->entry.lock);
+	free(key);
+}
+
 /** find data item in array, for write access, caller unlocks */
 static struct lruhash_entry* infra_find_ratedata(struct infra_cache* infra,
 	uint8_t* name, size_t namelen, int wr)
 {
 	struct rate_key key;
-	hashvalue_t h = dname_query_hash(name, 0xab);
+	hashvalue_type h = dname_query_hash(name, 0xab);
 	memset(&key, 0, sizeof(key));
 	key.name = name;
 	key.namelen = namelen;
@@ -739,11 +783,25 @@ static struct lruhash_entry* infra_find_ratedata(struct infra_cache* infra,
 	return slabhash_lookup(infra->domain_rates, h, &key, wr);
 }
 
+/** find data item in array for ip addresses */
+struct lruhash_entry* infra_find_ip_ratedata(struct infra_cache* infra,
+	struct comm_reply* repinfo, int wr)
+{
+	struct ip_rate_key key;
+	hashvalue_type h = hash_addr(&(repinfo->addr),
+		repinfo->addrlen, 0);
+	memset(&key, 0, sizeof(key));
+	key.addr = repinfo->addr;
+	key.addrlen = repinfo->addrlen;
+	key.entry.hash = h;
+	return slabhash_lookup(infra->client_ip_rates, h, &key, wr);
+}
+
 /** create rate data item for name, number 1 in now */
 static void infra_create_ratedata(struct infra_cache* infra,
 	uint8_t* name, size_t namelen, time_t timenow)
 {
-	hashvalue_t h = dname_query_hash(name, 0xab);
+	hashvalue_type h = dname_query_hash(name, 0xab);
 	struct rate_key* k = (struct rate_key*)calloc(1, sizeof(*k));
 	struct rate_data* d = (struct rate_data*)calloc(1, sizeof(*d));
 	if(!k || !d) {
@@ -765,6 +823,30 @@ static void infra_create_ratedata(struct infra_cache* infra,
 	d->qps[0] = 1;
 	d->timestamp[0] = timenow;
 	slabhash_insert(infra->domain_rates, h, &k->entry, d, NULL);
+}
+
+/** create rate data item for ip address */
+static void infra_ip_create_ratedata(struct infra_cache* infra,
+	struct comm_reply* repinfo, time_t timenow)
+{
+	hashvalue_type h = hash_addr(&(repinfo->addr),
+	repinfo->addrlen, 0);
+	struct ip_rate_key* k = (struct ip_rate_key*)calloc(1, sizeof(*k));
+	struct ip_rate_data* d = (struct ip_rate_data*)calloc(1, sizeof(*d));
+	if(!k || !d) {
+		free(k);
+		free(d);
+		return; /* alloc failure */
+	}
+	k->addr = repinfo->addr;
+	k->addrlen = repinfo->addrlen;
+	lock_rw_init(&k->entry.lock);
+	k->entry.hash = h;
+	k->entry.key = k;
+	k->entry.data = d;
+	d->qps[0] = 1;
+	d->timestamp[0] = timenow;
+	slabhash_insert(infra->client_ip_rates, h, &k->entry, d, NULL);
 }
 
 /** find the second and return its rate counter, if none, remove oldest */
@@ -875,6 +957,41 @@ infra_get_mem(struct infra_cache* infra)
 {
 	size_t s = sizeof(*infra) + slabhash_get_mem(infra->hosts);
 	if(infra->domain_rates) s += slabhash_get_mem(infra->domain_rates);
+	if(infra->client_ip_rates) s += slabhash_get_mem(infra->client_ip_rates);
 	/* ignore domain_limits because walk through tree is big */
 	return s;
+}
+
+int infra_ip_ratelimit_inc(struct infra_cache* infra,
+  struct comm_reply* repinfo, time_t timenow)
+{
+	int max;
+	struct lruhash_entry* entry;
+
+	/* not enabled */
+	if(!infra_ip_ratelimit) {
+		return 1;
+	}
+	/* find or insert ratedata */
+	entry = infra_find_ip_ratedata(infra, repinfo, 1);
+	if(entry) {
+		int premax = infra_rate_max(entry->data, timenow);
+		int* cur = infra_rate_find_second(entry->data, timenow);
+		(*cur)++;
+		max = infra_rate_max(entry->data, timenow);
+		lock_rw_unlock(&entry->lock);
+
+		if(premax < infra_ip_ratelimit && max >= infra_ip_ratelimit) {
+			char client_ip[128];
+			addr_to_str((struct sockaddr_storage *)&repinfo->addr,
+				repinfo->addrlen, client_ip, sizeof(client_ip));
+			verbose(VERB_OPS, "ratelimit exceeded %s %d", client_ip,
+				infra_ip_ratelimit);
+		}
+		return (max <= infra_ip_ratelimit);
+	}
+
+	/* create */
+	infra_ip_create_ratedata(infra, repinfo, timenow);
+	return 1;
 }

@@ -158,14 +158,14 @@ rrsetdata_equal(struct packed_rrset_data* d1, struct packed_rrset_data* d2)
 	return 1;
 }
 
-hashvalue_t 
+hashvalue_type
 rrset_key_hash(struct packed_rrset_key* key)
 {
 	/* type is hashed in host order */
 	uint16_t t = ntohs(key->type);
 	/* Note this MUST be identical to pkt_hash_rrset in msgparse.c */
 	/* this routine does not have a compressed name */
-	hashvalue_t h = 0xab;
+	hashvalue_type h = 0xab;
 	h = dname_query_hash(key->dname, h);
 	h = hashlittle(&t, sizeof(t), h);
 	h = hashlittle(&key->rrset_class, sizeof(uint16_t), h);

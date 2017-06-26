@@ -48,6 +48,7 @@
 #include "util/log.h"
 #include "util/net_help.h"
 #include "util/config_file.h"
+#include "util/as112.h"
 #include "sldns/sbuffer.h"
 #include "sldns/rrdef.h"
 #include "sldns/str2wire.h"
@@ -112,7 +113,7 @@ assembled_rrset_delete(struct ub_packed_rrset_key* pkey)
 
 /** destroy locks in tree and delete autotrust anchors */
 static void
-anchors_delfunc(rbnode_t* elem, void* ATTR_UNUSED(arg))
+anchors_delfunc(rbnode_type* elem, void* ATTR_UNUSED(arg))
 {
 	struct trust_anchor* ta = (struct trust_anchor*)elem;
 	if(!ta) return;
@@ -197,7 +198,7 @@ anchor_find(struct val_anchors* anchors, uint8_t* name, int namelabs,
 	size_t namelen, uint16_t dclass)
 {
 	struct trust_anchor key;
-	rbnode_t* n;
+	rbnode_type* n;
 	if(!name) return NULL;
 	key.node.key = &key;
 	key.name = name;
@@ -221,7 +222,7 @@ anchor_new_ta(struct val_anchors* anchors, uint8_t* name, int namelabs,
 	size_t namelen, uint16_t dclass, int lockit)
 {
 #ifdef UNBOUND_DEBUG
-	rbnode_t* r;
+	rbnode_type* r;
 #endif
 	struct trust_anchor* ta = (struct trust_anchor*)malloc(
 		sizeof(struct trust_anchor));
@@ -989,7 +990,7 @@ anchors_assemble_rrsets(struct val_anchors* anchors)
 	size_t nods, nokey;
 	lock_basic_lock(&anchors->lock);
 	ta=(struct trust_anchor*)rbtree_first(anchors->tree);
-	while((rbnode_t*)ta != RBTREE_NULL) {
+	while((rbnode_type*)ta != RBTREE_NULL) {
 		next = (struct trust_anchor*)rbtree_next(&ta->node);
 		lock_basic_lock(&ta->lock);
 		if(ta->autr || (ta->numDS == 0 && ta->numDNSKEY == 0)) {
@@ -1029,6 +1030,8 @@ anchors_assemble_rrsets(struct val_anchors* anchors)
 				")", b);
 			(void)rbtree_delete(anchors->tree, &ta->node);
 			lock_basic_unlock(&ta->lock);
+			if(anchors->dlv_anchor == ta)
+				anchors->dlv_anchor = NULL;
 			anchors_delfunc(&ta->node, NULL);
 			ta = next;
 			continue;
@@ -1044,8 +1047,18 @@ int
 anchors_apply_cfg(struct val_anchors* anchors, struct config_file* cfg)
 {
 	struct config_strlist* f;
+	const char** zstr;
 	char* nm;
 	sldns_buffer* parsebuf = sldns_buffer_new(65535);
+	if(cfg->insecure_lan_zones) {
+		for(zstr = as112_zones; *zstr; zstr++) {
+			if(!anchor_insert_insecure(anchors, *zstr)) {
+				log_err("error in insecure-lan-zones: %s", *zstr);
+				sldns_buffer_free(parsebuf);
+				return 0;
+			}
+		}
+	}
 	for(f = cfg->domain_insecure; f; f = f->next) {
 		if(!f->str || f->str[0] == 0) /* empty "" */
 			continue;
@@ -1151,7 +1164,7 @@ anchors_lookup(struct val_anchors* anchors,
 {
 	struct trust_anchor key;
 	struct trust_anchor* result;
-	rbnode_t* res = NULL;
+	rbnode_type* res = NULL;
 	key.node.key = &key;
 	key.name = qname;
 	key.namelabs = dname_count_labels(qname);
@@ -1260,3 +1273,39 @@ anchors_delete_insecure(struct val_anchors* anchors, uint16_t c,
 	anchors_delfunc(&ta->node, NULL);
 }
 
+/** compare two keytags, return -1, 0 or 1 */
+static int
+keytag_compare(const void* x, const void* y)
+{
+	if(*(uint16_t*)x == *(uint16_t*)y)
+		return 0;
+	if(*(uint16_t*)x > *(uint16_t*)y)
+		return 1;
+	return -1;
+}
+
+size_t
+anchor_list_keytags(struct trust_anchor* ta, uint16_t* list, size_t num)
+{
+	size_t i, ret = 0;
+	if(ta->numDS == 0 && ta->numDNSKEY == 0)
+		return 0; /* insecure point */
+	if(ta->numDS != 0 && ta->ds_rrset) {
+		struct packed_rrset_data* d=(struct packed_rrset_data*)
+			ta->ds_rrset->entry.data;
+		for(i=0; i<d->count; i++) {
+			if(ret == num) continue;
+			list[ret++] = ds_get_keytag(ta->ds_rrset, i);
+		}
+	}
+	if(ta->numDNSKEY != 0 && ta->dnskey_rrset) {
+		struct packed_rrset_data* d=(struct packed_rrset_data*)
+			ta->dnskey_rrset->entry.data;
+		for(i=0; i<d->count; i++) {
+			if(ret == num) continue;
+			list[ret++] = dnskey_calc_keytag(ta->dnskey_rrset, i);
+		}
+	}
+	qsort(list, ret, sizeof(*list), keytag_compare);
+	return ret;
+}

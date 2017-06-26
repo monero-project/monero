@@ -66,6 +66,9 @@
 #include <sys/auxv.h>
 #endif
 #include <sys/vfs.h>
+#ifndef MAP_ANON
+#define MAP_ANON MAP_ANONYMOUS
+#endif
 
 #define REPEAT 5
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -100,7 +103,7 @@ int	getentropy(void *buf, size_t len);
 extern int main(int, char *argv[]);
 #endif
 static int gotdata(char *buf, size_t len);
-#ifdef SYS_getrandom
+#if defined(SYS_getrandom) && defined(__NR_getrandom)
 static int getentropy_getrandom(void *buf, size_t len);
 #endif
 static int getentropy_urandom(void *buf, size_t len);
@@ -119,7 +122,7 @@ getentropy(void *buf, size_t len)
 		return -1;
 	}
 
-#ifdef SYS_getrandom
+#if defined(SYS_getrandom) && defined(__NR_getrandom)
 	/*
 	 * Try descriptor-less getrandom()
 	 */
@@ -215,7 +218,7 @@ gotdata(char *buf, size_t len)
 	return 0;
 }
 
-#ifdef SYS_getrandom
+#if defined(SYS_getrandom) && defined(__NR_getrandom)
 static int
 getentropy_getrandom(void *buf, size_t len)
 {

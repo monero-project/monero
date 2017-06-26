@@ -161,8 +161,8 @@ mark_additional_rrset(sldns_buffer* pkt, struct msg_parse* msg,
 	for(rr = rrset->rr_first; rr; rr = rr->next) {
 		if(get_additional_name(rrset, rr, &nm, &nmlen, pkt)) {
 			/* mark A */
-			hashvalue_t h = pkt_hash_rrset(pkt, nm, LDNS_RR_TYPE_A, 
-				rrset->rrset_class, 0);
+			hashvalue_type h = pkt_hash_rrset(pkt, nm,
+				LDNS_RR_TYPE_A, rrset->rrset_class, 0);
 			struct rrset_parse* r = msgparse_hashtable_lookup(
 				msg, pkt, h, 0, nm, nmlen, 
 				LDNS_RR_TYPE_A, rrset->rrset_class);

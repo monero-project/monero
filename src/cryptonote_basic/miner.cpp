@@ -43,6 +43,16 @@
 #include "storages/portable_storage_template_helper.h"
 #include "boost/logic/tribool.hpp"
 
+#ifdef __APPLE__
+  #include <sys/times.h>
+  #include <IOKit/IOKitLib.h>
+  #include <IOKit/ps/IOPSKeys.h>
+  #include <IOKit/ps/IOPowerSources.h>
+  #include <mach/mach_host.h>
+  #include <AvailabilityMacros.h>
+  #include <TargetConditionals.h>
+#endif
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "miner"
 
@@ -757,6 +767,23 @@ namespace cryptonote
 
       return true;
 
+    #elif defined(__APPLE__)
+
+      mach_msg_type_number_t count;
+      kern_return_t status;
+      host_cpu_load_info_data_t stats;      
+      count = HOST_CPU_LOAD_INFO_COUNT;
+      status = host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, (host_info_t)&stats, &count);
+      if(status != KERN_SUCCESS)
+      {
+        return false;
+      }
+
+      idle_time = stats.cpu_ticks[CPU_STATE_IDLE];
+      total_time = idle_time + stats.cpu_ticks[CPU_STATE_USER] + stats.cpu_ticks[CPU_STATE_SYSTEM];
+      
+      return true;
+
     #endif
 
     return false; // unsupported systemm..
@@ -779,7 +806,7 @@ namespace cryptonote
         return true;
       }
 
-    #elif defined(__linux__) && defined(_SC_CLK_TCK)
+    #elif (defined(__linux__) && defined(_SC_CLK_TCK)) || defined(__APPLE__)
 
       struct tms tms;
       if ( times(&tms) != (clock_t)-1 )
@@ -807,6 +834,15 @@ namespace cryptonote
     	{
         return boost::logic::tribool(power_status.ACLineStatus != 1);
     	}
+
+    #elif defined(__APPLE__) 
+      
+      #if TARGET_OS_MAC && (!defined(MAC_OS_X_VERSION_MIN_REQUIRED) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_7)
+        return boost::logic::tribool(IOPSGetTimeRemainingEstimate() != kIOPSTimeRemainingUnlimited);
+      #else
+        // iOS or OSX <10.7
+        return boost::logic::tribool(boost::logic::indeterminate);
+      #endif
 
     #elif defined(__linux__)
 

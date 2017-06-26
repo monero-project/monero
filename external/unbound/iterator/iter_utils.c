@@ -108,7 +108,7 @@ read_fetch_policy(struct iter_env* ie, const char* str)
 
 /** apply config caps whitelist items to name tree */
 static int
-caps_white_apply_cfg(rbtree_t* ntree, struct config_file* cfg)
+caps_white_apply_cfg(rbtree_type* ntree, struct config_file* cfg)
 {
 	struct config_strlist* p;
 	for(p=cfg->caps_whitelist; p; p=p->next) {
@@ -360,6 +360,39 @@ iter_filter_order(struct iter_env* iter_env, struct module_env* env,
 		}
 	}
 	*selected_rtt = low_rtt;
+
+	if (env->cfg->prefer_ip6) {
+		int got_num6 = 0;
+		int low_rtt6 = 0;
+		int i;
+		prev = NULL;
+		a = dp->result_list;
+		for(i = 0; i < got_num; i++) {
+			swap_to_front = 0;
+			if(a->addr.ss_family == AF_INET6) {
+				got_num6++;
+				swap_to_front = 1;
+				if(low_rtt6 == 0 || a->sel_rtt < low_rtt6) {
+					low_rtt6 = a->sel_rtt;
+				}
+			}
+			/* swap to front if IPv6, or move to next result */
+			if(swap_to_front && prev) {
+				n = a->next_result;
+				prev->next_result = n;
+				a->next_result = dp->result_list;
+				dp->result_list = a;
+				a = n;
+			} else {
+				prev = a;
+				a = a->next_result;
+			}
+		}
+		if(got_num6 > 0) {
+			got_num = got_num6;
+			*selected_rtt = low_rtt6;
+		}
+	}
 	return got_num;
 }
 
@@ -499,6 +532,7 @@ causes_cycle(struct module_qstate* qstate, uint8_t* name, size_t namelen,
 	qinf.qname_len = namelen;
 	qinf.qtype = t;
 	qinf.qclass = c;
+	qinf.local_alias = NULL;
 	fptr_ok(fptr_whitelist_modenv_detect_cycle(
 		qstate->env->detect_cycle));
 	return (*qstate->env->detect_cycle)(qstate, &qinf, 
@@ -588,6 +622,27 @@ iter_dp_is_useless(struct query_info* qinfo, uint16_t qflags,
 			return 0; /* one address is not required glue */
 	}
 	return 1;
+}
+
+int
+iter_indicates_dnssec_fwd(struct module_env* env, struct query_info *qinfo)
+{
+	struct trust_anchor* a;
+	if(!env || !env->anchors || !qinfo || !qinfo->qname)
+		return 0;
+	/* a trust anchor exists above the name? */
+	if((a=anchors_lookup(env->anchors, qinfo->qname, qinfo->qname_len,
+		qinfo->qclass))) { 
+		if(a->numDS == 0 && a->numDNSKEY == 0) {
+			/* insecure trust point */
+			lock_basic_unlock(&a->lock);
+			return 0;
+		}
+		lock_basic_unlock(&a->lock);
+		return 1;
+	}
+	/* no trust anchor above it. */
+	return 0;
 }
 
 int 

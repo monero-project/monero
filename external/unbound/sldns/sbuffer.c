@@ -33,6 +33,7 @@ sldns_buffer_new(size_t capacity)
 	buffer->_position = 0;
 	buffer->_limit = buffer->_capacity = capacity;
 	buffer->_fixed = 0;
+	buffer->_vfixed = 0;
 	buffer->_status_err = 0;
 	
 	sldns_buffer_invariant(buffer);
@@ -48,6 +49,7 @@ sldns_buffer_new_frm_data(sldns_buffer *buffer, void *data, size_t size)
 	buffer->_position = 0; 
 	buffer->_limit = buffer->_capacity = size;
 	buffer->_fixed = 0;
+	buffer->_vfixed = 0;
 	buffer->_data = malloc(size);
 	if(!buffer->_data) {
 		buffer->_status_err = 1;
@@ -66,6 +68,17 @@ sldns_buffer_init_frm_data(sldns_buffer *buffer, void *data, size_t size)
 	buffer->_data = data;
 	buffer->_capacity = buffer->_limit = size;
 	buffer->_fixed = 1;
+	buffer->_vfixed = 0;
+}
+
+void
+sldns_buffer_init_vfixed_frm_data(sldns_buffer *buffer, void *data, size_t size)
+{
+	memset(buffer, 0, sizeof(*buffer));
+	buffer->_data = data;
+	buffer->_capacity = buffer->_limit = size;
+	buffer->_fixed = 1;
+	buffer->_vfixed = 1;
 }
 
 int
@@ -74,7 +87,7 @@ sldns_buffer_set_capacity(sldns_buffer *buffer, size_t capacity)
 	void *data;
 	
 	sldns_buffer_invariant(buffer);
-	assert(buffer->_position <= capacity);
+	assert(buffer->_position <= capacity && !buffer->_fixed);
 
 	data = (uint8_t *) realloc(buffer->_data, capacity);
 	if (!data) {
@@ -126,7 +139,7 @@ sldns_buffer_printf(sldns_buffer *buffer, const char *format, ...)
 		if (written == -1) {
 			buffer->_status_err = 1;
 			return -1;
-		} else if ((size_t) written >= remaining) {
+		} else if (!buffer->_vfixed && (size_t) written >= remaining) {
 			if (!sldns_buffer_reserve(buffer, (size_t) written + 1)) {
 				buffer->_status_err = 1;
 				return -1;

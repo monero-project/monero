@@ -51,7 +51,7 @@
  */
 struct codeline {
 	/** rbtree node */
-	rbnode_t node;
+	rbnode_type node;
 	/** the name of the file:linenumber */
 	char* codeline;
 	/** the name of the function */
@@ -66,7 +66,7 @@ struct codeline {
 
 /** print usage and exit */
 static void
-usage()
+usage(void)
 {
 	printf("usage:	memstats <logfile>\n");
 	printf("statistics are printed on stdout.\n");
@@ -99,7 +99,7 @@ match(char* line)
 
 /** find or alloc codeline in tree */
 static struct codeline*
-get_codeline(rbtree_t* tree, char* key, char* func)
+get_codeline(rbtree_type* tree, char* key, char* func)
 {
 	struct codeline* cl = (struct codeline*)rbtree_search(tree, key);
 	if(!cl) {
@@ -118,7 +118,7 @@ get_codeline(rbtree_t* tree, char* key, char* func)
 
 /** read up the malloc stats */
 static void
-read_malloc_stat(char* line, rbtree_t* tree)
+read_malloc_stat(char* line, rbtree_type* tree)
 {
 	char codeline[10240];
 	char name[10240];
@@ -143,7 +143,7 @@ read_malloc_stat(char* line, rbtree_t* tree)
 
 /** read up the calloc stats */
 static void
-read_calloc_stat(char* line, rbtree_t* tree)
+read_calloc_stat(char* line, rbtree_type* tree)
 {
 	char codeline[10240];
 	char name[10240];
@@ -180,7 +180,7 @@ get_file_size(const char* fname)
 
 /** read the logfile */
 static void
-readfile(rbtree_t* tree, const char* fname)
+readfile(rbtree_type* tree, const char* fname)
 {
 	off_t total = get_file_size(fname);
 	off_t done = (off_t)0;
@@ -216,7 +216,7 @@ readfile(rbtree_t* tree, const char* fname)
 
 /** print memory stats */
 static void
-printstats(rbtree_t* tree)
+printstats(rbtree_type* tree)
 {
 	struct codeline* cl;
 	uint64_t total = 0, tcalls = 0;
@@ -235,7 +235,8 @@ printstats(rbtree_t* tree)
 /** main program */
 int main(int argc, const char* argv[])
 {
-	rbtree_t* tree = 0;
+	rbtree_type* tree = 0;
+	log_init(NULL, 0, 0);
 	if(argc != 2) {
 		usage();
 	}

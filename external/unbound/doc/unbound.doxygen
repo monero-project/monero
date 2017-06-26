@@ -623,7 +623,9 @@ EXCLUDE                = ./build \
                          pythonmod/examples/resip.py \
                          libunbound/python/unbound.py \
                          libunbound/python/libunbound_wrap.c \
-                         ./ldns-src
+                         ./ldns-src \
+			 doc/control_proto_spec.txt \
+			 doc/requirements.txt
 
 # The EXCLUDE_SYMLINKS tag can be used select whether or not files or
 # directories that are symbolic links (a Unix filesystem feature) are excluded

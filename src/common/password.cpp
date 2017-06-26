@@ -42,6 +42,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_READLINE
+  #include "readline_buffer.h"
+#endif
+
 namespace
 {
 #if defined(_WIN32)
@@ -238,6 +242,9 @@ namespace tools
 
   boost::optional<password_container> password_container::prompt(const bool verify, const char *message)
   {
+#ifdef HAVE_READLINE
+    rdln::suspend_readline pause_readline;
+#endif
     password_container pass1{};
     password_container pass2{};
     if (is_cin_tty() ? read_from_tty(verify, message, pass1.m_password, pass2.m_password) : read_from_file(pass1.m_password))

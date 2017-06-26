@@ -2,7 +2,10 @@
 # Copyright 2009, Wouter Wijngaards, NLnet Labs.   
 # BSD licensed.
 #
-# Version 31
+# Version 34
+# 2016-03-21 Check -ldl -pthread for libcrypto for ldns and openssl 1.1.0.
+# 2016-03-21 Use HMAC_Update instead of HMAC_CTX_Init (for openssl-1.1.0).
+# 2016-01-04 -D_DEFAULT_SOURCE defined with -D_BSD_SOURCE for Linux glibc 2.20
 # 2015-12-11 FLTO check for new OSX, clang.
 # 2015-11-18 spelling check fix.
 # 2015-11-05 ACX_SSL_CHECKS no longer adds -ldl needlessly.
@@ -242,7 +245,7 @@ ACX_CHECK_COMPILER_FLAG(xc99, [C99FLAG="-xc99"])
 
 AC_CHECK_HEADERS([getopt.h time.h],,, [AC_INCLUDES_DEFAULT])
 
-ACX_CHECK_COMPILER_FLAG_NEEDED($C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED=1 -D_ALL_SOURCE,
+ACX_CHECK_COMPILER_FLAG_NEEDED($C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED=1 -D_ALL_SOURCE,
 [
 #include "confdefs.h"
 #include <stdlib.h>
@@ -277,9 +280,9 @@ int test() {
 		a = 0;
 	return a;
 }
-], [CFLAGS="$CFLAGS $C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED=1 -D_ALL_SOURCE"])
+], [CFLAGS="$CFLAGS $C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED=1 -D_ALL_SOURCE"])
 
-ACX_CHECK_COMPILER_FLAG_NEEDED($C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ALL_SOURCE,
+ACX_CHECK_COMPILER_FLAG_NEEDED($C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ALL_SOURCE,
 [
 #include "confdefs.h"
 #include <stdlib.h>
@@ -314,7 +317,7 @@ int test() {
 		a = 0;
 	return a;
 }
-], [CFLAGS="$CFLAGS $C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ALL_SOURCE"])
+], [CFLAGS="$CFLAGS $C99FLAG -D__EXTENSIONS__ -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ALL_SOURCE"])
 
 ACX_CHECK_COMPILER_FLAG_NEEDED($C99FLAG,
 [
@@ -326,7 +329,7 @@ int test() {
 }
 ], [CFLAGS="$CFLAGS $C99FLAG"])
 
-ACX_CHECK_COMPILER_FLAG_NEEDED(-D_BSD_SOURCE,
+ACX_CHECK_COMPILER_FLAG_NEEDED(-D_BSD_SOURCE -D_DEFAULT_SOURCE,
 [
 #include <ctype.h>
 
@@ -335,7 +338,7 @@ int test() {
         a = isascii(32);
         return a;
 }
-], [CFLAGS="$CFLAGS -D_BSD_SOURCE"])
+], [CFLAGS="$CFLAGS -D_BSD_SOURCE -D_DEFAULT_SOURCE"])
 
 ACX_CHECK_COMPILER_FLAG_NEEDED(-D_GNU_SOURCE,
 [
@@ -670,16 +673,16 @@ AC_DEFUN([ACX_SSL_CHECKS], [
                 ACX_RUNTIME_PATH_ADD([$ssldir/lib])
             fi
         
-            AC_MSG_CHECKING([for HMAC_CTX_init in -lcrypto])
+            AC_MSG_CHECKING([for HMAC_Update in -lcrypto])
             LIBS="$LIBS -lcrypto"
             LIBSSL_LIBS="$LIBSSL_LIBS -lcrypto"
             AC_TRY_LINK(, [
-                int HMAC_CTX_init(void);
-                (void)HMAC_CTX_init();
+                int HMAC_Update(void);
+                (void)HMAC_Update();
               ], [
                 AC_MSG_RESULT(yes)
-                AC_DEFINE([HAVE_HMAC_CTX_INIT], 1, 
-                          [If you have HMAC_CTX_init])
+                AC_DEFINE([HAVE_HMAC_UPDATE], 1, 
+                          [If you have HMAC_Update])
               ], [
                 AC_MSG_RESULT(no)
                 # check if -lwsock32 or -lgdi32 are needed.	
@@ -689,11 +692,11 @@ AC_DEFUN([ACX_SSL_CHECKS], [
                 LIBSSL_LIBS="$LIBSSL_LIBS -lgdi32"
                 AC_MSG_CHECKING([if -lcrypto needs -lgdi32])
                 AC_TRY_LINK([], [
-                    int HMAC_CTX_init(void);
-                    (void)HMAC_CTX_init();
+                    int HMAC_Update(void);
+                    (void)HMAC_Update();
                   ],[
-                    AC_DEFINE([HAVE_HMAC_CTX_INIT], 1, 
-                        [If you have HMAC_CTX_init])
+                    AC_DEFINE([HAVE_HMAC_UPDATE], 1, 
+                        [If you have HMAC_Update])
                     AC_MSG_RESULT(yes) 
                   ],[
                     AC_MSG_RESULT(no)
@@ -703,15 +706,30 @@ AC_DEFUN([ACX_SSL_CHECKS], [
                     LIBSSL_LIBS="$LIBSSL_LIBS -ldl"
                     AC_MSG_CHECKING([if -lcrypto needs -ldl])
                     AC_TRY_LINK([], [
-                        int HMAC_CTX_init(void);
-                        (void)HMAC_CTX_init();
+                        int HMAC_Update(void);
+                        (void)HMAC_Update();
                       ],[
-                        AC_DEFINE([HAVE_HMAC_CTX_INIT], 1, 
-                            [If you have HMAC_CTX_init])
+                        AC_DEFINE([HAVE_HMAC_UPDATE], 1, 
+                            [If you have HMAC_Update])
                         AC_MSG_RESULT(yes) 
                       ],[
                         AC_MSG_RESULT(no)
-                    AC_MSG_ERROR([OpenSSL found in $ssldir, but version 0.9.7 or higher is required])
+                        LIBS="$BAKLIBS"
+                        LIBSSL_LIBS="$BAKSSLLIBS"
+                        LIBS="$LIBS -ldl -pthread"
+                        LIBSSL_LIBS="$LIBSSL_LIBS -ldl -pthread"
+                        AC_MSG_CHECKING([if -lcrypto needs -ldl -pthread])
+                        AC_TRY_LINK([], [
+                            int HMAC_Update(void);
+                            (void)HMAC_Update();
+                          ],[
+                            AC_DEFINE([HAVE_HMAC_UPDATE], 1, 
+                                [If you have HMAC_Update])
+                            AC_MSG_RESULT(yes) 
+                          ],[
+                            AC_MSG_RESULT(no)
+                            AC_MSG_ERROR([OpenSSL found in $ssldir, but version 0.9.7 or higher is required])
+			])
                     ])
                 ])
             ])
@@ -1285,6 +1303,7 @@ AC_DEFUN([ACX_STRIP_EXT_FLAGS],
   AC_MSG_NOTICE([Stripping extension flags...])
   ACX_CFLAGS_STRIP(-D_GNU_SOURCE)
   ACX_CFLAGS_STRIP(-D_BSD_SOURCE)
+  ACX_CFLAGS_STRIP(-D_DEFAULT_SOURCE)
   ACX_CFLAGS_STRIP(-D__EXTENSIONS__)
   ACX_CFLAGS_STRIP(-D_POSIX_C_SOURCE=200112)
   ACX_CFLAGS_STRIP(-D_XOPEN_SOURCE=600)
@@ -1312,6 +1331,7 @@ dnl config.h part to define omitted cflags, use with ACX_STRIP_EXT_FLAGS.
 AC_DEFUN([AHX_CONFIG_EXT_FLAGS],
 [AHX_CONFIG_FLAG_EXT(-D_GNU_SOURCE)
 AHX_CONFIG_FLAG_EXT(-D_BSD_SOURCE)
+AHX_CONFIG_FLAG_EXT(-D_DEFAULT_SOURCE)
 AHX_CONFIG_FLAG_EXT(-D__EXTENSIONS__)
 AHX_CONFIG_FLAG_EXT(-D_POSIX_C_SOURCE=200112)
 AHX_CONFIG_FLAG_EXT(-D_XOPEN_SOURCE=600)

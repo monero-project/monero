@@ -182,6 +182,8 @@ enum sldns_enum_rr_type
 	LDNS_RR_TYPE_NSEC3PARAM = 51, /* RFC 5155 */
 	LDNS_RR_TYPE_NSEC3PARAMS = 51,
 	LDNS_RR_TYPE_TLSA = 52, /* RFC 6698 */
+	LDNS_RR_TYPE_SMIMEA = 53, /* draft-ietf-dane-smime, TLSA-like but may
+				     be extended */
 
 	LDNS_RR_TYPE_HIP = 55, /* RFC 5205 */
 
@@ -193,6 +195,8 @@ enum sldns_enum_rr_type
         LDNS_RR_TYPE_TALINK = 58,
 	LDNS_RR_TYPE_CDS = 59, /** RFC 7344 */
 	LDNS_RR_TYPE_CDNSKEY = 60, /** RFC 7344 */
+	LDNS_RR_TYPE_OPENPGPKEY = 61, /* RFC 7929 */
+	LDNS_RR_TYPE_CSYNC = 62, /* RFC 7477 */
 
 	LDNS_RR_TYPE_SPF = 99, /* RFC 4408 */
 
@@ -368,6 +372,8 @@ enum sldns_enum_algorithm
         LDNS_ECC_GOST           = 12,  /* RFC 5933 */
         LDNS_ECDSAP256SHA256    = 13,  /* RFC 6605 */
         LDNS_ECDSAP384SHA384    = 14,  /* RFC 6605 */
+	LDNS_ED25519		= 15,  /* RFC 8080 */
+	LDNS_ED448		= 16,  /* RFC 8080 */
         LDNS_INDIRECT           = 252,
         LDNS_PRIVATEDNS         = 253,
         LDNS_PRIVATEOID         = 254
@@ -416,7 +422,9 @@ enum sldns_enum_edns_option
 	LDNS_EDNS_DAU = 5, /* RFC6975 */
 	LDNS_EDNS_DHU = 6, /* RFC6975 */
 	LDNS_EDNS_N3U = 7, /* RFC6975 */
-	LDNS_EDNS_CLIENT_SUBNET = 8 /* draft-vandergaast-edns-client-subnet */
+	LDNS_EDNS_CLIENT_SUBNET = 8, /* RFC7871 */
+	LDNS_EDNS_KEEPALIVE = 11, /* draft-ietf-dnsop-edns-tcp-keepalive*/
+	LDNS_EDNS_PADDING = 12 /* RFC7830 */
 };
 typedef enum sldns_enum_edns_option sldns_edns_option;
 

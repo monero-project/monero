@@ -1317,6 +1317,16 @@ public:
    * @brief get a txpool transaction's blob
    *
    * @param txid the transaction id of the transation to lookup
+   * @param bd the blob to return
+   *
+   * @return true if the txid was in the txpool, false otherwise
+   */
+  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const = 0;
+
+  /**
+   * @brief get a txpool transaction's blob
+   *
+   * @param txid the transaction id of the transation to lookup
    *
    * @return the blob for that transaction
    */

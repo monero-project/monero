@@ -979,34 +979,31 @@ STATIC void cn_mul128(const uint64_t *a, const uint64_t *b, uint64_t *r)
   r[1] = lo;
 }
 #else /* ARM32 */
-/* Can work as inline, but actually runs slower. Keep it separate */
 #define mul(a, b, c)	cn_mul128((const uint32_t *)a, (const uint32_t *)b, (uint32_t *)c)
-void cn_mul128(const uint32_t *aa, const uint32_t *bb, uint32_t *r)
+STATIC void cn_mul128(const uint32_t *aa, const uint32_t *bb, uint32_t *r)
 {
-  uint32_t t0, t1;
+  uint32_t t0, t1, t2=0, t3=0;
 __asm__ __volatile__(
   "umull %[t0], %[t1], %[a], %[b]\n\t"
-  "str   %[t0], [%[r], #8]\n\t"
+  "str   %[t0], %[ll]\n\t"
 
   // accumulating with 0 can never overflow/carry
-  "mov   %[t0], #0\n\t"
+  "eor   %[t0], %[t0]\n\t"
   "umlal %[t1], %[t0], %[a], %[B]\n\t"
 
-  "mov   %[a], #0\n\t"
-  "umlal %[t1], %[a], %[A], %[b]\n\t"
-  "str   %[t1], [%[r], #12]\n\t"
+  "umlal %[t1], %[t2], %[A], %[b]\n\t"
+  "str   %[t1], %[lh]\n\t"
 
-  "mov   %[b], #0\n\t"
-  "umlal %[t0], %[b], %[A], %[B]\n\t"
+  "umlal %[t0], %[t3], %[A], %[B]\n\t"
 
   // final add may have a carry
-  "adds  %[t0], %[t0], %[a]\n\t"
-  "adc   %[t1], %[b], #0\n\t"
+  "adds  %[t0], %[t0], %[t2]\n\t"
+  "adc   %[t1], %[t3], #0\n\t"
 
-  "str   %[t0], [%[r]]\n\t"
-  "str   %[t1], [%[r], #4]\n\t"
-  : [t0]"=&r"(t0), [t1]"=&r"(t1), "=m"(r[0]), "=m"(r[1]), "=m"(r[2]), "=m"(r[3])
-  : [A]"r"(aa[1]), [a]"r"(aa[0]), [B]"r"(bb[1]), [b]"r"(bb[0]), [r]"r"(r)
+  "str   %[t0], %[hl]\n\t"
+  "str   %[t1], %[hh]\n\t"
+  : [t0]"=&r"(t0), [t1]"=&r"(t1), [t2]"+r"(t2), [t3]"+r"(t3), [hl]"=m"(r[0]), [hh]"=m"(r[1]), [ll]"=m"(r[2]), [lh]"=m"(r[3])
+  : [A]"r"(aa[1]), [a]"r"(aa[0]), [B]"r"(bb[1]), [b]"r"(bb[0])
   : "cc");
 }
 #endif /* !aarch64 */

@@ -48,6 +48,9 @@
 #else				/* !__GNUC__ */
 #define inline
 #endif				/* !__GNUC__ */
+#ifndef MAP_ANON
+#define MAP_ANON MAP_ANONYMOUS
+#endif
 
 #define KEYSZ	32
 #define IVSZ	8

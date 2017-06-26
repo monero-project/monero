@@ -49,6 +49,7 @@ namespace tools
     //     wallet_runtime_error *
     //       wallet_internal_error
     //         unexpected_txin_type
+    //         wallet_not_initialized
     //   std::logic_error
     //     wallet_logic_error *
     //       file_exists
@@ -176,6 +177,15 @@ namespace tools
     private:
       cryptonote::transaction m_tx;
     };
+    //----------------------------------------------------------------------------------------------------
+    struct wallet_not_initialized : public wallet_internal_error
+    {
+      explicit wallet_not_initialized(std::string&& loc)
+        : wallet_internal_error(std::move(loc), "wallet is not initialized")
+      {
+      }
+    };
+
     //----------------------------------------------------------------------------------------------------
     const char* const file_error_messages[] = {
       "file already exists",

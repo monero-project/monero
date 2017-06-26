@@ -224,7 +224,7 @@ nsec3_prove_nxornodata(struct module_env* env, struct val_env* ve,
  */
 struct nsec3_cached_hash {
 	/** rbtree node, key is this structure */
-	rbnode_t node;
+	rbnode_type node;
 	/** where are the parameters for conversion, in this rrset data */
 	struct ub_packed_rrset_key* nsec3;
 	/** where are the parameters for conversion, this RR number in data */
@@ -271,7 +271,7 @@ int nsec3_hash_cmp(const void* c1, const void* c2);
  * 	0 on a malloc failure.
  * 	-1 if the NSEC3 rr was badly formatted (i.e. formerr).
  */
-int nsec3_hash_name(rbtree_t* table, struct regional* region,
+int nsec3_hash_name(rbtree_type* table, struct regional* region,
 	struct sldns_buffer* buf, struct ub_packed_rrset_key* nsec3, int rr,
 	uint8_t* dname, size_t dname_len, struct nsec3_cached_hash** hash);
 

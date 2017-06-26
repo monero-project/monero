@@ -174,6 +174,18 @@ int iter_dp_is_useless(struct query_info* qinfo, uint16_t qflags,
 	struct delegpt* dp);
 
 /**
+ * See if qname has DNSSEC needs in the forwarding case.  This is true if
+ * there is a trust anchor above it.  Whether there is an insecure delegation
+ * to the data is unknown, but CD-retry is needed.
+ * @param env: environment with anchors.
+ * @param qinfo: query name and class.
+ * @return true if trust anchor above qname, false if no anchor or insecure
+ * point above qname.
+ */
+int iter_indicates_dnssec_fwd(struct module_env* env,
+	struct query_info *qinfo);
+
+/**
  * See if delegation is expected to have DNSSEC information (RRSIGs) in 
  * its answers, or not. Inspects delegation point (name), trust anchors,
  * and delegation message (DS RRset) to determine this.

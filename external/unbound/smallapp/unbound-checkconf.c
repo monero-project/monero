@@ -53,6 +53,8 @@
 #include "iterator/iter_hints.h"
 #include "validator/validator.h"
 #include "services/localzone.h"
+#include "services/view.h"
+#include "respip/respip.h"
 #include "sldns/sbuffer.h"
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
@@ -72,7 +74,7 @@
 
 /** Give checkconf usage, and exit (1). */
 static void
-usage()
+usage(void)
 {
 	printf("Usage:	unbound-checkconf [file]\n");
 	printf("	Checks unbound configuration file for errors.\n");
@@ -97,7 +99,10 @@ static void
 print_option(struct config_file* cfg, const char* opt, int final)
 {
 	if(strcmp(opt, "pidfile") == 0 && final) {
-		printf("%s\n", fname_after_chroot(cfg->pidfile, cfg, 1));
+		char *p = fname_after_chroot(cfg->pidfile, cfg, 1);
+		if(!p) fatal_exit("out of memory");
+		printf("%s\n", p);
+		free(p);
 		return;
 	}
 	if(!config_get_option(cfg, opt, config_print_func, stdout))
@@ -115,12 +120,15 @@ check_mod(struct config_file* cfg, struct module_func_block* fb)
 	env.scratch_buffer = sldns_buffer_new(BUFSIZ);
 	if(!env.scratch || !env.scratch_buffer)
 		fatal_exit("out of memory");
+	if(!edns_known_options_init(&env))
+		fatal_exit("out of memory");
 	if(!(*fb->init)(&env, 0)) {
 		fatal_exit("bad config for %s module", fb->name);
 	}
 	(*fb->deinit)(&env, 0);
 	sldns_buffer_free(env.scratch_buffer);
 	regional_destroy(env.scratch);
+	edns_known_options_delete(&env);
 }
 
 /** check localzones */
@@ -133,6 +141,27 @@ localzonechecks(struct config_file* cfg)
 	if(!local_zones_apply_cfg(zs, cfg))
 		fatal_exit("failed local-zone, local-data configuration");
 	local_zones_delete(zs);
+}
+
+/** check view and response-ip configuration */
+static void
+view_and_respipchecks(struct config_file* cfg)
+{
+	struct views* views = NULL;
+	struct respip_set* respip = NULL;
+	int ignored = 0;
+	if(!(views = views_create()))
+		fatal_exit("Could not create views: out of memory");
+	if(!(respip = respip_set_create()))
+		fatal_exit("Could not create respip set: out of memory");
+	if(!views_apply_cfg(views, cfg))
+		fatal_exit("Could not set up views");
+        if(!respip_global_apply_cfg(respip, cfg))
+		fatal_exit("Could not setup respip set");
+        if(!respip_views_apply_cfg(views, cfg, &ignored))
+		fatal_exit("Could not setup per-view respip sets");
+	views_delete(views);
+	respip_set_delete(respip);
 }
 
 /** emit warnings for IP in hosts */
@@ -161,6 +190,7 @@ warn_hosts(const char* typ, struct config_stub* list)
 static void
 interfacechecks(struct config_file* cfg)
 {
+	int d;
 	struct sockaddr_storage a;
 	socklen_t alen;
 	int i, j;
@@ -177,8 +207,8 @@ interfacechecks(struct config_file* cfg)
 		}
 	}
 	for(i=0; i<cfg->num_out_ifs; i++) {
-		if(!ipstrtoaddr(cfg->out_ifs[i], UNBOUND_DNS_PORT, 
-			&a, &alen)) {
+		if(!ipstrtoaddr(cfg->out_ifs[i], UNBOUND_DNS_PORT, &a, &alen) &&
+		   !netblockstrtoaddr(cfg->out_ifs[i], UNBOUND_DNS_PORT, &a, &alen, &d)) {
 			fatal_exit("cannot parse outgoing-interface "
 				"specified as '%s'", cfg->out_ifs[i]);
 		}
@@ -330,6 +360,8 @@ morechecks(struct config_file* cfg, const char* fname)
 		fatal_exit("num_threads value weird");
 	if(!cfg->do_ip4 && !cfg->do_ip6)
 		fatal_exit("ip4 and ip6 are both disabled, pointless");
+	if(!cfg->do_ip6 && cfg->prefer_ip6)
+		fatal_exit("cannot prefer and disable ip6, pointless");
 	if(!cfg->do_udp && !cfg->do_tcp)
 		fatal_exit("udp and tcp are both disabled, pointless");
 	if(cfg->edns_buffer_size > cfg->msg_buffer_size)
@@ -397,11 +429,17 @@ morechecks(struct config_file* cfg, const char* fname)
 	/* remove chroot setting so that modules are not stripping pathnames*/
 	free(cfg->chrootdir);
 	cfg->chrootdir = NULL;
-	
+
+	/* There should be no reason for 'respip' module not to work with
+	 * dns64, but it's not explicitly confirmed,  so the combination is
+	 * excluded below.   It's simply unknown yet for the combination of
+	 * respip and other modules. */
 	if(strcmp(cfg->module_conf, "iterator") != 0 
 		&& strcmp(cfg->module_conf, "validator iterator") != 0
 		&& strcmp(cfg->module_conf, "dns64 validator iterator") != 0
 		&& strcmp(cfg->module_conf, "dns64 iterator") != 0
+		&& strcmp(cfg->module_conf, "respip iterator") != 0
+		&& strcmp(cfg->module_conf, "respip validator iterator") != 0
 #ifdef WITH_PYTHONMODULE
 		&& strcmp(cfg->module_conf, "python iterator") != 0 
 		&& strcmp(cfg->module_conf, "python validator iterator") != 0 
@@ -412,6 +450,35 @@ morechecks(struct config_file* cfg, const char* fname)
 		&& strcmp(cfg->module_conf, "python dns64 iterator") != 0 
 		&& strcmp(cfg->module_conf, "python dns64 validator iterator") != 0 
 #endif
+#ifdef USE_CACHEDB
+		&& strcmp(cfg->module_conf, "validator cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 validator cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 cachedb iterator") != 0
+#endif
+#if defined(WITH_PYTHONMODULE) && defined(USE_CACHEDB)
+		&& strcmp(cfg->module_conf, "python dns64 cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "python dns64 validator cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 python cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "dns64 python validator cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "python cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "python validator cachedb iterator") != 0
+		&& strcmp(cfg->module_conf, "cachedb python iterator") != 0
+		&& strcmp(cfg->module_conf, "validator cachedb python iterator") != 0
+		&& strcmp(cfg->module_conf, "validator python cachedb iterator") != 0
+#endif
+#ifdef CLIENT_SUBNET
+		&& strcmp(cfg->module_conf, "subnetcache iterator") != 0 
+		&& strcmp(cfg->module_conf, "subnetcache validator iterator") != 0
+#endif
+#if defined(WITH_PYTHONMODULE) && defined(CLIENT_SUBNET)
+		&& strcmp(cfg->module_conf, "python subnetcache iterator") != 0
+		&& strcmp(cfg->module_conf, "subnetcache python iterator") != 0 
+		&& strcmp(cfg->module_conf, "subnetcache validator iterator") != 0
+		&& strcmp(cfg->module_conf, "python subnetcache validator iterator") != 0
+		&& strcmp(cfg->module_conf, "subnetcache python validator iterator") != 0
+		&& strcmp(cfg->module_conf, "subnetcache validator python iterator") != 0
+#endif
 		) {
 		fatal_exit("module conf '%s' is not known to work",
 			cfg->module_conf);
@@ -421,7 +488,9 @@ morechecks(struct config_file* cfg, const char* fname)
 	if(cfg->username && cfg->username[0]) {
 		if(getpwnam(cfg->username) == NULL)
 			fatal_exit("user '%s' does not exist.", cfg->username);
+#  ifdef HAVE_ENDPWENT
 		endpwent();
+#  endif
 	}
 #endif
 	if(cfg->remote_control_enable && cfg->remote_control_use_cert) {
@@ -438,6 +507,7 @@ morechecks(struct config_file* cfg, const char* fname)
 	}
 
 	localzonechecks(cfg);
+	view_and_respipchecks(cfg);
 }
 
 /** check forwards */
@@ -466,14 +536,22 @@ check_hints(struct config_file* cfg)
 static void
 checkconf(const char* cfgfile, const char* opt, int final)
 {
+	char oldwd[4096];
 	struct config_file* cfg = config_create();
 	if(!cfg)
 		fatal_exit("out of memory");
+	oldwd[0] = 0;
+	if(!getcwd(oldwd, sizeof(oldwd))) {
+		log_err("cannot getcwd: %s", strerror(errno));
+		oldwd[0] = 0;
+	}
 	if(!config_read(cfg, cfgfile, NULL)) {
 		/* config_read prints messages to stderr */
 		config_delete(cfg);
 		exit(1);
 	}
+	if(oldwd[0] && chdir(oldwd) == -1)
+		log_err("cannot chdir(%s): %s", oldwd, strerror(errno));
 	if(opt) {
 		print_option(cfg, opt, final);
 		config_delete(cfg);

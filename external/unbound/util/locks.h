@@ -95,7 +95,7 @@
 /******************* PTHREAD ************************/
 
 /** use pthread mutex for basic lock */
-typedef pthread_mutex_t lock_basic_t;
+typedef pthread_mutex_t lock_basic_type;
 /** small front for pthread init func, NULL is default attrs. */
 #define lock_basic_init(lock) LOCKRET(pthread_mutex_init(lock, NULL))
 #define lock_basic_destroy(lock) LOCKRET(pthread_mutex_destroy(lock))
@@ -104,7 +104,7 @@ typedef pthread_mutex_t lock_basic_t;
 
 #ifndef HAVE_PTHREAD_RWLOCK_T
 /** in case rwlocks are not supported, use a mutex. */
-typedef pthread_mutex_t lock_rw_t;
+typedef pthread_mutex_t lock_rw_type;
 #define lock_rw_init(lock) LOCKRET(pthread_mutex_init(lock, NULL))
 #define lock_rw_destroy(lock) LOCKRET(pthread_mutex_destroy(lock))
 #define lock_rw_rdlock(lock) LOCKRET(pthread_mutex_lock(lock))
@@ -112,7 +112,7 @@ typedef pthread_mutex_t lock_rw_t;
 #define lock_rw_unlock(lock) LOCKRET(pthread_mutex_unlock(lock))
 #else /* HAVE_PTHREAD_RWLOCK_T */
 /** we use the pthread rwlock */
-typedef pthread_rwlock_t lock_rw_t;
+typedef pthread_rwlock_t lock_rw_type;
 /** small front for pthread init func, NULL is default attrs. */
 #define lock_rw_init(lock) LOCKRET(pthread_rwlock_init(lock, NULL))
 #define lock_rw_destroy(lock) LOCKRET(pthread_rwlock_destroy(lock))
@@ -123,7 +123,7 @@ typedef pthread_rwlock_t lock_rw_t;
 
 #ifndef HAVE_PTHREAD_SPINLOCK_T
 /** in case spinlocks are not supported, use a mutex. */
-typedef pthread_mutex_t lock_quick_t;
+typedef pthread_mutex_t lock_quick_type;
 /** small front for pthread init func, NULL is default attrs. */
 #define lock_quick_init(lock) LOCKRET(pthread_mutex_init(lock, NULL))
 #define lock_quick_destroy(lock) LOCKRET(pthread_mutex_destroy(lock))
@@ -132,7 +132,7 @@ typedef pthread_mutex_t lock_quick_t;
 
 #else /* HAVE_PTHREAD_SPINLOCK_T */
 /** use pthread spinlock for the quick lock */
-typedef pthread_spinlock_t lock_quick_t;
+typedef pthread_spinlock_t lock_quick_type;
 /** 
  * allocate process private since this is available whether
  * Thread Process-Shared Synchronization is supported or not.
@@ -148,14 +148,31 @@ typedef pthread_spinlock_t lock_quick_t;
 #endif /* HAVE SPINLOCK */
 
 /** Thread creation */
-typedef pthread_t ub_thread_t;
-/** Pass where to store tread_t in thr. Use default NULL attributes. */
-#define ub_thread_create(thr, func, arg) LOCKRET(pthread_create(thr, NULL, func, arg))
+typedef pthread_t ub_thread_type;
+/** On alpine linux default thread stack size is 80 Kb. See
+http://wiki.musl-libc.org/wiki/Functional_differences_from_glibc#Thread_stack_size
+This is not enough and cause segfault. Other linux distros have 2 Mb at least.
+Wrapper for set up thread stack size */
+#define PTHREADSTACKSIZE 2*1024*1024
+#define PTHREADCREATE(thr, stackrequired, func, arg) do {\
+	pthread_attr_t attr; \
+	size_t stacksize; \
+	LOCKRET(pthread_attr_init(&attr)); \
+	LOCKRET(pthread_attr_getstacksize(&attr, &stacksize)); \
+	if (stacksize < stackrequired) { \
+		LOCKRET(pthread_attr_setstacksize(&attr, stackrequired)); \
+		LOCKRET(pthread_create(thr, &attr, func, arg)); \
+		LOCKRET(pthread_attr_getstacksize(&attr, &stacksize)); \
+		verbose(VERB_ALGO, "Thread stack size set to %u", (unsigned)stacksize); \
+	} else {LOCKRET(pthread_create(thr, NULL, func, arg));} \
+	} while(0)
+/** Use wrapper for set thread stack size on attributes. */
+#define ub_thread_create(thr, func, arg) PTHREADCREATE(thr, PTHREADSTACKSIZE, func, arg)
 /** get self id. */
 #define ub_thread_self() pthread_self()
 /** wait for another thread to terminate */
 #define ub_thread_join(thread) LOCKRET(pthread_join(thread, NULL))
-typedef pthread_key_t ub_thread_key_t;
+typedef pthread_key_t ub_thread_key_type;
 #define ub_thread_key_create(key, f) LOCKRET(pthread_key_create(key, f))
 #define ub_thread_key_set(key, v) LOCKRET(pthread_setspecific(key, v))
 #define ub_thread_key_get(key) pthread_getspecific(key)
@@ -167,7 +184,7 @@ typedef pthread_key_t ub_thread_key_t;
 #include <synch.h>
 #include <thread.h>
 
-typedef rwlock_t lock_rw_t;
+typedef rwlock_t lock_rw_type;
 #define lock_rw_init(lock) LOCKRET(rwlock_init(lock, USYNC_THREAD, NULL))
 #define lock_rw_destroy(lock) LOCKRET(rwlock_destroy(lock))
 #define lock_rw_rdlock(lock) LOCKRET(rw_rdlock(lock))
@@ -175,28 +192,28 @@ typedef rwlock_t lock_rw_t;
 #define lock_rw_unlock(lock) LOCKRET(rw_unlock(lock))
 
 /** use basic mutex */
-typedef mutex_t lock_basic_t;
+typedef mutex_t lock_basic_type;
 #define lock_basic_init(lock) LOCKRET(mutex_init(lock, USYNC_THREAD, NULL))
 #define lock_basic_destroy(lock) LOCKRET(mutex_destroy(lock))
 #define lock_basic_lock(lock) LOCKRET(mutex_lock(lock))
 #define lock_basic_unlock(lock) LOCKRET(mutex_unlock(lock))
 
 /** No spinlocks in solaris threads API. Use a mutex. */
-typedef mutex_t lock_quick_t;
+typedef mutex_t lock_quick_type;
 #define lock_quick_init(lock) LOCKRET(mutex_init(lock, USYNC_THREAD, NULL))
 #define lock_quick_destroy(lock) LOCKRET(mutex_destroy(lock))
 #define lock_quick_lock(lock) LOCKRET(mutex_lock(lock))
 #define lock_quick_unlock(lock) LOCKRET(mutex_unlock(lock))
 
 /** Thread creation, create a default thread. */
-typedef thread_t ub_thread_t;
+typedef thread_t ub_thread_type;
 #define ub_thread_create(thr, func, arg) LOCKRET(thr_create(NULL, NULL, func, arg, NULL, thr))
 #define ub_thread_self() thr_self()
 #define ub_thread_join(thread) LOCKRET(thr_join(thread, NULL, NULL))
-typedef thread_key_t ub_thread_key_t;
+typedef thread_key_t ub_thread_key_type;
 #define ub_thread_key_create(key, f) LOCKRET(thr_keycreate(key, f))
 #define ub_thread_key_set(key, v) LOCKRET(thr_setspecific(key, v))
-void* ub_thread_key_get(ub_thread_key_t key);
+void* ub_thread_key_get(ub_thread_key_type key);
 
 
 #else /* we do not HAVE_SOLARIS_THREADS and no PTHREADS */
@@ -205,7 +222,7 @@ void* ub_thread_key_get(ub_thread_key_t key);
 #include <windows.h>
 
 /* Use a mutex */
-typedef LONG lock_rw_t;
+typedef LONG lock_rw_type;
 #define lock_rw_init(lock) lock_basic_init(lock)
 #define lock_rw_destroy(lock) lock_basic_destroy(lock)
 #define lock_rw_rdlock(lock) lock_basic_lock(lock)
@@ -213,35 +230,35 @@ typedef LONG lock_rw_t;
 #define lock_rw_unlock(lock) lock_basic_unlock(lock)
 
 /** the basic lock is a mutex, implemented opaquely, for error handling. */
-typedef LONG lock_basic_t;
-void lock_basic_init(lock_basic_t* lock);
-void lock_basic_destroy(lock_basic_t* lock);
-void lock_basic_lock(lock_basic_t* lock);
-void lock_basic_unlock(lock_basic_t* lock);
+typedef LONG lock_basic_type;
+void lock_basic_init(lock_basic_type* lock);
+void lock_basic_destroy(lock_basic_type* lock);
+void lock_basic_lock(lock_basic_type* lock);
+void lock_basic_unlock(lock_basic_type* lock);
 
 /** on windows no spinlock, use mutex too. */
-typedef LONG lock_quick_t;
+typedef LONG lock_quick_type;
 #define lock_quick_init(lock) lock_basic_init(lock)
 #define lock_quick_destroy(lock) lock_basic_destroy(lock)
 #define lock_quick_lock(lock) lock_basic_lock(lock)
 #define lock_quick_unlock(lock) lock_basic_unlock(lock)
 
 /** Thread creation, create a default thread. */
-typedef HANDLE ub_thread_t;
-void ub_thread_create(ub_thread_t* thr, void* (*func)(void*), void* arg);
-ub_thread_t ub_thread_self(void);
-void ub_thread_join(ub_thread_t thr);
-typedef DWORD ub_thread_key_t;
-void ub_thread_key_create(ub_thread_key_t* key, void* f);
-void ub_thread_key_set(ub_thread_key_t key, void* v);
-void* ub_thread_key_get(ub_thread_key_t key);
+typedef HANDLE ub_thread_type;
+void ub_thread_create(ub_thread_type* thr, void* (*func)(void*), void* arg);
+ub_thread_type ub_thread_self(void);
+void ub_thread_join(ub_thread_type thr);
+typedef DWORD ub_thread_key_type;
+void ub_thread_key_create(ub_thread_key_type* key, void* f);
+void ub_thread_key_set(ub_thread_key_type key, void* v);
+void* ub_thread_key_get(ub_thread_key_type key);
 
 #else /* we do not HAVE_SOLARIS_THREADS, PTHREADS or WINDOWS_THREADS */
 
 /******************* NO THREADS ************************/
 #define THREADS_DISABLED 1
 /** In case there is no thread support, define locks to do nothing */
-typedef int lock_rw_t;
+typedef int lock_rw_type;
 #define lock_rw_init(lock) /* nop */
 #define lock_rw_destroy(lock) /* nop */
 #define lock_rw_rdlock(lock) /* nop */
@@ -249,30 +266,30 @@ typedef int lock_rw_t;
 #define lock_rw_unlock(lock) /* nop */
 
 /** define locks to do nothing */
-typedef int lock_basic_t;
+typedef int lock_basic_type;
 #define lock_basic_init(lock) /* nop */
 #define lock_basic_destroy(lock) /* nop */
 #define lock_basic_lock(lock) /* nop */
 #define lock_basic_unlock(lock) /* nop */
 
 /** define locks to do nothing */
-typedef int lock_quick_t;
+typedef int lock_quick_type;
 #define lock_quick_init(lock) /* nop */
 #define lock_quick_destroy(lock) /* nop */
 #define lock_quick_lock(lock) /* nop */
 #define lock_quick_unlock(lock) /* nop */
 
 /** Thread creation, threads do not exist */
-typedef pid_t ub_thread_t;
+typedef pid_t ub_thread_type;
 /** ub_thread_create is simulated with fork (extremely heavy threads,
   * with no shared memory). */
 #define ub_thread_create(thr, func, arg) \
 	ub_thr_fork_create(thr, func, arg)
 #define ub_thread_self() getpid()
 #define ub_thread_join(thread) ub_thr_fork_wait(thread)
-void ub_thr_fork_wait(ub_thread_t thread);
-void ub_thr_fork_create(ub_thread_t* thr, void* (*func)(void*), void* arg);
-typedef void* ub_thread_key_t;
+void ub_thr_fork_wait(ub_thread_type thread);
+void ub_thr_fork_create(ub_thread_type* thr, void* (*func)(void*), void* arg);
+typedef void* ub_thread_key_type;
 #define ub_thread_key_create(key, f) (*(key)) = NULL
 #define ub_thread_key_set(key, v) (key) = (v)
 #define ub_thread_key_get(key) (key)

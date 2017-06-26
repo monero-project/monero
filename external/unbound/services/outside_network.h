@@ -58,6 +58,10 @@ struct port_if;
 struct sldns_buffer;
 struct serviced_query;
 struct dt_env;
+struct edns_option;
+struct module_env;
+struct module_qstate;
+struct query_info;
 
 /**
  * Send queries to outside servers and wait for answers from servers.
@@ -119,9 +123,9 @@ struct outside_network {
 	struct pending* udp_wait_last;
 
 	/** pending udp answers. sorted by id, addr */
-	rbtree_t* pending;
+	rbtree_type* pending;
 	/** serviced queries, sorted by qbuf, addr, dnssec */
-	rbtree_t* serviced;
+	rbtree_type* serviced;
 	/** host cache, pointer but not owned by outnet. */
 	struct infra_cache* infra;
 	/** where to get random numbers */
@@ -132,6 +136,8 @@ struct outside_network {
 	/** dnstap environment */
 	struct dt_env* dtenv;
 #endif
+	/** maximum segment size of tcp socket */
+	int tcp_mss;
 
 	/**
 	 * Array of tcp pending used for outgoing TCP connections.
@@ -161,6 +167,10 @@ struct port_if {
 	struct sockaddr_storage addr;
 	/** length of addr field */
 	socklen_t addrlen;
+
+	/** prefix length of network address (in bits), for randomisation.
+	 * if 0, no randomisation. */
+	int pfxlen;
 
 	/** the available ports array. These are unused.
 	 * Only the first total-inuse part is filled. */
@@ -200,7 +210,7 @@ struct port_comm {
  */
 struct pending {
 	/** redblacktree entry, key is the pending struct(id, addr). */
-	rbnode_t node;
+	rbnode_type node;
 	/** the ID for the query. int so that a value out of range can
 	 * be used to signify a pending that is for certain not present in
 	 * the rbtree. (and for which deletion is safe). */
@@ -214,7 +224,7 @@ struct pending {
 	/** timeout event */
 	struct comm_timer* timer;
 	/** callback for the timeout, error or reply to the message */
-	comm_point_callback_t* cb;
+	comm_point_callback_type* cb;
 	/** callback user argument */
 	void* cb_arg;
 	/** the outside network it is part of */
@@ -275,7 +285,7 @@ struct waiting_tcp {
 	/** length of query packet. */
 	size_t pkt_len;
 	/** callback for the timeout, error or reply to the message */
-	comm_point_callback_t* cb;
+	comm_point_callback_type* cb;
 	/** callback user argument */
 	void* cb_arg;
 	/** if it uses ssl upstream */
@@ -289,7 +299,7 @@ struct service_callback {
 	/** next in callback list */
 	struct service_callback* next;
 	/** callback function */
-	comm_point_callback_t* cb;
+	comm_point_callback_type* cb;
 	/** user argument for callback function */
 	void* cb_arg;
 };
@@ -307,7 +317,7 @@ struct service_callback {
  */
 struct serviced_query {
 	/** The rbtree node, key is this record */
-	rbnode_t node;
+	rbnode_type node;
 	/** The query that needs to be answered. Starts with flags u16,
 	 * then qdcount, ..., including qname, qtype, qclass. Does not include
 	 * EDNS record. */
@@ -365,6 +375,8 @@ struct serviced_query {
 	int last_rtt;
 	/** do we know edns probe status already, for UDP_EDNS queries */
 	int edns_lame_known;
+	/** edns options to use for sending upstream packet */
+	struct edns_option* opt_list;
 	/** outside network this is part of */
 	struct outside_network* outnet;
 	/** list of interested parties that need callback on results. */
@@ -392,6 +404,7 @@ struct serviced_query {
  * @param unwanted_threshold: when to take defensive action.
  * @param unwanted_action: the action to take.
  * @param unwanted_param: user parameter to action.
+ * @param tcp_mss: maximum segment size of tcp socket.
  * @param do_udp: if udp is done.
  * @param sslctx: context to create outgoing connections with (if enabled).
  * @param delayclose: if not 0, udp sockets are delayed before timeout closure.
@@ -403,7 +416,7 @@ struct outside_network* outside_network_create(struct comm_base* base,
 	size_t bufsize, size_t num_ports, char** ifs, int num_ifs,
 	int do_ip4, int do_ip6, size_t num_tcp, struct infra_cache* infra, 
 	struct ub_randstate* rnd, int use_caps_for_id, int* availports, 
-	int numavailports, size_t unwanted_threshold,
+	int numavailports, size_t unwanted_threshold, int tcp_mss,
 	void (*unwanted_action)(void*), void* unwanted_param, int do_udp,
 	void* sslctx, int delayclose, struct dt_env *dtenv);
 
@@ -430,7 +443,7 @@ void outside_network_quit_prepare(struct outside_network* outnet);
  * @return: NULL on error for malloc or socket. Else the pending query object.
  */
 struct pending* pending_udp_query(struct serviced_query* sq,
-	struct sldns_buffer* packet, int timeout, comm_point_callback_t* callback,
+	struct sldns_buffer* packet, int timeout, comm_point_callback_type* callback,
 	void* callback_arg);
 
 /**
@@ -446,7 +459,7 @@ struct pending* pending_udp_query(struct serviced_query* sq,
  * @return: false on error for malloc or socket. Else the pending TCP object.
  */
 struct waiting_tcp* pending_tcp_query(struct serviced_query* sq,
-	struct sldns_buffer* packet, int timeout, comm_point_callback_t* callback,
+	struct sldns_buffer* packet, int timeout, comm_point_callback_type* callback,
 	void* callback_arg);
 
 /**
@@ -461,10 +474,7 @@ void pending_delete(struct outside_network* outnet, struct pending* p);
  * Perform a serviced query to the authoritative servers.
  * Duplicate efforts are detected, and EDNS, TCP and UDP retry is performed.
  * @param outnet: outside network, with rbtree of serviced queries.
- * @param qname: what qname to query.
- * @param qnamelen: length of qname in octets including 0 root label.
- * @param qtype: rrset type to query (host format)
- * @param qclass: query class. (host format)
+ * @param qinfo: query info.
  * @param flags: flags u16 (host format), includes opcode, CD bit.
  * @param dnssec: if set, DO bit is set in EDNS queries.
  *	If the value includes BIT_CD, CD bit is set when in EDNS queries.
@@ -474,25 +484,28 @@ void pending_delete(struct outside_network* outnet, struct pending* p);
  * @param nocaps: ignore use_caps_for_id and use unperturbed qname.
  * @param tcp_upstream: use TCP for upstream queries.
  * @param ssl_upstream: use SSL for upstream queries.
- * @param callback: callback function.
- * @param callback_arg: user argument to callback function.
  * @param addr: to which server to send the query.
  * @param addrlen: length of addr.
  * @param zone: name of the zone of the delegation point. wireformat dname.
 	This is the delegation point name for which the server is deemed
 	authoritative.
  * @param zonelen: length of zone.
+ * @param qstate: module qstate. Mainly for inspecting the available
+ *	edns_opts_lists.
+ * @param callback: callback function.
+ * @param callback_arg: user argument to callback function.
  * @param buff: scratch buffer to create query contents in. Empty on exit.
+ * @param env: the module environment.
  * @return 0 on error, or pointer to serviced query that is used to answer
  *	this serviced query may be shared with other callbacks as well.
  */
 struct serviced_query* outnet_serviced_query(struct outside_network* outnet,
-	uint8_t* qname, size_t qnamelen, uint16_t qtype, uint16_t qclass,
-	uint16_t flags, int dnssec, int want_dnssec, int nocaps,
-	int tcp_upstream, int ssl_upstream, struct sockaddr_storage* addr,
-	socklen_t addrlen, uint8_t* zone, size_t zonelen,
-	comm_point_callback_t* callback, void* callback_arg,
-	struct sldns_buffer* buff);
+	struct query_info* qinfo, uint16_t flags, int dnssec, int want_dnssec,
+	int nocaps, int tcp_upstream, int ssl_upstream,
+	struct sockaddr_storage* addr, socklen_t addrlen, uint8_t* zone,
+	size_t zonelen, struct module_qstate* qstate,
+	comm_point_callback_type* callback, void* callback_arg,
+	struct sldns_buffer* buff, struct module_env* env);
 
 /**
  * Remove service query callback.

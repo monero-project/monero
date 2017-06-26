@@ -6,55 +6,94 @@ module_qstate
 
 .. class:: module_qstate
 
-   Module state, per query.
-   
-   This class provides these data attributes:
-   
-   .. attribute:: qinfo
-   
-      (:class:`query_info`) Informations about query being answered. Name, RR type, RR class.
-   
-   .. attribute:: query_flags
-   
-      (uint16) Flags for query. See QF_BIT\_ predefined constants.
-      
-   .. attribute:: is_priming
-   
-      If this is a (stub or root) priming query (with hints).
-   
-   .. attribute:: reply
-   
-      comm_reply contains server replies.
-      
-   .. attribute:: return_msg
-   
-      (:class:`dns_msg`) The reply message, with message for client and calling module (read-only attribute).
-		Note that if you want to create of modify return_msg you should use :class:`DNSMessage`.
-      
-   .. attribute:: return_rcode
-   
-      The rcode, in case of error, instead of a reply message. Determines whether the return_msg contains reply.
-   
-   .. attribute:: region
-   
-      Region for this query. Cleared when query process finishes.
-   
-   .. attribute:: curmod
-   
-      Which module is executing.
-      
-   .. attribute:: ext_state[]
-   
-      Module states.
-      
-   .. attribute:: env
-   
-      Environment for this query.
-      
-   .. attribute:: mesh_info
-   
-      Mesh related information for this query.
+    Module state, per query.
 
+    This class provides these data attributes:
+
+    .. attribute:: qinfo
+
+        (:class:`query_info`) Informations about query being answered. Name, RR type, RR class.
+
+    .. attribute:: query_flags
+
+        (uint16) Flags for query. See QF_BIT\_ predefined constants.
+
+    .. attribute:: is_priming
+
+        If this is a (stub or root) priming query (with hints).
+
+    .. attribute:: reply
+
+        comm_reply contains server replies.
+
+    .. attribute:: return_msg
+
+        (:class:`dns_msg`) The reply message, with message for client and calling module (read-only attribute).
+        Note that if you want to create of modify return_msg you should use :class:`DNSMessage`.
+
+    .. attribute:: return_rcode
+
+        The rcode, in case of error, instead of a reply message. Determines whether the return_msg contains reply.
+
+    .. attribute:: region
+
+        Region for this query. Cleared when query process finishes.
+
+    .. attribute:: curmod
+
+        Which module is executing.
+
+    .. attribute:: ext_state[]
+
+        Module states.
+
+    .. attribute:: env
+
+        Environment for this query.
+
+    .. attribute:: mesh_info
+
+        Mesh related information for this query.
+
+    .. attribute:: edns_opts_front_in
+
+        Incoming EDNS options from the front end.
+
+    .. attribute:: edns_opts_front_in_iter
+
+        Iterator for `edns_opts_front_in`.
+
+    .. attribute:: edns_opts_back_out
+
+        Outgoing EDNS options to the back end.
+
+    .. attribute:: edns_opts_back_out_iter
+
+        Iterator for `edns_opts_back_out`.
+
+    .. attribute:: edns_opts_back_in
+
+        Incoming EDNS options from the back end.
+
+    .. attribute:: edns_opts_back_in_iter
+
+        Iterator for `ends_opts_back_in`.
+
+    .. attribute:: edns_opts_front_out
+
+        Outgoing EDNS options to the front end.
+
+    .. attribute:: edns_opts_front_out_iter
+
+        Iterator for `edns_opts_front_out`.
+
+    .. attribute:: no_cache_lookup
+
+        Flag to indicate whether modules should answer from the cache.
+
+    .. attribute:: no_cache_store
+
+        Flag to indicate whether modules should store answer in the cache.
 
 query_info
 ----------------
@@ -94,7 +133,57 @@ query_info
    .. attribute:: qclass_str
    
       The ``qclass`` in display presentation format (string).
-   
+
+edns_data
+---------
+
+.. class:: edns_data
+
+    This class represents the EDNS information parsed/encoded from/to a packet. It provides these data attributes:
+
+    .. attribute:: edns_present
+
+        If EDNS OPT record is present.
+
+    .. attribute:: ext_rcode
+
+        Extended RCODE.
+
+    .. attribute:: edns_version
+
+        The EDNS version number.
+
+    .. attribute:: bits
+
+        The EDNS bits field from ttl (host order): Z.
+
+    .. attribute:: udp_size
+
+        UDP reassembly size.
+
+    .. attribute:: opt_list
+
+        The EDNS option list.
+
+    .. attribute:: opt_list_iter
+
+        Iterator for `opt_list`.
+
+edns_option
+-----------
+
+.. class:: edns_option
+
+    This class represents an EDNS option (code, data) found in EDNS option lists. It provides these data attributes:
+
+    .. attribute:: code
+
+    The EDNS option code.
+
+    .. attribute:: data
+
+    The EDNS option data.
+
 reply_info
 --------------------
 

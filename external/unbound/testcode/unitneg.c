@@ -242,7 +242,7 @@ static void remove_item(struct val_neg_cache* neg)
 {
 	int n, i;
 	struct val_neg_data* d;
-	rbnode_t* walk;
+	rbnode_type* walk;
 	struct val_neg_zone* z;
 	
 	lock_basic_lock(&neg->lock);
@@ -324,7 +324,7 @@ static size_t sumtrees_inuse(struct val_neg_cache* neg)
 	RBTREE_FOR(z, struct val_neg_zone*, &neg->tree) {
 		/* get count of highest parent for num in use */
 		d = (struct val_neg_data*)rbtree_first(&z->tree);
-		if(d && (rbnode_t*)d!=RBTREE_NULL)
+		if(d && (rbnode_type*)d!=RBTREE_NULL)
 			res += d->count;
 	}
 	return res;

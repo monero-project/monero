@@ -49,8 +49,14 @@ struct alloc_cache;
 struct iovec;
 struct regional;
 struct edns_data;
+struct edns_option;
+struct inplace_cb;
+struct module_qstate;
+struct module_env;
 struct msg_parse;
 struct rrset_parse;
+struct local_rrset;
+struct dns_msg;
 
 /** calculate the prefetch TTL as 90% of original. Calculation
  * without numerical overflow (uin32_t) */
@@ -73,6 +79,23 @@ struct query_info {
 	uint16_t qtype;
 	/** qclass, host byte order */
 	uint16_t qclass;
+	/**
+	 * Alias local answer(s) for the qname.  If 'qname' is an alias defined
+	 * in a local zone, this field will be set to the corresponding local
+	 * RRset when the alias is determined.
+	 * In the initial implementation this can only be a single CNAME RR
+	 * (or NULL), but it could possibly be extended to be a DNAME or a
+	 * chain of aliases.
+	 * Users of this structure are responsible to initialize this field
+	 * to be NULL; otherwise other part of query handling code may be
+	 * confused.
+	 * Users also have to be careful about the lifetime of data.  On return
+	 * from local zone lookup, it may point to data derived from
+	 * configuration that may be dynamically invalidated or data allocated
+	 * in an ephemeral regional allocator.  A deep copy of the data may
+	 * have to be generated if it has to be kept during iterative
+	 * resolution. */
+	struct local_rrset* local_alias;
 };
 
 /**
@@ -82,7 +105,7 @@ struct rrset_ref {
 	/** the key with lock, and ptr to packed data. */
 	struct ub_packed_rrset_key* key;
 	/** id needed */
-	rrset_id_t id;
+	rrset_id_type id;
 };
 
 /**
@@ -307,7 +330,7 @@ void reply_info_delete(void* d, void* arg);
 
 /** calculate hash value of query_info, lowercases the qname,
  * uses CD flag for AAAA qtype */
-hashvalue_t query_info_hash(struct query_info *q, uint16_t flags);
+hashvalue_type query_info_hash(struct query_info *q, uint16_t flags);
 
 /**
  * Setup query info entry
@@ -317,7 +340,7 @@ hashvalue_t query_info_hash(struct query_info *q, uint16_t flags);
  * @return: newly allocated message reply cache item.
  */
 struct msgreply_entry* query_info_entrysetup(struct query_info* q,
-	struct reply_info* r, hashvalue_t h);
+	struct reply_info* r, hashvalue_type h);
 
 /**
  * Copy reply_info and all rrsets in it and allocate.
@@ -331,6 +354,21 @@ struct msgreply_entry* query_info_entrysetup(struct query_info* q,
  * @return new reply info or NULL on memory error.
  */
 struct reply_info* reply_info_copy(struct reply_info* rep, 
+	struct alloc_cache* alloc, struct regional* region);
+
+/**
+ * Allocate (special) rrset keys.
+ * @param rep: reply info in which the rrset keys to be allocated, rrset[]
+ *	array should have bee allocated with NULL pointers.
+ * @param alloc: how to allocate rrset keys.
+ *	Not used if region!=NULL, it can be NULL in that case.
+ * @param region: if this parameter is NULL then the alloc is used.
+ *	otherwise, rrset keys are allocated in this region.
+ *	In a region, no special rrset key structures are needed (not shared).
+ *	and no rrset_ref array in the reply needs to be built up.
+ * @return 1 on success, 0 on error
+ */
+int reply_info_alloc_rrset_keys(struct reply_info* rep,
 	struct alloc_cache* alloc, struct regional* region);
 
 /**
@@ -425,8 +463,25 @@ struct ub_packed_rrset_key* reply_find_rrset(struct reply_info* rep,
  * @param qinfo: query section.
  * @param rep: rest of message.
  */
-void log_dns_msg(const char* str, struct query_info* qinfo, 
+void log_dns_msg(const char* str, struct query_info* qinfo,
 	struct reply_info* rep);
+
+/**
+ * Print string with neat domain name, type, class,
+ * status code from, and size of a query response.
+ *
+ * @param v: at what verbosity level to print this.
+ * @param qinf: query section.
+ * @param addr: address of the client.
+ * @param addrlen: length of the client address.
+ * @param dur: how long it took to complete the query.
+ * @param cached: whether or not the reply is coming from
+ *                    the cache, or an outside network.
+ * @param rmsg: sldns buffer packet.
+ */
+void log_reply_info(enum verbosity_value v, struct query_info *qinf,
+	struct sockaddr_storage *addr, socklen_t addrlen, struct timeval dur,
+	int cached, struct sldns_buffer *rmsg);
 
 /**
  * Print string with neat domain name, type, class from query info.
@@ -436,5 +491,184 @@ void log_dns_msg(const char* str, struct query_info* qinfo,
  */
 void log_query_info(enum verbosity_value v, const char* str, 
 	struct query_info* qinf);
+
+/**
+ * Append edns option to edns data structure
+ * @param edns: the edns data structure to append the edns option to.
+ * @param region: region to allocate the new edns option.
+ * @param code: the edns option's code.
+ * @param len: the edns option's length.
+ * @param data: the edns option's data.
+ * @return false on failure.
+ */
+int edns_opt_append(struct edns_data* edns, struct regional* region,
+	uint16_t code, size_t len, uint8_t* data);
+
+/**
+ * Append edns option to edns option list
+ * @param list: the edns option list to append the edns option to.
+ * @param code: the edns option's code.
+ * @param len: the edns option's length.
+ * @param data: the edns option's data.
+ * @param region: region to allocate the new edns option.
+ * @return false on failure.
+ */
+int edns_opt_list_append(struct edns_option** list, uint16_t code, size_t len,
+	uint8_t* data, struct regional* region);
+
+/**
+ * Remove any option found on the edns option list that matches the code.
+ * @param list: the list of edns options.
+ * @param code: the opt code to remove.
+ * @return true when at least one edns option was removed, false otherwise.
+ */
+int edns_opt_list_remove(struct edns_option** list, uint16_t code);
+
+/**
+ * Find edns option in edns list
+ * @param list: list of edns options (eg. edns.opt_list)
+ * @param code: opt code to find.
+ * @return NULL or the edns_option element.
+ */
+struct edns_option* edns_opt_list_find(struct edns_option* list, uint16_t code);
+
+/**
+ * Call the registered functions in the inplace_cb_reply linked list.
+ * This function is going to get called while answering with a resolved query.
+ * @param env: module environment.
+ * @param qinfo: query info.
+ * @param qstate: module qstate.
+ * @param rep: Reply info. Could be NULL.
+ * @param rcode: return code.
+ * @param edns: edns data of the reply.
+ * @param region: region to store data.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_reply_call(struct module_env* env, struct query_info* qinfo,
+	struct module_qstate* qstate, struct reply_info* rep, int rcode,
+	struct edns_data* edns, struct regional* region);
+
+/**
+ * Call the registered functions in the inplace_cb_reply_cache linked list.
+ * This function is going to get called while answering from cache.
+ * @param env: module environment.
+ * @param qinfo: query info.
+ * @param qstate: module qstate. NULL when replying from cache.
+ * @param rep: Reply info.
+ * @param rcode: return code.
+ * @param edns: edns data of the reply. Edns input can be found here.
+ * @param region: region to store data.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_reply_cache_call(struct module_env* env,
+	struct query_info* qinfo, struct module_qstate* qstate,
+	struct reply_info* rep, int rcode, struct edns_data* edns,
+	struct regional* region);
+
+/**
+ * Call the registered functions in the inplace_cb_reply_local linked list.
+ * This function is going to get called while answering with local data.
+ * @param env: module environment.
+ * @param qinfo: query info.
+ * @param qstate: module qstate. NULL when replying from cache.
+ * @param rep: Reply info.
+ * @param rcode: return code.
+ * @param edns: edns data of the reply. Edns input can be found here.
+ * @param region: region to store data.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_reply_local_call(struct module_env* env,
+	struct query_info* qinfo, struct module_qstate* qstate,
+	struct reply_info* rep, int rcode, struct edns_data* edns,
+	struct regional* region);
+
+/**
+ * Call the registered functions in the inplace_cb_reply linked list.
+ * This function is going to get called while answering with a servfail.
+ * @param env: module environment.
+ * @param qinfo: query info.
+ * @param qstate: module qstate. Contains the edns option lists. Could be NULL.
+ * @param rep: Reply info. NULL when servfail.
+ * @param rcode: return code. LDNS_RCODE_SERVFAIL.
+ * @param edns: edns data of the reply. Edns input can be found here if qstate
+ *	is NULL.
+ * @param region: region to store data.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_reply_servfail_call(struct module_env* env,
+	struct query_info* qinfo, struct module_qstate* qstate,
+	struct reply_info* rep, int rcode, struct edns_data* edns,
+	struct regional* region);
+
+/**
+ * Call the registered functions in the inplace_cb_query linked list.
+ * This function is going to get called just before sending a query to a
+ * nameserver.
+ * @param env: module environment.
+ * @param qinfo: query info.
+ * @param flags: flags of the query.
+ * @param addr: to which server to send the query.
+ * @param addrlen: length of addr.
+ * @param zone: name of the zone of the delegation point. wireformat dname.
+ *	This is the delegation point name for which the server is deemed
+ *	authoritative.
+ * @param zonelen: length of zone.
+ * @param qstate: module qstate.
+ * @param region: region to store data.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_query_call(struct module_env* env, struct query_info* qinfo,
+	uint16_t flags, struct sockaddr_storage* addr, socklen_t addrlen,
+	uint8_t* zone, size_t zonelen, struct module_qstate* qstate,
+	struct regional* region);
+
+/**
+ * Call the registered functions in the inplace_cb_edns_back_parsed linked list.
+ * This function is going to get called after parsing the EDNS data on the
+ * reply from a nameserver.
+ * @param env: module environment.
+ * @param qstate: module qstate.
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_edns_back_parsed_call(struct module_env* env, 
+	struct module_qstate* qstate);
+
+/**
+ * Call the registered functions in the inplace_cb_query_reponse linked list.
+ * This function is going to get called after receiving a reply from a
+ * nameserver.
+ * @param env: module environment.
+ * @param qstate: module qstate.
+ * @param response: received response
+ * @return false on failure (a callback function returned an error).
+ */
+int inplace_cb_query_response_call(struct module_env* env,
+	struct module_qstate* qstate, struct dns_msg* response);
+
+/**
+ * Copy edns option list allocated to the new region
+ */
+struct edns_option* edns_opt_copy_region(struct edns_option* list,
+	struct regional* region);
+
+/**
+ * Copy edns option list allocated with malloc
+ */
+struct edns_option* edns_opt_copy_alloc(struct edns_option* list);
+
+/**
+ * Free edns option list allocated with malloc
+ */
+void edns_opt_list_free(struct edns_option* list);
+
+/**
+ * Compare an edns option. (not entire list).  Also compares contents.
+ */
+int edns_opt_compare(struct edns_option* p, struct edns_option* q);
+
+/**
+ * Compare edns option lists, also the order and contents of edns-options.
+ */
+int edns_opt_list_compare(struct edns_option* p, struct edns_option* q);
 
 #endif /* UTIL_DATA_MSGREPLY_H */

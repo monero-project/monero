@@ -33,6 +33,8 @@
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 
+#define MAKE_IPV4_ADDRESS(a,b,c,d) new epee::net_utils::ipv4_network_address(MAKE_IP(a,b,c,d),0)
+
 namespace cryptonote {
   class blockchain_storage;
 }
@@ -74,12 +76,13 @@ public:
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
 
-static bool is_blocked(Server &server, uint32_t ip, time_t *t = NULL)
+static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
-  std::map<uint32_t, time_t> ips = server.get_blocked_ips();
-  for (auto rec: ips)
+  const std::string host = address.host_str();
+  std::map<std::string, time_t> hosts = server.get_blocked_hosts();
+  for (auto rec: hosts)
   {
-    if (rec.first == ip)
+    if (rec.first == host)
     {
       if (t)
         *t = rec.second;
@@ -97,80 +100,80 @@ TEST(ban, add)
   cprotocol.set_p2p_endpoint(&server);
 
   // starts empty
-  ASSERT_TRUE(server.get_blocked_ips().empty());
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.get_blocked_hosts().empty());
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // add an IP
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // add the same, should not change
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // remove an unblocked IP, should not change
-  ASSERT_FALSE(server.unblock_ip(MAKE_IP(1,2,3,5)));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_FALSE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // remove the IP, ends up empty
-  ASSERT_TRUE(server.unblock_ip(MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // remove the IP from an empty list, still empty
-  ASSERT_FALSE(server.unblock_ip(MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_FALSE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // add two for known amounts of time, they're both blocked
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4), 1));
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,5), 3));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 2);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,5)));
-  ASSERT_TRUE(server.unblock_ip(MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(server.unblock_ip(MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 1));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,5), 3));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 2);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // these tests would need to call is_remote_ip_allowed, which is private
 #if 0
   // after two seconds, the first IP is unblocked, but not the second yet
   sleep(2);
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // after two more seconds, the second IP is also unblocked
   sleep(2);
-  ASSERT_TRUE(server.get_blocked_ips().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 #endif
 
   // add an IP again, then re-ban for longer, then shorter
   time_t t;
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4), 2));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 2));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 1);
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4), 9));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 9));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 8);
-  ASSERT_TRUE(server.block_ip(MAKE_IP(1,2,3,4), 5));
-  ASSERT_TRUE(server.get_blocked_ips().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IP(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IP(1,2,3,5)));
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 5));
+  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
+  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 4);
 }
 

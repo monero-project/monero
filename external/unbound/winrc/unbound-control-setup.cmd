@@ -37,7 +37,7 @@ rem SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 rem settings:
 
 rem directory for files
-set prefix="C:\Program Files (x86)"
+set prefix="C:\Program Files"
 set DESTDIR=%prefix%\Unbound
 
 rem issuer and subject name for certificates

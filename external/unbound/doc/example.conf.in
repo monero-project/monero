@@ -1,7 +1,7 @@
 #
 # Example configuration file.
 #
-# See unbound.conf(5) man page, version @version@.
+# See unbound.conf(5) man page, version 1.6.3.
 #
 # this is a comment.
 
@@ -18,6 +18,14 @@ server:
 	# print statistics to the log (for every thread) every N seconds.
 	# Set to "" or 0 to disable. Default is disabled.
 	# statistics-interval: 0
+
+	# enable shm for stats, default no.  if you enable also enable
+	# statistics-interval, every time it also writes stats to the
+	# shared memory segment keyed with shm-key.
+	# shm-enable: no
+
+	# shm for stats uses this key, and key+1 for the shared mem segment.
+	# shm-key: 11777
 
 	# enable cumulative statistics, without clearing them after printing.
 	# statistics-cumulative: no
@@ -52,6 +60,15 @@ server:
 	# outgoing-interface: 192.0.2.153
 	# outgoing-interface: 2001:DB8::5
 	# outgoing-interface: 2001:DB8::6
+
+	# Specify a netblock to use remainder 64 bits as random bits for
+	# upstream queries.  Uses freebind option (Linux).
+	# outgoing-interface: 2001:DB8::/64
+	# Also (Linux:) ip -6 addr add 2001:db8::/64 dev lo
+	# And: ip -6 route add local 2001:db8::/64 dev lo
+	# And set prefer-ip6: yes to use the ip6 randomness from a netblock.
+	# Set this to yes to prefer ipv6 upstream servers over ipv4.
+	# prefer-ip6: no
 
 	# number of ports to allocate per thread, determines the size of the
 	# port range that can be open simultaneously.  About double the
@@ -90,7 +107,13 @@ server:
 
 	# use IP_TRANSPARENT so the interface: addresses can be non-local
 	# and you can config non-existing IPs that are going to work later on
+	# (uses IP_BINDANY on FreeBSD).
 	# ip-transparent: no
+
+	# use IP_FREEBIND so the interface: addresses can be non-local
+	# and you can bind to nonexisting IPs and interfaces that are down.
+	# Linux only.  On Linux you also have ip-transparent that is similar.
+	# ip-freebind: no
 
 	# EDNS reassembly buffer to advertise to UDP peers (the actual buffer
 	# is set with msg-buffer-size). 1480 can solve fragmentation (timeouts).
@@ -157,6 +180,10 @@ server:
 	# the maximum number of hosts that are cached (roundtrip, EDNS, lame).
 	# infra-cache-numhosts: 10000
 
+	# define a number of tags here, use with local-zone, access-control.
+	# repeat the define-tag statement to add additional tags.
+	# define-tag: "tag1 tag2 tag3"
+
 	# Enable IPv4, "yes" or "no".
 	# do-ip4: yes
 
@@ -173,7 +200,19 @@ server:
 	# useful for tunneling scenarios, default no.
 	# tcp-upstream: no
 
+	# Maximum segment size (MSS) of TCP socket on which the server
+	# responds to queries. Default is 0, system default MSS.
+	# tcp-mss: 0
+
+	# Maximum segment size (MSS) of TCP socket for outgoing queries.
+	# Default is 0, system default MSS.
+	# outgoing-tcp-mss: 0
+
+	# Use systemd socket activation for UDP, TCP, and control sockets.
+	# use-systemd: no
+
 	# Detach from the terminal, run in background, "yes" or "no".
+	# Set the value to "no" when unbound runs as systemd service.
 	# do-daemonize: yes
 
 	# control which clients are allowed to make (recursive) queries
@@ -188,6 +227,23 @@ server:
 	# access-control: ::0/0 refuse
 	# access-control: ::1 allow
 	# access-control: ::ffff:127.0.0.1 allow
+
+	# tag access-control with list of tags (in "" with spaces between)
+	# Clients using this access control element use localzones that
+	# are tagged with one of these tags.
+	# access-control-tag: 192.0.2.0/24 "tag2 tag3"
+
+	# set action for particular tag for given access control element
+	# if you have multiple tag values, the tag used to lookup the action
+	# is the first tag match between access-control-tag and local-zone-tag
+	# where "first" comes from the order of the define-tag values.
+	# access-control-tag-action: 192.0.2.0/24 tag3 refuse
+
+	# set redirect data for particular tag for access control element
+	# access-control-tag-data: 192.0.2.0/24 tag2 "A 127.0.0.1"
+
+	# Set view for access control element
+	# access-control-view: 192.0.2.0/24 viewname
 
 	# if given, a chroot(2) is done to the given directory.
 	# i.e. you can chroot to the working directory, for example,
@@ -222,6 +278,8 @@ server:
 	# the working directory. The relative files in this config are
 	# relative to this directory. If you give "" the working directory
 	# is not changed.
+	# If you give a server: directory: dir before include: file statements
+	# then those includes can be relative to the working directory.
 	# directory: "@UNBOUND_RUN_DIR@"
 
 	# the log file, "" means log to stderr.
@@ -229,14 +287,22 @@ server:
 	# logfile: ""
 
 	# Log to syslog(3) if yes. The log facility LOG_DAEMON is used to
-	# log to, with identity "unbound". If yes, it overrides the logfile.
+	# log to. If yes, it overrides the logfile.
 	# use-syslog: yes
+
+	# Log identity to report. if empty, defaults to the name of argv[0]
+	# (usually "unbound").
+	# log-identity: ""
 
 	# print UTC timestamp in ascii to logfile, default is epoch in seconds.
 	# log-time-ascii: no
 
 	# print one line with time, IP, name, type, class for every query.
 	# log-queries: no
+
+	# print one line per reply, with time, IP, name, type, class, rcode,
+	# timetoresolve, fromcache and responsesize.
+	# log-replies: no
 
 	# the pid file. Can be an absolute path outside of chroot/work dir.
 	# pidfile: "@UNBOUND_PIDFILE@"
@@ -250,6 +316,9 @@ server:
 
 	# enable to not answer version.server and version.bind queries.
 	# hide-version: no
+	
+	# enable to not answer trustanchor.unbound queries.
+	# hide-trustanchor: no
 
 	# the identity to report. Leave "" or default to return hostname.
 	# identity: ""
@@ -285,7 +354,7 @@ server:
 	# Harden against queries that fall under dnssec-signed nxdomain names.
 	# harden-below-nxdomain: no
 
-        # Harden the referral path by performing additional queries for
+	# Harden the referral path by performing additional queries for
 	# infrastructure data.  Validates the replies (if possible).
 	# Default off, because the lookups burden the server.  Experimental
 	# implementation of draft-wijngaards-dnsext-resolver-side-mitigation.
@@ -301,6 +370,12 @@ server:
 	# to NS when possible.
 	# qname-minimisation: no
 
+	# QNAME minimisation in strict mode. Do not fall-back to sending full
+	# QNAME to potentially broken nameservers. A lot of domains will not be
+	# resolvable when this option in enabled.
+	# This option only has effect when qname-minimisation is enabled.
+	# qname-minimisation-strict: no
+
 	# Use 0x20-encoded random bits in the query to foil spoof attempts.
 	# This feature is an experimental implementation of draft dns-0x20.
 	# use-caps-for-id: no
@@ -308,6 +383,7 @@ server:
 	# Domains (and domains in them) without support for dns-0x20 and
 	# the fallback fails because they keep sending different answers.
 	# caps-whitelist: "licdn.com"
+	# caps-whitelist: "senderbase.org"
 
 	# Enforce privacy of these addresses. Strips them away from answers.
 	# It may cause DNSSEC validation to additionally mark it as bogus.
@@ -354,6 +430,9 @@ server:
 	# if yes, Unbound doesn't insert authority/additional sections
 	# into response messages when those sections are not required.
 	# minimal-responses: no
+
+	# true to disable DNSSEC lameness check in iterator.
+	# disable-dnssec-lame-check: no
 
 	# module configuration of the server. A string with identifiers
 	# separated by spaces. Syntax: "[dns64] [validator] iterator"
@@ -430,6 +509,10 @@ server:
 	# that set CD but cannot validate themselves.
 	# ignore-cd-flag: no
 
+	# Serve expired reponses from cache, with TTL 0 in the response,
+	# and then attempt to fetch the data afresh.
+	# serve-expired: no
+
 	# Have the validator log failed validations for your diagnosis.
 	# 0: off. 1: A line per failed user query. 2: With reason and bad IP.
 	# val-log-level: 0
@@ -450,7 +533,8 @@ server:
 	# If the value 0 is given, missing anchors are not removed.
 	# keep-missing: 31622400 # 366 days
 
-	# debug option that allows very small holddown times for key rollover
+	# debug option that allows very small holddown times for key rollover,
+	# otherwise the RFC mandates probe intervals must be at least 1 hour.
 	# permit-small-holddown: no
 
 	# the amount of memory to use for the key cache.
@@ -475,6 +559,7 @@ server:
 	# local-zone: "localhost." nodefault
 	# local-zone: "127.in-addr.arpa." nodefault
 	# local-zone: "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa." nodefault
+	# local-zone: "onion." nodefault
 	# local-zone: "10.in-addr.arpa." nodefault
 	# local-zone: "16.172.in-addr.arpa." nodefault
 	# local-zone: "17.172.in-addr.arpa." nodefault
@@ -508,12 +593,16 @@ server:
 	# local-zone: "8.b.d.0.1.0.0.2.ip6.arpa." nodefault
 	# And for 64.100.in-addr.arpa. to 127.100.in-addr.arpa.
 
-	# if unbound is running service for the local host then it is useful
+	# If unbound is running service for the local host then it is useful
 	# to perform lan-wide lookups to the upstream, and unblock the
 	# long list of local-zones above.  If this unbound is a dns server
 	# for a network of computers, disabled is better and stops information
 	# leakage of local lan information.
 	# unblock-lan-zones: no
+
+	# The insecure-lan-zones option disables validation for
+	# these zones, as if they were all listed as domain-insecure.
+	# insecure-lan-zones: no
 
 	# a number of locally served zones can be configured.
 	# 	local-zone: <zone> <type>
@@ -525,8 +614,10 @@ server:
 	# o redirect serves the zone data for any subdomain in the zone.
 	# o nodefault can be used to normally resolve AS112 zones.
 	# o typetransparent resolves normally for other types and other names
-	# o inform resolves normally, but logs client IP address
+	# o inform acts like transparent, but logs client IP address
 	# o inform_deny drops queries and logs client IP address
+	# o always_transparent, always_refuse, always_nxdomain, resolve in
+	#   that way but ignore local data for that name.
 	#
 	# defaults are localhost address, reverse for 127.0.0.1 and ::1
 	# and nxdomain for AS112 zones. If you configure one of these zones
@@ -552,6 +643,12 @@ server:
 	# You can also add PTR records using local-data directly, but then
 	# you need to do the reverse notation yourself.
 	# local-data-ptr: "192.0.2.3 www.example.com"
+
+	# tag a localzone with a list of tag names (in "" with spaces between)
+	# local-zone-tag: "example.com" "tag2 tag3"
+
+	# add a netblock specific override to a localzone, with zone type
+	# local-zone-override: "example.com" 192.0.2.0/24 refuse
 
 	# service clients over SSL (on the TCP sockets), with plain DNS inside
 	# the SSL stream.  Give the certificate to use and private key.
@@ -586,7 +683,21 @@ server:
 	# ratelimit-for-domain: example.com 1000
 	# override the ratelimits for all domains below a domain name
 	# can give this multiple times, the name closest to the zone is used.
-	# ratelimit-below-domain: example 1000
+	# ratelimit-below-domain: com 1000
+
+	# global query ratelimit for all ip addresses.
+	# feature is experimental.
+	# if 0(default) it is disabled, otherwise states qps allowed per ip address
+	# ip-ratelimit: 0
+
+	# ip ratelimits are tracked in a cache, size in bytes of cache (or k,m).
+	# ip-ratelimit-size: 4m
+	# ip ratelimit cache slabs, reduces lock contention if equal to cpucount.
+	# ip-ratelimit-slabs: 4
+
+	# 0 blocks when ip is ratelimited, otherwise let 1/xth traffic through
+	# ip-ratelimit-factor: 10
+
 
 # Python config section. To enable:
 # o use --with-pythonmodule to configure before compiling.
@@ -639,6 +750,7 @@ remote-control:
 #	stub-addr: 192.0.2.68
 #	stub-prime: no
 #	stub-first: no
+#	stub-ssl-upstream: no
 # stub-zone:
 #	name: "example.org"
 #	stub-host: ns.example.com.
@@ -654,6 +766,44 @@ remote-control:
 # 	forward-addr: 192.0.2.68
 # 	forward-addr: 192.0.2.73@5355  # forward to port 5355.
 # 	forward-first: no
+# 	forward-ssl-upstream: no
 # forward-zone:
 # 	name: "example.org"
 # 	forward-host: fwd.example.com
+
+# Views
+# Create named views. Name must be unique. Map views to requests using
+# the access-control-view option. Views can contain zero or more local-zone
+# and local-data options. Options from matching views will override global
+# options. Global options will be used if no matching view is found.
+# With view-first yes, it will try to answer using the global local-zone and
+# local-data elements if there is no view specific match.
+# view:
+#	name: "viewname"
+#	local-zone: "example.com" redirect
+#	local-data: "example.com A 192.0.2.3"
+# 	local-data-ptr: "192.0.2.3 www.example.com"
+#	view-first: no
+# view:
+#	name: "anotherview"
+#	local-zone: "example.com" refuse
+
+# DNSCrypt
+# Caveats:
+# 1. the keys/certs cannot be produced by unbound. You can use dnscrypt-wrapper
+#   for this: https://github.com/cofyc/dnscrypt-wrapper/blob/master/README.md#usage
+# 2. dnscrypt channel attaches to an interface. you MUST set interfaces to
+#   listen on `dnscrypt-port` with the follo0wing snippet:
+# server:
+#     interface: 0.0.0.0@443
+#     interface: ::0@443
+#
+# Finally, `dnscrypt` config has its own section.
+# dnscrypt:
+#     dnscrypt-enable: yes
+#     dnscrypt-port: 443
+#     dnscrypt-provider: 2.dnscrypt-cert.example.com.
+#     dnscrypt-secret-key: /path/unbound-conf/keys1/1.key
+#     dnscrypt-secret-key: /path/unbound-conf/keys2/1.key
+#     dnscrypt-provider-cert: /path/unbound-conf/keys1/1.cert
+#     dnscrypt-provider-cert: /path/unbound-conf/keys2/1.cert

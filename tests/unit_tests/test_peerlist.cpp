@@ -38,21 +38,22 @@ TEST(peer_list, peer_list_general)
 {
   nodetool::peerlist_manager plm;
   plm.init(false);
-#define ADD_GRAY_NODE(ip_, port_, id_, last_seen_) {  nodetool::peerlist_entry ple; ple.last_seen=last_seen_;ple.adr.ip = ip_; ple.adr.port = port_; ple.id = id_;plm.append_with_peer_gray(ple);}  
-#define ADD_WHITE_NODE(ip_, port_, id_, last_seen_) {  nodetool::peerlist_entry ple;ple.last_seen=last_seen_; ple.adr.ip = ip_; ple.adr.port = port_; ple.id = id_;plm.append_with_peer_white(ple);}  
+#define MAKE_IPV4_ADDRESS(a,b,c,d,e) new epee::net_utils::ipv4_network_address(MAKE_IP(a,b,c,d),e)
+#define ADD_GRAY_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple; ple.last_seen=last_seen_;ple.adr = addr_; ple.id = id_;plm.append_with_peer_gray(ple);}  
+#define ADD_WHITE_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple;ple.last_seen=last_seen_; ple.adr = addr_; ple.id = id_;plm.append_with_peer_white(ple);}  
 
 #define PRINT_HEAD(step) {std::list<nodetool::peerlist_entry> bs_head; bool r = plm.get_peerlist_head(bs_head, 100);std::cout << "step " << step << ": " << bs_head.size() << std::endl;}
 
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,1), 8080, 121241, 34345);
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,2), 8080, 121241, 34345);
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,3), 8080, 121241, 34345);
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,4), 8080, 121241, 34345);
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,5), 8080, 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,1, 8080), 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,3, 8080), 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,4, 8080), 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,5, 8080), 121241, 34345);
 
-  ADD_WHITE_NODE(MAKE_IP(123,43,12,1), 8080, 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IP(123,43,12,2), 8080, 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IP(123,43,12,3), 8080, 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IP(123,43,12,4), 8080, 121241, 34345);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,1, 8080), 121241, 34345);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 121241, 34345);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,3, 8080), 121241, 34345);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,4, 8080), 121241, 34345);
 
   size_t gray_list_size = plm.get_gray_peers_count();
   ASSERT_EQ(gray_list_size, 1);
@@ -65,7 +66,7 @@ TEST(peer_list, peer_list_general)
   ASSERT_EQ(bs_head.size(), 4);
 
 
-  ADD_GRAY_NODE(MAKE_IP(123,43,12,5), 8080, 121241, 34345);
+  ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,5, 8080), 121241, 34345);
   ASSERT_EQ(plm.get_gray_peers_count(), 1);
   ASSERT_EQ(plm.get_white_peers_count(), 4);
 }

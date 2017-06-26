@@ -73,7 +73,7 @@ int testcount = 0;
 /** test alloc code */
 static void
 alloc_test(void) {
-	alloc_special_t *t1, *t2;
+	alloc_special_type *t1, *t2;
 	struct alloc_cache major, minor1, minor2;
 	int i;
 
@@ -380,6 +380,28 @@ config_memsize_test(void)
 	unit_assert( cfg_parse_memsize("0 Gb", &v) && v==0*1024*1024);
 }
 
+/** test config_file: test tag code */
+static void
+config_tag_test(void) 
+{
+	unit_show_func("util/config_file.c", "taglist_intersect");
+	unit_assert( taglist_intersect(
+		(uint8_t*)"\000\000\000", 3, (uint8_t*)"\001\000\001", 3
+		) == 0);
+	unit_assert( taglist_intersect(
+		(uint8_t*)"\000\000\001", 3, (uint8_t*)"\001\000\001", 3
+		) == 1);
+	unit_assert( taglist_intersect(
+		(uint8_t*)"\001\000\000", 3, (uint8_t*)"\001\000\001", 3
+		) == 1);
+	unit_assert( taglist_intersect(
+		(uint8_t*)"\001", 1, (uint8_t*)"\001\000\001", 3
+		) == 1);
+	unit_assert( taglist_intersect(
+		(uint8_t*)"\001\000\001", 3, (uint8_t*)"\001", 1
+		) == 1);
+}
+	
 #include "util/rtt.h"
 /** test RTT code */
 static void
@@ -536,6 +558,269 @@ rnd_test(void)
 	ub_randfree(r);
 }
 
+#include "respip/respip.h"
+#include "services/localzone.h"
+#include "util/data/packed_rrset.h"
+typedef struct addr_action {char* ip; char* sact; enum respip_action act;}
+	addr_action_t;
+
+/** Utility function that verifies that the respip set has actions as expected */
+static void
+verify_respip_set_actions(struct respip_set* set, addr_action_t actions[],
+	int actions_len)
+{
+	int i = 0;
+	struct rbtree_type* tree = respip_set_get_tree(set);
+	for (i=0; i<actions_len; i++) {
+		struct sockaddr_storage addr;
+		int net;
+		socklen_t addrlen;
+		struct resp_addr* node;
+		netblockstrtoaddr(actions[i].ip, UNBOUND_DNS_PORT, &addr,
+			&addrlen, &net);
+		node = (struct resp_addr*)addr_tree_find(tree, &addr, addrlen, net);
+
+		/** we have the node and the node has the correct action
+		  * and has no data */
+		unit_assert(node);
+		unit_assert(actions[i].act ==
+			resp_addr_get_action(node));
+		unit_assert(resp_addr_get_rrset(node) == NULL);
+	}
+	unit_assert(actions_len && i == actions_len);
+	unit_assert(actions_len == (int)tree->count);
+}
+
+/** Global respip actions test; apply raw config data and verify that
+  * all the nodes in the respip set, looked up by address, have expected
+  * actions */
+static void
+respip_conf_actions_test(void)
+{
+	addr_action_t config_response_ip[] = {
+		{"192.0.1.0/24", "deny", respip_deny},
+		{"192.0.2.0/24", "redirect", respip_redirect},
+		{"192.0.3.0/26", "inform", respip_inform},
+		{"192.0.4.0/27", "inform_deny", respip_inform_deny},
+		{"2001:db8:1::/48", "always_transparent", respip_always_transparent},
+		{"2001:db8:2::/49", "always_refuse", respip_always_refuse},
+		{"2001:db8:3::/50", "always_nxdomain", respip_always_nxdomain},
+	};
+	int i;
+	struct respip_set* set = respip_set_create();
+	struct config_file cfg;
+	int clen = (int)(sizeof(config_response_ip) / sizeof(addr_action_t));
+
+	unit_assert(set);
+	unit_show_feature("global respip config actions apply");
+	memset(&cfg, 0, sizeof(cfg));
+	for(i=0; i<clen; i++) {
+		char* ip = strdup(config_response_ip[i].ip);
+		char* sact = strdup(config_response_ip[i].sact);
+		unit_assert(ip && sact);
+		if(!cfg_str2list_insert(&cfg.respip_actions, ip, sact))
+			unit_assert(0);
+	}
+	unit_assert(respip_global_apply_cfg(set, &cfg));
+	verify_respip_set_actions(set, config_response_ip, clen);
+}
+
+/** Per-view respip actions test; apply raw configuration with two views
+  * and verify that actions are as expected in respip sets of both views */
+static void
+respip_view_conf_actions_test(void)
+{
+	addr_action_t config_response_ip_view1[] = {
+		{"192.0.1.0/24", "deny", respip_deny},
+		{"192.0.2.0/24", "redirect", respip_redirect},
+		{"192.0.3.0/26", "inform", respip_inform},
+		{"192.0.4.0/27", "inform_deny", respip_inform_deny},
+	};
+	addr_action_t config_response_ip_view2[] = {
+		{"2001:db8:1::/48", "always_transparent", respip_always_transparent},
+		{"2001:db8:2::/49", "always_refuse", respip_always_refuse},
+		{"2001:db8:3::/50", "always_nxdomain", respip_always_nxdomain},
+	};
+	int i;
+	struct config_file cfg;
+	int clen1 = (int)(sizeof(config_response_ip_view1) / sizeof(addr_action_t));
+	int clen2 = (int)(sizeof(config_response_ip_view2) / sizeof(addr_action_t));
+	struct config_view* cv1;
+	struct config_view* cv2;
+	int have_respip_cfg = 0;
+	struct views* views = NULL;
+	struct view* v = NULL;
+
+	unit_show_feature("per-view respip config actions apply");
+	memset(&cfg, 0, sizeof(cfg));
+	cv1 = (struct config_view*)calloc(1, sizeof(struct config_view));
+	cv2 = (struct config_view*)calloc(1, sizeof(struct config_view));
+	unit_assert(cv1 && cv2);
+	cv1->name = strdup("view1");
+	cv2->name = strdup("view2");
+	unit_assert(cv1->name && cv2->name);
+	cv1->next = cv2;
+	cfg.views = cv1;
+
+	for(i=0; i<clen1; i++) {
+		char* ip = strdup(config_response_ip_view1[i].ip);
+		char* sact = strdup(config_response_ip_view1[i].sact);
+		unit_assert(ip && sact);
+		if(!cfg_str2list_insert(&cv1->respip_actions, ip, sact))
+			unit_assert(0);
+	}
+	for(i=0; i<clen2; i++) {
+		char* ip = strdup(config_response_ip_view2[i].ip);
+		char* sact = strdup(config_response_ip_view2[i].sact);
+		unit_assert(ip && sact);
+		if(!cfg_str2list_insert(&cv2->respip_actions, ip, sact))
+			unit_assert(0);
+	}
+	views = views_create();
+	unit_assert(views);
+	unit_assert(views_apply_cfg(views, &cfg));
+	unit_assert(respip_views_apply_cfg(views, &cfg, &have_respip_cfg));
+
+	/* now verify the respip sets in each view */
+	v = views_find_view(views, "view1", 0);
+	unit_assert(v);
+	verify_respip_set_actions(v->respip_set, config_response_ip_view1, clen1);
+	lock_rw_unlock(&v->lock);
+	v = views_find_view(views, "view2", 0);
+	unit_assert(v);
+	verify_respip_set_actions(v->respip_set, config_response_ip_view2, clen2);
+	lock_rw_unlock(&v->lock);
+}
+
+typedef struct addr_data {char* ip; char* data;} addr_data_t;
+
+/** find the respip address node in the specified tree (by address lookup)
+  * and verify type and address of the specified rdata (by index) in this
+  * node's rrset */
+static void
+verify_rrset(struct respip_set* set, const char* ipstr,
+	const char* rdatastr, size_t rdi, uint16_t type)
+{
+	struct sockaddr_storage addr;
+	int net;
+	char buf[65536];
+	socklen_t addrlen;
+	struct rbtree_type* tree;
+	struct resp_addr* node;
+	const struct ub_packed_rrset_key* rrs;
+
+	netblockstrtoaddr(ipstr, UNBOUND_DNS_PORT, &addr, &addrlen, &net);
+	tree = respip_set_get_tree(set);
+	node = (struct resp_addr*)addr_tree_find(tree, &addr, addrlen, net);
+	unit_assert(node);
+	unit_assert((rrs = resp_addr_get_rrset(node)));
+	unit_assert(ntohs(rrs->rk.type) == type);
+	packed_rr_to_string((struct ub_packed_rrset_key*)rrs,
+		rdi, 0, buf, sizeof(buf));
+	unit_assert(strstr(buf, rdatastr));
+}
+
+/** Dataset used to test redirect rrset initialization for both
+  * global and per-view respip redirect configuration */
+static addr_data_t config_response_ip_data[] = {
+	{"192.0.1.0/24", "A 1.2.3.4"},
+	{"192.0.1.0/24", "A 11.12.13.14"},
+	{"192.0.2.0/24", "CNAME www.example.com."},
+	{"2001:db8:1::/48", "AAAA 2001:db8:1::2:1"},
+};
+
+/** Populate raw respip redirect config data, used for both global and
+  * view-based respip redirect test case */
+static void
+cfg_insert_respip_data(struct config_str2list** respip_actions,
+	struct config_str2list** respip_data)
+{
+	int clen = (int)(sizeof(config_response_ip_data) / sizeof(addr_data_t));
+	int i = 0;
+
+	/* insert actions (duplicate netblocks don't matter) */
+	for(i=0; i<clen; i++) {
+		char* ip = strdup(config_response_ip_data[i].ip);
+		char* sact = strdup("redirect");
+		unit_assert(ip && sact);
+		if(!cfg_str2list_insert(respip_actions, ip, sact))
+			unit_assert(0);
+	}
+	/* insert data */
+	for(i=0; i<clen; i++) {
+		char* ip = strdup(config_response_ip_data[i].ip);
+		char* data = strdup(config_response_ip_data[i].data);
+		unit_assert(ip && data);
+		if(!cfg_str2list_insert(respip_data, ip, data))
+			unit_assert(0);
+	}
+}
+
+/** Test global respip redirect w/ data directives */
+static void
+respip_conf_data_test(void)
+{
+	struct respip_set* set = respip_set_create();
+	struct config_file cfg;
+
+	unit_show_feature("global respip config data apply");
+	memset(&cfg, 0, sizeof(cfg));
+
+	cfg_insert_respip_data(&cfg.respip_actions, &cfg.respip_data);
+
+	/* apply configuration and verify rrsets */
+	unit_assert(respip_global_apply_cfg(set, &cfg));
+	verify_rrset(set, "192.0.1.0/24", "1.2.3.4", 0, LDNS_RR_TYPE_A);
+	verify_rrset(set, "192.0.1.0/24", "11.12.13.14", 1, LDNS_RR_TYPE_A);
+	verify_rrset(set, "192.0.2.0/24", "www.example.com", 0, LDNS_RR_TYPE_CNAME);
+	verify_rrset(set, "2001:db8:1::/48", "2001:db8:1::2:1", 0, LDNS_RR_TYPE_AAAA);
+}
+
+/** Test per-view respip redirect w/ data directives */
+static void
+respip_view_conf_data_test(void)
+{
+	struct config_file cfg;
+	struct config_view* cv;
+	int have_respip_cfg = 0;
+	struct views* views = NULL;
+	struct view* v = NULL;
+
+	unit_show_feature("per-view respip config data apply");
+	memset(&cfg, 0, sizeof(cfg));
+	cv = (struct config_view*)calloc(1, sizeof(struct config_view));
+	unit_assert(cv);
+	cv->name = strdup("view1");
+	unit_assert(cv->name);
+	cfg.views = cv;
+	cfg_insert_respip_data(&cv->respip_actions, &cv->respip_data);
+	views = views_create();
+	unit_assert(views);
+	unit_assert(views_apply_cfg(views, &cfg));
+
+	/* apply configuration and verify rrsets */
+	unit_assert(respip_views_apply_cfg(views, &cfg, &have_respip_cfg));
+	v = views_find_view(views, "view1", 0);
+	unit_assert(v);
+	verify_rrset(v->respip_set, "192.0.1.0/24", "1.2.3.4",
+		0, LDNS_RR_TYPE_A);
+	verify_rrset(v->respip_set, "192.0.1.0/24", "11.12.13.14",
+		1, LDNS_RR_TYPE_A);
+	verify_rrset(v->respip_set, "192.0.2.0/24", "www.example.com",
+		0, LDNS_RR_TYPE_CNAME);
+	verify_rrset(v->respip_set, "2001:db8:1::/48", "2001:db8:1::2:1",
+		0, LDNS_RR_TYPE_AAAA);
+}
+
+/** respip unit tests */
+static void respip_test(void)
+{
+	respip_view_conf_data_test();
+	respip_conf_data_test();
+	respip_view_conf_actions_test();
+	respip_conf_actions_test();
+}
+
 void unit_show_func(const char* file, const char* func)
 {
 	printf("test %s:%s\n", file, func);
@@ -546,6 +831,9 @@ void unit_show_feature(const char* feature)
 	printf("test %s functions\n", feature);
 }
 
+#ifdef USE_ECDSA_EVP_WORKAROUND
+void ecdsa_evp_workaround_init(void);
+#endif
 /**
  * Main unit test program. Setup, teardown and report errors.
  * @param argc: arg count.
@@ -563,12 +851,14 @@ main(int argc, char* argv[])
 	}
 	printf("Start of %s unit test.\n", PACKAGE_STRING);
 #ifdef HAVE_SSL
+#  ifdef HAVE_ERR_LOAD_CRYPTO_STRINGS
 	ERR_load_crypto_strings();
-#  ifdef HAVE_OPENSSL_CONFIG
-	OPENSSL_config("unbound");
 #  endif
 #  ifdef USE_GOST
 	(void)sldns_key_EVP_load_gost_id();
+#  endif
+#  ifdef USE_ECDSA_EVP_WORKAROUND
+	ecdsa_evp_workaround_init();
 #  endif
 #elif defined(HAVE_NSS)
 	if(NSS_NoDB_Init(".") != SECSuccess)
@@ -577,9 +867,11 @@ main(int argc, char* argv[])
 	checklock_start();
 	neg_test();
 	rnd_test();
+	respip_test();
 	verify_test();
 	net_test();
 	config_memsize_test();
+	config_tag_test();
 	dname_test();
 	rtt_test();
 	anchors_test();
@@ -590,6 +882,9 @@ main(int argc, char* argv[])
 	infra_test();
 	ldns_test();
 	msgparse_test();
+#ifdef CLIENT_SUBNET
+	ecs_test();
+#endif /* CLIENT_SUBNET */
 	checklock_stop();
 	printf("%d checks ok.\n", testcount);
 #ifdef HAVE_SSL
@@ -597,14 +892,21 @@ main(int argc, char* argv[])
 	sldns_key_EVP_unload_gost();
 #  endif
 #  ifdef HAVE_OPENSSL_CONFIG
+#  ifdef HAVE_EVP_CLEANUP
 	EVP_cleanup();
+#  endif
 	ENGINE_cleanup();
 	CONF_modules_free();
 #  endif
+#  ifdef HAVE_CRYPTO_CLEANUP_ALL_EX_DATA
 	CRYPTO_cleanup_all_ex_data();
-	ERR_remove_state(0);
+#  endif
+#  ifdef HAVE_ERR_FREE_STRINGS
 	ERR_free_strings();
+#  endif
+#  ifdef HAVE_RAND_CLEANUP
 	RAND_cleanup();
+#  endif
 #elif defined(HAVE_NSS)
 	if(NSS_Shutdown() != SECSuccess)
 		fatal_exit("could not shutdown NSS");

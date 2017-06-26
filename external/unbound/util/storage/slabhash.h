@@ -80,9 +80,9 @@ struct slabhash {
  * @return: new hash table or NULL on malloc failure.
  */
 struct slabhash* slabhash_create(size_t numtables, size_t start_size, 
-	size_t maxmem, lruhash_sizefunc_t sizefunc, 
-	lruhash_compfunc_t compfunc, lruhash_delkeyfunc_t delkeyfunc, 
-	lruhash_deldatafunc_t deldatafunc, void* arg);
+	size_t maxmem, lruhash_sizefunc_type sizefunc, 
+	lruhash_compfunc_type compfunc, lruhash_delkeyfunc_type delkeyfunc, 
+	lruhash_deldatafunc_type deldatafunc, void* arg);
 
 /**
  * Delete hash table. Entries are all deleted.
@@ -109,7 +109,7 @@ void slabhash_clear(struct slabhash* table);
  * @param data: the data.
  * @param cb_override: if not NULL overrides the cb_arg for deletfunc.
  */
-void slabhash_insert(struct slabhash* table, hashvalue_t hash, 
+void slabhash_insert(struct slabhash* table, hashvalue_type hash, 
 	struct lruhash_entry* entry, void* data, void* cb_override);
 
 /**
@@ -126,7 +126,7 @@ void slabhash_insert(struct slabhash* table, hashvalue_t hash,
  *    The user must unlock the entry when done.
  */
 struct lruhash_entry* slabhash_lookup(struct slabhash* table, 
-	hashvalue_t hash, void* key, int wr);
+	hashvalue_type hash, void* key, int wr);
 
 /**
  * Remove entry from hashtable. Does nothing if not found in hashtable.
@@ -135,7 +135,7 @@ struct lruhash_entry* slabhash_lookup(struct slabhash* table,
  * @param hash: hash of key.
  * @param key: what to look for. 
  */
-void slabhash_remove(struct slabhash* table, hashvalue_t hash, void* key);
+void slabhash_remove(struct slabhash* table, hashvalue_type hash, void* key);
 
 /**
  * Output debug info to the log as to state of the hash table.
@@ -165,14 +165,14 @@ size_t slabhash_get_mem(struct slabhash* table);
  * @param hash: hash value.
  * @return the lru hash table.
  */
-struct lruhash* slabhash_gettable(struct slabhash* table, hashvalue_t hash);
+struct lruhash* slabhash_gettable(struct slabhash* table, hashvalue_type hash);
 
 /**
  * Set markdel function
  * @param table: slabbed hash table.
  * @param md: markdel function ptr.
  */
-void slabhash_setmarkdel(struct slabhash* table, lruhash_markdelfunc_t md);
+void slabhash_setmarkdel(struct slabhash* table, lruhash_markdelfunc_type md);
 
 /**
  * Traverse a slabhash.

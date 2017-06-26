@@ -47,7 +47,7 @@
 struct val_env;
 struct module_env;
 struct ub_packed_rrset_key;
-struct rbtree_t;
+struct rbtree_type;
 struct regional;
 struct sldns_buffer;
 
@@ -277,7 +277,7 @@ enum sec_status dnskey_verify_rrset(struct module_env* env,
 enum sec_status dnskeyset_verify_rrset_sig(struct module_env* env, 
 	struct val_env* ve, time_t now, struct ub_packed_rrset_key* rrset, 
 	struct ub_packed_rrset_key* dnskey, size_t sig_idx, 
-	struct rbtree_t** sortree, char** reason);
+	struct rbtree_type** sortree, char** reason);
 
 /** 
  * verify rrset, with specific dnskey(from set), for a specific rrsig 
@@ -302,7 +302,7 @@ enum sec_status dnskey_verify_rrset_sig(struct regional* region,
 	struct sldns_buffer* buf, struct val_env* ve, time_t now,
 	struct ub_packed_rrset_key* rrset, struct ub_packed_rrset_key* dnskey, 
 	size_t dnskey_idx, size_t sig_idx,
-	struct rbtree_t** sortree, int* buf_canon, char** reason);
+	struct rbtree_type** sortree, int* buf_canon, char** reason);
 
 /**
  * canonical compare for two tree entries

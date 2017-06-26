@@ -472,6 +472,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
     MERROR("Failed to init core");
     return false;
   }
+  c.get_blockchain_storage().get_db().set_batch_transactions(true);
 
   // start with a clean pool
   std::vector<crypto::hash> pool_txs;
