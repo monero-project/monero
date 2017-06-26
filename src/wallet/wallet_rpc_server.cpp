@@ -422,7 +422,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
-    LOG_PRINT_L3("on_transfer_split starts");
+    LOG_PRINT_L3("on_transfer starts");
     if (!m_wallet) return not_open(er);
     if (m_wallet->restricted())
     {
@@ -518,9 +518,9 @@ namespace tools
       ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
-      LOG_PRINT_L2("on_transfer_split calling commit_txyy");
+      LOG_PRINT_L2("on_transfer_split calling commit_tx");
       m_wallet->commit_tx(ptx_vector);
-      LOG_PRINT_L2("on_transfer_split called commit_txyy");
+      LOG_PRINT_L2("on_transfer_split called commit_tx");
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
