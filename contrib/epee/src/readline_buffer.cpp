@@ -126,19 +126,18 @@ int rdln::readline_buffer::sync()
   return 0;
 }
 
-static fd_set fds;
-
 static int process_input()
 {
   int count;
   struct timeval t;
+  fd_set fds;
   
   t.tv_sec = 0;
   t.tv_usec = 1000;
   
   FD_ZERO(&fds);
   FD_SET(STDIN_FILENO, &fds);
-  count = select(FD_SETSIZE, &fds, NULL, NULL, &t);
+  count = select(STDIN_FILENO + 1, &fds, NULL, NULL, &t);
   if (count < 1)
   {
     return count;
