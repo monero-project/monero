@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <mutex>
 #include <condition_variable>
+#include <boost/thread.hpp>
 
 static int process_input();
 static void install_line_handler();
@@ -83,10 +84,17 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
 
 int rdln::readline_buffer::process()
 {
-  std::unique_lock<std::mutex> lock(process_mutex);
+  process_mutex.lock();
   if(m_cout_buf == NULL)
+  {
+    process_mutex.unlock();
+    boost::this_thread::sleep_for(boost::chrono::milliseconds( 1 ));
     return 0;
-  return process_input();
+  }
+  int count = process_input();
+  process_mutex.unlock();
+  boost::this_thread::sleep_for(boost::chrono::milliseconds( 1 ));
+  return count;
 }
 
 int rdln::readline_buffer::sync()
