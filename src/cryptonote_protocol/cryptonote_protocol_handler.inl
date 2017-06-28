@@ -192,7 +192,7 @@ namespace cryptonote
       cnx.host = cntxt.m_remote_address.host_str();
       cnx.ip = "";
       cnx.port = "";
-      if (cntxt.m_remote_address.type() == typeid(epee::net_utils::ipv4_network_address))
+      if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::ID)
       {
         cnx.ip = cnx.host;
         cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv4_network_address>().port());

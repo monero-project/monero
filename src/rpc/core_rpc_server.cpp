@@ -736,7 +736,7 @@ namespace cryptonote
 
     for (auto & entry : white_list)
     {
-      if (entry.adr.type() == typeid(epee::net_utils::ipv4_network_address))
+      if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
             entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen);
       else
@@ -745,7 +745,7 @@ namespace cryptonote
 
     for (auto & entry : gray_list)
     {
-      if (entry.adr.type() == typeid(epee::net_utils::ipv4_network_address))
+      if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
         res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
             entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen);
       else
