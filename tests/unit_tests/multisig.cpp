@@ -59,20 +59,10 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
   crypto::secret_key spendkey;
   epee::string_tools::hex_to_pod(test_addresses[idx].spendkey, spendkey);
 
-  std::string basename = "/tmp/multisig-unit-test-" + std::to_string(idx);
   try
   {
-    boost::filesystem::remove(basename + ".keys");
-    boost::filesystem::remove(basename + ".address.txt");
-    boost::filesystem::remove(basename);
-
     wallet.init("");
-    wallet.generate(basename, "", spendkey, true, false);
-
-    boost::filesystem::remove(basename + ".keys");
-    boost::filesystem::remove(basename + ".address.txt");
-    boost::filesystem::remove(basename);
-
+    wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(true));
   }
   catch (const std::exception &e)

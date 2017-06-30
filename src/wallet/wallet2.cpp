@@ -2594,9 +2594,12 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   clear();
   prepare_file_names(wallet_);
 
-  boost::system::error_code ignored_ec;
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  if (!wallet_.empty())
+  {
+    boost::system::error_code ignored_ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
 
   crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
 
@@ -2618,18 +2621,23 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
     m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
   }
 
-  bool r = store_keys(m_keys_file, password, false);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  if (!wallet_.empty())
+  {
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
-  if(!r) MERROR("String with address text not saved");
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
   add_subaddress_account(tr("Primary account"));
 
-  store();
+  if (!wallet_.empty())
+    store();
+
   return retval;
 }
 
@@ -2678,9 +2686,12 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   clear();
   prepare_file_names(wallet_);
 
-  boost::system::error_code ignored_ec;
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  if (!wallet_.empty())
+  {
+    boost::system::error_code ignored_ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
 
   m_account.create_from_viewkey(account_public_address, viewkey);
   m_account_public_address = account_public_address;
@@ -2689,18 +2700,22 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig_threshold = 0;
   m_multisig_total = 0;
 
-  bool r = store_keys(m_keys_file, password, true);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  if (!wallet_.empty())
+  {
+    bool r = store_keys(m_keys_file, password, true);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
-  if(!r) MERROR("String with address text not saved");
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
   add_subaddress_account(tr("Primary account"));
 
-  store();
+  if (!wallet_.empty())
+    store();
 }
 
 /*!
@@ -2717,9 +2732,12 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   clear();
   prepare_file_names(wallet_);
 
-  boost::system::error_code ignored_ec;
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  if (!wallet_.empty())
+  {
+    boost::system::error_code ignored_ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
 
   m_account.create_from_keys(account_public_address, spendkey, viewkey);
   m_account_public_address = account_public_address;
@@ -2728,17 +2746,21 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig_threshold = 0;
   m_multisig_total = 0;
 
-  bool r = store_keys(m_keys_file, password, false);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  if (!wallet_.empty())
+  {
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
-  if(!r) MERROR("String with address text not saved");
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
 
-  store();
+  if (!wallet_.empty())
+    store();
 }
 
 void wallet2::make_multisig(const epee::wipeable_string &password,
@@ -2789,18 +2811,22 @@ void wallet2::make_multisig(const epee::wipeable_string &password,
   m_multisig_threshold = threshold;
   m_multisig_total = spend_keys.size() + 1;
 
-  bool r = store_keys(m_keys_file, password, false);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+  if (!m_wallet_file.empty())
+  {
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
-  if(!r) MERROR("String with address text not saved");
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
   add_subaddress_account(tr("Primary account"));
 
-  store();
+  if (!m_wallet_file.empty())
+    store();
 }
 
 std::string wallet2::get_multisig_info() const
@@ -2889,6 +2915,8 @@ bool wallet2::has_multisig_partial_key_images() const
  */
 void wallet2::rewrite(const std::string& wallet_name, const epee::wipeable_string& password)
 {
+  if (wallet_name.empty())
+    return;
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
   THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_keys_file, ignored_ec), error::file_not_found, m_keys_file);
