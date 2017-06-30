@@ -85,8 +85,8 @@ static void make_M_2_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, un
   std::string mi0 = wallet0.get_multisig_info();
   std::string mi1 = wallet1.get_multisig_info();
 
-  ASSERT_TRUE(wallet0.verify_multisig_info(mi1, sk0[0], pk0[0]));
-  ASSERT_TRUE(wallet1.verify_multisig_info(mi0, sk1[0], pk1[0]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk0[0], pk0[0]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi0, sk1[0], pk1[0]));
 
   ASSERT_FALSE(wallet0.multisig() || wallet1.multisig());
   wallet0.make_multisig("", sk0, pk0, M);
@@ -118,12 +118,12 @@ static void make_M_3_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, to
   std::string mi1 = wallet1.get_multisig_info();
   std::string mi2 = wallet2.get_multisig_info();
 
-  ASSERT_TRUE(wallet0.verify_multisig_info(mi1, sk0[0], pk0[0]));
-  ASSERT_TRUE(wallet0.verify_multisig_info(mi2, sk0[1], pk0[1]));
-  ASSERT_TRUE(wallet1.verify_multisig_info(mi0, sk1[0], pk1[0]));
-  ASSERT_TRUE(wallet1.verify_multisig_info(mi2, sk1[1], pk1[1]));
-  ASSERT_TRUE(wallet2.verify_multisig_info(mi0, sk2[0], pk2[0]));
-  ASSERT_TRUE(wallet2.verify_multisig_info(mi1, sk2[1], pk2[1]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk0[0], pk0[0]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi2, sk0[1], pk0[1]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi0, sk1[0], pk1[0]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi2, sk1[1], pk1[1]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi0, sk2[0], pk2[0]));
+  ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk2[1], pk2[1]));
 
   // not implemented yet
   if (M < 3)
