@@ -2751,6 +2751,8 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
      }
   }
 
+  LOCK_IDLE_SCOPE();
+
   try
   {
     // figure out what tx will be necessary
