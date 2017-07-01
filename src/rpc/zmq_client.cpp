@@ -45,34 +45,33 @@ ZmqClient::ZmqClient() : context(1 /* one zmq thread */),
 
 ZmqClient::~ZmqClient()
 {
-  if (req_socket)
-  {
-    delete req_socket;  // dtor handles cleanup
-  }
 }
 
-void ZmqClient::connect(const std::string& address_with_port, int timeout_ms)
+bool ZmqClient::connect(const std::string& address_with_port, int timeout_ms)
 {
-  zmq::socket_t *new_socket = nullptr;
   std::string addr_prefix("tcp://");
   connect_address = addr_prefix + address_with_port;
   timeout = timeout_ms;
 
-  createSocket();
+  return createSocket();
 }
 
-void ZmqClient::connect(const std::string& address, const std::string& port, int timeout_ms)
+bool ZmqClient::connect(const std::string& address, const std::string& port, int timeout_ms)
 {
   std::string address_with_port = address + std::string(":") + port;
-  connect(address_with_port, timeout_ms);
+  return connect(address_with_port, timeout_ms);
 }
 
-std::string ZmqClient::doRequest(const std::string& request)
+boost::optional<std::string> ZmqClient::doRequest(const std::string& request, std::string& response)
 {
-  // TODO: error handling
-  if (req_socket == NULL)
+  if (!req_socket)
   {
-    return std::string();
+    resetSocket();
+    if (!req_socket)
+    {
+      LOG_PRINT_L0("RPC request received, but unable to connect to daemon");
+      return std::string("No connection to daemon");
+    }
   }
 
   zmq::message_t request_message(request.size());
@@ -80,8 +79,6 @@ std::string ZmqClient::doRequest(const std::string& request)
 
   LOG_PRINT_L2(std::string("Sending ZMQ RPC request: \"") + request + "\"");
   req_socket->send(request_message);
-
-  std::string response;
 
   zmq::message_t response_message;
 
@@ -93,47 +90,41 @@ std::string ZmqClient::doRequest(const std::string& request)
   }
   else
   {
+    // in case the fault for the failed receive was on our end,
+    // reset/recreate the socket.
     resetSocket();
-    return std::string();
+    return std::string("No response from daemon, retry later.");
   }
 
-  return response;
+  return boost::none;
 }
 
-void ZmqClient::createSocket()
+bool ZmqClient::createSocket()
 {
-  zmq::socket_t* new_socket = nullptr;
   static int linger_time = 0;
   try
   {
     LOG_PRINT_L2("Creating ZMQ Socket at: " << connect_address);
-    new_socket = new zmq::socket_t(context, ZMQ_REQ);
-    new_socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
-    new_socket->setsockopt(ZMQ_LINGER, &linger_time, sizeof(linger_time));
-    new_socket->connect(connect_address.c_str());
+    req_socket.reset(new zmq::socket_t(context, ZMQ_REQ));
+    req_socket->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+    req_socket->setsockopt(ZMQ_LINGER, &linger_time, sizeof(linger_time));
+    req_socket->connect(connect_address.c_str());
 
-    req_socket = new_socket;
     LOG_PRINT_L0(std::string("Created ZMQ socket at: ") + connect_address);
   }
   catch (std::exception& e)
   {
     LOG_PRINT_L2("Exception thrown while creating ZMQ Socket at: " << connect_address + ", e.what(): " << e.what());
-    if (new_socket)
-    {
-      delete new_socket;
-    }
+    req_socket.reset();
     LOG_ERROR(std::string("Failed to connect to ZMQ RPC endpoint at ") + connect_address);
-    throw;
+    return false;
   }
+  return true;
 }
 
-void ZmqClient::resetSocket()
+bool ZmqClient::resetSocket()
 {
-  if (req_socket)
-  {
-    delete req_socket;
-  }
-  createSocket();
+  return createSocket();
 }
 
 }  // namespace rpc

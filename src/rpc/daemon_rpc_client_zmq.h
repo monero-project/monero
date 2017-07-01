@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
+
 #include "zmq_client.h"
 
 #include "rpc/daemon_messages.h"
@@ -168,7 +170,7 @@ class DaemonRPCClientZMQ : public DaemonRPCClient
     void connect(const std::string& address_with_port);
 
     template <typename ReqType>
-    rapidjson::Value doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request);
+    boost::optional<std::string> doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request);
 
     template <typename ReqType>
     typename ReqType::Response parseResponse(rapidjson::Value& resp);

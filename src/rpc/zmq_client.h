@@ -28,6 +28,9 @@
 
 #pragma once
 
+#include <memory>
+
+#include <boost/optional.hpp>
 #include <zmq.hpp>
 
 namespace cryptonote
@@ -44,21 +47,20 @@ class ZmqClient
     ZmqClient();
     ~ZmqClient();
 
-    void connect(const std::string& address_with_port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
-    void connect(const std::string& address, const std::string& port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
+    bool connect(const std::string& address_with_port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
+    bool connect(const std::string& address, const std::string& port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
 
-    // timeout of 0 means wait forever
-    std::string doRequest(const std::string& request);
+    boost::optional<std::string> doRequest(const std::string& request, std::string& response);
 
   private:
-    void createSocket();
+    bool createSocket();
 
-    void resetSocket();
+    bool resetSocket();
 
     zmq::context_t context;
 
     // req-rep socket
-    zmq::socket_t* req_socket;
+    std::shared_ptr<zmq::socket_t> req_socket;
 
     std::string connect_address;
     int timeout;

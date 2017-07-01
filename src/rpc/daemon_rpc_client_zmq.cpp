@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <memory>
+
 #include "rpc/daemon_rpc_client_zmq.h"
 #include "serialization/json_object.h"
 #include "include_base_utils.h"
@@ -55,20 +57,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::checkConnection(
 boost::optional<std::string> DaemonRPCClientZMQ::getHeight(
     uint64_t& height)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetHeight::Request request;
+  GetHeight::Request request;
 
-    response_json = doRequest<GetHeight>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetHeight>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -88,20 +87,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::getHeight(
 boost::optional<std::string> DaemonRPCClientZMQ::getDaemonInfo(
     cryptonote::rpc::DaemonInfo& info)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetInfo::Request request;
+  GetInfo::Request request;
 
-    response_json = doRequest<GetInfo>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetInfo>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -173,23 +169,20 @@ boost::optional<std::string> DaemonRPCClientZMQ::getBlocksFast(
     uint64_t& current_height,
     std::vector<cryptonote::rpc::block_output_indices>& output_indices)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetBlocksFast::Request request;
+  GetBlocksFast::Request request;
 
-    request.block_ids = short_chain_history;
-    request.start_height = start_height_in;
+  request.block_ids = short_chain_history;
+  request.start_height = start_height_in;
 
-    response_json = doRequest<GetBlocksFast>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetBlocksFast>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -226,23 +219,20 @@ boost::optional<std::string> DaemonRPCClientZMQ::getHashesFast(
     uint64_t& start_height_out,
     uint64_t& current_height)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetHashesFast::Request request;
+  GetHashesFast::Request request;
 
-    request.known_hashes = hashes;
-    request.start_height = start_height_in;
+  request.known_hashes = hashes;
+  request.start_height = start_height_in;
 
-    response_json = doRequest<GetHashesFast>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetHashesFast>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -276,22 +266,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::getTransactions(
     std::unordered_map<crypto::hash, cryptonote::rpc::transaction_info> txs,
     std::vector<crypto::hash> missed_hashes)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetTransactions::Request request;
+  GetTransactions::Request request;
 
-    request.tx_hashes = tx_hashes;
+  request.tx_hashes = tx_hashes;
 
-    response_json = doRequest<GetTransactions>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetTransactions>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -323,22 +310,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::getBlockHeadersByHeight(
     const std::vector<uint64_t>& heights,
     std::vector<cryptonote::rpc::BlockHeaderResponse> headers)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetBlockHeadersByHeight::Request request;
+  GetBlockHeadersByHeight::Request request;
 
-    request.heights = heights;
+  request.heights = heights;
 
-    response_json = doRequest<GetBlockHeadersByHeight>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetBlockHeadersByHeight>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -371,22 +355,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::keyImagesSpent(
     std::vector<bool>& spent_in_chain,
     std::vector<bool>& spent_in_pool)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    KeyImagesSpent::Request request;
+  KeyImagesSpent::Request request;
 
-    request.key_images = images;
+  request.key_images = images;
 
-    response_json = doRequest<KeyImagesSpent>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<KeyImagesSpent>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -426,20 +407,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::getTransactionPool(
     std::unordered_map<crypto::hash, cryptonote::rpc::tx_in_pool>& transactions,
     std::unordered_map<crypto::key_image, std::vector<crypto::hash> >& key_images)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetTransactionPool::Request request;
+  GetTransactionPool::Request request;
 
-    response_json = doRequest<GetTransactionPool>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetTransactionPool>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -480,23 +458,20 @@ boost::optional<std::string> DaemonRPCClientZMQ::getRandomOutputsForAmounts(
     const uint64_t count,
     std::vector<amount_with_random_outputs>& amounts_with_outputs)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetRandomOutputsForAmounts::Request request;
+  GetRandomOutputsForAmounts::Request request;
 
-    request.amounts = amounts;
-    request.count = count;
+  request.amounts = amounts;
+  request.count = count;
 
-    response_json = doRequest<GetRandomOutputsForAmounts>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetRandomOutputsForAmounts>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -528,23 +503,20 @@ boost::optional<std::string> DaemonRPCClientZMQ::sendRawTx(
     bool& relayed,
     bool relay)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    SendRawTx::Request request;
+  SendRawTx::Request request;
 
-    request.tx = tx;
-    request.relay = relay;
+  request.tx = tx;
+  request.relay = relay;
 
-    response_json = doRequest<SendRawTx>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<SendRawTx>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -575,22 +547,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::hardForkInfo(
     const uint8_t version,
     hard_fork_info& info)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    HardForkInfo::Request request;
+  HardForkInfo::Request request;
 
-    request.version = version;
+  request.version = version;
 
-    response_json = doRequest<HardForkInfo>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<HardForkInfo>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -628,26 +597,23 @@ boost::optional<std::string> DaemonRPCClientZMQ::getOutputHistogram(
     uint64_t recent_cutoff,
     std::vector<output_amount_count>& histogram)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetOutputHistogram::Request request;
+  GetOutputHistogram::Request request;
 
-    request.amounts = amounts;
-    request.min_count = min_count;
-    request.max_count = max_count;
-    request.unlocked = unlocked;
-    request.recent_cutoff = recent_cutoff;
+  request.amounts = amounts;
+  request.min_count = min_count;
+  request.max_count = max_count;
+  request.unlocked = unlocked;
+  request.recent_cutoff = recent_cutoff;
 
-    response_json = doRequest<GetOutputHistogram>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetOutputHistogram>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -678,22 +644,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::getOutputKeys(
     const std::vector<output_amount_and_index>& outputs,
     std::vector<output_key_mask_unlocked>& keys)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetOutputKeys::Request request;
+  GetOutputKeys::Request request;
 
-    request.outputs = outputs;
+  request.outputs = outputs;
 
-    response_json = doRequest<GetOutputKeys>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetOutputKeys>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -723,20 +686,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::getOutputKeys(
 boost::optional<std::string> DaemonRPCClientZMQ::getRPCVersion(
     uint32_t& version)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetRPCVersion::Request request;
+  GetRPCVersion::Request request;
 
-    response_json = doRequest<GetRPCVersion>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetRPCVersion>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -767,22 +727,19 @@ boost::optional<std::string> DaemonRPCClientZMQ::getPerKBFeeEstimate(
     const uint64_t num_grace_blocks,
     uint64_t& estimated_per_kb_fee)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    GetPerKBFeeEstimate::Request request;
+  GetPerKBFeeEstimate::Request request;
 
-    request.num_grace_blocks = num_grace_blocks;
+  request.num_grace_blocks = num_grace_blocks;
 
-    response_json = doRequest<GetPerKBFeeEstimate>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<GetPerKBFeeEstimate>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -816,20 +773,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::getMiningStatus(
     std::string& address,
     bool& is_background_mining_enabled)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    MiningStatus::Request request;
+  MiningStatus::Request request;
 
-    response_json = doRequest<MiningStatus>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<MiningStatus>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -912,25 +866,22 @@ boost::optional<std::string> DaemonRPCClientZMQ::startMining(
     const bool do_background_mining,
     const bool ignore_battery)
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    StartMining::Request request;
+  StartMining::Request request;
 
-    request.miner_address = miner_address;
-    request.threads_count = threads_count;
-    request.do_background_mining = do_background_mining;
-    request.ignore_battery = ignore_battery;
+  request.miner_address = miner_address;
+  request.threads_count = threads_count;
+  request.do_background_mining = do_background_mining;
+  request.ignore_battery = ignore_battery;
 
-    response_json = doRequest<StartMining>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<StartMining>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -957,20 +908,17 @@ boost::optional<std::string> DaemonRPCClientZMQ::startMining(
 
 boost::optional<std::string> DaemonRPCClientZMQ::stopMining()
 {
-  std::string error_details = "Error handling RPC request";
+  boost::optional<std::string> error_details;
   std::shared_ptr<FullMessage> full_message_ptr;
   rapidjson::Value response_json;
 
-  try
-  {
-    StopMining::Request request;
+  StopMining::Request request;
 
-    response_json = doRequest<StopMining>(full_message_ptr, request);
-  }
-  catch (...)
-  {
-    return error_details;
-  }
+  error_details = doRequest<StopMining>(full_message_ptr, request);
+
+  if (error_details) return error_details;
+
+  response_json = full_message_ptr->getMessageCopy();
 
   try
   {
@@ -1001,23 +949,31 @@ uint32_t DaemonRPCClientZMQ::getOurRPCVersion()
 }
 
 template <typename ReqType>
-rapidjson::Value DaemonRPCClientZMQ::doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request)
+boost::optional<std::string> DaemonRPCClientZMQ::doRequest(std::shared_ptr<FullMessage>& full_message_ptr, typename ReqType::Request& request)
 {
   // rapidjson doesn't take a copy, and ephemeral conversion behaves poorly
   std::string request_method = ReqType::name;
 
   auto full_request = FullMessage::requestMessage(request_method, &request);
 
-  std::string resp = zmq_client.doRequest(full_request.getJson());
+  std::string response;
+  boost::optional<std::string> error = zmq_client.doRequest(full_request.getJson(), response);
 
-  if (resp.empty())
+  if (error)
   {
-    full_message_ptr.reset(FullMessage::timeoutMessage());
+    return error;
   }
 
-  full_message_ptr.reset(new FullMessage(resp));
+  try
+  {
+    full_message_ptr.reset(new FullMessage(response));
+  }
+  catch (const std::exception& e)
+  {
+    return std::string(e.what());
+  }
 
-  return full_message_ptr->getMessageCopy();
+  return boost::none;
 }
 
 template <typename ReqType>
