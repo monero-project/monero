@@ -225,6 +225,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
+        memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
           CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -261,6 +262,7 @@ namespace cryptonote
       meta.last_relayed_time = time(NULL);
       meta.relayed = relayed;
       meta.do_not_relay = do_not_relay;
+      memset(meta.padding, 0, sizeof(meta.padding));
 
       try
       {
