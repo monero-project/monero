@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 12
+#define CORE_RPC_VERSION_MINOR 13
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1584,6 +1584,62 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SYNC_INFO
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct peer
+    {
+      connection_info info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct span
+    {
+      uint64_t start_block_height;
+      uint64_t nblocks;
+      boost::uuids::uuid connection_id;
+      uint32_t rate;
+      uint32_t speed;
+      uint64_t size;
+      std::string remote_address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(start_block_height)
+        KV_SERIALIZE(nblocks)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(connection_id)
+        KV_SERIALIZE(rate)
+        KV_SERIALIZE(speed)
+        KV_SERIALIZE(size)
+        KV_SERIALIZE(remote_address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t height;
+      uint64_t target_height;
+      std::list<peer> peers;
+      std::list<span> spans;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(target_height)
+        KV_SERIALIZE(peers)
+        KV_SERIALIZE(spans)
       END_KV_SERIALIZE_MAP()
     };
   };

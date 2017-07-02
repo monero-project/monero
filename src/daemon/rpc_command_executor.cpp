@@ -111,6 +111,13 @@ namespace {
       return base;
     return base + " -- " + status;
   }
+
+  std::string pad(std::string s, size_t n)
+  {
+    if (s.size() < n)
+      s.append(n - s.size(), ' ');
+    return s;
+  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor(
@@ -1689,6 +1696,67 @@ bool t_rpc_command_executor::relay_tx(const std::string &txid)
             tools::fail_msg_writer() << make_error(fail_message, res.status);
             return true;
         }
+    }
+
+    return true;
+}
+
+bool t_rpc_command_executor::sync_info()
+{
+    cryptonote::COMMAND_RPC_SYNC_INFO::request req;
+    cryptonote::COMMAND_RPC_SYNC_INFO::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "sync_info", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_sync_info(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    uint64_t target = res.target_height < res.height ? res.height : res.target_height;
+    tools::success_msg_writer() << "Height: " << res.height << ", target: " << target << " (" << (100.0 * res.height / target) << "%)";
+    uint64_t current_download = 0;
+    for (const auto &p: res.peers)
+      current_download += p.info.current_download;
+    tools::success_msg_writer() << "Downloading at " << current_download << " kB/s";
+
+    tools::success_msg_writer() << std::to_string(res.peers.size()) << " peers";
+    for (const auto &p: res.peers)
+    {
+      std::string address = pad(p.info.address, 24);
+      uint64_t nblocks = 0, size = 0;
+      for (const auto &s: res.spans)
+        if (s.rate > 0.0f && s.connection_id == p.info.connection_id)
+          nblocks += s.nblocks, size += s.size;
+      tools::success_msg_writer() << address << "  " << p.info.peer_id << "  " << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
+    }
+
+    uint64_t total_size = 0;
+    for (const auto &s: res.spans)
+      total_size += s.size;
+    tools::success_msg_writer() << std::to_string(res.spans.size()) << " spans, " << total_size/1e6 << " MB";
+    for (const auto &s: res.spans)
+    {
+      std::string address = pad(s.remote_address, 24);
+      if (s.size == 0)
+      {
+        tools::success_msg_writer() << address << "  " << s.nblocks << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ")  -";
+      }
+      else
+      {
+        tools::success_msg_writer() << address << "  " << s.nblocks << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ", " << (uint64_t)(s.size/1e3) << " kB)  " << (unsigned)(s.rate/1e3) << " kB/s (" << s.speed/100.0f << ")";
+      }
     }
 
     return true;

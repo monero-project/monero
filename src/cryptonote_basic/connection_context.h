@@ -53,6 +53,7 @@ namespace cryptonote
     std::unordered_set<crypto::hash> m_requested_objects;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
+    boost::posix_time::ptime m_last_request_time;
     epee::copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
     //size_t m_score;  TODO: add score calculations
   };

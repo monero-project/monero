@@ -1668,6 +1668,41 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_sync_info(const COMMAND_RPC_SYNC_INFO::request& req, COMMAND_RPC_SYNC_INFO::response& res, epee::json_rpc::error& error_resp)
+  {
+    if(!check_core_busy())
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
+      error_resp.message = "Core is busy.";
+      return false;
+    }
+
+    crypto::hash top_hash;
+    if (!m_core.get_blockchain_top(res.height, top_hash))
+    {
+      res.status = "Failed";
+      return false;
+    }
+    ++res.height; // turn top block height into blockchain height
+    res.target_height = m_core.get_target_blockchain_height();
+
+    for (const auto &c: m_p2p.get_payload_object().get_connections())
+      res.peers.push_back({c});
+    const cryptonote::block_queue &block_queue = m_p2p.get_payload_object().get_block_queue();
+    block_queue.foreach([&](const cryptonote::block_queue::span &span) {
+      uint32_t speed = (uint32_t)(100.0f * block_queue.get_speed(span.connection_id) + 0.5f);
+      std::string address = "";
+      for (const auto &c: m_p2p.get_payload_object().get_connections())
+        if (c.connection_id == span.connection_id)
+          address = c.address;
+      res.spans.push_back({span.start_block_height, span.nblocks, span.connection_id, (uint32_t)(span.rate + 0.5f), speed, span.size, address});
+      return true;
+    });
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"

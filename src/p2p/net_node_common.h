@@ -51,6 +51,7 @@ namespace nodetool
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
     virtual uint64_t get_connections_count()=0;
     virtual void for_each_connection(std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
+    virtual bool for_connection(const boost::uuids::uuid&, std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
     virtual bool block_host(const epee::net_utils::network_address &address, time_t seconds = 0)=0;
     virtual bool unblock_host(const epee::net_utils::network_address &address)=0;
     virtual std::map<std::string, time_t> get_blocked_hosts()=0;
@@ -87,6 +88,10 @@ namespace nodetool
     virtual void for_each_connection(std::function<bool(t_connection_context&,peerid_type,uint32_t)> f)
     {
 
+    }
+    virtual bool for_connection(const boost::uuids::uuid&, std::function<bool(t_connection_context&,peerid_type,uint32_t)> f)
+    {
+      return false;
     }
 
     virtual uint64_t get_connections_count()    

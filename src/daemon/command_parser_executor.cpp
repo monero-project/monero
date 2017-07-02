@@ -578,4 +578,11 @@ bool t_command_parser_executor::relay_tx(const std::vector<std::string>& args)
   return m_executor.relay_tx(txid);
 }
 
+bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
+{
+  if (args.size() != 0) return false;
+
+  return m_executor.sync_info();
+}
+
 } // namespace daemonize
