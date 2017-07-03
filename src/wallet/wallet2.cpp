@@ -1601,7 +1601,7 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
-    if (hashes.size() < 3)
+    if (hashes.size() <= 3)
       return;
     if (hashes.size() + current_index < stop_height) {
       std::list<crypto::hash>::iterator right;
@@ -2165,14 +2165,23 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
 
+  // -1 month for fluctuations in block time and machine date/time setup.
+  // avg seconds per block
+  const int seconds_per_block = DIFFICULTY_TARGET_V2;
+  // ~num blocks per month
+  const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
+
+  // try asking the daemon first
+  if(m_refresh_from_block_height == 0 && !recover){
+    std::string err;
+    uint64_t height = get_daemon_blockchain_height(err);
+    if (err.empty())
+      m_refresh_from_block_height = height - blocks_per_month;
+  }
+
   if(m_refresh_from_block_height == 0 && !recover){
     // Wallets created offline don't know blockchain height.
     // Set blockchain height calculated from current date/time
-    // -1 month for fluctuations in block time and machine date/time setup.
-    // avg seconds per block
-    const int seconds_per_block = DIFFICULTY_TARGET_V2;
-    // ~num blocks per month
-    const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
     uint64_t approx_blockchain_height = get_approximate_blockchain_height();
     if(approx_blockchain_height > 0) {
       m_refresh_from_block_height = approx_blockchain_height - blocks_per_month;
@@ -5010,11 +5019,10 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
-  if (m_testnet) return 0;
   // time of v2 fork
-  const time_t fork_time = 1458748658;
+  const time_t fork_time = m_testnet ? 1448285909 : 1458748658;
   // v2 fork block
-  const uint64_t fork_block = 1009827;
+  const uint64_t fork_block = m_testnet ? 624634 : 1009827;
   // avg seconds per block
   const int seconds_per_block = DIFFICULTY_TARGET_V2;
   // Calculated blockchain height
