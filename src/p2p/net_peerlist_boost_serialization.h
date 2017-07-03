@@ -36,24 +36,16 @@ namespace boost
 {
   namespace serialization
   {
-    enum { sertype_ipv4_address };
-    static inline uint8_t get_type(const epee::net_utils::network_address &na)
-    {
-      if (na.type() == typeid(epee::net_utils::ipv4_network_address))
-        return sertype_ipv4_address;
-      throw std::runtime_error("Unsupported network address type");
-      return 0;
-    }
     template <class Archive, class ver_type>
     inline void serialize(Archive &a, epee::net_utils::network_address& na, const ver_type ver)
     {
       uint8_t type;
       if (typename Archive::is_saving())
-        type = get_type(na);
+        type = na.get_type_id();
       a & type;
       switch (type)
       {
-        case sertype_ipv4_address:
+        case epee::net_utils::ipv4_network_address::ID:
           if (!typename Archive::is_saving())
             na.reset(new epee::net_utils::ipv4_network_address(0, 0));
           a & na.as<epee::net_utils::ipv4_network_address>();

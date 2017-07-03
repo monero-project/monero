@@ -939,8 +939,8 @@ namespace nodetool
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
         << ")...");
 
-    CHECK_AND_ASSERT_MES(na.type() == typeid(epee::net_utils::ipv4_network_address), false,
-        "Only IPv4 addresses are supported here, got " << na.type().name());
+    CHECK_AND_ASSERT_MES(na.get_type_id() == epee::net_utils::ipv4_network_address::ID, false,
+        "Only IPv4 addresses are supported here");
     const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
 
     typename net_server::t_connection_context con = AUTO_VAL_INIT(con);
@@ -1004,8 +1004,8 @@ namespace nodetool
                                   << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
                                   << ")...");
 
-    CHECK_AND_ASSERT_MES(na.type() == typeid(epee::net_utils::ipv4_network_address), false,
-        "Only IPv4 addresses are supported here, got " << na.type().name());
+    CHECK_AND_ASSERT_MES(na.get_type_id() == epee::net_utils::ipv4_network_address::ID, false,
+        "Only IPv4 addresses are supported here");
     const epee::net_utils::ipv4_network_address &ipv4 = na.as<epee::net_utils::ipv4_network_address>();
 
     typename net_server::t_connection_context con = AUTO_VAL_INIT(con);
@@ -1510,8 +1510,8 @@ namespace nodetool
     if(!node_data.my_port)
       return false;
 
-    CHECK_AND_ASSERT_MES(context.m_remote_address.type() == typeid(epee::net_utils::ipv4_network_address), false,
-        "Only IPv4 addresses are supported here, got " << context.m_remote_address.type().name());
+    CHECK_AND_ASSERT_MES(context.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::ID, false,
+        "Only IPv4 addresses are supported here");
 
     const epee::net_utils::network_address na = context.m_remote_address;
     uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
@@ -1670,8 +1670,8 @@ namespace nodetool
       //try ping to be sure that we can add this peer to peer_list
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {
-        CHECK_AND_ASSERT_MES(context.m_remote_address.type() == typeid(epee::net_utils::ipv4_network_address), void(),
-            "Only IPv4 addresses are supported here, got " << context.m_remote_address.type().name());
+        CHECK_AND_ASSERT_MES(context.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::ID, void(),
+            "Only IPv4 addresses are supported here");
         //called only(!) if success pinged, update local peerlist
         peerlist_entry pe;
         const epee::net_utils::network_address na = context.m_remote_address;
