@@ -422,7 +422,7 @@ namespace tools
     std::vector<cryptonote::tx_destination_entry> dsts;
     std::vector<uint8_t> extra;
 
-    LOG_PRINT_L3("on_transfer_split starts");
+    LOG_PRINT_L3("on_transfer starts");
     if (!m_wallet) return not_open(er);
     if (m_wallet->restricted())
     {
