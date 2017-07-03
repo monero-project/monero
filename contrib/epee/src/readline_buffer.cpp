@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <mutex>
 #include <condition_variable>
+#include <boost/thread.hpp>
 
 static int process_input();
 static void install_line_handler();
@@ -12,7 +13,7 @@ static void remove_line_handler();
 
 static std::string last_line;
 static std::string last_prompt;
-std::mutex line_mutex, sync_mutex;
+std::mutex line_mutex, sync_mutex, process_mutex;
 std::condition_variable have_line;
 
 namespace
@@ -21,6 +22,7 @@ namespace
 }
 
 rdln::suspend_readline::suspend_readline()
+: m_buffer(NULL), m_restart(false)
 {
   m_buffer = current;
   if(!m_buffer)
@@ -46,6 +48,7 @@ rdln::readline_buffer::readline_buffer()
 
 void rdln::readline_buffer::start()
 {
+  std::unique_lock<std::mutex> lock(process_mutex);
   if(m_cout_buf != NULL)
     return;
   m_cout_buf = std::cout.rdbuf();
@@ -55,6 +58,7 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
+  std::unique_lock<std::mutex> lock(process_mutex);
   if(m_cout_buf == NULL)
     return;
   std::cout.rdbuf(m_cout_buf);
@@ -80,9 +84,17 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
 
 int rdln::readline_buffer::process()
 {
+  process_mutex.lock();
   if(m_cout_buf == NULL)
+  {
+    process_mutex.unlock();
+    boost::this_thread::sleep_for(boost::chrono::milliseconds( 1 ));
     return 0;
-  return process_input();
+  }
+  int count = process_input();
+  process_mutex.unlock();
+  boost::this_thread::sleep_for(boost::chrono::milliseconds( 1 ));
+  return count;
 }
 
 int rdln::readline_buffer::sync()
@@ -114,19 +126,18 @@ int rdln::readline_buffer::sync()
   return 0;
 }
 
-static fd_set fds;
-
 static int process_input()
 {
   int count;
   struct timeval t;
+  fd_set fds;
   
   t.tv_sec = 0;
   t.tv_usec = 1000;
   
   FD_ZERO(&fds);
   FD_SET(STDIN_FILENO, &fds);
-  count = select(FD_SETSIZE, &fds, NULL, NULL, &t);
+  count = select(STDIN_FILENO + 1, &fds, NULL, NULL, &t);
   if (count < 1)
   {
     return count;
