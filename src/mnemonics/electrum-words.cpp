@@ -422,10 +422,11 @@ namespace crypto
      * \param  seed The seed to check (a space delimited concatenated word list)
      * \return      true if the seed passed is a old style seed false if not.
      */
-    bool get_is_old_style_seed(const std::string &seed)
+    bool get_is_old_style_seed(std::string seed)
     {
       std::vector<std::string> word_list;
-      boost::split(word_list, seed, boost::is_any_of(" "));
+      boost::algorithm::trim(seed);
+      boost::split(word_list, seed, boost::is_any_of(" "), boost::token_compress_on);
       return word_list.size() != (seed_length + 1);
     }
 
