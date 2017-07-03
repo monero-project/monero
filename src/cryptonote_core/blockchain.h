@@ -689,16 +689,15 @@ namespace cryptonote
 
     // user options, must be called before calling init()
 
-    //FIXME: parameter names don't match function definition in .cpp file
     /**
      * @brief sets various performance options
      *
-     * @param block_threads max number of threads when preparing blocks for addition
+     * @param maxthreads max number of threads when preparing blocks for addition
      * @param blocks_per_sync number of blocks to cache before syncing to database
      * @param sync_mode the ::blockchain_db_sync_mode to use
      * @param fast_sync sync using built-in block hashes as trusted
      */
-    void set_user_options(uint64_t block_threads, uint64_t blocks_per_sync,
+    void set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
         blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     /**
