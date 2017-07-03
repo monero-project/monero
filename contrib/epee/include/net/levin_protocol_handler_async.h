@@ -144,7 +144,6 @@ public:
     virtual void cancel()=0;
     virtual bool cancel_timer()=0;
     virtual void reset_timer()=0;
-    virtual void timeout_handler(const boost::system::error_code& error)=0;
   };
   template <class callback_t>
   struct anvoke_handler: invoke_response_handler_base
@@ -157,9 +156,15 @@ public:
       {
         MDEBUG(con.get_context_ref() << "anvoke_handler, timeout: " << timeout);
         m_timer.expires_from_now(boost::posix_time::milliseconds(timeout));
-        m_timer.async_wait([this](const boost::system::error_code& ec)
+        m_timer.async_wait([&con, command, cb, timeout](const boost::system::error_code& ec)
         {
-          timeout_handler(ec);
+          if(ec == boost::asio::error::operation_aborted)
+            return;
+          MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout);
+          std::string fake;
+          cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
+          con.close();
+          con.finish_outer_call();
         });
         m_timer_started = true;
       }
@@ -174,16 +179,6 @@ public:
     bool m_timer_cancelled;
     uint64_t m_timeout;
     int m_command;
-    virtual void timeout_handler(const boost::system::error_code& error)
-    {
-      if(error == boost::asio::error::operation_aborted)
-        return;
-      MINFO(m_con.get_context_ref() << "Timeout on invoke operation happened, command: " << m_command << " timeout: " << m_timeout);
-      std::string fake;
-      m_cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, m_con.get_context_ref());
-      m_con.close();
-      m_con.finish_outer_call();
-    }
     virtual bool handle(int res, const std::string& buff, typename async_protocol_handler::connection_context& context)
     {
       if(!cancel_timer())
@@ -220,10 +215,20 @@ public:
       boost::system::error_code ignored_ec;
       if (!m_cancel_timer_called && m_timer.cancel(ignored_ec) > 0)
       {
+        callback_t& cb = m_cb;
+        uint64_t timeout = m_timeout;
+        async_protocol_handler& con = m_con;
+        int command = m_command;
         m_timer.expires_from_now(boost::posix_time::milliseconds(m_timeout));
-        m_timer.async_wait([this](const boost::system::error_code& ec)
+        m_timer.async_wait([&con, cb, command, timeout](const boost::system::error_code& ec)
         {
-          timeout_handler(ec);
+          if(ec == boost::asio::error::operation_aborted)
+            return;
+          MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout);
+          std::string fake;
+          cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
+          con.close();
+          con.finish_outer_call();
         });
       }
     }
