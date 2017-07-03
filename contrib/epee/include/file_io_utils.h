@@ -43,6 +43,32 @@ namespace file_io_utils
 	}
 
 	inline
+		bool is_regular_file(const std::string& path)
+	{
+		boost::filesystem::path p(path);
+		return boost::filesystem::exists(p) && boost::filesystem::is_regular_file(p);
+	}
+
+	inline
+		bool is_directory(const std::string& path)
+	{
+		boost::filesystem::path p(path);
+		return boost::filesystem::exists(p) && boost::filesystem::is_directory(p);
+	}
+
+	inline
+		bool get_directory_paths(const std::string& path, std::vector<boost::filesystem::path>& paths)
+	{
+		if (!is_directory(path)) {
+			return false;
+		}
+
+		boost::filesystem::path p(path);
+		copy(boost::filesystem::directory_iterator(p), boost::filesystem::directory_iterator(), back_inserter(paths));
+		return true;
+	}
+
+	inline
 		bool save_string_to_file(const std::string& path_to_file, const std::string& str)
 	{
 
