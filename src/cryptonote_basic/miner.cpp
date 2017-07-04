@@ -846,40 +846,109 @@ namespace cryptonote
 
     #elif defined(__linux__)
 
-      // i've only tested on UBUNTU, these paths might be different on other systems
-      // need to figure out a way to make this more flexible
-      std::string power_supply_path = "";
-      const std::string POWER_SUPPLY_STATUS_PATHS[] = 
-      {
-        "/sys/class/power_supply/ACAD/online",
-        "/sys/class/power_supply/AC/online",
-        "/sys/class/power_supply/AC0/online",
-        "/sys/class/power_supply/ADP0/online"
-      };
+      // Use the power_supply class http://lxr.linux.no/#linux+v4.10.1/Documentation/power/power_supply_class.txt
+      std::string power_supply_class_path = "/sys/class/power_supply";
 
-      for(const std::string& path : POWER_SUPPLY_STATUS_PATHS)
+      if (epee::file_io_utils::is_directory(power_supply_class_path))
       {
-        if( epee::file_io_utils::is_file_exist(path) )
+        std::vector<boost::filesystem::path> paths;
+        epee::file_io_utils::get_directory_paths(power_supply_class_path, paths);
+
+
+        // Iterate through power_supplies alphabetically.
+        // This ensures that we iterate through potential
+        // AC power supplies first.
+        std::sort(paths.begin(), paths.end());
+
+        // Take the first present power supply as truth
+        for (std::vector<boost::filesystem::path>::const_iterator iter(paths.begin()), iter_end(paths.end()); iter != iter_end; ++iter)
         {
-          power_supply_path = path;
-          break;
+          std::string power_supply_path = (*iter).string();
+          if (epee::file_io_utils::is_directory(power_supply_path))
+          {
+            std::string power_supply_present;
+            epee::file_io_utils::load_file_to_string(power_supply_path + "/present", power_supply_present);
+            if (!boost::starts_with(power_supply_present, "1")) {
+              LOG_PRINT_L4("Power supply not present at " << power_supply_path);
+              continue;
+            }
+
+            std::string power_supply_type_path = power_supply_path + "/type";
+            if (epee::file_io_utils::is_regular_file(power_supply_type_path))
+            {
+              std::string power_supply_type;
+              epee::file_io_utils::load_file_to_string(power_supply_type_path, power_supply_type);
+
+              if (boost::starts_with(power_supply_type, "Battery"))
+              {
+                std::string power_supply_status_path = power_supply_path + "/status";
+                if (epee::file_io_utils::is_regular_file(power_supply_status_path))
+                {
+                  std::string power_supply_status;
+                  epee::file_io_utils::load_file_to_string(power_supply_status_path, power_supply_status);
+
+                  if (boost::starts_with(power_supply_status, "Charging"))
+                  {
+                    return boost::logic::tribool(false);
+                  }
+                  else if (boost::starts_with(power_supply_status, "Full"))
+                  {
+                    return boost::logic::tribool(false);
+                  }
+                  else if (boost::starts_with(power_supply_status, "Discharging"))
+                  {
+                    return boost::logic::tribool(true);
+                  }
+                  else if (boost::starts_with(power_supply_status, "Not Charging"))
+                  {
+                    return boost::logic::tribool(boost::logic::indeterminate);
+                  }
+                  else if (boost::starts_with(power_supply_status, "Unknown"))
+                  {
+                    return boost::logic::tribool(boost::logic::indeterminate);
+                  }
+                  else
+                  {
+                    LOG_ERROR("Invalid power supply status " << power_supply_status << " for " << power_supply_path);
+                    return boost::logic::tribool(boost::logic::indeterminate);
+                  }
+                }
+                else
+                {
+                  LOG_ERROR("Unable to determine power supply status for " << power_supply_path);
+                  return boost::logic::tribool(boost::logic::indeterminate);
+                }
+              }
+              else if (boost::starts_with(power_supply_type, "Mains"))
+              {
+                std::string power_supply_online_path = power_supply_path + "/online";
+                if (epee::file_io_utils::is_regular_file(power_supply_online_path))
+                {
+                  std::string power_supply_online;
+                  epee::file_io_utils::load_file_to_string(power_supply_online_path, power_supply_online);
+
+                  if (boost::starts_with(power_supply_online, "1"))
+                  {
+                    return boost::logic::tribool(false);
+                  }
+                  else
+                  {
+                    LOG_ERROR("Unable to determine power supply status for " << power_supply_path);
+                    return boost::logic::tribool(true);
+                  }
+                }
+              }
+              else
+              {
+                LOG_PRINT_L4("Unable to determine power supply type for " << power_supply_path);
+                return boost::logic::tribool(boost::logic::indeterminate);
+              }
+            }
+          }
         }
       }
-
-      if( power_supply_path.empty() )
-      {
-        LOG_ERROR("Couldn't find battery/power status file, can't determine if plugged in!");
-        return boost::logic::tribool(boost::logic::indeterminate);;
-      }
-
-      std::ifstream power_stream(power_supply_path);
-      if( power_stream.fail() )
-      {
-        LOG_ERROR("failed to open '" << power_supply_path << "'");
-        return boost::logic::tribool(boost::logic::indeterminate);;
-      }
-
-      return boost::logic::tribool( (power_stream.get() != '1') );
+      LOG_ERROR("couldn't query power status from " << power_supply_class_path);
+      return boost::logic::tribool(boost::logic::indeterminate);
 
     #endif
     
