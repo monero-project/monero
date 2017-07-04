@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 12
+#define CORE_RPC_VERSION_MINOR 13
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -146,6 +146,25 @@ namespace cryptonote
     };
   };
 
+    struct COMMAND_RPC_GET_ALT_BLOCKS_HASHES
+    {
+        struct request
+        {
+            BEGIN_KV_SERIALIZE_MAP()
+            END_KV_SERIALIZE_MAP()
+        };
+
+        struct response
+        {
+            std::vector<std::string> blks_hashes;
+            std::string status;
+
+            BEGIN_KV_SERIALIZE_MAP()
+                KV_SERIALIZE(blks_hashes)
+                KV_SERIALIZE(status)
+            END_KV_SERIALIZE_MAP()
+        };
+    };
   struct COMMAND_RPC_GET_HASHES_FAST
   {
 

@@ -227,6 +227,28 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
+    bool core_rpc_server::on_get_alt_blocks_hashes(const COMMAND_RPC_GET_ALT_BLOCKS_HASHES::request& req, COMMAND_RPC_GET_ALT_BLOCKS_HASHES::response& res)
+    {
+      CHECK_CORE_BUSY();
+      std::list<block> blks;
+
+      if(!m_core.get_alternative_blocks(blks))
+      {
+          res.status = "Failed";
+          return false;
+      }
+
+      res.blks_hashes.reserve(blks.size());
+
+      for (auto const& blk: blks)
+      {
+          res.blks_hashes.push_back(epee::string_tools::pod_to_hex(get_block_hash(blk)));
+      }
+
+      MDEBUG("on_get_alt_blocks_hashes: " << blks.size() << " blocks " );
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+  }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks_by_height(const COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response& res)
   {
