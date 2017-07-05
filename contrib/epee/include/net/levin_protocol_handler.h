@@ -103,7 +103,7 @@ namespace levin
 				{
 					if(m_cach_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cach_in_buffer.data()) != LEVIN_SIGNATURE)
 					{
-						LOG_ERROR_CC(m_conn_context, "Signature missmatch on accepted connection");
+						LOG_ERROR_CC(m_conn_context, "Signature mismatch on accepted connection");
 						return false;
 					}
 					is_continue = false;
@@ -113,7 +113,7 @@ namespace levin
 					bucket_head* phead = (bucket_head*)m_cach_in_buffer.data();
 					if(LEVIN_SIGNATURE != phead->m_signature)
 					{
-						LOG_ERROR_CC(m_conn_context, "Signature missmatch on accepted connection");
+						LOG_ERROR_CC(m_conn_context, "Signature mismatch on accepted connection");
 						return false;
 					}
 					m_current_head = *phead;

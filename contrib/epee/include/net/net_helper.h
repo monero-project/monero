@@ -473,7 +473,7 @@ namespace net_utils
 
 				if(bytes_transfered != buff.size())
 				{
-					LOG_ERROR("Transferred missmatch with transfer_at_least value: m_bytes_transferred=" << bytes_transfered << " at_least value=" << buff.size());
+					LOG_ERROR("Transferred mismatch with transfer_at_least value: m_bytes_transferred=" << bytes_transfered << " at_least value=" << buff.size());
 					return false;
 				}
 

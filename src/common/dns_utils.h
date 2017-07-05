@@ -101,7 +101,7 @@ public:
    *
    * @return A vector of strings containing a TXT record; or an empty vector
    */
-  // TODO: modify this to accomodate DNSSEC
+  // TODO: modify this to accommodate DNSSEC
    std::vector<std::string> get_txt_record(const std::string& url, bool& dnssec_available, bool& dnssec_valid);
 
   /**
@@ -142,7 +142,7 @@ private:
    *
    * @return A vector of strings containing the requested record; or an empty vector
    */
-  // TODO: modify this to accomodate DNSSEC
+  // TODO: modify this to accommodate DNSSEC
   std::vector<std::string> get_record(const std::string& url, int record_type, std::string (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid);
 
   /**
