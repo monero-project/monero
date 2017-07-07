@@ -168,8 +168,8 @@ class DaemonRPCClientOld : public DaemonRPCClient
 
   private:
 
-    boost::optional<std::string> connect();
-    boost::optional<std::string> disconnect();
+    bool connect(uint32_t timeout = 1000 /* ms */);
+    bool disconnect();
 
     std::string daemonAddress;
     boost::optional<epee::net_utils::http::login> loginInfo;

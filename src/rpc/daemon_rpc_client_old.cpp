@@ -85,6 +85,8 @@ DaemonRPCClientOld::DaemonRPCClientOld(const std::string& address, boost::option
     loginInfo(loginInfo)
 {
   resetCachedValues();
+  httpClient.set_server(address, loginInfo);
+  connect();
 }
 
 boost::optional<std::string> DaemonRPCClientOld::checkConnection(
@@ -93,11 +95,9 @@ boost::optional<std::string> DaemonRPCClientOld::checkConnection(
 {
   boost::lock_guard<boost::mutex> lock(inUseMutex);
 
-  if(!httpClient.is_connected())
+  if (!connect(timeout))
   {
-    resetCachedValues();
-    if (!httpClient.connect(std::chrono::milliseconds(timeout)))
-      return boost::optional<std::string>("Failed to connect to daemon");
+    return boost::optional<std::string>("Failed to connect to daemon");
   }
 
   epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
@@ -1006,7 +1006,20 @@ boost::optional<std::string> DaemonRPCClientOld::stopMining()
 
 uint32_t DaemonRPCClientOld::getOurRPCVersion()
 {
-  return 0;
+  return CORE_RPC_VERSION;
+}
+
+bool DaemonRPCClientOld::connect(uint32_t timeout)
+{
+  if(!httpClient.is_connected())
+  {
+    resetCachedValues();
+    if (!httpClient.connect(std::chrono::milliseconds(timeout)))
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 void DaemonRPCClientOld::resetCachedValues()

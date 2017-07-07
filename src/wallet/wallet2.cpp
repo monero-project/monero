@@ -1226,7 +1226,20 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
 
   uint64_t current_height;
 
-  boost::optional<std::string> r = m_daemon->getBlocksFast(short_chain_history, start_height, prune, blocks, blocks_start_height, current_height, o_indices);
+  // try a couple times, just in case
+  int try_count = 0;
+  boost::optional<std::string> r;
+  while (try_count < 4)
+  {
+    r = m_daemon->getBlocksFast(short_chain_history, start_height, prune, blocks, blocks_start_height, current_height, o_indices);
+
+    if (!r) break;
+
+    try_count++;
+    blocks.clear();
+    o_indices.clear();
+    blocks_start_height = 0;
+  }
 
   THROW_WALLET_EXCEPTION_IF(r, error::get_blocks_error, *r);
   THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error,
@@ -2227,7 +2240,7 @@ bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
   uint32_t remote_version;
   std::string error_details;
 
-  boost::optional<std::string> r = m_daemon->getRPCVersion(remote_version);
+  boost::optional<std::string> r = m_daemon->checkConnection(timeout, remote_version);
   if (r)
   {
     LOG_ERROR(std::string("Error in wallet2::check_connection -- ") + *r);
