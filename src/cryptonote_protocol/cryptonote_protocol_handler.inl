@@ -804,21 +804,15 @@ namespace cryptonote
 
 
   template<class t_core>
-  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size() {
-    // return m_core.get_blockchain_storage().get_avg_block_size(count); // this does not count too well the actuall network-size of data we need to download
-
+  double t_cryptonote_protocol_handler<t_core>::get_avg_block_size()
+  {
     CRITICAL_REGION_LOCAL(m_buffer_mutex);
-    double avg = 0;
-    if (m_avg_buffer.size() == 0) {
-      _warn("m_avg_buffer.size() == 0");
+    if (m_avg_buffer.empty()) {
+      MWARNING("m_avg_buffer.size() == 0");
       return 500;
     }
-
-    const bool dbg_poke_lock = 0; // debug: try to trigger an error by poking around with locks. TODO: configure option
-    long int dbg_repeat=0;
-    do {
-      for (auto element : m_avg_buffer) avg += element;
-    } while(dbg_poke_lock && (dbg_repeat++)<100000); // in debug/poke mode, repeat this calculation to trigger hidden locking error if there is one
+    double avg = 0;
+    for (const auto &element : m_avg_buffer) avg += element;
     return avg / m_avg_buffer.size();
   }
 
@@ -832,30 +826,23 @@ namespace cryptonote
 
     // calculate size of request
     size_t size = 0;
-    for (auto element : arg.txs) size += element.size();
+    for (const auto &element : arg.txs) size += element.size();
 
     size_t blocks_size = 0;
-    for (auto element : arg.blocks) {
+    for (const auto &element : arg.blocks) {
       blocks_size += element.block.size();
       for (const auto &tx : element.txs)
         blocks_size += tx.size();
     }
     size += blocks_size;
 
-    for (auto element : arg.missed_ids)
+    for (const auto &element : arg.missed_ids)
       size += sizeof(element.data);
 
     size += sizeof(arg.current_blockchain_height);
     {
       CRITICAL_REGION_LOCAL(m_buffer_mutex);
       m_avg_buffer.push_back(size);
-
-      const bool dbg_poke_lock = 0; // debug: try to trigger an error by poking around with locks. TODO: configure option
-      long int dbg_repeat=0;
-      do {
-        m_avg_buffer.push_back(666); // a test value
-        m_avg_buffer.erase_end(1);
-      } while(dbg_poke_lock && (dbg_repeat++)<100000); // in debug/poke mode, repeat this calculation to trigger hidden locking error if there is one
     }
     MDEBUG(context << " downloaded " << size << " bytes worth of blocks");
 
