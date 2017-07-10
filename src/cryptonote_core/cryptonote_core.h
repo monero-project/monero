@@ -40,6 +40,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
+#include "common/thread_group.h"
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "cryptonote_basic/miner.h"
@@ -113,6 +114,22 @@ namespace cryptonote
       * @return true if the transaction made it to the transaction pool, otherwise false
       */
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+
+     /**
+      * @brief handles a list of incoming transactions
+      *
+      * Parses incoming transactions and, if nothing is obviously wrong,
+      * passes them along to the transaction pool
+      *
+      * @param tx_blobs the txs to handle
+      * @param tvc metadata about the transactions' validity
+      * @param keeped_by_block if the transactions have been in a block
+      * @param relayed whether or not the transactions were relayed to us
+      * @param do_not_relay whether to prevent the transactions from being relayed
+      *
+      * @return true if the transactions made it to the transaction pool, otherwise false
+      */
+     bool handle_incoming_txs(const std::list<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief handles an incoming block
@@ -753,6 +770,9 @@ namespace cryptonote
       */
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
 
+     bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+
      /**
       * @copydoc miner::on_block_chain_update
       *
@@ -859,6 +879,9 @@ namespace cryptonote
      time_t start_time;
 
      std::unordered_set<crypto::hash> bad_semantics_txes[2];
+     boost::mutex bad_semantics_txes_lock;
+
+     tools::thread_group m_threadpool;
 
      enum {
        UPDATES_DISABLED,

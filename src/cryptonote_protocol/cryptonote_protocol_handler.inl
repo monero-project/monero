@@ -986,6 +986,7 @@ namespace cryptonote
           m_core.prepare_handle_incoming_blocks(blocks);
 
           uint64_t block_process_time_full = 0, transactions_process_time_full = 0;
+          size_t num_txs = 0;
           for(const block_complete_entry& block_entry: blocks)
           {
             if (m_stopping)
@@ -996,15 +997,17 @@ namespace cryptonote
 
             // process transactions
             TIME_MEASURE_START(transactions_process_time);
-            for(auto& tx_blob: block_entry.txs)
+            num_txs += block_entry.txs.size();
+            std::vector<tx_verification_context> tvc;
+            m_core.handle_incoming_txs(block_entry.txs, tvc, true, true, false);
+            std::list<blobdata>::const_iterator it = block_entry.txs.begin();
+            for (size_t i = 0; i < tvc.size(); ++i, ++it)
             {
-              tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-              m_core.handle_incoming_tx(tx_blob, tvc, true, true, false);
-              if(tvc.m_verifivation_failed)
+              if(tvc[i].m_verifivation_failed)
               {
                 if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
                   LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
-                      << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)) << ", dropping connection");
+                      << epee::string_tools::pod_to_hex(get_blob_hash(*it)) << ", dropping connection");
                   m_p2p->drop_connection(context);
                   m_block_queue.flush_spans(context.m_connection_id, true);
                   return true;
@@ -1065,7 +1068,7 @@ namespace cryptonote
 
           } // each download block
 
-          LOG_PRINT_CCONTEXT_L2("Block process time (" << blocks.size() << " blocks): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
+          MCINFO("sync-info", "Block process time (" << blocks.size() << " blocks, " << num_txs << " txs): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
 
           m_core.cleanup_handle_incoming_blocks();
 
