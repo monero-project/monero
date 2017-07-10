@@ -49,14 +49,14 @@ CRYPTO_MAKE_COMPARABLE(type) \
 namespace crypto { \
   static_assert(sizeof(std::size_t) <= sizeof(type), "Size of " #type " must be at least that of size_t"); \
   inline std::size_t hash_value(const type &_v) { \
-    return reinterpret_cast<const std::size_t &>(_v); \
+    return *reinterpret_cast<const std::size_t *>(_v.data); \
   } \
 } \
 namespace std { \
   template<> \
   struct hash<crypto::type> { \
     std::size_t operator()(const crypto::type &_v) const { \
-      return reinterpret_cast<const std::size_t &>(_v); \
+      return *reinterpret_cast<const std::size_t *>(_v.data); \
     } \
   }; \
 }
