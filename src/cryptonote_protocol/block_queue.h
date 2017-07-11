@@ -70,6 +70,7 @@ namespace cryptonote
     void add_blocks(uint64_t height, std::list<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, float rate, size_t size);
     void add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, boost::posix_time::ptime time = boost::date_time::min_date_time);
     void flush_spans(const boost::uuids::uuid &connection_id, bool all = false);
+    void flush_stale_spans(const std::set<boost::uuids::uuid> &live_connections);
     void remove_span(uint64_t start_block_height);
     void remove_spans(const boost::uuids::uuid &connection_id, uint64_t start_block_height);
     void mark_last_block(uint64_t last_block_height);

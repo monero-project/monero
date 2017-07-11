@@ -76,6 +76,22 @@ void block_queue::flush_spans(const boost::uuids::uuid &connection_id, bool all)
   }
 }
 
+void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_connections)
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  block_map::iterator i = blocks.begin();
+  if (i != blocks.end() && is_blockchain_placeholder(*i))
+    ++i;
+  while (i != blocks.end())
+  {
+    block_map::iterator j = i++;
+    if (live_connections.find(j->connection_id) == live_connections.end() && j->blocks.size() == 0)
+    {
+      blocks.erase(j);
+    }
+  }
+}
+
 void block_queue::remove_span(uint64_t start_block_height)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);

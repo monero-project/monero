@@ -1189,6 +1189,14 @@ skip:
   {
     m_block_queue.mark_last_block(m_core.get_current_blockchain_height() - 1);
 
+    // flush stale spans
+    std::set<boost::uuids::uuid> live_connections;
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
+      live_connections.insert(context.m_connection_id);
+      return true;
+    });
+    m_block_queue.flush_stale_spans(live_connections);
+
     // if we don't need to get next span, and the block queue is full enough, wait a bit
     bool start_from_current_chain = false;
     if (!force_next_span)
