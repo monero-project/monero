@@ -139,7 +139,7 @@ void mlog_configure(const std::string &filename_base, bool console)
   {
     monero_log = get_default_categories(0);
   }
-  mlog_set_categories(monero_log);
+  mlog_set_log(monero_log);
 }
 
 void mlog_set_categories(const char *categories)
