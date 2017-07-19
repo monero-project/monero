@@ -966,7 +966,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
       denom = n-1;
       for (i=0; i<denom; i++)
         times[i] = i * numer / denom;
-      times[i] = res.pool_stats.oldest;
+      times[i] = now - res.pool_stats.oldest;
     } else
     {
       numer = now - res.pool_stats.oldest;
