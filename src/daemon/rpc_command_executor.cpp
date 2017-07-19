@@ -369,6 +369,7 @@ bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
   cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
   epee::json_rpc::error error_resp;
+  bool has_mining_info = true;
 
   std::string fail_message = "Problem fetching info";
 
@@ -384,10 +385,8 @@ bool t_rpc_command_executor::show_status() {
     {
       return true;
     }
-    if (!m_rpc_client->rpc_request(mreq, mres, "/mining_status", fail_message.c_str()))
-    {
-      return true;
-    }
+    // mining info is only available non unrestricted RPC mode
+    has_mining_info = m_rpc_client->rpc_request(mreq, mres, "/mining_status", fail_message.c_str());
   }
   else
   {
@@ -425,7 +424,7 @@ bool t_rpc_command_executor::show_status() {
     % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
-    % (mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
+    % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
     % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
