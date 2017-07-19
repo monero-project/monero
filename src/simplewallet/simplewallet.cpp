@@ -65,8 +65,7 @@
 #ifdef HAVE_READLINE
   #include "readline_buffer.h"
   #define PAUSE_READLINE() \
-    rdln::suspend_readline pause_readline; \
-    std::cout << std::endl
+    rdln::suspend_readline pause_readline; 
 #else
   #define PAUSE_READLINE()
 #endif
@@ -195,6 +194,7 @@ namespace
         }
         else
         {
+          PAUSE_READLINE();
           set_console_color(m_color, m_bright);
           std::cout << m_oss.str();
           reset_console_color();

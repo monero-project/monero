@@ -374,6 +374,9 @@ namespace epee
           }
           else
           {
+#ifdef HAVE_READLINE
+            rdln::suspend_readline pause_readline;
+#endif
             std::cout << "unknown command: " << command << std::endl;
             std::cout << usage;
           }
@@ -477,6 +480,9 @@ namespace epee
       lookup::mapped_type & vt = m_command_handlers[cmd];
       vt.first = hndlr;
       vt.second = usage;
+#ifdef HAVE_READLINE
+      rdln::readline_buffer::add_completion(cmd);
+#endif
     }
 
     bool process_command_vec(const std::vector<std::string>& cmd)

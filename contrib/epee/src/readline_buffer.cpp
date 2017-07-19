@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <boost/thread.hpp>
+#include <boost/algorithm/string.hpp>
 
 static int process_input();
 static void install_line_handler();
@@ -15,6 +16,8 @@ static std::string last_line;
 static std::string last_prompt;
 std::mutex line_mutex, sync_mutex, process_mutex;
 std::condition_variable have_line;
+
+std::vector<std::string> rdln::readline_buffer::completion_commands = {"exit"};
 
 namespace
 {
@@ -79,6 +82,7 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   last_prompt = prompt;
   if(m_cout_buf == NULL)
     return;
+  std::lock_guard<std::mutex> lock(sync_mutex);
   rl_set_prompt(last_prompt.c_str());
   rl_redisplay();
 }
@@ -113,8 +117,7 @@ int rdln::readline_buffer::sync()
   
   do
   {
-    char x = this->sgetc();
-    m_cout_buf->sputc(x);
+    m_cout_buf->sputc( this->sgetc() );
   }
   while ( this->snextc() != EOF );
   
@@ -149,43 +152,44 @@ static int process_input()
 
 static void handle_line(char* line)
 {
-  if (line != NULL)
+  if(last_line == "exit" || last_line == "q")
   {
-    std::lock_guard<std::mutex> lock(sync_mutex);
-    rl_set_prompt(last_prompt.c_str());
-    rl_already_prompted = 1;
     return;
   }
-  rl_set_prompt("");
-  rl_replace_line("", 0);
-  rl_redisplay();
+  std::lock_guard<std::mutex> lock(sync_mutex);
   rl_set_prompt(last_prompt.c_str());
+  rl_already_prompted = 1;
 }
 
 static int handle_enter(int x, int y)
 {
   std::lock_guard<std::mutex> lock(sync_mutex);
   char* line = NULL;
-  
+
   line = rl_copy_text(0, rl_end);
+  rl_crlf();
+  rl_on_new_line();
   rl_set_prompt("");
   rl_replace_line("", 1);
   rl_redisplay();
   
-  if (strcmp(line, "") != 0)
+  std::string test_line = line;
+  boost::trim_right(test_line);
+  if (test_line.length() > 0)
   {
-    last_line = line;
-    add_history(line);
+    last_line = test_line;
+    add_history(test_line.c_str());
     have_line.notify_one();
   }
   free(line);
-  
-  if(last_line != "exit")
+
+  if(last_line != "exit" && last_line != "q")
   {
     rl_set_prompt(last_prompt.c_str());
+    rl_on_new_line_with_prompt();
     rl_redisplay();
   }
-  
+
   rl_done = 1;
   return 0;
 }
@@ -197,15 +201,50 @@ static int startup_hook()
   return 0;
 }
 
+static char* completion_matches(const char* text, int state)
+{
+  static size_t list_index;
+  static size_t len;
+
+  if(state == 0)
+  {
+    list_index = 0;
+    len = strlen(text);
+  }
+
+  const std::vector<std::string>& completions = rdln::readline_buffer::get_completions();
+  for(; list_index<completions.size(); )
+  {
+    const std::string& cmd = completions[list_index++];
+    if(cmd.compare(0, len, text) == 0)
+    {
+      return strdup(cmd.c_str());
+    }
+  }
+
+  return NULL;
+}
+
+static char** attempted_completion(const char* text, int start, int end)
+{
+  rl_attempted_completion_over = 1;
+  return rl_completion_matches(text, completion_matches);
+}
+
 static void install_line_handler()
 {
   rl_startup_hook = startup_hook;
+  rl_attempted_completion_function = attempted_completion;
   rl_callback_handler_install("", handle_line);
 }
 
 static void remove_line_handler()
 {
+  rl_replace_line("", 0);
+  rl_set_prompt("");
+  rl_redisplay();
   rl_unbind_key(RETURN);
+  rl_unbind_key(NEWLINE);
   rl_callback_handler_remove();
 }
 
