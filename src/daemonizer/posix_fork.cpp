@@ -14,6 +14,10 @@
 #include <string>
 #include <sys/stat.h>
 
+#ifndef TMPDIR
+#define TMPDIR "/tmp"
+#endif
+
 namespace posix {
 
 namespace {
@@ -76,12 +80,16 @@ void fork()
   }
 
   // Send standard output to a log file.
-  const char* output = "/tmp/bitmonero.daemon.stdout.stderr";
+  const char *tmpdir = getenv("TMPDIR");
+  if (!tmpdir)
+    tmpdir = TMPDIR;
+  std::string output = tmpdir;
+  output += "/bitmonero.daemon.stdout.stderr";
   const int flags = O_WRONLY | O_CREAT | O_APPEND;
   const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  if (open(output, flags, mode) < 0)
+  if (open(output.c_str(), flags, mode) < 0)
   {
-    quit("Unable to open output file: " + std::string(output));
+    quit("Unable to open output file: " + output);
   }
 
   // Also send standard error to the same log file.
