@@ -129,7 +129,7 @@ void mlog_configure(const std::string &filename_base, bool console)
   el::Loggers::addFlag(el::LoggingFlag::DisableApplicationAbortOnFatalLog);
   el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);
   el::Loggers::addFlag(el::LoggingFlag::StrictLogFileSizeCheck);
-  el::Helpers::installPreRollOutCallback([&filename_base](const char *name, size_t){
+  el::Helpers::installPreRollOutCallback([filename_base](const char *name, size_t){
     std::string rname = generate_log_filename(filename_base.c_str());
     rename(name, rname.c_str());
   });
