@@ -3097,6 +3097,8 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
+  static bool seen_future_version = false;
+
   m_db->block_txn_start(true);
   if(bl.prev_id != get_tail_id())
   {
@@ -3104,6 +3106,18 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
 leave:
     m_db->block_txn_stop();
     return false;
+  }
+
+  // warn users if they're running an old version
+  if (!seen_future_version && bl.major_version > m_hardfork->get_ideal_version())
+  {
+    seen_future_version = true;
+    const el::Level level = el::Level::Warning;
+    MCLOG_RED(level, "global", "**********************************************************************");
+    MCLOG_RED(level, "global", "A block was seen on the network with a version higher than the last");
+    MCLOG_RED(level, "global", "known one. This may be an old version of the daemon, and a software");
+    MCLOG_RED(level, "global", "update may be required to sync further. Try running: update check");
+    MCLOG_RED(level, "global", "**********************************************************************");
   }
 
   // this is a cheap test
