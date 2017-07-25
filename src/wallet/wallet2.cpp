@@ -1388,7 +1388,7 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::update_pool_state()
+void wallet2::update_pool_state(bool refreshed)
 {
   MDEBUG("update_pool_state start");
 
@@ -1424,13 +1424,14 @@ void wallet2::update_pool_state()
       // a tx is removed from the pool due to being found in a new block, but
       // just before the block is visible by refresh. So we keep a boolean, so
       // that the first time we don't see the tx, we set that boolean, and only
-      // delete it the second time it is checked
+      // delete it the second time it is checked (but only when refreshed, so
+      // we're sure we've seen the blockchain state first)
       if (pit->second.m_state == wallet2::unconfirmed_transfer_details::pending)
       {
         LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as not in pool");
         pit->second.m_state = wallet2::unconfirmed_transfer_details::pending_not_in_pool;
       }
-      else if (pit->second.m_state == wallet2::unconfirmed_transfer_details::pending_not_in_pool)
+      else if (pit->second.m_state == wallet2::unconfirmed_transfer_details::pending_not_in_pool && refreshed)
       {
         LOG_PRINT_L1("Pending txid " << txid << " not in pool, marking as failed");
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
@@ -1459,24 +1460,30 @@ void wallet2::update_pool_state()
   MDEBUG("update_pool_state done first loop");
 
   // remove pool txes to us that aren't in the pool anymore
-  std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
-  while (uit != m_unconfirmed_payments.end())
+  // but only if we just refreshed, so that the tx can go in
+  // the in transfers list instead (or nowhere if it just
+  // disappeared without being mined)
+  if (refreshed)
   {
-    const crypto::hash &txid = uit->second.m_tx_hash;
-    bool found = false;
-    for (const auto &it2: res.tx_hashes)
+    std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
+    while (uit != m_unconfirmed_payments.end())
     {
-      if (it2 == txid)
+      const crypto::hash &txid = uit->second.m_tx_hash;
+      bool found = false;
+      for (const auto &it2: res.tx_hashes)
       {
-        found = true;
-        break;
+        if (it2 == txid)
+        {
+          found = true;
+          break;
+        }
       }
-    }
-    auto pit = uit++;
-    if (!found)
-    {
-      MDEBUG("Removing " << txid << " from unconfirmed payments, not found in pool");
-      m_unconfirmed_payments.erase(pit);
+      auto pit = uit++;
+      if (!found)
+      {
+        MDEBUG("Removing " << txid << " from unconfirmed payments, not found in pool");
+        m_unconfirmed_payments.erase(pit);
+      }
     }
   }
   MDEBUG("update_pool_state done second loop");
@@ -1490,7 +1497,16 @@ void wallet2::update_pool_state()
       LOG_PRINT_L2("Already seen " << txid << ", skipped");
       continue;
     }
-    if (m_unconfirmed_payments.find(txid) == m_unconfirmed_payments.end())
+    bool txid_found_in_up = false;
+    for (const auto &up: m_unconfirmed_payments)
+    {
+      if (up.second.m_tx_hash == txid)
+      {
+        txid_found_in_up = true;
+        break;
+      }
+    }
+    if (!txid_found_in_up)
     {
       LOG_PRINT_L1("Found new pool tx: " << txid);
       bool found = false;
@@ -1685,6 +1701,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   uint64_t blocks_start_height;
   std::list<cryptonote::block_complete_entry> blocks;
   std::vector<COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
+  bool refreshed = false;
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history);
@@ -1726,6 +1743,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       if(blocks_start_height == next_blocks_start_height)
       {
         m_node_rpc_proxy.set_height(m_blockchain.size());
+        refreshed = true;
         break;
       }
 
@@ -1764,7 +1782,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   {
     // If stop() is called we don't need to check pending transactions
     if(m_run.load(std::memory_order_relaxed))
-      update_pool_state();
+      update_pool_state(refreshed);
   }
   catch (...)
   {
