@@ -536,6 +536,7 @@ namespace wallet_rpc
     std::string note;
     std::list<transfer_destination> destinations;
     std::string type;
+    uint64_t unlock_time;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -547,6 +548,7 @@ namespace wallet_rpc
       KV_SERIALIZE(note);
       KV_SERIALIZE(destinations);
       KV_SERIALIZE(type);
+      KV_SERIALIZE(unlock_time)
     END_KV_SERIALIZE_MAP()
   };
 

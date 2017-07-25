@@ -199,10 +199,11 @@ namespace tools
       std::vector<cryptonote::tx_destination_entry> m_dests;
       crypto::hash m_payment_id;
       uint64_t m_timestamp;
+      uint64_t m_unlock_time;
 
-      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash) {}
+      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash), m_timestamp(0), m_unlock_time(0) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp) {}
+        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time) {}
     };
 
     struct tx_construction_data
@@ -704,7 +705,7 @@ BOOST_CLASS_VERSION(tools::wallet2, 18)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 16)    
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
@@ -879,6 +880,13 @@ namespace boost
             x.m_amount_out += x.m_change;
         }
       }
+      if (ver < 4)
+      {
+        if (!typename Archive::is_saving())
+          x.m_unlock_time = 0;
+        return;
+      }
+      a & x.m_unlock_time;
     }
 
     template <class Archive>
