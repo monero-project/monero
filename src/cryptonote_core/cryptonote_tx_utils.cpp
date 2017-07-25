@@ -265,7 +265,7 @@ namespace cryptonote
 
     // "Shuffle" outs
     std::vector<tx_destination_entry> shuffled_dsts(destinations);
-    std::sort(shuffled_dsts.begin(), shuffled_dsts.end(), [](const tx_destination_entry& de1, const tx_destination_entry& de2) { return de1.amount < de2.amount; } );
+    std::random_shuffle(shuffled_dsts.begin(), shuffled_dsts.end(), [](int i) { return crypto::rand<int>() % i; });
 
     uint64_t summary_outs_money = 0;
     //fill outputs
