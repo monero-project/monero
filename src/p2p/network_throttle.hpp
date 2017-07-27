@@ -111,13 +111,6 @@ class network_throttle_manager {
 	
 	//protected:
 	public: // XXX
-		// [[note1]]
-		static boost::once_flag m_once_get_global_throttle_in;
-		static boost::once_flag m_once_get_global_throttle_inreq; // [[note2]]
-		static boost::once_flag m_once_get_global_throttle_out;
-		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_in;
-		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_inreq;
-		static std::unique_ptr<i_network_throttle> m_obj_get_global_throttle_out;
 
     static boost::mutex m_lock_get_global_throttle_in;
     static boost::mutex m_lock_get_global_throttle_inreq;
