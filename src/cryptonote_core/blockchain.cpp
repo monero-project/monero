@@ -3743,9 +3743,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     if (!blocks_exist)
     {
       m_blocks_longhash_table.clear();
+      uint64_t thread_height = height;
       for (uint64_t i = 0; i < threads; i++)
       {
-        thread_list.push_back(new boost::thread(attrs, boost::bind(&Blockchain::block_longhash_worker, this, height + (i * batches), std::cref(blocks[i]), std::ref(maps[i]))));
+        thread_list.push_back(new boost::thread(attrs, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, std::cref(blocks[i]), std::ref(maps[i]))));
+        thread_height += blocks[i].size();
       }
 
       for (size_t j = 0; j < thread_list.size(); j++)
