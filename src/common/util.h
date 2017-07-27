@@ -40,7 +40,6 @@
 #include <string>
 
 #include "crypto/hash.h"
-#include "p2p/p2p_protocol_defs.h"
 
 /*! \brief Various Tools
  *
@@ -107,14 +106,6 @@ namespace tools
   std::error_code replace_file(const std::string& replacement_name, const std::string& replaced_name);
 
   bool sanitize_locale();
-
-  inline crypto::hash get_proof_of_trust_hash(const nodetool::proof_of_trust& pot)
-  {
-    std::string s;
-    s.append(reinterpret_cast<const char*>(&pot.peer_id), sizeof(pot.peer_id));
-    s.append(reinterpret_cast<const char*>(&pot.time), sizeof(pot.time));
-    return crypto::cn_fast_hash(s.data(), s.size());
-  }
 
   /*! \brief Defines a signal handler for win32 and *nix
    */
