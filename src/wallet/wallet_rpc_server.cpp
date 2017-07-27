@@ -352,10 +352,25 @@ namespace tools
       cryptonote::tx_destination_entry de;
       bool has_payment_id;
       crypto::hash8 new_payment_id;
-      if(!get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), it->address, false))
+      er.message = "";
+      if(!get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), it->address,
+        [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+          if (!dnssec_valid)
+          {
+            er.message = std::string("Invalid DNSSEC for ") + url;
+            return {};
+          }
+          if (addresses.empty())
+          {
+            er.message = std::string("No Monero address found at ") + url;
+            return {};
+          }
+          return addresses[0];
+        }))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
-        er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
+        if (er.message.empty())
+          er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + it->address;
         return false;
       }
       de.amount = it->amount;
@@ -1018,10 +1033,23 @@ namespace tools
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id;
-    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), req.address, false))
+    er.message = "";
+    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), req.address,
+      [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+        if (!dnssec_valid)
+        {
+          er.message = std::string("Invalid DNSSEC for ") + url;
+          return {};
+        }
+        if (addresses.empty())
+        {
+          er.message = std::string("No Monero address found at ") + url;
+          return {};
+        }
+        return addresses[0];
+      }))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
-      er.message = "";
       return false;
     }
 
@@ -1412,10 +1440,25 @@ namespace tools
     bool has_payment_id;
     crypto::hash8 payment_id8;
     crypto::hash payment_id = cryptonote::null_hash;
-    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), req.address, false))
+    er.message = "";
+    if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), req.address,
+      [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
+        if (!dnssec_valid)
+        {
+          er.message = std::string("Invalid DNSSEC for ") + url;
+          return {};
+        }
+        if (addresses.empty())
+        {
+          er.message = std::string("No Monero address found at ") + url;
+          return {};
+        }
+        return addresses[0];
+      }))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
-      er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;
+      if (er.message.empty())
+        er.message = std::string("WALLET_RPC_ERROR_CODE_WRONG_ADDRESS: ") + req.address;
       return false;
     }
     if (has_payment_id)

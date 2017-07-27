@@ -67,6 +67,15 @@ namespace cryptonote {
   };
 #pragma pack (pop)
 
+  namespace
+  {
+    std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
+    {
+      if (addresses.empty())
+        return {};
+      return addresses[0];
+    }
+  }
 
   /************************************************************************/
   /* Cryptonote helper functions                                          */
@@ -109,14 +118,14 @@ namespace cryptonote {
     , crypto::hash8& payment_id
     , bool testnet
     , const std::string& str_or_url
-    , bool cli_confirm = true
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
     );
 
   bool get_account_address_from_str_or_url(
       cryptonote::account_public_address& address
     , bool testnet
     , const std::string& str_or_url
-    , bool cli_confirm = true
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
     );
 
   bool is_coinbase(const transaction& tx);
