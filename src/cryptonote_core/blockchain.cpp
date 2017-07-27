@@ -3541,19 +3541,17 @@ void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 }
 
 //------------------------------------------------------------------
-void Blockchain::block_longhash_worker(const uint64_t height, const std::vector<block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
+void Blockchain::block_longhash_worker(uint64_t height, const std::vector<block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
 {
   TIME_MEASURE_START(t);
   slow_hash_allocate_state();
 
-  //FIXME: height should be changing here, as get_block_longhash expects
-  //       the height of the block passed to it
   for (const auto & block : blocks)
   {
     if (m_cancel)
        return;
     crypto::hash id = get_block_hash(block);
-    crypto::hash pow = get_block_longhash(block, height);
+    crypto::hash pow = get_block_longhash(block, height++);
     map.emplace(id, pow);
   }
 
