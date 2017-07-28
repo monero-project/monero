@@ -444,11 +444,11 @@ namespace nodetool
       std::vector<std::vector<std::string>> dns_results;
       dns_results.resize(m_seed_nodes_list.size());
 
-      std::list<boost::thread*> dns_threads;
+      std::list<boost::thread> dns_threads;
       uint64_t result_index = 0;
       for (const std::string& addr_str : m_seed_nodes_list)
       {
-        boost::thread* th = new boost::thread([=, &dns_results, &addr_str]
+        boost::thread th = boost::thread([=, &dns_results, &addr_str]
         {
           MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
           // TODO: care about dnssec avail/valid
@@ -474,19 +474,19 @@ namespace nodetool
           dns_results[result_index] = addr_list;
         });
 
-        dns_threads.push_back(th);
+        dns_threads.push_back(std::move(th));
         ++result_index;
       }
 
       MDEBUG("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
       boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
       uint64_t i = 0;
-      for (boost::thread* th : dns_threads)
+      for (boost::thread& th : dns_threads)
       {
-        if (! th->try_join_until(deadline))
+        if (! th.try_join_until(deadline))
         {
           MWARNING("dns_threads[" << i << "] timed out, sending interrupt");
-          th->interrupt();
+          th.interrupt();
         }
         ++i;
       }
