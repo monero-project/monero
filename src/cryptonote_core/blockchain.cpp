@@ -279,7 +279,8 @@ uint64_t Blockchain::get_current_blockchain_height() const
 bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::test_options *test_options)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  CRITICAL_REGION_LOCAL(m_tx_pool);
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
   bool fakechain = test_options != NULL;
 
