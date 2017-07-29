@@ -1130,20 +1130,20 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       if (sscanf(multisig_type_string.c_str(), "%u/%u", &multisig_m, &multisig_n) != 2)
       {
-        fail_msg_writer() << "Error: expected M/N, but got: " << multisig_type_string[0];
+        fail_msg_writer() << tr("Error: expected M/N, but got: ") << multisig_type_string;
         return false;
       }
       if (multisig_m <= 1 || multisig_m > multisig_n)
       {
-        fail_msg_writer() << "Error: expected N > 1 and N <= M, but got: " << multisig_type_string[0];
+        fail_msg_writer() << tr("Error: expected N > 1 and N <= M, but got: ") << multisig_type_string;
         return false;
       }
       if (multisig_m != multisig_n)
       {
-        fail_msg_writer() << "Error: M/N is currently unsupported. ";
+        fail_msg_writer() << tr("Error: M/N is currently unsupported. ");
         return false;
       }      
-      message_writer() << "Generating master wallet from " << multisig_m << " of " << multisig_n << " multisig wallet pieces";
+      message_writer() << boost::format(tr("Generating master wallet from %u of %u multisig wallet keys")) % multisig_m % multisig_n;
       
       // parse multisig address
       std::string address_string = command_line::input_line("Multisig wallet address: ");
@@ -1198,14 +1198,12 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       if(multisig_m == multisig_n)
       {
         std::vector<crypto::secret_key> multisig_secret_spendkeys(multisig_n);
-        std::string input_string;
         std::string spendkey_string;
         cryptonote::blobdata spendkey_data;
         // get N secret spend keys from user
         for(unsigned int i=0; i<multisig_n; ++i)
         {
-          input_string = "Secret spend key (" + std::to_string(i+1) + tr(" of ") + std::to_string(multisig_m) + "): ";
-          spendkey_string = command_line::input_line(tr(input_string.c_str()));
+          spendkey_string = command_line::input_line(tr((boost::format(tr("Secret spend key (%u of %u):")) % (i+i) % multisig_m).str().c_str()));
           if (std::cin.eof())
             return false;
           if (spendkey_string.empty())
@@ -1222,18 +1220,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
         
         // sum the spend keys together to get the master spend key
-        crypto::secret_key spendkey2;
         spendkey = multisig_secret_spendkeys[0];
         for(unsigned int i=1; i<multisig_n; ++i)
-        {
-          sc_add(reinterpret_cast<unsigned char*>(&spendkey2), reinterpret_cast<unsigned char*>(&spendkey), reinterpret_cast<unsigned char*>(&multisig_secret_spendkeys[i]));
-          spendkey = spendkey2;
-        }
+          sc_add(reinterpret_cast<unsigned char*>(&spendkey), reinterpret_cast<unsigned char*>(&spendkey), reinterpret_cast<unsigned char*>(&multisig_secret_spendkeys[i]));
       }
       // parsing M/N
       else
       {
-        fail_msg_writer() << "Error: M/N is currently unsupported. ";
+        fail_msg_writer() << tr("Error: M/N is currently unsupported");
         return false;
       }
       
