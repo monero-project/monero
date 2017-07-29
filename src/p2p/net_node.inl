@@ -714,6 +714,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    std::list<boost::uuids::uuid> connection_ids;
+    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
+      connection_ids.push_back(cntxt.m_connection_id);
+      return true;
+    });
+    for (const auto &connection_id: connection_ids)
+      m_net_server.get_config_object().close(connection_id);
+
     m_payload_handler.stop();
     m_net_server.send_stop_signal();
     MDEBUG("[node] Stop signal sent");
