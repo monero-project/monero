@@ -493,7 +493,6 @@ private:
      */
     std::unordered_set<crypto::hash> m_timed_out_transactions;
 
-    std::string m_config_folder;  //!< the folder to save state to
     Blockchain& m_blockchain;  //!< reference to the Blockchain object
   };
 }
