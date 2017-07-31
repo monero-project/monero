@@ -35,7 +35,6 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
-#include "ringct/rctOps.h"
 
 namespace cryptonote
 {

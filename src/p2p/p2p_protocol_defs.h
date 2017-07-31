@@ -35,7 +35,9 @@
 #include "net/net_utils_base.h"
 #include "misc_language.h"
 #include "cryptonote_config.h"
+#ifdef ALLOW_DEBUG_COMMANDS
 #include "crypto/crypto.h"
+#endif
 
 namespace nodetool
 {

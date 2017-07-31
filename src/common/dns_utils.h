@@ -29,7 +29,6 @@
 
 #include <vector>
 #include <string>
-#include "cryptonote_basic/cryptonote_basic.h"
 
 namespace tools
 {

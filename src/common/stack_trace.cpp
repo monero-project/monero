@@ -30,8 +30,7 @@
 #define USE_UNWIND
 #endif
 
-#include "common/stack_trace.h"
-#include "misc_log_ex.h"
+#include <stdexcept>
 #ifdef USE_UNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
@@ -40,6 +39,8 @@
 #ifndef STATICLIB
 #include <dlfcn.h>
 #endif
+#include "common/stack_trace.h"
+#include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "stacktrace"
