@@ -414,6 +414,8 @@ namespace cryptonote
     if (block_sync_size == 0)
       block_sync_size = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
 
+    MGINFO("Loading checkpoints");
+
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have
     CHECK_AND_ASSERT_MES(update_checkpoints(), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
