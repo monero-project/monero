@@ -61,6 +61,16 @@
 #    endif // !defined(__GLIBCXX__) || __GLIBCXX__ >= 20150426
 #  endif // __has_include(<thread>)
 #endif
+#if ELPP_COMPILER_CLANG
+#  if __has_include(<execinfo.h>)
+#    define ELPP_HAS_EXECINFO_H 1
+#  endif
+#elif ELPP_COMPILER_GCC
+#include <cstddef> // Make __GLIBCXX__ defined when using libstdc++
+#  if defined __GLIBCXX__
+#    define ELPP_HAS_EXECINFO_H
+#  endif
+#endif
 #if (defined(__MINGW32__) || defined(__MINGW64__))
 #  define ELPP_MINGW 1
 #else
@@ -195,16 +205,17 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #  define ELPP_INTERNAL_INFO(lvl, msg)
 #endif  // (defined(ELPP_DEBUG_INFO))
 #if (defined(ELPP_FEATURE_ALL)) || (defined(ELPP_FEATURE_CRASH_LOG))
-#  if (ELPP_COMPILER_GCC && !ELPP_MINGW)
+#  if (ELPP_COMPILER_GCC && !ELPP_MINGW && defined ELPP_HAS_EXECINFO_H)
 #    define ELPP_STACKTRACE 1
 #  else
 #      define ELPP_STACKTRACE 0
-#      if ELPP_COMPILER_MSVC
-#         pragma message("Stack trace not available for this compiler")
-#      else
-#         warning "Stack trace not available for this compiler";
-#      endif  // ELPP_COMPILER_MSVC
-#    define ELPP_STACKTRACE 0
+#      ifdef EASYLOGGING_CC
+#        if ELPP_COMPILER_MSVC
+#           pragma message("Stack trace not available for this compiler")
+#        else
+#           warning "Stack trace not available for this compiler";
+#        endif  // ELPP_COMPILER_MSVC
+#      endif
 #  endif  // ELPP_COMPILER_GCC
 #else
 #    define ELPP_STACKTRACE 0
