@@ -456,7 +456,7 @@ namespace tools
     {
       uint64_t mixin = req.mixin;
       if (mixin < 2 && m_wallet->use_fork_rules(2, 10)) {
-        LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
+        LOG_PRINT_L1("Requested ring size " << (req.mixin + 1) << " too low for hard fork 2, using 3");
         mixin = 2;
       }
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
@@ -534,7 +534,7 @@ namespace tools
       uint64_t mixin = req.mixin;
       uint64_t ptx_amount;
       if (mixin < 2 && m_wallet->use_fork_rules(2, 10)) {
-        LOG_PRINT_L1("Requested mixin " << req.mixin << " too low for hard fork 2, using 2");
+        LOG_PRINT_L1("Requested ring size " << (req.mixin + 1) << " too low for hard fork 2, using 3");
         mixin = 2;
       }
       std::vector<wallet2::pending_tx> ptx_vector;

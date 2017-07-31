@@ -497,7 +497,7 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
   return true;
 }
 
-bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if (m_wallet->watch_only())
   {
@@ -508,34 +508,34 @@ bool simple_wallet::set_default_mixin(const std::vector<std::string> &args/* = s
   {
     if (strchr(args[1].c_str(), '-'))
     {
-      fail_msg_writer() << tr("mixin must be an integer >= 2");
+      fail_msg_writer() << tr("ring size must be an integer >= 3");
       return true;
     }
-    uint32_t mixin = boost::lexical_cast<uint32_t>(args[1]);
-    if (mixin < 2 && mixin != 0)
+    uint32_t ring_size = boost::lexical_cast<uint32_t>(args[1]);
+    if (ring_size < 3 && ring_size != 0)
     {
-      fail_msg_writer() << tr("mixin must be an integer >= 2");
+      fail_msg_writer() << tr("ring size must be an integer >= 3");
       return true;
     }
-    if (mixin == 0)
-      mixin = DEFAULT_MIX;
+    if (ring_size == 0)
+      ring_size = DEFAULT_MIX + 1;
  
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
     {
-      m_wallet->default_mixin(mixin);
+      m_wallet->default_mixin(ring_size - 1);
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
     return true;
   }
   catch(const boost::bad_lexical_cast &)
   {
-    fail_msg_writer() << tr("mixin must be an integer >= 2");
+    fail_msg_writer() << tr("ring size must be an integer >= 3");
     return true;
   }
   catch(...)
   {
-    fail_msg_writer() << tr("could not change default mixin");
+    fail_msg_writer() << tr("could not change default ring size");
     return true;
   }
 }
@@ -740,12 +740,12 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("payments", boost::bind(&simple_wallet::show_payments, this, _1), tr("payments <PID_1> [<PID_2> ... <PID_N>] - Show payments for given payment ID[s]"));
   m_cmd_binder.set_handler("bc_height", boost::bind(&simple_wallet::show_blockchain_height, this, _1), tr("Show blockchain height"));
   m_cmd_binder.set_handler("transfer_original", boost::bind(&simple_wallet::transfer, this, _1), tr("Same as transfer, but using an older transaction building algorithm"));
-  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("transfer [<priority>] [<mixin_count>] <address> <amount> [<payment_id>] - Transfer <amount> to <address>. <priority> is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <mixin_count> is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
-  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("locked_transfer [<mixin_count>] <addr> <amount> <lockblocks>(Number of blocks to lock the transaction for, max 1000000) [<payment_id>]"));
-  m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with mixin 0"));
-  m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address"));
-  m_cmd_binder.set_handler("sweep_below", boost::bind(&simple_wallet::sweep_below, this, _1), tr("sweep_below <amount_threshold> [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address"));
-  m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<mixin_count>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
+  m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1), tr("transfer [<priority>] [<ring_size>] <address> <amount> [<payment_id>] - Transfer <amount> to <address>. <priority> is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::locked_transfer, this, _1), tr("locked_transfer [<ring_size>] <addr> <amount> <lockblocks>(Number of blocks to lock the transaction for, max 1000000) [<payment_id>]"));
+  m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with ring_size 1"));
+  m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [ring_size] address [payment_id] - Send all unlocked balance to an address"));
+  m_cmd_binder.set_handler("sweep_below", boost::bind(&simple_wallet::sweep_below, this, _1), tr("sweep_below <amount_threshold> [ring_size] address [payment_id] - Send all unlocked outputs below the threshold to an address"));
+  m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<ring_size>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
   m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level>|<categories> - Change current log detail (level must be <0-4>)"));
@@ -757,7 +757,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("viewkey", boost::bind(&simple_wallet::viewkey, this, _1), tr("Display private view key"));
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), tr("Display private spend key"));
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), tr("Display Electrum-style mnemonic seed"));
-  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; print-ring-members <1|0> - whether to print detailed information about ring members during confirmation; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin <n> - set default mixin (default is 4); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id <1|0>; ask-password <1|0>; unit <monero|millinero|micronero|nanonero|piconero> - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations <1|0> - whether to merge multiple payments to the same destination address"));
+  m_cmd_binder.set_handler("set", boost::bind(&simple_wallet::set_variable, this, _1), tr("Available options: seed language - set wallet seed language; always-confirm-transfers <1|0> - whether to confirm unsplit txes; print-ring-members <1|0> - whether to print detailed information about ring members during confirmation; store-tx-info <1|0> - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-ring-size <n> - set default ring size (default is 5); auto-refresh <1|0> - whether to automatically sync new blocks from the daemon; refresh-type <full|optimize-coinbase|no-coinbase|default> - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id <1|0>; ask-password <1|0>; unit <monero|millinero|micronero|nanonero|piconero> - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations <1|0> - whether to merge multiple payments to the same destination address"));
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
@@ -789,7 +789,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
-    success_msg_writer() << "default-mixin = " << m_wallet->default_mixin();
+    success_msg_writer() << "default-ring-size = " << (m_wallet->default_mixin() ? m_wallet->default_mixin() + 1 : 0);
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     success_msg_writer() << "priority = " << m_wallet->get_default_priority();
@@ -834,7 +834,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("always-confirm-transfers", set_always_confirm_transfers, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("print-ring-members", set_print_ring_members, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
-    CHECK_SIMPLE_VARIABLE("default-mixin", set_default_mixin, tr("integer >= 2"));
+    CHECK_SIMPLE_VARIABLE("default-ring-size", set_default_ring_size, tr("integer >= 3"));
     CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
     CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
@@ -2310,7 +2310,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   size_t fake_outs_count;
   if(local_args.size() > 0) {
-    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+    size_t ring_size;
+    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
       fake_outs_count = m_wallet->default_mixin();
       if (fake_outs_count == 0)
@@ -2318,6 +2319,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
     else
     {
+      fake_outs_count = ring_size - 1;
       local_args.erase(local_args.begin());
     }
   }
@@ -2594,10 +2596,10 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
     auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
     for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -2771,10 +2773,10 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
     auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
     for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -2834,7 +2836,8 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
 
   size_t fake_outs_count;
   if(local_args.size() > 0) {
-    if(!epee::string_tools::get_xtype_from_string(fake_outs_count, local_args[0]))
+    size_t ring_size;
+    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
       fake_outs_count = m_wallet->default_mixin();
       if (fake_outs_count == 0)
@@ -2842,6 +2845,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     }
     else
     {
+      fake_outs_count = ring_size - 1;
       local_args.erase(local_args.begin());
     }
   }
@@ -3034,10 +3038,10 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
     auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
     for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)
@@ -3116,7 +3120,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
      fail_msg_writer() << tr("wrong number of arguments");
      return true;
   }
-  std::string mixin_str;
+  std::string ring_size_str;
   // Hardcode Monero's donation address (see #1447)
   const std::string address_str = "44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A";
   std::string amount_str;
@@ -3130,17 +3134,17 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
     payment_id_str = local_args.back();
     local_args.pop_back();
   }
-  // check mixin
+  // check ring size
   if (local_args.size() > 1)
   {
-    mixin_str = local_args[0];
+    ring_size_str = local_args[0];
     local_args.erase(local_args.begin());
   }
   amount_str = local_args[0];
   // refill args as necessary
   local_args.clear();
-  if (!mixin_str.empty())
-    local_args.push_back(mixin_str);
+  if (!ring_size_str.empty())
+    local_args.push_back(ring_size_str);
   local_args.push_back(address_str);
   local_args.push_back(amount_str);
   if (!payment_id_str.empty())
@@ -3154,7 +3158,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 {
   // gather info to ask the user
   uint64_t amount = 0, amount_to_dests = 0, change = 0;
-  size_t min_mixin = ~0;
+  size_t min_ring_size = ~0;
   std::unordered_map<std::string, std::pair<std::string, uint64_t>> dests;
   const std::string wallet_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   int first_known_non_zero_change_index = -1;
@@ -3191,9 +3195,9 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     for (size_t s = 0; s < cd.sources.size(); ++s)
     {
       amount += cd.sources[s].amount;
-      size_t mixin = cd.sources[s].outputs.size() - 1;
-      if (mixin < min_mixin)
-        min_mixin = mixin;
+      size_t ring_size = cd.sources[s].outputs.size();
+      if (ring_size < min_ring_size)
+        min_ring_size = ring_size;
     }
     for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
     {
@@ -3267,7 +3271,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     change_string += tr("no change");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu, %s. %sIs this okay? (Y/Yes/N/No): ")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % payment_id_string % extra_message).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %sIs this okay? (Y/Yes/N/No): ")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
   return command_line::is_yes(command_line::input_line(prompt_str));
 }
 //----------------------------------------------------------------------------------------------------
@@ -3385,10 +3389,10 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   catch (const tools::error::not_enough_outs_to_mix& e)
   {
     auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
     for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
     {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
     }
   }
   catch (const tools::error::tx_not_constructed&)

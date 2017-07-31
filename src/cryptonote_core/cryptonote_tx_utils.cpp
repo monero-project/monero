@@ -371,7 +371,7 @@ namespace cryptonote
         // enforce same mixin for all outputs
         for (size_t i = 1; i < sources.size(); ++i) {
           if (n_total_outs != sources[i].outputs.size()) {
-            LOG_ERROR("Non-simple ringct transaction has varying mixin");
+            LOG_ERROR("Non-simple ringct transaction has varying ring size");
             return false;
           }
         }
