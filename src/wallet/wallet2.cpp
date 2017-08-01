@@ -2103,22 +2103,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
  */
 bool wallet2::verify_password(const std::string& password) const
 {
-  return verify_password(m_keys_file, password, m_watch_only);
-}
-
-/*!
- * \brief verify password for specified wallet keys file.
- * \param keys_file_name  Keys file to verify password for
- * \param password        Password to verify
- * \param watch_only      If set = only verify view keys, otherwise also spend keys
- *
- * for verification only
- * should not mutate state, unlike load_keys()
- * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
- *
- */
-bool wallet2::verify_password(const std::string& keys_file_name, const std::string& password, const bool watch_only)
-{
+  const std::string keys_file_name = m_keys_file;
   wallet2::keys_file_data keys_file_data;
   std::string buf;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
@@ -2151,7 +2136,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const std::stri
   const cryptonote::account_keys& keys = account_data_check.get_keys();
 
   r = r && verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
-  if(!watch_only)
+  if(!m_watch_only)
     r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   return r;
 }
