@@ -662,9 +662,18 @@ struct WalletManager
     /*!
      * @brief TODO: delme walletExists - check if the given filename is the wallet
      * @param path - filename
-     * @return
+     * @return - true if wallet exists
      */
     virtual bool walletExists(const std::string &path) = 0;
+
+    /*!
+     * @brief verifyWalletPassword - check if the given filename is the wallet
+     * @param keys_file_name - location of keys file
+     * @param password - password to verify
+     * @param watch_only - verify only view keys?
+     * @return - true if password is correct
+     */
+    virtual bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool watch_only) const = 0;
 
     /*!
      * \brief findWallets - searches for the wallet files by given path name recursively

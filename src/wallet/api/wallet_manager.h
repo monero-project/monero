@@ -50,6 +50,7 @@ public:
                                                     const std::string &spendKeyString = "");
     virtual bool closeWallet(Wallet *wallet);
     bool walletExists(const std::string &path);
+    bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool watch_only) const;
     std::vector<std::string> findWallets(const std::string &path);
     std::string errorString() const;
     void setDaemonAddress(const std::string &address);
