@@ -48,17 +48,17 @@ namespace epee
 namespace misc_utils
 {
 
-        inline uint64_t get_tick_count()
+        inline uint64_t get_ns_count()
         {
 #if defined(_MSC_VER)
-                return ::GetTickCount64();
+                return ::GetTickCount64() * 1000000;
 #elif defined(WIN32)
                 static LARGE_INTEGER pcfreq = {0};
                 LARGE_INTEGER ticks;
                 if (!pcfreq.QuadPart)
                     QueryPerformanceFrequency(&pcfreq);
                 QueryPerformanceCounter(&ticks);
-                ticks.QuadPart *= 1000; /* we want msec */
+                ticks.QuadPart *= 1000000000; /* we want nsec */
                 return ticks.QuadPart / pcfreq.QuadPart;
 #elif defined(__MACH__)
                 clock_serv_t cclock;
@@ -68,14 +68,19 @@ namespace misc_utils
                 clock_get_time(cclock, &mts);
                 mach_port_deallocate(mach_task_self(), cclock);
 
-                return (mts.tv_sec * 1000) + (mts.tv_nsec/1000000);
+                return (mts.tv_sec * 1000000000) + (mts.tv_nsec);
 #else
                 struct timespec ts;
                 if(clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
                         return 0;
                 }
-                return (ts.tv_sec * 1000) + (ts.tv_nsec/1000000);
+                return (ts.tv_sec * 1000000000) + (ts.tv_nsec);
 #endif
+        }
+
+        inline uint64_t get_tick_count()
+        {
+                return get_ns_count() / 1000000;
         }
 
 
