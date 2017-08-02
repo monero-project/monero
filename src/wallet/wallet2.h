@@ -597,6 +597,8 @@ namespace tools
 
     uint64_t get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day);    // 1<=month<=12, 1<=day<=31
 
+    bool is_synced() const;
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
