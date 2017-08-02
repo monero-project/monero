@@ -48,6 +48,8 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::http_simple_client &http_clien
   , m_dynamic_per_kb_fee_estimate_cached_height(0)
   , m_dynamic_per_kb_fee_estimate_grace_blocks(0)
   , m_rpc_version(0)
+  , m_target_height(0)
+  , m_target_height_time(0)
 {}
 
 void NodeRPCProxy::invalidate()
@@ -60,9 +62,11 @@ void NodeRPCProxy::invalidate()
   m_dynamic_per_kb_fee_estimate_cached_height = 0;
   m_dynamic_per_kb_fee_estimate_grace_blocks = 0;
   m_rpc_version = 0;
+  m_target_height = 0;
+  m_target_height_time = 0;
 }
 
-boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version)
+boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version) const
 {
   const time_t now = time(NULL);
   if (m_rpc_version == 0)
@@ -84,7 +88,7 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
   return boost::optional<std::string>();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
+boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height) const
 {
   const time_t now = time(NULL);
   if (m_height == 0 || now >= m_height_time + 30) // re-cache every 30 seconds
@@ -110,7 +114,32 @@ void NodeRPCProxy::set_height(uint64_t h)
   m_height = h;
 }
 
-boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, uint64_t &earliest_height)
+boost::optional<std::string> NodeRPCProxy::get_target_height(uint64_t &height) const
+{
+  const time_t now = time(NULL);
+  if (m_height == 0 || now >= m_height_time + 30) // re-cache every 30 seconds
+  {
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+
+    req_t.jsonrpc = "2.0";
+    req_t.id = epee::serialization::storage_entry(0);
+    req_t.method = "get_info";
+    m_daemon_rpc_mutex.lock();
+    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
+    m_daemon_rpc_mutex.unlock();
+
+    CHECK_AND_ASSERT_MES(r, std::string(), "Failed to connect to daemon");
+    CHECK_AND_ASSERT_MES(resp_t.result.status != CORE_RPC_STATUS_BUSY, resp_t.result.status, "Failed to connect to daemon");
+    CHECK_AND_ASSERT_MES(resp_t.result.status == CORE_RPC_STATUS_OK, resp_t.result.status, "Failed to get target blockchain height");
+    m_target_height = resp_t.result.target_height;
+    m_target_height_time = now;
+  }
+  height = m_target_height;
+  return boost::optional<std::string>();
+}
+
+boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, uint64_t &earliest_height) const
 {
   if (m_earliest_height[version] == 0)
   {
@@ -134,7 +163,7 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
   return boost::optional<std::string>();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks, uint64_t &fee)
+boost::optional<std::string> NodeRPCProxy::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const
 {
   uint64_t height;
 
