@@ -118,6 +118,8 @@ static const struct {
   { 3, 800500, 0, 1472415034 },
   { 4, 801219, 0, 1472415035 },
   { 5, 802660, 0, 1472415036 + 86400*180 }, // add 5 months on testnet to shut the update warning up since there's a large gap to v6
+
+  { 6, 971400, 0, 1501709789 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
