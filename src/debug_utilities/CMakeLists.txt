@@ -48,3 +48,26 @@ set_property(TARGET cn_deserialize
 	PROPERTY
 	OUTPUT_NAME "monero-utils-deserialize")
 
+
+set(object_sizes_sources
+  object_sizes.cpp
+  )
+
+monero_add_executable(object_sizes
+  ${object_sizes_sources}
+  ${object_sizes_private_headers})
+
+target_link_libraries(object_sizes
+  LINK_PRIVATE
+    cryptonote_core
+    blockchain_db
+    p2p
+    epee
+    ${CMAKE_THREAD_LIBS_INIT})
+
+add_dependencies(object_sizes
+	version)
+set_property(TARGET object_sizes
+	PROPERTY
+	OUTPUT_NAME "monero-utils-object-sizes")
+
