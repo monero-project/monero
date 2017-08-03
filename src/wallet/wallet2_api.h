@@ -156,6 +156,7 @@ struct TransactionInfo
     virtual uint64_t fee() const = 0;
     virtual uint64_t blockHeight() const = 0;
     virtual uint64_t confirmations() const = 0;
+    virtual uint64_t unlockTime() const = 0;
     //! transaction_id
     virtual std::string hash() const = 0;
     virtual std::time_t timestamp() const = 0;
