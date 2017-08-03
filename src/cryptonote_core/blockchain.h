@@ -585,7 +585,7 @@ namespace cryptonote
      *
      * @return true if Blockchain is having the chain stored currently, else false
      */
-    bool is_storing_blockchain()const{return m_is_blockchain_storing;}
+    bool is_storing_blockchain()const{return false;}
 
     /**
      * @brief gets the difficulty of the block with a given height
@@ -931,8 +931,6 @@ namespace cryptonote
 
 
     checkpoints m_checkpoints;
-    std::atomic<bool> m_is_in_checkpoint_zone;
-    std::atomic<bool> m_is_blockchain_storing;
     bool m_enforce_dns_checkpoints;
 
     HardFork *m_hardfork;
