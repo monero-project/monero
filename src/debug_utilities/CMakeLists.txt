@@ -26,84 +26,25 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(blockchain_import_sources
-  blockchain_import.cpp
-  bootstrap_file.cpp
-  blocksdat_file.cpp
+set(cn_deserialize_sources
+  cn_deserialize.cpp
   )
 
-set(blockchain_import_private_headers
-  fake_core.h
-  bootstrap_file.h
-  blocksdat_file.h
-  bootstrap_serialization.h
-  )
+monero_add_executable(cn_deserialize
+  ${cn_deserialize_sources}
+  ${cn_deserialize_private_headers})
 
-monero_private_headers(blockchain_import
-	  ${blockchain_import_private_headers})
-
-set(blockchain_export_sources
-  blockchain_export.cpp
-  bootstrap_file.cpp
-  blocksdat_file.cpp
-  )
-
-set(blockchain_export_private_headers
-  bootstrap_file.h
-  blocksdat_file.h
-  bootstrap_serialization.h
-  )
-
-monero_private_headers(blockchain_export
-	  ${blockchain_export_private_headers})
-
-
-monero_add_executable(blockchain_import
-  ${blockchain_import_sources}
-  ${blockchain_import_private_headers})
-
-target_link_libraries(blockchain_import
-  PRIVATE
+target_link_libraries(cn_deserialize
+  LINK_PRIVATE
     cryptonote_core
     blockchain_db
     p2p
     epee
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
+    ${CMAKE_THREAD_LIBS_INIT})
 
-if(ARCH_WIDTH)
-  target_compile_definitions(blockchain_import
-    PUBLIC -DARCH_WIDTH=${ARCH_WIDTH})
-endif()
-
-add_dependencies(blockchain_import
+add_dependencies(cn_deserialize
 	version)
-set_property(TARGET blockchain_import
+set_property(TARGET cn_deserialize
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-import")
-
-monero_add_executable(blockchain_export
-  ${blockchain_export_sources}
-  ${blockchain_export_private_headers})
-
-target_link_libraries(blockchain_export
-  PRIVATE
-    cryptonote_core
-    blockchain_db
-    p2p
-    epee
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
-
-add_dependencies(blockchain_export
-	version)
-set_property(TARGET blockchain_export
-	PROPERTY
-	OUTPUT_NAME "monero-blockchain-export")
+	OUTPUT_NAME "monero-utils-deserialize")
 
