@@ -380,6 +380,12 @@ struct Wallet
     virtual void setRefreshFromBlockHeight(uint64_t refresh_from_block_height) = 0;
 
    /*!
+    * \brief getRestoreHeight - get wallet creation height
+    *
+    */
+    virtual uint64_t getRefreshFromBlockHeight() const = 0;
+
+   /*!
     * \brief setRecoveringFromSeed - set state recover form seed
     *
     * \param recoveringFromSeed - true/false
