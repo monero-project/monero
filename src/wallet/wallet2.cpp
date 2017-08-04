@@ -3484,25 +3484,42 @@ crypto::hash8 wallet2::get_short_payment_id(const pending_tx &ptx) const
 void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
-  crypto::hash txid;
-
-  COMMAND_RPC_SEND_RAW_TX::request req;
-  req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
-  req.do_not_relay = false;
-  COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json("/sendrawtransaction", req, daemon_send_resp, m_http_client, rpc_timeout);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-  THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
-
-  // sanity checks
-  for (size_t idx: ptx.selected_transfers)
+  
+  if(m_light_wallet) 
   {
-    THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
-        "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
+    cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::request oreq;
+    cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::response ores;
+    oreq.address = get_account().get_public_address_str(m_testnet);
+    oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+    oreq.tx = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
+    m_daemon_rpc_mutex.lock();
+    bool r = epee::net_utils::invoke_http_json("/submit_raw_tx", oreq, ores, m_http_client, rpc_timeout, "POST");
+    m_daemon_rpc_mutex.unlock();
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "submit_raw_tx");
+    // MyMonero and OpenMonero use different status strings
+    THROW_WALLET_EXCEPTION_IF(ores.status != "OK" && ores.status != "success" , error::tx_rejected, ptx.tx, ores.status, ores.error);
   }
+  else
+  {
+    // Normal submit
+    COMMAND_RPC_SEND_RAW_TX::request req;
+    req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
+    req.do_not_relay = false;
+    COMMAND_RPC_SEND_RAW_TX::response daemon_send_resp;
+    m_daemon_rpc_mutex.lock();
+    bool r = epee::net_utils::invoke_http_json("/sendrawtransaction", req, daemon_send_resp, m_http_client, rpc_timeout);
+    m_daemon_rpc_mutex.unlock();
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
+    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
+    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
+    // sanity checks
+    for (size_t idx: ptx.selected_transfers)
+    {
+      THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
+          "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
+    }
+  }
+  crypto::hash txid;
 
   txid = get_transaction_hash(ptx.tx);
   crypto::hash payment_id = crypto::null_hash;
