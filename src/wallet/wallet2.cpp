@@ -1839,6 +1839,40 @@ bool wallet2::delete_address_book_row(std::size_t row_id) {
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
+  if(m_light_wallet) {
+
+    // MyMonero get_address_info needs to be called occasionally to trigger wallet sync.
+    // This call is not really needed for other purposes and can be removed if mymonero changes their backend.
+    cryptonote::COMMAND_RPC_GET_ADDRESS_INFO::response res;
+
+    // Get basic info
+    if(light_wallet_get_address_info(res)) {
+      // Last stored block height
+      uint64_t prev_height = m_light_wallet_blockchain_height;
+      // Update lw heights
+      m_light_wallet_scanned_block_height = res.scanned_block_height;
+      m_light_wallet_blockchain_height = res.blockchain_height;
+      m_local_bc_height = res.blockchain_height;
+      // If new height - call new_block callback
+      if(m_light_wallet_blockchain_height != prev_height)
+      {
+        MDEBUG("new block since last time!");
+        cryptonote::block dummy;
+        m_callback->on_new_block(m_light_wallet_blockchain_height - 1, dummy);
+      }
+      m_light_wallet_connected = true;
+      MDEBUG("lw scanned block height: " <<  m_light_wallet_scanned_block_height);
+      MDEBUG("lw blockchain height: " <<  m_light_wallet_blockchain_height);
+      MDEBUG(m_light_wallet_blockchain_height-m_light_wallet_scanned_block_height << " blocks behind");
+      // TODO: add wallet created block info
+
+      light_wallet_get_address_txs();
+    } else
+      m_light_wallet_connected = false;
+
+    // Lighwallet refresh done
+    return;
+  }
   received_money = false;
   blocks_fetched = 0;
   uint64_t added_blocks = 0;
