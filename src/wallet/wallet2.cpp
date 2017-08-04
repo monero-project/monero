@@ -1516,6 +1516,34 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
     error = true;
   }
 }
+
+void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashes)
+{
+  // remove pool txes to us that aren't in the pool anymore
+  std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
+  while (uit != m_unconfirmed_payments.end())
+  {
+    const crypto::hash &txid = uit->second.m_tx_hash;
+    bool found = false;
+    for (const auto &it2: tx_hashes)
+    {
+      if (it2 == txid)
+      {
+        found = true;
+        break;
+      }
+    }
+    auto pit = uit++;
+    if (!found)
+    {
+      MDEBUG("Removing " << txid << " from unconfirmed payments, not found in pool");
+      m_unconfirmed_payments.erase(pit);
+      if (0 != m_callback)
+        m_callback->on_pool_tx_removed(txid);
+    }
+  }
+}
+
 //----------------------------------------------------------------------------------------------------
 void wallet2::update_pool_state(bool refreshed)
 {
@@ -1593,28 +1621,8 @@ void wallet2::update_pool_state(bool refreshed)
   // the in transfers list instead (or nowhere if it just
   // disappeared without being mined)
   if (refreshed)
-  {
-    std::unordered_map<crypto::hash, wallet2::payment_details>::iterator uit = m_unconfirmed_payments.begin();
-    while (uit != m_unconfirmed_payments.end())
-    {
-      const crypto::hash &txid = uit->second.m_tx_hash;
-      bool found = false;
-      for (const auto &it2: res.tx_hashes)
-      {
-        if (it2 == txid)
-        {
-          found = true;
-          break;
-        }
-      }
-      auto pit = uit++;
-      if (!found)
-      {
-        MDEBUG("Removing " << txid << " from unconfirmed payments, not found in pool");
-        m_unconfirmed_payments.erase(pit);
-      }
-    }
-  }
+    remove_obsolete_pool_txs(res.tx_hashes);
+
   MDEBUG("update_pool_state done second loop");
 
   // gather txids of new pool txes to us
