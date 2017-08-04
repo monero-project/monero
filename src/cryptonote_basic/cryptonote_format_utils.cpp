@@ -324,9 +324,19 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key)
   {
-    tx.extra.resize(tx.extra.size() + 1 + sizeof(crypto::public_key));
-    tx.extra[tx.extra.size() - 1 - sizeof(crypto::public_key)] = TX_EXTRA_TAG_PUBKEY;
-    *reinterpret_cast<crypto::public_key*>(&tx.extra[tx.extra.size() - sizeof(crypto::public_key)]) = tx_pub_key;
+    return add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
+  }
+  //---------------------------------------------------------------
+  bool add_tx_pub_key_to_extra(transaction_prefix& tx, const crypto::public_key& tx_pub_key)
+  {
+    return add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
+  }
+  //---------------------------------------------------------------
+  bool add_tx_pub_key_to_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& tx_pub_key)
+  {
+    tx_extra.resize(tx_extra.size() + 1 + sizeof(crypto::public_key));
+    tx_extra[tx_extra.size() - 1 - sizeof(crypto::public_key)] = TX_EXTRA_TAG_PUBKEY;
+    *reinterpret_cast<crypto::public_key*>(&tx_extra[tx_extra.size() - sizeof(crypto::public_key)]) = tx_pub_key;
     return true;
   }
   //---------------------------------------------------------------
