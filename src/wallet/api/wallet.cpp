@@ -766,6 +766,9 @@ uint64_t WalletImpl::unlockedBalance(uint32_t accountIndex) const
 
 uint64_t WalletImpl::blockChainHeight() const
 {
+    if(m_wallet->light_wallet()) {
+        return m_wallet->get_light_wallet_scanned_block_height();
+    }
     return m_wallet->get_blockchain_current_height();
 }
 uint64_t WalletImpl::approximateBlockChainHeight() const
@@ -774,6 +777,9 @@ uint64_t WalletImpl::approximateBlockChainHeight() const
 }
 uint64_t WalletImpl::daemonBlockChainHeight() const
 {
+    if(m_wallet->light_wallet()) {
+        return m_wallet->get_light_wallet_scanned_block_height();
+    }
     if (!m_is_connected)
         return 0;
     std::string err;
@@ -793,6 +799,9 @@ uint64_t WalletImpl::daemonBlockChainHeight() const
 
 uint64_t WalletImpl::daemonBlockChainTargetHeight() const
 {
+    if(m_wallet->light_wallet()) {
+        return m_wallet->get_light_wallet_blockchain_height();
+    }
     if (!m_is_connected)
         return 0;
     std::string err;
@@ -1381,7 +1390,8 @@ Wallet::ConnectionStatus WalletImpl::connected() const
     m_is_connected = m_wallet->check_connection(&version, DEFAULT_CONNECTION_TIMEOUT_MILLIS);
     if (!m_is_connected)
         return Wallet::ConnectionStatus_Disconnected;
-    if ((version >> 16) != CORE_RPC_VERSION_MAJOR)
+    // Version check is not implemented in light wallets nodes/wallets
+    if (!m_wallet->light_wallet() && (version >> 16) != CORE_RPC_VERSION_MAJOR)
         return Wallet::ConnectionStatus_WrongVersion;
     return Wallet::ConnectionStatus_Connected;
 }
@@ -1444,7 +1454,7 @@ void WalletImpl::doRefresh()
     try {
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
-        if (daemonSynced()) {
+        if (m_wallet->light_wallet() || daemonSynced()) {
             m_wallet->refresh();
             if (!m_synchronized) {
                 m_synchronized = true;
