@@ -725,6 +725,12 @@ struct Wallet
     * \return true on success
     */
     virtual bool rescanSpent() = 0;
+    
+    //! Light wallet authenticate and login
+    virtual bool lightWalletLogin(bool &isNewWallet) const = 0;
+    
+    //! Initiates a light wallet import wallet request
+    virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status) = 0;
 };
 
 /**

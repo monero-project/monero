@@ -712,6 +712,38 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
     return doInit(daemon_address, upper_transaction_size_limit, use_ssl);
 }
 
+bool WalletImpl::lightWalletLogin(bool &isNewWallet) const
+{
+  return m_wallet->light_wallet_login(isNewWallet);
+}
+
+bool WalletImpl::lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status)
+{
+  try
+  {
+    cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::response response;
+    if(!m_wallet->light_wallet_import_wallet_request(response)){
+      m_errorString = tr("Failed to send import wallet request");
+      m_status = Status_Error;
+      return false;
+    }
+    fee = response.import_fee;
+    payment_id = response.payment_id;
+    new_request = response.new_request;
+    request_fulfilled = response.request_fulfilled;
+    payment_address = response.payment_address;
+    status = response.status;
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error sending import wallet request: " << e.what());
+    m_errorString = e.what();
+    m_status = Status_Error;
+    return false;
+  }
+  return true;
+}
+
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
 {
     m_wallet->set_refresh_from_block_height(refresh_from_block_height);
