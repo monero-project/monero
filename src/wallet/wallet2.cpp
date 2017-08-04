@@ -3160,10 +3160,15 @@ void wallet2::rescan_blockchain(bool refresh)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const
 {
-  if(!is_tx_spendtime_unlocked(td.m_tx.unlock_time, td.m_block_height))
+  return is_transfer_unlocked(td.m_tx.unlock_time, td.m_block_height);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const
+{
+  if(!is_tx_spendtime_unlocked(unlock_time, block_height))
     return false;
 
-  if(td.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > m_blockchain.size())
+  if(block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > m_local_bc_height)
     return false;
 
   return true;
@@ -3174,7 +3179,7 @@ bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_heig
   if(unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
   {
     //interpret as block index
-    if(m_blockchain.size()-1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
+    if(m_local_bc_height-1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
       return true;
     else
       return false;
