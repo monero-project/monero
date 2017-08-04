@@ -165,7 +165,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const std::string& password, bool watch_only);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
 
     struct tx_scan_info_t
     {
@@ -820,6 +820,20 @@ namespace tools
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
+
+    // Light wallet
+    bool m_light_wallet; /* sends view key to daemon for scanning */
+    uint64_t m_light_wallet_scanned_block_height;
+    uint64_t m_light_wallet_blockchain_height;
+    uint64_t m_light_wallet_per_kb_fee = FEE_PER_KB;
+    bool m_light_wallet_connected;
+    uint64_t m_light_wallet_balance;
+    uint64_t m_light_wallet_unlocked_balance;
+    // Light wallet info needed to populate m_payment requires 2 separate api calls (get_address_txs and get_unspent_outs)
+    // We save the info from the first call in m_light_wallet_address_txs for easier lookup.
+    std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
+    // store calculated key image for faster lookup
+    std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 20)
