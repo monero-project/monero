@@ -410,7 +410,7 @@ namespace tools
     // the minimum block size.
     bool deinit();
     bool init(std::string daemon_address = "http://localhost:8080",
-      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0);
+      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
