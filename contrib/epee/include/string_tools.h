@@ -39,6 +39,7 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
+#include <regex>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
@@ -349,6 +350,11 @@ POP_WARNINGS
     s = *(t_pod_type*)bin_buff.data();
     return true;
   }
+	//----------------------------------------------------------------------------
+	inline bool validate_hex(uint64_t length, const std::string& str)
+	{
+		return std::regex_match(str, std::regex("'^[0-9abcdefABCDEF]+$'")) && str.size() == length;
+	}
   //----------------------------------------------------------------------------
 	inline std::string get_extension(const std::string& str)
 	{
