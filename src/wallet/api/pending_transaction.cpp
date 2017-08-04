@@ -102,6 +102,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
       }
       // Commit tx
       else {
+        m_wallet.pauseRefresh();
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
             m_wallet.m_wallet->commit_tx(ptx);
@@ -133,6 +134,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
         m_status = Status_Error;
     }
 
+    m_wallet.startRefresh();
     return m_status == Status_Ok;
 }
 
