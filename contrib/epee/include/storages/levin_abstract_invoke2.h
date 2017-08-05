@@ -115,7 +115,7 @@ namespace epee
     {
       typename serialization::portable_storage stg;
       const_cast<t_arg&>(out_struct).store(stg);//TODO: add true const support to searilzation
-      std::string buff_to_send, buff_to_recv;
+      std::string buff_to_send;
       stg.store_to_binary(buff_to_send);
       int res = transport.invoke_async(command, buff_to_send, conn_id, [cb, command](int code, const std::string& buff, typename t_transport::connection_context& context)->bool 
       {
@@ -151,7 +151,7 @@ namespace epee
 
       serialization::portable_storage stg;
       out_struct.store(stg);
-      std::string buff_to_send, buff_to_recv;
+      std::string buff_to_send;
       stg.store_to_binary(buff_to_send);
 
       int res = transport.notify(command, buff_to_send, conn_id);
