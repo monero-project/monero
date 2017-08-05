@@ -71,11 +71,18 @@ namespace tools
   class i_wallet2_callback
   {
   public:
+    // Full wallet callbacks
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx) {}
+    // Light wallet callbacks
+    virtual void on_lw_new_block(uint64_t height) {}
+    virtual void on_lw_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    virtual void on_lw_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    virtual void on_lw_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    // Common callbacks
     virtual void on_pool_tx_removed(const crypto::hash &txid) {}
     virtual ~i_wallet2_callback() {}
   };

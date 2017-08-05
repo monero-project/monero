@@ -155,6 +155,38 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         // TODO;
     }
 
+    // Light wallet callbacks
+    virtual void on_lw_new_block(uint64_t height)
+    {
+      if (m_listener) {
+        m_listener->newBlock(height);
+      }
+    }
+
+    virtual void on_lw_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
+    {
+      if (m_listener) {
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
+        m_listener->moneyReceived(tx_hash, amount);
+      }
+    }
+
+    virtual void on_lw_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount)
+    {
+      if (m_listener) {
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
+        m_listener->unconfirmedMoneyReceived(tx_hash, amount);
+      }
+    }
+
+    virtual void on_lw_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount)
+    {
+      if (m_listener) {
+        std::string tx_hash =  epee::string_tools::pod_to_hex(txid);
+        m_listener->moneySpent(tx_hash, amount);
+      }
+    }
+
     WalletListener * m_listener;
     WalletImpl     * m_wallet;
 };

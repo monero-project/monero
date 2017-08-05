@@ -1857,8 +1857,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       if(m_light_wallet_blockchain_height != prev_height)
       {
         MDEBUG("new block since last time!");
-        cryptonote::block dummy;
-        m_callback->on_new_block(m_light_wallet_blockchain_height - 1, dummy);
+        m_callback->on_lw_new_block(m_light_wallet_blockchain_height - 1);
       }
       m_light_wallet_connected = true;
       MDEBUG("lw scanned block height: " <<  m_light_wallet_scanned_block_height);
@@ -5119,16 +5118,14 @@ void wallet2::light_wallet_get_address_txs()
           pool_txs.push_back(tx_hash);
           m_unconfirmed_payments.emplace(tx_hash, payment);
           if (0 != m_callback) {
-            cryptonote::transaction dummy_tx;
-            m_callback->on_unconfirmed_money_received(t.height, payment.m_tx_hash, dummy_tx, payment.m_amount);
+            m_callback->on_lw_unconfirmed_money_received(t.height, payment.m_tx_hash, payment.m_amount);
           }
         }
       } else {
         if (std::find(payments_txs.begin(), payments_txs.end(), tx_hash) == payments_txs.end()) {
           m_payments.emplace(tx_hash, payment);
           if (0 != m_callback) {
-            cryptonote::transaction dummy_tx;
-            m_callback->on_money_received(t.height, payment.m_tx_hash, dummy_tx, payment.m_amount);
+            m_callback->on_lw_money_received(t.height, payment.m_tx_hash, payment.m_amount);
           }
         }
       }
@@ -5178,7 +5175,7 @@ void wallet2::light_wallet_get_address_txs()
           }
           if (0 != m_callback)
           {
-            m_callback->on_money_spent(t.height, tx_hash, dummy_tx, amount_sent, dummy_tx);
+            m_callback->on_lw_money_spent(t.height, tx_hash, amount_sent);
           } 
         }
         // If not new - check the amount and update if necessary.
