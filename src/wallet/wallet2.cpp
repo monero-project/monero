@@ -2174,9 +2174,26 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
   // try asking the daemon first
   if(m_refresh_from_block_height == 0 && !recover){
     std::string err;
-    uint64_t height = get_daemon_blockchain_height(err);
-    if (err.empty())
-      m_refresh_from_block_height = height - blocks_per_month;
+    uint64_t height = 0;
+
+    // we get the max of approximated height and known height
+    // approximated height is the least of daemon target height
+    // (the max of what the other daemons are claiming is their
+    // height) and the theoretical height based on the local
+    // clock. This will be wrong only if both the local clock
+    // is bad *and* a peer daemon claims a highest height than
+    // the real chain.
+    // known height is the height the local daemon is currently
+    // synced to, it will be lower than the real chain height if
+    // the daemon is currently syncing.
+    height = get_approximate_blockchain_height();
+    uint64_t target_height = get_daemon_blockchain_target_height(err);
+    if (err.empty() && target_height < height)
+      height = target_height;
+    uint64_t local_height = get_daemon_blockchain_height(err);
+    if (err.empty() && local_height > height)
+      height = local_height;
+    m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
   }
 
   if(m_refresh_from_block_height == 0 && !recover){
