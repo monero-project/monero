@@ -296,6 +296,13 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
         return false;
       }
       restore_deterministic_wallet = true;
+
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_passphrase, std::string, String, false, std::string());
+      if (field_seed_passphrase_found)
+      {
+        if (!field_seed_passphrase.empty())
+          recovery_key = cryptonote::decrypt_key(recovery_key, field_seed_passphrase);
+      }
     }
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false, std::string());
@@ -527,7 +534,7 @@ bool wallet2::is_deterministic() const
   return keys_deterministic;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(std::string& electrum_words) const
+bool wallet2::get_seed(std::string& electrum_words, const std::string &passphrase) const
 {
   bool keys_deterministic = is_deterministic();
   if (!keys_deterministic)
@@ -541,7 +548,10 @@ bool wallet2::get_seed(std::string& electrum_words) const
     return false;
   }
 
-  crypto::ElectrumWords::bytes_to_words(get_account().get_keys().m_spend_secret_key, electrum_words, seed_language);
+  crypto::secret_key key = get_account().get_keys().m_spend_secret_key;
+  if (!passphrase.empty())
+    key = cryptonote::encrypt_key(key, passphrase);
+  crypto::ElectrumWords::bytes_to_words(key, electrum_words, seed_language);
 
   return true;
 }

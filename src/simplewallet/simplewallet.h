@@ -97,6 +97,7 @@ namespace cryptonote
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool spendkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool seed(const std::vector<std::string> &args = std::vector<std::string>());
+    bool encrypted_seed(const std::vector<std::string> &args = std::vector<std::string>());
 
     /*!
      * \brief Sets seed language.
@@ -185,6 +186,7 @@ namespace cryptonote
     bool accept_loaded_tx(const tools::wallet2::signed_tx_set &txs);
     bool print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr);
     std::string get_prompt() const;
+    bool print_seed(bool encrypted);
 
     /*!
      * \brief Prints the seed with a nice message
