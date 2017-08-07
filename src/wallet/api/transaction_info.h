@@ -56,6 +56,7 @@ public:
     virtual std::string paymentId() const;
     virtual const std::vector<Transfer> &transfers() const;
     virtual uint64_t confirmations() const;
+    virtual uint64_t unlockTime() const;
 
 private:
     int         m_direction;
@@ -69,6 +70,7 @@ private:
     std::string m_paymentid;
     std::vector<Transfer> m_transfers;
     uint64_t    m_confirmations;
+    uint64_t    m_unlock_time;
 
     friend class TransactionHistoryImpl;
 

@@ -50,6 +50,7 @@ TransactionInfoImpl::TransactionInfoImpl()
       , m_blockheight(0)
       , m_timestamp(0)
       , m_confirmations(0)
+      , m_unlock_time(0)
 {
 
 }
@@ -113,6 +114,11 @@ const std::vector<TransactionInfo::Transfer> &TransactionInfoImpl::transfers() c
 uint64_t TransactionInfoImpl::confirmations() const
 {
     return m_confirmations;
+}
+
+uint64_t TransactionInfoImpl::unlockTime() const
+{
+    return m_unlock_time;
 }
 
 } // namespace
