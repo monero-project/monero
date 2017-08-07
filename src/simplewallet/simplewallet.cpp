@@ -2375,7 +2375,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     {
       auto & ptx = ptx_vector.back();
       m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Money successfully sent, transaction ") << get_transaction_hash(ptx.tx);
+      success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << get_transaction_hash(ptx.tx) << ENDL
+      << tr("You can check its status by using the `show_transfers` command.");
 
       // if no exception, remove element from vector
       ptx_vector.pop_back();
