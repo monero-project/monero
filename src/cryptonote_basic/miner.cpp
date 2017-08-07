@@ -846,40 +846,100 @@ namespace cryptonote
 
     #elif defined(__linux__)
 
-      // i've only tested on UBUNTU, these paths might be different on other systems
-      // need to figure out a way to make this more flexible
-      std::string power_supply_path = "";
-      const std::string POWER_SUPPLY_STATUS_PATHS[] = 
-      {
-        "/sys/class/power_supply/ACAD/online",
-        "/sys/class/power_supply/AC/online",
-        "/sys/class/power_supply/AC0/online",
-        "/sys/class/power_supply/ADP0/online"
-      };
+      // Use the power_supply class http://lxr.linux.no/#linux+v4.10.1/Documentation/power/power_supply_class.txt
+      std::string power_supply_class_path = "/sys/class/power_supply";
 
-      for(const std::string& path : POWER_SUPPLY_STATUS_PATHS)
+      boost::tribool on_battery = boost::logic::tribool(boost::logic::indeterminate);
+      if (boost::filesystem::is_directory(power_supply_class_path))
       {
-        if( epee::file_io_utils::is_file_exist(path) )
+        const boost::filesystem::directory_iterator end_itr;
+        for (boost::filesystem::directory_iterator iter(power_supply_class_path); iter != end_itr; ++iter)
         {
-          power_supply_path = path;
-          break;
+          const boost::filesystem::path& power_supply_path = iter->path();
+          if (boost::filesystem::is_directory(power_supply_path))
+          {
+            std::ifstream power_supply_present_stream((power_supply_path / "present").string());
+            if (power_supply_present_stream.fail())
+            {
+              LOG_PRINT_L0("Unable to read from " << power_supply_path << " to check if power supply present");
+              continue;
+            }
+
+            if (power_supply_present_stream.get() != '1')
+            {
+              LOG_PRINT_L4("Power supply not present at " << power_supply_path);
+              continue;
+            }
+
+            boost::filesystem::path power_supply_type_path = power_supply_path / "type";
+            if (boost::filesystem::is_regular_file(power_supply_type_path))
+            {
+              std::ifstream power_supply_type_stream(power_supply_type_path.string());
+              if (power_supply_type_stream.fail())
+              {
+                LOG_PRINT_L0("Unable to read from " << power_supply_type_path << " to check power supply type");
+                continue;
+              }
+
+              std::string power_supply_type;
+              std::getline(power_supply_type_stream, power_supply_type);
+
+              // If there is an AC adapter that's present and online we can break early
+              if (boost::starts_with(power_supply_type, "Mains"))
+              {
+                boost::filesystem::path power_supply_online_path = power_supply_path / "online";
+                if (boost::filesystem::is_regular_file(power_supply_online_path))
+                {
+                  std::ifstream power_supply_online_stream(power_supply_online_path.string());
+                  if (power_supply_online_stream.fail())
+                  {
+                    LOG_PRINT_L0("Unable to read from " << power_supply_online_path << " to check ac power supply status");
+                    continue;
+                  }
+
+                  if (power_supply_online_stream.get() == '1')
+                  {
+                    return boost::logic::tribool(false);
+                  }
+                }
+              }
+              else if (boost::starts_with(power_supply_type, "Battery") && boost::logic::indeterminate(on_battery))
+              {
+                boost::filesystem::path power_supply_status_path = power_supply_path / "status";
+                if (boost::filesystem::is_regular_file(power_supply_status_path))
+                {
+                  std::ifstream power_supply_status_stream(power_supply_status_path.string());
+                  if (power_supply_status_stream.fail())
+                  {
+                    LOG_PRINT_L0("Unable to read from " << power_supply_status_path << " to check battery power supply status");
+                    continue;
+                  }
+
+                  // Possible status are Charging, Full, Discharging, Not Charging, and Unknown
+                  // We are only need to handle negative states right now
+                  std::string power_supply_status;
+                  std::getline(power_supply_status_stream, power_supply_status);
+                  if (boost::starts_with(power_supply_status, "Charging") || boost::starts_with(power_supply_status, "Full"))
+                  {
+                    on_battery = boost::logic::tribool(false);
+                  }
+
+                  if (boost::starts_with(power_supply_status, "Discharging"))
+                  {
+                    on_battery = boost::logic::tribool(true);
+                  }
+                }
+              }
+            }
+          }
         }
       }
 
-      if( power_supply_path.empty() )
+      if (boost::logic::indeterminate(on_battery))
       {
-        LOG_ERROR("Couldn't find battery/power status file, can't determine if plugged in!");
-        return boost::logic::tribool(boost::logic::indeterminate);;
+        LOG_ERROR("couldn't query power status from " << power_supply_class_path);
       }
-
-      std::ifstream power_stream(power_supply_path);
-      if( power_stream.fail() )
-      {
-        LOG_ERROR("failed to open '" << power_supply_path << "'");
-        return boost::logic::tribool(boost::logic::indeterminate);;
-      }
-
-      return boost::logic::tribool( (power_stream.get() != '1') );
+      return on_battery;
 
     #endif
     
