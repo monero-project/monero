@@ -4171,6 +4171,15 @@ void Blockchain::load_compiled_in_block_hashes()
 }
 #endif
 
+bool Blockchain::is_within_compiled_block_hash_area(uint64_t height) const
+{
+#if defined(PER_BLOCK_CHECKPOINT)
+  return height < m_blocks_hash_check.size();
+#else
+  return false;
+#endif
+}
+
 void Blockchain::lock()
 {
   m_blockchain_lock.lock();

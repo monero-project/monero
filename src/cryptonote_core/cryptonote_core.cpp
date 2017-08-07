@@ -562,7 +562,11 @@ namespace cryptonote
         rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
     }
 
-    if(!check_tx_semantic(tx, keeped_by_block))
+    if (keeped_by_block && get_blockchain_storage().is_within_compiled_block_hash_area())
+    {
+      MTRACE("Skipping semantics check for tx kept by block in embedded hash area");
+    }
+    else if(!check_tx_semantic(tx, keeped_by_block))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " semantic, rejected");
       tvc.m_verifivation_failed = true;
