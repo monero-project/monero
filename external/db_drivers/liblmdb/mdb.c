@@ -1468,7 +1468,7 @@ static int	mdb_page_merge(MDB_cursor *csrc, MDB_cursor *cdst);
 static int	mdb_page_split(MDB_cursor *mc, MDB_val *newkey, MDB_val *newdata,
 				pgno_t newpgno, unsigned int nflags);
 
-static int  mdb_env_read_header(MDB_env *env, MDB_meta *meta);
+static int  mdb_env_read_header(MDB_env *env, int prev, MDB_meta *meta);
 static MDB_meta *mdb_env_pick_meta(const MDB_env *env);
 static int  mdb_env_write_meta(MDB_txn *txn);
 #ifdef MDB_USE_POSIX_MUTEX /* Drop unused excl arg */
@@ -3867,11 +3867,12 @@ fail:
 /** Read the environment parameters of a DB environment before
  * mapping it into memory.
  * @param[in] env the environment handle
+ * @param[in] prev whether to use the backup meta page
  * @param[out] meta address of where to store the meta information
  * @return 0 on success, non-zero on failure.
  */
 static int ESECT
-mdb_env_read_header(MDB_env *env, MDB_meta *meta)
+mdb_env_read_header(MDB_env *env, int prev, MDB_meta *meta)
 {
 	MDB_metabuf	pbuf;
 	MDB_page	*p;
@@ -3922,7 +3923,7 @@ mdb_env_read_header(MDB_env *env, MDB_meta *meta)
 			return MDB_VERSION_MISMATCH;
 		}
 
-		if (off == 0 || m->mm_txnid > meta->mm_txnid)
+		if (off == 0 || (prev ? m->mm_txnid < meta->mm_txnid : m->mm_txnid > meta->mm_txnid))
 			*meta = *m;
 	}
 	return 0;
@@ -4366,7 +4367,7 @@ mdb_fsize(HANDLE fd, mdb_size_t *size)
 /** Further setup required for opening an LMDB environment
  */
 static int ESECT
-mdb_env_open2(MDB_env *env)
+mdb_env_open2(MDB_env *env, int prev)
 {
 	unsigned int flags = env->me_flags;
 	int i, newenv = 0, rc;
@@ -4429,7 +4430,7 @@ mdb_env_open2(MDB_env *env)
 	}
 #endif
 
-	if ((i = mdb_env_read_header(env, &meta)) != 0) {
+	if ((i = mdb_env_read_header(env, prev, &meta)) != 0) {
 		if (i != ENOENT)
 			return i;
 		DPUTS("new mdbenv");
@@ -5056,7 +5057,7 @@ fail:
 	 */
 #define	CHANGEABLE	(MDB_NOSYNC|MDB_NOMETASYNC|MDB_MAPASYNC|MDB_NOMEMINIT)
 #define	CHANGELESS	(MDB_FIXEDMAP|MDB_NOSUBDIR|MDB_RDONLY| \
-	MDB_WRITEMAP|MDB_NOTLS|MDB_NOLOCK|MDB_NORDAHEAD)
+	MDB_WRITEMAP|MDB_NOTLS|MDB_NOLOCK|MDB_NORDAHEAD|MDB_PREVMETA)
 
 #if VALID_FLAGS & PERSISTENT_FLAGS & (CHANGEABLE|CHANGELESS)
 # error "Persistent DB flags & env flags overlap, but both go in mm_flags"
@@ -5180,7 +5181,7 @@ mdb_env_open(MDB_env *env, const char *path, unsigned int flags, mdb_mode_t mode
 			goto leave;
 	}
 
-	if ((rc = mdb_env_open2(env)) == MDB_SUCCESS) {
+	if ((rc = mdb_env_open2(env, flags & MDB_PREVMETA)) == MDB_SUCCESS) {
 		if (flags & (MDB_RDONLY|MDB_WRITEMAP)) {
 			env->me_mfd = env->me_fd;
 		} else {

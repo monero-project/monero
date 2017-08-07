@@ -107,6 +107,11 @@ namespace command_line
   , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
   , "fast:async:1000"
   };
+  const arg_descriptor<bool> arg_db_salvage  = {
+    "db-salvage"
+  , "Try to salvage a blockchain database if it seems corrupted"
+  , false
+  };
   const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
     "fast-block-sync"
   , "Sync up most of the way by using embedded, known block hashes."
