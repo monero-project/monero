@@ -4,10 +4,7 @@
 #  MINIUPNP_FOUND, if false, do not try to link to miniupnp
 #  MINIUPNP_LIBRARY, the miniupnp variant
 #  MINIUPNP_INCLUDE_DIR, where to find miniupnpc.h and family)
-#  MINIUPNPC_VERSION_PRE1_6 --> set if we detect the version of miniupnpc is
-#                               pre 1.6
-#  MINIUPNPC_VERSION_PRE1_5 --> set if we detect the version of miniupnpc is
-#                               pre 1.5
+#  MINIUPNPC_VERSION_1_7_OR_HIGHER, set if we detect the version of miniupnpc is 1.7 or higher
 #
 # Note that the expected include convention is
 #  #include "miniupnpc.h"
@@ -16,170 +13,47 @@
 # This is because, the miniupnpc location is not standardized and may exist
 # in locations other than miniupnpc/
 
-#=============================================================================
-# Copyright 2011 Mark Vejvoda
-#
-# Distributed under the OSI-approved BSD License (the "License");
-# see accompanying file Copyright.txt for details.
-#
-# This software is distributed WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the License for more information.
-#=============================================================================
-# (To distributed this file outside of CMake, substitute the full
-#  License text for the above reference.)
-
 if (MINIUPNP_INCLUDE_DIR AND MINIUPNP_LIBRARY)
 	# Already in cache, be silent
 	set(MINIUPNP_FIND_QUIETLY TRUE)
 endif ()
 
 find_path(MINIUPNP_INCLUDE_DIR miniupnpc.h
-	PATH_SUFFIXES miniupnpc)
-find_library(MINIUPNP_LIBRARY miniupnpc)
+  HINTS $ENV{MINIUPNP_INCLUDE_DIR}
+  PATH_SUFFIXES miniupnpc
+)
 
-if (MINIUPNP_INCLUDE_DIR AND MINIUPNP_LIBRARY)
-	set (MINIUPNP_FOUND TRUE)
-endif ()
+find_library(MINIUPNP_LIBRARY miniupnpc
+  HINTS $ENV{MINIUPNP_LIBRARY}
+)
 
-if (MINIUPNP_FOUND)
-	include(CheckCXXSourceRuns)
-	if (NOT MINIUPNP_FIND_QUIETLY)
-		message (STATUS "Found the miniupnpc libraries at ${MINIUPNP_LIBRARY}")
-		message (STATUS "Found the miniupnpc headers at ${MINIUPNP_INCLUDE_DIR}")
-	endif ()
+find_library(MINIUPNP_STATIC_LIBRARY libminiupnpc.a
+  HINTS $ENV{MINIUPNP_STATIC_LIBRARY}
+)
 
-	message(STATUS "Detecting version of miniupnpc in path: ${MINIUPNP_INCLUDE_DIR}")
+set(MINIUPNP_INCLUDE_DIRS ${MINIUPNP_INCLUDE_DIR})
+set(MINIUPNP_LIBRARIES ${MINIUPNP_LIBRARY})
+set(MINIUPNP_STATIC_LIBRARIES ${MINIUPNP_STATIC_LIBRARY})
 
-	set(CMAKE_REQUIRED_INCLUDES ${MINIUPNP_INCLUDE_DIR})
-	set(CMAKE_REQUIRED_LIBRARIES ${MINIUPNP_LIBRARY})
-	check_cxx_source_runs("
-	#include <miniwget.h>
-	#include <miniupnpc.h>
-	#include <upnpcommands.h>
-	#include <stdio.h>
-	int main()
-	{
-	static struct UPNPUrls urls;
-	static struct IGDdatas data;
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(
+  MiniUPnPc DEFAULT_MSG
+  MINIUPNP_INCLUDE_DIR
+  MINIUPNP_LIBRARY
+)
 
-	GetUPNPUrls (&urls, &data, \"myurl\",0);
+IF(MINIUPNPC_FOUND)
+  file(STRINGS "${MINIUPNP_INCLUDE_DIR}/miniupnpc.h" MINIUPNPC_API_VERSION_STR REGEX "^#define[\t ]+MINIUPNPC_API_VERSION[\t ]+[0-9]+")
+  if(MINIUPNPC_API_VERSION_STR MATCHES "^#define[\t ]+MINIUPNPC_API_VERSION[\t ]+([0-9]+)")
+    set(MINIUPNPC_API_VERSION "${CMAKE_MATCH_1}")
+  endif()
 
-	return 0;
-	}"
-	MINIUPNPC_VERSION_1_7_OR_HIGHER)
-
-IF (NOT MINIUPNPC_VERSION_1_7_OR_HIGHER)
-	set(CMAKE_REQUIRED_INCLUDES ${MINIUPNP_INCLUDE_DIR})
-	set(CMAKE_REQUIRED_LIBRARIES ${MINIUPNP_LIBRARY})
-	check_cxx_source_runs("
-	#include <miniwget.h>
-	#include <miniupnpc.h>
-	#include <upnpcommands.h>
-	#include <stdio.h>
-	int main()
-	{
-	struct UPNPDev *devlist = NULL;
-	int upnp_delay = 5000;
-	const char *upnp_multicastif = NULL;
-	const char *upnp_minissdpdsock = NULL;
-	int upnp_sameport = 0;
-	int upnp_ipv6 = 0;
-	int upnp_error = 0;
-	devlist = upnpDiscover(upnp_delay, upnp_multicastif, upnp_minissdpdsock, upnp_sameport, upnp_ipv6, &upnp_error);
-
-	return 0;
-	}"
-	MINIUPNPC_VERSION_PRE1_7)
-   ENDIF()
-
-   IF (NOT MINIUPNPC_VERSION_PRE1_7 AND NOT MINIUPNPC_VERSION_1_7_OR_HIGHER)
-	   set(CMAKE_REQUIRED_INCLUDES ${MINIUPNP_INCLUDE_DIR})
-	   set(CMAKE_REQUIRED_LIBRARIES ${MINIUPNP_LIBRARY})
-	   check_cxx_source_runs("
-	   #include <miniwget.h>
-	   #include <miniupnpc.h>
-	   #include <upnpcommands.h>
-	   #include <stdio.h>
-	   int main()
-	   {
-	   struct UPNPDev *devlist = NULL;
-	   int upnp_delay = 5000;
-	   const char *upnp_multicastif = NULL;
-	   const char *upnp_minissdpdsock = NULL;
-	   int upnp_sameport = 0;
-	   int upnp_ipv6 = 0;
-	   int upnp_error = 0;
-	   devlist = upnpDiscover(upnp_delay, upnp_multicastif, upnp_minissdpdsock, upnp_sameport);
-
-	   return 0;
-	   }"
-	   MINIUPNPC_VERSION_PRE1_6)
-
-   ENDIF()
-
-   IF (NOT MINIUPNPC_VERSION_PRE1_6 AND NOT MINIUPNPC_VERSION_PRE1_7 AND NOT MINIUPNPC_VERSION_1_7_OR_HIGHER)
-	   set(CMAKE_REQUIRED_INCLUDES ${MINIUPNP_INCLUDE_DIR})
-	   set(CMAKE_REQUIRED_LIBRARIES ${MINIUPNP_LIBRARY})
-	   check_cxx_source_runs("
-	   #include <miniwget.h>
-	   #include <miniupnpc.h>
-	   #include <upnpcommands.h>
-	   #include <stdio.h>
-	   static struct UPNPUrls urls;
-	   static struct IGDdatas data;
-	   int main()
-	   {
-	   char externalIP[16]     = \"\";
-	   UPNP_GetExternalIPAddress(urls.controlURL, data.first.servicetype, externalIP);
-
-	   return 0;
-	   }"
-	   MINIUPNPC_VERSION_1_5_OR_HIGHER)
-	ENDIF()
-
-	IF (NOT MINIUPNPC_VERSION_1_5_OR_HIGHER AND NOT MINIUPNPC_VERSION_PRE1_6 AND NOT MINIUPNPC_VERSION_PRE1_7 AND NOT MINIUPNPC_VERSION_1_7_OR_HIGHER)
-		set(CMAKE_REQUIRED_INCLUDES ${MINIUPNP_INCLUDE_DIR})
-		set(CMAKE_REQUIRED_LIBRARIES ${MINIUPNP_LIBRARY})
-		check_cxx_source_runs("
-		#include <miniwget.h>
-		#include <miniupnpc.h>
-		#include <upnpcommands.h>
-		#include <stdio.h>
-		static struct UPNPUrls urls;
-		static struct IGDdatas data;
-		int main()
-		{
-		char externalIP[16]     = \"\";
-		UPNP_GetExternalIPAddress(urls.controlURL, data.servicetype, externalIP);
-
-		return 0;
-		}"
-		MINIUPNPC_VERSION_PRE1_5)
-
+ if (${MINIUPNPC_API_VERSION} GREATER_EQUAL "10")
+	message(STATUS "Found miniupnpc API version " ${MINIUPNPC_API_VERSION})
+	set(MINIUPNP_FOUND true)
+	set(MINIUPNPC_VERSION_1_7_OR_HIGHER true)
+  endif()
 ENDIF()
 
-IF(MINIUPNPC_VERSION_PRE1_5)
-	message(STATUS "Found miniupnpc version is pre v1.5")
-ENDIF()
-IF(MINIUPNPC_VERSION_PRE1_6)
-	message(STATUS "Found miniupnpc version is pre v1.6")
-ENDIF()
-IF(MINIUPNPC_VERSION_PRE1_7)
-	message(STATUS "Found miniupnpc version is pre v1.7")
-ENDIF()
-
-IF(NOT MINIUPNPC_VERSION_PRE1_5 AND NOT MINIUPNPC_VERSION_PRE1_6 AND NOT MINIUPNPC_VERSION_PRE1_7)
-	IF(MINIUPNPC_VERSION_1_5_OR_HIGHER)
-		message(STATUS "Found miniupnpc version is v1.5 or higher")
-	ELSE()
-		message(STATUS "Found miniupnpc version is v1.7 or higher")
-	ENDIF()
-ENDIF()
-
-else ()
-	message (STATUS "Could not find miniupnp")
-endif ()
-
-MARK_AS_ADVANCED(MINIUPNP_INCLUDE_DIR MINIUPNP_LIBRARY)
+mark_as_advanced(MINIUPNP_INCLUDE_DIR MINIUPNP_LIBRARY MINIUPNP_STATIC_LIBRARY)
 # --------------------------------- FindMiniupnpc End ---------------------------------
