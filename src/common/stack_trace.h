@@ -29,7 +29,6 @@
 #ifndef MONERO_EXCEPTION_H
 #define MONERO_EXCEPTION_H
 
-#include <stdexcept>
 #include <string>
 
 namespace tools

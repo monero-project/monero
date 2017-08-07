@@ -54,7 +54,7 @@ Throttling work by:
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "../../src/p2p/network_throttle-detail.hpp"
+#include "network_throttle-detail.hpp"
 
 namespace epee
 {

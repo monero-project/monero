@@ -41,7 +41,7 @@
 #include "daemon/rpc.h"
 #include "daemon/command_server.h"
 #include "version.h"
-#include "../../contrib/epee/include/syncobj.h"
+#include "syncobj.h"
 
 using namespace epee;
 

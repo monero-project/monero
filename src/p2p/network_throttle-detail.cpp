@@ -51,8 +51,8 @@
 
 #include "syncobj.h"
 
-#include "../../contrib/epee/include/net/net_utils_base.h" 
-#include "../../contrib/epee/include/misc_log_ex.h" 
+#include "net/net_utils_base.h" 
+#include "misc_log_ex.h" 
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -71,10 +71,10 @@
 
 #include <boost/asio/basic_socket.hpp>
 #include <boost/asio/ip/unicast.hpp>
-#include "../../contrib/epee/include/net/abstract_tcp_server2.h"
+#include "net/abstract_tcp_server2.h"
 
 // TODO:
-#include "../../src/p2p/network_throttle-detail.hpp"
+#include "network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.throttle"

@@ -59,8 +59,8 @@
 
 #include <memory>
 
-#include "../../contrib/epee/include/net/net_utils_base.h"
-#include "../../contrib/epee/include/syncobj.h"
+#include "net/net_utils_base.h"
+#include "syncobj.h"
 
 namespace epee
 {
