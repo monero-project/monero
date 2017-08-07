@@ -111,7 +111,7 @@ namespace cryptonote
     bool set_always_confirm_transfers(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_print_ring_members(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_store_tx_info(const std::vector<std::string> &args = std::vector<std::string>());
-    bool set_default_mixin(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_default_ring_size(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_auto_refresh(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_refresh_type(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_confirm_missing_payment_id(const std::vector<std::string> &args = std::vector<std::string>());

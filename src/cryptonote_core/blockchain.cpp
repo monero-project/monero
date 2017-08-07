@@ -2257,8 +2257,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
     TIME_MEASURE_FINISH(a);
     if(m_show_time_stats)
     {
-      size_t mixin = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() - 1 : 0;
-      MINFO("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << mixin << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
+      size_t ring_size = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
+      MINFO("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << ring_size << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
     }
     return true;
   }
@@ -2269,8 +2269,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
   {
-    size_t mixin = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() - 1 : 0;
-    MINFO("HASH: " <<  get_transaction_hash(tx) << " I/M/O: " << tx.vin.size() << "/" << mixin << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time << " B: " << get_object_blobsize(tx));
+    size_t ring_size = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
+    MINFO("HASH: " <<  get_transaction_hash(tx) << " I/M/O: " << tx.vin.size() << "/" << ring_size << "/" << tx.vout.size() << " H: " << max_used_block_height << " ms: " << a + m_fake_scan_time << " B: " << get_object_blobsize(tx));
   }
   if (!res)
     return false;
@@ -2462,13 +2462,13 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     {
       if (n_unmixable == 0)
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and no unmixable inputs");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and no unmixable inputs");
         tvc.m_low_mixin = true;
         return false;
       }
       if (n_mixable > 1)
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low mixin (" << mixin << "), and more than one mixable input with unmixable inputs");
+        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and more than one mixable input with unmixable inputs");
         tvc.m_low_mixin = true;
         return false;
       }
