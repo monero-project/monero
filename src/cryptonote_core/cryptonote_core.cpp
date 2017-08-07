@@ -77,6 +77,7 @@ namespace cryptonote
               m_checkpoints_path(""),
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
+              m_disable_dns_checkpoints(false),
               m_threadpool(tools::thread_group::optimal()),
               m_update_download(0)
   {
@@ -108,7 +109,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints()
   {
-    if (m_testnet || m_fakechain) return true;
+    if (m_testnet || m_fakechain || m_disable_dns_checkpoints) return true;
 
     if (m_checkpoints_updating.test_and_set()) return true;
 
