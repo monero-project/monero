@@ -660,6 +660,12 @@ namespace cryptonote
       return false;
     }
 
+    if (!check_tx_inputs_ring_members_diff(tx))
+    {
+      MERROR_VER("tx uses duplicate ring members");
+      return false;
+    }
+
     if (!check_tx_inputs_keyimages_domain(tx))
     {
       MERROR_VER("tx uses key image not in the valid domain");
@@ -748,6 +754,22 @@ namespace cryptonote
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
       if(!ki.insert(tokey_in.k_image).second)
         return false;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_tx_inputs_ring_members_diff(const transaction& tx) const
+  {
+    const uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
+    if (version >= 6)
+    {
+      for(const auto& in: tx.vin)
+      {
+        CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+        for (size_t n = 1; n < tokey_in.key_offsets.size(); ++n)
+          if (tokey_in.key_offsets[n] == 0)
+            return false;
+      }
     }
     return true;
   }

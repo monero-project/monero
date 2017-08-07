@@ -781,6 +781,15 @@ namespace cryptonote
      bool check_tx_inputs_keyimages_diff(const transaction& tx) const;
 
      /**
+      * @brief verify that each ring uses distinct members
+      *
+      * @param tx the transaction to check
+      *
+      * @return false if any ring uses duplicate members, true otherwise
+      */
+     bool check_tx_inputs_ring_members_diff(const transaction& tx) const;
+
+     /**
       * @brief verify that each input key image in a transaction is in
       * the valid domain
       *
