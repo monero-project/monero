@@ -208,7 +208,7 @@ namespace cryptonote
       cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
 
       cnx.send_count = cntxt.m_send_cnt;
-      cnx.send_idle_time = timestamp;
+      cnx.send_idle_time = timestamp - cntxt.m_last_send;
 
       cnx.state = get_protocol_state_string(cntxt.m_state);
 
