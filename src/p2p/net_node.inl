@@ -1382,7 +1382,7 @@ namespace nodetool
     }
     crypto::public_key pk = AUTO_VAL_INIT(pk);
     epee::string_tools::hex_to_pod(::config::P2P_REMOTE_DEBUG_TRUSTED_PUB_KEY, pk);
-    crypto::hash h = tools::get_proof_of_trust_hash(tr);
+    crypto::hash h = get_proof_of_trust_hash(tr);
     if(!crypto::check_signature(h, pk, tr.sign))
     {
       LOG_ERROR("check_trust failed: sign check failed");
