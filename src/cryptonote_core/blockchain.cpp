@@ -3555,19 +3555,17 @@ void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 }
 
 //------------------------------------------------------------------
-void Blockchain::block_longhash_worker(const uint64_t height, const std::vector<block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
+void Blockchain::block_longhash_worker(uint64_t height, const std::vector<block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
 {
   TIME_MEASURE_START(t);
   slow_hash_allocate_state();
 
-  //FIXME: height should be changing here, as get_block_longhash expects
-  //       the height of the block passed to it
   for (const auto & block : blocks)
   {
     if (m_cancel)
-       return;
+       break;
     crypto::hash id = get_block_hash(block);
-    crypto::hash pow = get_block_longhash(block, height);
+    crypto::hash pow = get_block_longhash(block, height++);
     map.emplace(id, pow);
   }
 
@@ -3759,9 +3757,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
     if (!blocks_exist)
     {
       m_blocks_longhash_table.clear();
+      uint64_t thread_height = height;
       for (uint64_t i = 0; i < threads; i++)
       {
-        thread_list.push_back(new boost::thread(attrs, boost::bind(&Blockchain::block_longhash_worker, this, height + (i * batches), std::cref(blocks[i]), std::ref(maps[i]))));
+        thread_list.push_back(new boost::thread(attrs, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, std::cref(blocks[i]), std::ref(maps[i]))));
+        thread_height += blocks[i].size();
       }
 
       for (size_t j = 0; j < thread_list.size(); j++)
