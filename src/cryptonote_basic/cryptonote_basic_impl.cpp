@@ -308,13 +308,13 @@ namespace cryptonote {
     , crypto::hash8& payment_id
     , bool testnet
     , const std::string& str_or_url
-    , bool cli_confirm
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
     )
   {
     if (get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, str_or_url))
       return true;
     bool dnssec_valid;
-    std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, cli_confirm);
+    std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, dns_confirm);
     return !address_str.empty() &&
       get_account_integrated_address_from_str(address, has_payment_id, payment_id, testnet, address_str);
   }
@@ -323,12 +323,12 @@ namespace cryptonote {
       cryptonote::account_public_address& address
     , bool testnet
     , const std::string& str_or_url
-    , bool cli_confirm
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
     )
   {
     bool has_payment_id;
     crypto::hash8 payment_id;
-    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, testnet, str_or_url, cli_confirm);
+    return get_account_address_from_str_or_url(address, has_payment_id, payment_id, testnet, str_or_url, dns_confirm);
   }
   //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {

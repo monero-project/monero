@@ -26,12 +26,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "common/command_line.h"
-#include "common/i18n.h"
 #include "common/dns_utils.h"
+#include "common/i18n.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
-#include <cstring>
-#include <sstream>
 // check local first (in the event of static or in-source compilation of libunbound)
 #include "unbound.h"
 
@@ -401,7 +398,7 @@ std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec
   return addresses;
 }
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, bool cli_confirm)
+std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm)
 {
   // attempt to get address from dns query
   auto addresses = addresses_from_url(url, dnssec_valid);
@@ -410,44 +407,7 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
     LOG_ERROR("wrong address: " << url);
     return {};
   }
-  // for now, move on only if one address found
-  if (addresses.size() > 1)
-  {
-    LOG_ERROR("not yet supported: Multiple Monero addresses found for given URL: " << url);
-    return {};
-  }
-  if (!cli_confirm)
-    return addresses[0];
-  // prompt user for confirmation.
-  // inform user of DNSSEC validation status as well.
-  std::string dnssec_str;
-  if (dnssec_valid)
-  {
-    dnssec_str = tr("DNSSEC validation passed");
-  }
-  else
-  {
-    dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
-  }
-  std::stringstream prompt;
-  prompt << tr("For URL: ") << url
-         << ", " << dnssec_str << std::endl
-         << tr(" Monero Address = ") << addresses[0]
-         << std::endl
-         << tr("Is this OK? (Y/n) ")
-  ;  
-  // prompt the user for confirmation given the dns query and dnssec status
-  std::string confirm_dns_ok = command_line::input_line(prompt.str());
-  if (std::cin.eof())
-  {
-    return {};
-  }
-  if (!command_line::is_yes(confirm_dns_ok))
-  {
-    std::cout << tr("you have cancelled the transfer request") << std::endl;
-    return {};
-  }
-  return addresses[0];
+  return dns_confirm(url, addresses, dnssec_valid);
 }
 
 namespace

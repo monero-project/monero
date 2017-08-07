@@ -281,6 +281,42 @@ namespace
   {
     return boost::lexical_cast<std::string>(version >> 16) + "." + boost::lexical_cast<std::string>(version & 0xffff);
   }
+
+  std::string oa_prompter(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
+  {
+    if (addresses.empty())
+      return {};
+    // prompt user for confirmation.
+    // inform user of DNSSEC validation status as well.
+    std::string dnssec_str;
+    if (dnssec_valid)
+    {
+      dnssec_str = tr("DNSSEC validation passed");
+    }
+    else
+    {
+      dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
+    }
+    std::stringstream prompt;
+    prompt << tr("For URL: ") << url
+           << ", " << dnssec_str << std::endl
+           << tr(" Monero Address = ") << addresses[0]
+           << std::endl
+           << tr("Is this OK? (Y/n) ")
+    ;
+    // prompt the user for confirmation given the dns query and dnssec status
+    std::string confirm_dns_ok = command_line::input_line(prompt.str());
+    if (std::cin.eof())
+    {
+      return {};
+    }
+    if (!command_line::is_yes(confirm_dns_ok))
+    {
+      std::cout << tr("you have cancelled the transfer request") << std::endl;
+      return {};
+    }
+    return addresses[0];
+  }
 }
 
 
@@ -2215,7 +2251,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     cryptonote::tx_destination_entry de;
     bool has_payment_id;
     crypto::hash8 new_payment_id;
-    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i]))
+    if (!cryptonote::get_account_address_from_str_or_url(de.addr, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[i], oa_prompter))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
@@ -2714,7 +2750,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   bool has_payment_id;
   crypto::hash8 new_payment_id;
   cryptonote::account_public_address address;
-  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[0]))
+  if (!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, new_payment_id, m_wallet->testnet(), local_args[0], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -3312,7 +3348,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), args[1]))
+  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), args[1], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -3414,7 +3450,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), local_args[2]))
+  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), local_args[2], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -3566,7 +3602,7 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), args[1]))
+  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), args[1], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
@@ -4084,7 +4120,7 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id8;
-    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), args[1]))
+    if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), args[1], oa_prompter))
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
@@ -4275,7 +4311,7 @@ bool simple_wallet::verify(const std::vector<std::string> &args)
   cryptonote::account_public_address address;
   bool has_payment_id;
   crypto::hash8 payment_id;
-  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), address_string))
+  if(!cryptonote::get_account_address_from_str_or_url(address, has_payment_id, payment_id, m_wallet->testnet(), address_string, oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
     return true;
