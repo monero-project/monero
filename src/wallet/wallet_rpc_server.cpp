@@ -454,7 +454,8 @@ namespace tools
         return false;
       }
 
-      m_wallet->commit_tx(ptx_vector);
+      if (!req.do_not_relay)
+        m_wallet->commit_tx(ptx_vector);
 
       // populate response with tx hash
       res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
@@ -463,6 +464,13 @@ namespace tools
         res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
       }
       res.fee = ptx_vector.back().fee;
+
+      if (req.get_tx_hex)
+      {
+        cryptonote::blobdata blob;
+        tx_to_blob(ptx_vector.back().tx, blob);
+        res.tx_blob = epee::string_tools::buff_to_hex_nodelimer(blob);
+      }
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -519,9 +527,12 @@ namespace tools
       ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
-      LOG_PRINT_L2("on_transfer_split calling commit_tx");
-      m_wallet->commit_tx(ptx_vector);
-      LOG_PRINT_L2("on_transfer_split called commit_tx");
+      if (!req.do_not_relay)
+      {
+        LOG_PRINT_L2("on_transfer_split calling commit_tx");
+        m_wallet->commit_tx(ptx_vector);
+        LOG_PRINT_L2("on_transfer_split called commit_tx");
+      }
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
@@ -538,6 +549,13 @@ namespace tools
         res.amount_list.push_back(ptx_amount);
 
         res.fee_list.push_back(ptx.fee);
+
+        if (req.get_tx_hex)
+        {
+          cryptonote::blobdata blob;
+          tx_to_blob(ptx.tx, blob);
+          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+        }
       }
 
       return true;
@@ -577,7 +595,8 @@ namespace tools
     {
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
 
-      m_wallet->commit_tx(ptx_vector);
+      if (!req.do_not_relay)
+        m_wallet->commit_tx(ptx_vector);
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
@@ -588,6 +607,12 @@ namespace tools
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
         res.fee_list.push_back(ptx.fee);
+        if (req.get_tx_hex)
+        {
+          cryptonote::blobdata blob;
+          tx_to_blob(ptx.tx, blob);
+          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+        }
       }
 
       return true;
@@ -640,7 +665,8 @@ namespace tools
     {
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, req.mixin, req.unlock_time, req.priority, extra, m_trusted_daemon);
 
-      m_wallet->commit_tx(ptx_vector);
+      if (!req.do_not_relay)
+        m_wallet->commit_tx(ptx_vector);
 
       // populate response with tx hashes
       for (auto & ptx : ptx_vector)
@@ -650,7 +676,12 @@ namespace tools
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
-        res.fee_list.push_back(ptx.fee);
+        if (req.get_tx_hex)
+        {
+          cryptonote::blobdata blob;
+          tx_to_blob(ptx.tx, blob);
+          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+        }
       }
 
       return true;
