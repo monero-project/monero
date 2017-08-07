@@ -115,6 +115,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_view_key = {"generate-from-view-key", sw::tr("Generate incoming-only wallet from view key"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from private keys"), ""};
+  const command_line::arg_descriptor<std::string> arg_generate_from_multisig_keys = {"generate-from-multisig-keys", sw::tr("Generate a master wallet from multisig wallet keys"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
@@ -968,12 +969,12 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (!handle_command_line(vm))
     return false;
 
-  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) + (!m_generate_from_keys.empty()) + (!m_generate_from_json.empty()) > 1)
+  if((!m_generate_new.empty()) + (!m_wallet_file.empty()) + (!m_generate_from_view_key.empty()) + (!m_generate_from_keys.empty()) + (!m_generate_from_multisig_keys.empty()) + (!m_generate_from_json.empty()) > 1)
   {
-    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key=\"wallet_name\", --generate-from-json=\"jsonfilename\" and --generate-from-keys=\"wallet_name\"");
+    fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key=\"wallet_name\", --generate-from-keys=\"wallet_name\", --generate-from-multisig-keys=\"wallet_name\" and --generate-from-json=\"jsonfilename\"");
     return false;
   }
-  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty() && m_generate_from_json.empty())
+  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty() && m_generate_from_multisig_keys.empty() && m_generate_from_json.empty())
   {
     if(!ask_wallet_create_if_needed()) return false;
   }
@@ -1146,6 +1147,143 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       bool r = new_wallet(vm, address, spendkey, viewkey);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
+    
+    // Asks user for all the data required to merge secret keys from multisig wallets into one master wallet, which then gets full control of the multisig wallet. The resulting wallet will be the same as any other regular wallet.
+    else if (!m_generate_from_multisig_keys.empty())
+    {
+      m_wallet_file = m_generate_from_multisig_keys;
+      unsigned int multisig_m;
+      unsigned int multisig_n;
+      
+      // parse multisig type
+      std::string multisig_type_string = command_line::input_line("Multisig type (input as M/N with M <= N and M > 1): ");
+      if (std::cin.eof())
+        return false;
+      if (multisig_type_string.empty())
+      {
+        fail_msg_writer() << tr("No data supplied, cancelled");
+        return false;
+      }
+      if (sscanf(multisig_type_string.c_str(), "%u/%u", &multisig_m, &multisig_n) != 2)
+      {
+        fail_msg_writer() << tr("Error: expected M/N, but got: ") << multisig_type_string;
+        return false;
+      }
+      if (multisig_m <= 1 || multisig_m > multisig_n)
+      {
+        fail_msg_writer() << tr("Error: expected N > 1 and N <= M, but got: ") << multisig_type_string;
+        return false;
+      }
+      if (multisig_m != multisig_n)
+      {
+        fail_msg_writer() << tr("Error: M/N is currently unsupported. ");
+        return false;
+      }      
+      message_writer() << boost::format(tr("Generating master wallet from %u of %u multisig wallet keys")) % multisig_m % multisig_n;
+      
+      // parse multisig address
+      std::string address_string = command_line::input_line("Multisig wallet address: ");
+      if (std::cin.eof())
+        return false;
+      if (address_string.empty()) {
+        fail_msg_writer() << tr("No data supplied, cancelled");
+        return false;
+      }
+      cryptonote::account_public_address address;
+      bool has_payment_id;
+      crypto::hash8 new_payment_id;
+      if(!get_account_integrated_address_from_str(address, has_payment_id, new_payment_id, tools::wallet2::has_testnet_option(vm), address_string))
+      {
+          fail_msg_writer() << tr("failed to parse address");
+          return false;
+      }
+      
+      // parse secret view key
+      std::string viewkey_string = command_line::input_line("Secret view key: ");
+      if (std::cin.eof())
+        return false;
+      if (viewkey_string.empty())
+      {
+        fail_msg_writer() << tr("No data supplied, cancelled");
+        return false;
+      }
+      cryptonote::blobdata viewkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
+      {
+        fail_msg_writer() << tr("failed to parse secret view key");
+        return false;
+      }
+      crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+      
+      // check that the view key matches the given address
+      crypto::public_key pkey;
+      if (!crypto::secret_key_to_public_key(viewkey, pkey))
+      {
+        fail_msg_writer() << tr("failed to verify secret view key");
+        return false;
+      }
+      if (address.m_view_public_key != pkey)
+      {
+        fail_msg_writer() << tr("view key does not match standard address");
+        return false;
+      }
+      
+      // parse multisig spend keys
+      crypto::secret_key spendkey;
+      // parsing N/N
+      if(multisig_m == multisig_n)
+      {
+        std::vector<crypto::secret_key> multisig_secret_spendkeys(multisig_n);
+        std::string spendkey_string;
+        cryptonote::blobdata spendkey_data;
+        // get N secret spend keys from user
+        for(unsigned int i=0; i<multisig_n; ++i)
+        {
+          spendkey_string = command_line::input_line(tr((boost::format(tr("Secret spend key (%u of %u):")) % (i+i) % multisig_m).str().c_str()));
+          if (std::cin.eof())
+            return false;
+          if (spendkey_string.empty())
+          {
+            fail_msg_writer() << tr("No data supplied, cancelled");
+            return false;
+          }
+          if(!epee::string_tools::parse_hexstr_to_binbuff(spendkey_string, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
+          {
+            fail_msg_writer() << tr("failed to parse spend key secret key");
+            return false;
+          }
+          multisig_secret_spendkeys[i] = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+        }
+        
+        // sum the spend keys together to get the master spend key
+        spendkey = multisig_secret_spendkeys[0];
+        for(unsigned int i=1; i<multisig_n; ++i)
+          sc_add(reinterpret_cast<unsigned char*>(&spendkey), reinterpret_cast<unsigned char*>(&spendkey), reinterpret_cast<unsigned char*>(&multisig_secret_spendkeys[i]));
+      }
+      // parsing M/N
+      else
+      {
+        fail_msg_writer() << tr("Error: M/N is currently unsupported");
+        return false;
+      }
+      
+      // check that the spend key matches the given address
+      if (!crypto::secret_key_to_public_key(spendkey, pkey))
+      {
+        fail_msg_writer() << tr("failed to verify spend key secret key");
+        return false;
+      }
+      if (address.m_spend_public_key != pkey)
+      {
+        fail_msg_writer() << tr("spend key does not match standard address");
+        return false;
+      }
+      
+      // create wallet
+      bool r = new_wallet(vm, address, spendkey, viewkey);
+      CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+    }
+    
     else if (!m_generate_from_json.empty())
     {
       m_wallet_file = m_generate_from_json;
@@ -1271,6 +1409,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_generate_new                  = command_line::get_arg(vm, arg_generate_new_wallet);
   m_generate_from_view_key        = command_line::get_arg(vm, arg_generate_from_view_key);
   m_generate_from_keys            = command_line::get_arg(vm, arg_generate_from_keys);
+  m_generate_from_multisig_keys   = command_line::get_arg(vm, arg_generate_from_multisig_keys);
   m_generate_from_json            = command_line::get_arg(vm, arg_generate_from_json);
   m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
@@ -1280,6 +1419,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
   m_restoring                     = !m_generate_from_view_key.empty() ||
                                     !m_generate_from_keys.empty() ||
+                                    !m_generate_from_multisig_keys.empty() ||
                                     !m_generate_from_json.empty() ||
                                     m_restore_deterministic_wallet;
 
@@ -4660,6 +4800,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_generate_new_wallet);
   command_line::add_arg(desc_params, arg_generate_from_view_key);
   command_line::add_arg(desc_params, arg_generate_from_keys);
+  command_line::add_arg(desc_params, arg_generate_from_multisig_keys);
   command_line::add_arg(desc_params, arg_generate_from_json);
   command_line::add_arg(desc_params, arg_command);
 
