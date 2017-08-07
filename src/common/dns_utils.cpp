@@ -307,12 +307,8 @@ DNSResolver& DNSResolver::instance()
 {
   boost::lock_guard<boost::mutex> lock(instance_lock);
 
-  static DNSResolver* staticInstance = NULL;
-  if (staticInstance == NULL)
-  {
-    staticInstance = new DNSResolver();
-  }
-  return *staticInstance;
+  static DNSResolver staticInstance;
+  return staticInstance;
 }
 
 DNSResolver DNSResolver::create()
