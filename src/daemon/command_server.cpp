@@ -253,6 +253,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::relay_tx, &m_parser, p::_1)
     , "Relay a given transaction by its txid"
     );
+    m_command_lookup.set_handler(
+      "sync_info"
+    , std::bind(&t_command_parser_executor::sync_info, &m_parser, p::_1)
+    , "Print information about blockchain sync state"
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

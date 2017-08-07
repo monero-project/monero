@@ -200,6 +200,14 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::for_connection(const boost::uuids::uuid &connection_id, std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f)
+  {
+    return m_net_server.get_config_object().for_connection(connection_id, [&](p2p_connection_context& cntx){
+      return f(cntx, cntx.peer_id, cntx.support_flags);
+    });
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_remote_host_allowed(const epee::net_utils::network_address &address)
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);

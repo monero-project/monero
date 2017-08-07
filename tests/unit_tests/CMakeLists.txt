@@ -31,6 +31,7 @@ set(unit_tests_sources
   ban.cpp
   base58.cpp
   blockchain_db.cpp
+  block_queue.cpp
   block_reward.cpp
   canonical_amounts.cpp
   chacha8.cpp
@@ -72,6 +73,7 @@ add_executable(unit_tests
 target_link_libraries(unit_tests
   PRIVATE
     ringct
+    cryptonote_protocol
     cryptonote_core
     blockchain_db
     rpc

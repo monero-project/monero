@@ -42,6 +42,7 @@
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
 #include "cryptonote_protocol_handler_common.h"
+#include "block_queue.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
 #include "cryptonote_basic/verification_context.h"
@@ -107,6 +108,7 @@ namespace cryptonote
     bool is_synchronized(){return m_synchronized;}
     void log_connections();
     std::list<connection_info> get_connections();
+    const block_queue &get_block_queue() const { return m_block_queue; }
     void stop();
   private:
     //----------------- commands handlers ----------------------------------------------
@@ -124,18 +126,19 @@ namespace cryptonote
     virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context);
     //----------------------------------------------------------------------------------
     //bool get_payload_sync_data(HANDSHAKE_DATA::request& hshd, cryptonote_connection_context& context);
-    bool request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks);
+    bool request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks, bool force_next_span = false);
     size_t get_synchronizing_connections_count();
     bool on_connection_synchronized();
+    bool should_download_next_span(cryptonote_connection_context& context) const;
     t_core& m_core;
 
     nodetool::p2p_endpoint_stub<connection_context> m_p2p_stub;
     nodetool::i_p2p_endpoint<connection_context>* m_p2p;
     std::atomic<uint32_t> m_syncronized_connections_count;
     std::atomic<bool> m_synchronized;
-    bool m_one_request = true;
     std::atomic<bool> m_stopping;
-    epee::critical_section m_sync_lock;
+    boost::mutex m_sync_lock;
+    block_queue m_block_queue;
 
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();

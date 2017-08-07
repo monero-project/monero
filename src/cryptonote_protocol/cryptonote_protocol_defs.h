@@ -74,6 +74,8 @@ namespace cryptonote
   
 	uint32_t support_flags;
 
+	boost::uuids::uuid connection_id;
+
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(incoming)
       KV_SERIALIZE(localhost)
@@ -94,6 +96,7 @@ namespace cryptonote
       KV_SERIALIZE(avg_upload)
       KV_SERIALIZE(current_upload)
       KV_SERIALIZE(support_flags)
+      KV_SERIALIZE_VAL_POD_AS_BLOB(connection_id)
     END_KV_SERIALIZE_MAP()
   };
 
