@@ -152,13 +152,11 @@ static int process_input()
 
 static void handle_line(char* line)
 {
-  if(last_line == "exit" || last_line == "q")
-  {
-    return;
-  }
-  std::lock_guard<std::mutex> lock(sync_mutex);
-  rl_set_prompt(last_prompt.c_str());
-  rl_already_prompted = 1;
+  // This function never gets called now as we are trapping newlines.
+  // However, it still needs to be present for readline to know we are 
+  // manually handling lines.
+  rl_done = 1;
+  return;
 }
 
 static int handle_enter(int x, int y)
@@ -167,30 +165,42 @@ static int handle_enter(int x, int y)
   char* line = NULL;
 
   line = rl_copy_text(0, rl_end);
+  std::string test_line = line;
+  boost::trim_right(test_line);
+
   rl_crlf();
   rl_on_new_line();
+
+  if(test_line.empty())
+  {
+    last_line = "";
+    rl_set_prompt(last_prompt.c_str());
+    rl_replace_line("", 1);
+    rl_redisplay();
+    have_line.notify_one();
+    return 0;
+  }
+
   rl_set_prompt("");
   rl_replace_line("", 1);
   rl_redisplay();
   
-  std::string test_line = line;
-  boost::trim_right(test_line);
-  if (test_line.length() > 0)
+  if (!test_line.empty())
   {
     last_line = test_line;
     add_history(test_line.c_str());
-    have_line.notify_one();
+    history_set_pos(history_length);
   }
   free(line);
 
   if(last_line != "exit" && last_line != "q")
   {
     rl_set_prompt(last_prompt.c_str());
-    rl_on_new_line_with_prompt();
+    rl_replace_line("", 1);
     rl_redisplay();
   }
 
-  rl_done = 1;
+  have_line.notify_one();
   return 0;
 }
 
@@ -236,6 +246,7 @@ static void install_line_handler()
   rl_startup_hook = startup_hook;
   rl_attempted_completion_function = attempted_completion;
   rl_callback_handler_install("", handle_line);
+  stifle_history(500);
 }
 
 static void remove_line_handler()
