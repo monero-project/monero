@@ -69,7 +69,7 @@ namespace cryptonote {
 
   namespace
   {
-    std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
+    inline std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
     {
       if (addresses.empty())
         return {};
