@@ -61,8 +61,11 @@ namespace nodetool
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
+    p2p_connection_context_t(): support_flags(0), m_in_timedsync(false) {}
+
     peerid_type peer_id;
     uint32_t support_flags;
+    bool m_in_timedsync;
   };
 
   template<class t_payload_net_handler>
