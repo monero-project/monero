@@ -1583,6 +1583,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     double avgreward = 0;
     std::vector<uint64_t> sizes;
     sizes.reserve(nblocks);
+    uint64_t earliest = std::numeric_limits<uint64_t>::max(), latest = 0;
     std::vector<unsigned> major_versions(256, 0), minor_versions(256, 0);
     for (const auto &bhr: bhres.headers)
     {
@@ -1594,12 +1595,14 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
       static_assert(sizeof(bhr.minor_version) == 1, "major_version expected to be uint8_t");
       major_versions[(unsigned)bhr.major_version]++;
       minor_versions[(unsigned)bhr.minor_version]++;
+      earliest = std::min(earliest, bhr.timestamp);
+      latest = std::max(latest, bhr.timestamp);
     }
     avgdiff /= nblocks;
     avgnumtxes /= nblocks;
     avgreward /= nblocks;
     uint64_t median_block_size = epee::misc_utils::median(sizes);
-    tools::msg_writer() << "Last " << nblocks << ": avg. diff " << (uint64_t)avgdiff << ", avg num txes " << avgnumtxes
+    tools::msg_writer() << "Last " << nblocks << ": avg. diff " << (uint64_t)avgdiff << ", " << (latest - earliest) / nblocks << " avg sec/block, avg num txes " << avgnumtxes
         << ", avg. reward " << cryptonote::print_money(avgreward) << ", median block size " << median_block_size;
 
     unsigned int max_major = 256, max_minor = 256;
