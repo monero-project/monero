@@ -408,7 +408,7 @@ namespace levin
 
 			if(head.m_signature!=LEVIN_SIGNATURE) 
 			{
-				LOG_ERROR("Signature missmatch in response");
+				LOG_ERROR("Signature mismatch in response");
 				return false;
 			}
 			

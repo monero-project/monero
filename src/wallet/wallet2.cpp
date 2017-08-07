@@ -4359,7 +4359,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // try to pick outputs not from the same block. We will get two outputs, one for
   // the destination, and one for change.
   LOG_PRINT_L2("checking preferred");
-  std::vector<size_t> prefered_inputs;
+  std::vector<size_t> preferred_inputs;
   uint64_t rct_outs_needed = 2 * (fake_outs_count + 1);
   rct_outs_needed += 100; // some fudge factor since we don't know how many are locked
   if (use_rct && get_num_rct_outputs() >= rct_outs_needed)
@@ -4367,12 +4367,12 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
     // will get us a known fee.
     uint64_t estimated_fee = calculate_fee(fee_per_kb, estimate_rct_tx_size(2, fake_outs_count + 1, 2), fee_multiplier);
-    prefered_inputs = pick_preferred_rct_inputs(needed_money + estimated_fee);
-    if (!prefered_inputs.empty())
+    preferred_inputs = pick_preferred_rct_inputs(needed_money + estimated_fee);
+    if (!preferred_inputs.empty())
     {
       string s;
-      for (auto i: prefered_inputs) s += boost::lexical_cast<std::string>(i) + "(" + print_money(m_transfers[i].amount()) + ") ";
-      LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
+      for (auto i: preferred_inputs) s += boost::lexical_cast<std::string>(i) + "(" + print_money(m_transfers[i].amount()) + ") ";
+      LOG_PRINT_L1("Found preferred rct inputs for rct tx: " << s);
     }
   }
   LOG_PRINT_L2("done checking preferred");
@@ -4427,8 +4427,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       }
       pop_if_present(unused_transfers_indices, idx);
       pop_if_present(unused_dust_indices, idx);
-    } else if (!prefered_inputs.empty()) {
-      idx = pop_back(prefered_inputs);
+    } else if (!preferred_inputs.empty()) {
+      idx = pop_back(preferred_inputs);
       pop_if_present(unused_transfers_indices, idx);
       pop_if_present(unused_dust_indices, idx);
     } else
@@ -4521,7 +4521,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         {
           uint64_t new_paid_amount = i->amount /*+ test_ptx.fee*/ - needed_fee;
           LOG_PRINT_L2("Adjusting amount paid to " << get_account_address_as_str(m_testnet, i->addr) << " from " <<
-            print_money(i->amount) << " to " << print_money(new_paid_amount) << " to accomodate " <<
+            print_money(i->amount) << " to " << print_money(new_paid_amount) << " to accommodate " <<
             print_money(needed_fee) << " fee");
           dsts[0].amount += i->amount - new_paid_amount;
           i->amount = new_paid_amount;

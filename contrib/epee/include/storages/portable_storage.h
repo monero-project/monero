@@ -158,7 +158,7 @@ namespace epee
         pbuff->m_signature_b != PORTABLE_STORAGE_SIGNATUREB 
         )
       {
-        LOG_ERROR("portable_storage: wrong binary format - signature missmatch");
+        LOG_ERROR("portable_storage: wrong binary format - signature mismatch");
         return false;
       }
       if(pbuff->m_ver != PORTABLE_STORAGE_FORMAT_VER)
