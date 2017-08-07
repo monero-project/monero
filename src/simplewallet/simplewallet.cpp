@@ -2979,12 +2979,39 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
   // gather info to ask the user
   uint64_t amount = 0, amount_to_dests = 0, change = 0;
   size_t min_mixin = ~0;
-  std::unordered_map<std::string, uint64_t> dests;
+  std::unordered_map<std::string, std::pair<std::string, uint64_t>> dests;
   const std::string wallet_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   int first_known_non_zero_change_index = -1;
+  std::string payment_id_string = "";
   for (size_t n = 0; n < get_num_txes(); ++n)
   {
     const tools::wallet2::tx_construction_data &cd = get_tx(n);
+
+    std::vector<tx_extra_field> tx_extra_fields;
+    bool has_encrypted_payment_id = false;
+    crypto::hash8 payment_id8 = cryptonote::null_hash8;
+    if (cryptonote::parse_tx_extra(cd.extra, tx_extra_fields))
+    {
+      tx_extra_nonce extra_nonce;
+      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      {
+        crypto::hash payment_id;
+        if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+        {
+          if (!payment_id_string.empty())
+            payment_id_string += ", ";
+          payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
+          has_encrypted_payment_id = true;
+        }
+        else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+        {
+          if (!payment_id_string.empty())
+            payment_id_string += ", ";
+          payment_id_string = std::string("unencrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id);
+        }
+      }
+    }
+
     for (size_t s = 0; s < cd.sources.size(); ++s)
     {
       amount += cd.sources[s].amount;
@@ -2995,23 +3022,30 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
     {
       const tx_destination_entry &entry = cd.splitted_dsts[d];
-      std::string address = get_account_address_as_str(m_wallet->testnet(), entry.addr);
-      std::unordered_map<std::string,uint64_t>::iterator i = dests.find(address);
-      if (i == dests.end())
-        dests.insert(std::make_pair(address, entry.amount));
+      std::string address, standard_address = get_account_address_as_str(m_wallet->testnet(), entry.addr);
+      if (has_encrypted_payment_id)
+      {
+        address = get_account_integrated_address_as_str(m_wallet->testnet(), entry.addr, payment_id8);
+        address += std::string(" (" + standard_address + " with encrypted payment id " + epee::string_tools::pod_to_hex(payment_id8) + ")");
+      }
       else
-        i->second += entry.amount;
+        address = standard_address;
+      std::unordered_map<std::string,std::pair<std::string,uint64_t>>::iterator i = dests.find(standard_address);
+      if (i == dests.end())
+        dests.insert(std::make_pair(standard_address, std::make_pair(address, entry.amount)));
+      else
+        i->second.second += entry.amount;
       amount_to_dests += entry.amount;
     }
     if (cd.change_dts.amount > 0)
     {
-      std::unordered_map<std::string, uint64_t>::iterator it = dests.find(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
+      std::unordered_map<std::string, std::pair<std::string, uint64_t>>::iterator it = dests.find(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
       if (it == dests.end())
       {
         fail_msg_writer() << tr("Claimed change does not go to a paid address");
         return false;
       }
-      if (it->second < cd.change_dts.amount)
+      if (it->second.second < cd.change_dts.amount)
       {
         fail_msg_writer() << tr("Claimed change is larger than payment to the change address");
         return false;
@@ -3027,15 +3061,19 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
         }
       }
       change += cd.change_dts.amount;
-      it->second -= cd.change_dts.amount;
-      if (it->second == 0)
+      it->second.second -= cd.change_dts.amount;
+      if (it->second.second == 0)
         dests.erase(get_account_address_as_str(m_wallet->testnet(), cd.change_dts.addr));
     }
   }
+
+  if (payment_id_string.empty())
+    payment_id_string = "no payment ID";
+
   std::string dest_string;
-  for (std::unordered_map<std::string, uint64_t>::const_iterator i = dests.begin(); i != dests.end(); )
+  for (std::unordered_map<std::string, std::pair<std::string, uint64_t>>::const_iterator i = dests.begin(); i != dests.end(); )
   {
-    dest_string += (boost::format(tr("sending %s to %s")) % print_money(i->second) % i->first).str();
+    dest_string += (boost::format(tr("sending %s to %s")) % print_money(i->second.second) % i->second.first).str();
     ++i;
     if (i != dests.end())
       dest_string += ", ";
@@ -3053,7 +3091,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
     change_string += tr("no change");
 
   uint64_t fee = amount - amount_to_dests;
-  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No): ")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % extra_message).str();
+  std::string prompt_str = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu, %s. %sIs this okay? (Y/Yes/N/No): ")) % (unsigned long)get_num_txes() % print_money(amount) % print_money(fee) % dest_string % change_string % (unsigned long)min_mixin % payment_id_string % extra_message).str();
   return command_line::is_yes(command_line::input_line(prompt_str));
 }
 //----------------------------------------------------------------------------------------------------
