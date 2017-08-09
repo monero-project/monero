@@ -70,10 +70,13 @@ public: \
 #define KV_SERIALIZE_N(varialble, val_name) \
   epee::serialization::selector<is_store>::serialize(this_ref.varialble, stg, hparent_section, val_name);
 
+  template<typename T> inline void serialize_default(const T &t, T v) { }
+  template<typename T> inline void serialize_default(T &t, T v) { t = v; }
+
 #define KV_SERIALIZE_OPT_N(variable, val_name, default_value) \
   do { \
     if (!epee::serialization::selector<is_store>::serialize(this_ref.variable, stg, hparent_section, val_name)) \
-      this_ref.variable = default_value; \
+      epee::serialize_default(this_ref.variable, default_value); \
   } while (0);
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(varialble, val_name) \
