@@ -35,6 +35,7 @@
 #include "transaction_history.h"
 #include "address_book.h"
 #include "common_defines.h"
+#include "common/util.h"
 
 #include "mnemonics/electrum-words.h"
 #include <boost/format.hpp>
@@ -1409,6 +1410,11 @@ bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction
 bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
     return m_wallet->parse_uri(uri, address, payment_id, amount, tx_description, recipient_name, unknown_parameters, error);
+}
+
+std::string WalletImpl::getDefaultDataDir() const
+{
+ return tools::get_default_data_dir();
 }
 
 bool WalletImpl::rescanSpent()
