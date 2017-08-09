@@ -209,10 +209,10 @@ namespace cryptonote
       cnx.support_flags = support_flags;
 
       cnx.recv_count = cntxt.m_recv_cnt;
-      cnx.recv_idle_time = timestamp - cntxt.m_last_recv;
+      cnx.recv_idle_time = timestamp - std::max(cntxt.m_started, cntxt.m_last_recv);
 
       cnx.send_count = cntxt.m_send_cnt;
-      cnx.send_idle_time = timestamp - cntxt.m_last_send;
+      cnx.send_idle_time = timestamp - std::max(cntxt.m_started, cntxt.m_last_send);
 
       cnx.state = get_protocol_state_string(cntxt.m_state);
 
