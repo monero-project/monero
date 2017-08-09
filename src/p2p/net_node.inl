@@ -1678,6 +1678,7 @@ namespace nodetool
 
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;
+    context.m_in_timedsync = false;
 
     if(arg.node_data.peer_id != m_config.m_peer_id && arg.node_data.my_port)
     {
