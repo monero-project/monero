@@ -195,10 +195,12 @@ namespace cryptonote
   {
     uint64_t current_height;
     crypto::hash  top_id;
+    uint8_t top_version;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(current_height)
       KV_SERIALIZE_VAL_POD_AS_BLOB(top_id)
+      KV_SERIALIZE_OPT(top_version, (uint8_t)0)
     END_KV_SERIALIZE_MAP()
   };
 

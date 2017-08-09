@@ -746,6 +746,15 @@ namespace cryptonote
     uint8_t get_ideal_hard_fork_version(uint64_t height) const { return m_hardfork->get_ideal_version(height); }
 
     /**
+     * @brief returns the actual hardfork version for a given block height
+     *
+     * @param height the height for which to check version info
+     *
+     * @return the version
+     */
+    uint8_t get_hard_fork_version(uint64_t height) const { return m_hardfork->get(height); }
+
+    /**
      * @brief get information about hardfork voting for a version
      *
      * @param version the version in question
