@@ -257,7 +257,7 @@ namespace cryptonote
       return true;
 
     // from v6, if the peer advertises a top block version, reject if it's not what it should be (will only work if no voting)
-    const uint8_t version = m_core.get_blockchain_storage().get_ideal_hard_fork_version(hshd.current_height - 1);
+    const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
     if (version >= 6 && version != hshd.top_version)
     {
       LOG_DEBUG_CC(context, "Ignoring due to wrong top version (" << hshd.top_version << ", expected " << version);
@@ -305,7 +305,7 @@ namespace cryptonote
   bool t_cryptonote_protocol_handler<t_core>::get_payload_sync_data(CORE_SYNC_DATA& hshd)
   {
     m_core.get_blockchain_top(hshd.current_height, hshd.top_id);
-    hshd.top_version = m_core.get_blockchain_storage().get_hard_fork_version(hshd.current_height);
+    hshd.top_version = m_core.get_hard_fork_version(hshd.current_height);
     hshd.current_height +=1;
     return true;
   }

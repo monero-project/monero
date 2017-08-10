@@ -1232,6 +1232,16 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint8_t core::get_ideal_hard_fork_version(uint64_t height) const
+  {
+    return get_blockchain_storage().get_ideal_hard_fork_version(height);
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint8_t core::get_hard_fork_version(uint64_t height) const
+  {
+    return get_blockchain_storage().get_hard_fork_version(height);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::check_updates()
   {
     static const char software[] = "monero";

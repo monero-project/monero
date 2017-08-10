@@ -621,6 +621,20 @@ namespace cryptonote
      uint64_t get_target_blockchain_height() const;
 
      /**
+      * @brief return the ideal hard fork version for a given block height
+      *
+      * @return what it says above
+      */
+     uint8_t get_ideal_hard_fork_version(uint64_t height) const;
+
+     /**
+      * @brief return the hard fork version for a given block height
+      *
+      * @return what it says above
+      */
+     uint8_t get_hard_fork_version(uint64_t height) const;
+
+     /**
       * @brief gets start_time
       *
       */
