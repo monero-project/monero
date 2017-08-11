@@ -1126,6 +1126,8 @@ namespace nodetool
       size_t random_index;
 
       if (use_white_list) {
+        local_peers_count = m_peerlist.get_white_peers_count();
+        max_random_index = std::min<uint64_t>(local_peers_count -1, 20);
         random_index = get_random_index_with_fixed_probability(max_random_index);
       } else {
         random_index = crypto::rand<size_t>() % m_peerlist.get_gray_peers_count();
