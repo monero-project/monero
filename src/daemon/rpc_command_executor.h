@@ -152,8 +152,6 @@ public:
   bool update(const std::string &command);
 
   bool relay_tx(const std::string &txid);
-
-  bool sync_info();
 };
 
 } // namespace daemonize
