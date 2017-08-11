@@ -1360,7 +1360,12 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
-
+    if (!m_trusted_daemon)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "This command requires a trusted daemon.";
+      return false;
+    }
     try
     {
       std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
