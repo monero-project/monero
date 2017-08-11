@@ -48,6 +48,7 @@
 #include "common/util.h"
 #include "common/dns_utils.h"
 #include "common/base58.h"
+#include "common/scoped_message_writer.h"
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "simplewallet.h"
@@ -61,14 +62,6 @@
 #include "ringct/rctSigs.h"
 #include "wallet/wallet_args.h"
 #include <stdexcept>
-
-#ifdef HAVE_READLINE
-  #include "readline_buffer.h"
-  #define PAUSE_READLINE() \
-    rdln::suspend_readline pause_readline; 
-#else
-  #define PAUSE_READLINE()
-#endif
 
 using namespace std;
 using namespace epee;
@@ -147,84 +140,19 @@ namespace
     return err;
   }
 
-  class message_writer
+  tools::scoped_message_writer success_msg_writer(bool color = false)
   {
-  public:
-    message_writer(console_colors color = console_color_default, bool bright = false,
-      std::string&& prefix = std::string(), el::Level log_level = el::Level::Info)
-      : m_flush(true)
-      , m_color(color)
-      , m_bright(bright)
-      , m_log_level(log_level)
-    {
-      m_oss << prefix;
-    }
-
-    message_writer(message_writer&& rhs)
-      : m_flush(std::move(rhs.m_flush))
-#if defined(_MSC_VER)
-      , m_oss(std::move(rhs.m_oss))
-#else
-      // GCC bug: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
-      , m_oss(rhs.m_oss.str(), ios_base::out | ios_base::ate)
-#endif
-      , m_color(std::move(rhs.m_color))
-      , m_log_level(std::move(rhs.m_log_level))
-    {
-      rhs.m_flush = false;
-    }
-
-    template<typename T>
-    std::ostream& operator<<(const T& val)
-    {
-      m_oss << val;
-      return m_oss;
-    }
-
-    ~message_writer()
-    {
-      if (m_flush)
-      {
-        m_flush = false;
-
-        MCLOG(m_log_level, "global", m_oss.str());
-
-        if (console_color_default == m_color)
-        {
-          std::cout << m_oss.str();
-        }
-        else
-        {
-          PAUSE_READLINE();
-          set_console_color(m_color, m_bright);
-          std::cout << m_oss.str();
-          reset_console_color();
-        }
-        std::cout << std::endl;
-      }
-    }
-
-  private:
-    message_writer(message_writer& rhs);
-    message_writer& operator=(message_writer& rhs);
-    message_writer& operator=(message_writer&& rhs);
-
-  private:
-    bool m_flush;
-    std::stringstream m_oss;
-    console_colors m_color;
-    bool m_bright;
-    el::Level m_log_level;
-  };
-
-  message_writer success_msg_writer(bool color = false)
-  {
-    return message_writer(color ? console_color_green : console_color_default, false, std::string(), el::Level::Info);
+    return tools::scoped_message_writer(color ? console_color_green : console_color_default, false, std::string(), el::Level::Info);
   }
 
-  message_writer fail_msg_writer()
+  tools::scoped_message_writer message_writer(epee::console_colors color = epee::console_color_default, bool bright = false)
   {
-    return message_writer(console_color_red, true, sw::tr("Error: "), el::Level::Error);
+    return tools::scoped_message_writer(color, bright);
+  }
+
+  tools::scoped_message_writer fail_msg_writer()
+  {
+    return tools::scoped_message_writer(console_color_red, true, sw::tr("Error: "), el::Level::Error);
   }
 
   bool is_it_true(const std::string& s)
