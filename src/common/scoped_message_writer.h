@@ -31,6 +31,14 @@
 #include "misc_log_ex.h"
 #include <iostream>
 
+#ifdef HAVE_READLINE
+  #include "readline_buffer.h"
+  #define PAUSE_READLINE() \
+    rdln::suspend_readline pause_readline; 
+#else
+  #define PAUSE_READLINE()
+#endif
+
 namespace tools
 {
 
@@ -99,6 +107,7 @@ public:
       }
       else
       {
+        PAUSE_READLINE();
         set_console_color(m_color, m_bright);
         std::cout << m_oss.str();
         epee::reset_console_color();
