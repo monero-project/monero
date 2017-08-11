@@ -4509,6 +4509,12 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::import_key_images(const std::vector<std::string> &args)
 {
+  if (!m_trusted_daemon)
+  {
+    fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
+    return true;
+  }
+
   if (args.size() != 1)
   {
     fail_msg_writer() << tr("usage: import_key_images <filename>");
