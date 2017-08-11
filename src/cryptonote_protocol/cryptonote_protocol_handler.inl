@@ -1416,18 +1416,8 @@ skip:
                            << "\r\non connection [" << epee::net_utils::print_connection_context_short(context)<< "]");
 
       context.m_state = cryptonote_connection_context::state_normal;
-      if (context.m_remote_blockchain_height >= m_core.get_target_blockchain_height())
-      {
-        if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
-        {
-          MGINFO_GREEN("SYNCHRONIZED OK");
-          on_connection_synchronized();
-        }
-      }
-      else
-      {
-        MINFO(context << " we've reached this peer's blockchain height");
-      }
+      MGINFO_GREEN("SYNCHRONIZED OK");
+      on_connection_synchronized();
     }
     return true;
   }
