@@ -11,6 +11,8 @@ mdb_copy \- LMDB environment copy tool
 .BR \-c ]
 [\c
 .BR \-n ]
+[\c
+.BR \-v ]
 .B srcpath
 [\c
 .BR dstpath ]
@@ -39,6 +41,10 @@ slow down the backup process as it is more CPU-intensive.
 .TP
 .BR \-n
 Open LDMB environment(s) which do not use subdirectories.
+.TP
+.BR \-v
+Use the previous environment state instead of the latest state.
+This may be useful if the latest state has been corrupted.
 
 .SH DIAGNOSTICS
 Exit status is zero if no errors occur.
