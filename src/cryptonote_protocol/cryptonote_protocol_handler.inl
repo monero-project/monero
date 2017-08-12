@@ -947,7 +947,8 @@ namespace cryptonote
     }
 
     {
-      MLOG_YELLOW(el::Level::Debug, "Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size());
+      MLOG_YELLOW(el::Level::Debug, context << " Got NEW BLOCKS inside of " << __FUNCTION__ << ": size: " << arg.blocks.size()
+          << ", blocks: " << start_height << " - " << (start_height + arg.blocks.size() - 1));
 
       // add that new span to the block queue
       const boost::posix_time::time_duration dt = now - context.m_last_request_time;
@@ -978,7 +979,6 @@ namespace cryptonote
           uint64_t start_height;
           std::list<cryptonote::block_complete_entry> blocks;
           boost::uuids::uuid span_connection_id;
-          m_block_queue.mark_last_block(previous_height - 1);
           if (!m_block_queue.get_next_span(start_height, blocks, span_connection_id))
           {
             MDEBUG(context << " no next span found, going back to download");
@@ -986,11 +986,6 @@ namespace cryptonote
           }
           MDEBUG(context << " next span in the queue has blocks " << start_height << "-" << (start_height + blocks.size() - 1)
               << ", we need " << previous_height);
-          if (previous_height < start_height || previous_height >= start_height + blocks.size())
-          {
-            MDEBUG(context << " this span is not what we need, going back to download");
-            break;
-          }
 
           const boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
 
@@ -1083,7 +1078,7 @@ namespace cryptonote
 
           m_core.cleanup_handle_incoming_blocks();
 
-          m_block_queue.mark_last_block(m_core.get_current_blockchain_height() - 1);
+          m_block_queue.remove_spans(span_connection_id, start_height);
 
           if (m_core.get_current_blockchain_height() > previous_height)
           {
@@ -1201,8 +1196,6 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks, bool force_next_span)
   {
-    m_block_queue.mark_last_block(m_core.get_current_blockchain_height() - 1);
-
     // flush stale spans
     std::set<boost::uuids::uuid> live_connections;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
@@ -1308,8 +1301,13 @@ skip:
           context.m_last_response_height = 0;
           goto skip;
         }
+        // take out blocks we already have
+        while (!context.m_needed_objects.empty() && m_core.have_block(context.m_needed_objects.front()))
+        {
+          context.m_needed_objects.pop_front();
+        }
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
-        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, count_limit, context.m_connection_id);
+        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, count_limit, context.m_connection_id, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
       }
       if (span.second == 0 && !force_next_span)
@@ -1360,8 +1358,6 @@ skip:
             auto j = it++;
             context.m_needed_objects.erase(j);
           }
-
-          m_block_queue.set_span_hashes(span.first, context.m_connection_id, hashes);
         }
 
         context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
@@ -1384,10 +1380,9 @@ skip:
 
       if (!start_from_current_chain)
       {
-        // we'll want to start off from where we are on the download side, which may not be added yet
-        crypto::hash last_known_hash = m_block_queue.get_last_known_hash();
-        if (last_known_hash != cryptonote::null_hash && r.block_ids.front() != last_known_hash)
-          r.block_ids.push_front(last_known_hash);
+        // we'll want to start off from where we are on that peer, which may not be added yet
+        if (context.m_last_known_hash != cryptonote::null_hash && r.block_ids.front() != context.m_last_known_hash)
+          r.block_ids.push_front(context.m_last_known_hash);
       }
 
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
@@ -1486,6 +1481,7 @@ skip:
     {
       context.m_needed_objects.push_back(bl_id);
     }
+    context.m_last_known_hash = context.m_needed_objects.back();
 
     if (!request_missing_objects(context, false))
     {

@@ -118,25 +118,6 @@ void block_queue::remove_spans(const boost::uuids::uuid &connection_id, uint64_t
   }
 }
 
-void block_queue::mark_last_block(uint64_t last_block_height)
-{
-  boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  if (!blocks.empty() && is_blockchain_placeholder(*blocks.begin()))
-    blocks.erase(*blocks.begin());
-  for (block_map::iterator i = blocks.begin(); i != blocks.end(); )
-  {
-    block_map::iterator j = i++;
-    if (j->start_block_height + j->nblocks - 1 <= last_block_height)
-    {
-      blocks.erase(j);
-    }
-  }
-
-  // mark the current state of the db (for a fresh db, it's just the genesis block)
-  add_blocks(0, last_block_height + 1, boost::uuids::nil_uuid());
-  MDEBUG("last blocked marked at " << last_block_height);
-}
-
 uint64_t block_queue::get_max_block_height() const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
@@ -171,7 +152,19 @@ std::string block_queue::get_overview() const
   return s;
 }
 
-std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, boost::posix_time::ptime time)
+bool block_queue::requested(const crypto::hash &hash) const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  for (const auto &span: blocks)
+  {
+    for (const auto &h: span.hashes)
+      if (h == hash)
+        return true;
+  }
+  return false;
+}
+
+std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const std::list<crypto::hash> &block_hashes, boost::posix_time::ptime time)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
 
@@ -181,71 +174,25 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     return std::make_pair(0, 0);
   }
 
-  uint64_t max_block_height = get_max_block_height();
-  if (last_block_height > max_block_height)
-    max_block_height = last_block_height;
-  if (max_block_height == 0)
+  uint64_t span_start_height = last_block_height - block_hashes.size() + 1;
+  std::list<crypto::hash>::const_iterator i = block_hashes.begin();
+  while (i != block_hashes.end() && requested(*i))
   {
-    MDEBUG("reserve_span: max_block_height is 0");
-    return std::make_pair(first_block_height, std::min(last_block_height - first_block_height + 1, max_blocks));
-  }
-
-  uint64_t base = 0, last_placeholder_block = 0;
-  bool has_placeholder = false;
-  block_map::const_iterator i = blocks.begin();
-  if (i != blocks.end() && is_blockchain_placeholder(*i))
-  {
-    base = i->start_block_height + i->nblocks;
-    last_placeholder_block = base - 1;
-    has_placeholder = true;
     ++i;
-    for (block_map::const_iterator j = i; j != blocks.end(); ++j)
-    {
-      if (j->start_block_height < base)
-        base = j->start_block_height;
-    }
+    ++span_start_height;
   }
-  if (base > first_block_height)
-    base = first_block_height;
-
-  CHECK_AND_ASSERT_MES (base <= max_block_height + 1, std::make_pair(0, 0), "Blockchain placeholder larger than max block height");
-  std::vector<uint8_t> bitmap(max_block_height + 1 - base, 0);
-  MDEBUG("base " << base << ", last_placeholder_block " << (has_placeholder ? std::to_string(last_placeholder_block) : "none") << ", first_block_height " << first_block_height);
-  if (has_placeholder && last_placeholder_block >= base)
-    memset(bitmap.data(), 1, last_placeholder_block + 1 - base);
-  while (i != blocks.end())
+  uint64_t span_length = 0;
+  std::list<crypto::hash> hashes;
+  while (i != block_hashes.end() && span_length < max_blocks)
   {
-    CHECK_AND_ASSERT_MES (i->start_block_height >= base, std::make_pair(0, 0), "Span starts before blochckain placeholder");
-    memset(bitmap.data() + i->start_block_height - base, 1, i->nblocks);
+    hashes.push_back(*i);
     ++i;
+    ++span_length;
   }
-
-  const uint8_t *ptr = (const uint8_t*)memchr(bitmap.data() + first_block_height - base, 0, bitmap.size() - (first_block_height - base));
-  if (!ptr)
-  {
-    MDEBUG("reserve_span: 0 not found in bitmap: " << first_block_height << " " << bitmap.size());
-    print();
-    return std::make_pair(0, 0);
-  }
-  uint64_t start_block_height = ptr - bitmap.data() + base;
-  if (start_block_height > last_block_height)
-  {
-    MDEBUG("reserve_span: start_block_height > last_block_height: " << start_block_height << " < " << last_block_height);
-    return std::make_pair(0, 0);
-  }
-  if (start_block_height + max_blocks - 1 < first_block_height)
-  {
-    MDEBUG("reserve_span: start_block_height + max_blocks - 1 < first_block_height: " << start_block_height << " + " << max_blocks << " - 1 < " << first_block_height);
-    return std::make_pair(0, 0);
-  }
-
-  uint64_t nblocks = 1;
-  while (start_block_height + nblocks <= last_block_height && nblocks < max_blocks && bitmap[start_block_height + nblocks - base] == 0)
-    ++nblocks;
-
-  MDEBUG("Reserving span " << start_block_height << " - " << (start_block_height + nblocks - 1) << " for " << connection_id);
-  add_blocks(start_block_height, nblocks, connection_id, time);
-  return std::make_pair(start_block_height, nblocks);
+  MDEBUG("Reserving span " << span_start_height << " - " << (span_start_height + span_length - 1) << " for " << connection_id);
+  add_blocks(span_start_height, span_length, connection_id, time);
+  set_span_hashes(span_start_height, connection_id, hashes);
+  return std::make_pair(span_start_height, span_length);
 }
 
 bool block_queue::is_blockchain_placeholder(const span &span) const
@@ -366,13 +313,15 @@ size_t block_queue::get_num_filled_spans() const
   return size;
 }
 
-crypto::hash block_queue::get_last_known_hash() const
+crypto::hash block_queue::get_last_known_hash(const boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   crypto::hash hash = cryptonote::null_hash;
   uint64_t highest_height = 0;
   for (const auto &span: blocks)
   {
+    if (span.connection_id != connection_id)
+      continue;
     uint64_t h = span.start_block_height + span.nblocks - 1;
     if (h > highest_height && span.hashes.size() == span.nblocks)
     {
