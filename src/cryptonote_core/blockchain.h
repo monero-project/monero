@@ -831,6 +831,16 @@ namespace cryptonote
      *
      * @return a reference to the BlockchainDB instance
      */
+    const BlockchainDB& get_db() const
+    {
+      return *m_db;
+    }
+
+    /**
+     * @brief get a reference to the BlockchainDB in use by Blockchain
+     *
+     * @return a reference to the BlockchainDB instance
+     */
     BlockchainDB& get_db()
     {
       return *m_db;

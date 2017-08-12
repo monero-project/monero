@@ -2038,6 +2038,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   {
     resp.m_block_ids.push_back(m_db->get_block_hash_from_height(i));
   }
+  resp.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
   m_db->block_txn_stop();
   return true;
 }
