@@ -239,6 +239,8 @@ namespace cryptonote
 
       cnx.connection_id = cntxt.m_connection_id;
 
+      cnx.height = cntxt.m_remote_blockchain_height;
+
       connections.push_back(cnx);
 
       return true;
@@ -263,6 +265,8 @@ namespace cryptonote
       LOG_DEBUG_CC(context, "Ignoring due to wrong top version (" << hshd.top_version << ", expected " << version);
       return false;
     }
+
+    context.m_remote_blockchain_height = hshd.current_height;
 
     uint64_t target = m_core.get_target_blockchain_height();
     if (target == 0)
@@ -293,7 +297,6 @@ namespace cryptonote
     }
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
     context.m_state = cryptonote_connection_context::state_synchronizing;
-    context.m_remote_blockchain_height = hshd.current_height;
     //let the socket to send response to handshake, but request callback, to let send request data after response
     LOG_PRINT_CCONTEXT_L2("requesting callback");
     ++context.m_callback_request_count;
