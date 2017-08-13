@@ -190,6 +190,7 @@ namespace cryptonote
     bool print_fee_info(const std::vector<std::string> &args);
     bool prepare_multisig(const std::vector<std::string>& args);
     bool make_multisig(const std::vector<std::string>& args);
+    bool finalize_multisig(const std::vector<std::string> &args);
     bool export_multisig(const std::vector<std::string>& args);
     bool import_multisig(const std::vector<std::string>& args);
     bool accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs);

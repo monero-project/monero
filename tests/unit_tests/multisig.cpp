@@ -125,14 +125,26 @@ static void make_M_3_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, to
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi0, sk2[0], pk2[0]));
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk2[1], pk2[1]));
 
-  // not implemented yet
-  if (M < 3)
-    return;
-
   ASSERT_FALSE(wallet0.multisig() || wallet1.multisig() || wallet2.multisig());
-  wallet0.make_multisig("", sk0, pk0, M);
-  wallet1.make_multisig("", sk1, pk1, M);
-  wallet2.make_multisig("", sk2, pk2, M);
+  std::string mxi0 = wallet0.make_multisig("", sk0, pk0, M);
+  std::string mxi1 = wallet1.make_multisig("", sk1, pk1, M);
+  std::string mxi2 = wallet2.make_multisig("", sk2, pk2, M);
+
+  const size_t nset = !mxi0.empty() + !mxi1.empty() + !mxi2.empty();
+  ASSERT_TRUE((M < 3 && nset == 3) || (M == 3 && nset == 0));
+
+  if (nset > 0)
+  {
+    std::unordered_set<crypto::public_key> pkeys;
+    std::vector<crypto::public_key> signers(3, crypto::null_pkey);
+    ASSERT_TRUE(tools::wallet2::verify_extra_multisig_info(mxi0, pkeys, signers[0]));
+    ASSERT_TRUE(tools::wallet2::verify_extra_multisig_info(mxi1, pkeys, signers[1]));
+    ASSERT_TRUE(tools::wallet2::verify_extra_multisig_info(mxi2, pkeys, signers[2]));
+    ASSERT_TRUE(pkeys.size() == 3);
+    ASSERT_TRUE(wallet0.finalize_multisig("", pkeys, signers));
+    ASSERT_TRUE(wallet1.finalize_multisig("", pkeys, signers));
+    ASSERT_TRUE(wallet2.finalize_multisig("", pkeys, signers));
+  }
 
   ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet1.get_account().get_public_address_str(true));
   ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet2.get_account().get_public_address_str(true));

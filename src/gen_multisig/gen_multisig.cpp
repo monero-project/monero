@@ -99,10 +99,15 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
     std::vector<crypto::public_key> pk(total);
     for (size_t n = 0; n < total; ++n)
     {
-      tools::wallet2::verify_multisig_info(wallets[n]->get_multisig_info(), sk[n], pk[n]);
+      if (!tools::wallet2::verify_multisig_info(wallets[n]->get_multisig_info(), sk[n], pk[n]))
+      {
+        tools::fail_msg_writer() << tr("Failed to verify multisig info");
+        return false;
+      }
     }
 
     // make the wallets multisig
+    std::vector<std::string> extra_info(total);
     std::stringstream ss;
     for (size_t n = 0; n < total; ++n)
     {
@@ -117,8 +122,31 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
           pkn.push_back(pk[k]);
         }
       }
-      wallets[n]->make_multisig(pwd_container->password(), skn, pkn, threshold);
+      extra_info[n] = wallets[n]->make_multisig(pwd_container->password(), skn, pkn, threshold);
       ss << "  " << name << std::endl;
+    }
+
+    // finalize step if needed
+    if (!extra_info[0].empty())
+    {
+      std::unordered_set<crypto::public_key> pkeys;
+      std::vector<crypto::public_key> signers(total);
+      for (size_t n = 0; n < total; ++n)
+      {
+        if (!tools::wallet2::verify_extra_multisig_info(extra_info[n], pkeys, signers[n]))
+        {
+          tools::fail_msg_writer() << genms::tr("Error verifying multisig extra info");
+          return false;
+        }
+      }
+      for (size_t n = 0; n < total; ++n)
+      {
+        if (!wallets[n]->finalize_multisig(pwd_container->password(), pkeys, signers))
+        {
+          tools::fail_msg_writer() << genms::tr("Error finalizing multisig");
+          return false;
+        }
+      }
     }
 
     std::string address = wallets[0]->get_account().get_public_address_str(wallets[0]->testnet());

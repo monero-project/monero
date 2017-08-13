@@ -2446,7 +2446,7 @@ namespace tools
 
     try
     {
-      m_wallet->make_multisig(req.password, secret_keys, public_keys, req.threshold);
+      res.multisig_info = m_wallet->make_multisig(req.password, secret_keys, public_keys, req.threshold);
       res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     }
     catch (const std::exception &e)
@@ -2490,9 +2490,16 @@ namespace tools
     res.info.resize(info.size());
     for (size_t n = 0; n < info.size(); ++n)
     {
-      res.info[n].partial_key_image = epee::string_tools::pod_to_hex(info[n].m_partial_key_image);
-      res.info[n].L = epee::string_tools::pod_to_hex(info[n].m_L);
-      res.info[n].R = epee::string_tools::pod_to_hex(info[n].m_R);
+      res.info[n].signer = epee::string_tools::pod_to_hex(info[n].m_signer);
+      res.info[n].LR.resize(info[n].m_LR.size());
+      for (size_t l = 0; l < info[n].m_LR.size(); ++l)
+      {
+        res.info[n].LR[l].L = epee::string_tools::pod_to_hex(info[n].m_LR[l].m_L);
+        res.info[n].LR[l].R = epee::string_tools::pod_to_hex(info[n].m_LR[l].m_R);
+      }
+      res.info[n].partial_key_images.resize(info[n].m_partial_key_images.size());
+      for (size_t l = 0; l < info[n].m_partial_key_images.size(); ++l)
+        res.info[n].partial_key_images[l] = epee::string_tools::pod_to_hex(info[n].m_partial_key_images[l]);
     }
 
     return true;
@@ -2529,17 +2536,34 @@ namespace tools
       info[n].resize(req.info[n].info.size());
       for (size_t i = 0; i < info[n].size(); ++i)
       {
-        if (!epee::string_tools::hex_to_pod(req.info[n].info[i].partial_key_image, info[n][i].m_partial_key_image))
+        const auto &src = req.info[n].info[i];
+        auto &dst = info[n][i];
+
+        if (!epee::string_tools::hex_to_pod(src.signer, dst.m_signer))
         {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
-          er.message = "Failed to parse partial key image from multisig info";
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+          er.message = "Failed to parse signer from multisig info";
           return false;
         }
-        if (!epee::string_tools::hex_to_pod(req.info[n].info[i].L, info[n][i].m_L) || !epee::string_tools::hex_to_pod(req.info[n].info[i].R, info[n][i].m_R))
+        dst.m_LR.resize(src.LR.size());
+        for (size_t l = 0; l < src.LR.size(); ++l)
         {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_LR;
-          er.message = "Failed to parse L/R info from hex";
-          return false;
+          if (!epee::string_tools::hex_to_pod(src.LR[l].L, dst.m_LR[l].m_L) || !epee::string_tools::hex_to_pod(src.LR[l].R, dst.m_LR[l].m_R))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_LR;
+            er.message = "Failed to parse L/R from multisig info";
+            return false;
+          }
+        }
+        dst.m_partial_key_images.resize(src.partial_key_images.size());
+        for (size_t l = 0; l < src.partial_key_images.size(); ++l)
+        {
+          if (!epee::string_tools::hex_to_pod(src.partial_key_images[l], dst.m_partial_key_images[l]))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+            er.message = "Failed to parse partial key image from multisig info";
+            return false;
+          }
         }
       }
     }
@@ -2573,6 +2597,64 @@ namespace tools
 
     return true;
   }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_finalize_multisig(const wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    uint32_t threshold, total;
+    if (!m_wallet->multisig(&threshold, &total))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is not multisig";
+      return false;
+    }
+
+    if (req.multisig_info.size() < threshold - 1)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_THRESHOLD_NOT_REACHED;
+      er.message = "Needs multisig info from more participants";
+      return false;
+    }
+
+    // parse all multisig info
+    std::unordered_set<crypto::public_key> public_keys;
+    std::vector<crypto::public_key> signers(req.multisig_info.size(), crypto::null_pkey);
+    for (size_t i = 0; i < req.multisig_info.size(); ++i)
+    {
+      if (!m_wallet->verify_extra_multisig_info(req.multisig_info[i], public_keys, signers[i]))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
+        er.message = std::string("Bad multisig_info info: ") + req.multisig_info[i];
+        return false;
+      }
+    }
+
+    try
+    {
+      if (!m_wallet->finalize_multisig(req.password, public_keys, signers))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Error calling finalize_multisig";
+        return false;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = std::string("Error calling finalize_multisig: ") + e.what();
+      return false;
+    }
+    res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
 }
 
 int main(int argc, char** argv) {

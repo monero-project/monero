@@ -825,7 +825,14 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
 
   try
   {
-    m_wallet->make_multisig(orig_pwd_container->password(), secret_keys, public_keys, threshold);
+    std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), secret_keys, public_keys, threshold);
+    if (!multisig_extra_info.empty())
+    {
+      success_msg_writer() << tr("Another step is needed");
+      success_msg_writer() << multisig_extra_info;
+      success_msg_writer() << tr("Send this multisig info to all other participants, then use finalize_multisig <info1> [<info2>...] with others' multisig info");
+      return true;
+    }
   }
   catch (const std::exception &e)
   {
@@ -836,6 +843,57 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
   uint32_t total = secret_keys.size() + 1;
   success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+
+  return true;
+}
+
+bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
+{
+  if (!m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your original password was incorrect.");
+    return true;
+  }
+
+  if (args.size() < 2)
+  {
+    fail_msg_writer() << tr("usage: finalize_multisig <multisiginfo1> [<multisiginfo2>...]");
+    return true;
+  }
+
+  // parse all multisig info
+  std::unordered_set<crypto::public_key> public_keys;
+  std::vector<crypto::public_key> signers(args.size(), crypto::null_pkey);
+  for (size_t i = 0; i < args.size(); ++i)
+  {
+    if (!tools::wallet2::verify_extra_multisig_info(args[i], public_keys, signers[i]))
+    {
+      fail_msg_writer() << tr("Bad multisig info: ") << args[i];
+      return true;
+    }
+  }
+
+  // we have all pubkeys now
+  try
+  {
+    if (!m_wallet->finalize_multisig(orig_pwd_container->password(), public_keys, signers))
+    {
+      fail_msg_writer() << tr("Failed to finalize multisig");
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to finalize multisig: ") << e.what();
+    return true;
+  }
 
   return true;
 }
@@ -869,9 +927,8 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
     std::string header;
     header += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
     header += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
-    crypto::hash hash;
-    cn_fast_hash(&m_wallet->get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (char*)&hash);
-    header += std::string((const char *)&hash, sizeof(crypto::hash));
+    crypto::public_key signer = m_wallet->get_multisig_signer_public_key();
+    header += std::string((const char *)&signer, sizeof(crypto::public_key));
     std::string ciphertext = m_wallet->encrypt_with_view_secret_key(header + oss.str());
     bool r = epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);
     if (!r)
@@ -908,7 +965,7 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     return true;
 
   std::vector<std::vector<tools::wallet2::multisig_info>> info;
-  std::unordered_set<crypto::hash> seen;
+  std::unordered_set<crypto::public_key> seen;
   for (size_t n = 0; n < args.size(); ++n)
   {
     const std::string filename = args[n];
@@ -944,26 +1001,24 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     }
     const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
     const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
-    const crypto::hash &hash = *(const crypto::hash*)&data[2*sizeof(crypto::public_key)];
+    const crypto::public_key &signer = *(const crypto::public_key*)&data[2*sizeof(crypto::public_key)];
     const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
     if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
     {
       fail_msg_writer() << (boost::format(tr("Multisig info from %s is for a different account")) % filename).str();
       return true;
     }
-    crypto::hash this_hash;
-    cn_fast_hash(&m_wallet->get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (char*)&this_hash);
-    if (this_hash == hash)
+    if (m_wallet->get_multisig_signer_public_key() == signer)
     {
       message_writer() << (boost::format(tr("Multisig info from %s is from this wallet, ignored")) % filename).str();
       continue;
     }
-    if (seen.find(hash) != seen.end())
+    if (seen.find(signer) != seen.end())
     {
       message_writer() << (boost::format(tr("Multisig info from %s already seen, ignored")) % filename).str();
       continue;
     }
-    seen.insert(hash);
+    seen.insert(signer);
 
     try
     {
@@ -1721,6 +1776,10 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("make_multisig", boost::bind(&simple_wallet::make_multisig, this, _1),
                            tr("make_multisig <threshold> <string1> [<string>...]"),
                            tr("Turn this wallet into a multisig wallet"));
+  m_cmd_binder.set_handler("finalize_multisig",
+                           boost::bind(&simple_wallet::finalize_multisig, this, _1),
+                           tr("finalize_multisig <string> [<string>...]"),
+                           tr("Turn this wallet into a multisig wallet, extra step for N-1/N wallets"));
   m_cmd_binder.set_handler("export_multisig_info",
                            boost::bind(&simple_wallet::export_multisig, this, _1),
                            tr("export_multisig <filename>"),

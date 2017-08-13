@@ -64,6 +64,7 @@ DISABLE_VS_WARNINGS(4244 4345)
   void account_base::forget_spend_key()
   {
     m_keys.m_spend_secret_key = crypto::secret_key();
+    m_keys.m_multisig_keys.clear();
   }
   //-----------------------------------------------------------------
   crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover, bool two_random)
@@ -123,11 +124,18 @@ DISABLE_VS_WARNINGS(4244 4345)
     create_from_keys(address, fake, viewkey);
   }
   //-----------------------------------------------------------------
-  bool account_base::make_multisig(const crypto::secret_key &view_secret_key, const crypto::public_key &spend_public_key)
+  bool account_base::make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys)
   {
     m_keys.m_account_address.m_spend_public_key = spend_public_key;
     m_keys.m_view_secret_key = view_secret_key;
+    m_keys.m_spend_secret_key = spend_secret_key;
+    m_keys.m_multisig_keys = multisig_keys;
     return crypto::secret_key_to_public_key(view_secret_key, m_keys.m_account_address.m_view_public_key);
+  }
+  //-----------------------------------------------------------------
+  void account_base::finalize_multisig(const crypto::public_key &spend_public_key)
+  {
+    m_keys.m_account_address.m_spend_public_key = spend_public_key;
   }
   //-----------------------------------------------------------------
   const account_keys& account_base::get_keys() const
