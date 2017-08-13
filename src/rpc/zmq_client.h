@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2016, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,33 +27,45 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include <boost/program_options.hpp>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#include <memory>
 
-namespace daemonize {
+#include <boost/optional.hpp>
+#include <zmq.hpp>
 
-struct t_internals;
+namespace cryptonote
+{
 
-class t_daemon final {
-public:
-  static void init_options(boost::program_options::options_description & option_spec);
-private:
-  void stop_p2p();
-private:
-  std::unique_ptr<t_internals> mp_internals;
-  std::string zmq_rpc_bind_address;
-  std::string zmq_rpc_bind_port;
-public:
-  t_daemon(
-      boost::program_options::variables_map const & vm
-    );
-  t_daemon(t_daemon && other);
-  t_daemon & operator=(t_daemon && other);
-  ~t_daemon();
+namespace rpc
+{
 
-  bool run(bool interactive = false);
-  void stop();
+static constexpr int DEFAULT_RPC_RECEIVE_TIMEOUT_MS = 5000;
+
+class ZmqClient
+{
+  public:
+    ZmqClient();
+    ~ZmqClient();
+
+    bool connect(const std::string& address_with_port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
+    bool connect(const std::string& address, const std::string& port, int timeout_ms = DEFAULT_RPC_RECEIVE_TIMEOUT_MS);
+
+    boost::optional<std::string> doRequest(const std::string& request, std::string& response);
+
+  private:
+    bool createSocket();
+
+    bool resetSocket();
+
+    zmq::context_t context;
+
+    // req-rep socket
+    std::shared_ptr<zmq::socket_t> req_socket;
+
+    std::string connect_address;
+    int timeout;
 };
-}
+
+}  // namespace rpc
+
+}  // namespace cryptonote

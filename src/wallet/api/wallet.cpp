@@ -41,6 +41,8 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "rpc/daemon_rpc_client_old.h"
+
 using namespace std;
 using namespace cryptonote;
 
@@ -1383,7 +1385,9 @@ bool WalletImpl::isNewWallet() const
 
 bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, upper_transaction_size_limit))
+    cryptonote::rpc::DaemonRPCClient* daemon_rpc_client = (cryptonote::rpc::DaemonRPCClient*)(new cryptonote::rpc::DaemonRPCClientOld(daemon_address, m_daemon_login));
+    
+    if (!m_wallet->init(daemon_rpc_client, daemon_address, m_daemon_login, upper_transaction_size_limit))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)

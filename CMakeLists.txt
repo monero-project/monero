@@ -689,6 +689,16 @@ endif()
 
 include(version.cmake)
 
+find_path(ZMQ_INCLUDE_PATH zmq.hpp)
+find_library(ZMQ_LIB zmq)
+
+if(NOT ZMQ_INCLUDE_PATH)
+  message(FATAL_ERROR "Could not find required header zmq.hpp")
+endif()
+if(NOT ZMQ_LIB)
+  message(FATAL_ERROR "Could not find require libzmq")
+endif()
+
 function (treat_warnings_as_errors dirs)
   foreach(dir ${ARGV})
     set_property(DIRECTORY ${dir}

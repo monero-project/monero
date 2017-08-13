@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,35 +25,39 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
-#include <boost/program_options.hpp>
+#include <stdexcept>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#include "rpc/daemon_rpc_client.h"
+#include "rpc/daemon_rpc_client_old.h"
+#include "rpc/daemon_rpc_client_zmq.h"
 
-namespace daemonize {
+namespace cryptonote
+{
 
-struct t_internals;
+namespace rpc
+{
 
-class t_daemon final {
-public:
-  static void init_options(boost::program_options::options_description & option_spec);
-private:
-  void stop_p2p();
-private:
-  std::unique_ptr<t_internals> mp_internals;
-  std::string zmq_rpc_bind_address;
-  std::string zmq_rpc_bind_port;
-public:
-  t_daemon(
-      boost::program_options::variables_map const & vm
-    );
-  t_daemon(t_daemon && other);
-  t_daemon & operator=(t_daemon && other);
-  ~t_daemon();
+DaemonRPCClient* DaemonRPCClient::makeDaemonRPCClient(const CLIENT_TYPE type, const std::string& address, boost::optional<epee::net_utils::http::login> loginInfo)
+{
+  DaemonRPCClient* new_client = nullptr;
+  if (type == DaemonRPCClient::TYPE_OLD)
+  {
+    new_client = new DaemonRPCClientOld(address, loginInfo);
+  }
+  else if (type == DaemonRPCClient::TYPE_ZMQ)
+  {
+    new_client = new DaemonRPCClientZMQ(address);
+  }
+  else
+  {
+    throw std::runtime_error("Unsupported or unimplemented daemon rpc client type requested!");
+  }
 
-  bool run(bool interactive = false);
-  void stop();
-};
+  return new_client;
 }
+
+} // namespace rpc
+} // namespace cryptonote
