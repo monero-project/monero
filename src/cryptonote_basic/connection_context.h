@@ -39,12 +39,12 @@ namespace cryptonote
 
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
-    cryptonote_connection_context(): m_state(state_befor_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
+    cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_last_known_hash(cryptonote::null_hash) {}
 
     enum state
     {
-      state_befor_handshake = 0, //default state
+      state_before_handshake = 0, //default state
       state_synchronizing,
       state_idle,
       state_normal
@@ -65,8 +65,8 @@ namespace cryptonote
   {
     switch (s)
     {
-    case cryptonote_connection_context::state_befor_handshake:
-      return "state_befor_handshake";
+    case cryptonote_connection_context::state_before_handshake:
+      return "state_before_handshake";
     case cryptonote_connection_context::state_synchronizing:
       return "state_synchronizing";
     case cryptonote_connection_context::state_idle:

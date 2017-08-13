@@ -252,7 +252,7 @@ namespace cryptonote
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
   {
-    if(context.m_state == cryptonote_connection_context::state_befor_handshake && !is_inital)
+    if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_inital)
       return true;
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
