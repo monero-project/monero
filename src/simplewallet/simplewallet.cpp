@@ -117,6 +117,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from private keys"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_multisig_keys = {"generate-from-multisig-keys", sw::tr("Generate a master wallet from multisig wallet keys"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
+  const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Create non-deterministic view and spend keys"), false};
@@ -1411,6 +1412,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_generate_from_keys            = command_line::get_arg(vm, arg_generate_from_keys);
   m_generate_from_multisig_keys   = command_line::get_arg(vm, arg_generate_from_multisig_keys);
   m_generate_from_json            = command_line::get_arg(vm, arg_generate_from_json);
+  m_mnemonic_language             = command_line::get_arg(vm, arg_mnemonic_language);
   m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
@@ -1518,11 +1520,20 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
 
   std::string mnemonic_language = old_language;
+
+  std::vector<std::string> language_list;
+  crypto::ElectrumWords::get_language_list(language_list);
+  if (mnemonic_language.empty() && std::find(language_list.begin(), language_list.end(), m_mnemonic_language) != language_list.end())
+  {
+    mnemonic_language = m_mnemonic_language;
+  }
+
   // Ask for seed language if:
   // it's a deterministic wallet AND
+  // a seed language is not already specified AND
   // (it is not a wallet restore OR if it was a deprecated wallet
   // that was earlier used before this restore)
-  if ((!two_random) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
+  if ((!two_random) && (mnemonic_language.empty()) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
   {
     if (was_deprecated_wallet)
     {
@@ -4806,6 +4817,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_generate_from_keys);
   command_line::add_arg(desc_params, arg_generate_from_multisig_keys);
   command_line::add_arg(desc_params, arg_generate_from_json);
+  command_line::add_arg(desc_params, arg_mnemonic_language);
   command_line::add_arg(desc_params, arg_command);
 
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
