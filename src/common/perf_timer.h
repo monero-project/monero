@@ -46,9 +46,9 @@ extern __thread std::vector<PerformanceTimer*> *performance_timers;
 class PerformanceTimer
 {
 public:
-  PerformanceTimer(const std::string &s, el::Level l = el::Level::Debug): name(s), level(l), started(false)
+  PerformanceTimer(const std::string &s, uint64_t unit, el::Level l = el::Level::Debug): name(s), unit(unit), level(l), started(false)
   {
-    ticks = epee::misc_utils::get_tick_count();
+    ticks = epee::misc_utils::get_ns_count();
     if (!performance_timers)
     {
       MLOG(level, "PERF             ----------");
@@ -69,9 +69,9 @@ public:
   ~PerformanceTimer()
   {
     performance_timers->pop_back();
-    ticks = epee::misc_utils::get_tick_count() - ticks;
+    ticks = epee::misc_utils::get_ns_count() - ticks;
     char s[12];
-    snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)ticks);
+    snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)ticks / (1000000000 / unit));
     MLOG(level, "PERF " << s << std::string(performance_timers->size() * 2, ' ') << "  " << name);
     if (performance_timers->empty())
     {
@@ -82,6 +82,7 @@ public:
 
 private:
   std::string name;
+  uint64_t unit;
   el::Level level;
   uint64_t ticks;
   bool started;
@@ -89,7 +90,9 @@ private:
 
 void set_performance_timer_log_level(el::Level level);
 
-#define PERF_TIMER(name) tools::PerformanceTimer pt_##name(#name, tools::performance_timer_log_level)
-#define PERF_TIMER_L(name, l) tools::PerformanceTimer pt_##name(#name, l)
+#define PERF_TIMER_UNIT(name, unit) tools::PerformanceTimer pt_##name(#name, unit, tools::performance_timer_log_level)
+#define PERF_TIMER_UNIT_L(name, unit, l) tools::PerformanceTimer pt_##name(#name, unit, l)
+#define PERF_TIMER(name) PERF_TIMER_UNIT(name, 1000)
+#define PERF_TIMER_L(name, l) PERF_TIMER_UNIT_L(name, 1000, l)
 
 }

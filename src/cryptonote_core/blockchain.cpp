@@ -3883,15 +3883,15 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
           offset_map[in_to_key.amount].push_back(offset);
 
       }
-
-      // sort and remove duplicate absolute_offsets in offset_map
-      for (auto &offsets : offset_map)
-      {
-        std::sort(offsets.second.begin(), offsets.second.end());
-        auto last = std::unique(offsets.second.begin(), offsets.second.end());
-        offsets.second.erase(last, offsets.second.end());
-      }
     }
+  }
+
+  // sort and remove duplicate absolute_offsets in offset_map
+  for (auto &offsets : offset_map)
+  {
+    std::sort(offsets.second.begin(), offsets.second.end());
+    auto last = std::unique(offsets.second.begin(), offsets.second.end());
+    offsets.second.erase(last, offsets.second.end());
   }
 
   // [output] stores all transactions for each tx_out_index::hash found

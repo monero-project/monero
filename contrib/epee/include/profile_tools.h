@@ -57,7 +57,14 @@ namespace epee
 
 
 #define TIME_MEASURE_START(var_name)    uint64_t var_name = epee::misc_utils::get_tick_count();
+#define TIME_MEASURE_PAUSE(var_name)    var_name = epee::misc_utils::get_tick_count() - var_name;
+#define TIME_MEASURE_RESTART(var_name)  var_name = epee::misc_utils::get_tick_count() - var_name;
 #define TIME_MEASURE_FINISH(var_name)   var_name = epee::misc_utils::get_tick_count() - var_name;
+
+#define TIME_MEASURE_NS_START(var_name)    uint64_t var_name = epee::misc_utils::get_ns_count();
+#define TIME_MEASURE_NS_PAUSE(var_name)    var_name = epee::misc_utils::get_ns_count() - var_name;
+#define TIME_MEASURE_NS_RESTART(var_name)  var_name = epee::misc_utils::get_ns_count() - var_name;
+#define TIME_MEASURE_NS_FINISH(var_name)   var_name = epee::misc_utils::get_ns_count() - var_name;
 
 namespace profile_tools
 {
