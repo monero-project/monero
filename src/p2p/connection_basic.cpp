@@ -244,8 +244,7 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 		delay *= 0.50;
 		if (delay > 0) {
             long int ms = (long int)(delay * 1000);
-			MDEBUG("Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
-			_dbg1("sleep in sleep_before_packet");
+			MTRACE("Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
 			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
 		}
 	} while(delay > 0);
@@ -264,13 +263,13 @@ void connection_basic::set_start_time() {
 
 void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
 	sleep_before_packet(cb,1,-1);
-	MDEBUG("handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
+	MTRACE("handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
 	set_start_time();
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
 	sleep_before_packet(cb,2,q_len);
-	MDEBUG("handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
+	MTRACE("handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
 
 	set_start_time();
 }
