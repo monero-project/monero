@@ -959,6 +959,8 @@ namespace cryptonote
       MDEBUG(context << " adding span: " << arg.blocks.size() << " at height " << start_height << ", " << dt.total_microseconds()/1e6 << " seconds, " << (rate/1e3) << " kB/s, size now " << (m_block_queue.get_data_size() + blocks_size) / 1048576.f << " MB");
       m_block_queue.add_blocks(start_height, arg.blocks, context.m_connection_id, rate, blocks_size);
 
+      context.m_last_known_hash = cryptonote::get_blob_hash(arg.blocks.back().block);
+
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
 
         // We try to lock the sync lock. If we can, it means no other thread is
@@ -989,6 +991,43 @@ namespace cryptonote
           }
           MDEBUG(context << " next span in the queue has blocks " << start_height << "-" << (start_height + blocks.size() - 1)
               << ", we need " << previous_height);
+
+
+          block new_block;
+          if (!parse_and_validate_block_from_blob(blocks.front().block, new_block))
+          {
+            MERROR("Failed to parse block, but it should already have been parsed");
+            break;
+          }
+          bool parent_known = m_core.have_block(new_block.prev_id);
+          if (!parent_known)
+          {
+            // it could be:
+            //  - later in the current chain
+            //  - later in an alt chain
+            //  - orphan
+            // if it was requested, then it'll be resolved later, otherwise it's an orphan
+            bool parent_requested = false;
+	    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
+	      if (context.m_requested_objects.find(new_block.prev_id) != context.m_requested_objects.end())
+              {
+                parent_requested = true;
+                return false;
+              }
+	      return true;
+	    });
+            if (!parent_requested)
+            {
+              LOG_ERROR_CCONTEXT("Got block with unknown parent which was not requested - dropping connection");
+              // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
+              m_block_queue.remove_spans(span_connection_id, start_height);
+              return 1;
+            }
+
+            // parent was requested, so we wait for it to be retrieved
+            MINFO(context << " parent was requested, we'll get back to it");
+            break;
+          }
 
           const boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
 
@@ -1484,7 +1523,6 @@ skip:
     {
       context.m_needed_objects.push_back(bl_id);
     }
-    context.m_last_known_hash = context.m_needed_objects.back();
 
     if (!request_missing_objects(context, false))
     {
