@@ -67,11 +67,6 @@ monero_private_headers(blockchain_export
 	  ${blockchain_export_private_headers})
 
 
-set(cn_deserialize_sources
-  cn_deserialize.cpp
-  )
-
-
 monero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers}
@@ -121,22 +116,4 @@ add_dependencies(blockchain_export
 set_property(TARGET blockchain_export
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-export")
-
-monero_add_executable(cn_deserialize
-  ${cn_deserialize_sources}
-  ${cn_deserialize_private_headers})
-
-target_link_libraries(cn_deserialize
-  LINK_PRIVATE
-    cryptonote_core
-    blockchain_db
-	p2p
-    epee
-    ${CMAKE_THREAD_LIBS_INIT})
-
-add_dependencies(cn_deserialize
-	version)
-set_property(TARGET cn_deserialize
-	PROPERTY
-	OUTPUT_NAME "monero-utils-deserialize")
 
