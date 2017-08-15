@@ -130,6 +130,8 @@ namespace cryptonote
     size_t get_synchronizing_connections_count();
     bool on_connection_synchronized();
     bool should_download_next_span(cryptonote_connection_context& context) const;
+    void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
+
     t_core& m_core;
 
     nodetool::p2p_endpoint_stub<connection_context> m_p2p_stub;
