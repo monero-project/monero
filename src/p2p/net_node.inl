@@ -1171,14 +1171,11 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::connections_maker()
+  bool node_server<t_payload_net_handler>::connect_to_seed()
   {
-    if (!connect_to_peerlist(m_exclusive_peers)) return false;
+      if (m_seed_nodes.empty())
+        return true;
 
-    if (!m_exclusive_peers.empty()) return true;
-
-    if(!m_peerlist.get_white_peers_count() && m_seed_nodes.size())
-    {
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
       bool fallback_nodes_added = false;
@@ -1211,6 +1208,21 @@ namespace nodetool
         if(++current_index >= m_seed_nodes.size())
           current_index = 0;
       }
+      return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::connections_maker()
+  {
+    if (!connect_to_peerlist(m_exclusive_peers)) return false;
+
+    if (!m_exclusive_peers.empty()) return true;
+
+    size_t start_conn_count = get_outgoing_connections_count();
+    if(!m_peerlist.get_white_peers_count() && m_seed_nodes.size())
+    {
+      if (!connect_to_seed())
+        return false;
     }
 
     if (!connect_to_peerlist(m_priority_peers)) return false;
@@ -1240,6 +1252,13 @@ namespace nodetool
         if(!make_expected_connections_count(white, m_config.m_net_config.connections_count))
           return false;
       }
+    }
+
+    if (start_conn_count == get_outgoing_connections_count() && start_conn_count < m_config.m_net_config.connections_count)
+    {
+      MINFO("Failed to connect to any, trying seeds");
+      if (!connect_to_seed())
+        return false;
     }
 
     return true;

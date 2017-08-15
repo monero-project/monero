@@ -226,6 +226,7 @@ namespace nodetool
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr);
     bool is_priority_node(const epee::net_utils::network_address& na);
     std::set<std::string> get_seed_nodes(bool testnet) const;
+    bool connect_to_seed();
 
     template <class Container>
     bool connect_to_peerlist(const Container& peers);
