@@ -311,6 +311,8 @@ typedef void (MDB_rel_func)(MDB_val *item, void *oldptr, void *newptr, void *rel
 #define MDB_NORDAHEAD	0x800000
 	/** don't initialize malloc'd memory before writing to datafile */
 #define MDB_NOMEMINIT	0x1000000
+	/** use the previous snapshot rather than the latest one */
+#define MDB_PREVSNAPSHOT	0x2000000
 /** @} */
 
 /**	@defgroup	mdb_dbi_open	Database Flags
@@ -622,6 +624,12 @@ int  mdb_env_create(MDB_env **env);
 	 *		caller is expected to overwrite all of the memory that was
 	 *		reserved in that case.
 	 *		This flag may be changed at any time using #mdb_env_set_flags().
+	 *	<li>#MDB_PREVSNAPSHOT
+	 *		Open the environment with the previous snapshot rather than the latest
+	 *		one. This loses the latest transaction, but may help work around some
+	 *		types of corruption. If opened with write access, this must be the
+	 *		only process using the environment. This flag is automatically reset
+	 *		after a write transaction is successfully committed.
 	 * </ul>
 	 * @param[in] mode The UNIX permissions to set on created files and semaphores.
 	 * This parameter is ignored on Windows.

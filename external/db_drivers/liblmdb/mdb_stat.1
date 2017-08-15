@@ -14,6 +14,8 @@ mdb_stat \- LMDB environment status tool
 [\c
 .BR \-n ]
 [\c
+.BR \-v ]
+[\c
 .BR \-r [ r ]]
 [\c
 .BR \-a \ |
@@ -38,6 +40,10 @@ If \fB\-fff\fP is given, display the full list of page IDs in the freelist.
 .TP
 .BR \-n
 Display the status of an LMDB database which does not use subdirectories.
+.TP
+.BR \-v
+Use the previous environment state instead of the latest state.
+This may be useful if the latest state has been corrupted.
 .TP
 .BR \-r
 Display information about the environment reader table.
