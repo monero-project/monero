@@ -1959,6 +1959,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_merge_destinations ? 1 :0);
   json.AddMember("merge_destinations", value2, json.GetAllocator());
 
+  value2.SetInt(m_testnet ? 1 :0);
+  json.AddMember("testnet", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -2100,6 +2103,11 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_min_output_value = field_min_output_value;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, merge_destinations, int, Int, false, false);
     m_merge_destinations = field_merge_destinations;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
+    // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
+    THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
+    // Wallet is being opened without testnet flag but is saved as a testnet wallet.
+    THROW_WALLET_EXCEPTION_IF(!m_testnet && field_testnet, error::wallet_internal_error, "Testnet wallet can not be opened as mainnet wallet");
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
