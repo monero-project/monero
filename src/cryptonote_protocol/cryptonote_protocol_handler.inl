@@ -990,6 +990,43 @@ namespace cryptonote
           MDEBUG(context << " next span in the queue has blocks " << start_height << "-" << (start_height + blocks.size() - 1)
               << ", we need " << previous_height);
 
+
+          block new_block;
+          if (!parse_and_validate_block_from_blob(blocks.front().block, new_block))
+          {
+            MERROR("Failed to parse block, but it should already have been parsed");
+            break;
+          }
+          bool parent_known = m_core.have_block(new_block.prev_id);
+          if (!parent_known)
+          {
+            // it could be:
+            //  - later in the current chain
+            //  - later in an alt chain
+            //  - orphan
+            // if it was requested, then it'll be resolved later, otherwise it's an orphan
+            bool parent_requested = false;
+	    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
+	      if (context.m_requested_objects.find(new_block.prev_id) != context.m_requested_objects.end())
+              {
+                parent_requested = true;
+                return false;
+              }
+	      return true;
+	    });
+            if (!parent_requested)
+            {
+              LOG_ERROR_CCONTEXT("Got block with unknown parent which was not requested - dropping connection");
+              // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
+              m_block_queue.remove_spans(span_connection_id, start_height);
+              return 1;
+            }
+
+            // parent was requested, so we wait for it to be retrieved
+            MINFO(context << " parent was requested, we'll get back to it");
+            break;
+          }
+
           const boost::posix_time::ptime start = boost::posix_time::microsec_clock::universal_time();
 
           m_core.prepare_handle_incoming_blocks(blocks);
