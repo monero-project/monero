@@ -267,6 +267,7 @@ namespace cryptonote
     std::string m_generate_from_keys;
     std::string m_generate_from_multisig_keys;
     std::string m_generate_from_json;
+    std::string m_mnemonic_language;
     std::string m_import_path;
 
     std::string m_electrum_seed;  // electrum-style seed parameter
