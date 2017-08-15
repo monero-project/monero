@@ -959,6 +959,8 @@ namespace cryptonote
       MDEBUG(context << " adding span: " << arg.blocks.size() << " at height " << start_height << ", " << dt.total_microseconds()/1e6 << " seconds, " << (rate/1e3) << " kB/s, size now " << (m_block_queue.get_data_size() + blocks_size) / 1048576.f << " MB");
       m_block_queue.add_blocks(start_height, arg.blocks, context.m_connection_id, rate, blocks_size);
 
+      context.m_last_known_hash = cryptonote::get_blob_hash(arg.blocks.back().block);
+
       if (m_core.get_test_drop_download() && m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
 
         // We try to lock the sync lock. If we can, it means no other thread is
@@ -1521,7 +1523,6 @@ skip:
     {
       context.m_needed_objects.push_back(bl_id);
     }
-    context.m_last_known_hash = context.m_needed_objects.back();
 
     if (!request_missing_objects(context, false))
     {
