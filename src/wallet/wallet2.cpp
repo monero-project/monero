@@ -1879,6 +1879,10 @@ bool wallet2::clear()
   m_payments.clear();
   m_tx_keys.clear();
   m_confirmed_txs.clear();
+  m_unconfirmed_payments.clear();
+  m_scanned_pool_txs[0].clear();
+  m_scanned_pool_txs[1].clear();
+  m_address_book.clear();
   m_local_bc_height = 1;
   return true;
 }
