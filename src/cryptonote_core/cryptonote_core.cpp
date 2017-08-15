@@ -164,6 +164,7 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_prep_blocks_threads);
     command_line::add_arg(desc, command_line::arg_fast_block_sync);
     command_line::add_arg(desc, command_line::arg_db_sync_mode);
+    command_line::add_arg(desc, command_line::arg_db_salvage);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
     command_line::add_arg(desc, command_line::arg_check_updates);
@@ -278,6 +279,7 @@ namespace cryptonote
 
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
+    bool db_salvage = command_line::get_arg(vm, command_line::arg_db_salvage) != 0;
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, command_line::arg_check_updates);
@@ -310,12 +312,14 @@ namespace cryptonote
     uint64_t DBS_FAST_MODE = 0;
     uint64_t DBS_FASTEST_MODE = 0;
     uint64_t DBS_SAFE_MODE = 0;
+    uint64_t DBS_SALVAGE = 0;
     if (db_type == "lmdb")
     {
       db = new BlockchainLMDB();
       DBS_SAFE_MODE = MDB_NORDAHEAD;
       DBS_FAST_MODE = MDB_NORDAHEAD | MDB_NOSYNC;
       DBS_FASTEST_MODE = MDB_NORDAHEAD | MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
+      DBS_SALVAGE = MDB_PREVSNAPSHOT;
     }
     else
     {
@@ -386,6 +390,9 @@ namespace cryptonote
         if (*endptr == '\0')
           blocks_per_sync = bps;
       }
+
+      if (db_salvage)
+        db_flags |= DBS_SALVAGE;
 
       db->open(filename, db_flags);
       if(!db->m_open)
