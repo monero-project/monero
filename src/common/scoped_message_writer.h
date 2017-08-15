@@ -31,6 +31,14 @@
 #include "misc_log_ex.h"
 #include <iostream>
 
+#ifdef HAVE_READLINE
+  #include "readline_buffer.h"
+  #define PAUSE_READLINE() \
+    rdln::suspend_readline pause_readline; 
+#else
+  #define PAUSE_READLINE()
+#endif
+
 namespace tools
 {
 
@@ -99,6 +107,7 @@ public:
       }
       else
       {
+        PAUSE_READLINE();
         set_console_color(m_color, m_bright);
         std::cout << m_oss.str();
         epee::reset_console_color();
@@ -108,9 +117,9 @@ public:
   }
 };
 
-inline scoped_message_writer success_msg_writer()
+inline scoped_message_writer success_msg_writer(bool color = true)
 {
-  return scoped_message_writer(epee::console_color_green, false, std::string(), el::Level::Info);
+  return scoped_message_writer(color ? epee::console_color_green : epee::console_color_default, false, std::string(), el::Level::Info);
 }
 
 inline scoped_message_writer msg_writer(epee::console_colors color = epee::console_color_default)
