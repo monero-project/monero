@@ -189,6 +189,8 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     ++i;
     ++span_length;
   }
+  if (span_length == 0)
+    return std::make_pair(0, 0);
   MDEBUG("Reserving span " << span_start_height << " - " << (span_start_height + span_length - 1) << " for " << connection_id);
   add_blocks(span_start_height, span_length, connection_id, time);
   set_span_hashes(span_start_height, connection_id, hashes);
