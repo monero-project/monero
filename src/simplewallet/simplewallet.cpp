@@ -4191,6 +4191,19 @@ void simple_wallet::wallet_idle_thread()
   }
 }
 //----------------------------------------------------------------------------------------------------
+std::string simple_wallet::get_prompt() const
+{
+  std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
+  std::string prompt = std::string("[") + tr("wallet") + " " + addr_start;
+  uint32_t version;
+  if (!m_wallet->check_connection(&version))
+    prompt += tr(" (no daemon)");
+  else if (!m_wallet->is_synced())
+    prompt += tr(" (out of sync)");
+  prompt += "]: ";
+  return prompt;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
   // check and display warning, but go on anyway
@@ -4201,9 +4214,8 @@ bool simple_wallet::run()
   m_auto_refresh_enabled = m_wallet->auto_refresh();
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
-  std::string addr_start = m_wallet->get_account().get_public_address_str(m_wallet->testnet()).substr(0, 6);
   message_writer(console_color_green, false) << "Background refresh thread started";
-  return m_cmd_binder.run_handling(std::string("[") + tr("wallet") + " " + addr_start + "]: ", "");
+  return m_cmd_binder.run_handling([this](){return get_prompt();}, "");
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::stop()

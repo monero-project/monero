@@ -182,6 +182,7 @@ namespace cryptonote
     bool accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs);
     bool accept_loaded_tx(const tools::wallet2::signed_tx_set &txs);
     bool print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr);
+    std::string get_prompt() const;
 
     /*!
      * \brief Prints the seed with a nice message

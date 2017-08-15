@@ -5711,6 +5711,15 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
   }
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::is_synced() const
+{
+  uint64_t height;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_target_height(height);
+  if (result && *result != CORE_RPC_STATUS_OK)
+    return false;
+  return get_blockchain_current_height() >= height;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
   if (m_testnet)
   {
