@@ -42,9 +42,9 @@ namespace cryptonote
     /**
      * @brief checks if a hash fits the given difficulty
      *
-     * The hash passes if (hash * difficulty) < 2^192.
+     * The hash passes if (hash * difficulty) < 2^256.
      * Phrased differently, if (hash * difficulty) fits without overflow into
-     * the least significant 192 bits of the 256 bit multiplication result.
+     * the least significant 256 bits of the 320 bit multiplication result.
      *
      * @param hash the hash to check
      * @param difficulty the difficulty to check against
