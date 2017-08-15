@@ -236,6 +236,7 @@ namespace tools
     entry.height = pd.m_block_height;
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
+    entry.unlock_time = pd.m_unlock_time;
     entry.fee = 0; // TODO
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = "in";
@@ -249,6 +250,7 @@ namespace tools
       entry.payment_id = entry.payment_id.substr(0,16);
     entry.height = pd.m_block_height;
     entry.timestamp = pd.m_timestamp;
+    entry.unlock_time = pd.m_unlock_time;
     entry.fee = pd.m_amount_in - pd.m_amount_out;
     uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
     entry.amount = pd.m_amount_in - change - entry.fee;
@@ -276,6 +278,7 @@ namespace tools
     entry.timestamp = pd.m_timestamp;
     entry.fee = pd.m_amount_in - pd.m_amount_out;
     entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
+    entry.unlock_time = pd.m_tx.unlock_time;
     entry.note = m_wallet->get_tx_note(txid);
     entry.type = is_failed ? "failed" : "pending";
   }
@@ -289,6 +292,7 @@ namespace tools
     entry.height = 0;
     entry.timestamp = pd.m_timestamp;
     entry.amount = pd.m_amount;
+    entry.unlock_time = pd.m_unlock_time;
     entry.fee = 0; // TODO
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = "pool";
