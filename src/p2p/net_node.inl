@@ -159,7 +159,7 @@ namespace nodetool
           }
           catch (const std::exception &e)
           {
-            LOG_ERROR("Failed to load p2p config file, falling back to default config");
+            MWARNING("Failed to load p2p config file, falling back to default config");
             m_peerlist = peerlist_manager(); // it was probably half clobbered by the failed load
             make_default_config();
           }
@@ -396,7 +396,7 @@ namespace nodetool
       }
       else
       {
-        MERROR("IPv6 unsupported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
+        MWARNING("IPv6 unsupported, skip '" << host << "' -> " << endpoint.address().to_v6().to_string(ec));
         throw std::runtime_error("IPv6 unsupported");
       }
     }
@@ -756,19 +756,19 @@ namespace nodetool
 
       if(code < 0)
       {
-        LOG_ERROR_CC(context, "COMMAND_HANDSHAKE invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
+        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
         return;
       }
 
       if(rsp.node_data.network_id != m_network_id)
       {
-        LOG_ERROR_CC(context, "COMMAND_HANDSHAKE Failed, wrong network!  (" << epee::string_tools::get_str_from_guid_a(rsp.node_data.network_id) << "), closing connection.");
+        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE Failed, wrong network!  (" << epee::string_tools::get_str_from_guid_a(rsp.node_data.network_id) << "), closing connection.");
         return;
       }
 
       if(!handle_remote_peerlist(rsp.local_peerlist_new, rsp.node_data.local_time, context))
       {
-        LOG_ERROR_CC(context, "COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
+        LOG_WARNING_CC(context, "COMMAND_HANDSHAKE: failed to handle_remote_peerlist(...), closing connection.");
         add_host_fail(context.m_remote_address);
         return;
       }
@@ -777,7 +777,7 @@ namespace nodetool
       {
         if(!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, true))
         {
-          LOG_ERROR_CC(context, "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection.");
+          LOG_WARNING_CC(context, "COMMAND_HANDSHAKE invoked, but process_payload_sync_data returned false, dropping connection.");
           hsh_result = false;
           return;
         }
@@ -805,7 +805,7 @@ namespace nodetool
 
     if(!hsh_result)
     {
-      LOG_ERROR_CC(context_, "COMMAND_HANDSHAKE Failed");
+      LOG_WARNING_CC(context_, "COMMAND_HANDSHAKE Failed");
       m_net_server.get_config_object().close(context_.m_connection_id);
     }
     else
@@ -831,7 +831,7 @@ namespace nodetool
       context.m_in_timedsync = false;
       if(code < 0)
       {
-        LOG_ERROR_CC(context, "COMMAND_TIMED_SYNC invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
+        LOG_WARNING_CC(context, "COMMAND_TIMED_SYNC invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
         return;
       }
 
@@ -848,7 +848,7 @@ namespace nodetool
 
     if(!r)
     {
-      LOG_ERROR_CC(context_, "COMMAND_TIMED_SYNC Failed");
+      LOG_WARNING_CC(context_, "COMMAND_TIMED_SYNC Failed");
       return false;
     }
     return true;
@@ -1402,17 +1402,17 @@ namespace nodetool
     uint64_t time_delata = local_time > tr.time ? local_time - tr.time: tr.time - local_time;
     if(time_delata > 24*60*60 )
     {
-      LOG_ERROR("check_trust failed to check time conditions, local_time=" <<  local_time << ", proof_time=" << tr.time);
+      MWARNING("check_trust failed to check time conditions, local_time=" <<  local_time << ", proof_time=" << tr.time);
       return false;
     }
     if(m_last_stat_request_time >= tr.time )
     {
-      LOG_ERROR("check_trust failed to check time conditions, last_stat_request_time=" <<  m_last_stat_request_time << ", proof_time=" << tr.time);
+      MWARNING("check_trust failed to check time conditions, last_stat_request_time=" <<  m_last_stat_request_time << ", proof_time=" << tr.time);
       return false;
     }
     if(m_config.m_peer_id != tr.peer_id)
     {
-      LOG_ERROR("check_trust failed: peer_id mismatch (passed " << tr.peer_id << ", expected " << m_config.m_peer_id<< ")");
+      MWARNING("check_trust failed: peer_id mismatch (passed " << tr.peer_id << ", expected " << m_config.m_peer_id<< ")");
       return false;
     }
     crypto::public_key pk = AUTO_VAL_INIT(pk);
@@ -1420,7 +1420,7 @@ namespace nodetool
     crypto::hash h = get_proof_of_trust_hash(tr);
     if(!crypto::check_signature(h, pk, tr.sign))
     {
-      LOG_ERROR("check_trust failed: sign check failed");
+      MWARNING("check_trust failed: sign check failed");
       return false;
     }
     //update last request time
@@ -1581,13 +1581,13 @@ namespace nodetool
       {
         if(code <= 0)
         {
-          LOG_ERROR_CC(ping_context, "Failed to invoke COMMAND_PING to " << address.str() << "(" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
+          LOG_WARNING_CC(ping_context, "Failed to invoke COMMAND_PING to " << address.str() << "(" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
           return;
         }
 
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
-          LOG_ERROR_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << rsp.peer_id);
+          LOG_WARNING_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << rsp.peer_id);
           m_net_server.get_config_object().close(ping_context.m_connection_id);
           return;
         }
@@ -1597,7 +1597,7 @@ namespace nodetool
 
       if(!inv_call_res)
       {
-        LOG_ERROR_CC(ping_context, "back ping invoke failed to " << address.str());
+        LOG_WARNING_CC(ping_context, "back ping invoke failed to " << address.str());
         m_net_server.get_config_object().close(ping_context.m_connection_id);
         return false;
       }
@@ -1605,7 +1605,7 @@ namespace nodetool
     });
     if(!r)
     {
-      LOG_ERROR_CC(context, "Failed to call connect_async, network error.");
+      LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
     }
     return r;
   }
@@ -1624,7 +1624,7 @@ namespace nodetool
       {  
         if(code < 0)
         {
-          LOG_ERROR_CC(context_, "COMMAND_REQUEST_SUPPORT_FLAGS invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
+          LOG_WARNING_CC(context_, "COMMAND_REQUEST_SUPPORT_FLAGS invoke failed. (" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
           return;
         }
         
@@ -1641,7 +1641,7 @@ namespace nodetool
   {
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, false))
     {
-      LOG_ERROR_CC(context, "Failed to process_payload_sync_data(), dropping connection");
+      LOG_WARNING_CC(context, "Failed to process_payload_sync_data(), dropping connection");
       drop_connection(context);
       return 1;
     }
@@ -1668,7 +1668,7 @@ namespace nodetool
 
     if(!context.m_is_income)
     {
-      LOG_ERROR_CC(context, "COMMAND_HANDSHAKE came not from incoming connection");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came not from incoming connection");
       drop_connection(context);
       add_host_fail(context.m_remote_address);
       return 1;
@@ -1676,14 +1676,14 @@ namespace nodetool
 
     if(context.peer_id)
     {
-      LOG_ERROR_CC(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?)");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?)");
       drop_connection(context);
       return 1;
     }
 
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, true))
     {
-      LOG_ERROR_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
       drop_connection(context);
       return 1;
     }
