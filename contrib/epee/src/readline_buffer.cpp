@@ -61,7 +61,8 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
-  std::unique_lock<std::mutex> lock(process_mutex);
+  std::unique_lock<std::mutex> lock_process(process_mutex);
+  std::unique_lock<std::mutex> lock_sync(sync_mutex);
   have_line.notify_all();
   if(m_cout_buf == NULL)
     return;
@@ -152,9 +153,7 @@ static int process_input()
 
 static void handle_line(char* line)
 {
-  // This function never gets called now as we are trapping newlines.
-  // However, it still needs to be present for readline to know we are 
-  // manually handling lines.
+  free(line);
   rl_done = 1;
   return;
 }
@@ -166,6 +165,7 @@ static int handle_enter(int x, int y)
 
   line = rl_copy_text(0, rl_end);
   std::string test_line = line;
+  free(line);
   boost::trim_right(test_line);
 
   rl_crlf();
@@ -191,7 +191,6 @@ static int handle_enter(int x, int y)
     add_history(test_line.c_str());
     history_set_pos(history_length);
   }
-  free(line);
 
   if(last_line != "exit" && last_line != "q")
   {
