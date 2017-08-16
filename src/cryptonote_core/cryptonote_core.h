@@ -691,7 +691,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     size_t get_block_sync_size() const { return block_sync_size; }
+     size_t get_block_sync_size(uint64_t height) const;
 
      /**
       * @brief get the sum of coinbase tx amounts between blocks
