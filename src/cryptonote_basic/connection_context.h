@@ -46,6 +46,7 @@ namespace cryptonote
     {
       state_befor_handshake = 0, //default state
       state_synchronizing,
+      state_standby,
       state_idle,
       state_normal
     };
@@ -69,6 +70,8 @@ namespace cryptonote
       return "state_befor_handshake";
     case cryptonote_connection_context::state_synchronizing:
       return "state_synchronizing";
+    case cryptonote_connection_context::state_standby:
+      return "state_standby";
     case cryptonote_connection_context::state_idle:
       return "state_idle";
     case cryptonote_connection_context::state_normal:

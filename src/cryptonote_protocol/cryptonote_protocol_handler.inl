@@ -51,6 +51,7 @@
 #define BLOCK_QUEUE_NBLOCKS_THRESHOLD 10 // chunks of N blocks
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (5 * 1000000) // microseconds
+#define IDLE_PEER_KICK_TIME (45 * 1000000) // microseconds
 
 namespace cryptonote
 {
@@ -1129,7 +1130,30 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::on_idle()
   {
+    m_idle_peer_kicker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::kick_idle_peers, this));
     return m_core.on_idle();
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::kick_idle_peers()
+  {
+    MTRACE("Checking for idle peers...");
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+    {
+      if (context.m_state == cryptonote_connection_context::state_synchronizing)
+      {
+        const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+        const boost::posix_time::time_duration dt = now - context.m_last_request_time;
+        if (dt.total_microseconds() > IDLE_PEER_KICK_TIME)
+        {
+          MINFO(context << " kicking idle peer");
+          ++context.m_callback_request_count;
+          m_p2p->request_callback(context);
+        }
+      }
+      return true;
+    });
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -1243,6 +1267,7 @@ skip:
         {
           LOG_DEBUG_CC(context, "Block queue is " << nblocks << " and " << size << ", pausing");
           first = false;
+          context.m_state = cryptonote_connection_context::state_standby;
         }
         for (size_t n = 0; n < 50; ++n)
         {
@@ -1251,6 +1276,7 @@ skip:
           boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
         }
       }
+      context.m_state = cryptonote_connection_context::state_synchronizing;
     }
 
     MDEBUG(context << " request_missing_objects: check " << check_having_blocks << ", force_next_span " << force_next_span << ", m_needed_objects " << context.m_needed_objects.size() << " lrh " << context.m_last_response_height << ", chain " << m_core.get_current_blockchain_height());
@@ -1402,6 +1428,7 @@ skip:
       //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
       //LOG_PRINT_CCONTEXT_L1("r = " << 200);
 
+      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
       LOG_PRINT_CCONTEXT_L1("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() << ", start_from_current_chain " << start_from_current_chain);
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
     }else
