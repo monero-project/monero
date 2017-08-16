@@ -14,10 +14,8 @@ static void remove_line_handler();
 
 static std::string last_line;
 static std::string last_prompt;
-std::mutex line_mutex, sync_mutex, process_mutex;
-std::condition_variable have_line;
-
-std::vector<std::string> rdln::readline_buffer::completion_commands = {"exit"};
+static std::mutex line_mutex, sync_mutex, process_mutex;
+static std::condition_variable have_line;
 
 namespace
 {
@@ -41,6 +39,12 @@ rdln::suspend_readline::~suspend_readline()
     return;
   if(m_restart)
     m_buffer->start();
+}
+
+std::vector<std::string>& rdln::readline_buffer::completion_commands()
+{
+  static std::vector<std::string> commands = {"exit"};
+  return commands;
 }
 
 rdln::readline_buffer::readline_buffer()
@@ -86,6 +90,18 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   std::lock_guard<std::mutex> lock(sync_mutex);
   rl_set_prompt(last_prompt.c_str());
   rl_redisplay();
+}
+
+void rdln::readline_buffer::add_completion(const std::string& command)
+{
+  if(std::find(completion_commands().begin(), completion_commands().end(), command) != completion_commands().end())
+    return;
+  completion_commands().push_back(command);
+}
+
+const std::vector<std::string>& rdln::readline_buffer::get_completions()
+{
+  return completion_commands();
 }
 
 int rdln::readline_buffer::process()
