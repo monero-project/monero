@@ -1127,6 +1127,8 @@ namespace nodetool
 
       if (use_white_list) {
         local_peers_count = m_peerlist.get_white_peers_count();
+        if (!local_peers_count)
+          return false;
         max_random_index = std::min<uint64_t>(local_peers_count -1, 20);
         random_index = get_random_index_with_fixed_probability(max_random_index);
       } else {
@@ -1950,6 +1952,9 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
   {
     peerlist_entry pe = AUTO_VAL_INIT(pe);
+
+    if (m_net_server.is_stop_signal_sent())
+      return false;
 
     if (!m_peerlist.get_random_gray_peer(pe)) {
         return false;
