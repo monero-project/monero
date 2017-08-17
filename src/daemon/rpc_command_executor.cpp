@@ -55,7 +55,9 @@ namespace {
     std::string port_str;
     std::string elapsed = epee::misc_utils::get_time_interval_string(now - last_seen);
     std::string ip_str = epee::string_tools::get_ip_string_from_int32(peer.ip);
-    epee::string_tools::xtype_to_string(peer.id, id_str);
+    std::stringstream peer_id_str;
+    peer_id_str << std::hex << std::setw(16) << peer.id;
+    peer_id_str >> id_str;
     epee::string_tools::xtype_to_string(peer.port, port_str);
     std::string addr_str = ip_str + ":" + port_str;
     tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
@@ -112,10 +114,15 @@ namespace {
     return base + " -- " + status;
   }
 
-  std::string pad(std::string s, size_t n)
+  std::string pad(std::string s, size_t n, char c = ' ', bool prepend = false)
   {
     if (s.size() < n)
-      s.append(n - s.size(), ' ');
+    {
+      if (prepend)
+        s = std::string(n - s.size(), c) + s;
+      else
+        s.append(n - s.size(), c);
+    }
     return s;
   }
 }
@@ -490,7 +497,7 @@ bool t_rpc_command_executor::print_connections() {
     tools::msg_writer() 
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
-     << std::setw(20) << info.peer_id
+     << std::setw(20) << pad(info.peer_id, 16, '0', true)
      << std::setw(20) << info.support_flags
      << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
      << std::setw(25) << info.state
@@ -1742,7 +1749,7 @@ bool t_rpc_command_executor::sync_info()
       for (const auto &s: res.spans)
         if (s.rate > 0.0f && s.connection_id == p.info.connection_id)
           nblocks += s.nblocks, size += s.size;
-      tools::success_msg_writer() << address << "  " << p.info.peer_id << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
+      tools::success_msg_writer() << address << "  " << pad(p.info.peer_id, 16, '0', true) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
     }
 
     uint64_t total_size = 0;

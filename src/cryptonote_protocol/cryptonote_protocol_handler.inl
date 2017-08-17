@@ -203,7 +203,7 @@ namespace cryptonote
       }
 
       std::stringstream peer_id_str;
-      peer_id_str << std::hex << peer_id;
+      peer_id_str << std::hex << std::setw(16) << peer_id;
       peer_id_str >> cnx.peer_id;
       
       cnx.support_flags = support_flags;
