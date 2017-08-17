@@ -1110,6 +1110,11 @@ namespace cryptonote
     return m_blockchain_storage.get_tail_id();
   }
   //-----------------------------------------------------------------------------------------------
+  difficulty_type core::get_block_cumulative_difficulty(uint64_t height) const
+  {
+    return m_blockchain_storage.get_db().get_block_cumulative_difficulty(height);
+  }
+  //-----------------------------------------------------------------------------------------------
   size_t core::get_pool_transactions_count() const
   {
     return m_mempool.get_transactions_count();

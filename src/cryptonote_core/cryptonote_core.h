@@ -521,6 +521,13 @@ namespace cryptonote
      crypto::hash get_tail_id() const;
 
      /**
+      * @copydoc Blockchain::get_block_cumulative_difficulty
+      *
+      * @note see Blockchain::get_block_cumulative_difficulty
+      */
+     difficulty_type get_block_cumulative_difficulty(uint64_t height) const;
+
+     /**
       * @copydoc Blockchain::get_random_outs_for_amounts
       *
       * @note see Blockchain::get_random_outs_for_amounts
