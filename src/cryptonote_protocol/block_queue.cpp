@@ -334,6 +334,16 @@ crypto::hash block_queue::get_last_known_hash(const boost::uuids::uuid &connecti
   return hash;
 }
 
+bool block_queue::has_spans(const boost::uuids::uuid &connection_id) const
+{
+  for (const auto &span: blocks)
+  {
+    if (span.connection_id == connection_id)
+      return true;
+  }
+  return false;
+}
+
 float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);

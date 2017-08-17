@@ -86,6 +86,7 @@ namespace cryptonote
     size_t get_num_filled_spans_prefix() const;
     size_t get_num_filled_spans() const;
     crypto::hash get_last_known_hash(const boost::uuids::uuid &connection_id) const;
+    bool has_spans(const boost::uuids::uuid &connection_id) const;
     float get_speed(const boost::uuids::uuid &connection_id) const;
     bool foreach(std::function<bool(const span&)> f, bool include_blockchain_placeholder = false) const;
     bool requested(const crypto::hash &hash) const;

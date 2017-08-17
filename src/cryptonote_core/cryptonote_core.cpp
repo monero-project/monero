@@ -421,8 +421,6 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
     block_sync_size = command_line::get_arg(vm, command_line::arg_block_sync_size);
-    if (block_sync_size == 0)
-      block_sync_size = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
 
     MGINFO("Loading checkpoints");
 
@@ -786,6 +784,16 @@ namespace cryptonote
       spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
     }
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  size_t core::get_block_sync_size(uint64_t height) const
+  {
+    static const uint64_t quick_height = m_testnet ? 801219 : 1220516;
+    if (block_sync_size > 0)
+      return block_sync_size;
+    if (height >= quick_height)
+      return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+    return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
   }
   //-----------------------------------------------------------------------------------------------
   std::pair<uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)

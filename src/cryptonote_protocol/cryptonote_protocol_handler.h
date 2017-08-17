@@ -38,6 +38,7 @@
 #include <string>
 #include <ctime>
 
+#include "math_helper.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
@@ -131,6 +132,7 @@ namespace cryptonote
     bool on_connection_synchronized();
     bool should_download_next_span(cryptonote_connection_context& context) const;
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
+    bool kick_idle_peers();
 
     t_core& m_core;
 
@@ -141,6 +143,7 @@ namespace cryptonote
     std::atomic<bool> m_stopping;
     boost::mutex m_sync_lock;
     block_queue m_block_queue;
+    epee::math_helper::once_a_time_seconds<30> m_idle_peer_kicker;
 
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();
