@@ -14,10 +14,8 @@ static void remove_line_handler();
 
 static std::string last_line;
 static std::string last_prompt;
-std::mutex line_mutex, sync_mutex, process_mutex;
-std::condition_variable have_line;
-
-std::vector<std::string> rdln::readline_buffer::completion_commands = {"exit"};
+static std::mutex line_mutex, sync_mutex, process_mutex;
+static std::condition_variable have_line;
 
 namespace
 {
@@ -43,6 +41,12 @@ rdln::suspend_readline::~suspend_readline()
     m_buffer->start();
 }
 
+std::vector<std::string>& rdln::readline_buffer::completion_commands()
+{
+  static std::vector<std::string> commands = {"exit"};
+  return commands;
+}
+
 rdln::readline_buffer::readline_buffer()
 : std::stringbuf(), m_cout_buf(NULL)
 {
@@ -61,7 +65,8 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
-  std::unique_lock<std::mutex> lock(process_mutex);
+  std::unique_lock<std::mutex> lock_process(process_mutex);
+  std::unique_lock<std::mutex> lock_sync(sync_mutex);
   have_line.notify_all();
   if(m_cout_buf == NULL)
     return;
@@ -85,6 +90,18 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   std::lock_guard<std::mutex> lock(sync_mutex);
   rl_set_prompt(last_prompt.c_str());
   rl_redisplay();
+}
+
+void rdln::readline_buffer::add_completion(const std::string& command)
+{
+  if(std::find(completion_commands().begin(), completion_commands().end(), command) != completion_commands().end())
+    return;
+  completion_commands().push_back(command);
+}
+
+const std::vector<std::string>& rdln::readline_buffer::get_completions()
+{
+  return completion_commands();
 }
 
 int rdln::readline_buffer::process()
@@ -152,9 +169,7 @@ static int process_input()
 
 static void handle_line(char* line)
 {
-  // This function never gets called now as we are trapping newlines.
-  // However, it still needs to be present for readline to know we are 
-  // manually handling lines.
+  free(line);
   rl_done = 1;
   return;
 }
@@ -166,6 +181,7 @@ static int handle_enter(int x, int y)
 
   line = rl_copy_text(0, rl_end);
   std::string test_line = line;
+  free(line);
   boost::trim_right(test_line);
 
   rl_crlf();
@@ -191,7 +207,6 @@ static int handle_enter(int x, int y)
     add_history(test_line.c_str());
     history_set_pos(history_length);
   }
-  free(line);
 
   if(last_line != "exit" && last_line != "q")
   {
