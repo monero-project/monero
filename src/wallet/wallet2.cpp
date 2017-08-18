@@ -5324,7 +5324,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 }
 
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent)
+uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent, bool check_spent)
 {
   COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
   COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
@@ -5373,32 +5373,37 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     m_transfers[n].m_key_image_known = true;
   }
 
-  m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json("/is_key_image_spent", req, daemon_resp, m_http_client, rpc_timeout);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
-  THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != signed_key_images.size(), error::wallet_internal_error,
-    "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
-    std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
-
+  if(check_spent)
+  {
+    m_daemon_rpc_mutex.lock();
+    bool r = epee::net_utils::invoke_http_json("/is_key_image_spent", req, daemon_resp, m_http_client, rpc_timeout);
+    m_daemon_rpc_mutex.unlock();
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != signed_key_images.size(), error::wallet_internal_error,
+      "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
+      std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(signed_key_images.size()));
+    for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
+    {
+      transfer_details &td = m_transfers[n];
+      td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+    }
+  }
   spent = 0;
   unspent = 0;
-  for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
+  for(size_t i = 0; i < m_transfers.size(); ++i)
   {
-    transfer_details &td = m_transfers[n];
+    transfer_details &td = m_transfers[i];
     uint64_t amount = td.amount();
-    td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
     if (td.m_spent)
       spent += amount;
     else
       unspent += amount;
-    LOG_PRINT_L2("Transfer " << n << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
-        << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[n] << ")");
+    LOG_PRINT_L2("Transfer " << i << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
+        << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[i] << ")");
   }
-  LOG_PRINT_L1("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
-
+  MDEBUG("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
   return m_transfers[signed_key_images.size() - 1].m_block_height;
 }
 //----------------------------------------------------------------------------------------------------
