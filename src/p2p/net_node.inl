@@ -1795,6 +1795,8 @@ namespace nodetool
       m_peerlist.remove_from_peer_anchor(na);
     }
 
+    m_payload_handler.on_connection_close(context);
+
     MINFO("["<< epee::net_utils::print_connection_context(context) << "] CLOSE CONNECTION");
   }
 
