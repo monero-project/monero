@@ -580,9 +580,14 @@ namespace tools
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
+    // Import/Export wallet data
     std::vector<tools::wallet2::transfer_details> export_outputs() const;
     size_t import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs);
-
+    payment_container export_payments() const;
+    void import_payments(const payment_container &payments);
+    void import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments);
+    std::vector<crypto::hash> export_blockchain() const;
+    void import_blockchain(const std::vector<crypto::hash> &bc);
     bool export_key_images(const std::string filename);
     std::vector<std::pair<crypto::key_image, crypto::signature>> export_key_images() const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent, bool check_spent = true);

@@ -5406,6 +5406,55 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   MDEBUG("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
   return m_transfers[signed_key_images.size() - 1].m_block_height;
 }
+wallet2::payment_container wallet2::export_payments() const
+{
+  payment_container payments;
+  for (auto const &p : m_payments)
+  {
+    payments.emplace(p);
+  }
+  return payments;
+}
+void wallet2::import_payments(const payment_container &payments)
+{
+  m_payments.clear();
+  for (auto const &p : payments)
+  {
+    m_payments.emplace(p);
+  }
+}
+void wallet2::import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments)
+{
+  m_confirmed_txs.clear();
+  for (auto const &p : confirmed_payments)
+  {
+    m_confirmed_txs.emplace(p);
+  }
+}
+
+std::vector<crypto::hash> wallet2::export_blockchain() const
+{
+  std::vector<crypto::hash> bc;
+  for (auto const &b : m_blockchain)
+  {
+    bc.push_back(b);
+  }
+  return bc;
+}
+
+void wallet2::import_blockchain(const std::vector<crypto::hash> &bc)
+{
+  m_blockchain.clear();
+  for (auto const &b : bc)
+  {
+    m_blockchain.push_back(b);
+  }
+  cryptonote::block genesis;
+  generate_genesis(genesis);
+  crypto::hash genesis_hash = get_block_hash(genesis);
+  check_genesis(genesis_hash);
+  m_local_bc_height = m_blockchain.size();
+}
 //----------------------------------------------------------------------------------------------------
 std::vector<tools::wallet2::transfer_details> wallet2::export_outputs() const
 {
