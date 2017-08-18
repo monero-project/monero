@@ -889,6 +889,11 @@ bool WalletImpl::exportKeyImages(const string &filename)
 
 bool WalletImpl::importKeyImages(const string &filename)
 {
+  if (!trustedDaemon()) {
+    m_status = Status_Error;
+    m_errorString = tr("Key images can only be imported with a trusted daemon");
+    return false;
+  }
   try
   {
     uint64_t spent = 0, unspent = 0;
