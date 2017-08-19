@@ -165,6 +165,8 @@ public:
 
   virtual void sync();
 
+  virtual void safesyncmode(const bool onoff);
+
   virtual void reset();
 
   virtual std::vector<std::string> get_filenames() const;

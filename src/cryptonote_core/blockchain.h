@@ -65,6 +65,7 @@ namespace cryptonote
    */
   enum blockchain_db_sync_mode
   {
+    db_defaultsync, //!< user didn't specify, use db_async
     db_sync,  //!< handle syncing calls instead of the backing db, synchronously
     db_async, //!< handle syncing calls instead of the backing db, asynchronously
     db_nosync //!< Leave syncing up to the backing db (safest, but slowest because of disk I/O)
@@ -701,6 +702,11 @@ namespace cryptonote
         blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     /**
+     * @brief Put DB in safe sync mode
+     */
+    void safesyncmode(const bool onoff);
+
+    /**
      * @brief set whether or not to show/print time statistics
      *
      * @param stats the new time stats setting
@@ -932,6 +938,7 @@ namespace cryptonote
     blockchain_db_sync_mode m_db_sync_mode;
     bool m_fast_sync;
     bool m_show_time_stats;
+    bool m_db_default_sync;
     uint64_t m_db_blocks_per_sync;
     uint64_t m_max_prepare_blocks_threads;
     uint64_t m_fake_pow_calc_time;
