@@ -33,6 +33,11 @@
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
+#include "lmdb/db_lmdb.h"
+#ifdef BERKELEY_DB
+#include "berkeleydb/db_bdb.h"
+#endif
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain.db"
 
@@ -40,6 +45,17 @@ using epee::string_tools::pod_to_hex;
 
 namespace cryptonote
 {
+
+BlockchainDB *new_db(const std::string& db_type)
+{
+  if (db_type == "lmdb")
+    return new BlockchainLMDB();
+#if defined(BERKELEY_DB)
+  if (db_type == "berkeley")
+    return new BlockchainBDB();
+#endif
+  return NULL;
+}
 
 void BlockchainDB::pop_block()
 {

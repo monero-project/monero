@@ -90,28 +90,16 @@ std::string join_set_strings(const std::unordered_set<std::string>& db_types_all
   return result;
 }
 
-// db_type: lmdb, berkeley
 // db_mode: safe, fast, fastest
-int get_db_flags_from_mode(const std::string& db_type, const std::string& db_mode)
+int get_db_flags_from_mode(const std::string& db_mode)
 {
-  uint64_t BDB_FAST_MODE = 0;
-  uint64_t BDB_FASTEST_MODE = 0;
-  uint64_t BDB_SAFE_MODE = 0;
-
-#if defined(BERKELEY_DB)
-  BDB_FAST_MODE = DB_TXN_WRITE_NOSYNC;
-  BDB_FASTEST_MODE = DB_TXN_NOSYNC;
-  BDB_SAFE_MODE = DB_TXN_SYNC;
-#endif
-
   int db_flags = 0;
-  bool islmdb = db_type == "lmdb";
   if (db_mode == "safe")
-    db_flags = islmdb ? MDB_NORDAHEAD : BDB_SAFE_MODE;
+    db_flags = DBF_SAFE;
   else if (db_mode == "fast")
-    db_flags = islmdb ? MDB_NOMETASYNC | MDB_NOSYNC | MDB_NORDAHEAD : BDB_FAST_MODE;
+    db_flags = DBF_FAST;
   else if (db_mode == "fastest")
-    db_flags = islmdb ? MDB_WRITEMAP | MDB_MAPASYNC | MDB_NORDAHEAD | MDB_NOMETASYNC | MDB_NOSYNC : BDB_FASTEST_MODE;
+    db_flags = DBF_FASTEST;
   return db_flags;
 }
 
@@ -132,14 +120,6 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int&
     return 1;
   }
 
-#if !defined(BERKELEY_DB)
-  if (db_type == "berkeley")
-  {
-    MFATAL("BerkeleyDB support disabled.");
-    return false;
-  }
-#endif
-
   std::string db_arg_str2 = db_args[1];
   boost::split(db_args, db_arg_str2, boost::is_any_of(","));
 
@@ -155,51 +135,7 @@ int parse_db_arguments(const std::string& db_arg_str, std::string& db_type, int&
   }
   if (! db_mode.empty())
   {
-    db_flags = get_db_flags_from_mode(db_type, db_mode);
-  }
-  else
-  {
-    for (auto& it : db_args)
-    {
-      boost::algorithm::trim(it);
-      if (it.empty())
-	continue;
-      if (db_type == "lmdb")
-      {
-	MINFO("LMDB flag: " << it);
-	if (it == "nosync")
-	  db_flags |= MDB_NOSYNC;
-	else if (it == "nometasync")
-	  db_flags |= MDB_NOMETASYNC;
-	else if (it == "writemap")
-	  db_flags |= MDB_WRITEMAP;
-	else if (it == "mapasync")
-	  db_flags |= MDB_MAPASYNC;
-	else if (it == "nordahead")
-	  db_flags |= MDB_NORDAHEAD;
-	else
-	{
-	  std::cerr << "unrecognized database flag: " << it << ENDL;
-	  return 1;
-	}
-      }
-#if defined(BERKELEY_DB)
-      else if (db_type == "berkeley")
-      {
-	if (it == "txn_write_nosync")
-	  db_flags = DB_TXN_WRITE_NOSYNC;
-	else if (it == "txn_nosync")
-	  db_flags = DB_TXN_NOSYNC;
-	else if (it == "txn_sync")
-	  db_flags = DB_TXN_SYNC;
-	else
-	{
-	  std::cerr << "unrecognized database flag: " << it << ENDL;
-	  return 1;
-	}
-      }
-#endif
-    }
+    db_flags = get_db_flags_from_mode(db_mode);
   }
   return 0;
 }

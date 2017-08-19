@@ -31,10 +31,6 @@
 #include "common/command_line.h"
 #include "cryptonote_core/tx_pool.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/lmdb/db_lmdb.h"
-#if defined(BERKELEY_DB)
-#include "blockchain_db/berkeleydb/db_bdb.h"
-#endif
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
@@ -149,13 +145,6 @@ int main(int argc, char* argv[])
     std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;
   }
-#if !defined(BERKELEY_DB)
-  if (db_type == "berkeley")
-  {
-    LOG_ERROR("BerkeleyDB support disabled.");
-    return false;
-  }
-#endif
 
   if (command_line::has_arg(vm, arg_output_file))
     output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));
@@ -179,19 +168,8 @@ int main(int argc, char* argv[])
   tx_memory_pool m_mempool(*core_storage);
   core_storage = new Blockchain(m_mempool);
 
-  int db_flags = 0;
-
-  BlockchainDB* db = nullptr;
-  if (db_type == "lmdb")
-  {
-    db_flags |= MDB_RDONLY;
-    db = new BlockchainLMDB();
-  }
-#if defined(BERKELEY_DB)
-  else if (db_type == "berkeley")
-    db = new BlockchainBDB();
-#endif
-  else
+  BlockchainDB* db = new_db(db_type);
+  if (db == NULL)
   {
     LOG_ERROR("Attempted to use non-existent database type: " << db_type);
     throw std::runtime_error("Attempting to use non-existent database type");
@@ -205,7 +183,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
   {
-    db->open(filename, db_flags);
+    db->open(filename, DBF_RDONLY);
   }
   catch (const std::exception& e)
   {
