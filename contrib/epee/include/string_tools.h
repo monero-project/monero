@@ -314,6 +314,18 @@ POP_WARNINGS
     return str;
   }
   //----------------------------------------------------------------------------
+  inline std::string pad_string(std::string s, size_t n, char c = ' ', bool prepend = false)
+  {
+    if (s.size() < n)
+    {
+      if (prepend)
+        s = std::string(n - s.size(), c) + s;
+      else
+        s.append(n - s.size(), c);
+    }
+    return s;
+  }
+  //----------------------------------------------------------------------------
   template<class t_pod_type>
   std::string pod_to_hex(const t_pod_type& s)
   {

@@ -1077,7 +1077,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist)
   {
     for (const auto& pe: anchor_peerlist) {
-      _note("Considering connecting (out) to peer: " << pe.id << " " << pe.adr.str());
+      _note("Considering connecting (out) to peer: " << peerid_type(pe.id) << " " << pe.adr.str());
 
       if(is_peer_used(pe)) {
         _note("Peer is used");
@@ -1092,7 +1092,7 @@ namespace nodetool
         continue;
       }
 
-      MDEBUG("Selected peer: " << pe.id << " " << pe.adr.str()
+      MDEBUG("Selected peer: " << peerid_to_string(pe.id) << " " << pe.adr.str()
                                << "[peer_type=" << anchor
                                << "] first_seen: " << epee::misc_utils::get_time_interval_string(time(NULL) - pe.first_seen));
 
@@ -1145,7 +1145,7 @@ namespace nodetool
 
       ++try_count;
 
-      _note("Considering connecting (out) to peer: " << pe.id << " " << pe.adr.str());
+      _note("Considering connecting (out) to peer: " << peerid_to_string(pe.id) << " " << pe.adr.str());
 
       if(is_peer_used(pe)) {
         _note("Peer is used");
@@ -1158,7 +1158,7 @@ namespace nodetool
       if(is_addr_recently_failed(pe.adr))
         continue;
 
-      MDEBUG("Selected peer: " << pe.id << " " << pe.adr.str()
+      MDEBUG("Selected peer: " << peerid_to_string(pe.id) << " " << pe.adr.str()
                     << "[peer_list=" << (use_white_list ? white : gray)
                     << "] last_seen: " << (pe.last_seen ? epee::misc_utils::get_time_interval_string(time(NULL) - pe.last_seen) : "never"));
 
@@ -1962,14 +1962,14 @@ namespace nodetool
     if (!success) {
       m_peerlist.remove_from_peer_gray(pe);
 
-      LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << pe.adr.host_str() << " Peer ID: " << std::hex << pe.id);
+      LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST IP address: " << pe.adr.host_str() << " Peer ID: " << peerid_type(pe.id));
 
       return true;
     }
 
     m_peerlist.set_peer_just_seen(pe.id, pe.adr);
 
-    LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << pe.adr.host_str() << " Peer ID: " << std::hex << pe.id);
+    LOG_PRINT_L2("PEER PROMOTED TO WHITE PEER LIST IP address: " << pe.adr.host_str() << " Peer ID: " << peerid_type(pe.id));
 
     return true;
   }
