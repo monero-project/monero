@@ -41,19 +41,24 @@ class portable_binary_oarchive_exception :
     public boost::archive::archive_exception
 {
 public:
-    typedef enum {
+    enum exception_code {
         invalid_flags 
-    } exception_code;
-    portable_binary_oarchive_exception(exception_code c = invalid_flags )
+    } m_exception_code ;
+    portable_binary_oarchive_exception(exception_code c = invalid_flags ) :
+        boost::archive::archive_exception(boost::archive::archive_exception::other_exception),
+        m_exception_code(c)
     {}
     virtual const char *what( ) const throw( )
     {
         const char *msg = "programmer error";
-        switch(code){
+        switch(m_exception_code){
         case invalid_flags:
             msg = "cannot be both big and little endian";
+            break;
         default:
-            boost::archive::archive_exception::what();
+            msg = boost::archive::archive_exception::what();
+            assert(false);
+            break;
         }
         return msg;
     }
