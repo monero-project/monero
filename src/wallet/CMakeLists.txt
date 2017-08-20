@@ -28,6 +28,8 @@
 
 # include (${PROJECT_SOURCE_DIR}/cmake/libutils.cmake)
 
+add_subdirectory(crypto)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
@@ -83,6 +85,7 @@ target_link_libraries(wallet
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
   PRIVATE
+    wallet-crypto
     ${EXTRA_LIBRARIES})
 add_dependencies(wallet version)
 
@@ -143,3 +146,4 @@ if (BUILD_GUI_DEPS)
     install(FILES ${wallet_api_headers}
         DESTINATION include/wallet)
 endif()
+

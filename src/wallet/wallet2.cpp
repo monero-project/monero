@@ -59,6 +59,7 @@ using namespace epee;
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
 #include "ringct/rctSigs.h"
+#include "wallet/crypto/import.h"
 
 extern "C"
 {
@@ -136,6 +137,13 @@ uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplie
 uint64_t calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, uint64_t fee_multiplier)
 {
   return calculate_fee(fee_per_kb, blob.size(), fee_multiplier);
+}
+
+bool is_out_to_acc_precomp(const crypto::public_key& spend_public_key, const txout_to_key& out_key, const crypto::key_derivation& derivation, size_t output_index)
+{
+  crypto::public_key pk;
+  tools::wallet_only::derive_public_key(derivation, output_index, spend_public_key, pk);
+  return pk == out_key.key;
 }
 
 std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, const options& opts)
@@ -607,7 +615,7 @@ void wallet2::check_acc_out_precomp(const crypto::public_key &spend_public_key, 
 static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key &pub, const crypto::secret_key &sec, unsigned int i, rct::key & mask)
 {
   crypto::key_derivation derivation;
-  bool r = crypto::generate_key_derivation(pub, sec, derivation);
+  bool r = tools::wallet_only::generate_key_derivation(pub, sec, derivation);
   if (!r)
   {
     LOG_ERROR("Failed to generate key derivation to decode rct output " << i);
@@ -687,7 +695,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     int threads = tools::get_max_concurrency();
     const cryptonote::account_keys& keys = m_account.get_keys();
     crypto::key_derivation derivation;
-    generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+    tools::wallet_only::generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -5171,7 +5179,7 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
   while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++)) {
     const crypto::public_key tx_pub_key = pub_key_field.pub_key;
     crypto::key_derivation derivation;
-    generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+    tools::wallet_only::generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
 
     for (size_t i = 0; i < td.m_tx.vout.size(); ++i)
     {
