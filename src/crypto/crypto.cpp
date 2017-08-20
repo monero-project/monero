@@ -36,17 +36,12 @@
 #include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include "common/varint.h"
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
-
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
- #include <alloca.h>
-#else
- #include <stdlib.h>
-#endif
 
 namespace crypto {
 
@@ -411,7 +406,9 @@ POP_WARNINGS
     ge_p3 image_unp;
     ge_dsmp image_pre;
     ec_scalar sum, k, h;
-    rs_comm *const buf = reinterpret_cast<rs_comm *>(alloca(rs_comm_size(pubs_count)));
+    boost::shared_ptr<rs_comm> buf(reinterpret_cast<rs_comm *>(malloc(rs_comm_size(pubs_count))), free);
+    if (!buf)
+      abort();
     assert(sec_index < pubs_count);
 #if !defined(NDEBUG)
     {
@@ -459,7 +456,7 @@ POP_WARNINGS
         sc_add(&sum, &sum, &sig[i].c);
       }
     }
-    hash_to_scalar(buf, rs_comm_size(pubs_count), h);
+    hash_to_scalar(buf.get(), rs_comm_size(pubs_count), h);
     sc_sub(&sig[sec_index].c, &h, &sum);
     sc_mulsub(&sig[sec_index].r, &sig[sec_index].c, &sec, &k);
   }
@@ -471,7 +468,9 @@ POP_WARNINGS
     ge_p3 image_unp;
     ge_dsmp image_pre;
     ec_scalar sum, h;
-    rs_comm *const buf = reinterpret_cast<rs_comm *>(alloca(rs_comm_size(pubs_count)));
+    boost::shared_ptr<rs_comm> buf(reinterpret_cast<rs_comm *>(malloc(rs_comm_size(pubs_count))), free);
+    if (!buf)
+      return false;
 #if !defined(NDEBUG)
     for (i = 0; i < pubs_count; i++) {
       assert(check_key(*pubs[i]));
@@ -499,7 +498,7 @@ POP_WARNINGS
       ge_tobytes(&buf->ab[i].b, &tmp2);
       sc_add(&sum, &sum, &sig[i].c);
     }
-    hash_to_scalar(buf, rs_comm_size(pubs_count), h);
+    hash_to_scalar(buf.get(), rs_comm_size(pubs_count), h);
     sc_sub(&h, &h, &sum);
     return sc_isnonzero(&h) == 0;
   }
