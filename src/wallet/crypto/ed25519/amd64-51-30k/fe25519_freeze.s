@@ -138,7 +138,7 @@ movq   32(%rdi),%r9
 # qhasm: two51minus1 = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>two51minus1=int64#7
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>two51minus1=%rax
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rax
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rax
 
 # qhasm: two51minus19 = two51minus1
 # asm 1: mov  <two51minus1=int64#7,>two51minus19=int64#8

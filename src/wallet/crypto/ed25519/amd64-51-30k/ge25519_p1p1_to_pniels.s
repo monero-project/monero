@@ -756,7 +756,7 @@ adc %rdx,%r14
 # qhasm:   mulredmask = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=int64#3
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=%rdx
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rdx
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rdx
 
 # qhasm:   mulr01 = (mulr01.x0) << 13
 # asm 1: shld $13,<x0=int64#4,<mulr01=int64#5
@@ -1506,7 +1506,7 @@ adc %rdx,%r14
 # qhasm:   mulredmask = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=int64#3
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=%rdx
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rdx
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rdx
 
 # qhasm:   mulr01 = (mulr01.y0) << 13
 # asm 1: shld $13,<y0=int64#4,<mulr01=int64#5
@@ -1721,27 +1721,27 @@ mov  %r11,%r14
 # qhasm: ysubx0 += *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_2P0
 # asm 1: add  crypto_sign_ed25519_amd64_51_30k_batch_2P0,<ysubx0=int64#3
 # asm 2: add  crypto_sign_ed25519_amd64_51_30k_batch_2P0,<ysubx0=%rdx
-add  crypto_sign_ed25519_amd64_51_30k_batch_2P0,%rdx
+add  crypto_sign_ed25519_amd64_51_30k_batch_2P0(%rip),%rdx
 
 # qhasm: ysubx1 += *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_2P1234
 # asm 1: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx1=int64#5
 # asm 2: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx1=%r8
-add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,%r8
+add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234(%rip),%r8
 
 # qhasm: ysubx2 += *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_2P1234
 # asm 1: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx2=int64#10
 # asm 2: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx2=%r12
-add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,%r12
+add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234(%rip),%r12
 
 # qhasm: ysubx3 += *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_2P1234
 # asm 1: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx3=int64#11
 # asm 2: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx3=%r13
-add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,%r13
+add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234(%rip),%r13
 
 # qhasm: ysubx4 += *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_2P1234
 # asm 1: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx4=int64#12
 # asm 2: add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,<ysubx4=%r14
-add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234,%r14
+add  crypto_sign_ed25519_amd64_51_30k_batch_2P1234(%rip),%r14
 
 # qhasm: x0 = stackx0
 # asm 1: movq <stackx0=stack64#8,>x0=int64#13
@@ -2406,7 +2406,7 @@ adc %rdx,%r14
 # qhasm:   mulredmask = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=int64#3
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=%rdx
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rdx
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rdx
 
 # qhasm:   mulr01 = (mulr01.rz0) << 13
 # asm 1: shld $13,<rz0=int64#4,<mulr01=int64#5
@@ -3156,7 +3156,7 @@ adc %rdx,%r14
 # qhasm:   mulredmask = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=int64#2
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=%rsi
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rsi
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rsi
 
 # qhasm:   mulr01 = (mulr01.t0) << 13
 # asm 1: shld $13,<t0=int64#4,<mulr01=int64#5
@@ -3384,7 +3384,7 @@ imulq  $19,%rsi,%rax
 movq %rax,96(%rsp)
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2(%rip)
 
 # qhasm:   t2d0 = mulrax
 # asm 1: mov  <mulrax=int64#7,>t2d0=int64#2
@@ -3412,7 +3412,7 @@ imulq  $19,%rdx,%rax
 movq %rax,104(%rsp)
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1(%rip)
 
 # qhasm:   carry? t2d0 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d0=int64#2
@@ -3430,7 +3430,7 @@ adc %rdx,%rcx
 movq 56(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0(%rip)
 
 # qhasm:   carry? t2d0 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d0=int64#2
@@ -3448,7 +3448,7 @@ adc %rdx,%rcx
 movq 56(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1(%rip)
 
 # qhasm:   t2d1 = mulrax
 # asm 1: mov  <mulrax=int64#7,>t2d1=int64#5
@@ -3466,7 +3466,7 @@ mov  %rdx,%r9
 movq 56(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2(%rip)
 
 # qhasm:   t2d2 = mulrax
 # asm 1: mov  <mulrax=int64#7,>t2d2=int64#8
@@ -3484,7 +3484,7 @@ mov  %rdx,%r11
 movq 56(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3(%rip)
 
 # qhasm:   t2d3 = mulrax
 # asm 1: mov  <mulrax=int64#7,>t2d3=int64#10
@@ -3502,7 +3502,7 @@ mov  %rdx,%r13
 movq 56(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4(%rip)
 
 # qhasm:   t2d4 = mulrax
 # asm 1: mov  <mulrax=int64#7,>t2d4=int64#12
@@ -3520,7 +3520,7 @@ mov  %rdx,%r15
 movq 64(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0(%rip)
 
 # qhasm:   carry? t2d1 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d1=int64#5
@@ -3538,7 +3538,7 @@ adc %rdx,%r9
 movq 64(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1(%rip)
 
 # qhasm:   carry? t2d2 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d2=int64#8
@@ -3556,7 +3556,7 @@ adc %rdx,%r11
 movq 64(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2(%rip)
 
 # qhasm:   carry? t2d3 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d3=int64#10
@@ -3574,7 +3574,7 @@ adc %rdx,%r13
 movq 64(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3(%rip)
 
 # qhasm:   carry? t2d4 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d4=int64#12
@@ -3597,7 +3597,7 @@ movq 64(%rsp),%rdx
 imulq  $19,%rdx,%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4(%rip)
 
 # qhasm:   carry? t2d0 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d0=int64#2
@@ -3615,7 +3615,7 @@ adc %rdx,%rcx
 movq 72(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0(%rip)
 
 # qhasm:   carry? t2d2 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d2=int64#8
@@ -3633,7 +3633,7 @@ adc %rdx,%r11
 movq 72(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1(%rip)
 
 # qhasm:   carry? t2d3 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d3=int64#10
@@ -3651,7 +3651,7 @@ adc %rdx,%r13
 movq 72(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2(%rip)
 
 # qhasm:   carry? t2d4 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d4=int64#12
@@ -3674,7 +3674,7 @@ movq 72(%rsp),%rdx
 imulq  $19,%rdx,%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3(%rip)
 
 # qhasm:   carry? t2d0 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d0=int64#2
@@ -3697,7 +3697,7 @@ movq 72(%rsp),%rdx
 imulq  $19,%rdx,%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4(%rip)
 
 # qhasm:   carry? t2d1 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d1=int64#5
@@ -3715,7 +3715,7 @@ adc %rdx,%r9
 movq 80(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0(%rip)
 
 # qhasm:   carry? t2d3 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d3=int64#10
@@ -3733,7 +3733,7 @@ adc %rdx,%r13
 movq 80(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D1(%rip)
 
 # qhasm:   carry? t2d4 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d4=int64#12
@@ -3751,7 +3751,7 @@ adc %rdx,%r15
 movq 96(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3(%rip)
 
 # qhasm:   carry? t2d1 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d1=int64#5
@@ -3769,7 +3769,7 @@ adc %rdx,%r9
 movq 96(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4(%rip)
 
 # qhasm:   carry? t2d2 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d2=int64#8
@@ -3787,7 +3787,7 @@ adc %rdx,%r11
 movq 88(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D0(%rip)
 
 # qhasm:   carry? t2d4 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d4=int64#12
@@ -3805,7 +3805,7 @@ adc %rdx,%r15
 movq 104(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D2(%rip)
 
 # qhasm:   carry? t2d1 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d1=int64#5
@@ -3823,7 +3823,7 @@ adc %rdx,%r9
 movq 104(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D3(%rip)
 
 # qhasm:   carry? t2d2 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d2=int64#8
@@ -3841,7 +3841,7 @@ adc %rdx,%r11
 movq 104(%rsp),%rax
 
 # qhasm:   (uint128) mulrdx mulrax = mulrax * *(uint64 *)&crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
-mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4
+mulq  crypto_sign_ed25519_amd64_51_30k_batch_EC2D4(%rip)
 
 # qhasm:   carry? t2d3 += mulrax
 # asm 1: add  <mulrax=int64#7,<t2d3=int64#10
@@ -3856,7 +3856,7 @@ adc %rdx,%r13
 # qhasm:   mulredmask = *(uint64 *) &crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51
 # asm 1: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=int64#3
 # asm 2: movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,>mulredmask=%rdx
-movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51,%rdx
+movq crypto_sign_ed25519_amd64_51_30k_batch_REDMASK51(%rip),%rdx
 
 # qhasm:   mulr01 = (mulr01.t2d0) << 13
 # asm 1: shld $13,<t2d0=int64#2,<mulr01=int64#4
