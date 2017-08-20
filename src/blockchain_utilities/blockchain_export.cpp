@@ -40,17 +40,6 @@
 namespace po = boost::program_options;
 using namespace epee;
 
-std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
-{
-  std::string result;
-  std::ostringstream s;
-  std::copy(db_types_all.begin(), db_types_all.end(), std::ostream_iterator<std::string>(s, delim));
-  result = s.str();
-  if (result.length() > 0)
-    result.erase(result.end()-strlen(delim), result.end());
-  return result;
-}
-
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -59,10 +48,7 @@ int main(int argc, char* argv[])
 
   std::string default_db_type = "lmdb";
 
-  std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
-  db_types_all.insert("memory");
-
-  std::string available_dbs = join_set_strings(db_types_all, ", ");
+  std::string available_dbs = cryptonote::blockchain_db_types(", ");
   available_dbs = "available: " + available_dbs;
 
   uint32_t log_level = 0;
@@ -140,7 +126,7 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
-  if (db_types_all.count(db_type) == 0)
+  if (!cryptonote::blockchain_valid_db_type(db_type))
   {
     std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;

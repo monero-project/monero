@@ -42,8 +42,6 @@
 #include "blockchain_db/db_types.h"
 #include "cryptonote_core/cryptonote_core.h"
 
-#include <lmdb.h> // for db flag arguments
-
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
 
@@ -77,18 +75,6 @@ namespace po = boost::program_options;
 
 using namespace cryptonote;
 using namespace epee;
-
-
-std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
-{
-  std::string result;
-  std::ostringstream s;
-  std::copy(db_types_all.begin(), db_types_all.end(), std::ostream_iterator<std::string>(s, delim));
-  result = s.str();
-  if (result.length() > 0)
-    result.erase(result.end()-strlen(delim), result.end());
-  return result;
-}
 
 // db_mode: safe, fast, fastest
 int get_db_flags_from_mode(const std::string& db_mode)
@@ -516,12 +502,8 @@ int main(int argc, char* argv[])
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   std::string default_db_type = "lmdb";
-  std::string default_db_engine_compiled = "blockchain_db";
 
-  std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
-  db_types_all.insert("memory");
-
-  std::string available_dbs = join_set_strings(db_types_all, ", ");
+  std::string available_dbs = cryptonote::blockchain_db_types(", ");
   available_dbs = "available: " + available_dbs;
 
   uint32_t log_level = 0;
@@ -667,7 +649,6 @@ int main(int argc, char* argv[])
 
 
   std::string db_type;
-  std::string db_engine_compiled;
   int db_flags = 0;
   int res = 0;
   res = parse_db_arguments(db_arg_str, db_type, db_flags);
@@ -677,23 +658,10 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if (db_types_all.count(db_type) == 0)
+  if (!cryptonote::blockchain_valid_db_type(db_type))
   {
     std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;
-  }
-
-  if ((db_type == "lmdb")
-#if defined(BERKELEY_DB)
-   || (db_type == "berkeley")
-#endif
-  )
-  {
-    db_engine_compiled = "blockchain_db";
-  }
-  else
-  {
-    db_engine_compiled = "memory";
   }
 
   MINFO("database: " << db_type);
@@ -723,16 +691,6 @@ int main(int argc, char* argv[])
   // BlockchainDB add_block() directly and have available the 3 block
   // properties to do so. Both ways work, but fake core isn't necessary in that
   // circumstance.
-
-  if (db_type != "lmdb"
-#if defined(BERKELEY_DB)
-  && db_type != "berkeley"
-#endif
-  )
-  {
-    std::cerr << "database type unrecognized" << ENDL;
-    return 1;
-  }
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core core(&pr);

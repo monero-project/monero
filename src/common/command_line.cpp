@@ -96,7 +96,7 @@ namespace command_line
   , "checkpoints from DNS server will be enforced"
   , false
   };
-  std::string arg_db_type_description = "Specify database type, available: " + boost::algorithm::join(cryptonote::blockchain_db_types, ", ");
+  std::string arg_db_type_description = "Specify database type, available: " + cryptonote::blockchain_db_types(", ");
   const command_line::arg_descriptor<std::string> arg_db_type = {
     "db-type"
   , arg_db_type_description.c_str()

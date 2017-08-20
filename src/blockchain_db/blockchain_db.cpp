@@ -38,6 +38,14 @@
 #include "berkeleydb/db_bdb.h"
 #endif
 
+static const char *db_types[] = {
+  "lmdb",
+#ifdef BERKELEY_DB
+  "berkeley",
+#endif
+  NULL
+};
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain.db"
 
@@ -45,6 +53,30 @@ using epee::string_tools::pod_to_hex;
 
 namespace cryptonote
 {
+
+bool blockchain_valid_db_type(const std::string& db_type)
+{
+  int i;
+  for (i=0; db_types[i]; i++)
+  {
+    if (db_types[i] == db_type)
+      return true;
+  }
+  return false;
+}
+
+std::string blockchain_db_types(const std::string& sep)
+{
+  int i;
+  std::string ret = "";
+  for (i=0; db_types[i]; i++)
+  {
+    if (i)
+      ret += sep;
+    ret += db_types[i];
+  }
+  return ret;
+}
 
 BlockchainDB *new_db(const std::string& db_type)
 {
