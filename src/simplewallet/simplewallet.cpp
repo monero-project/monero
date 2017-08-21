@@ -63,6 +63,10 @@
 #include "wallet/wallet_args.h"
 #include <stdexcept>
 
+#ifdef HAVE_READLINE
+#include "readline_buffer.h"
+#endif
+
 using namespace std;
 using namespace epee;
 using namespace cryptonote;
@@ -1834,6 +1838,10 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset)
 
   if (reset)
     m_wallet->rescan_blockchain(false);
+
+#ifdef HAVE_READLINE
+  rdln::suspend_readline pause_readline;
+#endif
 
   message_writer() << tr("Starting refresh...");
 
