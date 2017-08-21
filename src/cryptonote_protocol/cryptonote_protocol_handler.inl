@@ -268,7 +268,7 @@ namespace cryptonote
     const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
     if (version >= 6 && version != hshd.top_version)
     {
-      LOG_DEBUG_CC(context, "Ignoring due to wrong top version " << (unsigned)hshd.top_version << ", expected " << (unsigned)version);
+      LOG_DEBUG_CC(context, "Ignoring due to wrong top version for block " << (hshd.current_height - 1) << ": " << (unsigned)hshd.top_version << ", expected " << (unsigned)version);
       return false;
     }
 
