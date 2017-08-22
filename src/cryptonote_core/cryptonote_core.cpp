@@ -1037,6 +1037,11 @@ namespace cryptonote
     m_miner.on_synchronized();
   }
   //-----------------------------------------------------------------------------------------------
+  void core::safesyncmode(const bool onoff)
+  {
+    m_blockchain_storage.safesyncmode(onoff);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc)
   {
     return m_blockchain_storage.add_new_block(b, bvc);

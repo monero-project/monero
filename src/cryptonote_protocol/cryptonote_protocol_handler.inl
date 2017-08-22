@@ -295,7 +295,7 @@ namespace cryptonote
       << " [Your node is " << std::abs(diff) << " blocks (" << ((abs(diff) - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");
-      m_core.get_blockchain_storage().safesyncmode(false);
+      m_core.safesyncmode(false);
     }
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
     context.m_state = cryptonote_connection_context::state_synchronizing;
@@ -1474,7 +1474,7 @@ skip:
         << "**********************************************************************");
       m_core.on_synchronized();
     }
-    m_core.get_blockchain_storage().safesyncmode(true);
+    m_core.safesyncmode(true);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
