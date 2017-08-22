@@ -612,7 +612,10 @@ namespace cryptonote
         delta = 1;
       for (i2 = agebytes.begin(); i2 != it; i2++)
       {
-        size_t i = (i2->first * factor - 1) / delta;
+        size_t i = i2->first * factor;
+        if (i > 0)
+          --i;
+        i /= delta;
         stats.histo[i].txs += i2->second.txs;
         stats.histo[i].bytes += i2->second.bytes;
       }
