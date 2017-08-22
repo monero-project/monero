@@ -37,6 +37,7 @@ monero_add_executable(cn_deserialize
 target_link_libraries(cn_deserialize
   LINK_PRIVATE
     cryptonote_core
+    common
     blockchain_db
     p2p
     epee
