@@ -909,7 +909,21 @@ namespace cryptonote
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
-      if (!is_transaction_ready_to_go(meta, tx))
+      const cryptonote::txpool_tx_meta_t original_meta = meta;
+      bool ready = is_transaction_ready_to_go(meta, tx);
+      if (memcmp(&original_meta, &meta, sizeof(meta)))
+      {
+        try
+	{
+	  m_blockchain.update_txpool_tx(sorted_it->second, meta);
+	}
+        catch (const std::exception &e)
+	{
+	  MERROR("Failed to update tx meta: " << e.what());
+	  // continue, not fatal
+	}
+      }
+      if (!ready)
       {
         LOG_PRINT_L2("  not ready to go");
         sorted_it++;
