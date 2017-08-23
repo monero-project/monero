@@ -52,10 +52,10 @@ namespace net_utils
 	struct network_address_base
 	{
 	public:
-		bool operator==(const network_address_base &other) const { return m_full_id == other.m_full_id; }
-		bool operator!=(const network_address_base &other) const { return !operator==(other); }
-		bool operator<(const network_address_base &other) const { return m_full_id < other.m_full_id; }
-		bool is_same_host(const network_address_base &other) const { return m_host_id == other.m_host_id; }
+		bool operator==(const network_address_base &other) const noexcept { return m_data.full == other.m_data.full; }
+		bool operator!=(const network_address_base &other) const noexcept { return !operator==(other); }
+		bool operator<(const network_address_base &other) const noexcept { return m_data.full < other.m_data.full; }
+		bool is_same_host(const network_address_base &other) const noexcept { return m_data.split.host == other.m_data.split.host; }
 		virtual std::string str() const = 0;
 		virtual std::string host_str() const = 0;
 		virtual bool is_loopback() const = 0;
@@ -63,43 +63,48 @@ namespace net_utils
 		virtual uint8_t get_type_id() const = 0;
 	protected:
 		// A very simple non cryptographic hash function by Fowler, Noll, Vo
-		uint64_t fnv1a(const uint8_t *data, size_t len) const {
+		static uint64_t fnv1a(const uint8_t *data, size_t len) {
 			uint64_t h = 0xcbf29ce484222325;
 			while (len--)
 				h = (h ^ *data++) * 0x100000001b3;
 			return h;
 		}
-		uint64_t m_host_id;
-		uint64_t m_full_id;
+
+		network_address_base() noexcept : m_data{0} {}
+
+                union {
+			uint64_t full;
+			struct {
+				uint32_t host;
+				uint16_t port;
+				uint16_t unused;
+			} split;
+		} m_data;
+		static_assert(sizeof(m_data) == 8, "unexpected size");
 	};
-	struct ipv4_network_address: public network_address_base
+	struct ipv4_network_address final : public network_address_base
 	{
-		void init_ids()
+		void init_ids(uint32_t ip, uint16_t port)
 		{
-			m_host_id = fnv1a((const uint8_t*)&m_ip, sizeof(m_ip));
-			m_full_id = fnv1a((const uint8_t*)&m_ip, sizeof(m_ip) + sizeof(m_port));
+			m_data.split.host = ip;
+			m_data.split.port = port;
 		}
+
 	public:
-		ipv4_network_address(uint32_t ip, uint16_t port): network_address_base(), m_ip(ip), m_port(port) { init_ids(); }
-		uint32_t ip() const { return m_ip; }
-		uint16_t port() const { return m_port; }
-		virtual std::string str() const { return epee::string_tools::get_ip_string_from_int32(m_ip) + ":" + std::to_string(m_port); }
-		virtual std::string host_str() const { return epee::string_tools::get_ip_string_from_int32(m_ip); }
-		virtual bool is_loopback() const { return epee::net_utils::is_ip_loopback(m_ip); }
-		virtual bool is_local() const { return epee::net_utils::is_ip_local(m_ip); }
-		virtual uint8_t get_type_id() const { return ID; }
+		ipv4_network_address(uint32_t ip, uint16_t port) noexcept : network_address_base() { init_ids(ip, port); }
+		uint32_t ip() const noexcept { return m_data.split.host; }
+		uint16_t port() const noexcept { return m_data.split.port; }
+		virtual std::string str() const override { return epee::string_tools::get_ip_string_from_int32(ip()) + ":" + std::to_string(port()); }
+		virtual std::string host_str() const override { return epee::string_tools::get_ip_string_from_int32(ip()); }
+		virtual bool is_loopback() const override { return epee::net_utils::is_ip_loopback(ip()); }
+		virtual bool is_local() const override { return epee::net_utils::is_ip_local(ip()); }
+		virtual uint8_t get_type_id() const override { return ID; }
 	public: // serialization
 		static const uint8_t ID = 1;
-#pragma pack(push)
-#pragma pack(1)
-		uint32_t m_ip;
-		uint16_t m_port;
-#pragma pack(pop)
+
 		BEGIN_KV_SERIALIZE_MAP()
-			KV_SERIALIZE(m_ip)
-			KV_SERIALIZE(m_port)
-			if (!is_store)
-				const_cast<ipv4_network_address&>(this_ref).init_ids();
+			KV_SERIALIZE(m_data.split.host)
+			KV_SERIALIZE(m_data.split.port)
 		END_KV_SERIALIZE_MAP()
 	};
 	class network_address: public boost::shared_ptr<network_address_base>
