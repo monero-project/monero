@@ -560,7 +560,10 @@ namespace cryptonote
     const uint64_t now = time(NULL);
     std::map<uint64_t, txpool_histo> agebytes;
     stats.txs_total = m_blockchain.get_txpool_tx_count();
-    m_blockchain.for_all_txpool_txes([&stats, now, &agebytes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+    std::vector<uint32_t> sizes;
+    sizes.reserve(stats.txs_total);
+    m_blockchain.for_all_txpool_txes([&stats, &sizes, now, &agebytes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+      sizes.push_back(meta.blob_size);
       stats.bytes_total += meta.blob_size;
       if (!stats.bytes_min || meta.blob_size < stats.bytes_min)
         stats.bytes_min = meta.blob_size;
@@ -580,6 +583,7 @@ namespace cryptonote
       agebytes[age].bytes += meta.blob_size;
       return true;
     });
+    stats.bytes_med = epee::misc_utils::median(sizes);
     if (stats.txs_total > 1)
     {
       /* looking for 98th percentile */
