@@ -52,8 +52,11 @@ namespace cryptonote
 void block_queue::add_blocks(uint64_t height, std::list<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, float rate, size_t size)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  remove_span(height);
+  std::list<crypto::hash> hashes;
+  bool has_hashes = remove_span(height, &hashes);
   blocks.insert(span(height, std::move(bcel), connection_id, rate, size));
+  if (has_hashes)
+    set_span_hashes(height, connection_id, hashes);
 }
 
 void block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, boost::posix_time::ptime time)
@@ -92,17 +95,20 @@ void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_con
   }
 }
 
-void block_queue::remove_span(uint64_t start_block_height)
+bool block_queue::remove_span(uint64_t start_block_height, std::list<crypto::hash> *hashes)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   for (block_map::iterator i = blocks.begin(); i != blocks.end(); ++i)
   {
     if (i->start_block_height == start_block_height)
     {
+      if (hashes)
+        *hashes = std::move(i->hashes);
       blocks.erase(i);
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 void block_queue::remove_spans(const boost::uuids::uuid &connection_id, uint64_t start_block_height)
@@ -276,6 +282,22 @@ bool block_queue::get_next_span(uint64_t &height, std::list<cryptonote::block_co
     }
   }
   return false;
+}
+
+bool block_queue::has_next_span(const boost::uuids::uuid &connection_id, bool &filled) const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  if (blocks.empty())
+    return false;
+  block_map::const_iterator i = blocks.begin();
+  if (is_blockchain_placeholder(*i))
+    ++i;
+  if (i == blocks.end())
+    return false;
+  if (i->connection_id != connection_id)
+    return false;
+  filled = !i->blocks.empty();
+  return true;
 }
 
 size_t block_queue::get_data_size() const

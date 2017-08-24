@@ -111,6 +111,7 @@ namespace cryptonote
     std::list<connection_info> get_connections();
     const block_queue &get_block_queue() const { return m_block_queue; }
     void stop();
+    void on_connection_close(cryptonote_connection_context &context);
   private:
     //----------------- commands handlers ----------------------------------------------
     int handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context);
@@ -133,6 +134,7 @@ namespace cryptonote
     bool should_download_next_span(cryptonote_connection_context& context) const;
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
     bool kick_idle_peers();
+    int try_add_next_blocks(cryptonote_connection_context &context);
 
     t_core& m_core;
 

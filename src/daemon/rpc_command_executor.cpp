@@ -113,18 +113,6 @@ namespace {
       return base;
     return base + " -- " + status;
   }
-
-  std::string pad(std::string s, size_t n, char c = ' ', bool prepend = false)
-  {
-    if (s.size() < n)
-    {
-      if (prepend)
-        s = std::string(n - s.size(), c) + s;
-      else
-        s.append(n - s.size(), c);
-    }
-    return s;
-  }
 }
 
 t_rpc_command_executor::t_rpc_command_executor(
@@ -497,7 +485,7 @@ bool t_rpc_command_executor::print_connections() {
     tools::msg_writer() 
      //<< std::setw(30) << std::left << in_out
      << std::setw(30) << std::left << address
-     << std::setw(20) << pad(info.peer_id, 16, '0', true)
+     << std::setw(20) << epee::string_tools::pad_string(info.peer_id, 16, '0', true)
      << std::setw(20) << info.support_flags
      << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
      << std::setw(25) << info.state
@@ -1766,12 +1754,12 @@ bool t_rpc_command_executor::sync_info()
     tools::success_msg_writer() << std::to_string(res.peers.size()) << " peers";
     for (const auto &p: res.peers)
     {
-      std::string address = pad(p.info.address, 24);
+      std::string address = epee::string_tools::pad_string(p.info.address, 24);
       uint64_t nblocks = 0, size = 0;
       for (const auto &s: res.spans)
         if (s.rate > 0.0f && s.connection_id == p.info.connection_id)
           nblocks += s.nblocks, size += s.size;
-      tools::success_msg_writer() << address << "  " << pad(p.info.peer_id, 16, '0', true) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
+      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
     }
 
     uint64_t total_size = 0;
@@ -1780,7 +1768,7 @@ bool t_rpc_command_executor::sync_info()
     tools::success_msg_writer() << std::to_string(res.spans.size()) << " spans, " << total_size/1e6 << " MB";
     for (const auto &s: res.spans)
     {
-      std::string address = pad(s.remote_address, 24);
+      std::string address = epee::string_tools::pad_string(s.remote_address, 24);
       if (s.size == 0)
       {
         tools::success_msg_writer() << address << "  " << s.nblocks << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ")  -";

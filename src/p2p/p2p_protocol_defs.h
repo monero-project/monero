@@ -44,6 +44,13 @@ namespace nodetool
   typedef boost::uuids::uuid uuid;
   typedef uint64_t peerid_type;
 
+  static inline std::string peerid_to_string(peerid_type peer_id)
+  {
+    std::ostringstream s;
+    s << std::hex << peer_id;
+    return epee::string_tools::pad_string(s.str(), 16, '0', true);
+  }
+
 #pragma pack (push, 1)
   
   struct network_address_old

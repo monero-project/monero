@@ -32,6 +32,7 @@
 #include <limits>
 #include <stdexcept>
 
+#include "cryptonote_config.h"
 #include "common/util.h"
 
 namespace tools
@@ -63,8 +64,10 @@ thread_group::data::data(std::size_t count)
   , has_work()
   , stop(false) {
   threads.reserve(count);
+  boost::thread::attributes attrs;
+  attrs.set_stack_size(THREAD_STACK_SIZE);
   while (count--) {
-    threads.push_back(boost::thread(&thread_group::data::run, this));
+    threads.push_back(boost::thread(attrs, boost::bind(&thread_group::data::run, this)));
   }
 }
 
