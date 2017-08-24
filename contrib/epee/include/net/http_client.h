@@ -293,6 +293,9 @@ using namespace std;
 				, m_lock()
 			{}
 
+			const std::string &get_host() const { return m_host_buff; };
+			const std::string &get_port() const { return m_port; };
+
 			bool set_server(const std::string& address, boost::optional<login> user)
 			{
 				http::url_content parsed{};
