@@ -32,4 +32,5 @@ status
 stop_daemon
 stop_mining
 stop_save_graph
+sync_info
 unban
