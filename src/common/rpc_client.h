@@ -69,7 +69,7 @@ namespace tools
       bool ok = connection.is_open();
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon";
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
       ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
@@ -98,7 +98,7 @@ namespace tools
       ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon";
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
       else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
@@ -126,7 +126,7 @@ namespace tools
       ok = ok && epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
-        fail_msg_writer() << "Couldn't connect to daemon";
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
       else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
