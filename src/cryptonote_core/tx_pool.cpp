@@ -575,7 +575,7 @@ namespace cryptonote
         stats.num_10m++;
       if (meta.last_failed_height)
         stats.num_failing++;
-      uint64_t age = now - meta.receive_time;
+      uint64_t age = now - meta.receive_time + (now == meta.receive_time);
       agebytes[age].txs++;
       agebytes[age].bytes += meta.blob_size;
       return true;
