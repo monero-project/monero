@@ -390,7 +390,7 @@ namespace nodetool
       ip::tcp::endpoint endpoint = *i;
       if (endpoint.address().is_v4())
       {
-        epee::net_utils::network_address na(new epee::net_utils::ipv4_network_address(boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong()), endpoint.port()));
+        epee::net_utils::network_address na{epee::net_utils::ipv4_network_address{boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_ulong()), endpoint.port()}};
         seed_nodes.push_back(na);
         MINFO("Added seed node: " << na.str());
       }
@@ -1521,7 +1521,7 @@ namespace nodetool
       return false;
     std::string ip = epee::string_tools::get_ip_string_from_int32(actual_ip);
     std::string port = epee::string_tools::num_to_string_fast(node_data.my_port);
-    epee::net_utils::network_address address(new epee::net_utils::ipv4_network_address(actual_ip, node_data.my_port));
+    epee::net_utils::network_address address{epee::net_utils::ipv4_network_address(actual_ip, node_data.my_port)};
     peerid_type pr = node_data.peer_id;
     bool r = m_net_server.connect_async(ip, port, m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ address, pr, this](
       const typename net_server::t_connection_context& ping_context,
@@ -1669,7 +1669,7 @@ namespace nodetool
     if(arg.node_data.peer_id != m_config.m_peer_id && arg.node_data.my_port)
     {
       peerid_type peer_id_l = arg.node_data.peer_id;
-      uint32_t port_l = arg.node_data.my_port;      
+      uint32_t port_l = arg.node_data.my_port;
       //try ping to be sure that we can add this peer to peer_list
       try_ping(arg.node_data, context, [peer_id_l, port_l, context, this]()
       {
@@ -1678,7 +1678,7 @@ namespace nodetool
         //called only(!) if success pinged, update local peerlist
         peerlist_entry pe;
         const epee::net_utils::network_address na = context.m_remote_address;
-        pe.adr.reset(new epee::net_utils::ipv4_network_address(na.as<epee::net_utils::ipv4_network_address>().ip(), port_l));
+        pe.adr = epee::net_utils::ipv4_network_address(na.as<epee::net_utils::ipv4_network_address>().ip(), port_l);
         time_t last_seen;
         time(&last_seen);
         pe.last_seen = static_cast<int64_t>(last_seen);
