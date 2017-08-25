@@ -59,6 +59,8 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain"
 
+#define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
+
 //#include "serialization/json_archive.h"
 
 /* TODO:
@@ -2075,8 +2077,8 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
 
   m_db->block_txn_start(true);
   total_height = get_current_blockchain_height();
-  size_t count = 0;
-  for(size_t i = start_height; i < total_height && count < max_count; i++, count++)
+  size_t count = 0, size = 0;
+  for(size_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
   {
     blocks.resize(blocks.size()+1);
     blocks.back().first = m_db->get_block_blob_from_height(i);
@@ -2085,6 +2087,9 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
     std::list<crypto::hash> mis;
     get_transactions_blobs(b.tx_hashes, blocks.back().second, mis);
     CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
+    size += blocks.back().first.size();
+    for (const auto &t: blocks.back().second)
+      size += t.size();
   }
   m_db->block_txn_stop();
   return true;
