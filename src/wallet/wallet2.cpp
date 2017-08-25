@@ -5092,6 +5092,9 @@ uint64_t wallet2::get_approximate_blockchain_height() const
   const int seconds_per_block = DIFFICULTY_TARGET_V2;
   // Calculated blockchain height
   uint64_t approx_blockchain_height = fork_block + (time(NULL) - fork_time)/seconds_per_block;
+  // testnet got some huge rollbacks, so the estimation is way off
+  if (m_testnet && approx_blockchain_height > 105000)
+    approx_blockchain_height -= 105000;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
