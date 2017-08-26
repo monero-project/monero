@@ -31,10 +31,6 @@
 #include "common/command_line.h"
 #include "cryptonote_core/tx_pool.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/lmdb/db_lmdb.h"
-#if defined(BERKELEY_DB)
-#include "blockchain_db/berkeleydb/db_bdb.h"
-#endif
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
@@ -44,17 +40,6 @@
 namespace po = boost::program_options;
 using namespace epee;
 
-std::string join_set_strings(const std::unordered_set<std::string>& db_types_all, const char* delim)
-{
-  std::string result;
-  std::ostringstream s;
-  std::copy(db_types_all.begin(), db_types_all.end(), std::ostream_iterator<std::string>(s, delim));
-  result = s.str();
-  if (result.length() > 0)
-    result.erase(result.end()-strlen(delim), result.end());
-  return result;
-}
-
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -63,10 +48,7 @@ int main(int argc, char* argv[])
 
   std::string default_db_type = "lmdb";
 
-  std::unordered_set<std::string> db_types_all = cryptonote::blockchain_db_types;
-  db_types_all.insert("memory");
-
-  std::string available_dbs = join_set_strings(db_types_all, ", ");
+  std::string available_dbs = cryptonote::blockchain_db_types(", ");
   available_dbs = "available: " + available_dbs;
 
   uint32_t log_level = 0;
@@ -144,18 +126,11 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
-  if (db_types_all.count(db_type) == 0)
+  if (!cryptonote::blockchain_valid_db_type(db_type))
   {
     std::cerr << "Invalid database type: " << db_type << std::endl;
     return 1;
   }
-#if !defined(BERKELEY_DB)
-  if (db_type == "berkeley")
-  {
-    LOG_ERROR("BerkeleyDB support disabled.");
-    return false;
-  }
-#endif
 
   if (command_line::has_arg(vm, arg_output_file))
     output_file_path = boost::filesystem::path(command_line::get_arg(vm, arg_output_file));
@@ -179,19 +154,8 @@ int main(int argc, char* argv[])
   tx_memory_pool m_mempool(*core_storage);
   core_storage = new Blockchain(m_mempool);
 
-  int db_flags = 0;
-
-  BlockchainDB* db = nullptr;
-  if (db_type == "lmdb")
-  {
-    db_flags |= MDB_RDONLY;
-    db = new BlockchainLMDB();
-  }
-#if defined(BERKELEY_DB)
-  else if (db_type == "berkeley")
-    db = new BlockchainBDB();
-#endif
-  else
+  BlockchainDB* db = new_db(db_type);
+  if (db == NULL)
   {
     LOG_ERROR("Attempted to use non-existent database type: " << db_type);
     throw std::runtime_error("Attempting to use non-existent database type");
@@ -205,7 +169,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Loading blockchain from folder " << filename << " ...");
   try
   {
-    db->open(filename, db_flags);
+    db->open(filename, DBF_RDONLY);
   }
   catch (const std::exception& e)
   {

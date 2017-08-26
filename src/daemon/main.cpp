@@ -145,13 +145,10 @@ int main(int argc, char const * argv[])
     std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
 
     // verify that blockchaindb type is valid
-    if(cryptonote::blockchain_db_types.count(db_type) == 0)
+    if(!cryptonote::blockchain_valid_db_type(db_type))
     {
-      std::cout << "Invalid database type (" << db_type << "), available types are:" << std::endl;
-      for (const auto& type : cryptonote::blockchain_db_types)
-      {
-        std::cout << "\t" << type << std::endl;
-      }
+      std::cout << "Invalid database type (" << db_type << "), available types are: " <<
+        cryptonote::blockchain_db_types(", ") << std::endl;
       return 0;
     }
 

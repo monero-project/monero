@@ -31,9 +31,6 @@
 
 namespace cryptonote
 {
-
-  const std::unordered_set<std::string> blockchain_db_types = 
-  { "lmdb"
-  };
-
+  bool blockchain_valid_db_type(const std::string& db_type);
+  std::string blockchain_db_types(const std::string& sep);
 } // namespace cryptonote
