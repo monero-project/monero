@@ -65,8 +65,9 @@ void rdln::readline_buffer::start()
 
 void rdln::readline_buffer::stop()
 {
-  std::unique_lock<std::mutex> lock_process(process_mutex);
-  std::unique_lock<std::mutex> lock_sync(sync_mutex);
+  std::unique_lock<std::mutex> lock_process(process_mutex, std::defer_lock);
+  std::unique_lock<std::mutex> lock_sync(sync_mutex, std::defer_lock);
+  std::lock(lock_process, lock_sync);
   have_line.notify_all();
   if(m_cout_buf == NULL)
     return;
