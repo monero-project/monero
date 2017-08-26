@@ -43,6 +43,7 @@ class test_core
 {
 public:
   void on_synchronized(){}
+  void safesyncmode(const bool){}
   uint64_t get_current_blockchain_height() const {return 1;}
   void set_target_blockchain_height(uint64_t) {}
   bool init(const boost::program_options::variables_map& vm) {return true ;}
