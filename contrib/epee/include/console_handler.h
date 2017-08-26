@@ -52,11 +52,10 @@ namespace epee
       , m_has_read_request(false)
       , m_read_status(state_init)
     {
-      m_reader_thread = boost::thread(std::bind(&async_stdin_reader::reader_thread_func, this));
 #ifdef HAVE_READLINE
       m_readline_buffer.start();
-      m_readline_thread = boost::thread(std::bind(&async_stdin_reader::readline_thread_func, this));
 #endif
+      m_reader_thread = boost::thread(std::bind(&async_stdin_reader::reader_thread_func, this));
     }
 
     ~async_stdin_reader()
@@ -115,7 +114,6 @@ namespace epee
         m_reader_thread.join();
 #ifdef HAVE_READLINE
         m_readline_buffer.stop();
-        m_readline_thread.join();
 #endif
       }
     }
@@ -193,16 +191,6 @@ namespace epee
       return true;
     }
 
-#ifdef HAVE_READLINE
-    void readline_thread_func()
-    {
-      while (m_run.load(std::memory_order_relaxed))
-      {
-        m_readline_buffer.process();
-      }
-    }
-#endif
-
     void reader_thread_func()
     {
       while (true)
@@ -212,12 +200,20 @@ namespace epee
 
         std::string line;
         bool read_ok = true;
+#ifdef HAVE_READLINE
+reread:
+#endif
         if (wait_stdin_data())
         {
           if (m_run.load(std::memory_order_relaxed))
           {
 #ifdef HAVE_READLINE
-            m_readline_buffer.get_line(line);
+            switch (m_readline_buffer.get_line(line))
+            {
+            case rdln::empty:   goto eof;
+            case rdln::partial: goto reread;
+            case rdln::full:    break;
+            }
 #else
             std::getline(std::cin, line);
 #endif
@@ -229,6 +225,9 @@ namespace epee
           read_ok = false;
         }
         if (std::cin.eof()) {
+#ifdef HAVE_READLINE
+eof:
+#endif
           m_read_status = state_eos;
           m_response_cv.notify_one();
           break;
@@ -263,7 +262,6 @@ namespace epee
     boost::thread m_reader_thread;
     std::atomic<bool> m_run;
 #ifdef HAVE_READLINE
-    boost::thread m_readline_thread;
     rdln::readline_buffer m_readline_buffer;
 #endif
 
