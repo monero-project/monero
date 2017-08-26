@@ -1318,6 +1318,11 @@ void BlockchainLMDB::sync()
   }
 }
 
+void BlockchainLMDB::safesyncmode(const bool onoff)
+{
+  mdb_env_set_flags(m_env, MDB_NOSYNC|MDB_MAPASYNC, !onoff);
+}
+
 void BlockchainLMDB::reset()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

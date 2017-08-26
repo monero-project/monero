@@ -621,6 +621,13 @@ namespace cryptonote
      void on_synchronized();
 
      /**
+      * @copydoc Blockchain::safesyncmode
+      *
+      * 2note see Blockchain::safesyncmode
+      */
+     void safesyncmode(const bool onoff);
+
+     /**
       * @brief sets the target blockchain height
       *
       * @param target_blockchain_height the height to set

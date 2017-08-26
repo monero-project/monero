@@ -606,6 +606,13 @@ public:
   virtual void sync() = 0;
 
   /**
+   * @brief toggle safe syncs for the DB
+   *
+   * Used to switch DBF_SAFE on or off after starting up with DBF_FAST.
+   */
+  virtual void safesyncmode(const bool onoff) = 0;
+
+  /**
    * @brief Remove everything from the BlockchainDB
    *
    * This function should completely remove all data from a BlockchainDB.
