@@ -48,10 +48,6 @@ using namespace epee;
 #include "cryptonote_basic/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
-#include "blockchain_db/lmdb/db_lmdb.h"
-#if defined(BERKELEY_DB)
-#include "blockchain_db/berkeleydb/db_bdb.h"
-#endif
 #include "ringct/rctSigs.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -314,20 +310,8 @@ namespace cryptonote
     // folder might not be a directory, etc, etc
     catch (...) { }
 
-    BlockchainDB* db = nullptr;
-    uint64_t DBS_FAST_MODE = 0;
-    uint64_t DBS_FASTEST_MODE = 0;
-    uint64_t DBS_SAFE_MODE = 0;
-    uint64_t DBS_SALVAGE = 0;
-    if (db_type == "lmdb")
-    {
-      db = new BlockchainLMDB();
-      DBS_SAFE_MODE = MDB_NORDAHEAD;
-      DBS_FAST_MODE = MDB_NORDAHEAD | MDB_NOSYNC;
-      DBS_FASTEST_MODE = MDB_NORDAHEAD | MDB_NOSYNC | MDB_WRITEMAP | MDB_MAPASYNC;
-      DBS_SALVAGE = MDB_PREVSNAPSHOT;
-    }
-    else
+    BlockchainDB* db = new_db(db_type);
+    if (db == NULL)
     {
       LOG_ERROR("Attempted to use non-existent database type");
       return false;
@@ -353,7 +337,7 @@ namespace cryptonote
         MDEBUG("option: " << option);
 
       // default to fast:async:1
-      uint64_t DEFAULT_FLAGS = DBS_FAST_MODE;
+      uint64_t DEFAULT_FLAGS = DBF_FAST;
 
       if(options.size() == 0)
       {
@@ -367,14 +351,14 @@ namespace cryptonote
         if(options[0] == "safe")
         {
           safemode = true;
-          db_flags = DBS_SAFE_MODE;
+          db_flags = DBF_SAFE;
           sync_mode = db_nosync;
         }
         else if(options[0] == "fast")
-          db_flags = DBS_FAST_MODE;
+          db_flags = DBF_FAST;
         else if(options[0] == "fastest")
         {
-          db_flags = DBS_FASTEST_MODE;
+          db_flags = DBF_FASTEST;
           blocks_per_sync = 1000; // default to fastest:async:1000
         }
         else
@@ -398,7 +382,7 @@ namespace cryptonote
       }
 
       if (db_salvage)
-        db_flags |= DBS_SALVAGE;
+        db_flags |= DBF_SALVAGE;
 
       db->open(filename, db_flags);
       if(!db->m_open)

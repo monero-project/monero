@@ -145,6 +145,12 @@ struct txpool_tx_meta_t
   uint8_t padding[77]; // till 192 bytes
 };
 
+#define DBF_SAFE       1
+#define DBF_FAST       2
+#define DBF_FASTEST    4
+#define DBF_RDONLY     8
+#define DBF_SALVAGE 0x10
+
 /***********************************
  * Exception Definitions
  ***********************************/
@@ -1491,6 +1497,7 @@ public:
 
 };  // class BlockchainDB
 
+BlockchainDB *new_db(const std::string& db_type);
 
 }  // namespace cryptonote
 
