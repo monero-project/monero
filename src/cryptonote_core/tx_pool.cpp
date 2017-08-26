@@ -553,6 +553,17 @@ namespace cryptonote
     });
   }
   //------------------------------------------------------------------
+  void tx_memory_pool::get_transaction_backlog(std::vector<tx_backlog_entry>& backlog) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    const uint64_t now = time(NULL);
+    m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+      backlog.push_back({meta.blob_size, meta.fee, meta.receive_time - now});
+      return true;
+    });
+  }
+  //------------------------------------------------------------------
   void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);

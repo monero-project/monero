@@ -428,6 +428,13 @@ namespace cryptonote
      bool get_pool_transactions(std::list<transaction>& txs) const;
      
      /**
+      * @copydoc tx_memory_pool::get_txpool_backlog
+      *
+      * @note see tx_memory_pool::get_txpool_backlog
+      */
+     bool get_txpool_backlog(std::vector<tx_backlog_entry>& backlog) const;
+     
+     /**
       * @copydoc tx_memory_pool::get_transactions
       *
       * @note see tx_memory_pool::get_transactions
