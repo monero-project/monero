@@ -1963,6 +1963,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetInt(m_merge_destinations ? 1 :0);
   json.AddMember("merge_destinations", value2, json.GetAllocator());
 
+  value2.SetInt(m_confirm_backlog ? 1 :0);
+  json.AddMember("confirm_backlog", value2, json.GetAllocator());
+
   value2.SetInt(m_testnet ? 1 :0);
   json.AddMember("testnet", value2, json.GetAllocator());
 
@@ -2037,6 +2040,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_min_output_count = 0;
     m_min_output_value = 0;
     m_merge_destinations = false;
+    m_confirm_backlog = true;
   }
   else
   {
@@ -2107,6 +2111,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_min_output_value = field_min_output_value;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, merge_destinations, int, Int, false, false);
     m_merge_destinations = field_merge_destinations;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_backlog, int, Int, false, true);
+    m_confirm_backlog = field_confirm_backlog;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
     // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
     THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
@@ -5739,6 +5745,58 @@ bool wallet2::is_synced() const
   if (result && *result != CORE_RPC_STATUS_OK)
     return false;
   return get_blockchain_current_height() >= height;
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::estimate_backlog(uint64_t blob_size, uint64_t fee)
+{
+  THROW_WALLET_EXCEPTION_IF(blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
+  THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
+
+  // get txpool backlog
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request> req = AUTO_VAL_INIT(req);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response, std::string> res = AUTO_VAL_INIT(res);
+  m_daemon_rpc_mutex.lock();
+  req.jsonrpc = "2.0";
+  req.id = epee::serialization::storage_entry(0);
+  req.method = "get_txpool_backlog";
+  bool r = net_utils::invoke_http_json("/json_rpc", req, res, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "Failed to connect to daemon");
+  THROW_WALLET_EXCEPTION_IF(res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_txpool_backlog");
+  THROW_WALLET_EXCEPTION_IF(res.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+
+  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
+  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  m_daemon_rpc_mutex.lock();
+  req_t.jsonrpc = "2.0";
+  req_t.id = epee::serialization::storage_entry(0);
+  req_t.method = "get_info";
+  r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
+  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+
+  double our_fee_byte = fee / (double)blob_size;
+  uint64_t priority_size = 0;
+  for (const auto &i: res.result.backlog)
+  {
+    if (i.blob_size == 0)
+    {
+      MWARNING("Got 0 sized blob from txpool, ignored");
+      continue;
+    }
+    double this_fee_byte = i.fee / (double)i.blob_size;
+    if (this_fee_byte < our_fee_byte)
+      continue;
+    priority_size += i.blob_size;
+  }
+
+  uint64_t full_reward_zone = resp_t.result.block_size_limit / 2;
+  uint64_t nblocks = (priority_size + full_reward_zone - 1) / full_reward_zone;
+  MDEBUG("estimate_backlog: priority_size " << priority_size << " for " << our_fee_byte << " (" << our_fee_byte << " piconero fee/byte), "
+      << nblocks << " blocks at block size " << full_reward_zone);
+  return nblocks;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
