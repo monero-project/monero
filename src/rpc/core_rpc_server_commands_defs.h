@@ -1071,6 +1071,33 @@ namespace cryptonote
     };
   };
 
+  struct tx_backlog_entry
+  {
+    uint64_t blob_size;
+    uint64_t fee;
+    uint64_t time_in_pool;
+  };
+
+  struct COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<tx_backlog_entry> backlog;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(backlog)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct txpool_histo
   {
     uint32_t txs;
