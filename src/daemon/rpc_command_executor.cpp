@@ -963,13 +963,14 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   size_t avg_bytes = n_transactions ? res.pool_stats.bytes_total / n_transactions : 0;
 
   std::string backlog_message;
-  if (res.pool_stats.bytes_total <= ires.block_size_limit)
+  const uint64_t full_reward_zone = ires.block_size_limit / 2;
+  if (res.pool_stats.bytes_total <= full_reward_zone)
   {
     backlog_message = "no backlog";
   }
   else
   {
-    uint64_t backlog = (res.pool_stats.bytes_total + ires.block_size_limit - 1) / ires.block_size_limit;
+    uint64_t backlog = (res.pool_stats.bytes_total + full_reward_zone - 1) / full_reward_zone;
     backlog_message = (boost::format("estimated %u block (%u minutes) backlog") % backlog % (backlog * DIFFICULTY_TARGET_V2 / 60)).str();
   }
 
