@@ -1114,6 +1114,7 @@ namespace cryptonote
     uint64_t bytes_total;
     uint32_t bytes_min;
     uint32_t bytes_max;
+    uint32_t bytes_med;
     uint64_t fee_total;
     uint64_t oldest;
     uint32_t txs_total;
@@ -1127,6 +1128,7 @@ namespace cryptonote
       KV_SERIALIZE(bytes_total)
       KV_SERIALIZE(bytes_min)
       KV_SERIALIZE(bytes_max)
+      KV_SERIALIZE(bytes_med)
       KV_SERIALIZE(fee_total)
       KV_SERIALIZE(oldest)
       KV_SERIALIZE(txs_total)
