@@ -918,12 +918,19 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   }
 
   uint64_t tx_money_spent_in_ins = 0;
+  // deterministic txkey
+  rct::keyV deterministic_txkey_buf;
+  if (m_use_deterministic_txkey)
+    deterministic_txkey_buf.push_back(rct::sk2rct(m_account.get_keys().m_spend_secret_key));
   // check all outputs for spending (compare key images)
   for(auto& in: tx.vin)
   {
     if(in.type() != typeid(cryptonote::txin_to_key))
       continue;
-    auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
+    const crypto::key_image& img = boost::get<cryptonote::txin_to_key>(in).k_image;
+    if (m_use_deterministic_txkey)
+      deterministic_txkey_buf.push_back(rct::ki2rct(img));
+    auto it = m_key_images.find(img);
     if(it != m_key_images.end())
     {
       transfer_details& td = m_transfers[it->second];
@@ -949,6 +956,19 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   if (tx_money_spent_in_ins > 0)
   {
     process_outgoing(txid, tx, height, ts, tx_money_spent_in_ins, tx_money_got_in_outs);
+
+    if (!m_watch_only && m_use_deterministic_txkey)
+    {
+      // try to restore deterministic txkey
+      keypair txkey;
+      txkey.sec = rct::rct2sk(rct::hash_to_scalar(deterministic_txkey_buf));
+      crypto::secret_key_to_public_key(txkey.sec, txkey.pub);
+      if (txkey.pub == tx_pub_key)
+      {
+        LOG_PRINT_L0("Tx secret key was recovered deterministically; txid: " << txid << ", tx pubkey: " << tx_pub_key);
+        m_tx_keys.insert(std::make_pair(txid, txkey.sec));
+      }
+    }
   }
 
   uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
@@ -1936,6 +1956,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
   value2.SetUint(m_confirm_backlog_threshold);
   json.AddMember("confirm_backlog_threshold", value2, json.GetAllocator());
 
+  value2.SetInt(m_use_deterministic_txkey ? 1 :0);
+  json.AddMember("use_deterministic_txkey", value2, json.GetAllocator());
+
   value2.SetInt(m_testnet ? 1 :0);
   json.AddMember("testnet", value2, json.GetAllocator());
 
@@ -2012,6 +2035,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_merge_destinations = false;
     m_confirm_backlog = true;
     m_confirm_backlog_threshold = 0;
+    m_use_deterministic_txkey = false;
   }
   else
   {
@@ -2086,6 +2110,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_confirm_backlog = field_confirm_backlog;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_backlog_threshold, uint32_t, Uint, false, 0);
     m_confirm_backlog_threshold = field_confirm_backlog_threshold;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, use_deterministic_txkey, int, Int, false, true);
+    m_use_deterministic_txkey = field_use_deterministic_txkey;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
     // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
     THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
@@ -3339,7 +3365,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
     crypto::secret_key tx_key;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, sd.splitted_dsts, sd.extra, ptx.tx, sd.unlock_time, tx_key, sd.use_rct);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sd.sources, sd.splitted_dsts, sd.extra, ptx.tx, sd.unlock_time, tx_key, sd.use_rct, m_use_deterministic_txkey);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_testnet);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -4128,7 +4154,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
   crypto::secret_key tx_key;
   LOG_PRINT_L2("constructing tx");
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, true);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), sources, splitted_dsts, extra, tx, unlock_time, tx_key, true, m_use_deterministic_txkey);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_testnet);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);

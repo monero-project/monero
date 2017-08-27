@@ -753,6 +753,17 @@ bool simple_wallet::set_confirm_backlog_threshold(const std::vector<std::string>
   return true;
 }
 
+bool simple_wallet::set_use_deterministic_txkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    m_wallet->use_deterministic_txkey(is_it_true(args[1]));
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+  }
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   success_msg_writer() << get_commands_str();
@@ -840,6 +851,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "merge-destinations = " << m_wallet->merge_destinations();
     success_msg_writer() << "confirm-backlog = " << m_wallet->confirm_backlog();
     success_msg_writer() << "confirm-backlog-threshold = " << m_wallet->get_confirm_backlog_threshold();
+    success_msg_writer() << "use-deterministic-txkey = " << m_wallet->use_deterministic_txkey();
     return true;
   }
   else
@@ -887,6 +899,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("merge-destinations", set_merge_destinations, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("confirm-backlog", set_confirm_backlog, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("confirm-backlog-threshold", set_confirm_backlog_threshold, tr("unsigned integer"));
+    CHECK_SIMPLE_VARIABLE("use-deterministic-txkey", set_use_deterministic_txkey, tr("0 or 1"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
