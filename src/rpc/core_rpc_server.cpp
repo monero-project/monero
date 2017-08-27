@@ -205,14 +205,17 @@ namespace cryptonote
       }
       size_t txidx = 0;
       ntxes += bd.second.size();
-      for(const auto& t: bd.second)
+      for (std::list<cryptonote::blobdata>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
+        unpruned_size += i->size();
         if (req.prune)
-          res.blocks.back().txs.push_back(get_pruned_tx_blob(t));
+          res.blocks.back().txs.push_back(get_pruned_tx_blob(std::move(*i)));
         else
-          res.blocks.back().txs.push_back(t);
+          res.blocks.back().txs.push_back(std::move(*i));
+        i->clear();
+        i->shrink_to_fit();
         pruned_size += res.blocks.back().txs.back().size();
-        unpruned_size += t.size();
+
         res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
         bool r = m_core.get_tx_outputs_gindexs(b.tx_hashes[txidx++], res.output_indices.back().indices.back().indices);
         if (!r)
