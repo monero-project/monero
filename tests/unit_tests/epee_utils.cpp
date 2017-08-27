@@ -42,7 +42,11 @@
 # include <arpa/inet.h>
 #endif
 
+#include "boost/archive/portable_binary_iarchive.hpp"
+#include "boost/archive/portable_binary_oarchive.hpp"
 #include "hex.h"
+#include "net/net_utils_base.h"
+#include "p2p/net_peerlist_boost_serialization.h"
 #include "span.h"
 #include "string_tools.h"
 
@@ -419,3 +423,106 @@ TEST(StringTools, GetIpInt32)
   EXPECT_EQ(htonl(0xff0aff00), ip);
 }
 
+TEST(NetUtils, IPv4NetworkAddress)
+{
+  epee::net_utils::ipv4_network_address address1{0xFF120033, 65535};
+  EXPECT_TRUE(address1 == address1);
+  EXPECT_FALSE(address1 != address1);
+  EXPECT_FALSE(address1 < address1);
+  EXPECT_TRUE(address1.is_same_host(address1));
+  EXPECT_STREQ("51.0.18.255:65535", address1.str().c_str());
+  EXPECT_STREQ("51.0.18.255", address1.host_str().c_str());
+  EXPECT_FALSE(address1.is_loopback());
+  EXPECT_FALSE(address1.is_local());
+  EXPECT_EQ(epee::net_utils::ipv4_network_address::ID, address1.get_type_id());
+  EXPECT_EQ(0xFF120033, address1.ip());
+  EXPECT_EQ(65535, address1.port());
+  EXPECT_TRUE(epee::net_utils::ipv4_network_address{std::move(address1)} == address1);
+  EXPECT_TRUE(epee::net_utils::ipv4_network_address{address1} == address1);
+
+  const epee::net_utils::ipv4_network_address loopback{0x0100007F, 0};
+  EXPECT_TRUE(loopback == loopback);
+  EXPECT_FALSE(loopback == address1);
+  EXPECT_FALSE(address1 == loopback);
+  EXPECT_FALSE(loopback != loopback);
+  EXPECT_TRUE(loopback != address1);
+  EXPECT_TRUE(address1 != loopback);
+  EXPECT_FALSE(loopback < loopback);
+  EXPECT_TRUE(loopback < address1);
+  EXPECT_FALSE(address1 < loopback);
+  EXPECT_TRUE(loopback.is_same_host(loopback));
+  EXPECT_FALSE(loopback.is_same_host(address1));
+  EXPECT_FALSE(address1.is_same_host(loopback));
+  EXPECT_STREQ("127.0.0.1:0", loopback.str().c_str());
+  EXPECT_STREQ("127.0.0.1", loopback.host_str().c_str());
+  EXPECT_TRUE(loopback.is_loopback());
+  EXPECT_FALSE(loopback.is_local());
+  EXPECT_EQ(epee::net_utils::ipv4_network_address::ID, address1.get_type_id());
+  EXPECT_EQ(0x0100007F, loopback.ip());
+  EXPECT_EQ(0, loopback.port());
+
+  const epee::net_utils::ipv4_network_address local{0x0000000A, 8080};
+  EXPECT_FALSE(local.is_loopback());
+  EXPECT_TRUE(local.is_local());
+
+  epee::net_utils::ipv4_network_address address2{0xFF120033, 55};
+  EXPECT_FALSE(address1 == address2);
+  EXPECT_FALSE(address2 == address1);
+  EXPECT_TRUE(address1 != address2);
+  EXPECT_TRUE(address2 != address1);
+  EXPECT_FALSE(address1 < address2);
+  EXPECT_TRUE(address2 < address1);
+  EXPECT_TRUE(address1.is_same_host(address2));
+  EXPECT_TRUE(address2.is_same_host(address1));
+
+  address2 = std::move(address1);
+  EXPECT_TRUE(address1 == address2);
+  EXPECT_TRUE(address2 == address1);
+  EXPECT_FALSE(address1 != address2);
+  EXPECT_FALSE(address2 != address1);
+  EXPECT_FALSE(address1 < address2);
+  EXPECT_FALSE(address2 < address1);
+  EXPECT_TRUE(address1.is_same_host(address2));
+  EXPECT_TRUE(address2.is_same_host(address1));
+
+  address2 = local;
+  EXPECT_TRUE(address2 == local);
+  EXPECT_TRUE(local == address2);
+  EXPECT_FALSE(address2 == address1);
+  EXPECT_FALSE(address1 == address2);
+  EXPECT_FALSE(address2 != local);
+  EXPECT_FALSE(local != address2);
+  EXPECT_TRUE(address2 != address1);
+  EXPECT_TRUE(address1 != address2);
+  EXPECT_FALSE(address2 < local);
+  EXPECT_FALSE(local < address2);
+  EXPECT_TRUE(address2 < address1);
+  EXPECT_FALSE(address1 < address2);
+  EXPECT_TRUE(address2.is_same_host(local));
+  EXPECT_TRUE(local.is_same_host(address2));
+  EXPECT_FALSE(address2.is_same_host(address1));
+  EXPECT_FALSE(address1.is_same_host(address2));
+
+  {
+    std::stringstream stream;
+    {
+      boost::archive::portable_binary_oarchive ostream{stream};
+      ostream << address1;
+    }
+    {
+      boost::archive::portable_binary_iarchive istream{stream};
+      istream >> address2;
+    }
+  }
+  EXPECT_TRUE(address1 == address2);
+  EXPECT_TRUE(address2 == address1);
+  EXPECT_FALSE(address1 != address2);
+  EXPECT_FALSE(address2 != address1);
+  EXPECT_FALSE(address1 < address2);
+  EXPECT_FALSE(address2 < address1);
+  EXPECT_TRUE(address1.is_same_host(address2));
+  EXPECT_TRUE(address2.is_same_host(address1));
+  EXPECT_EQ(0xFF120033, address2.ip());
+  EXPECT_EQ(65535, address2.port());
+
+}
