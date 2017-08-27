@@ -930,6 +930,7 @@ namespace cryptonote
     {
       const uint64_t subchain_height = start_height + arg.blocks.size();
       LOG_DEBUG_CC(context, "These are old blocks, ignoring: blocks " << start_height << " - " << (subchain_height-1) << ", blockchain height " << m_core.get_current_blockchain_height());
+      m_block_queue.remove_spans(context.m_connection_id, start_height);
       goto skip;
     }
 
