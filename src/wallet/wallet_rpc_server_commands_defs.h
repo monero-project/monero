@@ -967,6 +967,54 @@ namespace wallet_rpc
     END_KV_SERIALIZE_MAP()
   };
 
+  struct COMMAND_RPC_GET_SPEND_PROOF
+  {
+    struct request
+    {
+      std::string txid;
+      std::string message;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+        KV_SERIALIZE(message)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signature)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CHECK_SPEND_PROOF
+  {
+    struct request
+    {
+      std::string txid;
+      std::string message;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+        KV_SERIALIZE(message)
+        KV_SERIALIZE(signature)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool good;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(good)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_GET_TRANSFERS
   {
     struct request

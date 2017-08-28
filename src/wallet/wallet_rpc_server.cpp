@@ -1559,6 +1559,56 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_spend_proof(const wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    try
+    {
+      res.signature = m_wallet->get_spend_proof(txid, req.message);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_check_spend_proof(const wallet_rpc::COMMAND_RPC_CHECK_SPEND_PROOF::request& req, wallet_rpc::COMMAND_RPC_CHECK_SPEND_PROOF::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    try
+    {
+      res.good = m_wallet->check_spend_proof(txid, req.message, req.signature);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_transfers(const wallet_rpc::COMMAND_RPC_GET_TRANSFERS::request& req, wallet_rpc::COMMAND_RPC_GET_TRANSFERS::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);

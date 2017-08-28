@@ -931,6 +931,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
   m_cmd_binder.set_handler("get_tx_proof", boost::bind(&simple_wallet::get_tx_proof, this, _1), tr("Generate a signature proving payment/receipt of money to/by <address> in <txid> using the transaction/view secret key"));
   m_cmd_binder.set_handler("check_tx_proof", boost::bind(&simple_wallet::check_tx_proof, this, _1), tr("Check tx proof for payment going to <address> in <txid>"));
+  m_cmd_binder.set_handler("get_spend_proof", boost::bind(&simple_wallet::get_spend_proof, this, _1), tr("Generate a signature proving that you generated <txid> using the spend secret key"));
+  m_cmd_binder.set_handler("check_spend_proof", boost::bind(&simple_wallet::check_spend_proof, this, _1), tr("Check a signature proving that the signer generated <txid>"));
   m_cmd_binder.set_handler("show_transfers", boost::bind(&simple_wallet::show_transfers, this, _1), tr("show_transfers [in|out|pending|failed|pool] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] - Show incoming/outgoing transfers within an optional height range"));
   m_cmd_binder.set_handler("unspent_outputs", boost::bind(&simple_wallet::unspent_outputs, this, _1), tr("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]] - Show unspent outputs of a specified address within an optional amount range"));
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
@@ -4148,6 +4150,91 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
   catch (const std::exception &e)
   {
     fail_msg_writer() << tr("error: ") << e.what();
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::get_spend_proof(const std::vector<std::string> &args)
+{
+  if(args.size() != 1 && args.size() != 2) {
+    fail_msg_writer() << tr("usage: get_spend_proof <txid> [<message>]");
+    return true;
+  }
+
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot generate the proof");
+    return true;
+  }
+
+  crypto::hash txid;
+  if (!epee::string_tools::hex_to_pod(args[0], txid))
+  {
+    fail_msg_writer() << tr("failed to parse txid");
+    return true;
+  }
+
+  if (!try_connect_to_daemon())
+  {
+    fail_msg_writer() << tr("failed to connect to the daemon");
+    return true;
+  }
+
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+
+  try
+  {
+    const std::string sig_str = m_wallet->get_spend_proof(txid, args.size() == 2 ? args[1] : "");
+    const std::string filename = "monero_spend_proof";
+    if (epee::file_io_utils::save_string_to_file(filename, sig_str))
+      success_msg_writer() << tr("signature file saved to: ") << filename;
+    else
+      fail_msg_writer() << tr("failed to save signature file");
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << e.what();
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::check_spend_proof(const std::vector<std::string> &args)
+{
+  if(args.size() != 2 && args.size() != 3) {
+    fail_msg_writer() << tr("usage: check_spend_proof <txid> <signature_file> [<message>]");
+    return true;
+  }
+
+  crypto::hash txid;
+  if (!epee::string_tools::hex_to_pod(args[0], txid))
+  {
+    fail_msg_writer() << tr("failed to parse txid");
+    return true;
+  }
+
+  if (!try_connect_to_daemon())
+  {
+    fail_msg_writer() << tr("failed to connect to the daemon");
+    return true;
+  }
+
+  std::string sig_str;
+  if (!epee::file_io_utils::load_file_to_string(args[1], sig_str))
+  {
+    fail_msg_writer() << tr("failed to load signature file");
+    return true;
+  }
+
+  try
+  {
+    if (m_wallet->check_spend_proof(txid, args.size() == 3 ? args[2] : "", sig_str))
+      success_msg_writer() << tr("Good signature");
+    else
+      fail_msg_writer() << tr("Bad signature");
+  }
+  catch (const std::exception& e)
+  {
+    fail_msg_writer() << e.what();
   }
   return true;
 }
