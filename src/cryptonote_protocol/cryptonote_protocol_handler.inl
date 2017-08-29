@@ -364,7 +364,12 @@ namespace cryptonote
 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block
-    m_core.cleanup_handle_incoming_blocks(true);
+    if (!m_core.cleanup_handle_incoming_blocks(true))
+    {
+      LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+      m_core.resume_mine();
+      return 1;
+    }
     m_core.resume_mine();
     if(bvc.m_verifivation_failed)
     {
@@ -623,7 +628,12 @@ namespace cryptonote
           
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
         m_core.handle_incoming_block(arg.b.block, bvc); // got block from handle_notify_new_block
-        m_core.cleanup_handle_incoming_blocks(true);
+        if (!m_core.cleanup_handle_incoming_blocks(true))
+        {
+          LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+          m_core.resume_mine();
+          return 1;
+        }
         m_core.resume_mine();
         
         if( bvc.m_verifivation_failed )
@@ -1055,7 +1065,11 @@ skip:
                 }))
                   LOG_ERROR_CCONTEXT("span connection id not found");
 
-                m_core.cleanup_handle_incoming_blocks();
+                if (!m_core.cleanup_handle_incoming_blocks())
+                {
+                  LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+                  return 1;
+                }
                 // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
                 m_block_queue.remove_spans(span_connection_id, start_height);
                 return 1;
@@ -1080,7 +1094,12 @@ skip:
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
-              m_core.cleanup_handle_incoming_blocks();
+              if (!m_core.cleanup_handle_incoming_blocks())
+              {
+                LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+                return 1;
+              }
+
               // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
               m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
@@ -1094,7 +1113,12 @@ skip:
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
-              m_core.cleanup_handle_incoming_blocks();
+              if (!m_core.cleanup_handle_incoming_blocks())
+              {
+                LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+                return 1;
+              }
+
               // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
               m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
@@ -1107,7 +1131,11 @@ skip:
 
           MCINFO("sync-info", "Block process time (" << blocks.size() << " blocks, " << num_txs << " txs): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
 
-          m_core.cleanup_handle_incoming_blocks();
+          if (!m_core.cleanup_handle_incoming_blocks())
+          {
+            LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+            return 1;
+          }
 
           m_block_queue.remove_spans(span_connection_id, start_height);
 
