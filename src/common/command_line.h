@@ -212,9 +212,6 @@ namespace command_line
   extern const arg_descriptor<int> 		arg_test_dbg_lock_sleep;
   extern const arg_descriptor<bool, false> arg_testnet_on;
   extern const arg_descriptor<bool> arg_dns_checkpoints;
-  extern const arg_descriptor<std::string> arg_db_type;
-  extern const arg_descriptor<std::string> arg_db_sync_mode;
-  extern const arg_descriptor<bool, false> arg_db_salvage;
   extern const arg_descriptor<uint64_t> arg_fast_block_sync;
   extern const arg_descriptor<uint64_t> arg_prep_blocks_threads;
   extern const arg_descriptor<uint64_t> arg_show_time_stats;

@@ -32,7 +32,6 @@
 #include <boost/algorithm/string/compare.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <unordered_set>
-#include "blockchain_db/db_types.h"
 #include "common/i18n.h"
 #include "cryptonote_config.h"
 #include "string_tools.h"
@@ -94,22 +93,6 @@ namespace command_line
   const arg_descriptor<bool> arg_dns_checkpoints  = {
     "enforce-dns-checkpointing"
   , "checkpoints from DNS server will be enforced"
-  , false
-  };
-  std::string arg_db_type_description = "Specify database type, available: " + cryptonote::blockchain_db_types(", ");
-  const command_line::arg_descriptor<std::string> arg_db_type = {
-    "db-type"
-  , arg_db_type_description.c_str()
-  , DEFAULT_DB_TYPE
-  };
-  const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
-    "db-sync-mode"
-  , "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
-  , "fast:async:1000"
-  };
-  const arg_descriptor<bool> arg_db_salvage  = {
-    "db-salvage"
-  , "Try to salvage a blockchain database if it seems corrupted"
   , false
   };
   const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {

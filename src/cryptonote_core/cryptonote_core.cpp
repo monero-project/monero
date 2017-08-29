@@ -156,11 +156,8 @@ namespace cryptonote
 
     command_line::add_arg(desc, command_line::arg_testnet_on);
     command_line::add_arg(desc, command_line::arg_dns_checkpoints);
-    command_line::add_arg(desc, command_line::arg_db_type);
     command_line::add_arg(desc, command_line::arg_prep_blocks_threads);
     command_line::add_arg(desc, command_line::arg_fast_block_sync);
-    command_line::add_arg(desc, command_line::arg_db_sync_mode);
-    command_line::add_arg(desc, command_line::arg_db_salvage);
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
     command_line::add_arg(desc, command_line::arg_check_updates);
@@ -170,6 +167,7 @@ namespace cryptonote
     command_line::add_arg(desc, nodetool::arg_p2p_bind_port, false);
 
     miner::init_options(desc);
+    BlockchainDB::init_options(desc);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
@@ -279,9 +277,9 @@ namespace cryptonote
       m_config_folder_mempool = m_config_folder_mempool + "/" + m_port;
     }
 
-    std::string db_type = command_line::get_arg(vm, command_line::arg_db_type);
-    std::string db_sync_mode = command_line::get_arg(vm, command_line::arg_db_sync_mode);
-    bool db_salvage = command_line::get_arg(vm, command_line::arg_db_salvage) != 0;
+    std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
+    std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
+    bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
     bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, command_line::arg_check_updates);
