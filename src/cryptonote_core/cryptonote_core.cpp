@@ -1068,12 +1068,13 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::cleanup_handle_incoming_blocks(bool force_sync)
   {
+    bool success = false;
     try {
-      m_blockchain_storage.cleanup_handle_incoming_blocks(force_sync);
+      success = m_blockchain_storage.cleanup_handle_incoming_blocks(force_sync);
     }
     catch (...) {}
     m_incoming_tx_lock.unlock();
-    return true;
+    return success;
   }
 
   //-----------------------------------------------------------------------------------------------

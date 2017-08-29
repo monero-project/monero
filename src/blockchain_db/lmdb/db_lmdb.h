@@ -368,6 +368,9 @@ private:
   // migrate from DB version 0 to 1
   void migrate_0_1();
 
+  void cleanup_batch();
+
+private:
   MDB_env* m_env;
 
   MDB_dbi m_blocks;
