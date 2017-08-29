@@ -3582,12 +3582,23 @@ void Blockchain::block_longhash_worker(uint64_t height, const std::vector<block>
 //------------------------------------------------------------------
 bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 {
+  bool success = false;
+
   MTRACE("Blockchain::" << __func__);
   CRITICAL_REGION_BEGIN(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
-  m_db->batch_stop();
-  if (m_sync_counter > 0)
+  try
+  {
+    m_db->batch_stop();
+    success = true;
+  }
+  catch (const std::exception &e)
+  {
+    MERROR("Exception in cleanup_handle_incoming_blocks: " << e.what());
+  }
+
+  if (success && m_sync_counter > 0)
   {
     if (force_sync)
     {
@@ -3622,7 +3633,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   CRITICAL_REGION_END();
   m_tx_pool.unlock();
 
-  return true;
+  return success;
 }
 
 //------------------------------------------------------------------
