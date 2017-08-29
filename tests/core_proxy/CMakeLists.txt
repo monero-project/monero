@@ -39,8 +39,6 @@ target_link_libraries(core_proxy
   PRIVATE
     cryptonote_core
     cryptonote_protocol
-    common
-    blockchain_db
     p2p
     epee
     ${CMAKE_THREAD_LIBS_INIT}
