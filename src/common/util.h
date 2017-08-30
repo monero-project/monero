@@ -60,8 +60,30 @@ namespace tools
     }
   };
 
-  //! \return File only readable by owner. nullptr if `filename` exists.
-  std::unique_ptr<std::FILE, close_file> create_private_file(const std::string& filename);
+  //! A file restricted to process owner AND process. Deletes file on destruction.
+  class private_file {
+    std::unique_ptr<std::FILE, close_file> m_handle;
+    std::string m_filename;
+
+    private_file(std::FILE* handle, std::string&& filename) noexcept;
+  public:
+
+    //! `handle() == nullptr && filename.empty()`.
+    private_file() noexcept;
+
+    /*! \return File only readable by owner and only used by this process
+      OR `private_file{}` on error. */
+    static private_file create(std::string filename);
+
+    private_file(private_file&&) = default;
+    private_file& operator=(private_file&&) = default;
+
+    //! Deletes `filename()` and closes `handle()`.
+    ~private_file() noexcept;
+
+    std::FILE* handle() const noexcept { return m_handle.get(); }
+    const std::string& filename() const noexcept { return m_filename; }
+  };
 
   /*! \brief Returns the default data directory.
    *

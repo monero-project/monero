@@ -33,6 +33,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <string>
+#include "common/util.h"
 #include "net/http_server_impl_base.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "wallet2.h"
@@ -154,7 +155,7 @@ namespace tools
 
       wallet2 *m_wallet;
       std::string m_wallet_dir;
-      std::string rpc_login_filename;
+      tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
       bool m_trusted_daemon;
       epee::net_utils::http::http_simple_client m_http_client;
