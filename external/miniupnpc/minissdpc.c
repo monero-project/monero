@@ -1,9 +1,9 @@
-/* $Id: minissdpc.c,v 1.28 2015/09/18 13:05:39 nanard Exp $ */
+/* $Id: minissdpc.c,v 1.32 2016/10/07 09:04:36 nanard Exp $ */
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * Project : miniupnp
  * Web : http://miniupnp.free.fr/
  * Author : Thomas BERNARD
- * copyright (c) 2005-2015 Thomas Bernard
+ * copyright (c) 2005-2017 Thomas Bernard
  * This software is subjet to the conditions detailed in the
  * provided LICENCE file. */
 /*#include <syslog.h>*/
@@ -62,7 +62,7 @@ struct sockaddr_un {
 #endif
 
 #ifdef _WIN32
-#define PRINT_SOCKET_ERROR(x)    printf("Socket error: %s, %d\n", x, WSAGetLastError());
+#define PRINT_SOCKET_ERROR(x)    fprintf(stderr, "Socket error: %s, %d\n", x, WSAGetLastError());
 #else
 #define PRINT_SOCKET_ERROR(x) perror(x)
 #endif
@@ -73,6 +73,9 @@ struct sockaddr_un {
 
 #if !defined(HAS_IP_MREQN) && !defined(_WIN32)
 #include <sys/ioctl.h>
+#if defined(__sun)
+#include <sys/sockio.h>
+#endif
 #endif
 
 #if defined(HAS_IP_MREQN) && defined(NEED_STRUCT_IP_MREQN)
@@ -169,7 +172,7 @@ connectToMiniSSDPD(const char * socketpath)
 {
 	int s;
 	struct sockaddr_un addr;
-#ifdef MINIUPNPC_SET_SOCKET_TIMEOUT
+#if defined(MINIUPNPC_SET_SOCKET_TIMEOUT) && !defined(__sun)
 	struct timeval timeout;
 #endif /* #ifdef MINIUPNPC_SET_SOCKET_TIMEOUT */
 
@@ -180,23 +183,25 @@ connectToMiniSSDPD(const char * socketpath)
 		perror("socket(unix)");
 		return MINISSDPC_SOCKET_ERROR;
 	}
-#ifdef MINIUPNPC_SET_SOCKET_TIMEOUT
+#if defined(MINIUPNPC_SET_SOCKET_TIMEOUT) && !defined(__sun)
 	/* setting a 3 seconds timeout */
+	/* not supported for AF_UNIX sockets under Solaris */
 	timeout.tv_sec = 3;
 	timeout.tv_usec = 0;
 	if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) < 0)
 	{
-		perror("setsockopt");
+		perror("setsockopt SO_RCVTIMEO unix");
 	}
 	timeout.tv_sec = 3;
 	timeout.tv_usec = 0;
 	if(setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) < 0)
 	{
-		perror("setsockopt");
+		perror("setsockopt SO_SNDTIMEO unix");
 	}
 #endif /* #ifdef MINIUPNPC_SET_SOCKET_TIMEOUT */
 	if(!socketpath)
 		socketpath = "/var/run/minissdpd.sock";
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, socketpath, sizeof(addr.sun_path));
 	/* TODO : check if we need to handle the EINTR */
@@ -498,6 +503,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 	unsigned long _ttl = (unsigned long)ttl;
 #endif
 	int linklocal = 1;
+	int sentok;
 
 	if(error)
 		*error = MINISSDPC_UNKNOWN_ERROR;
@@ -608,14 +614,22 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 		return NULL;
 	}
 
+	if(ipv6) {
+		int mcastHops = ttl;
+		if(setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &mcastHops, sizeof(mcastHops)) < 0)
+		{
+			PRINT_SOCKET_ERROR("setsockopt(IPV6_MULTICAST_HOPS,...)");
+		}
+	} else {
 #ifdef _WIN32
-	if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, (const char *)&_ttl, sizeof(_ttl)) < 0)
+		if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, (const char *)&_ttl, sizeof(_ttl)) < 0)
 #else  /* _WIN32 */
-	if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
+		if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
 #endif /* _WIN32 */
-	{
-		/* not a fatal error */
-		PRINT_SOCKET_ERROR("setsockopt(IP_MULTICAST_TTL,...)");
+		{
+			/* not a fatal error */
+			PRINT_SOCKET_ERROR("setsockopt(IP_MULTICAST_TTL,...)");
+		}
 	}
 
 	if(multicastif)
@@ -628,7 +642,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 			unsigned int ifindex = if_nametoindex(multicastif); /* eth0, etc. */
 			if(setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)) < 0)
 			{
-				PRINT_SOCKET_ERROR("setsockopt");
+				PRINT_SOCKET_ERROR("setsockopt IPV6_MULTICAST_IF");
 			}
 #else
 #ifdef DEBUG
@@ -643,7 +657,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 				((struct sockaddr_in *)&sockudp_r)->sin_addr.s_addr = mc_if.s_addr;
 				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0)
 				{
-					PRINT_SOCKET_ERROR("setsockopt");
+					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
 				}
 			} else {
 #ifdef HAS_IP_MREQN
@@ -653,7 +667,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 				reqn.imr_ifindex = if_nametoindex(multicastif);
 				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&reqn, sizeof(reqn)) < 0)
 				{
-					PRINT_SOCKET_ERROR("setsockopt");
+					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
 				}
 #elif !defined(_WIN32)
 				struct ifreq ifr;
@@ -667,7 +681,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 				mc_if.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
 				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0)
 				{
-					PRINT_SOCKET_ERROR("setsockopt");
+					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
 				}
 #else /* _WIN32 */
 #ifdef DEBUG
@@ -700,6 +714,7 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 	}
 	/* receiving SSDP response packet */
 	for(deviceIndex = 0; deviceTypes[deviceIndex]; deviceIndex++) {
+		sentok = 0;
 		/* sending the SSDP M-SEARCH packet */
 		n = snprintf(bufr, sizeof(bufr),
 		             MSearchMsgFmt,
@@ -743,7 +758,8 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 			if(error)
 				*error = MINISSDPC_SOCKET_ERROR;
 			PRINT_SOCKET_ERROR("sendto");
-			break;
+		} else {
+			sentok = 1;
 		}
 #else /* #ifdef NO_GETADDRINFO */
 		memset(&hints, 0, sizeof(hints));
@@ -775,19 +791,20 @@ ssdpDiscoverDevices(const char * const deviceTypes[],
 #endif
 				PRINT_SOCKET_ERROR("sendto");
 				continue;
+			} else {
+				sentok = 1;
 			}
 		}
 		freeaddrinfo(servinfo);
-		if(n < 0) {
+		if(!sentok) {
 			if(error)
 				*error = MINISSDPC_SOCKET_ERROR;
-			break;
 		}
 #endif /* #ifdef NO_GETADDRINFO */
 		/* Waiting for SSDP REPLY packet to M-SEARCH
 		 * if searchalltypes is set, enter the loop only
 		 * when the last deviceType is reached */
-		if(!searchalltypes || !deviceTypes[deviceIndex + 1]) do {
+		if((sentok && !searchalltypes) || !deviceTypes[deviceIndex + 1]) do {
 			n = receivedata(sudp, bufr, sizeof(bufr), delay, &scope_id);
 			if (n < 0) {
 				/* error */
