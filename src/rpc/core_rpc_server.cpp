@@ -510,11 +510,12 @@ namespace cryptonote
       e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
       if (e.in_pool)
       {
-        e.block_height = std::numeric_limits<uint64_t>::max();
+        e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
       }
       else
       {
         e.block_height = m_core.get_blockchain_storage().get_db().get_tx_block_height(tx_hash);
+        e.block_timestamp = m_core.get_blockchain_storage().get_db().get_block_timestamp(e.block_height);
       }
 
       // fill up old style responses too, in case an old wallet asks
