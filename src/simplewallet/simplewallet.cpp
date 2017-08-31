@@ -713,6 +713,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
   m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
+  m_cmd_binder.set_handler("wallet_info", boost::bind(&simple_wallet::wallet_info, this, _1), tr("Show wallet information"));
   m_cmd_binder.set_handler("sign", boost::bind(&simple_wallet::sign, this, _1), tr("Sign the contents of a file"));
   m_cmd_binder.set_handler("verify", boost::bind(&simple_wallet::verify, this, _1), tr("Verify a signature on the contents of a file"));
   m_cmd_binder.set_handler("export_key_images", boost::bind(&simple_wallet::export_key_images, this, _1), tr("Export a signed set of key images"));
@@ -4440,6 +4441,16 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   {
     fail_msg_writer() << "Refreshed " << local_height << "/?, daemon connection error";
   }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::wallet_info(const std::vector<std::string> &args)
+{
+  success_msg_writer() << "Filename: " << m_wallet->get_wallet_file();
+  success_msg_writer() << "Address: " << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  success_msg_writer() << "Watch only: " << (m_wallet->watch_only() ? "Yes" : "No");
+  success_msg_writer() << "Restricted RPC: " << (m_wallet->restricted() ? "Yes" : "No");
+  success_msg_writer() << "Testnet: " << (m_wallet->testnet() ? "Yes" : "No");
   return true;
 }
 //----------------------------------------------------------------------------------------------------
