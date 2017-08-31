@@ -4446,11 +4446,10 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
-  success_msg_writer() << "Filename: " << m_wallet->get_wallet_file();
-  success_msg_writer() << "Address: " << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-  success_msg_writer() << "Watch only: " << (m_wallet->watch_only() ? "Yes" : "No");
-  success_msg_writer() << "Restricted RPC: " << (m_wallet->restricted() ? "Yes" : "No");
-  success_msg_writer() << "Testnet: " << (m_wallet->testnet() ? "Yes" : "No");
+  message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
+  message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+  message_writer() << tr("Watch only: ") << (m_wallet->watch_only() ? tr("Yes") : tr("No"));
+  message_writer() << tr("Testnet: ") << (m_wallet->testnet() ? tr("Yes") : tr("No"));
   return true;
 }
 //----------------------------------------------------------------------------------------------------
