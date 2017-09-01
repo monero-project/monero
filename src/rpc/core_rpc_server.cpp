@@ -478,18 +478,30 @@ namespace cryptonote
       bool r = m_core.get_pool_transactions(pool_txs);
       if(r)
       {
-        for (std::list<transaction>::const_iterator i = pool_txs.begin(); i != pool_txs.end(); ++i)
+        // sort to match original request
+        std::list<transaction> sorted_txs;
+        std::list<cryptonote::transaction>::const_iterator i;
+        for (const crypto::hash &h: vh)
         {
-          crypto::hash tx_hash = get_transaction_hash(*i);
-          std::list<crypto::hash>::iterator mi = std::find(missed_txs.begin(), missed_txs.end(), tx_hash);
-          if (mi != missed_txs.end())
+          if (std::find(missed_txs.begin(), missed_txs.end(), h) == missed_txs.end())
           {
-            pool_tx_hashes.insert(tx_hash);
-            missed_txs.erase(mi);
-            txs.push_back(*i);
+            // core returns the ones it finds in the right order
+            if (get_transaction_hash(txs.front()) != h)
+            {
+              res.status = "Failed: tx hash mismatch";
+              return true;
+            }
+            sorted_txs.push_back(std::move(txs.front()));
+            txs.pop_front();
+          }
+          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](cryptonote::transaction &tx) { return h == cryptonote::get_transaction_hash(tx); })) != pool_txs.end())
+          {
+            sorted_txs.push_back(*i);
+            missed_txs.remove(h);
             ++found_in_pool;
           }
         }
+        txs = sorted_txs;
       }
       LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
     }
