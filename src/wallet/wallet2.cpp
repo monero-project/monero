@@ -1552,23 +1552,22 @@ void wallet2::update_pool_state(bool refreshed)
     {
       if (res.txs.size() == txids.size())
       {
-        size_t n = 0;
-        for (const auto &txid: txids)
+        for (const auto &tx_entry: res.txs)
         {
-          // might have just been put in a block
-          if (res.txs[n].in_pool)
+          if (tx_entry.in_pool)
           {
             cryptonote::transaction tx;
             cryptonote::blobdata bd;
             crypto::hash tx_hash, tx_prefix_hash;
-            if (epee::string_tools::parse_hexstr_to_binbuff(res.txs[n].as_hex, bd))
+            if (epee::string_tools::parse_hexstr_to_binbuff(tx_entry.as_hex, bd))
             {
               if (cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash))
               {
-                if (tx_hash == txid)
+                const std::vector<crypto::hash>::const_iterator i = std::find(txids.begin(), txids.end(), tx_hash);
+                if (i != txids.end())
                 {
-                  process_new_transaction(txid, tx, std::vector<uint64_t>(), 0, time(NULL), false, true);
-                  m_scanned_pool_txs[0].insert(txid);
+                  process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, time(NULL), false, true);
+                  m_scanned_pool_txs[0].insert(tx_hash);
                   if (m_scanned_pool_txs[0].size() > 5000)
                   {
                     std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
@@ -1577,7 +1576,7 @@ void wallet2::update_pool_state(bool refreshed)
                 }
                 else
                 {
-                  LOG_PRINT_L0("Mismatched txids when processing unconfimed txes from pool");
+                  MERROR("Got txid " << tx_hash << " which we did not ask for");
                 }
               }
               else
@@ -1587,14 +1586,13 @@ void wallet2::update_pool_state(bool refreshed)
             }
             else
             {
-              LOG_PRINT_L0("Failed to parse tx " << txid);
+              LOG_PRINT_L0("Failed to parse transaction from daemon");
             }
           }
           else
           {
-            LOG_PRINT_L1("Tx " << txid << " was in pool, but is no more");
+            LOG_PRINT_L1("Transaction from daemon was in pool, but is no more");
           }
-          ++n;
         }
       }
       else
