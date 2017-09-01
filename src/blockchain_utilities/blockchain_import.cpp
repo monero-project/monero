@@ -692,18 +692,12 @@ int main(int argc, char* argv[])
   MINFO("bootstrap file path: " << import_file_path);
   MINFO("database path:       " << m_config_folder);
 
+  cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
+  cryptonote::core core(&pr);
+
   try
   {
 
-  // fake_core needed for verification to work when enabled.
-  //
-  // NOTE: don't need fake_core method of doing things when we're going to call
-  // BlockchainDB add_block() directly and have available the 3 block
-  // properties to do so. Both ways work, but fake core isn't necessary in that
-  // circumstance.
-
-  cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
-  cryptonote::core core(&pr);
   core.disable_dns_checkpoints(true);
   if (!core.init(vm, NULL))
   {
@@ -731,23 +725,19 @@ int main(int argc, char* argv[])
 
   import_from_file(core, import_file_path, block_stop);
 
-  }
-  catch (const DB_ERROR& e)
-  {
-    std::cout << std::string("Error loading blockchain db: ") + e.what() + " -- shutting down now" << ENDL;
-    return 1;
-  }
-
-  // destructors called at exit:
-  //
   // ensure db closed
   //   - transactions properly checked and handled
   //   - disk sync if needed
   //
-  // fake_core object's destructor is called when it goes out of scope. For an
-  // LMDB fake_core, it calls Blockchain::deinit() on its object, which in turn
-  // calls delete on its BlockchainDB derived class' object, which closes its
-  // files.
+  core.deinit();
+  }
+  catch (const DB_ERROR& e)
+  {
+    std::cout << std::string("Error loading blockchain db: ") + e.what() + " -- shutting down now" << ENDL;
+    core.deinit();
+    return 1;
+  }
+
   return 0;
 
   CATCH_ENTRY("Import error", 1);
