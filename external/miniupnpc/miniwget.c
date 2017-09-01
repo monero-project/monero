@@ -280,11 +280,12 @@ getHTTPResponse(int s, int * size, int * status_code)
 							goto end_of_stream;
 						}
 					}
-					bytestocopy = ((int)chunksize < (n - i))?chunksize:(unsigned int)(n - i);
+					/* it is guaranteed that (n >= i) */
+					bytestocopy = (chunksize < (unsigned int)(n - i))?chunksize:(unsigned int)(n - i);
 					if((content_buf_used + bytestocopy) > content_buf_len)
 					{
 						char * tmp;
-						if(content_length >= (int)(content_buf_used + bytestocopy)) {
+						if((content_length >= 0) && ((unsigned int)content_length >= (content_buf_used + bytestocopy))) {
 							content_buf_len = content_length;
 						} else {
 							content_buf_len = content_buf_used + bytestocopy;
@@ -309,14 +310,15 @@ getHTTPResponse(int s, int * size, int * status_code)
 			{
 				/* not chunked */
 				if(content_length > 0
-				   && (int)(content_buf_used + n) > content_length) {
+				   && (content_buf_used + n) > (unsigned int)content_length) {
 					/* skipping additional bytes */
 					n = content_length - content_buf_used;
 				}
 				if(content_buf_used + n > content_buf_len)
 				{
 					char * tmp;
-					if(content_length >= (int)(content_buf_used + n)) {
+					if(content_length >= 0
+					   && (unsigned int)content_length >= (content_buf_used + n)) {
 						content_buf_len = content_length;
 					} else {
 						content_buf_len = content_buf_used + n;
@@ -336,7 +338,7 @@ getHTTPResponse(int s, int * size, int * status_code)
 			}
 		}
 		/* use the Content-Length header value if available */
-		if(content_length > 0 && (int)content_buf_used >= content_length)
+		if(content_length > 0 && content_buf_used >= (unsigned int)content_length)
 		{
 #ifdef DEBUG
 			printf("End of HTTP content\n");
