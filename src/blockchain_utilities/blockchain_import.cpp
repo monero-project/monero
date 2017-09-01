@@ -326,9 +326,19 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
     }
     import_file.read(buffer_block, chunk_size);
     if (! import_file) {
-      MFATAL("ERROR: unexpected end of file: bytes read before error: "
-          << import_file.gcount() << " of chunk_size " << chunk_size);
-      return 2;
+      if (import_file.eof())
+      {
+        std::cout << refresh_string;
+        MINFO("End of file reached - file was truncated");
+        quit = 1;
+        break;
+      }
+      else
+      {
+        MFATAL("ERROR: unexpected end of file: bytes read before error: "
+            << import_file.gcount() << " of chunk_size " << chunk_size);
+        return 2;
+      }
     }
     bytes_read += chunk_size;
     MDEBUG("Total bytes read: " << bytes_read);
