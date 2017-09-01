@@ -573,14 +573,14 @@ namespace nodetool
     res = m_net_server.init_server(m_port, m_bind_ip);
     CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
 
-    m_listenning_port = m_net_server.get_binded_port();
-    MLOG_GREEN(el::Level::Info, "Net service bound to " << m_bind_ip << ":" << m_listenning_port);
+    m_listening_port = m_net_server.get_binded_port();
+    MLOG_GREEN(el::Level::Info, "Net service bound to " << m_bind_ip << ":" << m_listening_port);
     if(m_external_port)
       MDEBUG("External port defined as " << m_external_port);
 
     // add UPnP port mapping
     if(!m_no_igd)
-      add_upnp_port_mapping(m_listenning_port);
+      add_upnp_port_mapping(m_listening_port);
 
     return res;
   }
@@ -650,7 +650,7 @@ namespace nodetool
     m_net_server.deinit_server();
     // remove UPnP port mapping
     if(!m_no_igd)
-      delete_upnp_port_mapping(m_listenning_port);
+      delete_upnp_port_mapping(m_listening_port);
     return store_config();
   }
   //-----------------------------------------------------------------------------------
@@ -1352,7 +1352,7 @@ namespace nodetool
     node_data.local_time = local_time;
     node_data.peer_id = m_config.m_peer_id;
     if(!m_hide_my_port)
-      node_data.my_port = m_external_port ? m_external_port : m_listenning_port;
+      node_data.my_port = m_external_port ? m_external_port : m_listening_port;
     else
       node_data.my_port = 0;
     node_data.network_id = m_network_id;

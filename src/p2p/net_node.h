@@ -105,7 +105,7 @@ namespace nodetool
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     bool send_stop_signal();
-    uint32_t get_this_peer_port(){return m_listenning_port;}
+    uint32_t get_this_peer_port(){return m_listening_port;}
     t_payload_net_handler& get_payload_object();
 
     template <class Archive, class t_version_type>
@@ -289,7 +289,7 @@ namespace nodetool
 
     bool m_have_address;
     bool m_first_connection_maker_call;
-    uint32_t m_listenning_port;
+    uint32_t m_listening_port;
     uint32_t m_external_port;
     uint32_t m_ip_address;
     bool m_allow_local_ip;
