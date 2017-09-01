@@ -316,9 +316,9 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
       MWARNING("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE);
       throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
-    if (chunk_size > 100000)
+    if (chunk_size > CHUNK_SIZE_WARNING_THRESHOLD)
     {
-      MINFO("NOTE: chunk_size " << chunk_size << " > 100000");
+      MINFO("NOTE: chunk_size " << chunk_size << " > " << CHUNK_SIZE_WARNING_THRESHOLD);
     }
     else if (chunk_size == 0) {
       MFATAL("ERROR: chunk_size == 0");
