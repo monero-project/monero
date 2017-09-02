@@ -379,7 +379,32 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
     const cryptonote::account_public_address address = m_wallet->get_account().get_keys().m_account_address;
 
     try {
+        // Generate view only wallet
         view_wallet->generate(path, password, address, viewkey);
+
+        // Export/Import outputs
+        auto outputs = m_wallet->export_outputs();
+        view_wallet->import_outputs(outputs);
+
+        // Copy scanned blockchain
+        auto bc = m_wallet->export_blockchain();
+        view_wallet->import_blockchain(bc);
+
+        // copy payments
+        auto payments = m_wallet->export_payments();
+        view_wallet->import_payments(payments);
+
+        // copy confirmed outgoing payments
+        std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> out_payments;
+        m_wallet->get_payments_out(out_payments, 0);
+        view_wallet->import_payments_out(out_payments);
+
+        // Export/Import key images
+        // We already know the spent status from the outputs we exported, thus no need to check them again
+        auto key_images = m_wallet->export_key_images();
+        uint64_t spent = 0;
+        uint64_t unspent = 0;
+        view_wallet->import_key_images(key_images,spent,unspent,false);
         m_status = Status_Ok;
     } catch (const std::exception &e) {
         LOG_ERROR("Error creating view only wallet: " << e.what());
@@ -387,6 +412,8 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         m_errorString = e.what();
         return false;
     }
+    // Store wallet
+    view_wallet->store();
     return true;
 }
 
@@ -862,6 +889,11 @@ bool WalletImpl::exportKeyImages(const string &filename)
 
 bool WalletImpl::importKeyImages(const string &filename)
 {
+  if (!trustedDaemon()) {
+    m_status = Status_Error;
+    m_errorString = tr("Key images can only be imported with a trusted daemon");
+    return false;
+  }
   try
   {
     uint64_t spent = 0, unspent = 0;
