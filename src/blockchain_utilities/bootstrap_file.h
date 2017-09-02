@@ -57,6 +57,7 @@ class BootstrapFile
 public:
 
   uint64_t count_blocks(const std::string& dir_path);
+  uint64_t block_stats(const std::string& dir_path);
   uint64_t seek_to_first_chunk(std::ifstream& import_file);
 
   bool store_blockchain_raw(cryptonote::Blockchain* cs, cryptonote::tx_memory_pool* txp,

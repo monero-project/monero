@@ -476,3 +476,129 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
   // one-based height.
   return h;
 }
+
+uint64_t BootstrapFile::block_stats(const std::string& import_file_path)
+{
+  struct tm prevtm = {0}, currtm;
+  uint64_t prevsz = 0, currsz = 0;
+  uint64_t currblks = 0;
+  boost::filesystem::path raw_file_path(import_file_path);
+  boost::system::error_code ec;
+  if (!boost::filesystem::exists(raw_file_path, ec))
+  {
+    MFATAL("bootstrap file not found: " << raw_file_path);
+    throw std::runtime_error("Aborting");
+  }
+  std::ifstream import_file;
+  import_file.open(import_file_path, std::ios_base::binary | std::ifstream::in);
+
+  uint64_t h = 0;
+  if (import_file.fail())
+  {
+    MFATAL("import_file.open() fail");
+    throw std::runtime_error("Aborting");
+  }
+
+  uint64_t full_header_size; // 4 byte magic + length of header structures
+  full_header_size = seek_to_first_chunk(import_file);
+
+  MINFO("Scanning blockchain from bootstrap file...");
+  block b;
+  bool quit = false;
+  uint64_t bytes_read = 0;
+  int progress_interval = 10;
+
+  std::string str1;
+  char buf1[2048];
+  char buffer_block[BUFFER_SIZE];
+  std::cout << "Date\tBlocks\tBlocks/Day\tBytes/Day\tTotal Bytes" << ENDL;
+
+  while (! quit)
+  {
+    uint32_t chunk_size;
+    import_file.read(buf1, sizeof(chunk_size));
+    if (!import_file) {
+      std::cout << refresh_string;
+      MDEBUG("End of file reached");
+      quit = true;
+      break;
+    }
+    h += NUM_BLOCKS_PER_CHUNK;
+    bytes_read += sizeof(chunk_size);
+
+    str1.assign(buf1, sizeof(chunk_size));
+    if (! ::serialization::parse_binary(str1, chunk_size))
+      throw std::runtime_error("Error in deserialization of chunk_size");
+    MDEBUG("chunk_size: " << chunk_size);
+
+    if (chunk_size > BUFFER_SIZE)
+    {
+      std::cout << refresh_string;
+      MWARNING("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE
+          << "  height: " << h-1);
+      throw std::runtime_error("Aborting: chunk size exceeds buffer size");
+    }
+    if (chunk_size <= 0) {
+      std::cout << refresh_string;
+      MDEBUG("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h-1);
+      throw std::runtime_error("Aborting");
+    }
+    import_file.read(buffer_block, chunk_size);
+    if (! import_file) {
+      std::cout << refresh_string;
+      MFATAL("ERROR: unexpected end of file: bytes read before error: "
+          << import_file.gcount() << " of chunk_size " << chunk_size);
+      throw std::runtime_error("Aborting");
+    }
+    bytes_read += chunk_size;
+    try
+    {
+      str1.assign(buffer_block, chunk_size);
+      bootstrap::block_package bp;
+      if (! ::serialization::parse_binary(str1, bp))
+        throw std::runtime_error("Error in deserialization of chunk");
+
+      char buffer[64];
+      time_t tt = bp.block.timestamp;
+      gmtime_r(&tt, &currtm);
+      if (currtm.tm_mday > prevtm.tm_mday || (currtm.tm_mday == 1 && prevtm.tm_mday > 27))
+      {
+        if (prevtm.tm_mday == 1 && currtm.tm_mday > 27)
+	  goto skip;
+        strftime(buffer, sizeof(buffer), "%Y-%m-%d", &prevtm);
+        prevtm = currtm;
+        std::cout << buffer << "\t" << h << "\t" << currblks << "\t" << currsz << "\t" << prevsz + currsz << ENDL;
+        prevsz += currsz;
+        currsz = 0;
+        currblks = 0;
+      }
+skip:
+      currsz += bp.block_size;
+      currblks++;
+    }
+    catch (const std::exception& e)
+    {
+      std::cout << refresh_string;
+      MFATAL("exception while reading from file, height=" << h << ": " << e.what());
+      return h;
+    }
+
+    // std::cout << refresh_string;
+    MDEBUG("Number bytes scanned: " << bytes_read);
+  }
+
+  import_file.close();
+
+  std::cout << ENDL;
+  std::cout << "Done scanning bootstrap file" << ENDL;
+  std::cout << "Full header length: " << full_header_size << " bytes" << ENDL;
+  std::cout << "Scanned for blocks: " << bytes_read << " bytes" << ENDL;
+  std::cout << "Total:              " << full_header_size + bytes_read << " bytes" << ENDL;
+  std::cout << "Number of blocks: " << h << ENDL;
+  std::cout << ENDL;
+
+  // NOTE: h is the number of blocks.
+  // Note that a block's stored height is zero-based, but parts of the code use
+  // one-based height.
+  return h;
+}

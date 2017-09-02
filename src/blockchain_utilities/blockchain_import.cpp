@@ -536,6 +536,11 @@ int main(int argc, char* argv[])
       , "Count blocks in bootstrap file and exit"
       , false
   };
+  const command_line::arg_descriptor<bool>     arg_block_stats = {
+    "block-stats"
+      , "Tally blocks in bootstrap file and exit"
+      , false
+  };
   const command_line::arg_descriptor<std::string> arg_database = {
     "database", available_dbs.c_str(), default_db_type
   };
@@ -556,6 +561,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
 
   command_line::add_arg(desc_cmd_only, arg_count_blocks);
+  command_line::add_arg(desc_cmd_only, arg_block_stats);
   command_line::add_arg(desc_cmd_only, arg_pop_blocks);
   command_line::add_arg(desc_cmd_only, arg_drop_hf);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
@@ -644,6 +650,12 @@ int main(int argc, char* argv[])
   {
     BootstrapFile bootstrap;
     bootstrap.count_blocks(import_file_path);
+    return 0;
+  }
+  if (command_line::has_arg(vm, arg_block_stats))
+  {
+    BootstrapFile bootstrap;
+    bootstrap.block_stats(import_file_path);
     return 0;
   }
 
