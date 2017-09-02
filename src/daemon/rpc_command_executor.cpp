@@ -420,16 +420,17 @@ bool t_rpc_command_executor::show_status() {
   }
 
   std::time_t uptime = std::time(nullptr) - ires.start_time;
+  uint64_t net_height = ires.target_height > ires.height ? ires.target_height : ires.height;
 
   tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
     % (unsigned long long)ires.height
-    % (unsigned long long)(ires.target_height >= ires.height ? ires.target_height : ires.height)
+    % (unsigned long long)net_height
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
     % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
-    % get_fork_extra_info(hfres.earliest_height, ires.height, ires.target)
+    % get_fork_extra_info(hfres.earliest_height, net_height, ires.target)
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count
     % (unsigned)ires.incoming_connections_count
