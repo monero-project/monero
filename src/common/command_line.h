@@ -217,4 +217,5 @@ namespace command_line
   extern const arg_descriptor<uint64_t> arg_show_time_stats;
   extern const arg_descriptor<size_t> arg_block_sync_size;
   extern const arg_descriptor<std::string> arg_check_updates;
+  extern const arg_descriptor<bool> arg_fluffy_blocks;
 }
