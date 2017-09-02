@@ -436,10 +436,10 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
           << "  height: " << h-1);
       throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
-    if (chunk_size > 100000)
+    if (chunk_size > CHUNK_SIZE_WARNING_THRESHOLD)
     {
       std::cout << refresh_string;
-      MDEBUG("NOTE: chunk_size " << chunk_size << " > 100000" << "  height: "
+      MDEBUG("NOTE: chunk_size " << chunk_size << " > " << CHUNK_SIZE_WARNING_THRESHOLD << " << height: "
           << h-1);
     }
     else if (chunk_size <= 0) {
