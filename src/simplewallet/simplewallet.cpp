@@ -2431,6 +2431,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
+        /* FALLTHRU */
       case TransferOriginal:
         ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_trusted_daemon);
         break;
