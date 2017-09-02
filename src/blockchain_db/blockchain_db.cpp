@@ -78,6 +78,23 @@ std::string blockchain_db_types(const std::string& sep)
   return ret;
 }
 
+std::string arg_db_type_description = "Specify database type, available: " + cryptonote::blockchain_db_types(", ");
+const command_line::arg_descriptor<std::string> arg_db_type = {
+  "db-type"
+, arg_db_type_description.c_str()
+, DEFAULT_DB_TYPE
+};
+const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
+  "db-sync-mode"
+, "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
+, "fast:async:1000"
+};
+const command_line::arg_descriptor<bool> arg_db_salvage  = {
+  "db-salvage"
+, "Try to salvage a blockchain database if it seems corrupted"
+, false
+};
+
 BlockchainDB *new_db(const std::string& db_type)
 {
   if (db_type == "lmdb")
@@ -87,6 +104,13 @@ BlockchainDB *new_db(const std::string& db_type)
     return new BlockchainBDB();
 #endif
   return NULL;
+}
+
+void BlockchainDB::init_options(boost::program_options::options_description& desc)
+{
+  command_line::add_arg(desc, arg_db_type);
+  command_line::add_arg(desc, arg_db_sync_mode);
+  command_line::add_arg(desc, arg_db_salvage);
 }
 
 void BlockchainDB::pop_block()

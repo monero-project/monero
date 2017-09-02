@@ -33,6 +33,8 @@
 #include <list>
 #include <string>
 #include <exception>
+#include <boost/program_options.hpp>
+#include "common/command_line.h"
 #include "crypto/hash.h"
 #include "cryptonote_protocol/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -100,6 +102,10 @@ namespace cryptonote
 
 /** a pair of <transaction hash, output index>, typedef for convenience */
 typedef std::pair<crypto::hash, uint64_t> tx_out_index;
+
+extern const command_line::arg_descriptor<std::string> arg_db_type;
+extern const command_line::arg_descriptor<std::string> arg_db_sync_mode;
+extern const command_line::arg_descriptor<bool, false> arg_db_salvage;
 
 #pragma pack(push, 1)
 
@@ -534,6 +540,11 @@ public:
    * @brief An empty destructor.
    */
   virtual ~BlockchainDB() { };
+
+  /**
+   * @brief init command line options
+   */
+  static void init_options(boost::program_options::options_description& desc);
 
   /**
    * @brief reset profiling stats
