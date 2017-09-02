@@ -208,7 +208,8 @@ int check_flush(cryptonote::core &core, std::list<block_complete_entry> &blocks,
     }
 
   } // each download block
-  core.cleanup_handle_incoming_blocks();
+  if (!core.cleanup_handle_incoming_blocks())
+    return 1;
 
   blocks.clear();
   return 0;
@@ -394,7 +395,10 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           blocks.push_back({block, txs});
           int ret = check_flush(core, blocks, false);
           if (ret)
+          {
+            quit = 2; // make sure we don't commit partial block data
             break;
+          }
         }
         else
         {

@@ -2604,6 +2604,16 @@ void BlockchainLMDB::batch_commit()
   memset(&m_wcursors, 0, sizeof(m_wcursors));
 }
 
+void BlockchainLMDB::cleanup_batch()
+{
+  // for destruction of batch transaction
+  m_write_txn = nullptr;
+  delete m_write_batch_txn;
+  m_write_batch_txn = nullptr;
+  m_batch_active = false;
+  memset(&m_wcursors, 0, sizeof(m_wcursors));
+}
+
 void BlockchainLMDB::batch_stop()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2618,15 +2628,18 @@ void BlockchainLMDB::batch_stop()
   check_open();
   LOG_PRINT_L3("batch transaction: committing...");
   TIME_MEASURE_START(time1);
-  m_write_txn->commit();
-  TIME_MEASURE_FINISH(time1);
-  time_commit1 += time1;
-  // for destruction of batch transaction
-  m_write_txn = nullptr;
-  delete m_write_batch_txn;
-  m_write_batch_txn = nullptr;
-  m_batch_active = false;
-  memset(&m_wcursors, 0, sizeof(m_wcursors));
+  try
+  {
+    m_write_txn->commit();
+    TIME_MEASURE_FINISH(time1);
+    time_commit1 += time1;
+    cleanup_batch();
+  }
+  catch (const std::exception &e)
+  {
+    cleanup_batch();
+    throw;
+  }
   LOG_PRINT_L3("batch transaction: end");
 }
 
