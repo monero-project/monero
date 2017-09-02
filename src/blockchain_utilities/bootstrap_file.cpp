@@ -482,6 +482,7 @@ uint64_t BootstrapFile::block_stats(const std::string& import_file_path)
   struct tm prevtm = {0}, currtm;
   uint64_t prevsz = 0, currsz = 0;
   uint64_t currblks = 0;
+  uint64_t prevtxs = 0, currtxs = 0;
   boost::filesystem::path raw_file_path(import_file_path);
   boost::system::error_code ec;
   if (!boost::filesystem::exists(raw_file_path, ec))
@@ -511,7 +512,7 @@ uint64_t BootstrapFile::block_stats(const std::string& import_file_path)
   std::string str1;
   char buf1[2048];
   char buffer_block[BUFFER_SIZE];
-  std::cout << "Date\tBlocks\tBlocks/Day\tBytes/Day\tTotal Bytes" << ENDL;
+  std::cout << ENDL << "Date\tBlocks/day\tBlocks\tTxs/Day\tTxs\tBytes/Day\tBytes" << ENDL;
 
   while (! quit)
   {
@@ -567,13 +568,16 @@ uint64_t BootstrapFile::block_stats(const std::string& import_file_path)
 	  goto skip;
         strftime(buffer, sizeof(buffer), "%Y-%m-%d", &prevtm);
         prevtm = currtm;
-        std::cout << buffer << "\t" << h << "\t" << currblks << "\t" << currsz << "\t" << prevsz + currsz << ENDL;
+        std::cout << buffer << "\t" << currblks << "\t" << h << "\t" << currtxs << "\t" << prevtxs + currtxs << "\t" << currsz << "\t" << prevsz + currsz << ENDL;
         prevsz += currsz;
         currsz = 0;
         currblks = 0;
+	prevtxs += currtxs;
+	currtxs = 0;
       }
 skip:
       currsz += bp.block_size;
+      currtxs += bp.txs.size();
       currblks++;
     }
     catch (const std::exception& e)
