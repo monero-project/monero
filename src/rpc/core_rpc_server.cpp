@@ -486,7 +486,16 @@ namespace cryptonote
           {
             pool_tx_hashes.insert(tx_hash);
             missed_txs.erase(mi);
-            txs.push_back(*i);
+            const std::vector<crypto::hash>::iterator iplace = std::find(vh.begin(), vh.end(), tx_hash);
+            if (iplace == vh.end())
+            {
+              res.status = "Internal error";
+              return true;
+            }
+            size_t idx = std::distance(vh.begin(), iplace);
+            std::list<transaction>::iterator j = txs.begin();
+            std::advance(j, idx);
+            txs.insert(j, *i);
             ++found_in_pool;
           }
         }
