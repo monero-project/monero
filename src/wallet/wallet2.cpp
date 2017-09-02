@@ -3457,11 +3457,14 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm) const
+uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm)
 {
   static const uint64_t old_multipliers[3] = {1, 2, 3};
   static const uint64_t new_multipliers[3] = {1, 20, 166};
   static const uint64_t newer_multipliers[4] = {1, 4, 20, 166};
+
+  if (fee_algorithm == -1)
+    fee_algorithm = get_fee_algorithm();
 
   // 0 -> default (here, x1 till fee algorithm 2, x4 from it)
   if (priority == 0)
@@ -5747,10 +5750,14 @@ bool wallet2::is_synced() const
   return get_blockchain_current_height() >= height;
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::estimate_backlog(uint64_t blob_size, uint64_t fee)
+std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t min_blob_size, uint64_t max_blob_size, const std::vector<uint64_t> &fees)
 {
-  THROW_WALLET_EXCEPTION_IF(blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
-  THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
+  THROW_WALLET_EXCEPTION_IF(min_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
+  THROW_WALLET_EXCEPTION_IF(max_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
+  for (uint64_t fee: fees)
+  {
+    THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
+  }
 
   // get txpool backlog
   epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request> req = AUTO_VAL_INIT(req);
@@ -5776,27 +5783,35 @@ uint64_t wallet2::estimate_backlog(uint64_t blob_size, uint64_t fee)
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
   THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
   THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-
-  double our_fee_byte = fee / (double)blob_size;
-  uint64_t priority_size = 0;
-  for (const auto &i: res.result.backlog)
-  {
-    if (i.blob_size == 0)
-    {
-      MWARNING("Got 0 sized blob from txpool, ignored");
-      continue;
-    }
-    double this_fee_byte = i.fee / (double)i.blob_size;
-    if (this_fee_byte < our_fee_byte)
-      continue;
-    priority_size += i.blob_size;
-  }
-
   uint64_t full_reward_zone = resp_t.result.block_size_limit / 2;
-  uint64_t nblocks = (priority_size + full_reward_zone - 1) / full_reward_zone;
-  MDEBUG("estimate_backlog: priority_size " << priority_size << " for " << our_fee_byte << " (" << our_fee_byte << " piconero fee/byte), "
-      << nblocks << " blocks at block size " << full_reward_zone);
-  return nblocks;
+
+  std::vector<std::pair<uint64_t, uint64_t>> blocks;
+  for (uint64_t fee: fees)
+  {
+    double our_fee_byte_min = fee / (double)min_blob_size, our_fee_byte_max = fee / (double)max_blob_size;
+    uint64_t priority_size_min = 0, priority_size_max = 0;
+    for (const auto &i: res.result.backlog)
+    {
+      if (i.blob_size == 0)
+      {
+        MWARNING("Got 0 sized blob from txpool, ignored");
+        continue;
+      }
+      double this_fee_byte = i.fee / (double)i.blob_size;
+      if (this_fee_byte >= our_fee_byte_min)
+        priority_size_min += i.blob_size;
+      if (this_fee_byte >= our_fee_byte_max)
+        priority_size_max += i.blob_size;
+    }
+
+    uint64_t nblocks_min = (priority_size_min + full_reward_zone - 1) / full_reward_zone;
+    uint64_t nblocks_max = (priority_size_max + full_reward_zone - 1) / full_reward_zone;
+    MDEBUG("estimate_backlog: priority_size " << priority_size_min << " - " << priority_size_max << " for " << fee
+        << " (" << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee), "
+        << nblocks_min << " - " << nblocks_max << " blocks at block size " << full_reward_zone);
+    blocks.push_back(std::make_pair(nblocks_min, nblocks_max));
+  }
+  return blocks;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) {
