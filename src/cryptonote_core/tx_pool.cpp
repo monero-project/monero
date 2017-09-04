@@ -92,7 +92,7 @@ namespace cryptonote
       LockedTXN(Blockchain &b): m_blockchain(b), m_batch(false) {
         m_batch = m_blockchain.get_db().batch_start();
       }
-      ~LockedTXN() { if (m_batch) { m_blockchain.get_db().batch_stop(); } }
+      ~LockedTXN() { try { if (m_batch) { m_blockchain.get_db().batch_stop(); } } catch (const std::exception &e) { MWARNING("LockedTXN dtor filtering exception: " << e.what()); } }
     private:
       Blockchain &m_blockchain;
       bool m_batch;
