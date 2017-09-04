@@ -728,6 +728,13 @@ namespace cryptonote
       */     
      bool get_testnet() const { return m_testnet; };
 
+     /**
+      * @brief get whether fluffy blocks are enabled
+      *
+      * @return whether fluffy blocks are enabled
+      */
+     bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
+
    private:
 
      /**
@@ -945,6 +952,8 @@ namespace cryptonote
      tools::download_async_handle m_update_download;
      size_t m_last_update_length;
      boost::mutex m_update_mutex;
+
+     bool m_fluffy_blocks_enabled;
    };
 }
 
