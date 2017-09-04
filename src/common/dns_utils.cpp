@@ -27,8 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "common/dns_utils.h"
-#include "common/i18n.h"
-#include "cryptonote_basic/cryptonote_basic_impl.h"
 // check local first (in the event of static or in-source compilation of libunbound)
 #include "unbound.h"
 
@@ -325,8 +323,6 @@ bool DNSResolver::check_address_syntax(const char *addr) const
 
 namespace dns_utils
 {
-
-const char *tr(const char *str) { return i18n_translate(str, "tools::dns_utils"); }
 
 //-----------------------------------------------------------------------
 // TODO: parse the string in a less stupid way, probably with regex
