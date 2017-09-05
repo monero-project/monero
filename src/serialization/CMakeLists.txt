@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017, The Monero Project
+# Copyright (c) 2016, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,99 +26,29 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(rpc_sources
-  core_rpc_server.cpp
-  rpc_args.cpp)
+set(serialization_sources
+  json_object.cpp)
 
-set(daemon_messages_sources
-  message.cpp
-  daemon_messages.cpp)
+set(serialization_headers)
 
-set(daemon_rpc_server_sources
-  daemon_handler.cpp
-  zmq_server.cpp)
+set(serialization_private_headers
+  json_object.h)
 
-
-set(rpc_headers
-  rpc_args.h)
-
-set(daemon_rpc_server_headers)
-
-
-set(rpc_daemon_private_headers
-  core_rpc_server.h
-  core_rpc_server_commands_defs.h
-  core_rpc_server_error_codes.h)
-
-set(daemon_messages_private_headers
-  message.h
-  daemon_messages.h)
-
-set(daemon_rpc_server_private_headers
-  message.h
-  daemon_messages.h
-  daemon_handler.h
-  rpc_handler.h
-  zmq_server.h)
-
-
-monero_private_headers(rpc
-  ${rpc_private_headers})
-
-monero_private_headers(daemon_rpc_server
-  ${daemon_rpc_server_private_headers})
-
-
-monero_add_library(rpc
-  ${rpc_sources}
-  ${rpc_headers}
-  ${rpc_private_headers})
-
-monero_add_library(daemon_messages
-  ${daemon_messages_sources}
-  ${daemon_messages_headers}
-  ${daemon_messages_private_headers})
-
-monero_add_library(daemon_rpc_server
-  ${daemon_rpc_server_sources}
-  ${daemon_rpc_server_headers}
-  ${daemon_rpc_server_private_headers})
-
-
-target_link_libraries(rpc
-  PUBLIC
-    common
-    cryptonote_core
-    cryptonote_protocol
-    epee
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-  PRIVATE
-    ${EXTRA_LIBRARIES})
-
-target_link_libraries(daemon_messages
+monero_private_headers(serialization
+  ${serialization_private_headers})
+monero_add_library(serialization
+  ${serialization_sources}
+  ${serialization_headers}
+  ${serialization_private_headers})
+target_link_libraries(serialization
   LINK_PRIVATE
     cryptonote_core
     cryptonote_protocol
-    serialization
-    ${EXTRA_LIBRARIES})
-
-target_link_libraries(daemon_rpc_server
-  LINK_PRIVATE
-    cryptonote_core
-    cryptonote_protocol
-    daemon_messages
-    serialization
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
-    ${ZMQ_LIB}
     ${EXTRA_LIBRARIES})
-
-
-add_dependencies(rpc
+add_dependencies(serialization
   version)
 
-add_dependencies(daemon_rpc_server
-  version)

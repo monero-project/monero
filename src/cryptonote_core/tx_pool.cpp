@@ -684,6 +684,65 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  bool tx_memory_pool::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+      cryptonote::rpc::tx_in_pool txi;
+      txi.tx_hash = txid;
+      transaction tx;
+      if (!parse_and_validate_tx_from_blob(*bd, tx))
+      {
+        MERROR("Failed to parse tx from txpool");
+        // continue
+        return true;
+      }
+      txi.tx = tx;
+      txi.blob_size = meta.blob_size;
+      txi.fee = meta.fee;
+      txi.kept_by_block = meta.kept_by_block;
+      txi.max_used_block_height = meta.max_used_block_height;
+      txi.max_used_block_hash = meta.max_used_block_id;
+      txi.last_failed_block_height = meta.last_failed_height;
+      txi.last_failed_block_hash = meta.last_failed_id;
+      txi.receive_time = meta.receive_time;
+      txi.relayed = meta.relayed;
+      txi.last_relayed_time = meta.last_relayed_time;
+      txi.do_not_relay = meta.do_not_relay;
+      tx_infos.push_back(txi);
+      return true;
+    }, true);
+
+    for (const key_images_container::value_type& kee : m_spent_key_images) {
+      std::vector<crypto::hash> tx_hashes;
+      const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
+      for (const crypto::hash& tx_id_hash : kei_image_set)
+      {
+        tx_hashes.push_back(tx_id_hash);
+      }
+
+      const crypto::key_image& k_image = kee.first;
+      key_image_infos[k_image] = tx_hashes;
+    }
+    return true;
+  }
+  //---------------------------------------------------------------------------------
+  bool tx_memory_pool::check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool> spent) const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    spent.clear();
+
+    for (const auto& image : key_images)
+    {
+      spent.push_back(m_spent_key_images.find(image) == m_spent_key_images.end() ? false : true);
+    }
+
+    return true;
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_transaction(const crypto::hash& id, cryptonote::blobdata& txblob) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);

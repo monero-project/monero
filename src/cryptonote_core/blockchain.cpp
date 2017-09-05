@@ -1574,7 +1574,7 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
 
 uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
 {
-  auto num_outs = m_db->get_num_outputs(amount);
+  uint64_t num_outs = m_db->get_num_outputs(amount);
   // ensure we don't include outputs that aren't yet eligible to be used
   // outpouts are sorted by height
   while (num_outs > 0)

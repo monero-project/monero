@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2016-2017, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,33 +27,18 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include <boost/program_options.hpp>
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+namespace cryptonote
+{
 
-namespace daemonize {
+namespace rpc
+{
 
-struct t_internals;
+static const uint32_t DAEMON_RPC_VERSION_MINOR = 0;
+static const uint32_t DAEMON_RPC_VERSION_MAJOR = 1;
 
-class t_daemon final {
-public:
-  static void init_options(boost::program_options::options_description & option_spec);
-private:
-  void stop_p2p();
-private:
-  std::unique_ptr<t_internals> mp_internals;
-  std::string zmq_rpc_bind_address;
-  std::string zmq_rpc_bind_port;
-public:
-  t_daemon(
-      boost::program_options::variables_map const & vm
-    );
-  t_daemon(t_daemon && other);
-  t_daemon & operator=(t_daemon && other);
-  ~t_daemon();
+static const uint32_t DAEMON_RPC_VERSION = DAEMON_RPC_VERSION_MINOR + (DAEMON_RPC_VERSION_MAJOR << 16);
 
-  bool run(bool interactive = false);
-  void stop();
-};
-}
+}  // namespace rpc
+
+}  // namespace cryptonote
