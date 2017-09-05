@@ -81,6 +81,14 @@ namespace rpc
         return;
       }
 
+      if (it->second.size() != bwt.block.tx_hashes.size())
+      {
+          res.blocks.clear();
+          res.output_indices.clear();
+          res.status = Message::STATUS_FAILED;
+          res.error_details = "incorrect number of transactions retrieved for block";
+          return;
+      }
       std::list<transaction> txs;
       for (const auto& blob : it->second)
       {
@@ -90,7 +98,7 @@ namespace rpc
           res.blocks.clear();
           res.output_indices.clear();
           res.status = Message::STATUS_FAILED;
-          res.error_details = "failed retrieving a requested block";
+          res.error_details = "failed retrieving a requested transaction";
           return;
         }
       }
@@ -404,56 +412,117 @@ namespace rpc
 
   void DaemonHandler::handle(const StartMining::Request& req, StartMining::Response& res)
   {
-    res.status = Message::STATUS_FAILED;
-    res.error_details = "RPC method not yet implemented.";
+    account_public_address adr;
+    if(!get_account_address_from_str(adr, m_core.get_testnet(), req.miner_address))
+    {
+      res.error_details = "Failed, wrong address";
+      LOG_PRINT_L0(res.error_details);
+      res.status = Message::STATUS_FAILED;
+      return;
+    }
+
+    unsigned int concurrency_count = boost::thread::hardware_concurrency() * 4;
+
+    // if we couldn't detect threads, set it to a ridiculously high number
+    if(concurrency_count == 0)
+    {
+      concurrency_count = 257;
+    }
+
+    // if there are more threads requested than the hardware supports
+    // then we fail and log that.
+    if(req.threads_count > concurrency_count)
+    {
+      res.error_details = "Failed, too many threads relative to CPU cores.";
+      LOG_PRINT_L0(res.error_details);
+      res.status = Message::STATUS_FAILED;
+      return;
+    }
+
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+
+    if(!m_core.get_miner().start(adr, static_cast<size_t>(req.threads_count), attrs, req.do_background_mining, req.ignore_battery))
+    {
+      res.error_details = "Failed, mining not started";
+      LOG_PRINT_L0(res.error_details);
+      res.status = Message::STATUS_FAILED;
+      return;
+    }
+    res.status = Message::STATUS_OK;
+    res.error_details = "";
+
   }
 
   void DaemonHandler::handle(const GetInfo::Request& req, GetInfo::Response& res)
   {
-    res.height = m_core.get_current_blockchain_height();
+    res.info.height = m_core.get_current_blockchain_height();
 
-    res.target_height = m_core.get_target_blockchain_height();
+    res.info.target_height = m_core.get_target_blockchain_height();
 
-    if (res.height > res.target_height)
+    if (res.info.height > res.info.target_height)
     {
-      res.target_height = res.height;
+      res.info.target_height = res.info.height;
     }
 
     auto& chain = m_core.get_blockchain_storage();
 
-    res.difficulty = chain.get_difficulty_for_next_block();
+    res.info.difficulty = chain.get_difficulty_for_next_block();
 
-    res.target = chain.get_difficulty_target();
+    res.info.target = chain.get_difficulty_target();
 
-    res.tx_count = chain.get_total_transactions() - res.height; //without coinbase
+    res.info.tx_count = chain.get_total_transactions() - res.info.height; //without coinbase
 
-    res.tx_pool_size = m_core.get_pool_transactions_count();
+    res.info.tx_pool_size = m_core.get_pool_transactions_count();
 
-    res.alt_blocks_count = chain.get_alternative_blocks_count();
+    res.info.alt_blocks_count = chain.get_alternative_blocks_count();
 
     uint64_t total_conn = m_p2p.get_connections_count();
-    res.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
-    res.incoming_connections_count = total_conn - res.outgoing_connections_count;
+    res.info.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
+    res.info.incoming_connections_count = total_conn - res.info.outgoing_connections_count;
 
-    res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
+    res.info.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
 
-    res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
+    res.info.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
 
-    res.testnet = m_core.get_testnet();
+    res.info.testnet = m_core.get_testnet();
+    res.info.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.info.height - 1);
+    res.info.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
+    res.info.start_time = (uint64_t)m_core.get_start_time();
 
     res.status = Message::STATUS_OK;
+    res.error_details = "";
   }
 
   void DaemonHandler::handle(const StopMining::Request& req, StopMining::Response& res)
   {
-    res.status = Message::STATUS_FAILED;
-    res.error_details = "RPC method not yet implemented.";
+    if(!m_core.get_miner().stop())
+    {
+      res.error_details = "Failed, mining not stopped";
+      LOG_PRINT_L0(res.error_details);
+      res.status = Message::STATUS_FAILED;
+      return;
+    }
+
+    res.status = Message::STATUS_OK;
+    res.error_details = "";
   }
 
   void DaemonHandler::handle(const MiningStatus::Request& req, MiningStatus::Response& res)
   {
-    res.status = Message::STATUS_FAILED;
-    res.error_details = "RPC method not yet implemented.";
+    const cryptonote::miner& lMiner = m_core.get_miner();
+    res.active = lMiner.is_mining();
+    res.is_background_mining_enabled = lMiner.get_is_background_mining_enabled();
+    
+    if ( lMiner.is_mining() ) {
+      res.speed = lMiner.get_speed();
+      res.threads_count = lMiner.get_threads_count();
+      const account_public_address& lMiningAdr = lMiner.get_mining_address();
+      res.address = get_account_address_as_str(m_core.get_testnet(), lMiningAdr);
+    }
+
+    res.status = Message::STATUS_OK;
+    res.error_details = "";
   }
 
   void DaemonHandler::handle(const SaveBC::Request& req, SaveBC::Response& res)
@@ -536,14 +605,31 @@ namespace rpc
     res.status = Message::STATUS_OK;
   }
 
+  void DaemonHandler::handle(const GetBlockHeadersByHeight::Request& req, GetBlockHeadersByHeight::Response& res)
+  {
+    res.headers.resize(req.heights.size());
+
+    for (size_t i=0; i < req.heights.size(); i++)
+    {
+      const crypto::hash block_hash = m_core.get_block_id_by_height(req.heights[i]);
+
+      if (!getBlockHeaderByHash(block_hash, res.headers[i]))
+      {
+        res.status = Message::STATUS_FAILED;
+        res.error_details = "A requested block does not exist";
+        return;
+      }
+    }
+
+    res.status = Message::STATUS_OK;
+  }
+
   void DaemonHandler::handle(const GetBlock::Request& req, GetBlock::Response& res)
   {
     res.status = Message::STATUS_FAILED;
     res.error_details = "RPC method not yet implemented.";
   }
 
-  //TODO: this RPC call is marked for later implementation in the old RPC,
-  //      need to sort out if it's necessary and what it should do.
   void DaemonHandler::handle(const GetPeerList::Request& req, GetPeerList::Response& res)
   {
     res.status = Message::STATUS_FAILED;
@@ -591,18 +677,6 @@ namespace rpc
   }
 
   void DaemonHandler::handle(const StopDaemon::Request& req, StopDaemon::Response& res)
-  {
-    res.status = Message::STATUS_FAILED;
-    res.error_details = "RPC method not yet implemented.";
-  }
-
-  void DaemonHandler::handle(const FastExit::Request& req, FastExit::Response& res)
-  {
-    res.status = Message::STATUS_FAILED;
-    res.error_details = "RPC method not yet implemented.";
-  }
-
-  void DaemonHandler::handle(const OutPeers::Request& req, OutPeers::Response& res)
   {
     res.status = Message::STATUS_FAILED;
     res.error_details = "RPC method not yet implemented.";
@@ -675,13 +749,22 @@ namespace rpc
 
   void DaemonHandler::handle(const GetOutputKeys::Request& req, GetOutputKeys::Response& res)
   {
-    for (const auto& i : req.outputs)
+    try
     {
-      crypto::public_key key;
-      rct::key mask;
-      bool unlocked;
-      m_core.get_blockchain_storage().get_output_key_mask_unlocked(i.amount, i.index, key, mask, unlocked);
-      res.keys.emplace_back(output_key_mask_unlocked{key, mask, unlocked});
+      for (const auto& i : req.outputs)
+      {
+        crypto::public_key key;
+        rct::key mask;
+        bool unlocked;
+        m_core.get_blockchain_storage().get_output_key_mask_unlocked(i.amount, i.index, key, mask, unlocked);
+        res.keys.emplace_back(output_key_mask_unlocked{key, mask, unlocked});
+      }
+    }
+    catch (const std::exception& e)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = e.what();
+      return;
     }
 
     res.status = Message::STATUS_OK;
@@ -689,7 +772,7 @@ namespace rpc
 
   void DaemonHandler::handle(const GetRPCVersion::Request& req, GetRPCVersion::Response& res)
   {
-    res.version = DAEMON_RPC_VERSION;
+    res.version = DAEMON_RPC_VERSION_ZMQ;
     res.status = Message::STATUS_OK;
   }
 
@@ -754,11 +837,15 @@ namespace rpc
       REQ_RESP_TYPES_MACRO(request_type, GetRandomOutputsForAmounts, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, SendRawTx, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetInfo, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, StartMining, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, StopMining, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, MiningStatus, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, SaveBC, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetBlockHash, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetLastBlockHeader, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHash, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetBlockHeaderByHeight, req_json, resp_message, handle);
+      REQ_RESP_TYPES_MACRO(request_type, GetBlockHeadersByHeight, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetPeerList, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, SetLogLevel, req_json, resp_message, handle);
       REQ_RESP_TYPES_MACRO(request_type, GetTransactionPool, req_json, resp_message, handle);

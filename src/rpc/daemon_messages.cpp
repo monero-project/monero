@@ -43,12 +43,16 @@ const char* const KeyImagesSpent::name = "key_images_spent";
 const char* const GetTxGlobalOutputIndices::name = "get_tx_global_output_indices";
 const char* const GetRandomOutputsForAmounts::name = "get_random_outputs_for_amounts";
 const char* const SendRawTx::name = "send_raw_tx";
+const char* const StartMining::name = "start_mining";
+const char* const StopMining::name = "stop_mining";
+const char* const MiningStatus::name = "mining_status";
 const char* const GetInfo::name = "get_info";
 const char* const SaveBC::name = "save_bc";
 const char* const GetBlockHash::name = "get_block_hash";
 const char* const GetLastBlockHeader::name = "get_last_block_header";
 const char* const GetBlockHeaderByHash::name = "get_block_header_by_hash";
 const char* const GetBlockHeaderByHeight::name = "get_block_header_by_height";
+const char* const GetBlockHeadersByHeight::name = "get_block_headers_by_height";
 const char* const GetPeerList::name = "get_peer_list";
 const char* const SetLogLevel::name = "set_log_level";
 const char* const GetTransactionPool::name = "get_transaction_pool";
@@ -95,6 +99,7 @@ rapidjson::Value GetBlocksFast::Request::toJson(rapidjson::Document& doc) const
 
   INSERT_INTO_JSON_OBJECT(val, doc, block_ids, block_ids);
   val.AddMember("start_height", start_height, al);
+  val.AddMember("prune", prune, al);
 
   return val;
 }
@@ -103,6 +108,7 @@ void GetBlocksFast::Request::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, block_ids, block_ids);
   GET_FROM_JSON_OBJECT(val, start_height, start_height);
+  GET_FROM_JSON_OBJECT(val, prune, prune);
 }
 
 rapidjson::Value GetBlocksFast::Response::toJson(rapidjson::Document& doc) const
@@ -332,9 +338,94 @@ rapidjson::Value SendRawTx::Response::toJson(rapidjson::Document& doc) const
   return val;
 }
 
+
 void SendRawTx::Response::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, relayed, relayed);
+}
+
+rapidjson::Value StartMining::Request::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, miner_address, miner_address);
+  INSERT_INTO_JSON_OBJECT(val, doc, threads_count, threads_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, do_background_mining, do_background_mining);
+  INSERT_INTO_JSON_OBJECT(val, doc, ignore_battery, ignore_battery);
+
+  return val;
+}
+
+void StartMining::Request::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, miner_address, miner_address);
+  GET_FROM_JSON_OBJECT(val, threads_count, threads_count);
+  GET_FROM_JSON_OBJECT(val, do_background_mining, do_background_mining);
+  GET_FROM_JSON_OBJECT(val, ignore_battery, ignore_battery);
+}
+
+rapidjson::Value StartMining::Response::toJson(rapidjson::Document& doc) const
+{
+  return Message::toJson(doc);
+}
+
+void StartMining::Response::fromJson(rapidjson::Value& val)
+{
+}
+
+
+rapidjson::Value StopMining::Request::toJson(rapidjson::Document& doc) const
+{
+  return Message::toJson(doc);
+}
+
+void StopMining::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value StopMining::Response::toJson(rapidjson::Document& doc) const
+{
+  return Message::toJson(doc);
+}
+
+void StopMining::Response::fromJson(rapidjson::Value& val)
+{
+}
+
+
+rapidjson::Value MiningStatus::Request::toJson(rapidjson::Document& doc) const
+{
+  return Message::toJson(doc);
+}
+
+void MiningStatus::Request::fromJson(rapidjson::Value& val)
+{
+}
+
+rapidjson::Value MiningStatus::Response::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, active, active);
+  INSERT_INTO_JSON_OBJECT(val, doc, speed, speed);
+  INSERT_INTO_JSON_OBJECT(val, doc, threads_count, threads_count);
+  INSERT_INTO_JSON_OBJECT(val, doc, address, address);
+  INSERT_INTO_JSON_OBJECT(val, doc, is_background_mining_enabled, is_background_mining_enabled);
+
+  return val;
+}
+
+void MiningStatus::Response::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, active, active);
+  GET_FROM_JSON_OBJECT(val, speed, speed);
+  GET_FROM_JSON_OBJECT(val, threads_count, threads_count);
+  GET_FROM_JSON_OBJECT(val, address, address);
+  GET_FROM_JSON_OBJECT(val, is_background_mining_enabled, is_background_mining_enabled);
 }
 
 
@@ -353,38 +444,14 @@ rapidjson::Value GetInfo::Response::toJson(rapidjson::Document& doc) const
 
   auto& al = doc.GetAllocator();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, height, height);
-  INSERT_INTO_JSON_OBJECT(val, doc, target_height, target_height);
-  INSERT_INTO_JSON_OBJECT(val, doc, difficulty, difficulty);
-  INSERT_INTO_JSON_OBJECT(val, doc, target, target);
-  INSERT_INTO_JSON_OBJECT(val, doc, tx_count, tx_count);
-  INSERT_INTO_JSON_OBJECT(val, doc, tx_pool_size, tx_pool_size);
-  INSERT_INTO_JSON_OBJECT(val, doc, alt_blocks_count, alt_blocks_count);
-  INSERT_INTO_JSON_OBJECT(val, doc, outgoing_connections_count, outgoing_connections_count);
-  INSERT_INTO_JSON_OBJECT(val, doc, incoming_connections_count, incoming_connections_count);
-  INSERT_INTO_JSON_OBJECT(val, doc, white_peerlist_size, white_peerlist_size);
-  INSERT_INTO_JSON_OBJECT(val, doc, grey_peerlist_size, grey_peerlist_size);
-  INSERT_INTO_JSON_OBJECT(val, doc, testnet, testnet);
-  INSERT_INTO_JSON_OBJECT(val, doc, top_block_hash, top_block_hash);
+  INSERT_INTO_JSON_OBJECT(val, doc, info, info);
 
   return val;
 }
 
 void GetInfo::Response::fromJson(rapidjson::Value& val)
 {
-  GET_FROM_JSON_OBJECT(val, height, height);
-  GET_FROM_JSON_OBJECT(val, target_height, target_height);
-  GET_FROM_JSON_OBJECT(val, difficulty, difficulty);
-  GET_FROM_JSON_OBJECT(val, target, target);
-  GET_FROM_JSON_OBJECT(val, tx_count, tx_count);
-  GET_FROM_JSON_OBJECT(val, tx_pool_size, tx_pool_size);
-  GET_FROM_JSON_OBJECT(val, alt_blocks_count, alt_blocks_count);
-  GET_FROM_JSON_OBJECT(val, outgoing_connections_count, outgoing_connections_count);
-  GET_FROM_JSON_OBJECT(val, incoming_connections_count, incoming_connections_count);
-  GET_FROM_JSON_OBJECT(val, white_peerlist_size, white_peerlist_size);
-  GET_FROM_JSON_OBJECT(val, grey_peerlist_size, grey_peerlist_size);
-  GET_FROM_JSON_OBJECT(val, testnet, testnet);
-  GET_FROM_JSON_OBJECT(val, top_block_hash, top_block_hash);
+  GET_FROM_JSON_OBJECT(val, info, info);
 }
 
 
@@ -541,6 +608,39 @@ rapidjson::Value GetBlockHeaderByHeight::Response::toJson(rapidjson::Document& d
 void GetBlockHeaderByHeight::Response::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, header, header);
+}
+
+
+rapidjson::Value GetBlockHeadersByHeight::Request::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, heights, heights);
+
+  return val;
+}
+
+void GetBlockHeadersByHeight::Request::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, heights, heights);
+}
+
+rapidjson::Value GetBlockHeadersByHeight::Response::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, headers, headers);
+
+  return val;
+}
+
+void GetBlockHeadersByHeight::Response::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, headers, headers);
 }
 
 

@@ -83,12 +83,6 @@ namespace daemon_args
       , std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT)
   };
 
-  const command_line::arg_descriptor<bool> arg_zmq_restricted_rpc = {
-    "zmq-restricted-rpc"
-      , "Restrict ZMQ RPC to view only commands"
-      , false
-  };
-
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H
