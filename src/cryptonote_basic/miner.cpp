@@ -858,19 +858,6 @@ namespace cryptonote
           const boost::filesystem::path& power_supply_path = iter->path();
           if (boost::filesystem::is_directory(power_supply_path))
           {
-            std::ifstream power_supply_present_stream((power_supply_path / "present").string());
-            if (power_supply_present_stream.fail())
-            {
-              LOG_PRINT_L0("Unable to read from " << power_supply_path << " to check if power supply present");
-              continue;
-            }
-
-            if (power_supply_present_stream.get() != '1')
-            {
-              LOG_PRINT_L4("Power supply not present at " << power_supply_path);
-              continue;
-            }
-
             boost::filesystem::path power_supply_type_path = power_supply_path / "type";
             if (boost::filesystem::is_regular_file(power_supply_type_path))
             {
