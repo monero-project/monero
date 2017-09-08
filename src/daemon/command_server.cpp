@@ -241,7 +241,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "bc_dyn_stats"
     , std::bind(&t_command_parser_executor::print_blockchain_dynamic_stats, &m_parser, p::_1)
-    , "Print information about current blockchain dynamic state"
+    , "Print information about current blockchain dynamic state, bc_dyn_stats <block count>"
     );
     m_command_lookup.set_handler(
       "update"
