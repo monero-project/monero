@@ -155,7 +155,8 @@ namespace net_utils
 			http_request_info():m_http_method(http_method_unknown), 
 				m_http_ver_hi(0), 
 				m_http_ver_lo(0), 
-				m_have_to_block(false)
+				m_have_to_block(false),
+				m_full_request_buf_size(0)
 			{}
 
 			http_method			  m_http_method;
