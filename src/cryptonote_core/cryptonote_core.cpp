@@ -211,10 +211,9 @@ namespace cryptonote
     return m_blockchain_storage.get_current_blockchain_height();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_blockchain_top(uint64_t& height, crypto::hash& top_id) const
+  void core::get_blockchain_top(uint64_t& height, crypto::hash& top_id) const
   {
     top_id = m_blockchain_storage.get_tail_id(height);
-    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const
