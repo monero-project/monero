@@ -1887,7 +1887,15 @@ just_dir:
     wrpc.send_stop_signal();
   });
   LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet rpc server"));
-  wrpc.run();
+  try
+  {
+    wrpc.run();
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to run wallet: ") << e.what());
+    return 1;
+  }
   LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet rpc server"));
   try
   {
