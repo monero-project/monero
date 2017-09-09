@@ -811,7 +811,7 @@ struct MyWalletListener : public Monero::WalletListener
 
     void reset()
     {
-        send_triggered = receive_triggered = update_triggered = refresh_triggered = false;
+        send_triggered = receive_triggered = newblock_triggered = update_triggered = refresh_triggered = false;
     }
 
     virtual void moneySpent(const string &txId, uint64_t amount)
