@@ -597,7 +597,15 @@ namespace cryptonote
       std::list<blobdata>::const_iterator it = tx_blobs.begin();
       for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
         region.run([&, i, it] {
-          results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+          try
+          {
+            results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+          }
+          catch (const std::exception &e)
+          {
+            MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
+            results[i].res = false;
+          }
         });
       }
     });
@@ -617,7 +625,15 @@ namespace cryptonote
         else
         {
           region.run([&, i, it] {
-            results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+            try
+            {
+              results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+            }
+            catch (const std::exception &e)
+            {
+              MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
+              results[i].res = false;
+            }
           });
         }
       }
