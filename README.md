@@ -97,7 +97,7 @@ Dates are provided in the format YYYY-MM-DD.
 
 | Block Height | Fork Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
 | ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ | ---------- |
-| 1009827 | 2016-04-20 	      | v2                | v0.9.4                 | v0.9.4                     |  Allow only >= ringsize 3       |
+| 1009827 | 2016-04-20 	      | v2                | v0.9.4                 | v0.9.4                     |  Allow only >= ringsize 3, blocktime = 120 seconds       |
 | 1141317 | 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
 | 1220516 | 2017-01-05        | v4                | v0.10.1                 | v0.10.2.1                   | Allow normal and RingCT transactions |
 | 1288616 | 2017-04-15        | v5                | v0.10.3.0               | v0.10.3.1                    | Adjusted minimum blocksize and fee algorithm      |
