@@ -99,7 +99,7 @@ namespace wallet_args
     command_line::add_arg(desc_general, command_line::arg_help);
     command_line::add_arg(desc_general, command_line::arg_version);
 
-    command_line::add_arg(desc_params, arg_log_file, "");
+    command_line::add_arg(desc_params, arg_log_file);
     command_line::add_arg(desc_params, arg_log_level);
     command_line::add_arg(desc_params, arg_max_concurrency);
     command_line::add_arg(desc_params, arg_config_file);
