@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+#include <boost/format.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <cstdint>
@@ -153,7 +154,15 @@ namespace tools
 #else
 #define MKDIR(path, mode)    mkdir(path, mode)
 #endif
-      MKDIR(m_wallet_dir.c_str(), 0700);
+      if (MKDIR(m_wallet_dir.c_str(), 0700) < 0)
+      {
+#ifdef _WIN32
+        LOG_ERROR(tr("Failed to create directory ") + m_wallet_dir);
+#else
+        LOG_ERROR((boost::format(tr("Failed to create directory %s: %s")) % m_wallet_dir % strerror(errno)).str());
+#endif
+        return false;
+      }
     }
 
     if (disable_auth)
