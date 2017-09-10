@@ -105,6 +105,8 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
 bool WalletManagerImpl::closeWallet(Wallet *wallet, bool store)
 {
     WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);
+    if (!wallet_)
+        return false;
     bool result = wallet_->close(store);
     if (!result) {
         m_errorString = wallet_->errorString();
