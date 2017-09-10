@@ -114,6 +114,21 @@ namespace wallet_args
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
       po::store(parser.run(), vm);
 
+      if (command_line::get_arg(vm, command_line::arg_help))
+      {
+        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
+        tools::msg_writer() << wallet_args::tr("This is the command line monero wallet. It needs to connect to a monero\n"
+												  "daemon to work correctly.") << ENDL;
+        tools::msg_writer() << wallet_args::tr("Usage:") << ENDL << "  " << usage;
+        tools::msg_writer() << desc_all;
+        return false;
+      }
+      else if (command_line::get_arg(vm, command_line::arg_version))
+      {
+        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+        return false;
+      }
+
       if(command_line::has_arg(vm, arg_config_file))
       {
         std::string config = command_line::get_arg(vm, arg_config_file);
@@ -145,21 +160,6 @@ namespace wallet_args
     if (!vm["log-level"].defaulted())
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
-    }
-
-    if (command_line::get_arg(vm, command_line::arg_help))
-    {
-      tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
-      tools::msg_writer() << wallet_args::tr("This is the command line monero wallet. It needs to connect to a monero\n"
-												"daemon to work correctly.") << ENDL;
-      tools::msg_writer() << wallet_args::tr("Usage:") << ENDL << "  " << usage;
-      tools::msg_writer() << desc_all;
-      return boost::none;
-    }
-    else if (command_line::get_arg(vm, command_line::arg_version))
-    {
-      tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-      return boost::none;
     }
 
     if(command_line::has_arg(vm, arg_max_concurrency))
