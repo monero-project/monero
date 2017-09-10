@@ -1951,6 +1951,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
   {
+    if (!m_exclusive_peers.empty()) return true;
+
     peerlist_entry pe = AUTO_VAL_INIT(pe);
 
     if (!m_peerlist.get_random_gray_peer(pe)) {
