@@ -3058,7 +3058,7 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 {
   std::vector<tx_extra_field> tx_extra_fields;
   if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
-    return cryptonote::null_hash;
+    return crypto::null_hash;
   tx_extra_nonce extra_nonce;
   crypto::hash payment_id = null_hash;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
@@ -3073,7 +3073,7 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
     }
     else if (!get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
     {
-      payment_id = cryptonote::null_hash;
+      payment_id = crypto::null_hash;
     }
   }
   return payment_id;
@@ -3122,7 +3122,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   }
 
   txid = get_transaction_hash(ptx.tx);
-  crypto::hash payment_id = cryptonote::null_hash;
+  crypto::hash payment_id = crypto::null_hash;
   std::vector<cryptonote::tx_destination_entry> dests;
   uint64_t amount_in = 0;
   if (store_tx_info())
@@ -5142,7 +5142,7 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
   // we found no key yielding an output
   THROW_WALLET_EXCEPTION_IF(true, error::wallet_internal_error,
       "Public key yielding at least one output wasn't found in the transaction extra");
-  return cryptonote::null_pkey;
+  return crypto::null_pkey;
 }
 
 bool wallet2::export_key_images(const std::string filename)

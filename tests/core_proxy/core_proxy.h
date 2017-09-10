@@ -46,7 +46,7 @@ namespace tests
       cryptonote::blobdata blob;
       std::list<cryptonote::transaction> txes;
 
-      block_index() : height(0), id(cryptonote::null_hash), longhash(cryptonote::null_hash) { }
+      block_index() : height(0), id(crypto::null_hash), longhash(crypto::null_hash) { }
       block_index(size_t _height, const crypto::hash &_id, const crypto::hash &_longhash, const cryptonote::block &_blk, const cryptonote::blobdata &_blob, const std::list<cryptonote::transaction> &_txes)
           : height(_height), id(_id), longhash(_longhash), blk(_blk), blob(_blob), txes(_txes) { }
   };

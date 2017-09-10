@@ -36,6 +36,7 @@ using namespace epee;
 
 #include "common/dns_utils.h"
 #include "include_base_utils.h"
+#include "storages/portable_storage_template_helper.h" // epee json include
 #include <sstream>
 #include <random>
 
@@ -51,7 +52,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)
   {
-    crypto::hash h = null_hash;
+    crypto::hash h = crypto::null_hash;
     bool r = epee::string_tools::parse_tpod_from_hex_string(hash_str, h);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
 
