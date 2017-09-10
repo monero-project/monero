@@ -2653,10 +2653,11 @@ void wallet2::store_to(const std::string &path, const std::string &password)
   // if we here, main wallet file is saved and we only need to save keys and address files
   if (!same_file) {
     prepare_file_names(path);
-    store_keys(m_keys_file, password, false);
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
     // save address to the new file
     const std::string address_file = m_wallet_file + ".address.txt";
-    bool r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
     // remove old wallet file
     r = boost::filesystem::remove(old_file);
