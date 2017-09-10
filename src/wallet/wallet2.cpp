@@ -383,7 +383,11 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
             cryptonote::account_public_address address2;
             bool has_payment_id;
             crypto::hash8 new_payment_id;
-            get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address);
+            if (!get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address))
+            {
+              tools::fail_msg_writer() << tools::wallet2::tr("failed to parse address: ") << field_address;
+              return false;
+            }
             address.m_spend_public_key = address2.m_spend_public_key;
           }
           wallet->generate(field_filename, field_password, address, viewkey);
