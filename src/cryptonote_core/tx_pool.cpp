@@ -202,6 +202,9 @@ namespace cryptonote
       return false;
     }
 
+    // assume failure during verification steps until success is certain
+    tvc.m_verifivation_failed = true;
+
     time_t receive_time = time(nullptr);
 
     crypto::hash max_used_block_id = null_hash;
@@ -284,9 +287,6 @@ namespace cryptonote
       if(meta.fee > 0 && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
-
-    // assume failure during verification steps until success is certain
-    tvc.m_verifivation_failed = true;
 
     tvc.m_verifivation_failed = false;
 
