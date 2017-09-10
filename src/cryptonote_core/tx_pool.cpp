@@ -298,7 +298,8 @@ namespace cryptonote
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
-    get_transaction_hash(tx, h, blob_size);
+    if (!get_transaction_hash(tx, h, blob_size) || blob_size == 0)
+      return false;
     return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, do_not_relay, version);
   }
   //---------------------------------------------------------------------------------
