@@ -148,10 +148,11 @@ namespace cryptonote
 
     /**
      * @brief loads the default main chain checkpoints
+     * @param testnet whether to load testnet checkpoints or mainnet
      *
      * @return true unless adding a checkpoint fails
      */
-    bool init_default_checkpoints();
+    bool init_default_checkpoints(bool testnet);
 
     /**
      * @brief load new checkpoints

@@ -183,7 +183,7 @@ namespace cryptonote
     if (!m_testnet && !m_fakechain)
     {
       cryptonote::checkpoints checkpoints;
-      if (!checkpoints.init_default_checkpoints())
+      if (!checkpoints.init_default_checkpoints(m_testnet))
       {
         throw std::runtime_error("Failed to initialize checkpoints");
       }
