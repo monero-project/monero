@@ -649,6 +649,22 @@ bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& a
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::scan_output(const cryptonote::account_keys &keys, const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t i, cryptonote::keypair &in_ephemeral, crypto::key_image &ki, uint64_t &money_transfered, uint64_t &amount, int &num_vouts_received, uint64_t &tx_money_got_in_outs, rct::key &mask, std::vector<size_t> &outs)
+{
+  wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral, ki);
+  THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
+      error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
+
+  outs.push_back(i);
+  if (money_transfered == 0)
+  {
+    money_transfered = tools::decodeRct(tx.rct_signatures, tx_pub_key, keys.m_view_secret_key, i, mask);
+  }
+  tx_money_got_in_outs += money_transfered;
+  amount = money_transfered;
+  ++num_vouts_received;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool)
 {
   // In this function, tx (probably) only contains the base information
@@ -715,18 +731,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         // this assumes that the miner tx pays a single address
         if (received)
         {
-          wallet_generate_key_image_helper(keys, tx_pub_key, 0, in_ephemeral[0], ki[0]);
-          THROW_WALLET_EXCEPTION_IF(in_ephemeral[0].pub != boost::get<cryptonote::txout_to_key>(tx.vout[0].target).key,
-              error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
-
-          outs.push_back(0);
-          if (money_transfered == 0)
-          {
-            money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, 0, mask[0]);
-          }
-          amount[0] = money_transfered;
-          tx_money_got_in_outs = money_transfered;
-          ++num_vouts_received;
+          scan_output(keys, tx, tx_pub_key, 0, in_ephemeral[0], ki[0], money_transfered, amount[0], num_vouts_received, tx_money_got_in_outs, mask[0], outs);
 
           // process the other outs from that tx
 
@@ -749,18 +754,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
             if (received[i])
             {
-              wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
-              THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
-                  error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
-
-              outs.push_back(i);
-              if (money_transfered[i] == 0)
-              {
-                money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
-              }
-              tx_money_got_in_outs += money_transfered[i];
-              amount[i] = money_transfered[i];
-              ++num_vouts_received;
+              scan_output(keys, tx, tx_pub_key, i, in_ephemeral[i], ki[i], money_transfered[i], amount[i], num_vouts_received, tx_money_got_in_outs, mask[i], outs);
             }
           }
         }
@@ -790,18 +784,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         }
         if (received[i])
         {
-          wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
-          THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
-              error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
-
-          outs.push_back(i);
-          if (money_transfered[i] == 0)
-          {
-            money_transfered[i] = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
-          }
-          tx_money_got_in_outs += money_transfered[i];
-          amount[i] = money_transfered[i];
-          ++num_vouts_received;
+          scan_output(keys, tx, tx_pub_key, i, in_ephemeral[i], ki[i], money_transfered[i], amount[i], num_vouts_received, tx_money_got_in_outs, mask[i], outs);
         }
       }
     }
@@ -821,18 +804,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         {
           if (received)
           {
-            wallet_generate_key_image_helper(keys, tx_pub_key, i, in_ephemeral[i], ki[i]);
-            THROW_WALLET_EXCEPTION_IF(in_ephemeral[i].pub != boost::get<cryptonote::txout_to_key>(tx.vout[i].target).key,
-                error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
-
-            outs.push_back(i);
-            if (money_transfered == 0)
-            {
-              money_transfered = tools::decodeRct(tx.rct_signatures, pub_key_field.pub_key, keys.m_view_secret_key, i, mask[i]);
-            }
-            amount[i] = money_transfered;
-            tx_money_got_in_outs += money_transfered;
-            ++num_vouts_received;
+            scan_output(keys, tx, tx_pub_key, i, in_ephemeral[i], ki[i], money_transfered, amount[i], num_vouts_received, tx_money_got_in_outs, mask[i], outs);
           }
         }
       }
