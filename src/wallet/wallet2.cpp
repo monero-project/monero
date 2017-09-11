@@ -513,6 +513,7 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit)
 {
+  m_checkpoints.init_default_checkpoints(m_testnet);
   if(m_http_client.is_connected())
     m_http_client.disconnect();
   m_is_initialized = true;
@@ -1097,16 +1098,16 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
 {
   size_t i = 0;
   size_t current_multiplier = 1;
-  size_t sz = m_blockchain.size();
+  size_t sz = m_blockchain.size() - m_blockchain.offset();
   if(!sz)
     return;
   size_t current_back_offset = 1;
-  bool genesis_included = false;
+  bool base_included = false;
   while(current_back_offset < sz)
   {
-    ids.push_back(m_blockchain[sz-current_back_offset]);
+    ids.push_back(m_blockchain[m_blockchain.offset() + sz-current_back_offset]);
     if(sz-current_back_offset == 0)
-      genesis_included = true;
+      base_included = true;
     if(i < 10)
     {
       ++current_back_offset;
@@ -1116,8 +1117,10 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
     }
     ++i;
   }
-  if(!genesis_included)
-    ids.push_back(m_blockchain[0]);
+  if(!base_included)
+    ids.push_back(m_blockchain[m_blockchain.offset()]);
+  if(m_blockchain.offset())
+    ids.push_back(m_blockchain.genesis());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const
@@ -1754,6 +1757,13 @@ bool wallet2::refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok)
 void wallet2::detach_blockchain(uint64_t height)
 {
   LOG_PRINT_L0("Detaching blockchain on height " << height);
+
+  // size  1 2 3 4 5 6 7 8 9
+  // block 0 1 2 3 4 5 6 7 8
+  //               C
+  THROW_WALLET_EXCEPTION_IF(height <= m_checkpoints.get_max_height() && m_blockchain.size() > m_checkpoints.get_max_height(),
+      error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
+
   size_t transfers_detached = 0;
 
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -1784,8 +1794,8 @@ void wallet2::detach_blockchain(uint64_t height)
   }
   m_transfers.erase(it, m_transfers.end());
 
-  size_t blocks_detached = m_blockchain.end() - (m_blockchain.begin()+height);
-  m_blockchain.erase(m_blockchain.begin()+height, m_blockchain.end());
+  size_t blocks_detached = m_blockchain.size() - height;
+  m_blockchain.crop(height);
   m_local_bc_height -= blocks_detached;
 
   for (auto it = m_payments.begin(); it != m_payments.end(); )
@@ -2529,13 +2539,26 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
     check_genesis(genesis_hash);
   }
 
+  trim_hashchain();
+
   m_local_bc_height = m_blockchain.size();
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::trim_hashchain()
+{
+  uint64_t height = m_checkpoints.get_max_height();
+  if (height > 0)
+  {
+    --height;
+    MDEBUG("trimming to " << height << ", offset " << m_blockchain.offset());
+    m_blockchain.trim(height);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
   std::string what("Genesis block mismatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
 
-  THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain[0], error::wallet_internal_error, what);
+  THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain.genesis(), error::wallet_internal_error, what);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::path() const
@@ -2550,6 +2573,8 @@ void wallet2::store()
 //----------------------------------------------------------------------------------------------------
 void wallet2::store_to(const std::string &path, const std::string &password)
 {
+  trim_hashchain();
+
   // if file is the same, we do:
   // 1. save wallet to the *.new file
   // 2. remove old wallet file
@@ -5528,20 +5553,28 @@ void wallet2::import_payments_out(const std::list<std::pair<crypto::hash,wallet2
   }
 }
 
-std::vector<crypto::hash> wallet2::export_blockchain() const
+std::tuple<size_t,crypto::hash,std::vector<crypto::hash>> wallet2::export_blockchain() const
 {
-  std::vector<crypto::hash> bc;
-  for (auto const &b : m_blockchain)
+  std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> bc;
+  std::get<0>(bc) = m_blockchain.offset();
+  std::get<1>(bc) = m_blockchain.empty() ? crypto::null_hash: m_blockchain.genesis();
+  for (size_t n = m_blockchain.offset(); n < m_blockchain.size(); ++n)
   {
-    bc.push_back(b);
+    std::get<2>(bc).push_back(m_blockchain[n]);
   }
   return bc;
 }
 
-void wallet2::import_blockchain(const std::vector<crypto::hash> &bc)
+void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc)
 {
   m_blockchain.clear();
-  for (auto const &b : bc)
+  if (std::get<0>(bc))
+  {
+    for (size_t n = std::get<0>(bc); n > 0; ++n)
+      m_blockchain.push_back(std::get<1>(bc));
+    m_blockchain.trim(std::get<0>(bc));
+  }
+  for (auto const &b : std::get<2>(bc))
   {
     m_blockchain.push_back(b);
   }
