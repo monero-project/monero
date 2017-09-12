@@ -43,3 +43,32 @@ TEST(apply_permutation, reorder)
   tools::apply_permutation({3, 5, 6, 1, 2, 4, 0}, v);
   ASSERT_EQ(v, std::vector<int>({1, 2, 4, 4, 6, 7, 8}));
 }
+
+TEST(apply_permutation, bad_size)
+{
+  std::vector<int> v_large = {8, 4, 6, 1, 7, 2, 4, 9};
+  std::vector<int> v_small = {8, 4, 6, 1, 7, 2};
+  try
+  { 
+    tools::apply_permutation({3, 5, 6, 1, 2, 4, 0}, v_large);
+    ASSERT_FALSE(true);
+  }
+  catch (const std::exception &e) {}
+  try
+  { 
+    tools::apply_permutation({3, 5, 6, 1, 2, 4, 0}, v_small);
+    ASSERT_FALSE(true);
+  }
+  catch (const std::exception &e) {}
+}
+
+TEST(apply_permutation, bad_permutation)
+{
+  std::vector<int> v = {8, 4, 6, 1, 7, 2, 4};
+  try
+  { 
+    tools::apply_permutation({3, 5, 6, 1, 2, 4, 1}, v);
+    ASSERT_FALSE(true);
+  }
+  catch (const std::exception &e) {}
+}
