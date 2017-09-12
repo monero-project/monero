@@ -124,6 +124,9 @@ public:
     virtual bool setUserNote(const std::string &txid, const std::string &note);
     virtual std::string getUserNote(const std::string &txid) const;
     virtual std::string getTxKey(const std::string &txid) const;
+    virtual bool checkTxKey(const std::string &txid, const std::string &tx_key, const std::string &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
+    virtual std::string getTxProof(const std::string &txid, const std::string &address, const std::string &optional_tx_key = "") const;
+    virtual bool checkTxProof(const std::string &txid, const std::string &address, const std::string &signature, bool &good, uint64_t &received, bool &in_pool, uint64_t &confirmations);
     virtual std::string signMessage(const std::string &message);
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
     virtual void startRefresh();
