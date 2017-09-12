@@ -47,3 +47,25 @@ public:
     return cryptonote::is_out_to_acc(m_bob.get_keys(), tx_out, m_tx_pub_key, 0);
   }
 };
+
+class test_is_out_to_acc_precomp : public single_tx_test_base
+{
+public:
+  static const size_t loop_count = 1000;
+
+  bool init()
+  {
+    if (!single_tx_test_base::init())
+      return false;
+    crypto::generate_key_derivation(m_tx_pub_key, m_bob.get_keys().m_view_secret_key, m_derivation);
+    return true;
+  }
+  bool test()
+  {
+    const cryptonote::txout_to_key& tx_out = boost::get<cryptonote::txout_to_key>(m_tx.vout[0].target);
+    return cryptonote::is_out_to_acc_precomp(m_bob.get_keys().m_account_address.m_spend_public_key, tx_out, m_derivation, 0);
+  }
+
+private:
+  crypto::key_derivation m_derivation;
+};
