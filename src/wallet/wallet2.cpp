@@ -5001,6 +5001,34 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) c
 
 void wallet2::check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations)
 {
+  // check if the given tx secret key actually matches with the tx public key
+  crypto::public_key tx_pub_key;
+  THROW_WALLET_EXCEPTION_IF(!crypto::secret_key_to_public_key(tx_key, tx_pub_key), error::wallet_internal_error, "Failed to compute tx pubkey");
+
+  // fetch tx pubkey from the daemon
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  THROW_WALLET_EXCEPTION_IF(!net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+    error::wallet_internal_error, "Failed to get transaction from daemon");
+
+  cryptonote::blobdata tx_data;
+  bool ok;
+  if (res.txs.size() == 1)
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+
+  crypto::hash tx_hash, tx_prefix_hash;
+  cryptonote::transaction tx;
+  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
+    "Failed to validate transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
+    "Failed to get the right transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(tx_pub_key != get_tx_pub_key_from_extra(tx), error::wallet_internal_error,
+    "Provided tx secret key doesn't match with the tx pubkey found in the blockchain");
+
   crypto::key_derivation derivation;
   THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation), error::wallet_internal_error,
     "Failed to generate key derivation from supplied parameters");
