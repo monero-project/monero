@@ -4999,6 +4999,176 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) c
   return true;
 }
 
+void wallet2::check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations)
+{
+  crypto::key_derivation derivation;
+  THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation), error::wallet_internal_error,
+    "Failed to generate key derivation from supplied parameters");
+
+  check_tx_key_helper(txid, derivation, address, received, in_pool, confirmations);
+}
+
+void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_derivation &derivation, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations)
+{
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  THROW_WALLET_EXCEPTION_IF(!epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+    error::wallet_internal_error, "Failed to get transaction from daemon");
+
+  cryptonote::blobdata tx_data;
+  bool ok;
+  if (res.txs.size() == 1)
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+
+  crypto::hash tx_hash, tx_prefix_hash;
+  cryptonote::transaction tx;
+  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
+    "Failed to validate transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
+    "Failed to get the right transaction from daemon");
+
+  received = 0;
+  for (size_t n = 0; n < tx.vout.size(); ++n)
+  {
+    if (typeid(txout_to_key) != tx.vout[n].target.type())
+      continue;
+    const txout_to_key tx_out_to_key = boost::get<txout_to_key>(tx.vout[n].target);
+    crypto::public_key pubkey;
+    derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
+    if (pubkey == tx_out_to_key.key)
+    {
+      uint64_t amount;
+      if (tx.version == 1)
+      {
+        amount = tx.vout[n].amount;
+      }
+      else
+      {
+        try
+        {
+          rct::key Ctmp;
+          //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+          {
+            crypto::secret_key scalar1;
+            crypto::derivation_to_scalar(derivation, n, scalar1);
+            rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
+            rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
+            rct::key C = tx.rct_signatures.outPk[n].mask;
+            rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
+            if (rct::equalKeys(C, Ctmp))
+              amount = rct::h2d(ecdh_info.amount);
+            else
+              amount = 0;
+          }
+        }
+        catch (...) { amount = 0; }
+      }
+      received += amount;
+    }
+  }
+
+  in_pool = res.txs.front().in_pool;
+  confirmations = (uint64_t)-1;
+  if (!in_pool)
+  {
+    std::string err;
+    uint64_t bc_height = get_daemon_blockchain_height(err);
+    if (err.empty())
+      confirmations = bc_height - (res.txs.front().block_height + 1);
+  }
+}
+
+std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, const boost::optional<crypto::secret_key> &optional_tx_key) const
+{
+  crypto::secret_key tx_key;
+  if (get_tx_key(txid, tx_key))
+  {
+    THROW_WALLET_EXCEPTION_IF(optional_tx_key && tx_key != rct::sk2rct(*optional_tx_key), error::wallet_internal_error,
+      "Tx secret key was found for the given txid, but you've also provided another tx secret key which doesn't match the found one.");
+  }
+  else
+  {
+    // tx secret key isn't stored in the wallet cache; if optional tx key isn't provided, return empty string
+    if (!optional_tx_key)
+      return {};
+    tx_key = *optional_tx_key;
+  }
+
+  crypto::public_key R;
+  crypto::secret_key_to_public_key(tx_key, R);
+  crypto::public_key rA = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
+  crypto::signature sig;
+  crypto::generate_tx_proof(txid, R, address.m_view_public_key, rA, tx_key, sig);
+
+  std::string sig_str = std::string("ProofV1") +
+    tools::base58::encode(std::string((const char *)&rA, sizeof(crypto::public_key))) +
+    tools::base58::encode(std::string((const char *)&sig, sizeof(crypto::signature)));
+  return sig_str;
+}
+
+bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, const std::string &sig_str, uint64_t &received, bool &in_pool, uint64_t &confirmations)
+{
+  const size_t header_len = strlen("ProofV1");
+  THROW_WALLET_EXCEPTION_IF(sig_str.size() < header_len || sig_str.substr(0, header_len) != "ProofV1", error::wallet_internal_error,
+    "Signature header check error");
+
+  crypto::public_key rA;
+  crypto::signature sig;
+  const size_t rA_len = tools::base58::encode(std::string((const char *)&rA, sizeof(crypto::public_key))).size();
+  const size_t sig_len = tools::base58::encode(std::string((const char *)&sig, sizeof(crypto::signature))).size();
+  std::string rA_decoded;
+  std::string sig_decoded;
+  THROW_WALLET_EXCEPTION_IF(!tools::base58::decode(sig_str.substr(header_len, rA_len), rA_decoded), error::wallet_internal_error,
+    "Signature decoding error");
+  THROW_WALLET_EXCEPTION_IF(!tools::base58::decode(sig_str.substr(header_len + rA_len, sig_len), sig_decoded), error::wallet_internal_error,
+    "Signature decoding error");
+  THROW_WALLET_EXCEPTION_IF(sizeof(crypto::public_key) != rA_decoded.size() || sizeof(crypto::signature) != sig_decoded.size(), error::wallet_internal_error,
+    "Signature decoding error");
+  memcpy(&rA, rA_decoded.data(), sizeof(crypto::public_key));
+  memcpy(&sig, sig_decoded.data(), sizeof(crypto::signature));
+
+  // fetch tx pubkey from the daemon
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  COMMAND_RPC_GET_TRANSACTIONS::response res;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  THROW_WALLET_EXCEPTION_IF(!net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+    error::wallet_internal_error, "Failed to get transaction from daemon");
+
+  cryptonote::blobdata tx_data;
+  bool ok;
+  if (res.txs.size() == 1)
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
+  else
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+
+  crypto::hash tx_hash, tx_prefix_hash;
+  cryptonote::transaction tx;
+  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
+    "Failed to validate transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+
+  crypto::public_key R = get_tx_pub_key_from_extra(tx);
+  THROW_WALLET_EXCEPTION_IF(R == null_pkey, error::wallet_internal_error, "Tx pubkey was not found");
+
+  // check signature
+  if (crypto::check_tx_proof(txid, R, address.m_view_public_key, rA, sig))
+  {
+    // obtain key derivation by multiplying scalar 1 to the pubkey r*A included in the signature
+    crypto::key_derivation derivation;
+    THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(rA, rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
+
+    check_tx_key_helper(txid, derivation, address, received, in_pool, confirmations);
+    return true;
+  }
+
+  return false;
+}
+
 std::string wallet2::get_wallet_file() const
 {
   return m_wallet_file;
