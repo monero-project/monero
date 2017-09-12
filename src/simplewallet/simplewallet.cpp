@@ -929,7 +929,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_spent", boost::bind(&simple_wallet::rescan_spent, this, _1), tr("Rescan blockchain for spent outputs"));
   m_cmd_binder.set_handler("get_tx_key", boost::bind(&simple_wallet::get_tx_key, this, _1), tr("Get transaction key (r) for a given <txid>"));
   m_cmd_binder.set_handler("check_tx_key", boost::bind(&simple_wallet::check_tx_key, this, _1), tr("Check amount going to <address> in <txid>"));
-  m_cmd_binder.set_handler("get_tx_proof", boost::bind(&simple_wallet::get_tx_proof, this, _1), tr("Generate a signature to prove payment to <address> in <txid> using the transaction secret key (r) without revealing it"));
+  m_cmd_binder.set_handler("get_tx_proof", boost::bind(&simple_wallet::get_tx_proof, this, _1), tr("Generate a signature proving payment/receipt of money to/by <address> in <txid> using the transaction/view secret key"));
   m_cmd_binder.set_handler("check_tx_proof", boost::bind(&simple_wallet::check_tx_proof, this, _1), tr("Check tx proof for payment going to <address> in <txid>"));
   m_cmd_binder.set_handler("show_transfers", boost::bind(&simple_wallet::show_transfers, this, _1), tr("show_transfers [in|out|pending|failed|pool] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] - Show incoming/outgoing transfers within an optional height range"));
   m_cmd_binder.set_handler("unspent_outputs", boost::bind(&simple_wallet::unspent_outputs, this, _1), tr("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]] - Show unspent outputs of a specified address within an optional amount range"));
@@ -3911,22 +3911,24 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   }
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
 
-  cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args.front(), txid_data) || txid_data.size() != sizeof(crypto::hash))
+  crypto::hash txid;
+  if (!epee::string_tools::hex_to_pod(local_args[0], txid))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return true;
   }
-  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
   LOCK_IDLE_SCOPE();
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  std::vector<crypto::secret_key> amount_keys;
   if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
   {
-    success_msg_writer() << tr("Tx key: ") << epee::string_tools::pod_to_hex(tx_key);
+    ostringstream oss;
+    oss << epee::string_tools::pod_to_hex(tx_key);
+    for (size_t i = 0; i < additional_tx_keys.size(); ++i)
+      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+    success_msg_writer() << tr("Tx key: ") << oss.str();
     return true;
   }
   else
@@ -3938,19 +3940,18 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 2) {
-    fail_msg_writer() << tr("usage: get_tx_proof <txid> <dest_address>");
+  if (args.size() != 2 && args.size() != 3)
+  {
+    fail_msg_writer() << tr("usage: get_tx_proof_out <txid> <address> [<message>]");
     return true;
   }
-  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
 
-  cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
+  crypto::hash txid;
+  if(!epee::string_tools::hex_to_pod(args[0], txid))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return true;
   }
-  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
   cryptonote::address_parse_info info;
   if(!cryptonote::get_account_address_from_str_or_url(info, m_wallet->testnet(), args[1], oa_prompter))
@@ -3959,140 +3960,29 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
     return true;
   }
 
-  LOCK_IDLE_SCOPE();
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
 
-  crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> additional_tx_keys;
-  if (!m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
-  {
-    fail_msg_writer() << tr("Tx secret key wasn't found in the wallet file.");
-    return true;
-  }
-
-  // fetch tx prefix either from the daemon or from the wallet cache if it's still pending
-  cryptonote::transaction_prefix tx;
-  // first, look up the wallet cache
-  std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> unconfirmed_payments_out;
-  m_wallet->get_unconfirmed_payments_out(unconfirmed_payments_out, m_current_subaddress_account);
-  auto found = std::find_if(unconfirmed_payments_out.begin(), unconfirmed_payments_out.end(), [&](const std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>& p)
-  {
-    return p.first == txid;
-  });
-  // if not found, query the daemon
-  if (found == unconfirmed_payments_out.end())
-  {
-    COMMAND_RPC_GET_TRANSACTIONS::request req;
-    COMMAND_RPC_GET_TRANSACTIONS::response res;
-    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-    if (!net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) ||
-        (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
-    {
-      fail_msg_writer() << tr("failed to get transaction from daemon");
-      return true;
-    }
-    cryptonote::blobdata tx_data;
-    bool ok;
-    if (res.txs.size() == 1)
-      ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-    else
-      ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-    if (!ok)
-    {
-      fail_msg_writer() << tr("failed to parse transaction from daemon");
-      return true;
-    }
-    crypto::hash tx_hash, tx_prefix_hash;
-    cryptonote::transaction tx_full;
-    if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx_full, tx_hash, tx_prefix_hash))
-    {
-      fail_msg_writer() << tr("failed to validate transaction from daemon");
-      return true;
-    }
-    if (tx_hash != txid)
-    {
-      fail_msg_writer() << tr("failed to get the right transaction from daemon");
-      return true;
-    }
-    tx = tx_full;
-  }
-  else
-  {
-    tx = found->second.m_tx;
-  }
-
-  // fetch tx pubkey
-  crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  if (tx_pub_key == crypto::null_pkey)
-  {
-    fail_msg_writer() << tr("Tx pubkey was not found");
-    return true;
-  }
-  const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
-  if (additional_tx_keys.size() != additional_tx_pub_keys.size())
-  {
-    fail_msg_writer() << tr("The set of additional tx secret/public keys doesn't match");
-    return true;
-  }
-
-  // find the correct R:
-  //   R = r*G for standard addresses
-  //   R = r*B for subaddresses (where B is the recipient's spend pubkey)
-  crypto::public_key R;
-  crypto::secret_key r;
-  if (info.is_subaddress)
-  {
-    auto i = additional_tx_keys.begin();
-    auto j = additional_tx_pub_keys.begin();
-    for (; ; ++i, ++j) {
-      if (i == additional_tx_keys.end())
-      {
-        r = tx_key;
-        R = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(info.address.m_spend_public_key), rct::sk2rct(r)));
-        if (R == tx_pub_key)
-          break;
-        fail_msg_writer() << tr("The matching tx secret/pubkey pair wasn't found for this subaddress");
-        return true;
-      }
-      else
-      {
-        r = *i;
-        R = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(info.address.m_spend_public_key), rct::sk2rct(r)));
-        if (R == *j)
-          break;
-      }
-    }
-  }
-  else
-  {
-    r = tx_key;
-    crypto::secret_key_to_public_key(r, R);
-    if (R != tx_pub_key)
-    {
-      fail_msg_writer() << tr("The destinations of this tx don't include a standard address");
-      return true;
-    }
-  }
-
-  crypto::public_key rA = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(info.address.m_view_public_key), rct::sk2rct(r)));
-  crypto::signature sig;
   try
   {
-    if (info.is_subaddress)
-      crypto::generate_tx_proof(txid, R, info.address.m_view_public_key, info.address.m_spend_public_key, rA, r, sig);
+    std::string error_str;
+    std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "", error_str);
+    if (sig_str.empty())
+    {
+      fail_msg_writer() << error_str;
+    }
     else
-      crypto::generate_tx_proof(txid, R, info.address.m_view_public_key, boost::none, rA, r, sig);
+    {
+      const std::string filename = "monero_tx_proof";
+      if (epee::file_io_utils::save_string_to_file(filename, sig_str))
+        success_msg_writer() << tr("signature file saved to:") << filename;
+      else
+        fail_msg_writer() << tr("failed to save signature file");
+    }
   }
-  catch (const std::runtime_error &e)
+  catch (const std::exception &e)
   {
-    fail_msg_writer() << e.what();
-    return true;
+    fail_msg_writer() << tr("error: ") << e.what();
   }
-
-  std::string sig_str = std::string("ProofV1") +
-    tools::base58::encode(std::string((const char *)&rA, sizeof(crypto::public_key))) +
-    tools::base58::encode(std::string((const char *)&sig, sizeof(crypto::signature)));
-
-  success_msg_writer() << tr("Signature: ") << sig_str;
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4113,27 +4003,31 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("wallet is null");
     return true;
   }
-  cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
+  crypto::hash txid;
+  if(!epee::string_tools::hex_to_pod(local_args[0], txid))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return true;
   }
-  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
-  if (local_args[1].size() < 64 || local_args[1].size() % 64)
-  {
-    fail_msg_writer() << tr("failed to parse tx key");
-    return true;
-  }
   crypto::secret_key tx_key;
-  cryptonote::blobdata tx_key_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(local_args[1], tx_key_data) || tx_key_data.size() != sizeof(crypto::secret_key))
+  std::vector<crypto::secret_key> additional_tx_keys;
+  if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), tx_key))
   {
     fail_msg_writer() << tr("failed to parse tx key");
     return true;
   }
-  tx_key = *reinterpret_cast<const crypto::secret_key*>(tx_key_data.data());
+  local_args[1] = local_args[1].substr(64);
+  while (!local_args[1].empty())
+  {
+    additional_tx_keys.resize(additional_tx_keys.size() + 1);
+    if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), additional_tx_keys.back()))
+    {
+      fail_msg_writer() << tr("failed to parse tx key");
+      return true;
+    }
+    local_args[1] = local_args[1].substr(64);
+  }
 
   cryptonote::address_parse_info info;
   if(!cryptonote::get_account_address_from_str_or_url(info, m_wallet->testnet(), local_args[2], oa_prompter))
@@ -4142,134 +4036,48 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
     return true;
   }
 
-  crypto::key_derivation derivation;
-  if (!crypto::generate_key_derivation(info.address.m_view_public_key, tx_key, derivation))
+  try
   {
-    fail_msg_writer() << tr("failed to generate key derivation from supplied parameters");
-    return true;
-  }
+    uint64_t received;
+    bool in_pool;
+    uint64_t confirmations;
+    m_wallet->check_tx_key(txid, tx_key, additional_tx_keys, info.address, received, in_pool, confirmations);
 
-  return check_tx_key_helper(txid, info.address, info.is_subaddress, derivation);
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::check_tx_key_helper(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const crypto::key_derivation &derivation)
-{
-  COMMAND_RPC_GET_TRANSACTIONS::request req;
-  COMMAND_RPC_GET_TRANSACTIONS::response res;
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  if (!net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) ||
-      (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
-  {
-    fail_msg_writer() << tr("failed to get transaction from daemon");
-    return true;
-  }
-  cryptonote::blobdata tx_data;
-  bool ok;
-  if (res.txs.size() == 1)
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-  else
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-  if (!ok)
-  {
-    fail_msg_writer() << tr("failed to parse transaction from daemon");
-    return true;
-  }
-  crypto::hash tx_hash, tx_prefix_hash;
-  cryptonote::transaction tx;
-  if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash))
-  {
-    fail_msg_writer() << tr("failed to validate transaction from daemon");
-    return true;
-  }
-  if (tx_hash != txid)
-  {
-    fail_msg_writer() << tr("failed to get the right transaction from daemon");
-    return true;
-  }
-
-  uint64_t received = 0;
-  try {
-    for (size_t n = 0; n < tx.vout.size(); ++n)
+    if (received > 0)
     {
-      if (typeid(txout_to_key) != tx.vout[n].target.type())
-        continue;
-      const txout_to_key tx_out_to_key = boost::get<txout_to_key>(tx.vout[n].target);
-      crypto::public_key pubkey;
-      derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
-      if (pubkey == tx_out_to_key.key)
+      success_msg_writer() << get_account_address_as_str(m_wallet->testnet(), info.is_subaddress, info.address) << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
+      if (in_pool)
       {
-        uint64_t amount;
-        if (tx.version == 1)
+        success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
+      }
+      else
+      {
+        if (confirmations != (uint64_t)-1)
         {
-          amount = tx.vout[n].amount;
+          success_msg_writer() << boost::format(tr("This transaction has %u confirmations")) % confirmations;
         }
         else
         {
-          try
-          {
-            rct::key Ctmp;
-            //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
-            {
-              crypto::secret_key scalar1;
-              crypto::derivation_to_scalar(derivation, n, scalar1);
-              rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-              rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
-              rct::key C = tx.rct_signatures.outPk[n].mask;
-              rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
-              if (rct::equalKeys(C, Ctmp))
-                amount = rct::h2d(ecdh_info.amount);
-              else
-                amount = 0;
-            }
-          }
-          catch (...) { amount = 0; }
+          success_msg_writer() << tr("WARNING: failed to determine number of confirmations!");
         }
-        received += amount;
       }
-    }
-  }
-  catch(const std::exception &e)
-  {
-    LOG_ERROR("error: " << e.what());
-    fail_msg_writer() << tr("error: ") << e.what();
-    return true;
-  }
-
-  std::string address_str = get_account_address_as_str(m_wallet->testnet(), is_subaddress, address);
-  if (received > 0)
-  {
-    success_msg_writer() << address_str << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
-  }
-  else
-  {
-    fail_msg_writer() << address_str << " " << tr("received nothing in txid") << " " << txid;
-  }
-  if (res.txs.front().in_pool)
-  {
-    success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
-  }
-  else
-  {
-    std::string err;
-    uint64_t bc_height = get_daemon_blockchain_height(err);
-    if (err.empty())
-    {
-      uint64_t confirmations = bc_height - (res.txs.front().block_height + 1);
-      success_msg_writer() << boost::format(tr("This transaction has %u confirmations")) % confirmations;
     }
     else
     {
-      success_msg_writer() << tr("WARNING: failed to determine number of confirmations!");
+      fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), info.is_subaddress, info.address) << " " << tr("received nothing in txid") << " " << txid;
     }
   }
-
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("error: ") << e.what();
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 3) {
-    fail_msg_writer() << tr("usage: check_tx_proof <txid> <address> <signature>");
+  if(args.size() != 3 && args.size() != 4) {
+    fail_msg_writer() << tr("usage: check_tx_proof <txid> <address> <signature_file> [<message>]");
     return true;
   }
 
@@ -4277,13 +4085,12 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
     return true;
 
   // parse txid
-  cryptonote::blobdata txid_data;
-  if(!epee::string_tools::parse_hexstr_to_binbuff(args[0], txid_data) || txid_data.size() != sizeof(crypto::hash))
+  crypto::hash txid;
+  if(!epee::string_tools::hex_to_pod(args[0], txid))
   {
     fail_msg_writer() << tr("failed to parse txid");
     return true;
   }
-  crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
   // parse address
   cryptonote::address_parse_info info;
@@ -4293,117 +4100,56 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
     return true;
   }
 
-  // parse pubkey r*A & signature
-  std::string sig_str = args[2];
-  const size_t header_len = strlen("ProofV1");
-  if (sig_str.size() < header_len || sig_str.substr(0, header_len) != "ProofV1")
+  // read signature file
+  std::string sig_str;
+  if (!epee::file_io_utils::load_file_to_string(args[2], sig_str))
   {
-    fail_msg_writer() << tr("Signature header check error");
+    fail_msg_writer() << tr("failed to load signature file");
     return true;
   }
-  crypto::public_key rA;
-  crypto::signature sig;
-  const size_t rA_len = tools::base58::encode(std::string((const char *)&rA, sizeof(crypto::public_key))).size();
-  const size_t sig_len = tools::base58::encode(std::string((const char *)&sig, sizeof(crypto::signature))).size();
-  std::string rA_decoded;
-  std::string sig_decoded;
-  if (!tools::base58::decode(sig_str.substr(header_len, rA_len), rA_decoded))
-  {
-    fail_msg_writer() << tr("Signature decoding error");
-    return true;
-  }
-  if (!tools::base58::decode(sig_str.substr(header_len + rA_len, sig_len), sig_decoded))
-  {
-    fail_msg_writer() << tr("Signature decoding error");
-    return true;
-  }
-  if (sizeof(crypto::public_key) != rA_decoded.size() || sizeof(crypto::signature) != sig_decoded.size())
-  {
-    fail_msg_writer() << tr("Signature decoding error");
-    return true;
-  }
-  memcpy(&rA, rA_decoded.data(), sizeof(crypto::public_key));
-  memcpy(&sig, sig_decoded.data(), sizeof(crypto::signature));
 
-  // fetch tx pubkey from the daemon
-  COMMAND_RPC_GET_TRANSACTIONS::request req;
-  COMMAND_RPC_GET_TRANSACTIONS::response res;
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  if (!net_utils::invoke_http_json("/gettransactions", req, res, m_http_client) ||
-      (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
+  try
   {
-    fail_msg_writer() << tr("failed to get transaction from daemon");
-    return true;
-  }
-  cryptonote::blobdata tx_data;
-  bool ok;
-  if (res.txs.size() == 1)
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-  else
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-  if (!ok)
-  {
-    fail_msg_writer() << tr("failed to parse transaction from daemon");
-    return true;
-  }
-  crypto::hash tx_hash, tx_prefix_hash;
-  cryptonote::transaction tx;
-  if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash))
-  {
-    fail_msg_writer() << tr("failed to validate transaction from daemon");
-    return true;
-  }
-  if (tx_hash != txid)
-  {
-    fail_msg_writer() << tr("failed to get the right transaction from daemon");
-    return true;
-  }
-  crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  if (tx_pub_key == crypto::null_pkey)
-  {
-    fail_msg_writer() << tr("Tx pubkey was not found");
-    return true;
-  }
-  const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
-
-  // check signature
-  bool good_signature = false;
-  if (info.is_subaddress)
-  {
-    good_signature = crypto::check_tx_proof(txid, tx_pub_key, info.address.m_view_public_key, info.address.m_spend_public_key, rA, sig);
-    if (!good_signature)
+    uint64_t received;
+    bool in_pool;
+    uint64_t confirmations;
+    if (m_wallet->check_tx_proof(txid, info.address, info.is_subaddress, args.size() == 4 ? args[3] : "", sig_str, received, in_pool, confirmations))
     {
-      for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
+      success_msg_writer() << tr("Good signature");
+      if (received > 0)
       {
-        good_signature = crypto::check_tx_proof(txid, additional_tx_pub_keys[i], info.address.m_view_public_key, info.address.m_spend_public_key, rA, sig);
-        if (good_signature)
-          break;
+        success_msg_writer() << get_account_address_as_str(m_wallet->testnet(), info.is_subaddress, info.address) << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
+        if (in_pool)
+        {
+          success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
+        }
+        else
+        {
+          if (confirmations != (uint64_t)-1)
+          {
+            success_msg_writer() << boost::format(tr("This transaction has %u confirmations")) % confirmations;
+          }
+          else
+          {
+            success_msg_writer() << tr("WARNING: failed to determine number of confirmations!");
+          }
+        }
+      }
+      else
+      {
+        fail_msg_writer() << get_account_address_as_str(m_wallet->testnet(), info.is_subaddress, info.address) << " " << tr("received nothing in txid") << " " << txid;
       }
     }
+    else
+    {
+      fail_msg_writer() << tr("Bad signature");
+    }
   }
-  else
+  catch (const std::exception &e)
   {
-    good_signature = crypto::check_tx_proof(txid, tx_pub_key, info.address.m_view_public_key, boost::none, rA, sig);
+    fail_msg_writer() << tr("error: ") << e.what();
   }
-  if (good_signature)
-  {
-    success_msg_writer() << tr("Good signature");
-  }
-  else
-  {
-    fail_msg_writer() << tr("Bad signature");
-    return true;
-  }
-
-  // obtain key derivation by multiplying scalar 1 to the pubkey r*A included in the signature
-  crypto::key_derivation derivation;
-  if (!crypto::generate_key_derivation(rA, rct::rct2sk(rct::I), derivation))
-  {
-    fail_msg_writer() << tr("failed to generate key derivation");
-    return true;
-  }
-
-  return check_tx_key_helper(txid, info.address, info.is_subaddress, derivation);
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 static std::string get_human_readable_timestamp(uint64_t ts)
