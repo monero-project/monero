@@ -3572,7 +3572,6 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   LOCK_IDLE_SCOPE();
 
   crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> amount_keys;
   if (m_wallet->get_tx_key(txid, tx_key))
   {
     success_msg_writer() << tr("Tx key: ") << epee::string_tools::pod_to_hex(tx_key);
