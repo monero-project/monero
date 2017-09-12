@@ -1194,6 +1194,158 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_tx_key(const wallet_rpc::COMMAND_RPC_GET_TX_KEY::request& req, wallet_rpc::COMMAND_RPC_GET_TX_KEY::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    crypto::secret_key tx_key;
+    if (!m_wallet->get_tx_key(txid, tx_key))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_TXKEY;
+      er.message = "No tx secret key is stored for this tx";
+      return false;
+    }
+
+    res.tx_key = epee::string_tools::pod_to_hex(tx_key);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_check_tx_key(const wallet_rpc::COMMAND_RPC_CHECK_TX_KEY::request& req, wallet_rpc::COMMAND_RPC_CHECK_TX_KEY::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    crypto::secret_key tx_key;
+    if (!epee::string_tools::hex_to_pod(req.tx_key, tx_key))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = "Tx key has invalid format";
+      return false;
+    }
+
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = "Invalid address";
+      return false;
+    }
+
+    try
+    {
+      m_wallet->check_tx_key(txid, tx_key, address, res.received, res.in_pool, res.confirmations);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_tx_proof(const wallet_rpc::COMMAND_RPC_GET_TX_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_TX_PROOF::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = "Invalid address";
+      return false;
+    }
+
+    boost::optional<crypto::secret_key> tx_key;
+    if (!req.optional_tx_key.empty())
+    {
+      tx_key = crypto::secret_key{};
+      if (!epee::string_tools::hex_to_pod(req.optional_tx_key, *tx_key))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+        er.message = "Tx key has invalid format";
+        return false;
+      }
+    }
+
+    try
+    {
+      res.signature = m_wallet->get_tx_proof(txid, address, tx_key);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_check_tx_proof(const wallet_rpc::COMMAND_RPC_CHECK_TX_PROOF::request& req, wallet_rpc::COMMAND_RPC_CHECK_TX_PROOF::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(req.txid, txid))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
+      er.message = "TX ID has invalid format";
+      return false;
+    }
+
+    cryptonote::account_public_address address;
+    bool has_payment_id;
+    crypto::hash8 payment_id;
+    if(!get_account_integrated_address_from_str(address, has_payment_id, payment_id, m_wallet->testnet(), req.address))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+      er.message = "Invalid address";
+      return false;
+    }
+
+    try
+    {
+      uint64_t received;
+      bool in_pool;
+      uint64_t confirmations;
+      res.good = m_wallet->check_tx_proof(txid, address, req.signature, res.received, res.in_pool, res.confirmations);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_transfers(const wallet_rpc::COMMAND_RPC_GET_TRANSFERS::request& req, wallet_rpc::COMMAND_RPC_GET_TRANSFERS::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
