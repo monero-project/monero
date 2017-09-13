@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(unit_tests_sources
+  apply_permutation.cpp
   address_from_url.cpp
   ban.cpp
   base58.cpp
