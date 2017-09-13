@@ -1399,6 +1399,11 @@ namespace cryptonote
     return m_target_blockchain_height;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes)
+  {
+    return get_blockchain_storage().prevalidate_block_hashes(height, hashes);
+  }
+  //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const
   {
     return start_time;

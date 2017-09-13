@@ -76,4 +76,5 @@ protected:
 private:
 
   uint64_t m_cur_height; // tracks current height during export
+  std::vector<crypto::hash> m_hashes;
 };
