@@ -77,6 +77,7 @@ target_link_libraries(blockchain_import
     cryptonote_core
     blockchain_db
     p2p
+    version
     epee
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
@@ -89,8 +90,6 @@ if(ARCH_WIDTH)
     PUBLIC -DARCH_WIDTH=${ARCH_WIDTH})
 endif()
 
-add_dependencies(blockchain_import
-	version)
 set_property(TARGET blockchain_import
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-import")
@@ -104,6 +103,7 @@ target_link_libraries(blockchain_export
     cryptonote_core
     blockchain_db
     p2p
+    version
     epee
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
@@ -111,8 +111,6 @@ target_link_libraries(blockchain_export
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
-add_dependencies(blockchain_export
-	version)
 set_property(TARGET blockchain_export
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-export")

@@ -94,6 +94,7 @@ target_link_libraries(daemon
     daemonizer
     serialization
     daemon_rpc_server
+    version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -102,7 +103,6 @@ target_link_libraries(daemon
     ${CMAKE_THREAD_LIBS_INIT}
     ${ZMQ_LIB}
     ${EXTRA_LIBRARIES})
-add_dependencies(daemon version)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")

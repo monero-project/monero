@@ -55,6 +55,7 @@ monero_add_library(cryptonote_core
   ${cryptonote_core_private_headers})
 target_link_libraries(cryptonote_core
   PUBLIC
+    version
     common
     cncrypto
     blockchain_db

@@ -39,5 +39,3 @@ target_link_libraries(cryptonote_protocol
     p2p
   PRIVATE
     ${EXTRA_LIBRARIES})
-add_dependencies(cryptonote_protocol
-  version)
