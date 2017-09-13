@@ -33,6 +33,7 @@ if(APPLE)
 endif()
 
 set(cryptonote_basic_sources
+  ../version.cpp
   account.cpp
   checkpoints.cpp
   cryptonote_basic_impl.cpp
@@ -44,6 +45,7 @@ set(cryptonote_basic_sources
 set(cryptonote_basic_headers)
 
 set(cryptonote_basic_private_headers
+  ../version.h
   account.h
   account_boost_serialization.h
   checkpoints.h
