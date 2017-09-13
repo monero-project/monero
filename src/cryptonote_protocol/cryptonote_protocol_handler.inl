@@ -1583,10 +1583,22 @@ skip:
       return 1;
     }
 
+    uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids);
+    if (n_use_blocks == 0)
+    {
+      LOG_ERROR_CCONTEXT("Peer yielded no usable blocks, dropping connection");
+      drop_connection(context, false, false);
+      return 1;
+    }
+
+    uint64_t added = 0;
     for(auto& bl_id: arg.m_block_ids)
     {
       context.m_needed_objects.push_back(bl_id);
+      if (++added == n_use_blocks)
+        break;
     }
+    context.m_last_response_height -= arg.m_block_ids.size() - n_use_blocks;
 
     if (!request_missing_objects(context, false))
     {

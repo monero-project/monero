@@ -3206,13 +3206,21 @@ leave:
   if (m_db->height() < m_blocks_hash_check.size())
   {
     auto hash = get_block_hash(bl);
-    if (memcmp(&hash, &m_blocks_hash_check[m_db->height()], sizeof(hash)) != 0)
+    const auto &expected_hash = m_blocks_hash_check[m_db->height()];
+    if (expected_hash != cryptonote::null_hash)
     {
-      MERROR_VER("Block with id is INVALID: " << id);
-      bvc.m_verifivation_failed = true;
-      goto leave;
+      if (memcmp(&hash, &expected_hash, sizeof(hash)) != 0)
+      {
+        MERROR_VER("Block with id is INVALID: " << id);
+        bvc.m_verifivation_failed = true;
+        goto leave;
+      }
+      fast_check = true;
     }
-    fast_check = true;
+    else
+    {
+      MCINFO("verify", "No pre-validated hash at height " << m_db->height() << ", verifying fully");
+    }
   }
   else
 #endif
@@ -3657,6 +3665,14 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
+  // when we're well clear of the precomputed hashes, free the memory
+  if (!m_blocks_hash_check.empty() && m_db->height() > m_blocks_hash_check.size() + 4096)
+  {
+    MINFO("Dumping block hashes, we're now 4k past " << m_blocks_hash_check.size());
+    m_blocks_hash_check.clear();
+    m_blocks_hash_check.shrink_to_fit();
+  }
+
   CRITICAL_REGION_END();
   m_tx_pool.unlock();
 
@@ -3679,6 +3695,98 @@ void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uin
   {
 
   }
+}
+
+uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes)
+{
+  // new: . . . . . X X X X X . . . . . .
+  // pre: A A A A B B B B C C C C D D D D
+
+  // easy case: height >= hashes
+  if (height >= m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP)
+    return hashes.size();
+
+  // find hashes encompassing those block
+  size_t first_index = height / HASH_OF_HASHES_STEP;
+  size_t last_index = (height + hashes.size() - 1) / HASH_OF_HASHES_STEP;
+  MDEBUG("Blocks " << height << " - " << (height + hashes.size() - 1) << " start at " << first_index << " and end at " << last_index);
+
+  // case of not enough to calculate even a single hash
+  if (first_index == last_index && hashes.size() < HASH_OF_HASHES_STEP && (height + hashes.size()) % HASH_OF_HASHES_STEP)
+    return hashes.size();
+
+  // build hashes vector to hash hashes together
+  std::vector<crypto::hash> data;
+  data.reserve(hashes.size() + HASH_OF_HASHES_STEP - 1); // may be a bit too much
+
+  // we expect height to be either equal or a bit below db height
+  bool disconnected = (height > m_db->height());
+  size_t pop;
+  if (disconnected && height % HASH_OF_HASHES_STEP)
+  {
+    ++first_index;
+    pop = HASH_OF_HASHES_STEP - height % HASH_OF_HASHES_STEP;
+  }
+  else
+  {
+    // we might need some already in the chain for the first part of the first hash
+    for (uint64_t h = first_index * HASH_OF_HASHES_STEP; h < height; ++h)
+    {
+      data.push_back(m_db->get_block_hash_from_height(h));
+    }
+    pop = 0;
+  }
+
+  // push the data to check
+  for (const auto &h: hashes)
+  {
+    if (pop)
+      --pop;
+    else
+      data.push_back(h);
+  }
+
+  // hash and check
+  uint64_t usable = first_index * HASH_OF_HASHES_STEP - height; // may start negative, but unsigned under/overflow is not UB
+  for (size_t n = first_index; n <= last_index; ++n)
+  {
+    if (n < m_blocks_hash_of_hashes.size())
+    {
+      // if the last index isn't fully filled, we can't tell if valid
+      if (data.size() < (n - first_index) * HASH_OF_HASHES_STEP + HASH_OF_HASHES_STEP)
+        break;
+
+      crypto::hash hash;
+      cn_fast_hash(data.data() + (n - first_index) * HASH_OF_HASHES_STEP, HASH_OF_HASHES_STEP * sizeof(crypto::hash), hash);
+      bool valid = hash == m_blocks_hash_of_hashes[n];
+
+      // add to the known hashes array
+      if (!valid)
+      {
+        MWARNING("invalid hash for blocks " << n * HASH_OF_HASHES_STEP << " - " << (n * HASH_OF_HASHES_STEP + HASH_OF_HASHES_STEP - 1));
+        break;
+      }
+
+      size_t end = n * HASH_OF_HASHES_STEP + HASH_OF_HASHES_STEP;
+      for (size_t i = n * HASH_OF_HASHES_STEP; i < end; ++i)
+      {
+        CHECK_AND_ASSERT_MES(m_blocks_hash_check[i] == cryptonote::null_hash || m_blocks_hash_check[i] == data[i - first_index * HASH_OF_HASHES_STEP],
+            0, "Consistency failure in m_blocks_hash_check construction");
+        m_blocks_hash_check[i] = data[i - first_index * HASH_OF_HASHES_STEP];
+      }
+      usable += HASH_OF_HASHES_STEP;
+    }
+    else
+    {
+      // if after the end of the precomputed blocks, accept anything
+      usable += HASH_OF_HASHES_STEP;
+      if (usable > hashes.size())
+        usable = hashes.size();
+    }
+  }
+  MDEBUG("usable: " << usable << " / " << hashes.size());
+  CHECK_AND_ASSERT_MES(usable < std::numeric_limits<uint64_t>::max() / 2, 0, "usable is negative");
+  return usable;
 }
 
 //------------------------------------------------------------------
@@ -4144,7 +4252,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "d3ca80d50661684cde0e715d46d7c19704d2e216b21ed088af9fd4ef37ed4d65";
+static const char expected_block_hashes_hash[] = "4b553162ee4e7af3c53666506591489c68560b9175e6e941dc96c89f96f0e35c";
 void Blockchain::load_compiled_in_block_hashes()
 {
   if (m_fast_sync && get_blocks_dat_start(m_testnet) != nullptr && get_blocks_dat_size(m_testnet) > 0)
@@ -4180,16 +4288,18 @@ void Blockchain::load_compiled_in_block_hashes()
       const unsigned char *p = get_blocks_dat_start(m_testnet);
       const uint32_t nblocks = *p | ((*(p+1))<<8) | ((*(p+2))<<16) | ((*(p+3))<<24);
       const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
-      if(nblocks > 0 && nblocks > m_db->height() && get_blocks_dat_size(m_testnet) >= size_needed)
+      if(nblocks > 0 && nblocks * HASH_OF_HASHES_STEP > m_db->height() && get_blocks_dat_size(m_testnet) >= size_needed)
       {
         p += sizeof(uint32_t);
+        m_blocks_hash_of_hashes.reserve(nblocks);
         for (uint32_t i = 0; i < nblocks; i++)
         {
           crypto::hash hash;
           memcpy(hash.data, p, sizeof(hash.data));
           p += sizeof(hash.data);
-          m_blocks_hash_check.push_back(hash);
+          m_blocks_hash_of_hashes.push_back(hash);
         }
+        m_blocks_hash_check.resize(m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP, cryptonote::null_hash);
         MINFO(nblocks << " block hashes loaded");
 
         // FIXME: clear tx_pool because the process might have been
@@ -4220,7 +4330,7 @@ void Blockchain::load_compiled_in_block_hashes()
 bool Blockchain::is_within_compiled_block_hash_area(uint64_t height) const
 {
 #if defined(PER_BLOCK_CHECKPOINT)
-  return height < m_blocks_hash_check.size();
+  return height < m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP;
 #else
   return false;
 #endif
