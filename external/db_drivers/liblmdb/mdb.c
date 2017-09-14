@@ -6288,6 +6288,10 @@ release:
 		if (rc)
 			return rc;
 	}
+#ifdef MDB_VL32
+	if (mc->mc_ovpg == mp)
+		mc->mc_ovpg = NULL;
+#endif
 	mc->mc_db->md_overflow_pages -= ovpages;
 	return 0;
 }
