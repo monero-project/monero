@@ -161,6 +161,7 @@ namespace cryptonote
     command_line::add_arg(desc, command_line::arg_show_time_stats);
     command_line::add_arg(desc, command_line::arg_block_sync_size);
     command_line::add_arg(desc, command_line::arg_check_updates);
+    command_line::add_arg(desc, command_line::arg_fluffy_blocks);
 
     // we now also need some of net_node's options (p2p bind arg, for separate data dir)
     command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
@@ -197,6 +198,7 @@ namespace cryptonote
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, command_line::arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
+    m_fluffy_blocks_enabled = m_testnet || get_arg(vm, command_line::arg_fluffy_blocks);
 
     if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
       test_drop_download();
