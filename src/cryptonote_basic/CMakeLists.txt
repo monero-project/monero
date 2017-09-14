@@ -32,7 +32,9 @@ if(APPLE)
   list(APPEND EXTRA_LIBRARIES ${IOKIT_LIBRARY})
 endif()
 
+set_source_files_properties(${CMAKE_BINARY_DIR}/version/version.cpp PROPERTIES GENERATED ON)
 set(cryptonote_basic_sources
+  ${CMAKE_BINARY_DIR}/version/version.cpp
   account.cpp
   checkpoints.cpp
   cryptonote_basic_impl.cpp
@@ -44,6 +46,7 @@ set(cryptonote_basic_sources
 set(cryptonote_basic_headers)
 
 set(cryptonote_basic_private_headers
+  ../version.h
   account.h
   account_boost_serialization.h
   checkpoints.h
