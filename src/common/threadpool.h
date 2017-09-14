@@ -65,7 +65,7 @@ public:
   // task to finish.
   void submit(waiter *waiter, std::function<void()> f);
 
-  int get_max_concurrency() { return max; }
+  int get_max_concurrency();
 
   private:
     threadpool();
