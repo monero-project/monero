@@ -28,7 +28,7 @@
 #endif /* _WIN32 */
 
 #ifdef _WIN32
-#define PRINT_SOCKET_ERROR(x)    printf("Socket error: %s, %d\n", x, WSAGetLastError());
+#define PRINT_SOCKET_ERROR(x)    fprintf(stderr, "Socket error: %s, %d\n", x, WSAGetLastError());
 #else
 #define PRINT_SOCKET_ERROR(x) perror(x)
 #endif

@@ -4,6 +4,9 @@ build/
 *.a
 *.so
 *.dll
+*.dll.def
+*.exe
+*.lib
 *.dylib
 Makefile.bak
 miniupnpcstrings.h
@@ -30,3 +33,4 @@ testigddescparse
 validateigddescparse
 dist/
 miniupnpc.egg-info/
+init
