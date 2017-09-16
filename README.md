@@ -157,6 +157,7 @@ library archives (`.a`).
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
 | libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
 | liblzma        | any           | NO       | `liblzma-dev`      | `xz`           | YES      | For libunwind  |
+| libreadline    | 6.3.0         | NO       | `libreadline6-dev` | `readline`     | YES      | Input editing  |
 | ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | SSL toolkit    |
 | expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | XML parsing    |
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
@@ -393,14 +394,6 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 `DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
 
 `./monero-wallet-cli`
-
-## Using readline
-
-While monerod and monero-wallet-cli do not use readline directly, most of the functionality can be obtained by running them via rlwrap. This allows command recall, edit capabilities, etc. It does not give autocompletion without an extra completion file, however. To use rlwrap, simply prepend `rlwrap` to the command line, eg:
-
-`rlwrap bin/monero-wallet-cli --wallet-file /path/to/wallet`
-
-Note: rlwrap will save things like your seed and private keys, if you supply them on prompt. You may want to not use rlwrap when you use simplewallet to restore from seed, etc.
 
 # Debugging
 
