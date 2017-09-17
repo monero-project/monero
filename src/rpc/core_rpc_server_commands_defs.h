@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 13
+#define CORE_RPC_VERSION_MINOR 14
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -1238,6 +1238,55 @@ namespace cryptonote
 	  
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
+  struct COMMAND_RPC_GET_LIMIT
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+      std::string status;
+      uint64_t limit_up;
+      uint64_t limit_down;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(limit_up)
+        KV_SERIALIZE(limit_down)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
+  struct COMMAND_RPC_SET_LIMIT
+  {
+    struct request
+    {
+      int64_t limit_down;
+      int64_t limit_up;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(limit_down)
+        KV_SERIALIZE(limit_up)
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+      std::string status;
+      uint64_t limit_up;
+      uint64_t limit_down;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(limit_up)
+        KV_SERIALIZE(limit_down)
       END_KV_SERIALIZE_MAP()
     };
   };

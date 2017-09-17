@@ -1128,48 +1128,115 @@ bool t_rpc_command_executor::print_status()
 
 bool t_rpc_command_executor::get_limit()
 {
-    int limit_down = epee::net_utils::connection_basic::get_rate_down_limit( );
-    int limit_up = epee::net_utils::connection_basic::get_rate_up_limit( );
-    std::cout << "limit-down is " << limit_down/1024 << " kB/s" << std::endl;
-    std::cout << "limit-up is " << limit_up/1024 << " kB/s" << std::endl;
-    return true;
+  cryptonote::COMMAND_RPC_GET_LIMIT::request req;
+  cryptonote::COMMAND_RPC_GET_LIMIT::response res;
+
+  std::string failure_message = "Couldn't get limit";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_limit", failure_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_limit(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(failure_message, res.status);
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "limit-down is " << res.limit_down/1024 << " kB/s";
+  tools::msg_writer() << "limit-up is " << res.limit_up/1024 << " kB/s";
+  return true;
 }
 
-bool t_rpc_command_executor::set_limit(int limit)
+bool t_rpc_command_executor::set_limit(int64_t limit_down, int64_t limit_up)
 {
-    epee::net_utils::connection_basic::set_rate_down_limit( limit );
-    epee::net_utils::connection_basic::set_rate_up_limit( limit );
-    std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
-    std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
-    return true;
+  cryptonote::COMMAND_RPC_SET_LIMIT::request req;
+  cryptonote::COMMAND_RPC_SET_LIMIT::response res;
+
+  req.limit_down = limit_down;
+  req.limit_up = limit_up;
+
+  std::string failure_message = "Couldn't set limit";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/set_limit", failure_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_set_limit(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(failure_message, res.status);
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "Set limit-down to " << res.limit_down/1024 << " kB/s";
+  tools::msg_writer() << "Set limit-up to " << res.limit_up/1024 << " kB/s";
+  return true;
 }
 
 bool t_rpc_command_executor::get_limit_up()
 {
-    int limit_up = epee::net_utils::connection_basic::get_rate_up_limit( );
-    std::cout << "limit-up is " << limit_up/1024 << " kB/s" << std::endl;
-    return true;
-}
+  cryptonote::COMMAND_RPC_GET_LIMIT::request req;
+  cryptonote::COMMAND_RPC_GET_LIMIT::response res;
 
-bool t_rpc_command_executor::set_limit_up(int limit)
-{
-    epee::net_utils::connection_basic::set_rate_up_limit( limit );
-    std::cout << "Set limit-up to " << limit/1024 << " kB/s" << std::endl;
-    return true;
+  std::string failure_message = "Couldn't get limit";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_limit", failure_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_limit(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(failure_message, res.status);
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "limit-up is " << res.limit_up/1024 << " kB/s";
+  return true;
 }
 
 bool t_rpc_command_executor::get_limit_down()
 {
-    int limit_down = epee::net_utils::connection_basic::get_rate_down_limit( );
-    std::cout << "limit-down is " << limit_down/1024 << " kB/s" << std::endl;
-    return true;
-}
+  cryptonote::COMMAND_RPC_GET_LIMIT::request req;
+  cryptonote::COMMAND_RPC_GET_LIMIT::response res;
 
-bool t_rpc_command_executor::set_limit_down(int limit)
-{
-    epee::net_utils::connection_basic::set_rate_down_limit( limit );
-    std::cout << "Set limit-down to " << limit/1024 << " kB/s" << std::endl;
-    return true;
+  std::string failure_message = "Couldn't get limit";
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/get_limit", failure_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_limit(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(failure_message, res.status);
+      return true;
+    }
+  }
+
+  tools::msg_writer() << "limit-down is " << res.limit_down/1024 << " kB/s";
+  return true;
 }
 
 bool t_rpc_command_executor::out_peers(uint64_t limit)
