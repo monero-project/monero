@@ -119,11 +119,11 @@ public:
 
   bool get_limit_down();
 
-  bool set_limit(int limit);
+  bool set_limit(int64_t limit_down, int64_t limit_up);
 
-  bool set_limit_up(int limit);
+  bool set_limit_up(uint64_t limit);
 
-  bool set_limit_down(int limit);
+  bool set_limit_down(uint64_t limit);
 
   bool out_peers(uint64_t limit);
   
