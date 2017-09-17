@@ -1,3 +1,5 @@
+TROLOLOL
+
 # Monero
 
 Copyright (c) 2014-2017, The Monero Project
