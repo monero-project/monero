@@ -1035,7 +1035,6 @@ namespace cryptonote
     {
       cryptonote_connection_context exclude_context = boost::value_initialized<cryptonote_connection_context>();
       NOTIFY_NEW_BLOCK::request arg = AUTO_VAL_INIT(arg);
-      arg.hop = 0;
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::list<crypto::hash> missed_txs;
       std::list<cryptonote::blobdata> txs;
