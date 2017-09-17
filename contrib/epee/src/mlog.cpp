@@ -111,7 +111,7 @@ static const char *get_default_categories(int level)
   return categories;
 }
 
-void mlog_configure(const std::string &filename_base, bool console)
+void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size)
 {
   el::Configurations c;
   c.setGlobally(el::ConfigurationType::Filename, filename_base);
@@ -121,7 +121,7 @@ void mlog_configure(const std::string &filename_base, bool console)
     log_format = MLOG_BASE_FORMAT;
   c.setGlobally(el::ConfigurationType::Format, log_format);
   c.setGlobally(el::ConfigurationType::ToStandardOutput, console ? "true" : "false");
-  c.setGlobally(el::ConfigurationType::MaxLogFileSize, "104850000"); // 100 MB - 7600 bytes
+  c.setGlobally(el::ConfigurationType::MaxLogFileSize, std::to_string(max_log_file_size));
   el::Loggers::setDefaultConfigurations(c, true);
 
   el::Loggers::addFlag(el::LoggingFlag::HierarchicalLogging);
