@@ -37,7 +37,7 @@ using namespace epee;
 #include "common/util.h"
 #include "common/updates.h"
 #include "common/download.h"
-#include "common/task_region.h"
+#include "common/threadpool.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -74,7 +74,7 @@ namespace cryptonote
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
-              m_threadpool(tools::thread_group::optimal()),
+              m_threadpool(tools::threadpool::getInstance()),
               m_update_download(0)
   {
     m_checkpoints_updating.clear();
@@ -591,54 +591,53 @@ namespace cryptonote
     std::vector<result> results(tx_blobs.size());
 
     tvc.resize(tx_blobs.size());
-    tools::task_region(m_threadpool, [&] (tools::task_region_handle& region) {
-      std::list<blobdata>::const_iterator it = tx_blobs.begin();
-      for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
-        region.run([&, i, it] {
+    tools::threadpool::waiter waiter;
+    std::list<blobdata>::const_iterator it = tx_blobs.begin();
+    for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+      m_threadpool.submit(&waiter, [&, i, it] {
+        try
+        {
+          results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+        }
+        catch (const std::exception &e)
+        {
+          MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
+          results[i].res = false;
+        }
+      });
+    }
+    waiter.wait();
+    it = tx_blobs.begin();
+    for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+      if (!results[i].res)
+        continue;
+      if(m_mempool.have_tx(results[i].hash))
+      {
+        LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in tx_pool");
+      }
+      else if(m_blockchain_storage.have_tx(results[i].hash))
+      {
+        LOG_PRINT_L2("tx " << results[i].hash << " already have transaction in blockchain");
+      }
+      else
+      {
+        m_threadpool.submit(&waiter, [&, i, it] {
           try
           {
-            results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
+            results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
           }
           catch (const std::exception &e)
           {
-            MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
+            MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
             results[i].res = false;
           }
         });
       }
-    });
-    tools::task_region(m_threadpool, [&] (tools::task_region_handle& region) {
-      std::list<blobdata>::const_iterator it = tx_blobs.begin();
-      for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
-        if (!results[i].res)
-          continue;
-        if(m_mempool.have_tx(results[i].hash))
-        {
-          LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in tx_pool");
-        }
-        else if(m_blockchain_storage.have_tx(results[i].hash))
-        {
-          LOG_PRINT_L2("tx " << results[i].hash << " already have transaction in blockchain");
-        }
-        else
-        {
-          region.run([&, i, it] {
-            try
-            {
-              results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
-            }
-            catch (const std::exception &e)
-            {
-              MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
-              results[i].res = false;
-            }
-          });
-        }
-      }
-    });
+    }
+    waiter.wait();
 
     bool ok = true;
-    std::list<blobdata>::const_iterator it = tx_blobs.begin();
+    it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
       if (!results[i].res)
       {

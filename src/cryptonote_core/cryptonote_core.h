@@ -40,7 +40,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
-#include "common/thread_group.h"
+#include "common/threadpool.h"
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "cryptonote_basic/miner.h"
@@ -957,7 +957,7 @@ namespace cryptonote
      std::unordered_set<crypto::hash> bad_semantics_txes[2];
      boost::mutex bad_semantics_txes_lock;
 
-     tools::thread_group m_threadpool;
+     tools::threadpool& m_threadpool;
 
      enum {
        UPDATES_DISABLED,
