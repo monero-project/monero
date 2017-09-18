@@ -1280,9 +1280,13 @@ namespace cryptonote
     struct response
     {
       std::string status;
+      uint64_t limit_up;
+      uint64_t limit_down;
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+        KV_SERIALIZE(limit_up)
+        KV_SERIALIZE(limit_down)
       END_KV_SERIALIZE_MAP()
     };
   };

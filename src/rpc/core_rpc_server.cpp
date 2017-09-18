@@ -49,6 +49,8 @@ using namespace epee;
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
+#define DEFAULT_LIMIT_DOWN 8192
+#define DEFAULT_LIMIT_UP 2048
 
 namespace cryptonote
 {
@@ -1524,18 +1526,48 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_limit(const COMMAND_RPC_GET_LIMIT::request& req, COMMAND_RPC_GET_LIMIT::response& res)
   {
-    res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit();
-    res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit();
+    res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit() / 1024;
+    res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit() / 1024;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_set_limit(const COMMAND_RPC_SET_LIMIT::request& req, COMMAND_RPC_SET_LIMIT::response& res)
   {
-    if (req.limit_down != -1)
-      epee::net_utils::connection_basic::set_rate_down_limit(req.limit_down);
-    if (req.limit_up != -1)
-      epee::net_utils::connection_basic::set_rate_up_limit(req.limit_up);
+    if (req.limit_down >= 0)
+    {
+      epee::net_utils::connection_basic::set_rate_down_limit(req.limit_down * 1024);
+    }
+    else
+    {
+      if (req.limit_down != -1)
+      {
+        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        return false;
+      }
+
+      uint64_t limit_down = DEFAULT_LIMIT_DOWN;
+      epee::net_utils::connection_basic::set_rate_down_limit(limit_down * 1024);
+    }
+
+    if (req.limit_up >= 0)
+    {
+      epee::net_utils::connection_basic::set_rate_up_limit(req.limit_up * 1024);
+    }
+    else
+    {
+      if (req.limit_up != -1)
+      {
+        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        return false;
+      }
+
+      uint64_t limit_up = DEFAULT_LIMIT_UP;
+      epee::net_utils::connection_basic::set_rate_up_limit(limit_up * 1024);
+    }
+
+    res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit() / 1024;
+    res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit() / 1024;
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

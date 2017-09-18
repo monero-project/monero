@@ -171,17 +171,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "limit"
     , std::bind(&t_command_parser_executor::set_limit, &m_parser, p::_1)
-    , "limit <kB/s> - Set download and upload limit"
-    );
-  m_command_lookup.set_handler(
-      "limit_up"
-    , std::bind(&t_command_parser_executor::set_limit_up, &m_parser, p::_1)
-    , "limit <kB/s> - Set upload limit"
-    );
-  m_command_lookup.set_handler(
-      "limit_down"
-    , std::bind(&t_command_parser_executor::set_limit_down, &m_parser, p::_1)
-    , "limit <kB/s> - Set download limit"
+    , "limit <download in kB/s> <upload in kB/s> - Set download and upload limit"
     );
     m_command_lookup.set_handler(
       "out_peers"

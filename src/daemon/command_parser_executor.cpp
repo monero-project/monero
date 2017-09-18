@@ -330,59 +330,22 @@ bool t_command_parser_executor::print_status(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
 {
-  if(args.size()>1) return false;
-  if(args.size()==0) {
+  if (args.size() == 0) {
     return m_executor.get_limit();
   }
-  int64_t limit;
+  if (args.size() != 2) return false;
+
+  int64_t limit_down;
+  int64_t limit_up;
   try {
-      limit = std::stoll(args[0]);
+      limit_down = std::stoll(args[0]);
+      limit_up = std::stoll(args[1]);
   }
   catch(std::invalid_argument& ex) {
       return false;
   }
-  if (limit==-1)  limit=128;
-  limit *= 1024;
 
-  return m_executor.set_limit(limit, limit);
-}
-
-bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& args)
-{
-  if(args.size()>1) return false;
-  if(args.size()==0) {
-    return m_executor.get_limit_up();
-  }
-  int64_t limit;
-  try {
-      limit = std::stoll(args[0]);
-  }
-  catch(std::invalid_argument& ex) {
-      return false;
-  }
-  if (limit==-1)  limit=128;
-  limit *= 1024;
-
-  return m_executor.set_limit_up(limit);
-}
-
-bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& args)
-{
-  if(args.size()>1) return false;
-  if(args.size()==0) {
-    return m_executor.get_limit_down();
-  }
-  int64_t limit;
-  try {
-      limit = std::stoll(args[0]);
-  }
-  catch(std::invalid_argument& ex) {
-      return false;
-  }
-  if (limit==-1)  limit=128;
-  limit *= 1024;
-
-  return m_executor.set_limit_down(limit);
+  return m_executor.set_limit(limit_down, limit_up);
 }
 
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)

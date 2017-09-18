@@ -1149,8 +1149,8 @@ bool t_rpc_command_executor::get_limit()
     }
   }
 
-  tools::msg_writer() << "limit-down is " << res.limit_down/1024 << " kB/s";
-  tools::msg_writer() << "limit-up is " << res.limit_up/1024 << " kB/s";
+  tools::msg_writer() << "limit-down is " << res.limit_down << " kB/s";
+  tools::msg_writer() << "limit-up is " << res.limit_up << " kB/s";
 
   return true;
 }
@@ -1181,39 +1181,9 @@ bool t_rpc_command_executor::set_limit(int64_t limit_down, int64_t limit_up)
     }
   }
 
-  if (limit_down != -1)
-    tools::msg_writer() << "Set limit-down to " << limit_down/1024 << " kB/s";
-  if (limit_up != -1)
-    tools::msg_writer() << "Set limit-up to " << limit_up/1024 << " kB/s";
+  tools::msg_writer() << "Set limit-down to " << res.limit_down << " kB/s";
+  tools::msg_writer() << "Set limit-up to " << res.limit_up << " kB/s";
 
-  return true;
-}
-
-bool t_rpc_command_executor::get_limit_up()
-{
-  int limit_up = epee::net_utils::connection_basic::get_rate_up_limit();
-  tools::msg_writer() << "limit-up is " << limit_up/1024 << " kB/s";
-  return true;
-}
-
-bool t_rpc_command_executor::set_limit_up(uint64_t limit)
-{
-  epee::net_utils::connection_basic::set_rate_up_limit(limit);
-  tools::msg_writer() << "Set limit-up to " << limit/1024 << " kB/s";
-  return true;
-}
-
-bool t_rpc_command_executor::get_limit_down()
-{
-  int limit_down = epee::net_utils::connection_basic::get_rate_down_limit();
-  tools::msg_writer() << "limit-down is " << limit_down/1024 << " kB/s";
-  return true;
-}
-
-bool t_rpc_command_executor::set_limit_down(uint64_t limit)
-{
-  epee::net_utils::connection_basic::set_rate_down_limit(limit);
-  tools::msg_writer() << "Set limit-down to " << limit/1024 << " kB/s";
   return true;
 }
 
