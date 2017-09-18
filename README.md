@@ -426,9 +426,11 @@ Type `thread apply all bt` within gdb in order to obtain the stack trace
 
 Enter `ulimit -c unlimited` on the command line to enable unlimited filesizes for core dumps
 
+Enter `echo core | sudo tee /proc/sys/kernel/core_pattern` to stop cores from being hijacked by other tools
+
 Run the build.
 
-When it terminates with an output along the lines of "Segmentation fault (core dumped)", there should be a core dump file in the same directory as monerod.
+When it terminates with an output along the lines of "Segmentation fault (core dumped)", there should be a core dump file in the same directory as monerod. It may be named just `core`, or `core.xxxx` with numbers appended.
 
 You can now analyse this core dump with `gdb` as follows:
 
