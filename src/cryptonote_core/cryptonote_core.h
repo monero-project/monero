@@ -463,6 +463,13 @@ namespace cryptonote
      bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
      /**
+      * @copydoc tx_memory_pool::get_pool_for_rpc
+      *
+      * @note see tx_memory_pool::get_pool_for_rpc
+      */
+     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
+
+     /**
       * @copydoc tx_memory_pool::get_transactions_count
       *
       * @note see tx_memory_pool::get_transactions_count
@@ -706,6 +713,16 @@ namespace cryptonote
       * @return true
       */
      bool are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
+
+     /**
+      * @brief check if multiple key images are spent in the transaction pool
+      *
+      * @param key_im list of key images to check
+      * @param spent return-by-reference result for each image checked
+      *
+      * @return true
+      */
+     bool are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
 
      /**
       * @brief get the number of blocks to sync in one go

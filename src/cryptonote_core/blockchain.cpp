@@ -751,7 +751,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_timestamps = timestamps;
     m_difficulties = difficulties;
   }
-  size_t target = get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+  size_t target = get_difficulty_target();
   return next_difficulty(timestamps, difficulties, target);
 }
 //------------------------------------------------------------------
@@ -1571,6 +1571,98 @@ void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_A
   output_data_t data = m_db->get_output_key(amount, i);
   oen.out_key = data.pubkey;
 }
+
+uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
+{
+  uint64_t num_outs = m_db->get_num_outputs(amount);
+  // ensure we don't include outputs that aren't yet eligible to be used
+  // outpouts are sorted by height
+  while (num_outs > 0)
+  {
+    const tx_out_index toi = m_db->get_output_tx_and_index(amount, num_outs - 1);
+    const uint64_t height = m_db->get_tx_block_height(toi.first);
+    if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height())
+      break;
+    --num_outs;
+  }
+
+  return num_outs;
+}
+
+std::vector<uint64_t> Blockchain::get_random_outputs(uint64_t amount, uint64_t count) const
+{
+  uint64_t num_outs = get_num_mature_outputs(amount);
+
+  std::vector<uint64_t> indices;
+
+  std::unordered_set<uint64_t> seen_indices;
+
+  // if there aren't enough outputs to mix with (or just enough),
+  // use all of them.  Eventually this should become impossible.
+  if (num_outs <= count)
+  {
+    for (uint64_t i = 0; i < num_outs; i++)
+    {
+      // get tx_hash, tx_out_index from DB
+      tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+
+      // if tx is unlocked, add output to indices
+      if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
+      {
+        indices.push_back(i);
+      }
+    }
+  }
+  else
+  {
+    // while we still need more mixins
+    while (indices.size() < count)
+    {
+      // if we've gone through every possible output, we've gotten all we can
+      if (seen_indices.size() == num_outs)
+      {
+        break;
+      }
+
+      // get a random output index from the DB.  If we've already seen it,
+      // return to the top of the loop and try again, otherwise add it to the
+      // list of output indices we've seen.
+
+      // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+      uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+      double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+      uint64_t i = (uint64_t)(frac*num_outs);
+      // just in case rounding up to 1 occurs after sqrt
+      if (i == num_outs)
+        --i;
+
+      if (seen_indices.count(i))
+      {
+        continue;
+      }
+      seen_indices.emplace(i);
+
+      // get tx_hash, tx_out_index from DB
+      tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+
+      // if the output's transaction is unlocked, add the output's index to
+      // our list.
+      if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
+      {
+        indices.push_back(i);
+      }
+    }
+  }
+
+  return indices;
+}
+
+crypto::public_key Blockchain::get_output_key(uint64_t amount, uint64_t global_index) const
+{
+  output_data_t data = m_db->get_output_key(amount, global_index);
+  return data.pubkey;
+}
+
 //------------------------------------------------------------------
 // This function takes an RPC request for mixins and creates an RPC response
 // with the requested mixins.
@@ -1585,80 +1677,18 @@ bool Blockchain::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUT
   // from BlockchainDB where <n> is req.outs_count (number of mixins).
   for (uint64_t amount : req.amounts)
   {
-    auto num_outs = m_db->get_num_outputs(amount);
-    // ensure we don't include outputs that aren't yet eligible to be used
-    // outpouts are sorted by height
-    while (num_outs > 0)
-    {
-      const tx_out_index toi = m_db->get_output_tx_and_index(amount, num_outs - 1);
-      const uint64_t height = m_db->get_tx_block_height(toi.first);
-      if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= m_db->height())
-        break;
-      --num_outs;
-    }
-
     // create outs_for_amount struct and populate amount field
     COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs = *res.outs.insert(res.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount());
     result_outs.amount = amount;
 
-    std::unordered_set<uint64_t> seen_indices;
+    std::vector<uint64_t> indices = get_random_outputs(amount, req.outs_count);
 
-    // if there aren't enough outputs to mix with (or just enough),
-    // use all of them.  Eventually this should become impossible.
-    if (num_outs <= req.outs_count)
+    for (auto i : indices)
     {
-      for (uint64_t i = 0; i < num_outs; i++)
-      {
-        // get tx_hash, tx_out_index from DB
-        tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
+      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry& oe = *result_outs.outs.insert(result_outs.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry());
 
-        // if tx is unlocked, add output to result_outs
-        if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
-        {
-          add_out_to_get_random_outs(result_outs, amount, i);
-        }
-
-      }
-    }
-    else
-    {
-      // while we still need more mixins
-      while (result_outs.outs.size() < req.outs_count)
-      {
-        // if we've gone through every possible output, we've gotten all we can
-        if (seen_indices.size() == num_outs)
-        {
-          break;
-        }
-
-        // get a random output index from the DB.  If we've already seen it,
-        // return to the top of the loop and try again, otherwise add it to the
-        // list of output indices we've seen.
-
-        // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
-        uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
-        double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
-        uint64_t i = (uint64_t)(frac*num_outs);
-        // just in case rounding up to 1 occurs after sqrt
-        if (i == num_outs)
-          --i;
-
-        if (seen_indices.count(i))
-        {
-          continue;
-        }
-        seen_indices.emplace(i);
-
-        // get tx_hash, tx_out_index from DB
-        tx_out_index toi = m_db->get_output_tx_and_index(amount, i);
-
-        // if the output's transaction is unlocked, add the output's index to
-        // our list.
-        if (is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first)))
-        {
-          add_out_to_get_random_outs(result_outs, amount, i);
-        }
-      }
+      oe.global_amount_index = i;
+      oe.out_key = get_output_key(amount, i);
     }
   }
   return true;
@@ -1814,6 +1844,15 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
     res.outs.push_back({od.pubkey, od.commitment, unlocked, od.height, toi.first});
   }
   return true;
+}
+//------------------------------------------------------------------
+void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const
+{
+  const auto o_data = m_db->get_output_key(amount, index);
+  key = o_data.pubkey;
+  mask = o_data.commitment;
+  tx_out_index toi = m_db->get_output_tx_and_index(amount, index);
+  unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 }
 //------------------------------------------------------------------
 // This function takes a list of block hashes from another node
@@ -2025,27 +2064,38 @@ void Blockchain::print_blockchain_outs(const std::string& file) const
 // Find the split point between us and foreign blockchain and return
 // (by reference) the most recent common block hash along with up to
 // BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
-bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   // if we can't find the split point, return false
-  if(!find_blockchain_supplement(qblock_ids, resp.start_height))
+  if(!find_blockchain_supplement(qblock_ids, start_height))
   {
     return false;
   }
 
   m_db->block_txn_start(true);
-  resp.total_height = get_current_blockchain_height();
+  current_height = get_current_blockchain_height();
   size_t count = 0;
-  for(size_t i = resp.start_height; i < resp.total_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
+  for(size_t i = start_height; i < current_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
-    resp.m_block_ids.push_back(m_db->get_block_hash_from_height(i));
+    hashes.push_back(m_db->get_block_hash_from_height(i));
   }
-  resp.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
+
   m_db->block_txn_stop();
   return true;
+}
+
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  bool result = find_blockchain_supplement(qblock_ids, resp.m_block_ids, resp.start_height, resp.total_height);
+  resp.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->height() - 1);
+
+  return result;
 }
 //------------------------------------------------------------------
 //FIXME: change argument to std::vector, low priority
@@ -4084,6 +4134,11 @@ HardFork::State Blockchain::get_hard_fork_state() const
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
   return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
+}
+
+uint64_t Blockchain::get_difficulty_target() const
+{
+  return get_current_hard_fork_version() < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 }
 
 std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> Blockchain:: get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const

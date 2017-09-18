@@ -810,6 +810,13 @@ namespace cryptonote
     return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
+  {
+    spent.clear();
+
+    return m_mempool.check_for_key_images(key_im, spent);
+  }
+  //-----------------------------------------------------------------------------------------------
   std::pair<uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
   {
     uint64_t emission_amount = 0;
@@ -1198,6 +1205,11 @@ namespace cryptonote
   bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {
     return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
+  {
+    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids) const

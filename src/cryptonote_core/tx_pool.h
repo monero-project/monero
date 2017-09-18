@@ -46,6 +46,7 @@
 #include "blockchain_db/blockchain_db.h"
 #include "crypto/hash.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "rpc/message_data_structs.h"
 
 namespace cryptonote
 {
@@ -267,6 +268,28 @@ namespace cryptonote
      * @return true
      */
     bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
+
+    /**
+     * @brief get information about all transactions and key images in the pool
+     *
+     * see documentation on tx_in_pool and key_images_with_tx_hashes for more details
+     *
+     * @param tx_infos [out] the transactions' information
+     * @param key_image_infos [out] the spent key images' information
+     *
+     * @return true
+     */
+    bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
+
+    /**
+     * @brief check for presence of key images in the pool
+     *
+     * @param key_images [in] vector of key images to check
+     * @param spent [out] vector of bool to return
+     *
+     * @return true
+     */
+    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool> spent) const;
 
     /**
      * @brief get a specific transaction from the pool
