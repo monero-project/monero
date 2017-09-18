@@ -165,12 +165,12 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="403"/>
         <source>failed to parse address</source>
-        <translation>Analisi(parse) indirizzo fallita</translation>
+        <translation>Analisi dell' indirizzo fallita</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="415"/>
         <source>failed to parse secret spend key</source>
-        <translation>Impossibile analizzare(parse) la chiave segreta di spesa</translation>
+        <translation>Impossibile analizzare la chiave segreta di spesa</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="425"/>
@@ -185,7 +185,7 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="442"/>
         <source>failed to verify secret spend key</source>
-        <translation>impossibile verificare chiave di spesa segreta</translation>
+        <translation>impossibile verificare chiave segreta di spesa</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="447"/>
