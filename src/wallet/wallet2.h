@@ -600,6 +600,8 @@ namespace tools
     bool merge_destinations() const { return m_merge_destinations; }
     bool confirm_backlog() const { return m_confirm_backlog; }
     void confirm_backlog(bool always) { m_confirm_backlog = always; }
+    void set_confirm_backlog_threshold(uint32_t threshold) { m_confirm_backlog_threshold = threshold; };
+    uint32_t get_confirm_backlog_threshold() const { return m_confirm_backlog_threshold; };
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
 
@@ -773,6 +775,7 @@ namespace tools
     uint64_t m_min_output_value;
     bool m_merge_destinations;
     bool m_confirm_backlog;
+    uint32_t m_confirm_backlog_threshold;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
