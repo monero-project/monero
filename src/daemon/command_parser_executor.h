@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include <boost/optional/optional_fwd.hpp>
+#include <boost/optional/optional.hpp>
 
 #include "daemon/rpc_command_executor.h"
 #include "common/common_fwd.h"
