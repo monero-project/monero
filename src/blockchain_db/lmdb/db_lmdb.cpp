@@ -2420,8 +2420,8 @@ bool BlockchainLMDB::for_blocks_range(const uint64_t& h1, const uint64_t& h2, st
   MDB_cursor_op op;
   if (h1)
   {
-    MDB_val_set(k, h1);
-	op = MDB_SET;
+    k = MDB_val{sizeof(h1), (void*)&h1};
+    op = MDB_SET;
   } else
   {
     op = MDB_FIRST;
