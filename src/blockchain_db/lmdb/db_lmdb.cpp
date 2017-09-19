@@ -1647,9 +1647,9 @@ bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&,
     const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
     const cryptonote::blobdata *passed_bd = NULL;
     cryptonote::blobdata bd;
+    MDB_val b;
     if (include_blob)
     {
-      MDB_val b;
       result = mdb_cursor_get(m_cur_txpool_blob, &k, &b, MDB_SET);
       if (result == MDB_NOTFOUND)
         throw0(DB_ERROR("Failed to find txpool tx blob to match metadata"));
