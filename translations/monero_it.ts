@@ -6,17 +6,17 @@
     <message>
         <location filename="../src/wallet/api/address_book.cpp" line="55"/>
         <source>Invalid destination address</source>
-        <translation>Indirizzo destinatario invalido</translation>
+        <translation>Indirizzo destinatario non valido</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/address_book.cpp" line="65"/>
         <source>Invalid payment ID. Short payment ID should only be used in an integrated address</source>
-        <translation>ID pagamento invalido. Il pagamento ID corto dovrebbe essere usato solo in un indirizzo integrato</translation>
+        <translation>ID pagamento non valido. Il pagamento ID corto dovrebbe essere usato solo in un indirizzo integrato</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/address_book.cpp" line="72"/>
         <source>Invalid payment ID</source>
-        <translation>ID pagamento invalido</translation>
+        <translation>ID pagamento non valido</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/address_book.cpp" line="79"/>
@@ -2660,7 +2660,7 @@ Outputs per *: </source>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1789"/>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1814"/>
         <source>Storing wallet...</source>
-        <translation>Sto conservando il portafoglio...</translation>
+        <translation>Sto salvando il portafoglio...</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1791"/>
@@ -2725,7 +2725,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="88"/>
         <source>Specify log file</source>
-        <translation>Specificare log file</translation>
+        <translation>Specificare file di log</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="89"/>
@@ -2750,7 +2750,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="173"/>
         <source>Logging to %s</source>
-        <translation>Loggando in %s</translation>
+        <translation>Sto salvando il Log in %s</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="153"/>
