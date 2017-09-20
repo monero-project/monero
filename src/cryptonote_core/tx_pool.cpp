@@ -1090,12 +1090,13 @@ namespace cryptonote
 
     m_txs_by_fee_and_receive_time.clear();
     m_spent_key_images.clear();
-    return m_blockchain.for_all_txpool_txes([this](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
+    std::vector<crypto::hash> remove;
+    bool r = m_blockchain.for_all_txpool_txes([this, &remove](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
       cryptonote::transaction tx;
       if (!parse_and_validate_tx_from_blob(*bd, tx))
       {
-        MERROR("Failed to parse tx from txpool");
-        return false;
+        MWARNING("Failed to parse tx from txpool, removing");
+        remove.push_back(txid);
       }
       if (!insert_key_images(tx, meta.kept_by_block))
       {
@@ -1105,6 +1106,25 @@ namespace cryptonote
       m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.blob_size, meta.receive_time), txid);
       return true;
     }, true);
+    if (!r)
+      return false;
+    if (!remove.empty())
+    {
+      LockedTXN lock(m_blockchain);
+      for (const auto &txid: remove)
+      {
+        try
+        {
+          m_blockchain.remove_txpool_tx(txid);
+        }
+        catch (const std::exception &e)
+        {
+          MWARNING("Failed to remove corrupt transaction: " << txid);
+          // ignore error
+        }
+      }
+    }
+    return true;
   }
 
   //---------------------------------------------------------------------------------
