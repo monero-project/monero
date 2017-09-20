@@ -49,10 +49,11 @@ namespace rct {
         int naught = 0, prime = 0, ii = 0, jj=0;
         boroSig bb;
         for (ii = 0 ; ii < 64 ; ii++) {
-            naught = indices[ii]; prime = (indices[ii] + 1) % 2;
+            naught = indices[ii]; 
             skGen(alpha[ii]);
             scalarmultBase(L[naught][ii], alpha[ii]);
             if (naught == 0) {
+                prime = (indices[ii] + 1) % 2;
                 skGen(bb.s1[ii]);
                 c = hash_to_scalar(L[naught][ii]);
                 addKeys2(L[prime][ii], bb.s1[ii], c, P2[ii]);
