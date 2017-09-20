@@ -5536,7 +5536,7 @@ std::string wallet2::decrypt(const std::string &ciphertext, const crypto::secret
     crypto::secret_key_to_public_key(skey, pkey);
     const crypto::signature &signature = *(const crypto::signature*)&ciphertext[ciphertext.size() - sizeof(crypto::signature)];
     THROW_WALLET_EXCEPTION_IF(!crypto::check_signature(hash, pkey, signature),
-      error::wallet_internal_error, "Failed to authenticate criphertext");
+      error::wallet_internal_error, "Failed to authenticate ciphertext");
   }
   crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
   return plaintext;
