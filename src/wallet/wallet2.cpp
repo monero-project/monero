@@ -33,6 +33,7 @@
 #include <boost/format.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/value_init.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -417,6 +418,20 @@ static void throw_on_rpc_response_error(const boost::optional<std::string> &stat
 
   THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
   THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, *status);
+}
+
+std::string strjoin(const std::vector<size_t> &V, const char *sep)
+{
+  std::stringstream ss;
+  bool first = true;
+  for (const auto &v: V)
+  {
+    if (!first)
+      ss << sep;
+    ss << std::to_string(v);
+    first = false;
+  }
+  return ss.str();
 }
 
 } //namespace
@@ -4437,12 +4452,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     TX &tx = txes.back();
 
     LOG_PRINT_L2("Start of loop with " << unused_transfers_indices.size() << " " << unused_dust_indices.size());
-    LOG_PRINT_L2("unused_transfers_indices:");
-    for (auto t: unused_transfers_indices)
-      LOG_PRINT_L2("  " << t);
-    LOG_PRINT_L2("unused_dust_indices:");
-    for (auto t: unused_dust_indices)
-      LOG_PRINT_L2("  " << t);
+    LOG_PRINT_L2("unused_transfers_indices: " << strjoin(unused_transfers_indices, " "));
+    LOG_PRINT_L2("unused_dust_indices:" << strjoin(unused_dust_indices, " "));
     LOG_PRINT_L2("dsts size " << dsts.size() << ", first " << (dsts.empty() ? -1 : dsts[0].amount));
     LOG_PRINT_L2("adding_fee " << adding_fee << ", use_rct " << use_rct);
 
