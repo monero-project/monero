@@ -39,17 +39,17 @@
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="114"/>
         <source>daemon is busy. Please try again later.</source>
-        <translation>Il demone è impegnato. Prova più tardi.</translation>
+        <translation>Il daemon è impegnato. Prova più tardi.</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="117"/>
         <source>no connection to daemon. Please make sure daemon is running.</source>
-        <translation>Nessuna connessione con il demone. Controlla che sia operativo.</translation>
+        <translation>Nessuna connessione con il daemon. Controlla che sia operativo.</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="121"/>
         <source>transaction %s was rejected by daemon with status: </source>
-        <translation>La transazione %s è stata respinta dal demone con status: </translation>
+        <translation>La transazione %s è stata respinta dal daemon con status: </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="126"/>
@@ -137,13 +137,13 @@
         <location filename="../src/wallet/api/wallet.cpp" line="978"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1072"/>
         <source>daemon is busy. Please try again later.</source>
-        <translation>il demone è impegnato. Prova più tardi</translation>
+        <translation>il daemon è impegnato. Prova più tardi</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="981"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1075"/>
         <source>no connection to daemon. Please make sure daemon is running.</source>
-        <translation>nessuna connessione con il demone. Accertati che sia operativo</translation>
+        <translation>nessuna connessione con il daemon. Accertati che sia operativo</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="984"/>
@@ -170,7 +170,7 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="415"/>
         <source>failed to parse secret spend key</source>
-        <translation>Impossibile analizzare la chiave segreta di spesa</translation>
+        <translation>Impossibile fare il parsing della chiave segreta di spesa</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="425"/>
@@ -180,7 +180,7 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="432"/>
         <source>failed to parse secret view key</source>
-        <translation>Impossibile analizzare la chiave segreta di visualizzazione</translation>
+        <translation>Impossibile fare il parsing della chiave segreta di visualizzazione</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="442"/>
@@ -271,7 +271,7 @@
         <location filename="../src/wallet/api/wallet.cpp" line="1023"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1117"/>
         <source>transaction %s was rejected by daemon with status: </source>
-        <translation>la transazione %s è stata rifiutata dal demone con status: </translation>
+        <translation>la transazione %s è stata rifiutata dal daemon con status: </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1030"/>
@@ -312,7 +312,7 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1419"/>
         <source>Rescan spent can only be used with a trusted daemon</source>
-        <translation>&quot;riscannerizza spesi&quot; può essere utilizzato solo da un demone fidato</translation>
+        <translation>&quot;riscannerizza spesi&quot; può essere utilizzato solo da un daemon fidato</translation>
     </message>
 </context>
 <context>
@@ -336,22 +336,22 @@
     <message>
         <location filename="../src/wallet/api/wallet_manager.cpp" line="227"/>
         <source>failed to get transaction from daemon</source>
-        <translation>impossibile recuperare la transazione dal demone</translation>
+        <translation>impossibile recuperare la transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet_manager.cpp" line="238"/>
         <source>failed to parse transaction from daemon</source>
-        <translation>impossibile analizzare la transazione dal demone</translation>
+        <translation>impossibile fare il parsing della transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet_manager.cpp" line="245"/>
         <source>failed to validate transaction from daemon</source>
-        <translation>convalida transazione dal demone fallita</translation>
+        <translation>convalida transazione dal daemon fallita</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet_manager.cpp" line="250"/>
         <source>failed to get the right transaction from daemon</source>
-        <translation>Impossibile recuperare la giusta transazione dal demone</translation>
+        <translation>Impossibile recuperare la giusta transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet_manager.cpp" line="257"/>
@@ -468,12 +468,12 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="697"/>
         <source>start_mining [&lt;number_of_threads&gt;] - Start mining in daemon</source>
-        <translation>start_mining [&lt;number_of_threads&gt;] - Avvia mining nel demone</translation>
+        <translation>start_mining [&lt;number_of_threads&gt;] - Avvia mining nel daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="698"/>
         <source>Stop mining in daemon</source>
-        <translation>Interrompi mining nel demone</translation>
+        <translation>Interrompi mining nel daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="699"/>
@@ -590,7 +590,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1261"/>
         <source>wallet failed to connect to daemon: </source>
-        <translation>impossibile connettere il portafoglio al demone: </translation>
+        <translation>impossibile connettere il portafoglio al daemon: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1269"/>
@@ -666,7 +666,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1613"/>
         <source>Mining started in daemon</source>
-        <translation>Mining avviato nel demone</translation>
+        <translation>Mining avviato nel daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1615"/>
@@ -676,7 +676,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1634"/>
         <source>Mining stopped in daemon</source>
-        <translation>Mining nel demone interrotto</translation>
+        <translation>Mining nel daemon interrotto</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1636"/>
@@ -887,7 +887,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3137"/>
         <source>daemon is busy. Please try later</source>
-        <translation>il demone è occupato. Prova più tardi</translation>
+        <translation>il daemon è occupato. Prova più tardi</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1745"/>
@@ -1019,7 +1019,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1212"/>
         <source>Daemon is local, assuming trusted</source>
-        <translation>Il demone è locale, viene considerato fidato</translation>
+        <translation>Il daemon è locale, viene considerato fidato</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1553"/>
@@ -1224,7 +1224,7 @@ Warning: Some input keys being spent are from </source>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2298"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2762"/>
         <source>No outputs found, or daemon is not ready</source>
-        <translation>Nessun output trovato, o il demone non è pronto</translation>
+        <translation>Nessun output trovato, o il daemon non è pronto</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2399"/>
@@ -1278,7 +1278,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="266"/>
         <source>failed to parse refresh type</source>
-        <translation>impossibile analizzare tipo di refresh</translation>
+        <translation>impossibile fare il parsing del tipo di refresh</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="330"/>
@@ -1388,7 +1388,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="723"/>
         <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
-        <translation>Opzioni disponibili: seed language - seleziona lingua seed del wallet; always-confirm-transfers &lt;1|0&gt; - se confermare unsplit txes; print-ring-members &lt;1|0&gt; - se mostrare informazioni dettagliate sui ring members durante le conferme; store-tx-info &lt;1|0&gt; - se salvare le informazioni tx in uscita (indirizzo di destinazione, payment ID, chiave tx segreta) per riferimento futuro; default-mixin &lt;n&gt; - imposta default mixin (default è 4); auto-refresh &lt;1|0&gt; - se sincronizzare automaticamente i nuovi blocchi dal demone; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - imposta modalità wallet refresh; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - imposta default monero (sub-)unit; min-outputs-count [n] - cerca di mantenere come minimo tanti outputs quanti il valore di min-outputs-value; min-outputs-value [n] - cerca di mantenere i min-outputs-count outputs come minimo a questo valore; merge-destinations &lt;1|0&gt; - se fondere pagamenti multipli allo stessp indirizzo di destinazione</translation>
+        <translation>Opzioni disponibili: seed language - seleziona lingua seed del wallet; always-confirm-transfers &lt;1|0&gt; - se confermare unsplit txes; print-ring-members &lt;1|0&gt; - se mostrare informazioni dettagliate sui ring members durante le conferme; store-tx-info &lt;1|0&gt; - se salvare le informazioni tx in uscita (indirizzo di destinazione, payment ID, chiave tx segreta) per riferimento futuro; default-mixin &lt;n&gt; - imposta default mixin (default è 4); auto-refresh &lt;1|0&gt; - se sincronizzare automaticamente i nuovi blocchi dal daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - imposta modalità wallet refresh; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - imposta default monero (sub-)unit; min-outputs-count [n] - cerca di mantenere come minimo tanti outputs quanti il valore di min-outputs-value; min-outputs-value [n] - cerca di mantenere i min-outputs-count outputs come minimo a questo valore; merge-destinations &lt;1|0&gt; - se fondere pagamenti multipli allo stessp indirizzo di destinazione</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="724"/>
@@ -1535,13 +1535,13 @@ Warning: Some input keys being spent are from </source>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4048"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4239"/>
         <source>failed to parse address</source>
-        <translation>impossibile analizzare indirizzo</translation>
+        <translation>impossibile fare il parsing dell&apos;indirizzo</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1017"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1085"/>
         <source>failed to parse view key secret key</source>
-        <translation>impossibile analizzare chiave di visualizzazione chiave segreta</translation>
+        <translation>impossibile fare il parsing della chiave di visualizzazione chiave segreta</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1027"/>
@@ -1565,7 +1565,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1069"/>
         <source>failed to parse spend key secret key</source>
-        <translation>impossibile analizzare chiave di spesa chiave segreta</translation>
+        <translation>impossibile fare il parsing di chiave di spesa chiave segreta</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1095"/>
@@ -1599,7 +1599,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1262"/>
         <source>Daemon either is not started or wrong port was passed. Please make sure daemon is running or restart the wallet with the correct daemon address.</source>
-        <translation>Il demone non è partito o è settato con la porta sbagliata. Assicurati che il demone stia funzionando o fai ripartire il wallet con l&apos;indirizzo corretto del demone</translation>
+        <translation>Il daemon non è partito o è settato con la porta sbagliata. Assicurati che il daemon stia funzionando o fai ripartire il wallet con l&apos;indirizzo corretto del daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1306"/>
@@ -1623,7 +1623,7 @@ current session&apos;s state. Otherwise, you might need to synchronize
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Il tuo portafoglio è stato generato!
-Per iniziare a sincronizzarlo con il demone, usa il comando &quot;refresh&quot;.
+Per iniziare a sincronizzarlo con il daemon, usa il comando &quot;refresh&quot;.
 Usa il comando &quot;help&quot; per vedere la lista dei comandi disponibili.
 Usa sempre il comando &quot;exit&quot; quando chiudi monero-wallet-cli per salvare
 lo stato della tua sessione &apos;s corrente. Altrimenti potresti dover sincronizzare 
@@ -1643,7 +1643,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
         <location filename="../src/simplewallet/simplewallet.cpp" line="1570"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1968"/>
         <source>this command requires a trusted daemon. Enable with --trusted-daemon</source>
-        <translation>questo comando richiede un demone fidato. Abilita questa opzione con --trusted-daemon</translation>
+        <translation>questo comando richiede un daemon fidato. Abilita questa opzione con --trusted-daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1657"/>
@@ -1657,7 +1657,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
         <location filename="../src/simplewallet/simplewallet.cpp" line="2563"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2824"/>
         <source>daemon is busy. Please try again later.</source>
-        <translation>il demone è impegnato. Prova più tardi</translation>
+        <translation>il daemon è impegnato. Prova più tardi</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1740"/>
@@ -1666,7 +1666,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
         <location filename="../src/simplewallet/simplewallet.cpp" line="2567"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2828"/>
         <source>no connection to daemon. Please make sure daemon is running.</source>
-        <translation>nessuna connessione con il demone. Assicurati che sia in funzione</translation>
+        <translation>nessuna connessione con il daemon. Assicurati che sia in funzione</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1750"/>
@@ -1772,7 +1772,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3289"/>
         <source>failed to parse tx_key</source>
-        <translation>impossibile analizzare tx_key</translation>
+        <translation>impossibile fare il parsing del tx_key</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3298"/>
@@ -1844,7 +1844,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4027"/>
         <source>failed to parse payment ID or address</source>
-        <translation>impossibile analizzare (parse) ID pagamento o indirizzo</translation>
+        <translation>impossibile fare il parsing di ID pagamento o indirizzo</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4038"/>
@@ -1854,12 +1854,12 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4070"/>
         <source>failed to parse payment ID</source>
-        <translation>impossibile analizzare (parse) ID pagamento</translation>
+        <translation>impossibile fare il parsing di ID pagamento</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4088"/>
         <source>failed to parse index</source>
-        <translation>impossibile analizzare (parse) indice</translation>
+        <translation>impossibile fare il parsing dell&apos;indice</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4096"/>
@@ -1989,7 +1989,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3141"/>
         <source>no connection to daemon. Please, make sure daemon is running.</source>
-        <translation>nessuna connessione con il demone, assicurati che stia funzionando.</translation>
+        <translation>nessuna connessione con il daemon, assicurati che stia funzionando.</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2420"/>
@@ -2029,7 +2029,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
         <location filename="../src/simplewallet/simplewallet.cpp" line="2870"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3183"/>
         <source>transaction %s was rejected by daemon with status: </source>
-        <translation>la transazione %s è stata respinta dal demone con status: </translation>
+        <translation>la transazione %s è stata respinta dal daemon con status: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2443"/>
@@ -2119,31 +2119,31 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
         <location filename="../src/simplewallet/simplewallet.cpp" line="3361"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3368"/>
         <source>failed to parse tx key</source>
-        <translation>impossibile analizzare chiave tx</translation>
+        <translation>impossibile fare il parsing della chiave tx</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3400"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3573"/>
         <source>failed to get transaction from daemon</source>
-        <translation>impossibile recuperare transazione dal demone</translation>
+        <translation>impossibile recuperare transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3411"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3584"/>
         <source>failed to parse transaction from daemon</source>
-        <translation>impossibile analizzare la transazione dal demone</translation>
+        <translation>impossibile fare il parsing della transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3418"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3591"/>
         <source>failed to validate transaction from daemon</source>
-        <translation>convalida transazione dal demone fallita</translation>
+        <translation>convalida transazione dal daemon fallita</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3423"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3596"/>
         <source>failed to get the right transaction from daemon</source>
-        <translation>impossibile recuperare la corretta transazione dal demone</translation>
+        <translation>impossibile recuperare la corretta transazione dal daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3385"/>
@@ -2381,12 +2381,12 @@ Outputs per *: </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="123"/>
         <source>Enable commands which rely on a trusted daemon</source>
-        <translation>Abilita comandi dipendenti da un demone fidato</translation>
+        <translation>Abilita comandi dipendenti da un daemon fidato</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="124"/>
         <source>Allow communicating with a daemon that uses a different RPC version</source>
-        <translation>Permetti comunicazioni con un demone che usa una versione RPC differente</translation>
+        <translation>Permetti comunicazioni con un daemon che usa una versione RPC differente</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="125"/>
@@ -2396,12 +2396,12 @@ Outputs per *: </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="136"/>
         <source>daemon is busy. Please try again later.</source>
-        <translation>il demone è occupato. Prova più tardi.</translation>
+        <translation>il daemon è occupato. Prova più tardi.</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="145"/>
         <source>possibly lost connection to daemon</source>
-        <translation>possibile perdita di connessione con il demone</translation>
+        <translation>possibile perdita di connessione con il daemon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="226"/>
@@ -2452,12 +2452,12 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="106"/>
         <source>Use daemon instance at &lt;host&gt;:&lt;port&gt;</source>
-        <translation>Usa instanza demone in &lt;host&gt;:&lt;port&gt;</translation>
+        <translation>Usa instanza daemon in &lt;host&gt;:&lt;port&gt;</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="107"/>
         <source>Use daemon instance at host &lt;arg&gt; instead of localhost</source>
-        <translation>Usa istanza demone all&apos;host &lt;arg&gt; invece che localhost</translation>
+        <translation>Usa istanza daemon all&apos;host &lt;arg&gt; invece che localhost</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="460"/>
@@ -2472,12 +2472,12 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="110"/>
         <source>Use daemon instance at port &lt;arg&gt; instead of 18081</source>
-        <translation>Usa istanza demone alla porta &lt;arg&gt; invece che alla 18081</translation>
+        <translation>Usa istanza daemon alla porta &lt;arg&gt; invece che alla 18081</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="112"/>
         <source>For testnet. Daemon must also be launched with --testnet flag</source>
-        <translation>Per testnet. Il demone può anche essere lanciato con la flag --testnet</translation>
+        <translation>Per testnet. Il daemon può anche essere lanciato con la flag --testnet</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="113"/>
@@ -2487,7 +2487,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="152"/>
         <source>can&apos;t specify daemon host or port more than once</source>
-        <translation>non puoi specificare la porta o l&apos;host del demone più di una volta</translation>
+        <translation>non puoi specificare la porta o l&apos;host del daemon più di una volta</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="188"/>
@@ -2527,7 +2527,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="233"/>
         <source>Failed to parse JSON</source>
-        <translation>Impossibile analizzare JSON</translation>
+        <translation>Impossibile fare il parsing di JSON</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="240"/>
@@ -2537,7 +2537,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="258"/>
         <source>failed to parse view key secret key</source>
-        <translation>impossibile analizzare chiave di visualizzazione chiave segreta</translation>
+        <translation>impossibile fare il parsing di chiave di visualizzazione chiave segreta</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="264"/>
@@ -2549,7 +2549,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="276"/>
         <source>failed to parse spend key secret key</source>
-        <translation>impossibile analizzare chiave di spesa chiave segreta</translation>
+        <translation>impossibile fare il parsing di chiave di spesa chiave segreta</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="282"/>
@@ -2609,7 +2609,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="151"/>
         <source>Daemon is local, assuming trusted</source>
-        <translation>Il demone è locale, viene considerato fidato</translation>
+        <translation>Il daemon è locale, viene considerato fidato</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="171"/>
