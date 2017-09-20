@@ -105,7 +105,7 @@ namespace nodetool
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     bool send_stop_signal();
-    uint32_t get_this_peer_port(){return m_listenning_port;}
+    uint32_t get_this_peer_port(){return m_listening_port;}
     t_payload_net_handler& get_payload_object();
 
     template <class Archive, class t_version_type>
@@ -218,6 +218,8 @@ namespace nodetool
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
     bool is_addr_connected(const epee::net_utils::network_address& peer);
+    void add_upnp_port_mapping(uint32_t port);
+    void delete_upnp_port_mapping(uint32_t port);
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
@@ -287,7 +289,7 @@ namespace nodetool
 
     bool m_have_address;
     bool m_first_connection_maker_call;
-    uint32_t m_listenning_port;
+    uint32_t m_listening_port;
     uint32_t m_external_port;
     uint32_t m_ip_address;
     bool m_allow_local_ip;
