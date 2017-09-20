@@ -319,6 +319,12 @@ else()
   message(STATUS "Stack trace on exception disabled")
 endif()
 
+if (UNIX AND NOT APPLE)
+  # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads)
+endif()
+
 # Handle OpenSSL, used for sha256sum on binary updates
 if (APPLE AND NOT IOS)
   if (NOT OpenSSL_DIR)
@@ -332,14 +338,8 @@ endif()
 find_package(OpenSSL REQUIRED)
 if(STATIC AND NOT IOS)
   if(UNIX)
-    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS}")
+    set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS};${CMAKE_THREAD_LIBS_INIT}")
   endif()
-endif()
-
-if (UNIX AND NOT APPLE)
-  # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads)
 endif()
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
