@@ -209,13 +209,13 @@ invokes cmake commands as needed.
 
         HAVE_DOT=YES doxygen Doxyfile
 
-#### On the Raspberry Pi 2
+#### On the Raspberry Pi
 
-Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from https://www.raspberrypi.org/downloads/raspbian/
+Tested on a Raspberry Pi Zero with a clean install of minimal Debian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/
 
 * `apt-get update && apt-get upgrade` to install all of the latest software
 
-* Install the dependencies for Monero except libunwind and libboost-all-dev
+* Install the dependencies for Monero from the 'Debian' column in the table above.
 
 * Increase the system swap size:
 ```	
@@ -224,27 +224,17 @@ Tested on a Raspberry Pi 2 with a clean install of minimal Debian Jessie from ht
 	CONF_SWAPSIZE=1024  
 	sudo /etc/init.d/dphys-swapfile start  
 ```
-* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
+* Clone monero and checkout most recent release version:
 ```
-	cd  
-	wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2  
-	tar xvfo boost_1_64_0.tar.bz2  
-	cd boost_1_64_0  
-	./bootstrap.sh  
-	sudo ./b2  
+        git clone https://github.com/monero-project/monero.git
+	cd monero
+	git checkout tags/v0.11.0.0
 ```
-* Wait ~8 hours
+* Build:
 ```
-	sudo ./bjam install
-```
-* Wait ~4 hours
-
-* Change to the root of the source code directory and build:
-```
-        cd monero
         make release
 ```
-* Wait ~4 hours
+* Wait 4-6 hours
 
 * The resulting executables can be found in `build/release/bin`
 
