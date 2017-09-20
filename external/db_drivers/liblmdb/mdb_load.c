@@ -37,6 +37,7 @@ static int Eof;
 static MDB_envinfo info;
 
 static MDB_val kbuf, dbuf;
+static MDB_val k0buf;
 
 #ifdef _WIN32
 #define Z	"I"
@@ -285,8 +286,13 @@ badend:
 
 static void usage(void)
 {
-	fprintf(stderr, "usage: %s [-V] [-f input] [-n] [-s name] [-N] [-T] dbpath\n", prog);
+	fprintf(stderr, "usage: %s [-V] [-a] [-f input] [-n] [-s name] [-N] [-T] dbpath\n", prog);
 	exit(EXIT_FAILURE);
+}
+
+static int greater(const MDB_val *a, const MDB_val *b)
+{
+	return 1;
 }
 
 int main(int argc, char *argv[])
@@ -298,7 +304,8 @@ int main(int argc, char *argv[])
 	MDB_dbi dbi;
 	char *envname;
 	int envflags = 0, putflags = 0;
-	int dohdr = 0;
+	int dohdr = 0, append = 0;
+	MDB_val prevk;
 
 	prog = argv[0];
 
@@ -306,18 +313,22 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	/* -f: load file instead of stdin
+	/* -a: append records in input order
+	 * -f: load file instead of stdin
 	 * -n: use NOSUBDIR flag on env_open
 	 * -s: load into named subDB
 	 * -N: use NOOVERWRITE on puts
 	 * -T: read plaintext
 	 * -V: print version and exit
 	 */
-	while ((i = getopt(argc, argv, "f:ns:NTV")) != EOF) {
+	while ((i = getopt(argc, argv, "af:ns:NTV")) != EOF) {
 		switch(i) {
 		case 'V':
 			printf("%s\n", MDB_VERSION_STRING);
 			exit(0);
+			break;
+		case 'a':
+			append = 1;
 			break;
 		case 'f':
 			if (freopen(optarg, "r", stdin) == NULL) {
@@ -377,12 +388,17 @@ int main(int argc, char *argv[])
 	}
 
 	kbuf.mv_size = mdb_env_get_maxkeysize(env) * 2 + 2;
-	kbuf.mv_data = malloc(kbuf.mv_size);
+	kbuf.mv_data = malloc(kbuf.mv_size * 2);
+	k0buf.mv_size = kbuf.mv_size;
+	k0buf.mv_data = (char *)kbuf.mv_data + kbuf.mv_size;
+	prevk.mv_size = 0;
+	prevk.mv_data = k0buf.mv_data;
 
 	while(!Eof) {
 		MDB_val key, data;
 		int batch = 0;
 		flags = 0;
+		int appflag;
 
 		if (!dohdr) {
 			dohdr = 1;
@@ -399,6 +415,11 @@ int main(int argc, char *argv[])
 		if (rc) {
 			fprintf(stderr, "mdb_open failed, error %d %s\n", rc, mdb_strerror(rc));
 			goto txn_abort;
+		}
+		if (append) {
+			mdb_set_compare(txn, dbi, greater);
+			if (flags & MDB_DUPSORT)
+				mdb_set_dupsort(txn, dbi, greater);
 		}
 
 		rc = mdb_cursor_open(txn, dbi, &mc);
@@ -418,7 +439,20 @@ int main(int argc, char *argv[])
 				goto txn_abort;
 			}
 
-			rc = mdb_cursor_put(mc, &key, &data, putflags);
+			if (append) {
+				appflag = MDB_APPEND;
+				if (flags & MDB_DUPSORT) {
+					if (prevk.mv_size == key.mv_size && !memcmp(prevk.mv_data, key.mv_data, key.mv_size))
+						appflag = MDB_APPENDDUP;
+					else {
+						memcpy(prevk.mv_data, key.mv_data, key.mv_size);
+						prevk.mv_size = key.mv_size;
+					}
+				}
+			} else {
+				appflag = 0;
+			}
+			rc = mdb_cursor_put(mc, &key, &data, putflags|appflag);
 			if (rc == MDB_KEYEXIST && putflags)
 				continue;
 			if (rc) {
