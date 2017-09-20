@@ -241,7 +241,7 @@
         <location filename="../src/wallet/api/wallet.cpp" line="1003"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1097"/>
         <source>not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)</source>
-        <translation>Non hai abbastanza fondi da trasferire, disponibili solo %s, ammontare transazione %s = %s + %s (tassa)</translation>
+        <translation>Non hai abbastanza fondi da trasferire, disponibili solo %s, ammontare transazione %s = %s + %s (commissione)</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1012"/>
@@ -301,7 +301,7 @@
         <location filename="../src/wallet/api/wallet.cpp" line="1042"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1136"/>
         <source>unexpected error: </source>
-        <translation>errore insaspettato: </translation>
+        <translation>errore inaspettato: </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1045"/>
@@ -430,7 +430,7 @@
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="66"/>
         <source>Invalid IP address given for --</source>
-        <translation>Indirizzo IP invalido dato per --</translation>
+        <translation>Indirizzo IP non valido dato per --</translation>
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="74"/>
@@ -538,12 +538,12 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="728"/>
         <source>Check tx proof for payment going to &lt;address&gt; in &lt;txid&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>Verifica tx proof per pagamento inviato a &lt;indirizzo&gt; in &lt;txid&gt;</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="743"/>
         <source>Generate a new random full size payment id - these will be unencrypted on the blockchain, see integrated_address for encrypted short payment ids</source>
-        <translation type="unfinished"></translation>
+        <translation>Genera un nuovo payment id casuale di dimensione completa - queste non saranno crittate nel blockchain, considera integrated_address per payment ids corti crittati</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="774"/>
@@ -564,7 +564,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="800"/>
         <source>integer &gt;= 2</source>
-        <translation type="unfinished"></translation>
+        <translation>integrale &gt;= 2</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="803"/>
@@ -1174,7 +1174,7 @@ Input %llu/%llu: amount=%s</source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2068"/>
         <source>output key&apos;s originating block height shouldn&apos;t be higher than the blockchain height</source>
-        <translation type="unfinished"></translation>
+        <translation>l&apos;altezza del blocco di origine della chiave di output non dovrebbe essere più alto dell&apos;altezza del blockchain</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2072"/>
@@ -1238,12 +1238,12 @@ Warning: Some input keys being spent are from </source>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2518"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2779"/>
         <source>Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): </source>
-        <translation>Eseguendo lo sweep di %s nelle transazioni %llu per un totale commissioni di %s.  Va bene?  (S/Sì/N/No): </translation>
+        <translation>Sto eseguendo lo sweep di %s nelle transazioni %llu per un totale commissioni di %s.  Va bene?  (S/Sì/N/No): </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2524"/>
         <source>Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No): </source>
-        <translation>Eseguendo lo sweep di %s per un totale commissioni di %s.  Va bene?  (S/Sì/N/No): </translation>
+        <translation>Sto eseguendo lo sweep di %s per un totale commissioni di %s.  Va bene?  (S/Sì/N/No): </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2969"/>
@@ -1253,12 +1253,12 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3053"/>
         <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No): </source>
-        <translation>Caricate %lu transazioni, per %s, tasse %s, %s, %s, con mixaggio %lu. %sQuesto è corretto? (S/Sì/N/No): </translation>
+        <translation>Caricate %lu transazioni, per %s, commissioni %s, %s, %s, con mixaggio %lu. %sQuesto è corretto? (S/Sì/N/No): </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3077"/>
         <source>This is a watch only wallet</source>
-        <translation>questo è un portafoglio solo-vista</translation>
+        <translation>Questo è un portafoglio solo-vista</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4443"/>
@@ -1338,7 +1338,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="707"/>
         <source>locked_transfer [&lt;mixin_count&gt;] &lt;addr&gt; &lt;amount&gt; &lt;lockblocks&gt;(Number of blocks to lock the transaction for, max 1000000) [&lt;payment_id&gt;]</source>
-        <translation type="unfinished"></translation>
+        <translation>locked_transfer [&lt;mixin_count&gt;] &lt;addr&gt; &lt;amount&gt; &lt;lockblocks&gt;(Numero di blocchi durante i quali bloccare la transazione, max 1000000) [&lt;payment_id&gt;]</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="708"/>
@@ -1358,7 +1358,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="716"/>
         <source>integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID</source>
-        <translation type="unfinished"></translation>
+        <translation>integrated_address [PID] - Codifica un payment ID in un indirizzo integrato per l&apos;indirizzo pubblico del portafoglio corrente (nessun parametro usa un payment ID casuale), oppure decodifica un indirizzo integrato in indirizzo standard e payment ID</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="718"/>
@@ -1388,7 +1388,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="723"/>
         <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
-        <translation type="unfinished"></translation>
+        <translation>Opzioni disponibili: seed language - seleziona lingua seed del wallet; always-confirm-transfers &lt;1|0&gt; - se confermare unsplit txes; print-ring-members &lt;1|0&gt; - se mostrare informazioni dettagliate sui ring members durante le conferme; store-tx-info &lt;1|0&gt; - se salvare le informazioni tx in uscita (indirizzo di destinazione, payment ID, chiave tx segreta) per riferimento futuro; default-mixin &lt;n&gt; - imposta default mixin (default è 4); auto-refresh &lt;1|0&gt; - se sincronizzare automaticamente i nuovi blocchi dal demone; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - imposta modalità wallet refresh; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - imposta default monero (sub-)unit; min-outputs-count [n] - cerca di mantenere come minimo tanti outputs quanti il valore di min-outputs-value; min-outputs-value [n] - cerca di mantenere i min-outputs-count outputs come minimo a questo valore; merge-destinations &lt;1|0&gt; - se fondere pagamenti multipli allo stessp indirizzo di destinazione</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="724"/>
@@ -1408,7 +1408,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="730"/>
         <source>unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;] - Show unspent outputs within an optional amount range</source>
-        <translation type="unfinished"></translation>
+        <translation>unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;] - Mostra gli outputs non spesi entro un intervallo di valori opzionale</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="731"/>
@@ -1423,7 +1423,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="733"/>
         <source>Get a string note for a txid</source>
-        <translation type="unfinished"></translation>
+        <translation>Ricevi una stringa di annotazione per un txid</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="734"/>
@@ -1463,12 +1463,12 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="802"/>
         <source>full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)</source>
-        <translation type="unfinished"></translation>
+        <translation>full (completo, nessuna ipotesi); optimize-coinbase (veloce, ipotizza che l&apos;intero coinbase viene pagato ad un indirizzo singolo); no-coinbase (il più veloce, ipotizza di non ricevere una transazione coinbase), default (come optimize-coinbase)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="806"/>
         <source>monero, millinero, micronero, nanonero, piconero</source>
-        <translation type="unfinished"></translation>
+        <translation>monero, millinero, micronero, nanonero, piconero</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="851"/>
@@ -1737,17 +1737,17 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2105"/>
         <source>the same transaction</source>
-        <translation type="unfinished"></translation>
+        <translation>la stessa transazione</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2105"/>
         <source>blocks that are temporally very close</source>
-        <translation type="unfinished"></translation>
+        <translation>i blocchi che sono temporalmente molto vicini</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2206"/>
         <source>Locked blocks too high, max 1000000 (˜4 yrs)</source>
-        <translation type="unfinished"></translation>
+        <translation>I blocchi bloccati sono troppo alti, max 1000000 (˜4 anni)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2921"/>
@@ -1899,7 +1899,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4193"/>
         <source>usage: sign &lt;filename&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>uso: sign &lt;filename&gt;</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4198"/>
@@ -2055,7 +2055,7 @@ di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2516"/>
         <source>Sweeping </source>
-        <translation>Pulendo (sweeping) </translation>
+        <translation>Eseguendo lo sweeping </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2785"/>
@@ -2517,7 +2517,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="108"/>
         <source>Wallet password (escape/quote as needed)</source>
-        <translation type="unfinished"></translation>
+        <translation>Wallet password (escape/quote se necessario)</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="111"/>
@@ -2532,7 +2532,7 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="240"/>
         <source>Version %u too new, we can only grok up to %u</source>
-        <translation type="unfinished"></translation>
+        <translation>La version %u è troppo recente, possiamo comprendere solo fino alla versione %u</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="258"/>
