@@ -29,6 +29,7 @@
 #include "json_object.h"
 
 #include <limits>
+#include <type_traits>
 #include "string_tools.h"
 
 namespace cryptonote
@@ -52,8 +53,9 @@ namespace
   void convert_numeric(Source source, Type& i)
   {
     static_assert(
+      (std::is_same<Type, char>() && std::is_same<Source, int>()) ||
       std::numeric_limits<Source>::is_signed == std::numeric_limits<Type>::is_signed,
-      "source and destination signs do not match"
+      "comparisons below may have undefined behavior"
     );
     if (source < std::numeric_limits<Type>::min())
     {
