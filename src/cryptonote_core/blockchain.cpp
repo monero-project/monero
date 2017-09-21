@@ -3276,7 +3276,7 @@ leave:
 
 // XXX old code adds miner tx here
 
-  int tx_index = 0;
+  size_t tx_index = 0;
   // Iterate over the block's transaction hashes, grabbing each
   // from the tx_pool and validating them.  Each is then added
   // to txs.  Keys spent in each are added to <keys> by the double spend check.
@@ -3358,7 +3358,7 @@ leave:
     {
       // ND: if fast_check is enabled for blocks, there is no need to check
       // the transaction inputs, but do some sanity checks anyway.
-      if (memcmp(&m_blocks_txs_check[tx_index++], &tx_id, sizeof(tx_id)) != 0)
+      if (tx_index >= m_blocks_txs_check.size() || memcmp(&m_blocks_txs_check[tx_index++], &tx_id, sizeof(tx_id)) != 0)
       {
         MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
         //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
