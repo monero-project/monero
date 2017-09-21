@@ -447,19 +447,28 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   std::uniform_int_distribution<int> dis(0, dns_urls.size() - 1);
   size_t first_index = dis(gen);
 
-  bool avail, valid;
+  // send all requests in parallel
+  std::vector<boost::thread> threads(dns_urls.size());
+  std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
+  for (size_t n = 0; n < dns_urls.size(); ++n)
+  {
+    threads[n] = boost::thread([n, dns_urls, &records, &avail, &valid](){
+      records[n] = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]); 
+    });
+  }
+  for (size_t n = 0; n < dns_urls.size(); ++n)
+    threads[n].join();
+
   size_t cur_index = first_index;
   do
   {
-    std::string url = dns_urls[cur_index];
-
-    records[cur_index] = tools::DNSResolver::instance().get_txt_record(url, avail, valid);
-    if (!avail)
+    const std::string &url = dns_urls[cur_index];
+    if (!avail[cur_index])
     {
       records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC not available for checkpoint update at URL: " << url << ", skipping.");
     }
-    if (!valid)
+    if (!valid[cur_index])
     {
       records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC validation failed for checkpoint update at URL: " << url << ", skipping.");
