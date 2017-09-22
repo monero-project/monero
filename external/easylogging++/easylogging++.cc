@@ -1961,8 +1961,13 @@ void VRegistry::setCategories(const char* categories, bool clear) {
     m_categories.push_back(std::make_pair(ss.str(), level));
   };
 
-  if (clear)
+  if (clear) {
     m_categories.clear();
+    m_categoriesString.clear();
+  }
+  if (!m_categoriesString.empty())
+    m_categoriesString += ",";
+  m_categoriesString += categories;
   if (!categories)
     return;
 
@@ -1999,6 +2004,11 @@ void VRegistry::setCategories(const char* categories, bool clear) {
   if (!ss.str().empty() && level != Level::Unknown) {
     insert(ss, level);
   }
+}
+
+std::string VRegistry::getCategories() {
+  base::threading::ScopedLock scopedLock(lock());
+  return m_categoriesString;
 }
 
 // Log levels are sorted in a weird way...
@@ -3071,6 +3081,10 @@ void Loggers::clearVModules(void) {
 
 void Loggers::setCategories(const char* categories, bool clear) {
   ELPP->vRegistry()->setCategories(categories, clear);
+}
+
+std::string Loggers::getCategories() {
+  return ELPP->vRegistry()->getCategories();
 }
 
 void Loggers::clearCategories(void) {
