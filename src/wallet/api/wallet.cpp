@@ -690,6 +690,22 @@ bool WalletImpl::store(const std::string &path)
     return m_status == Status_Ok;
 }
 
+bool WalletImpl::change_password(const std::string& new_password)
+{
+    try
+    {
+        m_wallet->rewrite(m_wallet->path(), new_password);
+        m_wallet->store();
+        m_status = Status_Ok;
+        m_errorString = "";
+    } catch (const std::exception &e) {
+        LOG_ERROR("Error while changing password: " << e.what());
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+    return m_status == Status_Ok;
+}
+
 string WalletImpl::filename() const
 {
     return m_wallet->get_wallet_file();

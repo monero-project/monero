@@ -79,6 +79,7 @@ public:
     std::string publicSpendKey() const;
     std::string path() const;
     bool store(const std::string &path);
+    bool change_password(const std::string& new_password);
     std::string filename() const;
     std::string keysFilename() const;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "");
