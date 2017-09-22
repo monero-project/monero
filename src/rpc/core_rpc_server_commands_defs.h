@@ -979,8 +979,11 @@ namespace cryptonote
     struct response
     {
       std::string status;
+      std::string categories;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
+        KV_SERIALIZE(categories)
       END_KV_SERIALIZE_MAP()
     };
   };

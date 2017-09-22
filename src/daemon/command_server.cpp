@@ -141,7 +141,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "set_log"
     , std::bind(&t_command_parser_executor::set_log_level, &m_parser, p::_1)
-    , "set_log <level>|<categories> - Change current loglevel, <level> is a number 0-4"
+    , "set_log <level>|<{+,-,}categories> - Change current log level/categories, <level> is a number 0-4"
     );
   m_command_lookup.set_handler(
       "diff"

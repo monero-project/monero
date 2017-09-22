@@ -125,6 +125,7 @@
 std::string mlog_get_default_log_path(const char *default_filename);
 void mlog_configure(const std::string &filename_base, bool console);
 void mlog_set_categories(const char *categories);
+std::string mlog_get_categories();
 void mlog_set_log_level(int level);
 void mlog_set_log(const char *log);
 

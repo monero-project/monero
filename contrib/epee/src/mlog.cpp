@@ -144,8 +144,45 @@ void mlog_configure(const std::string &filename_base, bool console)
 
 void mlog_set_categories(const char *categories)
 {
-  el::Loggers::setCategories(categories);
-  MLOG_LOG("New log categories: " << categories);
+  std::string new_categories;
+  if (*categories)
+  {
+    if (*categories == '+')
+    {
+      ++categories;
+      new_categories = mlog_get_categories();
+      if (*categories)
+      {
+        if (!new_categories.empty())
+          new_categories += ",";
+        new_categories += categories;
+      }
+    }
+    else if (*categories == '-')
+    {
+      ++categories;
+      new_categories = mlog_get_categories();
+      std::vector<std::string> single_categories;
+      boost::split(single_categories, categories, boost::is_any_of(","), boost::token_compress_on);
+      for (const std::string &s: single_categories)
+      {
+        size_t pos = new_categories.find(s);
+        if (pos != std::string::npos)
+          new_categories = new_categories.erase(pos, s.size());
+      }
+    }
+    else
+    {
+      new_categories = categories;
+    }
+  }
+  el::Loggers::setCategories(new_categories.c_str(), true);
+  MLOG_LOG("New log categories: " << el::Loggers::getCategories());
+}
+
+std::string mlog_get_categories()
+{
+  return el::Loggers::getCategories();
 }
 
 // maps epee style log level to new logging system

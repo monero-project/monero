@@ -125,10 +125,15 @@ bool t_command_parser_executor::print_blockchain_info(const std::vector<std::str
 
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {
-  if(args.size() != 1)
+  if(args.size() > 1)
   {
     std::cout << "use: set_log [<log_level_number_0-4> | <categories>]" << std::endl;
     return true;
+  }
+
+  if (args.empty())
+  {
+    return m_executor.set_log_categories("+");
   }
 
   uint16_t l = 0;

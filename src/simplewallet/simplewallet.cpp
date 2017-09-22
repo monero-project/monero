@@ -747,7 +747,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [<ring_size>] <amount> [payment_id] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
-  m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level>|<categories> - Change current log detail (level must be <0-4>)"));
+  m_cmd_binder.set_handler("set_log", boost::bind(&simple_wallet::set_log, this, _1), tr("set_log <level>|{+,-,}<categories> - Change current log detail (level must be <0-4>)"));
   m_cmd_binder.set_handler("address", boost::bind(&simple_wallet::print_address, this, _1), tr("Show current wallet public address"));
   m_cmd_binder.set_handler("integrated_address", boost::bind(&simple_wallet::print_integrated_address, this, _1), tr("integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID"));
   m_cmd_binder.set_handler("address_book", boost::bind(&simple_wallet::address_book, this, _1), tr("address_book [(add (<address> [pid <long or short payment id>])|<integrated address> [<description possibly with whitespaces>])|(delete <index>)] - Print all entries in the address book, optionally adding/deleting an entry to/from it"));
@@ -855,12 +855,14 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)
 {
-  if(args.size() != 1)
+  if(args.size() > 1)
   {
     fail_msg_writer() << tr("usage: set_log <log_level_number_0-4> | <categories>");
     return true;
   }
-  mlog_set_log(args[0].c_str());
+  if (!args.empty())
+    mlog_set_log(args[0].c_str());
+  success_msg_writer() << "New log categories: " << mlog_get_categories();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
