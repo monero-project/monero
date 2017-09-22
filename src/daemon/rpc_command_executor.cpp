@@ -840,6 +840,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
                           << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
+                          << "double_spend_seen: " << (tx_info.double_spend_seen ? 'T' : 'F')  << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                           << "last_failed_height: " << tx_info.last_failed_height << std::endl
@@ -922,6 +923,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
                           << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
                           << "kept_by_block: " << (tx_info.kept_by_block ? 'T' : 'F') << std::endl
+                          << "double_spend_seen: " << (tx_info.double_spend_seen ? 'T' : 'F') << std::endl
                           << "max_used_block_height: " << tx_info.max_used_block_height << std::endl
                           << "max_used_block_id: " << tx_info.max_used_block_id_hash << std::endl
                           << "last_failed_height: " << tx_info.last_failed_height << std::endl
@@ -984,7 +986,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
 
   tools::msg_writer() << n_transactions << " tx(es), " << res.pool_stats.bytes_total << " bytes total (min " << res.pool_stats.bytes_min << ", max " << res.pool_stats.bytes_max << ", avg " << avg_bytes << ", median " << res.pool_stats.bytes_med << ")" << std::endl
       << "fees " << cryptonote::print_money(res.pool_stats.fee_total) << " (avg " << cryptonote::print_money(n_transactions ? res.pool_stats.fee_total / n_transactions : 0) << " per tx" << ", " << cryptonote::print_money(res.pool_stats.bytes_total ? res.pool_stats.fee_total / res.pool_stats.bytes_total : 0) << " per byte)" << std::endl
-      << res.pool_stats.num_not_relayed << " not relayed, " << res.pool_stats.num_failing << " failing, " << res.pool_stats.num_10m << " older than 10 minutes (oldest " << (res.pool_stats.oldest == 0 ? "-" : get_human_time_ago(res.pool_stats.oldest, now)) << "), " << backlog_message;
+      << res.pool_stats.num_double_spends << " double spends, " << res.pool_stats.num_not_relayed << " not relayed, " << res.pool_stats.num_failing << " failing, " << res.pool_stats.num_10m << " older than 10 minutes (oldest " << (res.pool_stats.oldest == 0 ? "-" : get_human_time_ago(res.pool_stats.oldest, now)) << "), " << backlog_message;
 
   if (n_transactions > 1 && res.pool_stats.histo.size())
   {

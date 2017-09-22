@@ -187,6 +187,7 @@ namespace cryptonote
     {
       if(have_tx_keyimges_as_spent(tx))
       {
+        mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
         tvc.m_double_spend = true;
@@ -228,6 +229,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
+        meta.double_spend_seen = have_tx_keyimges_as_spent(tx);
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
@@ -266,6 +268,7 @@ namespace cryptonote
       meta.last_relayed_time = time(NULL);
       meta.relayed = relayed;
       meta.do_not_relay = do_not_relay;
+      meta.double_spend_seen = false;
       memset(meta.padding, 0, sizeof(meta.padding));
 
       try
@@ -354,7 +357,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay)
+  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -377,6 +380,7 @@ namespace cryptonote
       fee = meta.fee;
       relayed = meta.relayed;
       do_not_relay = meta.do_not_relay;
+      double_spend_seen = meta.double_spend_seen;
 
       // remove first, in case this throws, so key images aren't removed
       m_blockchain.remove_txpool_tx(id);
@@ -594,6 +598,8 @@ namespace cryptonote
       uint64_t age = now - meta.receive_time + (now == meta.receive_time);
       agebytes[age].txs++;
       agebytes[age].bytes += meta.blob_size;
+      if (meta.double_spend_seen)
+        ++stats.num_double_spends;
       return true;
     });
     stats.bytes_med = epee::misc_utils::median(sizes);
@@ -649,6 +655,7 @@ namespace cryptonote
     m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       tx_info txi;
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
+      txi.tx_blob = *bd;
       transaction tx;
       if (!parse_and_validate_tx_from_blob(*bd, tx))
       {
@@ -668,6 +675,7 @@ namespace cryptonote
       txi.relayed = meta.relayed;
       txi.last_relayed_time = meta.last_relayed_time;
       txi.do_not_relay = meta.do_not_relay;
+      txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
       return true;
     }, true);
@@ -712,6 +720,7 @@ namespace cryptonote
       txi.relayed = meta.relayed;
       txi.last_relayed_time = meta.last_relayed_time;
       txi.do_not_relay = meta.do_not_relay;
+      txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
       return true;
     }, true);
@@ -843,7 +852,10 @@ namespace cryptonote
     }
     //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
     if(m_blockchain.have_tx_keyimges_as_spent(tx))
+    {
+      txd.double_spend_seen = true;
       return false;
+    }
 
     //transaction is ok.
     return true;
@@ -871,6 +883,39 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
+  void tx_memory_pool::mark_double_spend(const transaction &tx)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    LockedTXN lock(m_blockchain);
+    for(size_t i = 0; i!= tx.vin.size(); i++)
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(tx.vin[i], const txin_to_key, itk, void());
+      const key_images_container::const_iterator it = m_spent_key_images.find(itk.k_image);
+      if (it != m_spent_key_images.end())
+      {
+        for (const crypto::hash &txid: it->second)
+        {
+          txpool_tx_meta_t meta = m_blockchain.get_txpool_tx_meta(txid);
+          if (!meta.double_spend_seen)
+          {
+            MDEBUG("Marking " << txid << " as double spending " << itk.k_image);
+            meta.double_spend_seen = true;
+            try
+            {
+              m_blockchain.update_txpool_tx(txid, meta);
+            }
+            catch (const std::exception &e)
+            {
+              MERROR("Failed to update tx meta: " << e.what());
+              // continue, not fatal
+            }
+          }
+        }
+      }
+    }
+  }
+  //---------------------------------------------------------------------------------
   std::string tx_memory_pool::print_pool(bool short_format) const
   {
     std::stringstream ss;
@@ -890,6 +935,7 @@ namespace cryptonote
       ss << "blob_size: " << meta.blob_size << std::endl
         << "fee: " << print_money(meta.fee) << std::endl
         << "kept_by_block: " << (meta.kept_by_block ? 'T' : 'F') << std::endl
+        << "double_spend_seen: " << (meta.double_spend_seen ? 'T' : 'F') << std::endl
         << "max_used_block_height: " << meta.max_used_block_height << std::endl
         << "max_used_block_id: " << meta.max_used_block_id << std::endl
         << "last_failed_height: " << meta.last_failed_height << std::endl

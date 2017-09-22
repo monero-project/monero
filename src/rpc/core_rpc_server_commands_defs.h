@@ -566,6 +566,7 @@ namespace cryptonote
       std::string as_hex;
       std::string as_json;
       bool in_pool;
+      bool double_spend_seen;
       uint64_t block_height;
       uint64_t block_timestamp;
       std::vector<uint64_t> output_indices;
@@ -575,6 +576,7 @@ namespace cryptonote
         KV_SERIALIZE(as_hex)
         KV_SERIALIZE(as_json)
         KV_SERIALIZE(in_pool)
+        KV_SERIALIZE(double_spend_seen)
         KV_SERIALIZE(block_height)
         KV_SERIALIZE(block_timestamp)
         KV_SERIALIZE(output_indices)
@@ -1357,6 +1359,8 @@ namespace cryptonote
     bool relayed;
     uint64_t last_relayed_time;
     bool do_not_relay;
+    bool double_spend_seen;
+    std::string tx_blob;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id_hash)
@@ -1372,6 +1376,8 @@ namespace cryptonote
       KV_SERIALIZE(relayed)
       KV_SERIALIZE(last_relayed_time)
       KV_SERIALIZE(do_not_relay)
+      KV_SERIALIZE(double_spend_seen)
+      KV_SERIALIZE(tx_blob)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -1480,6 +1486,7 @@ namespace cryptonote
     uint32_t num_not_relayed;
     uint64_t histo_98pc;
     std::vector<txpool_histo> histo;
+    uint32_t num_double_spends;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(bytes_total)
@@ -1494,6 +1501,7 @@ namespace cryptonote
       KV_SERIALIZE(num_not_relayed)
       KV_SERIALIZE(histo_98pc)
       KV_SERIALIZE_CONTAINER_POD_AS_BLOB(histo)
+      KV_SERIALIZE(num_double_spends)
     END_KV_SERIALIZE_MAP()
   };
 

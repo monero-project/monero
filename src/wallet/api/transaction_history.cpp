@@ -217,10 +217,10 @@ void TransactionHistoryImpl::refresh()
     
     
     // unconfirmed payments (tx pool)
-    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> upayments;
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> upayments;
     m_wallet->m_wallet->get_unconfirmed_payments(upayments);
-    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {  
-        const tools::wallet2::payment_details &pd = i->second;
+    for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second.m_pd;
         std::string payment_id = string_tools::pod_to_hex(i->first);
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
             payment_id = payment_id.substr(0,16);

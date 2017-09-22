@@ -478,15 +478,17 @@ namespace cryptonote
     // try the pool for any missing txes
     size_t found_in_pool = 0;
     std::unordered_set<crypto::hash> pool_tx_hashes;
+    std::unordered_map<crypto::hash, bool> double_spend_seen;
     if (!missed_txs.empty())
     {
-      std::list<transaction> pool_txs;
-      bool r = m_core.get_pool_transactions(pool_txs);
+      std::vector<tx_info> pool_tx_info;
+      std::vector<spent_key_image_info> pool_key_image_info;
+      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info);
       if(r)
       {
         // sort to match original request
         std::list<transaction> sorted_txs;
-        std::list<cryptonote::transaction>::const_iterator i;
+        std::vector<tx_info>::const_iterator i;
         for (const crypto::hash &h: vh)
         {
           if (std::find(missed_txs.begin(), missed_txs.end(), h) == missed_txs.end())
@@ -500,11 +502,26 @@ namespace cryptonote
             sorted_txs.push_back(std::move(txs.front()));
             txs.pop_front();
           }
-          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](cryptonote::transaction &tx) { return h == cryptonote::get_transaction_hash(tx); })) != pool_txs.end())
+          else if ((i = std::find_if(pool_tx_info.begin(), pool_tx_info.end(), [h](const tx_info &txi) { return epee::string_tools::pod_to_hex(h) == txi.id_hash; })) != pool_tx_info.end())
           {
-            sorted_txs.push_back(*i);
+            cryptonote::transaction tx;
+            if (!cryptonote::parse_and_validate_tx_from_blob(i->tx_blob, tx))
+            {
+              res.status = "Failed to parse and validate tx from blob";
+              return true;
+            }
+            sorted_txs.push_back(tx);
             missed_txs.remove(h);
             pool_tx_hashes.insert(h);
+            const std::string hash_string = epee::string_tools::pod_to_hex(h);
+            for (const auto &ti: pool_tx_info)
+            {
+              if (ti.id_hash == hash_string)
+              {
+                double_spend_seen.insert(std::make_pair(h, ti.double_spend_seen));
+                break;
+              }
+            }
             ++found_in_pool;
           }
         }
@@ -530,11 +547,21 @@ namespace cryptonote
       if (e.in_pool)
       {
         e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
+        if (double_spend_seen.find(tx_hash) != double_spend_seen.end())
+        {
+          e.double_spend_seen = double_spend_seen[tx_hash];
+        }
+        else
+        {
+          MERROR("Failed to determine double spend status for " << tx_hash);
+          e.double_spend_seen = false;
+        }
       }
       else
       {
         e.block_height = m_core.get_blockchain_storage().get_db().get_tx_block_height(tx_hash);
         e.block_timestamp = m_core.get_blockchain_storage().get_db().get_block_timestamp(e.block_height);
+        e.double_spend_seen = false;
       }
 
       // fill up old style responses too, in case an old wallet asks

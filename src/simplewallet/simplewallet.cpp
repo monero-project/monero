@@ -4415,15 +4415,18 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     try
     {
       m_wallet->update_pool_state();
-      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> payments;
       m_wallet->get_unconfirmed_payments(payments, m_current_subaddress_account, subaddr_indices);
-      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
-        const tools::wallet2::payment_details &pd = i->second;
+      for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second.m_pd;
         std::string payment_id = string_tools::pod_to_hex(i->first);
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
           payment_id = payment_id.substr(0,16);
         std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
-        message_writer() << (boost::format("%8.8s %6.6s %16.16s %20.20s %s %s %d %s %s") % "pool" % "in" % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % pd.m_subaddr_index.minor % "-" % note).str();
+        std::string double_spend_note;
+        if (i->second.m_double_spend_seen)
+          double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
+        message_writer() << (boost::format("%8.8s %6.6s %16.16s %20.20s %s %s %d %s %s%s") % "pool" % "in" % get_human_readable_timestamp(pd.m_timestamp) % print_money(pd.m_amount) % string_tools::pod_to_hex(pd.m_tx_hash) % payment_id % pd.m_subaddr_index.minor % "-" % note % double_spend_note).str();
       }
     }
     catch (const std::exception& e)
@@ -5439,10 +5442,10 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   try
   {
     m_wallet->update_pool_state();
-    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> pool_payments;
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
     m_wallet->get_unconfirmed_payments(pool_payments);
-    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
-      const tools::wallet2::payment_details &pd = i->second;
+    for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
+      const tools::wallet2::payment_details &pd = i->second.m_pd;
       if (pd.m_tx_hash == txid)
       {
         std::string payment_id = string_tools::pod_to_hex(i->first);
@@ -5455,6 +5458,8 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
         success_msg_writer() << "Payment ID: " << payment_id;
         success_msg_writer() << "Address index: " << pd.m_subaddr_index.minor;
         success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
+        if (i->second.m_double_spend_seen)
+          success_msg_writer() << tr("Double spend seen on the network: this transaction may or may not end up being mined");
         return true;
       }
     }
