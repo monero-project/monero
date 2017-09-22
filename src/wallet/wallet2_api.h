@@ -344,6 +344,11 @@ struct Wallet
      */
     virtual bool store(const std::string &path) = 0;
     /*!
+     * \brief change_password - Changes wallet password
+     * \param new_password - New password
+     */
+    virtual bool change_password(const std::string& new_password) = 0;
+    /*!
      * \brief filename - returns wallet filename
      * \return
      */
