@@ -63,7 +63,7 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
-    bool close();
+    bool close(bool store = true);
     std::string seed() const;
     std::string getSeedLanguage() const;
     void setSeedLanguage(const std::string &arg);
