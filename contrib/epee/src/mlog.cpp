@@ -152,8 +152,7 @@ void mlog_set_categories(const char *categories)
 void mlog_set_log_level(int level)
 {
   const char *categories = get_default_categories(level);
-  el::Loggers::setCategories(categories);
-  MLOG_LOG("New log categories: " << categories);
+  mlog_set_categories(categories);
 }
 
 void mlog_set_log(const char *log)
