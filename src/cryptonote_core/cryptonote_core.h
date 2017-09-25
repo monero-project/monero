@@ -299,10 +299,8 @@ namespace cryptonote
       *
       * @param height return-by-reference height of the block
       * @param top_id return-by-reference hash of the block
-      *
-      * @return true
       */
-     bool get_blockchain_top(uint64_t& height, crypto::hash& top_id) const;
+     void get_blockchain_top(uint64_t& height, crypto::hash& top_id) const;
 
      /**
       * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const

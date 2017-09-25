@@ -383,7 +383,11 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
             cryptonote::account_public_address address2;
             bool has_payment_id;
             crypto::hash8 new_payment_id;
-            get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address);
+            if (!get_account_integrated_address_from_str(address2, has_payment_id, new_payment_id, testnet, field_address))
+            {
+              tools::fail_msg_writer() << tools::wallet2::tr("failed to parse address: ") << field_address;
+              return false;
+            }
             address.m_spend_public_key = address2.m_spend_public_key;
           }
           wallet->generate(field_filename, field_password, address, viewkey);
@@ -2653,10 +2657,11 @@ void wallet2::store_to(const std::string &path, const std::string &password)
   // if we here, main wallet file is saved and we only need to save keys and address files
   if (!same_file) {
     prepare_file_names(path);
-    store_keys(m_keys_file, password, false);
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
     // save address to the new file
     const std::string address_file = m_wallet_file + ".address.txt";
-    bool r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
     // remove old wallet file
     r = boost::filesystem::remove(old_file);

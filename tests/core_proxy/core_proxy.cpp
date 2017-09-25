@@ -229,10 +229,9 @@ bool tests::proxy_core::get_short_chain_history(std::list<crypto::hash>& ids) {
     return true;
 }
 
-bool tests::proxy_core::get_blockchain_top(uint64_t& height, crypto::hash& top_id) {
+void tests::proxy_core::get_blockchain_top(uint64_t& height, crypto::hash& top_id) {
     height = 0;
     top_id = get_block_hash(m_genesis);
-    return true;
 }
 
 bool tests::proxy_core::init(const boost::program_options::variables_map& /*vm*/) {

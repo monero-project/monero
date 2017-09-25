@@ -202,6 +202,9 @@ namespace cryptonote
       return false;
     }
 
+    // assume failure during verification steps until success is certain
+    tvc.m_verifivation_failed = true;
+
     time_t receive_time = time(nullptr);
 
     crypto::hash max_used_block_id = null_hash;
@@ -285,9 +288,6 @@ namespace cryptonote
         tvc.m_should_be_relayed = true;
     }
 
-    // assume failure during verification steps until success is certain
-    tvc.m_verifivation_failed = true;
-
     tvc.m_verifivation_failed = false;
 
     MINFO("Transaction added to pool: txid " << id << " bytes: " << blob_size << " fee/byte: " << (fee / (double)blob_size));
@@ -298,7 +298,8 @@ namespace cryptonote
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
-    get_transaction_hash(tx, h, blob_size);
+    if (!get_transaction_hash(tx, h, blob_size) || blob_size == 0)
+      return false;
     return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, do_not_relay, version);
   }
   //---------------------------------------------------------------------------------

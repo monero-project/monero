@@ -153,7 +153,6 @@ private:
     std::string m_password;
     TransactionHistoryImpl * m_history;
     bool        m_trustedDaemon;
-    WalletListener * m_walletListener;
     Wallet2CallbackImpl * m_wallet2Callback;
     AddressBookImpl *  m_addressBook;
 

@@ -128,11 +128,7 @@ namespace cryptonote
   {
     CHECK_CORE_BUSY();
     crypto::hash top_hash;
-    if (!m_core.get_blockchain_top(res.height, top_hash))
-    {
-      res.status = "Failed";
-      return false;
-    }
+    m_core.get_blockchain_top(res.height, top_hash);
     ++res.height; // turn top block height into blockchain height
     res.top_block_hash = string_tools::pod_to_hex(top_hash);
     res.target_height = m_core.get_target_blockchain_height();
@@ -1061,13 +1057,7 @@ namespace cryptonote
     }
     uint64_t last_block_height;
     crypto::hash last_block_hash;
-    bool have_last_block_hash = m_core.get_blockchain_top(last_block_height, last_block_hash);
-    if (!have_last_block_hash)
-    {
-      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
-      error_resp.message = "Internal error: can't get last block hash.";
-      return false;
-    }
+    m_core.get_blockchain_top(last_block_height, last_block_hash);
     block last_block;
     bool have_last_block = m_core.get_block_by_hash(last_block_hash, last_block);
     if (!have_last_block)
@@ -1300,11 +1290,7 @@ namespace cryptonote
     }
 
     crypto::hash top_hash;
-    if (!m_core.get_blockchain_top(res.height, top_hash))
-    {
-      res.status = "Failed";
-      return false;
-    }
+    m_core.get_blockchain_top(res.height, top_hash);
     ++res.height; // turn top block height into blockchain height
     res.top_block_hash = string_tools::pod_to_hex(top_hash);
     res.target_height = m_core.get_target_blockchain_height();
@@ -1716,11 +1702,7 @@ namespace cryptonote
     }
 
     crypto::hash top_hash;
-    if (!m_core.get_blockchain_top(res.height, top_hash))
-    {
-      res.status = "Failed";
-      return false;
-    }
+    m_core.get_blockchain_top(res.height, top_hash);
     ++res.height; // turn top block height into blockchain height
     res.target_height = m_core.get_target_blockchain_height();
 
