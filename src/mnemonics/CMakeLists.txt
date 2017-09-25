@@ -46,7 +46,8 @@ set(mnemonics_private_headers
   russian.h
   singleton.h
   spanish.h
-  esperanto.h)
+  esperanto.h
+  lojban.h)
 
 monero_private_headers(mnemonics
   ${mnemonics_private_headers})
