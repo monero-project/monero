@@ -47,6 +47,7 @@ endif()
 set(common_headers)
 
 set(common_private_headers
+  apply_permutation.h
   base58.h
   boost_serialization_helper.h
   command_line.h
