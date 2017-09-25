@@ -336,7 +336,7 @@ namespace cryptonote
     template<class t_core>
     int t_cryptonote_protocol_handler<t_core>::handle_notify_new_block(int command, NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_BLOCK (hop " << arg.hop << ", " << arg.b.txs.size() << " txes)");
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_BLOCK (" << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -379,7 +379,6 @@ namespace cryptonote
     }
     if(bvc.m_added_to_main_chain)
     {
-      ++arg.hop;
       //TODO: Add here announce protocol usage
       relay_block(arg, context);
     }else if(bvc.m_marked_as_orphaned)
@@ -397,7 +396,7 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
-    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_FLUFFY_BLOCK (height " << arg.current_blockchain_height << ", hop " << arg.hop << ", " << arg.b.txs.size() << " txes)");
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_FLUFFY_BLOCK (height " << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
@@ -607,7 +606,6 @@ namespace cryptonote
           MDEBUG("  tx " << new_block.tx_hashes[txidx]);
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
         missing_tx_req.block_hash = get_block_hash(new_block);
-        missing_tx_req.hop = arg.hop;
         missing_tx_req.current_blockchain_height = arg.current_blockchain_height;
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
         
@@ -644,10 +642,8 @@ namespace cryptonote
         }
         if( bvc.m_added_to_main_chain )
         {
-          ++arg.hop;
           //TODO: Add here announce protocol usage
           NOTIFY_NEW_BLOCK::request reg_arg = AUTO_VAL_INIT(reg_arg);
-          reg_arg.hop = arg.hop;
           reg_arg.current_blockchain_height = arg.current_blockchain_height;
           reg_arg.b = b;
           relay_block(reg_arg, context);
@@ -700,7 +696,6 @@ namespace cryptonote
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
     fluffy_response.b.block = t_serializable_object_to_blob(b);
     fluffy_response.current_blockchain_height = arg.current_blockchain_height;
-    fluffy_response.hop = arg.hop;    
     for(auto& tx_idx: arg.missing_tx_indices)
     {
       if(tx_idx < b.tx_hashes.size())
@@ -1605,7 +1600,6 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::relay_block(NOTIFY_NEW_BLOCK::request& arg, cryptonote_connection_context& exclude_context)
   {
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_arg = AUTO_VAL_INIT(fluffy_arg);
-    fluffy_arg.hop = arg.hop;
     fluffy_arg.current_blockchain_height = arg.current_blockchain_height;    
     std::list<blobdata> fluffy_txs;
     fluffy_arg.b = arg.b;
