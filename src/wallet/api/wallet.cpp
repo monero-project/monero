@@ -303,7 +303,7 @@ WalletImpl::~WalletImpl()
     // Pause refresh thread - prevents refresh from starting again
     pauseRefresh();
     // Close wallet - stores cache and stops ongoing refresh operation 
-    close();
+    close(false); // do not store wallet as part of the closing activities
     // Stop refresh thread
     stopRefresh();
     delete m_wallet2Callback;
@@ -566,19 +566,21 @@ bool WalletImpl::recover(const std::string &path, const std::string &seed)
     return m_status == Status_Ok;
 }
 
-bool WalletImpl::close()
+bool WalletImpl::close(bool store)
 {
 
     bool result = false;
     LOG_PRINT_L1("closing wallet...");
     try {
-        // Do not store wallet with invalid status
-        // Status Critical refers to errors on opening or creating wallets.
-        if (status() != Status_Critical)
-            m_wallet->store();
-        else
-            LOG_ERROR("Status_Critical - not storing wallet");
-        LOG_PRINT_L1("wallet::store done");
+        if (store) {
+            // Do not store wallet with invalid status
+            // Status Critical refers to errors on opening or creating wallets.
+            if (status() != Status_Critical)
+                m_wallet->store();
+            else
+                LOG_ERROR("Status_Critical - not storing wallet");
+            LOG_PRINT_L1("wallet::store done");
+        }
         LOG_PRINT_L1("Calling wallet::stop...");
         m_wallet->stop();
         LOG_PRINT_L1("wallet::stop done");
