@@ -37,7 +37,6 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
-#include "common/util.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "wallet_rpc_server_commands_defs.h"
@@ -70,18 +69,12 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_filename(), m_stop(false), m_trusted_daemon(false)
+  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_trusted_daemon(false)
   {
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::~wallet_rpc_server()
   {
-    try
-    {
-      boost::system::error_code ec{};
-      boost::filesystem::remove(rpc_login_filename, ec);
-    }
-    catch (...) {}
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::set_wallet(wallet2 *cr)
@@ -182,34 +175,32 @@ namespace tools
           default_rpc_username,
           string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size())
         );
+
+        std::string temp = "monero-wallet-rpc." + bind_port + ".login";
+        rpc_login_file = tools::private_file::create(temp);
+        if (!rpc_login_file.handle())
+        {
+          LOG_ERROR(tr("Failed to create file ") << temp << tr(". Check permissions or remove file"));
+          return false;
+        }
+        std::fputs(http_login->username.c_str(), rpc_login_file.handle());
+        std::fputc(':', rpc_login_file.handle());
+        std::fputs(http_login->password.c_str(), rpc_login_file.handle());
+        std::fflush(rpc_login_file.handle());
+        if (std::ferror(rpc_login_file.handle()))
+        {
+          LOG_ERROR(tr("Error writing to file ") << temp);
+          return false;
+        }
+        LOG_PRINT_L0(tr("RPC username/password is stored in file ") << temp);
       }
-      else
+      else // chosen user/pass
       {
         http_login.emplace(
           std::move(rpc_config->login->username), std::move(rpc_config->login->password).password()
         );
       }
       assert(bool(http_login));
-
-      std::string temp = "monero-wallet-rpc." + bind_port + ".login";
-      const auto cookie = tools::create_private_file(temp);
-      if (!cookie)
-      {
-        LOG_ERROR(tr("Failed to create file ") << temp << tr(". Check permissions or remove file"));
-        return false;
-      }
-      rpc_login_filename.swap(temp); // nothrow guarantee destructor cleanup
-      temp = rpc_login_filename;
-      std::fputs(http_login->username.c_str(), cookie.get());
-      std::fputc(':', cookie.get());
-      std::fputs(http_login->password.c_str(), cookie.get());
-      std::fflush(cookie.get());
-      if (std::ferror(cookie.get()))
-      {
-        LOG_ERROR(tr("Error writing to file ") << temp);
-        return false;
-      }
-      LOG_PRINT_L0(tr("RPC username/password is stored in file ") << temp);
     } // end auth enabled
 
     m_http_client.set_server(walvars->get_daemon_address(), walvars->get_daemon_login());
