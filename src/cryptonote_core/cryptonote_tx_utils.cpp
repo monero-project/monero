@@ -320,7 +320,8 @@ namespace cryptonote
     });
     tools::apply_permutation(outs_order, [&] (size_t i0, size_t i1) {
       std::swap(tx.vout[i0], tx.vout[i1]);
-      std::swap(amount_keys[i0], amount_keys[i1]);
+      if (!amount_keys.empty())
+        std::swap(amount_keys[i0], amount_keys[i1]);
     });
 
     //check money
