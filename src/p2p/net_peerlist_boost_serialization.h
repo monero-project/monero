@@ -59,6 +59,8 @@ namespace boost
     {
       a & na.m_ip;
       a & na.m_port;
+      if (!typename Archive::is_saving())
+        na.init_ids();
     }
 
 
