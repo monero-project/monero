@@ -31,9 +31,12 @@
 #pragma once
 
 #include <atomic>
+#include <boost/filesystem.hpp>
 
 namespace unit_test
 {
+  extern boost::filesystem::path data_dir;
+
   class call_counter
   {
   public:

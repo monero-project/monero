@@ -30,14 +30,32 @@
 
 #include "gtest/gtest.h"
 
+#include <boost/filesystem.hpp>
+
 #include "include_base_utils.h"
+#include "unit_tests_utils.h"
+
+boost::filesystem::path unit_test::data_dir;
 
 int main(int argc, char** argv)
 {
-  epee::string_tools::set_module_name_and_folder(argv[0]);
   mlog_configure(mlog_get_default_log_path("unit_tests.log"), true);
   epee::debug::get_set_enable_assert(true, false);
 
   ::testing::InitGoogleTest(&argc, argv);
+
+  // Process remaining arguments
+  if (argc == 2 && argv[1] != NULL) { // one arg: path to dir with test data
+    unit_test::data_dir = argv[1];
+  } else if (argc == 1) { // legacy: assume test binaries in 'build/release'
+    epee::string_tools::set_module_name_and_folder(argv[0]);
+    unit_test::data_dir = boost::filesystem::path(epee::string_tools::get_current_module_folder())
+                          .parent_path().parent_path().parent_path().parent_path()
+                          .append("tests").append("data");
+  } else {
+    std::cerr << "Usage: " << argv[0] << " [<path-to-test-data-dir>]" << std::endl;
+    return 1;
+  }
+
   return RUN_ALL_TESTS();
 }

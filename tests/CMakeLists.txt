@@ -30,6 +30,7 @@
 
 # The docs say this only affects grouping in IDEs
 set(folder "tests")
+set(TEST_DATA_DIR "${CMAKE_CURRENT_LIST_DIR}/data")
 
 if (WIN32 AND STATIC)
   add_definitions(-DSTATICLIB)
