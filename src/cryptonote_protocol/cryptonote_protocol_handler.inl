@@ -931,7 +931,8 @@ namespace cryptonote
     }
 
     // get the last parsed block, which should be the highest one
-    if(m_core.have_block(cryptonote::get_block_hash(b)))
+    const crypto::hash last_block_hash = cryptonote::get_block_hash(b);
+    if(m_core.have_block(last_block_hash))
     {
       const uint64_t subchain_height = start_height + arg.blocks.size();
       LOG_DEBUG_CC(context, "These are old blocks, ignoring: blocks " << start_height << " - " << (subchain_height-1) << ", blockchain height " << m_core.get_current_blockchain_height());
@@ -949,7 +950,7 @@ namespace cryptonote
       MDEBUG(context << " adding span: " << arg.blocks.size() << " at height " << start_height << ", " << dt.total_microseconds()/1e6 << " seconds, " << (rate/1e3) << " kB/s, size now " << (m_block_queue.get_data_size() + blocks_size) / 1048576.f << " MB");
       m_block_queue.add_blocks(start_height, arg.blocks, context.m_connection_id, rate, blocks_size);
 
-      context.m_last_known_hash = cryptonote::get_blob_hash(arg.blocks.back().block);
+      context.m_last_known_hash = last_block_hash;
 
       if (!m_core.get_test_drop_download() || !m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
         return 1;
