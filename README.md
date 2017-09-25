@@ -159,6 +159,7 @@ library archives (`.a`).
 | pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
 | Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       | C++ libraries  |
 | OpenSSL        | basically any | NO       | `libssl-dev`       | `openssl`      | NO       | sha256 sum     |
+| libzmq         | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`       | NO       | ZeroMQ library |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
 | libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
@@ -190,6 +191,9 @@ invokes cmake commands as needed.
     parallel build by running `make -j<number of threads>` instead of `make`. For
     this to be worthwhile, the machine should have one core and about 2GB of RAM
     available per thread.
+
+    *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
+    https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -287,11 +291,11 @@ application.
 
     To build for 64-bit Windows:
 
-        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost
+        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium
 
     To build for 32-bit Windows:
  
-        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost
+        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium
 
 * Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
   or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
