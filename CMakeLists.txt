@@ -234,6 +234,7 @@ if(STATIC)
   else()
     set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
   endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DZMQ_STATIC")
 endif()
 
 # Set default blockchain storage location:
@@ -691,12 +692,16 @@ include(version.cmake)
 
 find_path(ZMQ_INCLUDE_PATH zmq.hpp)
 find_library(ZMQ_LIB zmq)
+find_library(SODIUM_LIBRARY sodium)
 
 if(NOT ZMQ_INCLUDE_PATH)
   message(FATAL_ERROR "Could not find required header zmq.hpp")
 endif()
 if(NOT ZMQ_LIB)
-  message(FATAL_ERROR "Could not find require libzmq")
+  message(FATAL_ERROR "Could not find required libzmq")
+endif()
+if(SODIUM_LIBRARY)
+  set(ZMQ_LIB "${ZMQ_LIB};${SODIUM_LIBRARY}")
 endif()
 
 option(BUILD_TESTS "Build tests." OFF)
