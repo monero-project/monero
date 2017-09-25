@@ -79,6 +79,7 @@ target_link_libraries(unit_tests
     rpc
     wallet
     p2p
+    version
     epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_THREAD_LIBRARY}

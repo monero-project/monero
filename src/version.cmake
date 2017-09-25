@@ -36,7 +36,7 @@ if(RET)
 	
     message(WARNING "Cannot determine current commit. Make sure that you are building either from a Git working tree or from a source archive.")
     set(VERSIONTAG "unknown")
-    configure_file("src/version.h.in" "${TO}")
+    configure_file("src/version.cpp.in" "${TO}")
 else()
 	message(STATUS "You are currently on commit ${COMMIT}")
 	
@@ -59,5 +59,5 @@ else()
         endif()
     endif()	    
 
-    configure_file("src/version.h.in" "${TO}")
+    configure_file("src/version.cpp.in" "${TO}")
 endif()

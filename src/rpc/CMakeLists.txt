@@ -117,10 +117,3 @@ target_link_libraries(daemon_rpc_server
     ${EXTRA_LIBRARIES})
 target_include_directories(daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
 target_include_directories(obj_daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
-
-
-add_dependencies(rpc
-  version)
-
-add_dependencies(daemon_rpc_server
-  version)

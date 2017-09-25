@@ -47,5 +47,3 @@ target_link_libraries(p2p
     ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
-add_dependencies(p2p
-  version)

@@ -42,8 +42,6 @@ target_link_libraries(cn_deserialize
     epee
     ${CMAKE_THREAD_LIBS_INIT})
 
-add_dependencies(cn_deserialize
-	version)
 set_property(TARGET cn_deserialize
 	PROPERTY
 	OUTPUT_NAME "monero-utils-deserialize")
@@ -65,8 +63,6 @@ target_link_libraries(object_sizes
     epee
     ${CMAKE_THREAD_LIBS_INIT})
 
-add_dependencies(object_sizes
-	version)
 set_property(TARGET object_sizes
 	PROPERTY
 	OUTPUT_NAME "monero-utils-object-sizes")

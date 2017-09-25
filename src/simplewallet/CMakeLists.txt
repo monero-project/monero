@@ -49,14 +49,13 @@ target_link_libraries(simplewallet
     common
     mnemonics
     p2p
+    version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-add_dependencies(simplewallet
-  version)
 set_property(TARGET simplewallet
   PROPERTY
     OUTPUT_NAME "monero-wallet-cli")
