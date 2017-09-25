@@ -6,12 +6,13 @@ After=network.target
 User=monero
 Group=monero
 WorkingDirectory=~
+RuntimeDirectory=monero
 
 Type=forking
-PIDFile=/var/run/monerod.pid
+PIDFile=/run/monero/monerod.pid
 
 ExecStart=/usr/bin/monerod --config-file /etc/monerod.conf \
-    --detach --pidfile /var/run/monerod.pid
+    --detach --pidfile /run/monero/monerod.pid
 
 [Install]
 WantedBy=multi-user.target
