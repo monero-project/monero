@@ -45,6 +45,7 @@
 #include "mnemonics/french.h"
 #include "mnemonics/dutch.h"
 #include "mnemonics/esperanto.h"
+#include "mnemonics/lojban.h"
 #include "mnemonics/english_old.h"
 #include "mnemonics/language_base.h"
 #include "mnemonics/singleton.h"
@@ -167,7 +168,8 @@ TEST(mnemonics, all_languages)
     Language::Singleton<Language::Russian>::instance(),
     Language::Singleton<Language::French>::instance(),
     Language::Singleton<Language::Dutch>::instance(),
-    Language::Singleton<Language::Esperanto>::instance()
+    Language::Singleton<Language::Esperanto>::instance(),
+    Language::Singleton<Language::Lojban>::instance()
   });
 
   for (std::vector<Language::Base*>::iterator it = languages.begin(); it != languages.end(); it++)
