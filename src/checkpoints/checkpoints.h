@@ -31,9 +31,9 @@
 #pragma once
 #include <map>
 #include <vector>
-#include "cryptonote_basic_impl.h"
 #include "misc_log_ex.h"
-#include "storages/portable_storage_template_helper.h" // epee json include
+#include "crypto/hash.h"
+#include "serialization/keyvalue_serialization.h"
 
 #define ADD_CHECKPOINT(h, hash)  CHECK_AND_ASSERT(add_checkpoint(h,  hash), false);
 #define JSON_HASH_FILE_NAME "checkpoints.json"
@@ -148,10 +148,11 @@ namespace cryptonote
 
     /**
      * @brief loads the default main chain checkpoints
+     * @param testnet whether to load testnet checkpoints or mainnet
      *
      * @return true unless adding a checkpoint fails
      */
-    bool init_default_checkpoints();
+    bool init_default_checkpoints(bool testnet);
 
     /**
      * @brief load new checkpoints

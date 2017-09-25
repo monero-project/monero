@@ -57,7 +57,7 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
     return false;
   }
 
-  crypto::hash payment_id = cryptonote::null_hash;
+  crypto::hash payment_id = crypto::null_hash;
   bool has_long_pid = (payment_id_str.empty())? false : tools::wallet2::parse_long_payment_id(payment_id_str, payment_id); 
     
   // Short payment id provided
@@ -106,7 +106,7 @@ void AddressBookImpl::refresh()
   for (size_t i = 0; i < rows.size(); ++i) {
     tools::wallet2::address_book_row * row = &rows.at(i);
     
-    std::string payment_id = (row->m_payment_id == cryptonote::null_hash)? "" : epee::string_tools::pod_to_hex(row->m_payment_id);
+    std::string payment_id = (row->m_payment_id == crypto::null_hash)? "" : epee::string_tools::pod_to_hex(row->m_payment_id);
     std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->testnet(),row->m_address);
     // convert the zero padded short payment id to integrated address
     if (payment_id.length() > 16 && payment_id.substr(16).find_first_not_of('0') == std::string::npos) {

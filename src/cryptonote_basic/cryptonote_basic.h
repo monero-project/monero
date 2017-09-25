@@ -53,11 +53,6 @@
 
 namespace cryptonote
 {
-
-  const static crypto::hash null_hash = AUTO_VAL_INIT(null_hash);
-  const static crypto::hash8 null_hash8 = AUTO_VAL_INIT(null_hash8);
-  const static crypto::public_key null_pkey = AUTO_VAL_INIT(null_pkey);
-
   typedef std::vector<crypto::signature> ring_signature;
 
 

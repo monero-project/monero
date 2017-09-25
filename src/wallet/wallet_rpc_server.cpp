@@ -362,7 +362,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::validate_transfer(const std::list<wallet_rpc::transfer_destination> destinations, std::string payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, epee::json_rpc::error& er)
   {
-    crypto::hash8 integrated_payment_id = cryptonote::null_hash8;
+    crypto::hash8 integrated_payment_id = crypto::null_hash8;
     std::string extra_nonce;
     for (auto it = destinations.begin(); it != destinations.end(); it++)
     {
@@ -395,7 +395,7 @@ namespace tools
 
       if (has_payment_id)
       {
-        if (!payment_id.empty() || integrated_payment_id != cryptonote::null_hash8)
+        if (!payment_id.empty() || integrated_payment_id != crypto::null_hash8)
         {
           er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
           er.message = "A single payment id is allowed per transaction";
@@ -1485,7 +1485,7 @@ namespace tools
     cryptonote::account_public_address address;
     bool has_payment_id;
     crypto::hash8 payment_id8;
-    crypto::hash payment_id = cryptonote::null_hash;
+    crypto::hash payment_id = crypto::null_hash;
     er.message = "";
     if(!get_account_address_from_str_or_url(address, has_payment_id, payment_id8, m_wallet->testnet(), req.address,
       [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {

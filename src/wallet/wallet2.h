@@ -36,6 +36,7 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/vector.hpp>
+#include <boost/serialization/deque.hpp>
 #include <atomic>
 
 #include "include_base_utils.h"
@@ -52,6 +53,7 @@
 #include "crypto/hash.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
+#include "checkpoints/checkpoints.h"
 
 #include "wallet_errors.h"
 #include "common/password.h"
@@ -89,6 +91,37 @@ namespace tools
       , addr_for_dust(an_addr_for_dust)
     {
     }
+  };
+
+  class hashchain
+  {
+  public:
+    hashchain(): m_genesis(crypto::null_hash), m_offset(0) {}
+
+    size_t size() const { return m_blockchain.size() + m_offset; }
+    size_t offset() const { return m_offset; }
+    const crypto::hash &genesis() const { return m_genesis; }
+    void push_back(const crypto::hash &hash) { if (m_offset == 0 && m_blockchain.empty()) m_genesis = hash; m_blockchain.push_back(hash); }
+    bool is_in_bounds(size_t idx) const { return idx >= m_offset && idx < size(); }
+    const crypto::hash &operator[](size_t idx) const { return m_blockchain[idx - m_offset]; }
+    crypto::hash &operator[](size_t idx) { return m_blockchain[idx - m_offset]; }
+    void crop(size_t height) { m_blockchain.resize(height - m_offset); }
+    void clear() { m_offset = 0; m_blockchain.clear(); }
+    bool empty() const { return m_blockchain.empty() && m_offset == 0; }
+    void trim(size_t height) { while (height > m_offset && !m_blockchain.empty()) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
+
+    template <class t_archive>
+    inline void serialize(t_archive &a, const unsigned int ver)
+    {
+      a & m_offset;
+      a & m_genesis;
+      a & m_blockchain;
+    }
+
+  private:
+    size_t m_offset;
+    crypto::hash m_genesis;
+    std::deque<crypto::hash> m_blockchain;
   };
 
   class wallet2
@@ -216,7 +249,7 @@ namespace tools
       uint64_t m_timestamp;
       uint64_t m_unlock_time;
 
-      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(cryptonote::null_hash), m_timestamp(0), m_unlock_time(0) {}
+      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(crypto::null_hash), m_timestamp(0), m_unlock_time(0) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
         m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time) {}
     };
@@ -452,7 +485,19 @@ namespace tools
       uint64_t dummy_refresh_height = 0; // moved to keys file
       if(ver < 5)
         return;
-      a & m_blockchain;
+      if (ver < 19)
+      {
+        std::vector<crypto::hash> blockchain;
+        a & blockchain;
+        for (const auto &b: blockchain)
+        {
+          m_blockchain.push_back(b);
+        }
+      }
+      else
+      {
+        a & m_blockchain;
+      }
       a & m_transfers;
       a & m_account_public_address;
       a & m_key_images;
@@ -601,8 +646,8 @@ namespace tools
     payment_container export_payments() const;
     void import_payments(const payment_container &payments);
     void import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments);
-    std::vector<crypto::hash> export_blockchain() const;
-    void import_blockchain(const std::vector<crypto::hash> &bc);
+    std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
+    void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
     bool export_key_images(const std::string filename);
     std::vector<std::pair<crypto::key_image, crypto::signature>> export_key_images() const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
@@ -678,6 +723,7 @@ namespace tools
     bool should_pick_a_second_output(bool use_rct, size_t n_transfers, const std::vector<size_t> &unused_transfers_indices, const std::vector<size_t> &unused_dust_indices) const;
     std::vector<size_t> get_only_rct(const std::vector<size_t> &unused_dust_indices, const std::vector<size_t> &unused_transfers_indices) const;
     void scan_output(const cryptonote::account_keys &keys, const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, int &num_vouts_received, uint64_t &tx_money_got_in_outs, std::vector<size_t> &outs);
+    void trim_hashchain();
 
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
@@ -685,12 +731,13 @@ namespace tools
     std::string m_wallet_file;
     std::string m_keys_file;
     epee::net_utils::http::http_simple_client m_http_client;
-    std::vector<crypto::hash> m_blockchain;
+    hashchain m_blockchain;
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_multimap<crypto::hash, payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
+    cryptonote::checkpoints m_checkpoints;
 
     transfer_container m_transfers;
     payment_container m_payments;
@@ -730,7 +777,7 @@ namespace tools
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 18)
+BOOST_CLASS_VERSION(tools::wallet2, 19)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 6)

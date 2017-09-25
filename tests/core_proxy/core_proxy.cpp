@@ -255,7 +255,7 @@ void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, 
         m_history.push_front(cit->first);
 
         size_t n = 1 << m_history.size();
-        while (m_hash2blkidx.end() != cit && cryptonote::null_hash != cit->second.blk.prev_id && n > 0) {
+        while (m_hash2blkidx.end() != cit && crypto::null_hash != cit->second.blk.prev_id && n > 0) {
             n--;
             cit = m_hash2blkidx.find(cit->second.blk.prev_id);
         }
@@ -265,7 +265,7 @@ void tests::proxy_core::build_short_history(std::list<crypto::hash> &m_history, 
 bool tests::proxy_core::add_block(const crypto::hash &_id, const crypto::hash &_longhash, const cryptonote::block &_blk, const cryptonote::blobdata &_blob) {
     size_t height = 0;
 
-    if (cryptonote::null_hash != _blk.prev_id) {
+    if (crypto::null_hash != _blk.prev_id) {
         std::unordered_map<crypto::hash, tests::block_index>::const_iterator cit = m_hash2blkidx.find(_blk.prev_id);
         if (m_hash2blkidx.end() == cit) {
             cerr << "ERROR: can't find previous block with id \"" << _blk.prev_id << "\"" << endl;

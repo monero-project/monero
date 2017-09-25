@@ -37,6 +37,11 @@ bool do_serialize(Archive<false> &ar, std::vector<T> &v);
 template <template <bool> class Archive, class T>
 bool do_serialize(Archive<true> &ar, std::vector<T> &v);
 
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<false> &ar, std::deque<T> &v);
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<true> &ar, std::deque<T> &v);
+
 namespace serialization
 {
   namespace detail
@@ -64,7 +69,7 @@ namespace serialization
 }
 
 template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::vector<T> &v)
+bool do_serialize_vd(Archive<false> &ar, T &v)
 {
   size_t cnt;
   ar.begin_array(cnt);
@@ -93,7 +98,7 @@ bool do_serialize(Archive<false> &ar, std::vector<T> &v)
 }
 
 template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::vector<T> &v)
+bool do_serialize_vd(Archive<true> &ar, T &v)
 {
   size_t cnt = v.size();
   ar.begin_array(cnt);
@@ -110,3 +115,13 @@ bool do_serialize(Archive<true> &ar, std::vector<T> &v)
   ar.end_array();
   return true;
 }
+
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<false> &ar, std::vector<T> &v) { return do_serialize_vd(ar, v); }
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<true> &ar, std::vector<T> &v) { return do_serialize_vd(ar, v); }
+
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<false> &ar, std::deque<T> &v) { return do_serialize_vd(ar, v); }
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<true> &ar, std::deque<T> &v) { return do_serialize_vd(ar, v); }

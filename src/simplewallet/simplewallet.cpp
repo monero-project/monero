@@ -3278,7 +3278,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 
     std::vector<tx_extra_field> tx_extra_fields;
     bool has_encrypted_payment_id = false;
-    crypto::hash8 payment_id8 = cryptonote::null_hash8;
+    crypto::hash8 payment_id8 = crypto::null_hash8;
     if (cryptonote::parse_tx_extra(cd.extra, tx_extra_fields))
     {
       tx_extra_nonce extra_nonce;

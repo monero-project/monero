@@ -340,7 +340,7 @@ size_t block_queue::get_num_filled_spans() const
 crypto::hash block_queue::get_last_known_hash(const boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  crypto::hash hash = cryptonote::null_hash;
+  crypto::hash hash = crypto::null_hash;
   uint64_t highest_height = 0;
   for (const auto &span: blocks)
   {

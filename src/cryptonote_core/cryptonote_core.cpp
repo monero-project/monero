@@ -45,7 +45,7 @@ using namespace epee;
 #include "misc_language.h"
 #include <csignal>
 #include <p2p/net_node.h>
-#include "cryptonote_basic/checkpoints.h"
+#include "checkpoints/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
@@ -183,7 +183,7 @@ namespace cryptonote
     if (!m_testnet && !m_fakechain)
     {
       cryptonote::checkpoints checkpoints;
-      if (!checkpoints.init_default_checkpoints())
+      if (!checkpoints.init_default_checkpoints(m_testnet))
       {
         throw std::runtime_error("Failed to initialize checkpoints");
       }

@@ -46,6 +46,7 @@ set(unit_tests_sources
   epee_utils.cpp
   fee.cpp
   get_xtype_from_string.cpp
+  hashchain.cpp
   http.cpp
   main.cpp
   mnemonics.cpp

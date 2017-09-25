@@ -542,7 +542,7 @@ namespace rpc
   {
     if (m_core.get_current_blockchain_height() <= req.height)
     {
-      res.hash = cryptonote::null_hash;
+      res.hash = crypto::null_hash;
       res.status = Message::STATUS_FAILED;
       res.error_details = "height given is higher than current chain height";
       return;

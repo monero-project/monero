@@ -36,6 +36,7 @@ using namespace epee;
 
 #include "common/dns_utils.h"
 #include "include_base_utils.h"
+#include "storages/portable_storage_template_helper.h" // epee json include
 #include <sstream>
 #include <random>
 
@@ -51,7 +52,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)
   {
-    crypto::hash h = null_hash;
+    crypto::hash h = crypto::null_hash;
     bool r = epee::string_tools::parse_tpod_from_hex_string(hash_str, h);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse checkpoint hash string into binary representation!");
 
@@ -135,8 +136,14 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::init_default_checkpoints()
+  bool checkpoints::init_default_checkpoints(bool testnet)
   {
+    if (testnet)
+    {
+      // just use the genesis block on testnet
+      ADD_CHECKPOINT(0,     "48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b");
+      return true;
+    }
     ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
     ADD_CHECKPOINT(10,    "c0e3b387e47042f72d8ccdca88071ff96bff1ac7cde09ae113dbb7ad3fe92381");
     ADD_CHECKPOINT(100,   "ac3e11ca545e57c49fca2b4e8c48c03c23be047c43e471e1394528b1f9f80b2d");

@@ -31,12 +31,16 @@
 #pragma once
 
 #include <cstddef>
+#include <iostream>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
+#include <boost/utility/value_init.hpp>
 #include <vector>
 
 #include "common/pod-class.h"
 #include "generic-ops.h"
+#include "hex.h"
+#include "span.h"
 #include "hash.h"
 
 namespace crypto {
@@ -248,6 +252,24 @@ namespace crypto {
     const signature *sig) {
     return check_ring_signature(prefix_hash, image, pubs.data(), pubs.size(), sig);
   }
+
+  inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::secret_key &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)

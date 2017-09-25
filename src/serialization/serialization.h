@@ -41,6 +41,7 @@
 
 #pragma once
 #include <vector>
+#include <deque>
 #include <list>
 #include <string>
 #include <boost/type_traits/is_integral.hpp>
@@ -198,6 +199,11 @@ inline bool do_serialize(Archive &ar, bool &v)
 #define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\
   ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
 
+/*! \macro PREPARE_CUSTOM_DEQUE_SERIALIZATION
+ */
+#define PREPARE_CUSTOM_DEQUE_SERIALIZATION(size, vec)			\
+  ::serialization::detail::prepare_custom_deque_serialization(size, vec, typename Archive<W>::is_saving())
+
 /*! \macro END_SERIALIZE
  * \brief self-explanatory
  */
@@ -288,6 +294,17 @@ namespace serialization {
 
     template <typename T>
     void prepare_custom_vector_serialization(size_t size, std::vector<T>& vec, const boost::mpl::bool_<false>& /*is_saving*/)
+    {
+      vec.resize(size);
+    }
+
+    template <typename T>
+    void prepare_custom_deque_serialization(size_t size, std::deque<T>& vec, const boost::mpl::bool_<true>& /*is_saving*/)
+    {
+    }
+
+    template <typename T>
+    void prepare_custom_deque_serialization(size_t size, std::deque<T>& vec, const boost::mpl::bool_<false>& /*is_saving*/)
     {
       vec.resize(size);
     }

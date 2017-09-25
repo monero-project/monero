@@ -632,7 +632,7 @@ namespace cryptonote
     // prunable rct
     if (t.rct_signatures.type == rct::RCTTypeNull)
     {
-      hashes[2] = cryptonote::null_hash;
+      hashes[2] = crypto::null_hash;
     }
     else
     {
