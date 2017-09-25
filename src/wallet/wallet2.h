@@ -363,7 +363,7 @@ namespace tools
      * \brief Checks if deterministic wallet
      */
     bool is_deterministic() const;
-    bool get_seed(std::string& electrum_words) const;
+    bool get_seed(std::string& electrum_words, const std::string &passphrase = std::string()) const;
     /*!
      * \brief Gets the seed language
      */
