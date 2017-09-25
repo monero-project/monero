@@ -50,6 +50,16 @@ using namespace epee;
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 500
 
+namespace
+{
+  void add_reason(std::string &reasons, const char *reason)
+  {
+    if (!reasons.empty())
+      reasons += ", ";
+    reasons += reason;
+  }
+}
+
 namespace cryptonote
 {
 
@@ -632,31 +642,33 @@ namespace cryptonote
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
+      res.status = "Failed";
+      res.reason = "";
+      if ((res.low_mixin = tvc.m_low_mixin))
+        add_reason(res.reason, "ring size too small");
+      if ((res.double_spend = tvc.m_double_spend))
+        add_reason(res.reason, "double spend");
+      if ((res.invalid_input = tvc.m_invalid_input))
+        add_reason(res.reason, "invalid input");
+      if ((res.invalid_output = tvc.m_invalid_output))
+        add_reason(res.reason, "invalid output");
+      if ((res.too_big = tvc.m_too_big))
+        add_reason(res.reason, "too big");
+      if ((res.overspend = tvc.m_overspend))
+        add_reason(res.reason, "overspend");
+      if ((res.fee_too_low = tvc.m_fee_too_low))
+        add_reason(res.reason, "fee too low");
+      if ((res.not_rct = tvc.m_not_rct))
+        add_reason(res.reason, "tx is not ringct");
+      const std::string punctuation = res.reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed");
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << res.reason);
       }
       else
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx");
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << res.reason);
       }
-      res.status = "Failed";
-      if ((res.low_mixin = tvc.m_low_mixin))
-        res.reason = "ring size too small";
-      if ((res.double_spend = tvc.m_double_spend))
-        res.reason = "double spend";
-      if ((res.invalid_input = tvc.m_invalid_input))
-        res.reason = "invalid input";
-      if ((res.invalid_output = tvc.m_invalid_output))
-        res.reason = "invalid output";
-      if ((res.too_big = tvc.m_too_big))
-        res.reason = "too big";
-      if ((res.overspend = tvc.m_overspend))
-        res.reason = "overspend";
-      if ((res.fee_too_low = tvc.m_fee_too_low))
-        res.reason = "fee too low";
-      if ((res.not_rct = tvc.m_not_rct))
-        res.reason = "tx is not ringct";
       return true;
     }
 
