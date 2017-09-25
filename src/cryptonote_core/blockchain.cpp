@@ -3732,6 +3732,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
   bool stop_batch;
+  uint64_t bytes = 0;
 
   // Order of locking must be:
   //  m_incoming_tx_lock (optional)
@@ -3753,7 +3754,15 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
   if(blocks_entry.size() == 0)
     return false;
 
-  while (!(stop_batch = m_db->batch_start(blocks_entry.size()))) {
+  for (const auto &entry : blocks_entry)
+  {
+    bytes += entry.block.size();
+    for (const auto &tx_blob : entry.txs)
+    {
+      bytes += tx_blob.size();
+    }
+  }
+  while (!(stop_batch = m_db->batch_start(blocks_entry.size(), bytes))) {
     m_blockchain_lock.unlock();
     m_tx_pool.unlock();
     epee::misc_utils::sleep_no_w(1000);

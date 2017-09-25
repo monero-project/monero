@@ -53,7 +53,7 @@ public:
   virtual std::string get_db_name() const { return std::string(); }
   virtual bool lock() { return true; }
   virtual void unlock() { }
-  virtual bool batch_start(uint64_t batch_num_blocks=0) { return true; }
+  virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) { return true; }
   virtual void batch_stop() {}
   virtual void set_batch_transactions(bool) {}
   virtual void block_txn_start(bool readonly=false) {}

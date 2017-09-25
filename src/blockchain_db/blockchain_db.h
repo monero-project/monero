@@ -711,7 +711,7 @@ public:
    *
    * @return true if we started the batch, false if already started
    */
-  virtual bool batch_start(uint64_t batch_num_blocks=0) = 0;
+  virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) = 0;
 
   /**
    * @brief ends a batch transaction
