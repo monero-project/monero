@@ -407,7 +407,7 @@ else()
       set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
     endif()
   else()
-    set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized")
+    set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized -Wno-error=cpp")
   endif()
   if(MINGW)
     set(WARNINGS "${WARNINGS} -Wno-error=unused-value -Wno-error=unused-but-set-variable")
@@ -699,25 +699,19 @@ if(NOT ZMQ_LIB)
   message(FATAL_ERROR "Could not find require libzmq")
 endif()
 
-function (treat_warnings_as_errors dirs)
-  foreach(dir ${ARGV})
-    set_property(DIRECTORY ${dir}
-      APPEND PROPERTY COMPILE_FLAGS "-Werror")
-  endforeach()
-endfunction()
-
-add_subdirectory(contrib)
-add_subdirectory(src)
-
-treat_warnings_as_errors(contrib src)
-
 option(BUILD_TESTS "Build tests." OFF)
 
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
+# warnings are cleared only for GCC on Linux
+if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
+add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
+endif()
 
+add_subdirectory(contrib)
+add_subdirectory(src)
 
 if(BUILD_DOCUMENTATION)
   set(DOC_GRAPHS "YES" CACHE STRING "Create dependency graphs (needs graphviz)")
