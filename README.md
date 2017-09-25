@@ -94,19 +94,22 @@ If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidel
 
 See [Vulnerability Response Process](VULNERABILITY_RESPONSE_PROCESS.md).
 
-## Monero software updates and consensus protocol changes (hard fork schedule)
+## Monero software updates and Network Consensus Protocol Upgrade (hard fork schedule)
 
-Monero uses a fixed-schedule hard fork mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and update their software on a regular schedule. Here is the current schedule, versions, and compatibility.
+Monero uses a fixed-schedule network consensus protocol upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and upgrade their software on a regular schedule. Network consensus protocol upgrades occur during the months of March and September. Required software for these consensus protocol upgrades is available prior to the date of the consensus protocol upgrade. Please check the git repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. 
 
 
-| Block Height | Fork Date              | Consensus version | Minimum Monero Version | Recommended Monero Version | Details            |  
-| ----------------- | ----------------- | ---------------------- | -------------------------- | ------------------ | ---------- |
-| 1009827 | 2016-03-22 	      | v2                | v0.9.4                 | v0.9.4                     |  Allow only >= ringsize 3, blocktime = 120 seconds, fee-free blocksize 60 kb       |
-| 1141317 | 2016-09-21        | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
-| 1220516 | 2017-01-05        | v4                | v0.10.1                 | v0.10.2.1                   | Allow normal and RingCT transactions |
-| 1288616 | 2017-04-15        | v5                | v0.10.3.0               | v0.10.3.1                    | Adjusted minimum blocksize and fee algorithm      |
-| 1400000 | 2017-09-16        | v6                | v0.11.0.0                | v0.11.0.0                    | Allow only RingCT transactions, allow only >= ringsize 5      |
+| Consensus Upgrade Block Height | Date       | Consensus version | Minimum Monero Version | Recommended Monero Version | Details                                                                            |  
+| ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| 1009827                        | 2016-03-22 | v2                | v0.9.4                 | v0.9.4                     | Allow only >= ringsize 3, blocktime = 120 seconds, fee-free blocksize 60 kb       |
+| 1141317                        | 2016-09-21 | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
+| 1220516                        | 2017-01-05 | v4                | v0.10.1                | v0.10.2.1                  | Allow normal and RingCT transactions |
+| 1288616                        | 2017-04-15 | v5                | v0.10.3.0              | v0.10.3.1                  | Adjusted minimum blocksize and fee algorithm      |
+| 1400000                        | 2017-09-16 | v6                | v0.11.0.0              | v0.11.0.0                  | Allow only RingCT transactions, allow only >= ringsize 5      |
+| XXXXXXX                        | 2018-03-XX | XX                | XXXXXXXXX              | XXXXXXXXX                  | XXXXXX
+
+X's indicate that these details have not been determined as of commit date, 2017-09-20. 
 
 ## Installing Monero from a Package
 
