@@ -1536,7 +1536,7 @@ namespace tools
       er.message = "Failed to add address book entry";
       return false;
     }
-    res.index = m_wallet->get_address_book().size();
+    res.index = m_wallet->get_address_book().size() - 1;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
