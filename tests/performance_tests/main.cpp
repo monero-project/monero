@@ -100,6 +100,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(test_check_tx_signature, 100, true);
 
   TEST_PERFORMANCE0(test_is_out_to_acc);
+  TEST_PERFORMANCE0(test_is_out_to_acc_precomp);
   TEST_PERFORMANCE0(test_generate_key_image_helper);
   TEST_PERFORMANCE0(test_generate_key_derivation);
   TEST_PERFORMANCE0(test_generate_key_image);
