@@ -309,6 +309,7 @@ namespace cryptonote
       summary_outs_money += dst_entr.amount;
     }
 
+#if 0
     // sort outs by their public key
     std::vector<size_t> outs_order(tx.vout.size());
     for (size_t n = 0; n < tx.vout.size(); ++n)
@@ -322,6 +323,7 @@ namespace cryptonote
       std::swap(tx.vout[i0], tx.vout[i1]);
       std::swap(amount_keys[i0], amount_keys[i1]);
     });
+#endif
 
     //check money
     if(summary_outs_money > summary_inputs_money )
