@@ -264,6 +264,10 @@ namespace cryptonote
       tx.vin.push_back(input_to_key);
     }
 
+    // "Shuffle" outs
+    std::vector<tx_destination_entry> shuffled_dsts(destinations);
+    std::random_shuffle(shuffled_dsts.begin(), shuffled_dsts.end(), [](unsigned int i) { return crypto::rand<unsigned int>() % i; });
+
     // sort ins by their key image
     std::vector<size_t> ins_order(sources.size());
     for (size_t n = 0; n < sources.size(); ++n)
@@ -308,23 +312,6 @@ namespace cryptonote
       output_index++;
       summary_outs_money += dst_entr.amount;
     }
-
-#if 0
-    // sort outs by their public key
-    std::vector<size_t> outs_order(tx.vout.size());
-    for (size_t n = 0; n < tx.vout.size(); ++n)
-      outs_order[n] = n;
-    std::sort(outs_order.begin(), outs_order.end(), [&](size_t i0, size_t i1) {
-      const txout_to_key &tk0 = boost::get<txout_to_key>(tx.vout[i0].target);
-      const txout_to_key &tk1 = boost::get<txout_to_key>(tx.vout[i1].target);
-      return memcmp(&tk0.key, &tk1.key, sizeof(tk0.key)) < 0;
-    });
-    tools::apply_permutation(outs_order, [&] (size_t i0, size_t i1) {
-      std::swap(tx.vout[i0], tx.vout[i1]);
-      if (!amount_keys.empty())
-        std::swap(amount_keys[i0], amount_keys[i1]);
-    });
-#endif
 
     //check money
     if(summary_outs_money > summary_inputs_money )
