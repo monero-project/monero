@@ -59,6 +59,7 @@ target_link_libraries(cryptonote_core
     common
     cncrypto
     blockchain_db
+    multisig
     ringct
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

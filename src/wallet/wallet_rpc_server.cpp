@@ -2622,22 +2622,9 @@ namespace tools
       return false;
     }
 
-    // parse all multisig info
-    std::unordered_set<crypto::public_key> public_keys;
-    std::vector<crypto::public_key> signers(req.multisig_info.size(), crypto::null_pkey);
-    for (size_t i = 0; i < req.multisig_info.size(); ++i)
-    {
-      if (!m_wallet->verify_extra_multisig_info(req.multisig_info[i], public_keys, signers[i]))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
-        er.message = std::string("Bad multisig_info info: ") + req.multisig_info[i];
-        return false;
-      }
-    }
-
     try
     {
-      if (!m_wallet->finalize_multisig(req.password, public_keys, signers))
+      if (!m_wallet->finalize_multisig(req.password, req.multisig_info))
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = "Error calling finalize_multisig";

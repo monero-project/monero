@@ -868,22 +868,9 @@ bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  // parse all multisig info
-  std::unordered_set<crypto::public_key> public_keys;
-  std::vector<crypto::public_key> signers(args.size(), crypto::null_pkey);
-  for (size_t i = 0; i < args.size(); ++i)
-  {
-    if (!tools::wallet2::verify_extra_multisig_info(args[i], public_keys, signers[i]))
-    {
-      fail_msg_writer() << tr("Bad multisig info: ") << args[i];
-      return true;
-    }
-  }
-
-  // we have all pubkeys now
   try
   {
-    if (!m_wallet->finalize_multisig(orig_pwd_container->password(), public_keys, signers))
+    if (!m_wallet->finalize_multisig(orig_pwd_container->password(), args))
     {
       fail_msg_writer() << tr("Failed to finalize multisig");
       return true;

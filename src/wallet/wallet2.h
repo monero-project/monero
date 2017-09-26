@@ -477,6 +477,10 @@ namespace tools
     /*!
      * \brief Finalizes creation of a multisig wallet
      */
+    bool finalize_multisig(const epee::wipeable_string &password, const std::vector<std::string> &info);
+    /*!
+     * \brief Finalizes creation of a multisig wallet
+     */
     bool finalize_multisig(const epee::wipeable_string &password, std::unordered_set<crypto::public_key> pkeys, std::vector<crypto::public_key> signers);
     /*!
      * Get a packaged multisig information string
@@ -642,7 +646,7 @@ namespace tools
     bool load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL);
     bool sign_multisig_tx_from_file(const std::string &filename, std::vector<crypto::hash> &txids, std::function<bool(const multisig_tx_set&)> accept_func);
     bool sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids);
-    bool sign_multisig_tx_from_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
+    bool sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
     std::vector<pending_tx> create_unmixable_sweep_transactions(bool trusted_daemon);
     bool check_connection(uint32_t *version = NULL, uint32_t timeout = 200000);
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
