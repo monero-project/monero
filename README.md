@@ -211,7 +211,7 @@ invokes cmake commands as needed.
 
 #### On the Raspberry Pi
 
-Tested on a Raspberry Pi Zero with a clean install of minimal Debian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/
+Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/. If you are using Raspian Jessie, [please see note in the following section](#note-for-raspbian-jessie-users). 
 
 * `apt-get update && apt-get upgrade` to install all of the latest software
 
@@ -243,6 +243,38 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Debian Stretch (20
 * Run Monero with `monerod --detach`
 
 * You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
+
+#### *Note for Raspbian Jessie Users:*
+
+If you are using the older Raspbian Jessie image, compiling Monero is a bit more complicated. The version of Boost available in the Debian Jessie repositories is too old to use with Monero, and thus you must compile a newer version yourself. The following explains the extra steps, and has been tested on a Raspberry Pi 2 with a clean install of minimal Raspbian Jessie.
+
+* As before, `apt-get update && apt-get upgrade` to install all of the latest software, and increase the system swap size
+
+```	
+	sudo /etc/init.d/dphys-swapfile stop  
+	sudo nano /etc/dphys-swapfile  
+	CONF_SWAPSIZE=1024  
+	sudo /etc/init.d/dphys-swapfile start  
+```
+
+* Then, install the dependencies for Monero except `libunwind` and `libboost-all-dev`
+
+* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*` to remove a previous version if you're not using a clean install):
+```
+	cd  
+	wget https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2  
+	tar xvfo boost_1_64_0.tar.bz2  
+	cd boost_1_64_0  
+	./bootstrap.sh  
+	sudo ./b2  
+```
+* Wait ~8 hours
+```
+	sudo ./bjam install
+```
+* Wait ~4 hours
+
+* From here, follow the [general Raspberry Pi instructions](#on-the-raspberry-pi) from the "Clone monero and checkout most recent release version" step.
 
 #### On Windows:
 
