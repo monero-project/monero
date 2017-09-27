@@ -601,6 +601,10 @@ namespace tools
     void confirm_backlog(bool always) { m_confirm_backlog = always; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key) const;
+    void check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
+    void check_tx_key_helper(const crypto::hash &txid, const crypto::key_derivation &derivation, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
+    std::string get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, const boost::optional<crypto::secret_key> &optional_tx_key = boost::none) const;
+    bool check_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, const std::string &sig_str, uint64_t &received, bool &in_pool, uint64_t &confirmations);
 
    /*!
     * \brief GUI Address book get/store
