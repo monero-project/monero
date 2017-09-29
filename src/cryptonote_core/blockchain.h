@@ -961,6 +961,13 @@ namespace cryptonote
 
     void cancel();
 
+    /**
+     * @brief called when we see a tx originating from a block
+     *
+     * Used for handling txes from historical blocks in a fast way
+     */
+    void on_new_tx_from_block(const cryptonote::transaction &tx);
+
   private:
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
