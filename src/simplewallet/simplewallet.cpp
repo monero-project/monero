@@ -1420,8 +1420,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           }
         }
       }
-      m_wallet->set_refresh_from_block_height(m_restore_height);
     }
+    if (m_restoring)
+      m_wallet->set_refresh_from_block_height(m_restore_height);
   }
   else
   {
