@@ -81,8 +81,8 @@ using namespace cryptonote;
 // arbitrary, used to generate different hashes from the same input
 #define CHACHA8_KEY_TAIL 0x8c
 
-#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
-#define SIGNED_TX_PREFIX "Monero signed tx set\003"
+#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\004"
+#define SIGNED_TX_PREFIX "Monero signed tx set\004"
 
 #define RECENT_OUTPUT_RATIO (0.5) // 50% of outputs are from the recent zone
 #define RECENT_OUTPUT_ZONE ((time_t)(1.8 * 86400)) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
@@ -3270,7 +3270,8 @@ bool wallet2::save_tx(const std::vector<pending_tx>& ptx_vector, const std::stri
     return false;
   }
   LOG_PRINT_L2("Saving unsigned tx data: " << oss.str());
-  return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + oss.str());  
+  std::string ciphertext = encrypt_with_view_secret_key(oss.str());
+  return epee::file_io_utils::save_string_to_file(filename, std::string(UNSIGNED_TX_PREFIX) + ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs)
@@ -3288,22 +3289,55 @@ bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx
     LOG_PRINT_L0("Failed to load from " << unsigned_filename);
     return false;
   }
-  const size_t magiclen = strlen(UNSIGNED_TX_PREFIX);
+  const size_t magiclen = strlen(UNSIGNED_TX_PREFIX) - 1;
   if (strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen))
   {
     LOG_PRINT_L0("Bad magic from " << unsigned_filename);
     return false;
   }
   s = s.substr(magiclen);
-  try
+  const char version = s[0];
+  s = s.substr(1);
+  if (version == '\003')
   {
-    std::istringstream iss(s);
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> exported_txs;
+    try
+    {
+      std::istringstream iss(s);
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> exported_txs;
+    }
+    catch (...)
+    {
+      LOG_PRINT_L0("Failed to parse data from " << unsigned_filename);
+      return false;
+    }
   }
-  catch (...)  
+  else if (version == '\004')
   {
-    LOG_PRINT_L0("Failed to parse data from " << unsigned_filename);
+    try
+    {
+      s = decrypt_with_view_secret_key(s);
+      try
+      {
+        std::istringstream iss(s);
+        boost::archive::portable_binary_iarchive ar(iss);
+        ar >> exported_txs;
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Failed to parse data from " << unsigned_filename);
+        return false;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Failed to decrypt " << unsigned_filename << ": " << e.what());
+      return false;
+    }
+  }
+  else
+  {
+    LOG_PRINT_L0("Unsupported version in " << unsigned_filename);
     return false;
   }
   LOG_PRINT_L1("Loaded tx unsigned data from binary: " << exported_txs.txes.size() << " transactions");
@@ -3311,7 +3345,7 @@ bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func)
+bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, std::function<bool(const unsigned_tx_set&)> accept_func, bool export_raw)
 {
   unsigned_tx_set exported_txs;
   if(!load_unsigned_tx(unsigned_filename, exported_txs))
@@ -3322,11 +3356,11 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
-  return sign_tx(exported_txs, signed_filename, txs);
+  return sign_tx(exported_txs, signed_filename, txs, export_raw);
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs)
+bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_filename, std::vector<wallet2::pending_tx> &txs, bool export_raw)
 {
   import_outputs(exported_txs.transfers);
 
@@ -3399,8 +3433,28 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
   {
     return false;
   }
-  LOG_PRINT_L3("Saving signed tx data: " << oss.str());
-  return epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + oss.str());  
+  LOG_PRINT_L3("Saving signed tx data (with encryption): " << oss.str());
+  std::string ciphertext = encrypt_with_view_secret_key(oss.str());
+  if (!epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + ciphertext))
+  {
+    LOG_PRINT_L0("Failed to save file to " << signed_filename);
+    return false;
+  }
+  // export signed raw tx without encryption
+  if (export_raw)
+  {
+    for (size_t i = 0; i < signed_txes.ptx.size(); ++i)
+    {
+      std::string tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(signed_txes.ptx[i].tx));
+      std::string raw_filename = signed_filename + "_raw" + (signed_txes.ptx.size() == 1 ? "" : ("_" + std::to_string(i)));
+      if (!epee::file_io_utils::save_string_to_file(raw_filename, tx_as_hex))
+      {
+        LOG_PRINT_L0("Failed to save file to " << raw_filename);
+        return false;
+      }
+    }
+  }
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func)
@@ -3420,22 +3474,55 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     LOG_PRINT_L0("Failed to load from " << signed_filename);
     return false;
   }
-  const size_t magiclen = strlen(SIGNED_TX_PREFIX);
+  const size_t magiclen = strlen(SIGNED_TX_PREFIX) - 1;
   if (strncmp(s.c_str(), SIGNED_TX_PREFIX, magiclen))
   {
     LOG_PRINT_L0("Bad magic from " << signed_filename);
     return false;
   }
   s = s.substr(magiclen);
-  try
+  const char version = s[0];
+  s = s.substr(1);
+  if (version == '\003')
   {
-    std::istringstream iss(s);
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> signed_txs;
+    try
+    {
+      std::istringstream iss(s);
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> signed_txs;
+    }
+    catch (...)
+    {
+      LOG_PRINT_L0("Failed to parse data from " << signed_filename);
+      return false;
+    }
   }
-  catch (...)
+  else if (version == '\004')
   {
-    LOG_PRINT_L0("Failed to parse data from " << signed_filename);
+    try
+    {
+      s = decrypt_with_view_secret_key(s);
+      try
+      {
+        std::istringstream iss(s);
+        boost::archive::portable_binary_iarchive ar(iss);
+        ar >> signed_txs;
+      }
+      catch (...)
+      {
+        LOG_PRINT_L0("Failed to parse decrypted data from " << signed_filename);
+        return false;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Failed to decrypt " << signed_filename << ": " << e.what());
+      return false;
+    }
+  }
+  else
+  {
+    LOG_PRINT_L0("Unsupported version in " << signed_filename);
     return false;
   }
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
