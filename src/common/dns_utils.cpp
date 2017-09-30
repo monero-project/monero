@@ -40,6 +40,8 @@ namespace bf = boost::filesystem;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
 
+#define DEFAULT_DNS_PUBLIC_ADDR "8.8.4.4"
+
 static boost::mutex instance_lock;
 
 namespace
@@ -197,15 +199,18 @@ public:
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
-  const char* dns_public_addr = "8.8.4.4";
+  std::string dns_public_addr = DEFAULT_DNS_PUBLIC_ADDR;
   if (auto res = getenv("DNS_PUBLIC"))
   {
-    std::string dns_public(res);
-    // TODO: could allow parsing of IP and protocol: e.g. DNS_PUBLIC=tcp:8.8.8.8
-    if (dns_public == "tcp")
+    dns_public_addr = tools::dns_utils::parse_dns_public(res);
+    if (!dns_public_addr.empty())
     {
-      LOG_PRINT_L0("Using public DNS server: " << dns_public_addr << " (TCP)");
+      MGINFO("Using public DNS server: " << dns_public_addr << " (TCP)");
       use_dns_public = 1;
+    }
+    else
+    {
+      MERROR("Failed to parse DNS_PUBLIC");
     }
   }
 
@@ -214,7 +219,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    ub_ctx_set_fwd(m_data->m_ub_context, string_copy(dns_public_addr));
+    ub_ctx_set_fwd(m_data->m_ub_context, dns_public_addr.c_str());
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
   }
@@ -517,6 +522,34 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   good_records = records[good_records_index];
   return true;
+}
+
+std::string parse_dns_public(const char *s)
+{
+  unsigned ip0, ip1, ip2, ip3;
+  char c;
+  std::string dns_public_addr;
+  if (!strcmp(s, "tcp"))
+  {
+    dns_public_addr = DEFAULT_DNS_PUBLIC_ADDR;
+    LOG_PRINT_L0("Using default public DNS server: " << dns_public_addr << " (TCP)");
+  }
+  else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
+  {
+    if (ip0 > 255 || ip1 > 255 || ip2 > 255 || ip3 > 255)
+    {
+      MERROR("Invalid IP: " << s << ", using default");
+    }
+    else
+    {
+      dns_public_addr = std::string(s + strlen("tcp://"));
+    }
+  }
+  else
+  {
+    MERROR("Invalid DNS_PUBLIC contents, ignored");
+  }
+  return dns_public_addr;
 }
 
 }  // namespace tools::dns_utils
