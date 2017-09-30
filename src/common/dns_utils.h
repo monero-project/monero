@@ -167,6 +167,8 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
 
 bool load_txt_records_from_dns(std::vector<std::string> &records, const std::vector<std::string> &dns_urls);
 
+std::string parse_dns_public(const char *s);
+
 }  // namespace tools::dns_utils
 
 }  // namespace tools
