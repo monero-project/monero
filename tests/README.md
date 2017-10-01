@@ -1,37 +1,6 @@
-# Crypto tests
+# Running all tests
 
-## Running crypto Perl tests
-
-Crypto tests require the Math::GMP Perl library, make sure it is installed on you system before running the tests.
-
-Installing dependencies (using cpan):
-
-```
-cpan
-cpan> install Math::BigInt::GMP
-cpan> install Digest::Keccak
-```
-
-Running tests:
-
-```
-TESTPATH=/path/to/monero/tests
-cd $TESTPATH
-perl -I $TESTPATH cryptotest.pl
-```
-
-Important: must include test path for perl to import cryptolib.pl
-
-## Writing new crypto tests
-
-[TODO]
-
-# Core tests
-
-## Running core tests
-
-Monero uses the Google C++ Testing Framework (`gtest`) to write unit, integration and functional tests for core and other features of the project.
-`gtest` runs on top of cmake, and you can run all tests by:
+To run all tests, run:
 
 ```
 cd /path/to/monero
@@ -40,138 +9,108 @@ make [-jn] debug-test # where n is number of compiler processes
 
 To test a release build, replace `debug-test` with `release-test` in the previous command.
 
-One can also run individual test suites by building monero, then running `ctest` in test suite folders.
+# Core tests
 
-Run only the hash tests:
+Core tests take longer than any other Monero tests, due to the high amount of computational work involved in validating core components.
+
+Tests are located in `tests/core_tests/`, and follow a straightforward naming convention. Most cases cover core functionality (`block_reward.cpp`, `chaingen.cpp`, `rct.cpp`, etc.), while some cover basic security tests (`double_spend.cpp` & `integer_overflow.cpp`).
+
+To run only Monero's core tests (after building):
 
 ```
-cd /path/to/monero
-make [-j#] debug
+cd build/debug/tests/core
+ctest
+```
+
+To run the same tests on a release build, replace `debug` with `release`.
+
+
+# Crypto Tests
+
+Crypto tests are located under the `tests/crypto` directory. 
+
+- `crypto-tests.h` contains test harness headers
+- `main.cpp` implements the driver for the crypto tests
+
+Tests correspond to components under `src/crypto/`. A quick comparison reveals the pattern, and new tests should continue the naming convention.
+
+To run only Monero's crypto tests (after building):
+
+```
+cd build/debug/tests/crypto
+ctest
+```
+
+To run the same tests on a release build, replace `debug` with `release`.
+
+# Daemon tests
+
+[TODO]
+
+# Functional tests
+
+[TODO]
+
+# Fuzz tests
+
+Fuzz tests are written using American Fuzzy Lop (AFL), and located under the `tests/fuzz` directory.
+
+An additional helper utility is provided `contrib/fuzz_testing/fuzz.sh`. AFL must be installed, and some additional setup may be necessary for the script to run properly.
+
+# Hash tests
+
+Hash tests exist under `tests/hash`, and include a set of target hashes in text files.
+
+To run only Monero's hash tests (after building):
+
+```
 cd build/debug/tests/hash
 ctest
 ```
 
-To run the same tests on a release build, replace `debug` with `release` in previous commands.
+To run the same tests on a release build, replace `debug` with `release`.
 
-## Writing new tests
+# Libwallet API tests
 
-Based on local tests and Google's guide on creating [simple tests with gtest](https://github.com/google/googletest/blob/master/googletest/docs/Primer.md#simple-tests)
+[TODO]
 
-Tests consist of a test harness (defined with the TEST() macro), and the test body consisting of gtest assertions.
+# Net Load tests
 
-Example of a test harness:
+[TODO]
 
-```
-TEST(test_case_name, test_name) {
- ... test body ...
+# Performance tests
 
-}
-```
+Performance tests are located in `tests/performance_tests`, and test features for performance metrics on the host machine.
 
-As an example in Monero's [crypto unit test](./unit_tests/crypto.cpp):
+To run only Monero's performance tests (after building):
 
 ```
-TEST(Crypto, Ostream)
-{
-  EXPECT_TRUE(is_formatted<crypto::hash8>());
-  EXPECT_TRUE(is_formatted<crypto::hash>());
-  EXPECT_TRUE(is_formatted<crypto::public_key>());
-  EXPECT_TRUE(is_formatted<crypto::secret_key>());
-  EXPECT_TRUE(is_formatted<crypto::signature>());
-  EXPECT_TRUE(is_formatted<crypto::key_derivation>());
-  EXPECT_TRUE(is_formatted<crypto::key_image>());
-}
-
+cd build/debug/tests/performance_tests
+./performance_tests
 ```
 
-The assertions inside the test harness are a bit complex, but fairly straightforward.
+If the `performance_tests` binary does not exist, try running `make` in the `build/debug/tests/performance_tests` directory.
 
-- `is_formatted<T>()` is a polymorphic function that accepts the various types of structs defined in [crypto/hash.h](../src/crypto/hash.h).
+To run the same tests on a release build, replace `debug` with `release`.
 
-Just above the test harness, we have the definition for `is_formatted`:
+# Unit tests
 
-```
-  template<typename T>
-  bool is_formatted()
-  {
-    T value{};
+Unit tests are defined under the `tests/unit_tests` directory. Independent components are tested individually to ensure they work properly on their own.
 
-    static_assert(alignof(T) == 1, "T must have 1 byte alignment");
-    static_assert(sizeof(T) <= sizeof(source), "T is too large for source");
-    static_assert(sizeof(T) * 2 <= sizeof(expected), "T is too large for destination");
-    std::memcpy(std::addressof(value), source, sizeof(T));
-
-    std::stringstream out;
-    out << "BEGIN" << value << "END";
-    return out.str() == "BEGIN<" + std::string{expected, sizeof(T) * 2} + ">END";
-  }
-```
-
-`T value {}` produces the data member of the struct (`hash8` has `char data[8]`), which runs a number of tests to ensure well structured hash data.
-
-Let's write a new test for the keccak function:
+To run only Monero's unit tests (after building):
 
 ```
-  bool keccak_harness()
-  {
-      size_t inlen = sizeof(source);
-      int mdlen = (int)sizeof(md);
-      int ret = keccak(source, inlen, md, mdlen);
-      if (md[0] != 0x00)
-      {
-          return true;
-      }
-      else if (!ret)
-      {
-          return true;
-      }
-      else
-      {
-          return false;
-      }
-  }
+cd build/debug/tests/unit_tests
+ctest
 ```
 
-This is a basic test that ensures `keccak()` returns successfully when given proper input. It reuses the `source` array for input, and a new byte array `md` for storing the hash digest. Full source is in the [crypto unit test](./unit_tests/crypto.cpp).
+To run the same tests on a release build, replace `debug` with `release`.
 
-Now let's create a new test harness:
+# Writing new tests
 
-```
-TEST(Crypto, Keccak)
-{
-  # ...
-  EXPECT_TRUE(keccak_harness());
-}
+## Test hygiene
 
-```
-
-This creates a new test under the `Crypto` test case named `Keccak`. The harness includes one assertion `EXPECT_TRUE(keccak_harness())`, which invokes `keccak_harness()`. More complex logic can be added to test various functionality of the `Keccak` library.
-
-To run the new test:
-
-```
-cd /path/to/monero
-make -jn debug # if no debug build exists
-cd build/debug/tests/unit_test
-make -jn
-make -jn test
-```
-
-# Fuzz tests
-
-## Running fuzz tests
-
-```
-cd /path/to/monero
-make [-jn] fuzz # where n is number of compiler processes
-```
-
-or
-
-```
-cd path/to/monero
-./contrib/fuzz_testing/fuzz.sh
-```
+When writing new tests, please implement all functions in `.cpp` or `.c` files, and only put function headers in `.h` files. This will help keep the fairly complex test suites somewhat sane going forward.
 
 ## Writing fuzz tests
 
