@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
       }
     }
     return true;
-  });
+  }, true);
 
   std::unordered_map<uint64_t, uint64_t> counts;
   size_t total = 0;
