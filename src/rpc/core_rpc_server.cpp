@@ -219,18 +219,6 @@ namespace cryptonote
     return ss.str();
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  static cryptonote::blobdata get_pruned_tx_blob(const cryptonote::blobdata &blobdata)
-  {
-    cryptonote::transaction tx;
-
-    if (!cryptonote::parse_and_validate_tx_from_blob(blobdata, tx))
-    {
-      MERROR("Failed to parse and validate tx from blob");
-      return cryptonote::blobdata();
-    }
-    return get_pruned_tx_blob(tx);
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     PERF_TIMER(on_get_blocks);
@@ -240,7 +228,7 @@ namespace cryptonote
 
     std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > > bs;
 
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       res.status = "Failed";
       return false;
@@ -272,10 +260,7 @@ namespace cryptonote
       for (std::list<cryptonote::blobdata>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
         unpruned_size += i->size();
-        if (req.prune)
-          res.blocks.back().txs.push_back(get_pruned_tx_blob(std::move(*i)));
-        else
-          res.blocks.back().txs.push_back(std::move(*i));
+        res.blocks.back().txs.push_back(std::move(*i));
         i->clear();
         i->shrink_to_fit();
         pruned_size += res.blocks.back().txs.back().size();
