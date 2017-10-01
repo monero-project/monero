@@ -125,6 +125,10 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
   - Bleeding edge: [`monero-git`](https://aur.archlinux.org/packages/monero-git)
 
+* Void Linux:
+
+    xbps-install -S monero
+
 * OS X via [Homebrew](http://brew.sh)
 
         brew tap sammy007/cryptonight
