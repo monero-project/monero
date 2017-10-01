@@ -3039,7 +3039,7 @@ bool wallet2::verify_extra_multisig_info(const std::string &data, std::unordered
   return true;
 }
 
-bool wallet2::multisig(uint32_t *threshold, uint32_t *total) const
+bool wallet2::multisig(bool *ready, uint32_t *threshold, uint32_t *total) const
 {
   if (!m_multisig)
     return false;
@@ -3047,6 +3047,8 @@ bool wallet2::multisig(uint32_t *threshold, uint32_t *total) const
     *threshold = m_multisig_threshold;
   if (total)
     *total = m_multisig_signers.size();
+  if (ready)
+    *ready = !(get_account().get_keys().m_account_address.m_spend_public_key == rct::rct2pk(rct::identity()));
   return true;
 }
 

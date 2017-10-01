@@ -598,7 +598,7 @@ namespace tools
     bool testnet() const { return m_testnet; }
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
-    bool multisig(uint32_t *threshold = NULL, uint32_t *total = NULL) const;
+    bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
 
     // locked & unlocked balance of given or current subaddress account

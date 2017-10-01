@@ -2342,7 +2342,7 @@ namespace tools
   bool wallet_rpc_server::on_is_multisig(const wallet_rpc::COMMAND_RPC_IS_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_IS_MULTISIG::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
-    res.multisig = m_wallet->multisig(&res.threshold, &res.total);
+    res.multisig = m_wallet->multisig(&res.ready, &res.threshold, &res.total);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -2468,10 +2468,17 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
-    if (!m_wallet->multisig())
+    bool ready;
+    if (!m_wallet->multisig(&ready))
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
       er.message = "This wallet is not multisig";
+      return false;
+    }
+    if (!ready)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is multisig, but not yet finalized";
       return false;
     }
 
@@ -2514,11 +2521,18 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    bool ready;
     uint32_t threshold, total;
-    if (!m_wallet->multisig(&threshold, &total))
+    if (!m_wallet->multisig(&ready, &threshold, &total))
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
       er.message = "This wallet is not multisig";
+      return false;
+    }
+    if (!ready)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is multisig, but not yet finalized";
       return false;
     }
 
@@ -2607,11 +2621,18 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    bool ready;
     uint32_t threshold, total;
-    if (!m_wallet->multisig(&threshold, &total))
+    if (!m_wallet->multisig(&ready, &threshold, &total))
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
       er.message = "This wallet is not multisig";
+      return false;
+    }
+    if (ready)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ALREADY_MULTISIG;
+      er.message = "This wallet is multisig, and already finalized";
       return false;
     }
 

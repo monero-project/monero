@@ -94,11 +94,14 @@ static void make_M_2_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, un
 
   ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet1.get_account().get_public_address_str(true));
 
+  bool ready;
   uint32_t threshold, total;
-  ASSERT_TRUE(wallet0.multisig(&threshold, &total));
+  ASSERT_TRUE(wallet0.multisig(&ready, &threshold, &total));
+  ASSERT_TRUE(ready);
   ASSERT_TRUE(threshold == M);
   ASSERT_TRUE(total == 2);
-  ASSERT_TRUE(wallet1.multisig(&threshold, &total));
+  ASSERT_TRUE(wallet1.multisig(&ready, &threshold, &total));
+  ASSERT_TRUE(ready);
   ASSERT_TRUE(threshold == M);
   ASSERT_TRUE(total == 2);
 }
@@ -149,14 +152,18 @@ static void make_M_3_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, to
   ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet1.get_account().get_public_address_str(true));
   ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet2.get_account().get_public_address_str(true));
 
+  bool ready;
   uint32_t threshold, total;
-  ASSERT_TRUE(wallet0.multisig(&threshold, &total));
+  ASSERT_TRUE(wallet0.multisig(&ready, &threshold, &total));
+  ASSERT_TRUE(ready);
   ASSERT_TRUE(threshold == M);
   ASSERT_TRUE(total == 3);
-  ASSERT_TRUE(wallet1.multisig(&threshold, &total));
+  ASSERT_TRUE(wallet1.multisig(&ready, &threshold, &total));
+  ASSERT_TRUE(ready);
   ASSERT_TRUE(threshold == M);
   ASSERT_TRUE(total == 3);
-  ASSERT_TRUE(wallet2.multisig(&threshold, &total));
+  ASSERT_TRUE(wallet2.multisig(&ready, &threshold, &total));
+  ASSERT_TRUE(ready);
   ASSERT_TRUE(threshold == M);
   ASSERT_TRUE(total == 3);
 }

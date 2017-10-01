@@ -849,9 +849,15 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
 
 bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
 {
-  if (!m_wallet->multisig())
+  bool ready;
+  if (!m_wallet->multisig(&ready))
   {
     fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (ready)
+  {
+    fail_msg_writer() << tr("This wallet is already finalized");
     return true;
   }
 
@@ -887,9 +893,15 @@ bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
 
 bool simple_wallet::export_multisig(const std::vector<std::string> &args)
 {
-  if (!m_wallet->multisig())
+  bool ready;
+  if (!m_wallet->multisig(&ready))
   {
     fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return true;
   }
   if (args.size() != 1)
@@ -937,10 +949,16 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
 
 bool simple_wallet::import_multisig(const std::vector<std::string> &args)
 {
+  bool ready;
   uint32_t threshold, total;
-  if (!m_wallet->multisig(&threshold, &total))
+  if (!m_wallet->multisig(&ready, &threshold, &total))
   {
     fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return true;
   }
   if (args.size() < threshold - 1)
@@ -1065,9 +1083,15 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs)
 
 bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
 {
-  if(!m_wallet->multisig())
+  bool ready;
+  if(!m_wallet->multisig(&ready))
   {
     fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return true;
   }
   if (args.size() != 1)
@@ -1103,7 +1127,7 @@ bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
   if (txids.empty())
   {
     uint32_t threshold;
-    m_wallet->multisig(&threshold);
+    m_wallet->multisig(NULL, &threshold);
     uint32_t signers_needed = threshold - signers - 1;
     success_msg_writer(true) << tr("Transaction successfully signed to file ") << filename << ", "
         << signers_needed << " more signer(s) needed";
@@ -1126,10 +1150,16 @@ bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
 
 bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
 {
+  bool ready;
   uint32_t threshold;
-  if (!m_wallet->multisig(&threshold))
+  if (!m_wallet->multisig(&ready, &threshold))
   {
     fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return true;
   }
   if (args.size() != 1)
@@ -2717,11 +2747,12 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
     }
 
     std::string prefix;
+    bool ready;
     uint32_t threshold, total;
     if (m_wallet->watch_only())
       prefix = tr("Opened watch-only wallet");
-    else if (m_wallet->multisig(&threshold, &total))
-      prefix = (boost::format(tr("Opened %u/%u multisig wallet")) % threshold % total).str();
+    else if (m_wallet->multisig(&ready, &threshold, &total))
+      prefix = (boost::format(tr("Opened %u/%u multisig wallet%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
     else
       prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<

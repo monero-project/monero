@@ -1499,11 +1499,13 @@ namespace wallet_rpc
     struct response
     {
       bool multisig;
+      bool ready;
       uint32_t threshold;
       uint32_t total;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(multisig)
+        KV_SERIALIZE(ready)
         KV_SERIALIZE(threshold)
         KV_SERIALIZE(total)
       END_KV_SERIALIZE_MAP()
