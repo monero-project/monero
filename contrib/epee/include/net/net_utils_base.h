@@ -71,6 +71,9 @@ namespace net_utils
 		}
 		uint64_t m_host_id;
 		uint64_t m_full_id;
+
+	protected:
+		virtual ~network_address_base() {}
 	};
 	struct ipv4_network_address: public network_address_base
 	{
