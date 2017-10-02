@@ -1100,7 +1100,10 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
   size_t current_multiplier = 1;
   size_t sz = m_blockchain.size() - m_blockchain.offset();
   if(!sz)
+  {
+    ids.push_back(m_blockchain.genesis());
     return;
+  }
   size_t current_back_offset = 1;
   bool base_included = false;
   while(current_back_offset < sz)
@@ -1205,6 +1208,7 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   size_t tx_o_indices_idx = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "size mismatch");
+  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::wallet_internal_error, "Index out of bounds of hashchain");
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
   int threads = tpool.get_max_concurrency();
@@ -2547,7 +2551,30 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
 void wallet2::trim_hashchain()
 {
   uint64_t height = m_checkpoints.get_max_height();
-  if (height > 0)
+  if (!m_blockchain.empty() && m_blockchain.size() == m_blockchain.offset())
+  {
+    MINFO("Fixing empty hashchain");
+    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request> req = AUTO_VAL_INIT(req);
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response, std::string> res = AUTO_VAL_INIT(res);
+    m_daemon_rpc_mutex.lock();
+    req.jsonrpc = "2.0";
+    req.id = epee::serialization::storage_entry(0);
+    req.method = "getblockheaderbyheight";
+    req.params.height = m_blockchain.size() - 1;
+    bool r = net_utils::invoke_http_json("/json_rpc", req, res, m_http_client, rpc_timeout);
+    m_daemon_rpc_mutex.unlock();
+    if (r && res.result.status == CORE_RPC_STATUS_OK)
+    {
+      crypto::hash hash;
+      epee::string_tools::hex_to_pod(res.result.block_header.hash, hash);
+      m_blockchain.refill(hash);
+    }
+    else
+    {
+      MERROR("Failed to request block header from daemon, hash chain may be unable to sync till the wallet is loaded with a usable daemon");
+    }
+  }
+  if (height > 0 && m_blockchain.size() > height)
   {
     --height;
     MDEBUG("trimming to " << height << ", offset " << m_blockchain.offset());
