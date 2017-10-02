@@ -2488,6 +2488,8 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
 
   void setCategories(const char* categories, bool clear = true);
 
+  std::string getCategories();
+
   void setModules(const char* modules);
 
   bool allowed(Level level, const char* category);
@@ -2518,6 +2520,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   base::type::EnumType* m_pFlags;
   std::map<std::string, base::type::VerboseLevel> m_modules;
   std::deque<std::pair<std::string, Level>> m_categories;
+  std::string m_categoriesString;
   std::string m_filenameCommonPrefix;
 };
 }  // namespace base
@@ -3953,6 +3956,8 @@ class Loggers : base::StaticClass {
   static void setVModules(const char* modules);
   /// @brief Sets categories as specified (on the fly)
   static void setCategories(const char* categories, bool clear = true);
+  /// @brief Gets current categories
+  static std::string getCategories();
   /// @brief Clears vmodules
   static void clearVModules(void);
   /// @brief Clears categories

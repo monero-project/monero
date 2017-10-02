@@ -599,7 +599,7 @@ bool t_rpc_command_executor::set_log_categories(const std::string &categories) {
     }
   }
 
-  tools::success_msg_writer() << "Log categories are now " << categories;
+  tools::success_msg_writer() << "Log categories are now " << res.categories;
 
   return true;
 }
