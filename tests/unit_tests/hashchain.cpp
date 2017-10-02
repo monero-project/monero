@@ -122,7 +122,7 @@ TEST(hashchain, trim)
   ASSERT_EQ(hashchain.size(), 3);
   ASSERT_EQ(hashchain[2], make_hash(3));
   hashchain.trim(3);
-  ASSERT_EQ(hashchain.offset(), 3);
+  ASSERT_EQ(hashchain.offset(), 2); // never gets it empty
   ASSERT_EQ(hashchain.size(), 3);
   ASSERT_FALSE(hashchain.empty());
   ASSERT_EQ(hashchain.genesis(), make_hash(1));
