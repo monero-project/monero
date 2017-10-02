@@ -1426,6 +1426,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
   catch (const std::exception &e) { }
 
+  if (!m_trusted_daemon)
+    message_writer() << (boost::format(tr("Warning: using an untrusted daemon at %s, privacy will be lessened")) % m_wallet->get_daemon_address()).str();
+
   m_http_client.set_server(m_wallet->get_daemon_address(), m_wallet->get_daemon_login());
   m_wallet->callback(this);
 
