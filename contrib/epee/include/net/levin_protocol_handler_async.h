@@ -740,9 +740,15 @@ void async_protocol_handler_config<t_connection_context>::del_out_connections(si
 	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
 	while (count > 0 && out_connections.size() > 0)
 	{
-		close(*out_connections.begin());
-		del_connection(m_connects.at(*out_connections.begin()));
+		boost::uuids::uuid connection_id = *out_connections.begin();
+		async_protocol_handler<t_connection_context> *connection = find_connection(connection_id);
+		// we temporarily ref the connection so it doesn't drop from the m_connects table
+		// when we close it
+		connection->start_outer_call();
+		close(connection_id);
+		del_connection(m_connects.at(connection_id));
 		out_connections.erase(out_connections.begin());
+		connection->finish_outer_call();
 		--count;
 	}
 	
