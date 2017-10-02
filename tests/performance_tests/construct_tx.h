@@ -43,7 +43,7 @@ class test_construct_tx : private multi_tx_test_base<a_in_count>
   static_assert(0 < a_out_count, "out_count must be greater than 0");
 
 public:
-  static const size_t loop_count = (a_in_count + a_out_count < 100) ? 100 : 10;
+  static const size_t loop_count = (a_in_count + a_out_count < 10) ? (a_rct ? 10 : 200) : (a_in_count + a_out_count) < 100 ? (a_rct ? 5 : 25) : 5;
   static const size_t in_count  = a_in_count;
   static const size_t out_count = a_out_count;
   static const bool rct = a_rct;
