@@ -146,7 +146,7 @@ namespace tools
         m_trusted_daemon = true;
       }
     }
-    if (command_line::has_arg(*m_vm, arg_wallet_dir))
+    if (!(*m_vm)[arg_wallet_dir.name].defaulted())
     {
       m_wallet_dir = command_line::get_arg(*m_vm, arg_wallet_dir);
 #ifdef _WIN32
