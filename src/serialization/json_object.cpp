@@ -776,6 +776,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::tx_in_pool& tx)
   GET_FROM_JSON_OBJECT(val, tx.receive_time, receive_time);
   GET_FROM_JSON_OBJECT(val, tx.last_relayed_time, last_relayed_time);
   GET_FROM_JSON_OBJECT(val, tx.relayed, relayed);
+  GET_FROM_JSON_OBJECT(val, tx.do_not_relay, do_not_relay);
 }
 
 void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::hard_fork_info& info, rapidjson::Value& val)
