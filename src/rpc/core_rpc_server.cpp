@@ -1533,6 +1533,53 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_limit(const COMMAND_RPC_GET_LIMIT::request& req, COMMAND_RPC_GET_LIMIT::response& res)
+  {
+    res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit();
+    res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit();
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_set_limit(const COMMAND_RPC_SET_LIMIT::request& req, COMMAND_RPC_SET_LIMIT::response& res)
+  {
+    // -1 = reset to default
+    //  0 = do not modify
+
+    if (req.limit_down > 0)
+    {
+      epee::net_utils::connection_basic::set_rate_down_limit(req.limit_down);
+    }
+    else if (req.limit_down < 0)
+    {
+      if (req.limit_down != -1)
+      {
+        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        return false;
+      }
+      epee::net_utils::connection_basic::set_rate_down_limit(nodetool::default_limit_down * 1024);
+    }
+
+    if (req.limit_up > 0)
+    {
+      epee::net_utils::connection_basic::set_rate_up_limit(req.limit_up);
+    }
+    else if (req.limit_up < 0)
+    {
+      if (req.limit_up != -1)
+      {
+        res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        return false;
+      }
+      epee::net_utils::connection_basic::set_rate_up_limit(nodetool::default_limit_up * 1024);
+    }
+
+    res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit();
+    res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit();
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_out_peers(const COMMAND_RPC_OUT_PEERS::request& req, COMMAND_RPC_OUT_PEERS::response& res)
   {
 	  // TODO

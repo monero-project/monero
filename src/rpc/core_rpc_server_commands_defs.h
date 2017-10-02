@@ -1244,6 +1244,55 @@ namespace cryptonote
     };
   };
   
+  struct COMMAND_RPC_GET_LIMIT
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+      std::string status;
+      uint64_t limit_up;
+      uint64_t limit_down;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(limit_up)
+        KV_SERIALIZE(limit_down)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
+  struct COMMAND_RPC_SET_LIMIT
+  {
+    struct request
+    {
+      int64_t limit_down;
+      int64_t limit_up;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(limit_down)
+        KV_SERIALIZE(limit_up)
+      END_KV_SERIALIZE_MAP()
+    };
+    
+    struct response
+    {
+      std::string status;
+      uint64_t limit_up;
+      uint64_t limit_down;
+      
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(limit_up)
+        KV_SERIALIZE(limit_down)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  
   struct COMMAND_RPC_OUT_PEERS
   {
 	struct request
