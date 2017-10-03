@@ -91,7 +91,7 @@ namespace wallet_args
 
 
     std::string lang = i18n_get_language();
-    tools::sanitize_locale();
+    tools::on_startup();
     tools::set_strict_default_file_permissions(true);
 
     epee::string_tools::set_module_name_and_folder(argv[0]);
