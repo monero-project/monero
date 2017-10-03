@@ -571,7 +571,7 @@ int main(int argc, char* argv[])
   std::string m_config_folder;
   std::string db_arg_str;
 
-  tools::sanitize_locale();
+  tools::on_startup();
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
   boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};

@@ -30,6 +30,10 @@
 
 #include <cstdio>
 
+#ifdef __GLIBC__
+#include <gnu/libc-version.h>
+#endif
+
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 using namespace epee;
@@ -535,6 +539,17 @@ std::string get_nix_version_display_string()
       return true;
     }
     return false;
+  }
+  bool on_startup()
+  {
+    sanitize_locale();
+
+#ifdef __GLIBC__
+    const char *ver = gnu_get_libc_version();
+    if (!strcmp(ver, "2.25"))
+      MCLOG_RED(el::Level::Warning, "global", "Running with glibc " << ver << ", hangs may occur - change glibc version if possible");
+#endif
+    return true;
   }
   void set_strict_default_file_permissions(bool strict)
   {
