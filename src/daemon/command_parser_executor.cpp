@@ -343,7 +343,7 @@ bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
   try {
       limit = std::stoll(args[0]);
   }
-  catch(const std::invalid_argument& ex) {
+  catch(const std::exception& ex) {
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
@@ -363,7 +363,7 @@ bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& arg
   try {
       limit = std::stoll(args[0]);
   }
-  catch(const std::invalid_argument& ex) {
+  catch(const std::exception& ex) {
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
@@ -383,7 +383,7 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
   try {
       limit = std::stoll(args[0]);
   }
-  catch(const std::invalid_argument& ex) {
+  catch(const std::exception& ex) {
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
@@ -402,7 +402,7 @@ bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
 		limit = std::stoi(args[0]);
 	}
 	  
-	catch(std::invalid_argument& ex) {
+	catch(std::exception& ex) {
 		_erro("stoi exception");
 		return false;
 	}
@@ -432,7 +432,7 @@ bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& a
     try {
       version = std::stoi(args[0]);
     }
-    catch(std::invalid_argument& ex) {
+    catch(std::exception& ex) {
         return false;
     }
     if (version <= 0 || version > 255)
@@ -457,7 +457,14 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
   time_t seconds = P2P_IP_BLOCKTIME;
   if (args.size() > 1)
   {
-    seconds = std::stoi(args[1]);
+    try
+    {
+      seconds = std::stoi(args[1]);
+    }
+    catch (const std::exception &e)
+    {
+      return false;
+    }
     if (seconds == 0)
     {
       return false;
