@@ -52,6 +52,7 @@
 #include <boost/algorithm/string/join.hpp>
 
 #include "chinese_simplified.h"
+#include "croatian.h"
 #include "english.h"
 #include "dutch.h"
 #include "french.h"
@@ -97,7 +98,8 @@ namespace
       Language::Singleton<Language::Japanese>::instance(),
       Language::Singleton<Language::Russian>::instance(),
       Language::Singleton<Language::Esperanto>::instance(),
-      Language::Singleton<Language::EnglishOld>::instance()
+      Language::Singleton<Language::EnglishOld>::instance(),
+      Language::Singleton<Language::Croatian>::instance()
     });
     Language::Base *fallback = NULL;
 
@@ -360,6 +362,10 @@ namespace crypto
       {
         language = Language::Singleton<Language::Esperanto>::instance();
       }
+      else if (language_name == "Hrvatski")
+      {
+        language = Language::Singleton<Language::Croatian>::instance();
+      }
       else
       {
         return false;
@@ -415,7 +421,8 @@ namespace crypto
         Language::Singleton<Language::Russian>::instance(),
         Language::Singleton<Language::Japanese>::instance(),
         Language::Singleton<Language::Chinese_Simplified>::instance(),
-        Language::Singleton<Language::Esperanto>::instance()
+        Language::Singleton<Language::Esperanto>::instance(),
+        Language::Singleton<Language::Croatian>::instance()
       });
       for (std::vector<Language::Base*>::iterator it = language_instances.begin();
         it != language_instances.end(); it++)
