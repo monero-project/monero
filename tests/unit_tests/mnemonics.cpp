@@ -46,6 +46,7 @@
 #include "mnemonics/dutch.h"
 #include "mnemonics/esperanto.h"
 #include "mnemonics/english_old.h"
+#include "mnemonics/croatian.h"
 #include "mnemonics/language_base.h"
 #include "mnemonics/singleton.h"
 
