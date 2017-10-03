@@ -524,8 +524,6 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/*
       fail_msg_writer() << tr("ring size must be an integer >= 3");
       return true;
     }
-    if (ring_size == 0)
-      ring_size = DEFAULT_MIX + 1;
  
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
