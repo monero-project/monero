@@ -10,6 +10,8 @@ RUN set -x \
       git \
       libboost1.58-all-dev \
       libssl-dev \
+      libzmq3-dev \
+      libsodium-dev \
       make \
       pkg-config \
   ' \
