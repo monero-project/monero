@@ -985,7 +985,17 @@ namespace cryptonote
       // included into the blockchain or that are
       // missing key images
       const cryptonote::txpool_tx_meta_t original_meta = meta;
-      bool ready = is_transaction_ready_to_go(meta, tx);
+      bool ready = false;
+      try
+      {
+        ready = is_transaction_ready_to_go(meta, tx);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Exception checking whether transaction is ready, ignored");
+        sorted_it++;
+        continue;
+      }
       if (memcmp(&original_meta, &meta, sizeof(meta)))
       {
         try
