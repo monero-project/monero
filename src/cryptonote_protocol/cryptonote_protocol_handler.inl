@@ -51,7 +51,7 @@
 #define BLOCK_QUEUE_NBLOCKS_THRESHOLD 10 // chunks of N blocks
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (5 * 1000000) // microseconds
-#define IDLE_PEER_KICK_TIME (45 * 1000000) // microseconds
+#define IDLE_PEER_KICK_TIME (600 * 1000000) // microseconds
 
 namespace cryptonote
 {
@@ -1181,6 +1181,7 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::kick_idle_peers()
   {
     MTRACE("Checking for idle peers...");
+    std::vector<boost::uuids::uuid> kick_connections;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (context.m_state == cryptonote_connection_context::state_synchronizing)
@@ -1190,12 +1191,18 @@ skip:
         if (dt.total_microseconds() > IDLE_PEER_KICK_TIME)
         {
           MINFO(context << " kicking idle peer");
-          ++context.m_callback_request_count;
-          m_p2p->request_callback(context);
+          kick_connections.push_back(context.m_connection_id);
         }
       }
       return true;
     });
+    for (const boost::uuids::uuid &conn_id: kick_connections)
+    {
+      m_p2p->for_connection(conn_id, [this](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags) {
+        drop_connection(context, false, false);
+        return true;
+      });
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
