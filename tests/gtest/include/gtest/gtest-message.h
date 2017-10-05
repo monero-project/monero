@@ -93,12 +93,12 @@ class GTEST_API_ Message {
   Message();
 
   // Copy constructor.
-  Message(const Message& msg) : ss_(new ::std::stringstream) {  // NOLINT
+  Message(const Message& msg) : ss_(new ::std::ostringstream) {  // NOLINT
     *ss_ << msg.GetString();
   }
 
   // Constructs a Message from a C-string.
-  explicit Message(const char* str) : ss_(new ::std::stringstream) {
+  explicit Message(const char* str) : ss_(new ::std::ostringstream) {
     *ss_ << str;
   }
 
@@ -221,7 +221,7 @@ class GTEST_API_ Message {
 #endif  // GTEST_OS_SYMBIAN
 
   // We'll hold the text streamed to this object here.
-  const internal::scoped_ptr< ::std::stringstream> ss_;
+  const internal::scoped_ptr< ::std::ostringstream> ss_;
 
   // We declare (but don't implement) this to prevent the compiler
   // from implementing the assignment operator.

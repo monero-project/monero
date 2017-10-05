@@ -2021,7 +2021,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
 void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  std::stringstream ss;
+  std::ostringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   auto h = m_db->height();
   if(start_index > h)
@@ -2040,7 +2040,7 @@ void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index) cons
 void Blockchain::print_blockchain_index() const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  std::stringstream ss;
+  std::ostringstream ss;
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   auto height = m_db->height();
   if (height != 0)

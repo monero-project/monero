@@ -57,7 +57,7 @@ namespace
     static_assert(sizeof(T) * 2 <= sizeof(expected), "T is too large for destination");
     std::memcpy(std::addressof(value), source, sizeof(T));
 
-    std::stringstream out;
+    std::ostringstream out;
     out << "BEGIN" << value << "END";  
     return out.str() == "BEGIN<" + std::string{expected, sizeof(T) * 2} + ">END";
   }

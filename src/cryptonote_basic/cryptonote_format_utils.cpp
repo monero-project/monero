@@ -95,8 +95,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx)
   {
-    std::stringstream ss;
-    ss << tx_blob;
+    std::istringstream ss(tx_blob);
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
@@ -106,8 +105,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_tx_base_from_blob(const blobdata& tx_blob, transaction& tx)
   {
-    std::stringstream ss;
-    ss << tx_blob;
+    std::istringstream ss(tx_blob);
     binary_archive<false> ba(ss);
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
@@ -116,8 +114,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash)
   {
-    std::stringstream ss;
-    ss << tx_blob;
+    std::istringstream ss(tx_blob);
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
@@ -620,7 +617,7 @@ namespace cryptonote
 
     // base rct
     {
-      std::stringstream ss;
+      std::ostringstream ss;
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
@@ -636,7 +633,7 @@ namespace cryptonote
     }
     else
     {
-      std::stringstream ss;
+      std::ostringstream ss;
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
@@ -801,8 +798,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
   {
-    std::stringstream ss;
-    ss << b_blob;
+    std::istringstream ss(b_blob);
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, b);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");

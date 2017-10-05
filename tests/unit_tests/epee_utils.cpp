@@ -84,7 +84,7 @@ namespace
 
   std::string std_to_hex(const std::vector<unsigned char>& source)
   {
-    std::stringstream out;
+    std::ostringstream out;
     out << std::hex;
     for (const unsigned char byte : source)
     {
@@ -304,7 +304,7 @@ TEST(ToHex, Array)
 
 TEST(ToHex, Ostream)
 {
-  std::stringstream out;
+  std::ostringstream out;
   epee::to_hex::buffer(out, nullptr);
   EXPECT_TRUE(out.str().empty());
 
@@ -325,7 +325,7 @@ TEST(ToHex, Ostream)
 
 TEST(ToHex, Formatted)
 {
-  std::stringstream out;
+  std::ostringstream out;
   std::string expected{"<>"};
 
   epee::to_hex::formatted(out, nullptr);

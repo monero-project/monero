@@ -106,7 +106,7 @@ std::string ipv4_to_string(const char* src, size_t len)
 {
   assert(len >= 4);
 
-  std::stringstream ss;
+  std::ostringstream ss;
   unsigned int bytes[4];
   for (int i = 0; i < 4; i++)
   {
@@ -126,7 +126,7 @@ std::string ipv6_to_string(const char* src, size_t len)
 {
   assert(len >= 8);
 
-  std::stringstream ss;
+  std::ostringstream ss;
   unsigned int bytes[8];
   for (int i = 0; i < 8; i++)
   {

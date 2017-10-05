@@ -433,7 +433,7 @@ static void throw_on_rpc_response_error(const boost::optional<std::string> &stat
 
 std::string strjoin(const std::vector<size_t> &V, const char *sep)
 {
-  std::stringstream ss;
+  std::ostringstream ss;
   bool first = true;
   for (const auto &v: V)
   {
@@ -2504,8 +2504,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
       cache_data.resize(cache_file_data.cache_data.size());
       crypto::chacha8(cache_file_data.cache_data.data(), cache_file_data.cache_data.size(), key, cache_file_data.iv, &cache_data[0]);
 
-      std::stringstream iss;
-      iss << cache_data;
+      std::istringstream iss(cache_data);
       try {
         boost::archive::portable_binary_iarchive ar(iss);
         ar >> *this;
@@ -2514,8 +2513,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
       {
         LOG_PRINT_L0("Failed to open portable binary, trying unportable");
         boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
-        iss.str("");
-        iss << cache_data;
+        iss.str(cache_data);
         boost::archive::binary_iarchive ar(iss);
         ar >> *this;
       }
@@ -2523,8 +2521,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
     catch (...)
     {
       LOG_PRINT_L1("Failed to load encrypted cache, trying unencrypted");
-      std::stringstream iss;
-      iss << buf;
+      std::istringstream iss(buf);
       try {
         boost::archive::portable_binary_iarchive ar(iss);
         ar >> *this;
@@ -2533,8 +2530,7 @@ void wallet2::load(const std::string& wallet_, const std::string& password)
       {
         LOG_PRINT_L0("Failed to open portable binary, trying unportable");
         boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
-        iss.str("");
-        iss << buf;
+        iss.str(buf);
         boost::archive::binary_iarchive ar(iss);
         ar >> *this;
       }
@@ -2648,7 +2644,7 @@ void wallet2::store_to(const std::string &path, const std::string &password)
     }
   }
   // preparing wallet data
-  std::stringstream oss;
+  std::ostringstream oss;
   boost::archive::portable_binary_oarchive ar(oss);
   ar << *this;
 

@@ -116,7 +116,7 @@ namespace nodetool
   {
     time_t now_time = 0;
     time(&now_time);
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << std::setfill ('0') << std::setw (8) << std::hex << std::noshowbase;
     for(const peerlist_entry& pe: pl)
     {

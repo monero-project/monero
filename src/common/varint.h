@@ -83,7 +83,7 @@ namespace tools {
   template<typename T>
     std::string get_varint_data(const T& v)
     {
-      std::stringstream ss;
+      std::ostringstream ss;
       write_varint(std::ostreambuf_iterator<char>(ss), v);
       return ss.str();
     }

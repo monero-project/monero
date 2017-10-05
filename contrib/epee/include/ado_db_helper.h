@@ -93,7 +93,7 @@ namespace ado_db_helper
 		bool flush_log(const std::string& path)
 		{
 			CRITICAL_REGION_BEGIN(m_sqls_lock);
-			std::stringstream strm;
+			std::ostringstream strm;
 			strm << "SQL PROFILE:\r\nStatements: " << m_sqls.size() << "\r\n";
 			std::list<sqls_map::iterator> m_sorted_by_time_sqls;
 			for(std::map<std::string, profile_entry>::iterator it = m_sqls.begin();it!=m_sqls.end();it++)
@@ -572,7 +572,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3, typename TParam4, typename TParam5, typename TParam6, typename TParam7>
 	std::string print_parameters_multi(const adapter_sevento<TParam1, TParam2, TParam3, TParam4, TParam5, TParam6, TParam7>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3 << ", " << params.tparam4 << ", " << params.tparam5 << ", " << params.tparam6 << ", " << params.tparam7;
 		return strm.str();
 	}
@@ -580,7 +580,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3, typename TParam4, typename TParam5, typename TParam6, typename TParam7, typename TParam8, typename TParam9>
 	std::string print_parameters_multi(const adapter_nine<TParam1, TParam2, TParam3, TParam4, TParam5, TParam6, TParam7, TParam8, TParam9>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3 << ", " << params.tparam4 << ", " << params.tparam5 << ", " << params.tparam6 << ", " << params.tparam7 << ", " << params.tparam8 << ", " << params.tparam9;
 		return strm.str();
 	}
@@ -588,7 +588,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3, typename TParam4, typename TParam5, typename TParam6>
 	std::string print_parameters_multi(const adapter_sixto<TParam1, TParam2, TParam3, TParam4, TParam5, TParam6>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3 << ", " << params.tparam4 << ", " << params.tparam5 << ", " << params.tparam6;
 		return strm.str();
 	}
@@ -596,7 +596,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3, typename TParam4, typename TParam5>
 	std::string print_parameters_multi(const adapter_quanto<TParam1, TParam2, TParam3, TParam4, TParam5>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3 << ", " << params.tparam4 << ", " << params.tparam5;
 		return strm.str();
 	}
@@ -605,7 +605,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3, typename TParam4>
 	std::string print_parameters_multi(const adapter_quad<TParam1, TParam2, TParam3, TParam4>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3 << ", " << params.tparam4;
 		return strm.str();
 	}
@@ -613,7 +613,7 @@ inline
 	template<typename TParam1, typename TParam2, typename TParam3>
 	std::string print_parameters_multi(const adapter_triple<TParam1, TParam2, TParam3>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << params.tparam1 << ", " << params.tparam2 << ", " << params.tparam3;
 		return strm.str();
 	}
@@ -621,7 +621,7 @@ inline
 	template<typename TParam>
 	std::string get_str_param(const TParam& prm)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << prm;
 		return strm.str();
 	}
@@ -629,7 +629,7 @@ inline
 	template<typename TParam>
 	std::string get_str_param(const std::list<TParam>& prm_lst)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		for(std::list<TParam>::const_iterator it = prm_lst.begin();it!=prm_lst.end();it++)
 			strm  << get_str_param(*it) << ", ";
 		return strm.str();
@@ -639,7 +639,7 @@ inline
 	template<typename TParam1, typename TParam2>
 	std::string print_parameters_multi(const adapter_double<TParam1, TParam2>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << get_str_param(params.tparam1) << ", " << get_str_param(params.tparam2);
 		return strm.str();
 	}
@@ -647,7 +647,7 @@ inline
 	template<typename TParam1>
 	std::string print_parameters_multi(const adapter_single<TParam1>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << get_str_param(params.tparam1);
 		return strm.str();
 	}
@@ -655,7 +655,7 @@ inline
 	template<typename TParam1>
 	std::string print_parameters_multi(const adapter_zero<TParam1>& params)
 	{
-		std::stringstream strm;
+		std::ostringstream strm;
 		strm << "(no parametrs)";
 		return strm.str();
 	}

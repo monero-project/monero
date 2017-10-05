@@ -150,7 +150,7 @@ void log_stack_trace(const char *msg)
     free(dsym);
   }
 #else
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << el::base::debug::StackTrace();
   std::vector<std::string> lines;
   std::string s = ss.str();

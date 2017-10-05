@@ -109,7 +109,7 @@ namespace epee
     bool portable_storage::dump_as_json(std::string& buff, size_t indent, bool insert_newlines)
     {
       TRY_ENTRY();
-      std::stringstream ss;
+      std::ostringstream ss;
       epee::serialization::dump_as_json(ss, m_root, indent, insert_newlines);
       buff = ss.str();
       return true;
@@ -133,7 +133,7 @@ namespace epee
     bool portable_storage::store_to_binary(binarybuffer& target)
     {
       TRY_ENTRY();
-      std::stringstream ss;
+      std::ostringstream ss;
       storage_block_header sbh = AUTO_VAL_INIT(sbh);
       sbh.m_signature_a = PORTABLE_STORAGE_SIGNATUREA;
       sbh.m_signature_b = PORTABLE_STORAGE_SIGNATUREB;

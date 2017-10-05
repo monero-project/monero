@@ -278,7 +278,7 @@ namespace net_load_tests
 
       std::string to_string() const
       {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "opened_connections_count = " << opened_connections_count <<
           ", new_connection_counter = " << new_connection_counter <<
           ", close_connection_counter = " << close_connection_counter;

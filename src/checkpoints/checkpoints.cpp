@@ -243,7 +243,7 @@ namespace cryptonote
 
         // parse the first part as uint64_t,
         // if this fails move on to the next record
-        std::stringstream ss(record.substr(0, pos));
+        std::istringstream ss(record.substr(0, pos));
         if (!(ss >> height))
         {
     continue;

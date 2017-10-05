@@ -87,8 +87,7 @@ int ColdTransactionFuzzer::run(const std::string &filename)
   try
   {
     tools::wallet2::unsigned_tx_set exported_txs;
-    std::stringstream iss;
-    iss << s;
+    std::istringstream iss(s);
     boost::archive::portable_binary_iarchive ar(iss);
     ar >> exported_txs;
     std::vector<tools::wallet2::pending_tx> ptx;

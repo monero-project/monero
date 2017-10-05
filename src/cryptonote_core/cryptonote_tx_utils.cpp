@@ -348,7 +348,7 @@ namespace cryptonote
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash);
 
-      std::stringstream ss_ring_s;
+      std::ostringstream ss_ring_s;
       size_t i = 0;
       for(const tx_source_entry& src_entr:  sources)
       {

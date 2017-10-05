@@ -49,7 +49,7 @@ class scoped_message_writer
 {
 private:
   bool m_flush;
-  std::stringstream m_oss;
+  std::ostringstream m_oss;
   epee::console_colors m_color;
   bool m_bright;
   el::Level m_log_level;

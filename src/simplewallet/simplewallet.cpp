@@ -231,7 +231,7 @@ namespace
     {
       dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
     }
-    std::stringstream prompt;
+    std::ostringstream prompt;
     prompt << tr("For URL: ") << url
            << ", " << dnssec_str << std::endl
            << tr(" Monero Address = ") << addresses[0]
@@ -256,7 +256,7 @@ namespace
 
 std::string simple_wallet::get_commands_str()
 {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << tr("Commands: ") << ENDL;
   std::string usage = m_cmd_binder.get_usage();
   boost::replace_all(usage, "\n", "\n  ");
@@ -2544,7 +2544,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     // if we need to check for backlog, check the worst case tx
     if (m_wallet->confirm_backlog())
     {
-      std::stringstream prompt;
+      std::ostringstream prompt;
       double worst_fee_per_byte = std::numeric_limits<double>::max();
       uint64_t size = 0, fee = 0;
       for (size_t n = 0; n < ptx_vector.size(); ++n)
@@ -2611,7 +2611,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
             dust_not_in_fee += ptx_vector[n].dust;
         }
 
-        std::stringstream prompt;
+        std::ostringstream prompt;
         prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
@@ -4711,7 +4711,7 @@ bool simple_wallet::export_outputs(const std::vector<std::string> &args)
   {
     std::vector<tools::wallet2::transfer_details> outs = m_wallet->export_outputs();
 
-    std::stringstream oss;
+    std::ostringstream oss;
     boost::archive::portable_binary_oarchive ar(oss);
     ar << outs;
 
@@ -4790,8 +4790,7 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
   try
   {
     std::string body(data, headerlen);
-    std::stringstream iss;
-    iss << body;
+    std::istringstream iss(body);
     std::vector<tools::wallet2::transfer_details> outputs;
     try
     {
@@ -4800,8 +4799,7 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
     }
     catch (...)
     {
-      iss.str("");
-      iss << body;
+      iss.str(body);
       boost::archive::binary_iarchive ar(iss);
       ar >> outputs;
     }

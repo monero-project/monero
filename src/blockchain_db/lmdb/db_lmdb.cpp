@@ -1042,8 +1042,7 @@ blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
 tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  std::stringstream ss;
-  ss << blob;
+  std::istringstream ss(blob);
   binary_archive<false> ba(ss);
   tx_out o;
 

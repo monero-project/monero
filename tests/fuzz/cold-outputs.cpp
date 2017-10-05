@@ -85,8 +85,7 @@ int ColdOutputsFuzzer::run(const std::string &filename)
   try
   {
     std::vector<tools::wallet2::transfer_details> outputs;
-    std::stringstream iss;
-    iss << s;
+    std::istringstream iss(s);
     boost::archive::portable_binary_iarchive ar(iss);
     ar >> outputs;
     size_t n_outputs = wallet.import_outputs(outputs);

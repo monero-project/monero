@@ -45,7 +45,7 @@ namespace
 
 std::string generate_random_wallet_name()
 {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << boost::uuids::random_generator()();
   return ss.str();
 }
