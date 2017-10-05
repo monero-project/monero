@@ -234,7 +234,7 @@ namespace net_utils
   inline 
     std::string print_connection_context(const connection_context_base& ctx)
   {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << ctx.m_remote_address->str() << " " << epee::string_tools::get_str_from_guid_a(ctx.m_connection_id) << (ctx.m_is_income ? " INC":" OUT");
     return ss.str();
   }
@@ -242,7 +242,7 @@ namespace net_utils
   inline 
     std::string print_connection_context_short(const connection_context_base& ctx)
   {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << ctx.m_remote_address->str() << (ctx.m_is_income ? " INC":" OUT");
     return ss.str();
   }

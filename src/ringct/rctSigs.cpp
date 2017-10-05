@@ -325,7 +325,7 @@ namespace rct {
       hashes.push_back(rv.message);
       crypto::hash h;
 
-      std::stringstream ss;
+      std::ostringstream ss;
       binary_archive<true> ba(ss);
       const size_t inputs = rv.pseudoOuts.size();
       const size_t outputs = rv.ecdhInfo.size();

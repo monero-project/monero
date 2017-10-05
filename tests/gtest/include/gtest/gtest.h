@@ -1642,11 +1642,11 @@ AssertionResult CmpHelperFloatingPointEQ(const char* expected_expression,
     return AssertionSuccess();
   }
 
-  ::std::stringstream expected_ss;
+  ::std::ostringstream expected_ss;
   expected_ss << std::setprecision(std::numeric_limits<RawType>::digits10 + 2)
               << expected;
 
-  ::std::stringstream actual_ss;
+  ::std::ostringstream actual_ss;
   actual_ss << std::setprecision(std::numeric_limits<RawType>::digits10 + 2)
             << actual;
 

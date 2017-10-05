@@ -943,7 +943,7 @@ void SplitString(const ::std::string& str, char delimiter,
 // ASSERT/EXPECT in a procedure adds over 200 bytes to the procedure's
 // stack frame leading to huge stack frames in some cases; gcc does not reuse
 // the stack space.
-Message::Message() : ss_(new ::std::stringstream) {
+Message::Message() : ss_(new ::std::ostringstream) {
   // By default, we want there to be enough precision when printing
   // a double to a Message.
   *ss_ << std::setprecision(std::numeric_limits<double>::digits10 + 2);
@@ -1206,7 +1206,7 @@ std::string CreateUnifiedDiff(const std::vector<std::string>& left,
   const std::vector<EditType> edits = CalculateOptimalEdits(left, right);
 
   size_t l_i = 0, r_i = 0, edit_i = 0;
-  std::stringstream ss;
+  std::ostringstream ss;
   while (edit_i < edits.size()) {
     // Find first edit.
     while (edit_i < edits.size() && edits[edit_i] == kMatch) {
@@ -1400,11 +1400,11 @@ AssertionResult FloatingPointLE(const char* expr1,
   // val2 is NaN, as the IEEE floating-point standard requires that
   // any predicate involving a NaN must return false.
 
-  ::std::stringstream val1_ss;
+  ::std::ostringstream val1_ss;
   val1_ss << std::setprecision(std::numeric_limits<RawType>::digits10 + 2)
           << val1;
 
-  ::std::stringstream val2_ss;
+  ::std::ostringstream val2_ss;
   val2_ss << std::setprecision(std::numeric_limits<RawType>::digits10 + 2)
           << val2;
 
@@ -1824,7 +1824,7 @@ std::string WideStringToUtf8(const wchar_t* str, int num_chars) {
   if (num_chars == -1)
     num_chars = static_cast<int>(wcslen(str));
 
-  ::std::stringstream stream;
+  ::std::ostringstream stream;
   for (int i = 0; i < num_chars; ++i) {
     UInt32 unicode_code_point;
 
@@ -1957,21 +1957,21 @@ bool String::EndsWithCaseInsensitive(
 
 // Formats an int value as "%02d".
 std::string String::FormatIntWidth2(int value) {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << std::setfill('0') << std::setw(2) << value;
   return ss.str();
 }
 
 // Formats an int value as "%X".
 std::string String::FormatHexInt(int value) {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << std::hex << std::uppercase << value;
   return ss.str();
 }
 
 // Formats a byte as "%02X".
 std::string String::FormatByte(unsigned char value) {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << std::setfill('0') << std::setw(2) << std::hex << std::uppercase
      << static_cast<unsigned int>(value);
   return ss.str();
@@ -1979,7 +1979,7 @@ std::string String::FormatByte(unsigned char value) {
 
 // Converts the buffer in a stringstream to an std::string, converting NUL
 // bytes to "\\0" along the way.
-std::string StringStreamToString(::std::stringstream* ss) {
+std::string StringStreamToString(::std::ostringstream* ss) {
   const ::std::string& str = ss->str();
   const char* const start = str.c_str();
   const char* const end = start + str.length();
@@ -3453,7 +3453,7 @@ void XmlUnitTestResultPrinter::OnTestIterationEnd(const UnitTest& unit_test,
     fflush(stderr);
     exit(EXIT_FAILURE);
   }
-  std::stringstream stream;
+  std::ostringstream stream;
   PrintXmlUnitTest(&stream, unit_test);
   fprintf(xmlout, "%s", StringStreamToString(&stream).c_str());
   fclose(xmlout);
@@ -3546,7 +3546,7 @@ std::string XmlUnitTestResultPrinter::RemoveInvalidXmlCharacters(
 
 // Formats the given time in milliseconds as seconds.
 std::string FormatTimeInMillisAsSeconds(TimeInMillis ms) {
-  ::std::stringstream ss;
+  ::std::ostringstream ss;
   ss << (static_cast<double>(ms) * 1e-3);
   return ss.str();
 }

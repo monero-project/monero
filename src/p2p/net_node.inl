@@ -1731,7 +1731,7 @@ namespace nodetool
   std::string node_server<t_payload_net_handler>::print_connections_container()
   {
 
-    std::stringstream ss;
+    std::ostringstream ss;
     m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
     {
       ss << cntxt.m_remote_address.str()

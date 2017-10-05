@@ -49,7 +49,7 @@ namespace serialization {
   template<class T>
     bool dump_binary(T& v, std::string& blob)
     {
-      std::stringstream ostr;
+      std::ostringstream ostr;
       binary_archive<true> oar(ostr);
       bool success = ::serialization::serialize(oar, v);
       blob = ostr.str();

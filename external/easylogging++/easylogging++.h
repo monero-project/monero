@@ -143,14 +143,14 @@
 #if !defined(ELPP_DISABLE_ASSERT)
 #  if (defined(ELPP_DEBUG_ASSERT_FAILURE))
 #    define ELPP_ASSERT(expr, msg) if (!(expr)) { \
-std::stringstream internalInfoStream; internalInfoStream << msg; \
+std::ostringstream internalInfoStream; internalInfoStream << msg; \
 ELPP_INTERNAL_DEBUGGING_OUT_ERROR \
 << "EASYLOGGING++ ASSERTION FAILED (LINE: " << __LINE__ << ") [" #expr << "] WITH MESSAGE \"" \
 << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStream.str()) << "\"" << ELPP_INTERNAL_DEBUGGING_ENDL; base::utils::abort(1, \
 "ELPP Assertion failure, please define ELPP_DEBUG_ASSERT_FAILURE"); }
 #  else
 #    define ELPP_ASSERT(expr, msg) if (!(expr)) { \
-std::stringstream internalInfoStream; internalInfoStream << msg; \
+std::ostringstream internalInfoStream; internalInfoStream << msg; \
 ELPP_INTERNAL_DEBUGGING_OUT_ERROR\
 << "ASSERTION FAILURE FROM EASYLOGGING++ (LINE: " \
 << __LINE__ << ") [" #expr << "] WITH MESSAGE \"" << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStream.str()) << "\"" \
@@ -170,7 +170,7 @@ ELPP_INTERNAL_DEBUGGING_OUT_ERROR << ": " << strerror(errno) << " [" << errno <<
 #if defined(ELPP_DEBUG_ERRORS)
 #  if !defined(ELPP_INTERNAL_ERROR)
 #    define ELPP_INTERNAL_ERROR(msg, pe) { \
-std::stringstream internalInfoStream; internalInfoStream << "<ERROR> " << msg; \
+std::ostringstream internalInfoStream; internalInfoStream << "<ERROR> " << msg; \
 ELPP_INTERNAL_DEBUGGING_OUT_ERROR \
 << "ERROR FROM EASYLOGGING++ (LINE: " << __LINE__ << ") " \
 << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStream.str()) << ELPP_INTERNAL_DEBUGGING_ENDL; \
@@ -186,7 +186,7 @@ if (pe) { ELPP_INTERNAL_DEBUGGING_OUT_ERROR << "    "; ELPP_INTERNAL_DEBUGGING_W
 #  endif  // !(defined(ELPP_INTERNAL_INFO_LEVEL))
 #  if !defined(ELPP_INTERNAL_INFO)
 #    define ELPP_INTERNAL_INFO(lvl, msg) { if (lvl <= ELPP_INTERNAL_INFO_LEVEL) { \
-std::stringstream internalInfoStream; internalInfoStream << "<INFO> " << msg; \
+std::ostringstream internalInfoStream; internalInfoStream << "<INFO> " << msg; \
 ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStream.str()) \
 << ELPP_INTERNAL_DEBUGGING_ENDL; }}
 #  endif
@@ -498,7 +498,7 @@ namespace type {
 #  endif  // defined ELPP_CUSTOM_COUT
 typedef wchar_t char_t;
 typedef std::wstring string_t;
-typedef std::wstringstream stringstream_t;
+typedef std::wostringstream stringstream_t;
 typedef std::wfstream fstream_t;
 typedef std::wostream ostream_t;
 #else
@@ -511,7 +511,7 @@ typedef std::wostream ostream_t;
 #  endif  // defined ELPP_CUSTOM_COUT
 typedef char char_t;
 typedef std::string string_t;
-typedef std::stringstream stringstream_t;
+typedef std::ostringstream stringstream_t;
 typedef std::fstream fstream_t;
 typedef std::ostream ostream_t;
 #endif  // defined(ELPP_UNICODE)
@@ -1066,7 +1066,7 @@ class ThreadSafe {
 #  if !ELPP_USE_STD_THREADING
 /// @brief Gets ID of currently running threading in windows systems. On unix, nothing is returned.
 static std::string getCurrentThreadId(void) {
-  std::stringstream ss;
+  std::ostringstream ss;
 #      if (ELPP_OS_WINDOWS)
   ss << GetCurrentThreadId();
 #      endif  // (ELPP_OS_WINDOWS)
@@ -1075,7 +1075,7 @@ static std::string getCurrentThreadId(void) {
 #  else
 /// @brief Gets ID of currently running threading using std::this_thread::get_id()
 static std::string getCurrentThreadId(void) {
-  std::stringstream ss;
+  std::ostringstream ss;
   char prev_fill = ss.fill(' ');
   auto prev_flags = ss.flags(std::ios::hex);
   //ss.setf(std::ios::hex);

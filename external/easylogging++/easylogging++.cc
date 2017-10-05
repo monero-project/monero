@@ -369,7 +369,7 @@ bool Configurations::Parser::parseFromText(const std::string& configurationsStri
     Configurations* base) {
   sender->setFromBase(base);
   bool parsedSuccessfully = false;
-  std::stringstream ss(configurationsString);
+  std::istringstream ss(configurationsString);
   std::string line = std::string();
   Level currLevel = Level::Unknown;
   std::string currConfigStr = std::string();
@@ -991,7 +991,7 @@ std::string OS::getProperty(const char* prop) {
 }
 
 std::string OS::getDeviceName(void) {
-  std::stringstream ss;
+  std::ostringstream ss;
   std::string manufacturer = getProperty("ro.product.manufacturer");
   std::string model = getProperty("ro.product.model");
   if (manufacturer.empty() || model.empty()) {
@@ -1475,7 +1475,7 @@ void LogFormat::updateDateFormat(std::size_t index, base::type::string_t& currFo
     // User has provided format for date/time
     ++ptr;
     int count = 1;  // Start by 1 in order to remove starting brace
-    std::stringstream ss;
+    std::ostringstream ss;
     for (; *ptr; ++ptr, ++count) {
       if (*ptr == '}') {
         ++count;  // In order to remove ending brace
@@ -1687,7 +1687,7 @@ std::string TypedConfigurations::resolveFilename(const std::string& filename) {
         // User has provided format for date/time
         ++ptr;
         int count = 1;  // Start by 1 in order to remove starting brace
-        std::stringstream ss;
+        std::ostringstream ss;
         for (; *ptr; ++ptr, ++count) {
           if (*ptr == '}') {
             ++count;  // In order to remove ending brace
@@ -1885,7 +1885,7 @@ void VRegistry::setLevel(base::type::VerboseLevel level) {
 
 void VRegistry::setModules(const char* modules) {
   base::threading::ScopedLock scopedLock(lock());
-  auto addSuffix = [](std::stringstream& ss, const char* sfx, const char* prev) {
+  auto addSuffix = [](std::ostringstream& ss, const char* sfx, const char* prev) {
     if (prev != nullptr && base::utils::Str::endsWith(ss.str(), std::string(prev))) {
       std::string chr(ss.str().substr(0, ss.str().size() - strlen(prev)));
       ss.str(std::string(""));
@@ -1898,7 +1898,7 @@ void VRegistry::setModules(const char* modules) {
     }
     ss << sfx;
   };
-  auto insert = [&](std::stringstream& ss, base::type::VerboseLevel level) {
+  auto insert = [&](std::ostringstream& ss, base::type::VerboseLevel level) {
     if (!base::utils::hasFlag(LoggingFlag::DisableVModulesExtensions, *m_pFlags)) {
       addSuffix(ss, ".h", nullptr);
       m_modules.insert(std::make_pair(ss.str(), level));
@@ -1922,7 +1922,7 @@ void VRegistry::setModules(const char* modules) {
   };
   bool isMod = true;
   bool isLevel = false;
-  std::stringstream ss;
+  std::ostringstream ss;
   int level = -1;
   for (; *modules; ++modules) {
     switch (*modules) {
@@ -1957,7 +1957,7 @@ void VRegistry::setModules(const char* modules) {
 
 void VRegistry::setCategories(const char* categories, bool clear) {
   base::threading::ScopedLock scopedLock(lock());
-  auto insert = [&](std::stringstream& ss, Level level) {
+  auto insert = [&](std::ostringstream& ss, Level level) {
     m_categories.push_back(std::make_pair(ss.str(), level));
   };
 
@@ -1973,7 +1973,7 @@ void VRegistry::setCategories(const char* categories, bool clear) {
 
   bool isCat = true;
   bool isLevel = false;
-  std::stringstream ss;
+  std::ostringstream ss;
   Level level = Level::Unknown;
   for (; *categories; ++categories) {
     switch (*categories) {
@@ -2619,7 +2619,7 @@ void Writer::triggerDispatch(void) {
       && !ELPP->hasFlag(LoggingFlag::DisableApplicationAbortOnFatalLog)) {
     base::Writer(Level::Warning, m_file, m_line, m_func).construct(1, base::consts::kDefaultLoggerId)
         << "Aborting application. Reason: Fatal log at [" << m_file << ":" << m_line << "]";
-    std::stringstream reasonStream;
+    std::ostringstream reasonStream;
     reasonStream << "Fatal log at [" << m_file << ":" << m_line << "]"
                  << " If you wish to disable 'abort on fatal log' please use "
                  << "el::Helpers::addFlag(el::LoggingFlag::DisableApplicationAbortOnFatalLog)";
@@ -2721,7 +2721,7 @@ void PerformanceTracker::checkpoint(const std::string& id, const char* file, bas
 
 const base::type::string_t PerformanceTracker::getFormattedTimeTaken(struct timeval startTime) const {
   if (ELPP->hasFlag(LoggingFlag::FixedTimeFormat)) {
-    base::type::stringstream_t ss;
+    base::type::ostringstream_t ss;
     ss << base::utils::DateTime::getTimeDifference(m_endTime,
         startTime, m_timestampUnit) << " " << base::consts::kTimeFormats[static_cast<base::type::EnumType>
             (m_timestampUnit)].unit;
@@ -2820,7 +2820,7 @@ void StackTrace::generateNew(void) {
 // Static helper functions
 
 static std::string crashReason(int sig) {
-  std::stringstream ss;
+  std::ostringstream ss;
   bool foundReason = false;
   for (int i = 0; i < base::consts::kCrashSignalsCount; ++i) {
     if (base::consts::kCrashSignals[i].numb == sig) {
@@ -2840,7 +2840,7 @@ static std::string crashReason(int sig) {
 }
 /// @brief Logs reason of crash from sig
 static void logCrashReason(int sig, bool stackTraceIfAvailable, Level level, const char* logger) {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << "CRASH HANDLED; ";
   ss << crashReason(sig);
 #if ELPP_STACKTRACE
@@ -2896,7 +2896,7 @@ void CrashHandler::setHandler(const Handler& cHandler) {
 #if defined(ELPP_FEATURE_ALL) || defined(ELPP_FEATURE_CRASH_LOG)
 
 void Helpers::crashAbort(int sig, const char* sourceFile, unsigned int long line) {
-  std::stringstream ss;
+  std::ostringstream ss;
   ss << base::debug::crashReason(sig).c_str();
   ss << " - [Called el::Helpers::crashAbort(" << sig << ")]";
   if (sourceFile != nullptr && strlen(sourceFile) > 0) {
@@ -3009,7 +3009,7 @@ void Loggers::configureFromGlobal(const char* globalConfigurationFilePath) {
   ELPP_ASSERT(gcfStream.is_open(), "Unable to open global configuration file [" << globalConfigurationFilePath
               << "] for parsing.");
   std::string line = std::string();
-  std::stringstream ss;
+  std::ostringstream ss;
   Logger* logger = nullptr;
   auto configure = [&](void) {
     ELPP_INTERNAL_INFO(8, "Configuring logger: '" << logger->id() << "' with configurations \n" << ss.str()

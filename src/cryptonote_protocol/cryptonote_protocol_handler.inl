@@ -124,7 +124,7 @@ namespace cryptonote
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::log_connections()
   {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss.precision(1);
 
     double down_sum = 0.0;

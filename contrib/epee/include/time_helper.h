@@ -68,7 +68,7 @@ PRAGMA_WARNING_POP
 			strftime( tmpbuf, 199, "%d.%m.%Y %H:%M:%S", pt );
 		else
 		{
-			std::stringstream strs;
+			std::ostringstream strs;
 			strs << "[wrong_time: " << std::hex << time_ << "]";
 			return strs.str();
 		}
@@ -90,7 +90,7 @@ PRAGMA_WARNING_POP
 			strftime( tmpbuf, 199, "%Y_%m_%d %H_%M_%S", pt );
 		else
 		{
-			std::stringstream strs;
+			std::ostringstream strs;
 			strs << "[wrong_time: " << std::hex << time_ << "]";
 			return strs.str();
 		}

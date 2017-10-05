@@ -370,8 +370,7 @@ public:
     m_c.handle_incoming_block(sr_block.data, bvc);
 
     cryptonote::block blk;
-    std::stringstream ss;
-    ss << sr_block.data;
+    std::istringstream ss(sr_block.data);
     binary_archive<false> ba(ss);
     ::serialization::serialize(ba, blk);
     if (!ss.good())
@@ -393,8 +392,7 @@ public:
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
 
     cryptonote::transaction tx;
-    std::stringstream ss;
-    ss << sr_tx.data;
+    std::istringstream ss(sr_tx.data);
     binary_archive<false> ba(ss);
     ::serialization::serialize(ba, tx);
     if (!ss.good())

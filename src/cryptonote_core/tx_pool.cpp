@@ -873,7 +873,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   std::string tx_memory_pool::print_pool(bool short_format) const
   {
-    std::stringstream ss;
+    std::ostringstream ss;
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     m_blockchain.for_all_txpool_txes([&ss, short_format](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *txblob) {

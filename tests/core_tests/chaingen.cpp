@@ -277,7 +277,7 @@ struct output_index {
         : out(other.out), amount(other.amount), blk_height(other.blk_height), tx_no(other.tx_no), out_no(other.out_no), idx(other.idx), spent(other.spent), p_blk(other.p_blk), p_tx(other.p_tx) {  }
 
     const std::string toString() const {
-        std::stringstream ss;
+        std::ostringstream ss;
 
         ss << "output_index{blk_height=" << blk_height
            << " tx_no=" << tx_no

@@ -937,7 +937,7 @@ struct TuplePrefixPrinter {
   template <typename Tuple>
   static void TersePrintPrefixToStrings(const Tuple& t, Strings* strings) {
     TuplePrefixPrinter<N - 1>::TersePrintPrefixToStrings(t, strings);
-    ::std::stringstream ss;
+    ::std::ostringstream ss;
     UniversalTersePrint(TuplePolicy<Tuple>::template get<N - 1>(t), &ss);
     strings->push_back(ss.str());
   }
@@ -978,7 +978,7 @@ Strings UniversalTersePrintTupleFieldsToStrings(const Tuple& value) {
 
 template <typename T>
 ::std::string PrintToString(const T& value) {
-  ::std::stringstream ss;
+  ::std::ostringstream ss;
   internal::UniversalTersePrinter<T>::Print(value, &ss);
   return ss.str();
 }

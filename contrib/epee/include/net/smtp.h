@@ -77,7 +77,7 @@ namespace net_utils
 		private:
 			std::string encodeBase64(std::string pData)
 			{
-				std::stringstream os;
+				std::ostringstream os;
 				size_t sz=pData.size();
 				std::copy(base64_text(pData.c_str()),base64_text(pData.c_str()+sz),std::ostream_iterator<char>(os));
 				return os.str();

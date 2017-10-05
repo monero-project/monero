@@ -170,7 +170,7 @@ namespace cryptonote
       return blobdata;
     }
 
-    std::stringstream ss;
+    std::ostringstream ss;
     binary_archive<true> ba(ss);
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, blobdata, "Failed to serialize rct signatures base");
@@ -328,7 +328,7 @@ namespace cryptonote
     }
 
     res.status = CORE_RPC_STATUS_OK;
-    std::stringstream ss;
+    std::ostringstream ss;
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount outs_for_amount;
     typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
     std::for_each(res.outs.begin(), res.outs.end(), [&](outs_for_amount& ofa)
@@ -418,7 +418,7 @@ namespace cryptonote
     }
 
     res.status = CORE_RPC_STATUS_OK;
-    std::stringstream ss;
+    std::ostringstream ss;
     typedef COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry out_entry;
     CHECK_AND_ASSERT_MES(res.outs.size(), true, "internal error: res.outs.size() is empty");
     std::for_each(res.outs.begin(), res.outs.end(), [&](out_entry& oe)

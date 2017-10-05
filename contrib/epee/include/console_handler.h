@@ -460,7 +460,7 @@ eof:
 
     std::string get_usage()
     {
-      std::stringstream ss;
+      std::ostringstream ss;
       size_t max_command_len = 0;
       for(auto& x:m_command_handlers)
         if(x.first.size() > max_command_len)
