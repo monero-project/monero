@@ -53,6 +53,7 @@ set(unit_tests_sources
   mul_div.cpp
   parse_amount.cpp
   serialization.cpp
+  sha256.cpp
   slow_memmem.cpp
   test_tx_utils.cpp
   test_peerlist.cpp
