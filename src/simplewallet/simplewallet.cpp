@@ -121,6 +121,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
+  const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the monero network"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -1478,6 +1479,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_trusted_daemon                = command_line::get_arg(vm, arg_trusted_daemon);
   m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
+  m_do_not_relay                  = command_line::get_arg(vm, arg_do_not_relay);
   m_restoring                     = !m_generate_from_view_key.empty() ||
                                     !m_generate_from_keys.empty() ||
                                     !m_generate_from_multisig_keys.empty() ||
@@ -2683,15 +2685,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_monero_tx";
       }
     }
-    else while (!ptx_vector.empty())
+    else
     {
-      auto & ptx = ptx_vector.back();
-      m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << get_transaction_hash(ptx.tx) << ENDL
-      << tr("You can check its status by using the `show_transfers` command.");
-
-      // if no exception, remove element from vector
-      ptx_vector.pop_back();
+      commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
   catch (const tools::error::daemon_busy&)
@@ -2861,14 +2857,9 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_monero_tx";
       }
     }
-    else while (!ptx_vector.empty())
+    else
     {
-      auto & ptx = ptx_vector.back();
-      m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx.tx);
-
-      // if no exception, remove element from vector
-      ptx_vector.pop_back();
+      commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
   catch (const tools::error::daemon_busy&)
@@ -3126,14 +3117,9 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_monero_tx";
       }
     }
-    else while (!ptx_vector.empty())
+    else
     {
-      auto & ptx = ptx_vector.back();
-      m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx.tx);
-
-      // if no exception, remove element from vector
-      ptx_vector.pop_back();
+      commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
   catch (const tools::error::daemon_busy&)
@@ -3476,16 +3462,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
       return true;
     }
 
-    // actually commit the transactions
-    while (!ptx_vector.empty())
-    {
-      auto & ptx = ptx_vector.back();
-      m_wallet->commit_tx(ptx);
-      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx.tx);
-
-      // if no exception, remove element from vector
-      ptx_vector.pop_back();
-    }
+    commit_or_save(ptx_vector, false);
   }
   catch (const tools::error::daemon_busy&)
   {
@@ -4995,6 +4972,35 @@ void simple_wallet::interrupt()
   }
 }
 //----------------------------------------------------------------------------------------------------
+void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_vector, bool do_not_relay)
+{
+  size_t i = 0;
+  while (!ptx_vector.empty())
+  {
+    auto & ptx = ptx_vector.back();
+    const crypto::hash txid = get_transaction_hash(ptx.tx);
+    if (do_not_relay)
+    {
+      cryptonote::blobdata blob;
+      tx_to_blob(ptx.tx, blob);
+      const std::string blob_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+      const std::string filename = "raw_monero_tx" + (ptx_vector.size() == 1 ? "" : ("_" + std::to_string(i++)));
+      if (epee::file_io_utils::save_string_to_file(filename, blob_hex))
+        success_msg_writer(true) << tr("Transaction successfully saved to ") << filename << tr(", txid ") << txid;
+      else
+        fail_msg_writer() << tr("Failed to save transaction to ") << filename << tr(", txid ") << txid;
+    }
+    else
+    {
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << txid << ENDL
+      << tr("You can check its status by using the `show_transfers` command.");
+    }
+    // if no exception, remove element from vector
+    ptx_vector.pop_back();
+  }
+}
+//----------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
   po::options_description desc_params(wallet_args::tr("Wallet options"));
@@ -5014,6 +5020,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_trusted_daemon);
   command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
+  command_line::add_arg(desc_params, arg_do_not_relay);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
