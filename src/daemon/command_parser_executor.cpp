@@ -187,9 +187,24 @@ bool t_command_parser_executor::print_block(const std::vector<std::string>& args
 
 bool t_command_parser_executor::print_transaction(const std::vector<std::string>& args)
 {
+  bool include_hex = false;
+  bool include_json = false;
+
+  // Assumes that optional flags come after mandatory argument <transaction_hash>
+  for (unsigned int i = 1; i < args.size(); ++i) {
+    if (args[i] == "+hex")
+      include_hex = true;
+    else if (args[i] == "+json")
+      include_json = true;
+    else
+    {
+      std::cout << "unexpected argument: " << args[i] << std::endl;
+      return true;
+    }
+  }
   if (args.empty())
   {
-    std::cout << "expected: print_tx <transaction hash>" << std::endl;
+    std::cout << "expected: print_tx <transaction_hash> [+hex] [+json]" << std::endl;
     return true;
   }
 
@@ -197,7 +212,7 @@ bool t_command_parser_executor::print_transaction(const std::vector<std::string>
   crypto::hash tx_hash;
   if (parse_hash256(str_hash, tx_hash))
   {
-    m_executor.print_transaction(tx_hash);
+    m_executor.print_transaction(tx_hash, include_hex, include_json);
   }
 
   return true;

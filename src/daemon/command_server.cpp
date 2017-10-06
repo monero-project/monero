@@ -91,7 +91,7 @@ t_command_server::t_command_server(
   m_command_lookup.set_handler(
       "print_tx"
     , std::bind(&t_command_parser_executor::print_transaction, &m_parser, p::_1)
-    , "Print transaction, print_tx <transaction_hash>"
+    , "Print transaction, print_tx <transaction_hash> [+hex] [+json]"
     );
   m_command_lookup.set_handler(
       "is_key_image_spent"
