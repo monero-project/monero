@@ -27,9 +27,9 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 if (USE_READLINE AND GNU_READLINE_FOUND)
-  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp string_tools.cpp readline_buffer.cpp)
+  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp net_utils_base.cpp string_tools.cpp readline_buffer.cpp)
 else()
-  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp string_tools.cpp)
+  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp net_utils_base.cpp string_tools.cpp)
 endif()
 
 # Build and install libepee if we're building for GUI

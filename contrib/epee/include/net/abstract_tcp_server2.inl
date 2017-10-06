@@ -137,14 +137,14 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     CHECK_AND_NO_ASSERT_MES(!ec, false, "Failed to get local endpoint: " << ec.message() << ':' << ec.value());
 
     context = boost::value_initialized<t_connection_context>();
-    long ip_ = boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong());
+    const unsigned long ip_{boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong())};
 
     // create a random uuid
     boost::uuids::uuid random_uuid;
     // that stuff turns out to be included, even though it's from src... Taking advantage
     random_uuid = crypto::rand<boost::uuids::uuid>();
 
-    context.set_details(random_uuid, new epee::net_utils::ipv4_network_address(ip_, remote_ep.port()), is_income);
+    context.set_details(random_uuid, epee::net_utils::ipv4_network_address(ip_, remote_ep.port()), is_income);
     _dbg3("[sock " << socket_.native_handle() << "] new connection from " << print_connection_context_short(context) <<
       " to " << local_ep.address().to_string() << ':' << local_ep.port() <<
       ", total sockets objects " << m_ref_sock_count);

@@ -1395,7 +1395,7 @@ namespace cryptonote
       }
       else
       {
-        na.reset(new epee::net_utils::ipv4_network_address(i->ip, 0));
+        na = epee::net_utils::ipv4_network_address{i->ip, 0};
       }
       if (i->ban)
         m_p2p.block_host(na, i->seconds);
