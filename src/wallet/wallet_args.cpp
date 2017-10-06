@@ -154,12 +154,12 @@ namespace wallet_args
       return boost::none;
 
     std::string log_path;
-    if (!vm["log-file"].defaulted())
+    if (!command_line::is_arg_defaulted(vm, arg_log_file))
       log_path = command_line::get_arg(vm, arg_log_file);
     else
       log_path = mlog_get_default_log_path(default_log_name);
     mlog_configure(log_path, log_to_console, command_line::get_arg(vm, arg_max_log_file_size));
-    if (!vm["log-level"].defaulted())
+    if (!command_line::is_arg_defaulted(vm, arg_log_level))
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
     }
@@ -169,7 +169,7 @@ namespace wallet_args
 
     tools::scoped_message_writer(epee::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 
-    if (!vm["log-level"].defaulted())
+    if (!command_line::is_arg_defaulted(vm, arg_log_level))
       MINFO("Setting log level = " << command_line::get_arg(vm, arg_log_level));
     else
       MINFO("Setting log levels = " << getenv("MONERO_LOGS"));

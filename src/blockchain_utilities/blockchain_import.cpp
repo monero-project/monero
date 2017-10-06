@@ -634,7 +634,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if (! opt_batch && ! vm["batch-size"].defaulted())
+  if (! opt_batch && !command_line::is_arg_defaulted(vm, arg_batch_size))
   {
     std::cerr << "Error: batch-size set, but batch option not enabled" << ENDL;
     return 1;
@@ -644,7 +644,7 @@ int main(int argc, char* argv[])
     std::cerr << "Error: batch-size must be > 0" << ENDL;
     return 1;
   }
-  if (opt_verify && vm["batch-size"].defaulted())
+  if (opt_verify && command_line::is_arg_defaulted(vm, arg_batch_size))
   {
     // usually want batch size default lower if verify on, so progress can be
     // frequently saved.
@@ -663,7 +663,7 @@ int main(int argc, char* argv[])
   db_arg_str = command_line::get_arg(vm, arg_database);
 
   mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
-  if (!vm["log-level"].defaulted())
+  if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
     mlog_set_log(std::string(std::to_string(log_level) + ",bcutil:INFO").c_str());
@@ -735,7 +735,7 @@ int main(int argc, char* argv[])
   }
   core.get_blockchain_storage().get_db().set_batch_transactions(true);
 
-  if (! vm["pop-blocks"].defaulted())
+  if (!command_line::is_arg_defaulted(vm, arg_pop_blocks))
   {
     num_blocks = command_line::get_arg(vm, arg_pop_blocks);
     MINFO("height: " << core.get_blockchain_storage().get_current_blockchain_height());
@@ -744,7 +744,7 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  if (! vm["drop-hard-fork"].defaulted())
+  if (!command_line::is_arg_defaulted(vm, arg_drop_hf))
   {
     MINFO("Dropping hard fork tables...");
     core.get_blockchain_storage().get_db().drop_hard_fork_info();

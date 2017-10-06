@@ -205,13 +205,13 @@ int main(int argc, char const * argv[])
     //     absolute path
     //     relative path: relative to data_dir
     bf::path log_file_path {data_dir / std::string(CRYPTONOTE_NAME ".log")};
-    if (! vm["log-file"].defaulted())
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_file))
       log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
     log_file_path = bf::absolute(log_file_path, relative_path_base);
     mlog_configure(log_file_path.string(), true, command_line::get_arg(vm, daemon_args::arg_max_log_file_size));
 
     // Set log level
-    if (!vm["log-level"].defaulted())
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_level))
     {
       mlog_set_log(command_line::get_arg(vm, daemon_args::arg_log_level).c_str());
     }
