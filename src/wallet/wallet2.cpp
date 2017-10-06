@@ -3334,7 +3334,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
   signed_tx_set signed_txes;
   for (size_t n = 0; n < exported_txs.txes.size(); ++n)
   {
-    const tools::wallet2::tx_construction_data &sd = exported_txs.txes[n];
+    tools::wallet2::tx_construction_data &sd = exported_txs.txes[n];
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << sd.sources[0].outputs.size());
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
