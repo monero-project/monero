@@ -1583,21 +1583,13 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_out_peers(const COMMAND_RPC_OUT_PEERS::request& req, COMMAND_RPC_OUT_PEERS::response& res)
   {
-	  // TODO
-	  /*if (m_p2p.get_outgoing_connections_count() > req.out_peers)
-	  {
-		  m_p2p.m_config.m_net_config.connections_count = req.out_peers;
-		  if (m_p2p.get_outgoing_connections_count() > req.out_peers)
-		  {
-			int count = m_p2p.get_outgoing_connections_count() - req.out_peers;
-			m_p2p.delete_connections(count);
-		  }
-	  }
-	  
-	  else
-		m_p2p.m_config.m_net_config.connections_count = req.out_peers;
-		*/
-	  return true;
+    size_t n_connections = m_p2p.get_outgoing_connections_count();
+    size_t n_delete = (n_connections > req.out_peers) ? n_connections - req.out_peers : 0;
+    m_p2p.m_config.m_net_config.connections_count = req.out_peers;
+    if (n_delete)
+      m_p2p.delete_connections(n_delete);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_start_save_graph(const COMMAND_RPC_START_SAVE_GRAPH::request& req, COMMAND_RPC_START_SAVE_GRAPH::response& res)
