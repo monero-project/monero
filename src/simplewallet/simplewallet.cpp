@@ -5987,10 +5987,20 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
+  bool ready;
+  uint32_t threshold, total;
+
   message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
   message_writer() << tr("Description: ") << m_wallet->get_description();
   message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-  message_writer() << tr("Watch only: ") << (m_wallet->watch_only() ? tr("Yes") : tr("No"));
+  std::string type;
+  if (m_wallet->watch_only())
+    type = tr("Watch only");
+  else if (m_wallet->multisig(&ready, &threshold, &total))
+    type = (boost::format(tr("%u/%u multisig%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
+  else
+    type = tr("Normal");
+  message_writer() << tr("Type: ") << type;
   message_writer() << tr("Testnet: ") << (m_wallet->testnet() ? tr("Yes") : tr("No"));
   return true;
 }
