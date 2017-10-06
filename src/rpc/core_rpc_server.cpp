@@ -504,6 +504,7 @@ namespace cryptonote
           {
             sorted_txs.push_back(*i);
             missed_txs.remove(h);
+            pool_tx_hashes.insert(h);
             ++found_in_pool;
           }
         }
