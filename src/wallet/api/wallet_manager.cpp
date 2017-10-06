@@ -37,6 +37,7 @@
 #include "common/updates.h"
 #include "version.h"
 #include "net/http_client.h"
+#include "wallet/crypto/import.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
@@ -258,7 +259,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   }
 
   crypto::key_derivation derivation;
-  if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+  if (!tools::wallet_only::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
   {
     error = tr("failed to generate key derivation from supplied parameters");
     return false;
@@ -272,7 +273,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
         continue;
       const cryptonote::txout_to_key tx_out_to_key = boost::get<cryptonote::txout_to_key>(tx.vout[n].target);
       crypto::public_key pubkey;
-      derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
+      tools::wallet_only::derive_public_key(derivation, n, address.m_spend_public_key, pubkey);
       if (pubkey == tx_out_to_key.key)
       {
         uint64_t amount;
@@ -287,7 +288,7 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
             rct::key Ctmp;
             //rct::key amount_key = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(address.m_view_public_key), rct::sk2rct(tx_key)));
             crypto::key_derivation derivation;
-            bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation);
+            bool r = tools::wallet_only::generate_key_derivation(address.m_view_public_key, tx_key, derivation);
             if (!r)
             {
               LOG_ERROR("Failed to generate key derivation to decode rct output " << n);
