@@ -40,7 +40,7 @@ namespace cryptonote
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
-        m_last_known_hash(crypto::null_hash) {}
+        m_callback_request_count(0), m_last_known_hash(crypto::null_hash) {}
 
     enum state
     {

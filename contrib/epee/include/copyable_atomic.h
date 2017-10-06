@@ -35,6 +35,8 @@ namespace epee
   public:
     copyable_atomic()
     {};
+    copyable_atomic(uint32_t value)
+    { store(value); }
     copyable_atomic(const copyable_atomic& a):std::atomic<uint32_t>(a.load())
     {}
     copyable_atomic& operator= (const copyable_atomic& a)
