@@ -293,11 +293,13 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
 # On ARM, having libunwind package (with .so's only) installed breaks static link.
+# When possible, avoid stack tracing using libunwind in favor of using easylogging++.
 if (APPLE)
   set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
   set(DEFAULT_STACK_TRACE ON)
+  set(STACK_TRACE_LIB "easylogging++") # for diag output only
   set(LIBUNWIND_LIBRARIES "")
 elseif (ARM AND STATIC)
   set(DEFAULT_STACK_TRACE OFF)
@@ -306,6 +308,7 @@ else()
   find_package(Libunwind)
   if(LIBUNWIND_FOUND)
     set(DEFAULT_STACK_TRACE ON)
+    set(STACK_TRACE_LIB "libunwind") # for diag output only
   else()
     set(DEFAULT_STACK_TRACE OFF)
     set(LIBUNWIND_LIBRARIES "")
@@ -315,7 +318,7 @@ endif()
 option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
 
 if(STACK_TRACE)
-  message(STATUS "Stack trace on exception enabled")
+  message(STATUS "Stack trace on exception enabled (using ${STACK_TRACE_LIB})")
 else()
   message(STATUS "Stack trace on exception disabled")
 endif()
