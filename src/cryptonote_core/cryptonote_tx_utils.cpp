@@ -157,7 +157,7 @@ namespace cryptonote
     return destinations[0].addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, bool rct, bool use_deterministic_txkey)
   {
     std::vector<rct::key> amount_keys;
     tx.set_null();
@@ -166,8 +166,93 @@ namespace cryptonote
     tx.version = rct ? 2 : 1;
     tx.unlock_time = unlock_time;
 
+    struct input_generation_context_data
+    {
+      keypair in_ephemeral;
+    };
+    std::vector<input_generation_context_data> in_contexts;
+
+    // deterministic tx key
+    rct::keyV deterministic_txkey_buf;
+    if (use_deterministic_txkey)
+      deterministic_txkey_buf.push_back(rct::sk2rct(sender_account_keys.m_spend_secret_key));
+
+    uint64_t summary_inputs_money = 0;
+    //fill inputs
+    int idx = -1;
+    for(const tx_source_entry& src_entr:  sources)
+    {
+      ++idx;
+      if(src_entr.real_output >= src_entr.outputs.size())
+      {
+        LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
+        return false;
+      }
+      summary_inputs_money += src_entr.amount;
+
+      //key_derivation recv_derivation;
+      in_contexts.push_back(input_generation_context_data());
+      keypair& in_ephemeral = in_contexts.back().in_ephemeral;
+      crypto::key_image img;
+      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
+        return false;
+
+      //check that derivated key is equal with real output key
+      if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
+      {
+        LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! "<< ENDL << "derived_key:"
+          << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
+          << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second.dest) );
+        LOG_ERROR("amount " << src_entr.amount << ", rct " << src_entr.rct);
+        LOG_ERROR("tx pubkey " << src_entr.real_out_tx_key << ", real_output_in_tx_index " << src_entr.real_output_in_tx_index);
+        return false;
+      }
+
+      //put key image into tx input
+      txin_to_key input_to_key;
+      input_to_key.amount = src_entr.amount;
+      input_to_key.k_image = img;
+      if (use_deterministic_txkey)
+        deterministic_txkey_buf.push_back(rct::ki2rct(img));
+
+      //fill outputs array and use relative offsets
+      for(const tx_source_entry::output_entry& out_entry: src_entr.outputs)
+        input_to_key.key_offsets.push_back(out_entry.first);
+
+      input_to_key.key_offsets = absolute_output_offsets_to_relative(input_to_key.key_offsets);
+      tx.vin.push_back(input_to_key);
+    }
+
+    // "Shuffle" outs
+    std::vector<tx_destination_entry> shuffled_dsts(destinations);
+    std::random_shuffle(shuffled_dsts.begin(), shuffled_dsts.end(), [](unsigned int i) { return crypto::rand<unsigned int>() % i; });
+
+    // sort ins by their key image
+    std::vector<size_t> ins_order(sources.size());
+    for (size_t n = 0; n < sources.size(); ++n)
+      ins_order[n] = n;
+    std::sort(ins_order.begin(), ins_order.end(), [&](const size_t i0, const size_t i1) {
+      const txin_to_key &tk0 = boost::get<txin_to_key>(tx.vin[i0]);
+      const txin_to_key &tk1 = boost::get<txin_to_key>(tx.vin[i1]);
+      return memcmp(&tk0.k_image, &tk1.k_image, sizeof(tk0.k_image)) < 0;
+    });
+    tools::apply_permutation(ins_order, [&] (size_t i0, size_t i1) {
+      std::swap(tx.vin[i0], tx.vin[i1]);
+      std::swap(in_contexts[i0], in_contexts[i1]);
+      std::swap(sources[i0], sources[i1]);
+    });
+
     tx.extra = extra;
-    keypair txkey = keypair::generate();
+    keypair txkey;
+    if (use_deterministic_txkey)
+    {
+      txkey.sec = rct::rct2sk(rct::hash_to_scalar(deterministic_txkey_buf));
+      crypto::secret_key_to_public_key(txkey.sec, txkey.pub);
+    }
+    else
+    {
+      txkey = keypair::generate();
+    }
     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
     add_tx_pub_key_to_extra(tx, txkey.pub);
     tx_key = txkey.sec;
@@ -213,75 +298,6 @@ namespace cryptonote
       LOG_ERROR("Failed to parse tx extra");
       return false;
     }
-
-    struct input_generation_context_data
-    {
-      keypair in_ephemeral;
-    };
-    std::vector<input_generation_context_data> in_contexts;
-
-    uint64_t summary_inputs_money = 0;
-    //fill inputs
-    int idx = -1;
-    for(const tx_source_entry& src_entr:  sources)
-    {
-      ++idx;
-      if(src_entr.real_output >= src_entr.outputs.size())
-      {
-        LOG_ERROR("real_output index (" << src_entr.real_output << ")bigger than output_keys.size()=" << src_entr.outputs.size());
-        return false;
-      }
-      summary_inputs_money += src_entr.amount;
-
-      //key_derivation recv_derivation;
-      in_contexts.push_back(input_generation_context_data());
-      keypair& in_ephemeral = in_contexts.back().in_ephemeral;
-      crypto::key_image img;
-      if(!generate_key_image_helper(sender_account_keys, src_entr.real_out_tx_key, src_entr.real_output_in_tx_index, in_ephemeral, img))
-        return false;
-
-      //check that derivated key is equal with real output key
-      if( !(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
-      {
-        LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! "<< ENDL << "derived_key:"
-          << string_tools::pod_to_hex(in_ephemeral.pub) << ENDL << "real output_public_key:"
-          << string_tools::pod_to_hex(src_entr.outputs[src_entr.real_output].second.dest) );
-        LOG_ERROR("amount " << src_entr.amount << ", rct " << src_entr.rct);
-        LOG_ERROR("tx pubkey " << src_entr.real_out_tx_key << ", real_output_in_tx_index " << src_entr.real_output_in_tx_index);
-        return false;
-      }
-
-      //put key image into tx input
-      txin_to_key input_to_key;
-      input_to_key.amount = src_entr.amount;
-      input_to_key.k_image = img;
-
-      //fill outputs array and use relative offsets
-      for(const tx_source_entry::output_entry& out_entry: src_entr.outputs)
-        input_to_key.key_offsets.push_back(out_entry.first);
-
-      input_to_key.key_offsets = absolute_output_offsets_to_relative(input_to_key.key_offsets);
-      tx.vin.push_back(input_to_key);
-    }
-
-    // "Shuffle" outs
-    std::vector<tx_destination_entry> shuffled_dsts(destinations);
-    std::random_shuffle(shuffled_dsts.begin(), shuffled_dsts.end(), [](unsigned int i) { return crypto::rand<unsigned int>() % i; });
-
-    // sort ins by their key image
-    std::vector<size_t> ins_order(sources.size());
-    for (size_t n = 0; n < sources.size(); ++n)
-      ins_order[n] = n;
-    std::sort(ins_order.begin(), ins_order.end(), [&](const size_t i0, const size_t i1) {
-      const txin_to_key &tk0 = boost::get<txin_to_key>(tx.vin[i0]);
-      const txin_to_key &tk1 = boost::get<txin_to_key>(tx.vin[i1]);
-      return memcmp(&tk0.k_image, &tk1.k_image, sizeof(tk0.k_image)) < 0;
-    });
-    tools::apply_permutation(ins_order, [&] (size_t i0, size_t i1) {
-      std::swap(tx.vin[i0], tx.vin[i1]);
-      std::swap(in_contexts[i0], in_contexts[i1]);
-      std::swap(sources[i0], sources[i1]);
-    });
 
     uint64_t summary_outs_money = 0;
     //fill outputs
