@@ -1490,13 +1490,14 @@ bool t_rpc_command_executor::flush_txpool(const std::string &txid)
     return true;
 }
 
-bool t_rpc_command_executor::output_histogram(uint64_t min_count, uint64_t max_count)
+bool t_rpc_command_executor::output_histogram(const std::vector<uint64_t> &amounts, uint64_t min_count, uint64_t max_count)
 {
     cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req;
     cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response res;
     std::string fail_message = "Unsuccessful";
     epee::json_rpc::error error_resp;
 
+    req.amounts = amounts;
     req.min_count = min_count;
     req.max_count = max_count;
     req.unlocked = false;

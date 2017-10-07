@@ -493,20 +493,34 @@ bool t_command_parser_executor::flush_txpool(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::output_histogram(const std::vector<std::string>& args)
 {
-  if (args.size() > 2) return false;
-
+  std::vector<uint64_t> amounts;
   uint64_t min_count = 3;
   uint64_t max_count = 0;
+  size_t n_raw = 0;
 
-  if (args.size() >= 1)
+  for (size_t n = 0; n < args.size(); ++n)
   {
-    min_count = boost::lexical_cast<uint64_t>(args[0]);
+    if (args[n][0] == '@')
+    {
+      amounts.push_back(boost::lexical_cast<uint64_t>(args[n].c_str() + 1));
+    }
+    else if (n_raw == 0)
+    {
+      min_count = boost::lexical_cast<uint64_t>(args[n]);
+      n_raw++;
+    }
+    else if (n_raw == 1)
+    {
+      max_count = boost::lexical_cast<uint64_t>(args[n]);
+      n_raw++;
+    }
+    else
+    {
+      std::cout << "Invalid syntax: more than two non-amount parameters" << std::endl;
+      return true;
+    }
   }
-  if (args.size() >= 2)
-  {
-    max_count = boost::lexical_cast<uint64_t>(args[1]);
-  }
-  return m_executor.output_histogram(min_count, max_count);
+  return m_executor.output_histogram(amounts, min_count, max_count);
 }
 
 bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::string>& args)
