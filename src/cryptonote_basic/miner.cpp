@@ -289,8 +289,7 @@ namespace cryptonote
       return false;
     }
 
-    if(!m_template_no)
-      request_block_template();//lets update block template
+    request_block_template();//lets update block template
 
     boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
     boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
