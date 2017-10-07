@@ -105,9 +105,9 @@
 #define _dbg2(x) MDEBUG(x)
 #define _dbg1(x) MDEBUG(x)
 #define _info(x) MINFO(x)
-#define _note(x) MINFO(x)
-#define _fact(x) MINFO(x)
-#define _mark(x) MINFO(x)
+#define _note(x) MDEBUG(x)
+#define _fact(x) MDEBUG(x)
+#define _mark(x) MDEBUG(x)
 #define _warn(x) MWARNING(x)
 #define _erro(x) MERROR(x)
 
