@@ -1210,6 +1210,75 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  uint32_t threshold;
+  if (!m_wallet->multisig(&ready, &threshold))
+  {
+    fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_raw_multisig <filename>");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+
+  std::string filename = args[0];
+  try
+  {
+    tools::wallet2::multisig_tx_set txs;
+    bool r = m_wallet->load_multisig_tx_from_file(filename, txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
+    if (!r)
+    {
+      fail_msg_writer() << tr("Failed to load multisig transaction from file");
+      return true;
+    }
+    if (txs.m_signers.size() < threshold)
+    {
+      fail_msg_writer() << (boost::format(tr("Multisig transaction signed by only %u signers, needs %u more signatures"))
+          % txs.m_signers.size() % (threshold - txs.m_signers.size())).str();
+      return true;
+    }
+
+    // save the transactions
+    std::string filenames;
+    for (auto &ptx: txs.m_ptx)
+    {
+      const crypto::hash txid = cryptonote::get_transaction_hash(ptx.tx);
+      const std::string filename = std::string("raw_multisig_monero_tx_") + epee::string_tools::pod_to_hex(txid);
+      if (!filenames.empty())
+        filenames += ", ";
+      filenames += filename;
+      if (!epee::file_io_utils::save_string_to_file(filename, cryptonote::tx_to_blob(ptx.tx)))
+      {
+        fail_msg_writer() << tr("Failed to export multisig transaction to file ") << filename;
+        return true;
+      }
+    }
+    success_msg_writer() << tr("Saved exported multisig transaction file(s): ") << filenames;
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << tr("unexpected error: ") << e.what();
+  }
+  catch (...)
+  {
+    LOG_ERROR("Unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -1813,6 +1882,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::submit_multisig, this, _1),
                            tr("submit_multisig <filename>"),
                            tr("Submit a signed multisig transaction from a file"));
+  m_cmd_binder.set_handler("export_raw_multisig_tx",
+                           boost::bind(&simple_wallet::export_raw_multisig, this, _1),
+                           tr("export_raw_multisig <filename>"),
+                           tr("Export a signed multisig transaction to a file"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),
