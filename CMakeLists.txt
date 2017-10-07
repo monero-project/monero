@@ -704,6 +704,9 @@ if(SODIUM_LIBRARY)
   set(ZMQ_LIB "${ZMQ_LIB};${SODIUM_LIBRARY}")
 endif()
 
+add_subdirectory(contrib)
+add_subdirectory(src)
+
 option(BUILD_TESTS "Build tests." OFF)
 
 if(BUILD_TESTS)
@@ -714,9 +717,6 @@ endif()
 if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
 add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
 endif()
-
-add_subdirectory(contrib)
-add_subdirectory(src)
 
 if(BUILD_DOCUMENTATION)
   set(DOC_GRAPHS "YES" CACHE STRING "Create dependency graphs (needs graphviz)")
