@@ -2033,7 +2033,7 @@ just_dir:
   if (wal) wrpc.set_wallet(wal.release());
   bool r = wrpc.init(&(vm.get()));
   CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet rpc server"));
-  tools::signal_handler::install([&wrpc, &wal](int) {
+  tools::signal_handler::install([&wrpc](int) {
     wrpc.send_stop_signal();
   });
   LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet rpc server"));
