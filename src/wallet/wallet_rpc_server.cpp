@@ -507,6 +507,34 @@ namespace tools
       er.message = e.what();
       return false;
     }
+    catch (const tools::error::zero_destination& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
+        cryptonote::print_money(e.available()) %
+        cryptonote::print_money(e.tx_amount() + e.fee())  %
+        cryptonote::print_money(e.tx_amount()) %
+        cryptonote::print_money(e.fee())).str();
+      return false;
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
+      er.message = e.what();
+      return false;
+    }
     catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
@@ -587,6 +615,34 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::zero_destination& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
+        cryptonote::print_money(e.available()) %
+        cryptonote::print_money(e.tx_amount() + e.fee())  %
+        cryptonote::print_money(e.tx_amount()) %
+        cryptonote::print_money(e.fee())).str();
+      return false;
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
       er.message = e.what();
       return false;
     }
