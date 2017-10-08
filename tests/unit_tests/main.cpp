@@ -31,31 +31,44 @@
 #include "gtest/gtest.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 
 #include "include_base_utils.h"
+#include "common/command_line.h"
 #include "unit_tests_utils.h"
+
+namespace po = boost::program_options;
 
 boost::filesystem::path unit_test::data_dir;
 
 int main(int argc, char** argv)
 {
+  epee::string_tools::set_module_name_and_folder(argv[0]);
   mlog_configure(mlog_get_default_log_path("unit_tests.log"), true);
   epee::debug::get_set_enable_assert(true, false);
 
   ::testing::InitGoogleTest(&argc, argv);
 
-  // Process remaining arguments
-  if (argc == 2 && argv[1] != NULL) { // one arg: path to dir with test data
-    unit_test::data_dir = argv[1];
-  } else if (argc == 1) { // legacy: assume test binaries in 'build/release'
-    epee::string_tools::set_module_name_and_folder(argv[0]);
+  po::options_description desc_options("Command line options");
+  const command_line::arg_descriptor<std::string> arg_data_dir = {"data-dir", "Data files directory", "", true};
+  command_line::add_arg(desc_options, command_line::arg_data_dir, "");
+
+  po::variables_map vm;
+  bool r = command_line::handle_error_helper(desc_options, [&]()
+  {
+    po::store(po::parse_command_line(argc, argv, desc_options), vm);
+    po::notify(vm);
+    return true;
+  });
+  if (! r)
+    return 1;
+
+  if (vm["data-dir"].defaulted())
     unit_test::data_dir = boost::filesystem::path(epee::string_tools::get_current_module_folder())
                           .parent_path().parent_path().parent_path().parent_path()
                           .append("tests").append("data");
-  } else {
-    std::cerr << "Usage: " << argv[0] << " [<path-to-test-data-dir>]" << std::endl;
-    return 1;
-  }
+  else
+    unit_test::data_dir = command_line::get_arg(vm, arg_data_dir);
 
   return RUN_ALL_TESTS();
 }
