@@ -100,4 +100,4 @@ endif ()
 
 add_test(
   NAME    unit_tests
-  COMMAND unit_tests "${TEST_DATA_DIR}")
+  COMMAND unit_tests --data-dir "${TEST_DATA_DIR}")
