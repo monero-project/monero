@@ -677,7 +677,7 @@ TEST(Serialization, portability_wallet)
   bool r = false;
   try
   {
-    w.load(wallet_file.native(), password);
+    w.load(wallet_file.string(), password);
     r = true;
   }
   catch (const exception& e)
@@ -794,7 +794,7 @@ TEST(Serialization, portability_outputs)
   // read file
   const boost::filesystem::path filename = unit_test::data_dir / "outputs";
   std::string data;
-  bool r = epee::file_io_utils::load_file_to_string(filename.native(), data);
+  bool r = epee::file_io_utils::load_file_to_string(filename.string(), data);
   ASSERT_TRUE(r);
   const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
   ASSERT_FALSE(data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen));
@@ -910,7 +910,7 @@ TEST(Serialization, portability_unsigned_tx)
   const boost::filesystem::path filename = unit_test::data_dir / "unsigned_monero_tx";
   std::string s;
   const bool testnet = true;
-  bool r = epee::file_io_utils::load_file_to_string(filename.native(), s);
+  bool r = epee::file_io_utils::load_file_to_string(filename.string(), s);
   ASSERT_TRUE(r);
   const size_t magiclen = strlen(UNSIGNED_TX_PREFIX);
   ASSERT_FALSE(strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen));
@@ -1058,7 +1058,7 @@ TEST(Serialization, portability_signed_tx)
   const boost::filesystem::path filename = unit_test::data_dir / "signed_monero_tx";
   const bool testnet = true;
   std::string s;
-  bool r = epee::file_io_utils::load_file_to_string(filename.native(), s);
+  bool r = epee::file_io_utils::load_file_to_string(filename.string(), s);
   ASSERT_TRUE(r);
   const size_t magiclen = strlen(SIGNED_TX_PREFIX);
   ASSERT_FALSE(strncmp(s.c_str(), SIGNED_TX_PREFIX, magiclen));
