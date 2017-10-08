@@ -477,7 +477,7 @@ namespace tools
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
       {
-        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.code = WALLET_RPC_ERROR_CODE_TX_TOO_LARGE;
         er.message = "Transaction would be too large.  try /transfer_split.";
         return false;
       }
