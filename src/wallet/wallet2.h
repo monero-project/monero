@@ -618,6 +618,9 @@ namespace tools
       a & m_subaddresses_inv;
       a & m_subaddress_labels;
       a & m_additional_tx_keys;
+      if(ver < 21)
+        return;
+      a & m_attributes;
     }
 
     /*!
@@ -703,6 +706,9 @@ namespace tools
     void set_tx_note(const crypto::hash &txid, const std::string &note);
     std::string get_tx_note(const crypto::hash &txid) const;
 
+    void set_description(const std::string &description);
+    std::string get_description() const;
+
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
@@ -756,6 +762,25 @@ namespace tools
     bool light_wallet_parse_rct_str(const std::string& rct_string, const crypto::public_key& tx_pub_key, uint64_t internal_output_index, rct::key& decrypted_mask, rct::key& rct_commit, bool decrypt) const;
     // check if key image is ours
     bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index);
+
+    /*
+     * "attributes" are a mechanism to store an arbitrary number of string values
+     * on the level of the wallet as a whole, identified by keys. Their introduction,
+     * technically the unordered map m_attributes stored as part of a wallet file,
+     * led to a new wallet file version, but now new singular pieces of info may be added
+     * without the need for a new version.
+     *
+     * The first and so far only value stored as such an attribute is the description.
+     * It's stored under the standard key ATTRIBUTE_DESCRIPTION (see method set_description).
+     *
+     * The mechanism is open to all clients and allows them to use it for storing basically any
+     * single string values in a wallet. To avoid the problem that different clients possibly
+     * overwrite or misunderstand each other's attributes, a two-part key scheme is
+     * proposed: <client name>.<value name>
+     */
+    const char* const ATTRIBUTE_DESCRIPTION = "wallet2.description";
+    void set_attribute(const std::string &key, const std::string &value);
+    std::string get_attribute(const std::string &key) const;
 
   private:
     /*!
@@ -835,6 +860,7 @@ namespace tools
     std::unordered_map<cryptonote::subaddress_index, crypto::public_key> m_subaddresses_inv;
     std::vector<std::vector<std::string>> m_subaddress_labels;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
+    std::unordered_map<std::string, std::string> m_attributes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
@@ -882,7 +908,7 @@ namespace tools
     std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 20)
+BOOST_CLASS_VERSION(tools::wallet2, 21)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 2)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 7)

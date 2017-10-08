@@ -847,6 +847,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_bc", boost::bind(&simple_wallet::rescan_blockchain, this, _1), tr("Rescan blockchain from scratch"));
   m_cmd_binder.set_handler("set_tx_note", boost::bind(&simple_wallet::set_tx_note, this, _1), tr("Set an arbitrary string note for a txid"));
   m_cmd_binder.set_handler("get_tx_note", boost::bind(&simple_wallet::get_tx_note, this, _1), tr("Get a string note for a txid"));
+  m_cmd_binder.set_handler("set_description", boost::bind(&simple_wallet::set_description, this, _1), tr("Set an arbitrary description for the wallet"));
+  m_cmd_binder.set_handler("get_description", boost::bind(&simple_wallet::get_description, this, _1), tr("Get the description of the wallet "));
   m_cmd_binder.set_handler("status", boost::bind(&simple_wallet::status, this, _1), tr("Show wallet status information"));
   m_cmd_binder.set_handler("wallet_info", boost::bind(&simple_wallet::wallet_info, this, _1), tr("Show wallet information"));
   m_cmd_binder.set_handler("sign", boost::bind(&simple_wallet::sign, this, _1), tr("Sign the contents of a file"));
@@ -4990,6 +4992,39 @@ bool simple_wallet::get_tx_note(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::set_description(const std::vector<std::string> &args)
+{
+  // 0 arguments allowed, for setting the description to empty string
+
+  std::string description = "";
+  for (size_t n = 0; n < args.size(); ++n)
+  {
+    if (n > 0)
+      description += " ";
+    description += args[n];
+  }
+  m_wallet->set_description(description);
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::get_description(const std::vector<std::string> &args)
+{
+  if (args.size() != 0)
+  {
+    fail_msg_writer() << tr("usage: get_description");
+    return true;
+  }
+
+  std::string description = m_wallet->get_description();
+  if (description.empty())
+    success_msg_writer() << tr("no description found");
+  else
+    success_msg_writer() << tr("description found: ") << description;
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::status(const std::vector<std::string> &args)
 {
   uint64_t local_height = m_wallet->get_blockchain_current_height();
@@ -5018,6 +5053,7 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
   message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
+  message_writer() << tr("Description: ") << m_wallet->get_description();
   message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   message_writer() << tr("Watch only: ") << (m_wallet->watch_only() ? tr("Yes") : tr("No"));
   message_writer() << tr("Testnet: ") << (m_wallet->testnet() ? tr("Yes") : tr("No"));
