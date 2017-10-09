@@ -146,9 +146,10 @@ namespace tools
       }
       return r;
 #else
-      /* Only blocks SIGINT and SIGTERM */
+      /* Only blocks SIGINT, SIGTERM and SIGPIPE */
       signal(SIGINT, posix_handler);
       signal(SIGTERM, posix_handler);
+      signal(SIGPIPE, SIG_IGN);
       m_handler = t;
       return true;
 #endif
