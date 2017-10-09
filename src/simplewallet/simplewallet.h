@@ -281,6 +281,7 @@ namespace cryptonote
     std::string m_wallet_file;
     std::string m_generate_new;
     std::string m_generate_from_view_key;
+    std::string m_generate_from_spend_key;
     std::string m_generate_from_keys;
     std::string m_generate_from_multisig_keys;
     std::string m_generate_from_json;
