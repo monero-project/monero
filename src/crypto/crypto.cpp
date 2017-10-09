@@ -78,7 +78,7 @@ namespace crypto {
   /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar_not_thread_safe(ec_scalar &res) {
     unsigned char tmp[64];
-    generate_random_bytes_not_thread_safe(64, tmp);
+    generate_system_random_bytes(64, tmp);
     sc_reduce(tmp);
     memcpy(&res, tmp, 32);
   }

@@ -147,7 +147,7 @@ namespace crypto {
    */
   inline void rand(size_t N, uint8_t *bytes) {
     boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(N, bytes);
+    generate_system_random_bytes(N, bytes);
   }
 
   /* Generate a value filled with random bytes.
@@ -156,7 +156,7 @@ namespace crypto {
   typename std::enable_if<std::is_pod<T>::value, T>::type rand() {
     typename std::remove_cv<T>::type res;
     boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(sizeof(T), &res);
+    generate_system_random_bytes(sizeof(T), &res);
     return res;
   }
 
