@@ -52,6 +52,7 @@ namespace levin
   class levin_client_async
 	{
     levin_commands_handler* m_pcommands_handler;
+    void (*commands_handler_destroy)(levin_commands_handler*);
 		volatile uint32_t m_is_stop;
 		volatile uint32_t m_threads_count;
 		::critical_section m_send_lock;
@@ -85,9 +86,9 @@ namespace levin
     ::critical_section m_connection_lock;
     net_utils::blocked_mode_client m_transport;
 	public:
-		levin_client_async():m_pcommands_handler(NULL), m_is_stop(0), m_threads_count(0), m_invoke_data_ready(0), m_invoke_is_active(0)
+		levin_client_async():m_pcommands_handler(NULL), commands_handler_destroy(NULL), m_is_stop(0), m_threads_count(0), m_invoke_data_ready(0), m_invoke_is_active(0)
 		{}
-		levin_client_async(const levin_client_async& /*v*/):m_pcommands_handler(NULL), m_is_stop(0), m_threads_count(0), m_invoke_data_ready(0), m_invoke_is_active(0)
+		levin_client_async(const levin_client_async& /*v*/):m_pcommands_handler(NULL), commands_handler_destroy(NULL), m_is_stop(0), m_threads_count(0), m_invoke_data_ready(0), m_invoke_is_active(0)
 		{}
 		~levin_client_async()
 		{
@@ -97,11 +98,16 @@ namespace levin
 
 			while(boost::interprocess::ipcdetail::atomic_read32(&m_threads_count))
 				::Sleep(100);
+
+			set_handler(NULL);
 		}
 
-		void set_handler(levin_commands_handler* phandler)
+		void set_handler(levin_commands_handler* phandler, void (*destroy)(levin_commands_handler*) = NULL)
 		{
+			if (commands_handler_destroy && m_pcommands_handler)
+				(*commands_handler_destroy)(m_pcommands_handler);
 			m_pcommands_handler = phandler;
+			m_pcommands_handler_destroy = destroy;
 		}
 
 		bool connect(uint32_t ip, uint32_t port, uint32_t timeout)

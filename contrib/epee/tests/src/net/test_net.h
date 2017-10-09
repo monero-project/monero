@@ -155,7 +155,7 @@ namespace tests
 
     bool init(const std::string& bind_port = "", const std::string& bind_ip = "0.0.0.0")
     {
-      m_net_server.get_config_object().m_pcommands_handler = this;
+      m_net_server.get_config_object().set_handler(this);
       m_net_server.get_config_object().m_invoke_timeout = 1000;
       LOG_PRINT_L0("Binding on " << bind_ip << ":" << bind_port);
       return m_net_server.init_server(bind_port, bind_ip);
