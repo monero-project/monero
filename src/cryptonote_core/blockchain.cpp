@@ -3253,6 +3253,7 @@ leave:
     }
   }
 
+#if defined(PER_BLOCK_CHECKPOINT)
   // If we're at a checkpoint, ensure that our hardcoded checkpoint hash
   // is correct.
   if(m_checkpoints.is_in_checkpoint_zone(get_current_blockchain_height()))
@@ -3264,6 +3265,7 @@ leave:
       goto leave;
     }
   }
+#endif
 
   TIME_MEASURE_FINISH(longhash_calculating_time);
   if (precomputed)
