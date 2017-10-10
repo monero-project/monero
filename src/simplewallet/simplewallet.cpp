@@ -2591,6 +2591,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       local_args.erase(local_args.begin());
     }
   }
+  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
+  if (adjusted_fake_outs_count > fake_outs_count)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+    return true;
+  }
 
   const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
   if(local_args.size() < min_args)
@@ -3195,6 +3201,12 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
       fake_outs_count = ring_size - 1;
       local_args.erase(local_args.begin());
     }
+  }
+  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
+  if (adjusted_fake_outs_count > fake_outs_count)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+    return true;
   }
 
   std::vector<uint8_t> extra;

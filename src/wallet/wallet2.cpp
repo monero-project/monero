@@ -3980,6 +3980,19 @@ int wallet2::get_fee_algorithm()
    return 1;
   return 0;
 }
+//------------------------------------------------------------------------------------------------------------------------------
+uint64_t wallet2::adjust_mixin(uint64_t mixin)
+{
+  if (mixin < 4 && use_fork_rules(6, 10)) {
+    MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 6, using 5");
+    mixin = 4;
+  }
+  else if (mixin < 2 && use_fork_rules(2, 10)) {
+    MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 2, using 3");
+    mixin = 2;
+  }
+  return mixin;
+}
 //----------------------------------------------------------------------------------------------------
 // separated the call(s) to wallet2::transfer into their own function
 //
