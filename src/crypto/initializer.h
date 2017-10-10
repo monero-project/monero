@@ -31,8 +31,13 @@
 #pragma once
 
 #if defined(__GNUC__)
+#if defined(__sun) && defined(__SVR4)
+#define INITIALIZER(name) __attribute__((constructor)) static void name(void)
+#define FINALIZER(name) __attribute__((destructor)) static void name(void)
+#else
 #define INITIALIZER(name) __attribute__((constructor(101))) static void name(void)
 #define FINALIZER(name) __attribute__((destructor(101))) static void name(void)
+#endif
 #define REGISTER_FINALIZER(name) ((void) 0)
 
 #elif defined(_MSC_VER)

@@ -40,6 +40,10 @@
 #include <byteswap.h>
 #endif
 
+#if defined(__sun) && defined(__SVR4)
+#include <endian.h>
+#endif
+
 #if defined(_MSC_VER)
 #include <stdlib.h>
 

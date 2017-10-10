@@ -49,6 +49,11 @@ if (WIN32)
     iphlpapi
     ws2_32)
 endif ()
+if (CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
+  set(CMAKE_REQUIRED_LIBRARIES
+    socket
+    nsl)
+endif ()
 
 check_function_exists(_beginthreadex HAVE__BEGINTHREADEX)
 check_function_exists(arc4random HAVE_ARC4RANDOM)

@@ -405,7 +405,7 @@ namespace tools
 #else
 std::string get_nix_version_display_string()
 {
-  utsname un;
+  struct utsname un;
 
   if(uname(&un) < 0)
     return std::string("*nix: failed to get os version");

@@ -44,7 +44,12 @@ endif ()
 
 set(RETSIGTYPE void)
 
+if(CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
+add_definitions(-D_XOPEN_SOURCE=600)
+else()
 add_definitions(-D_GNU_SOURCE)
+endif()
+add_definitions(-std=c99)
 
 option(USE_ECDSA "Use ECDSA algorithms" ON)
 option(USE_SHA2 "Enable SHA2 support" ON)
