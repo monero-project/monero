@@ -855,7 +855,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
     int num_vouts_received = 0;
     tx_pub_key = pub_key_field.pub_key;
-    bool r = true;
     tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter;
     const cryptonote::account_keys& keys = m_account.get_keys();
@@ -878,46 +877,33 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)
     {
       check_acc_out_precomp(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0]);
-      if (tx_scan_info[0].error)
+      THROW_WALLET_EXCEPTION_IF(tx_scan_info[0].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
+
+      // this assumes that the miner tx pays a single address
+      if (tx_scan_info[0].received)
       {
-        r = false;
-      }
-      else
-      {
-        // this assumes that the miner tx pays a single address
-        if (tx_scan_info[0].received)
+        // process the other outs from that tx
+        // the first one was already checked
+        for (size_t i = 1; i < tx.vout.size(); ++i)
         {
-          scan_output(keys, tx, tx_pub_key, 0, tx_scan_info[0], num_vouts_received, tx_money_got_in_outs, outs);
+          tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
+            std::ref(tx_scan_info[i])));
+        }
+        waiter.wait();
 
-          // process the other outs from that tx
-          // the first one was already checked
-          for (size_t i = 1; i < tx.vout.size(); ++i)
+        // then scan all outputs from 0
+        for (size_t i = 0; i < tx.vout.size(); ++i)
+        {
+          THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
+          if (tx_scan_info[i].received)
           {
-            tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
-              std::ref(tx_scan_info[i])));
-          }
-          waiter.wait();
-
-          for (size_t i = 1; i < tx.vout.size(); ++i)
-          {
-            if (tx_scan_info[i].error)
-            {
-              r = false;
-              break;
-            }
-            if (tx_scan_info[i].received)
-            {
-              scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
-            }
+            scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
           }
         }
       }
     }
     else if (tx.vout.size() > 1 && tools::threadpool::getInstance().get_max_concurrency() > 1)
     {
-      tools::threadpool& tpool = tools::threadpool::getInstance();
-      tools::threadpool::waiter waiter;
-
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
@@ -926,11 +912,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       waiter.wait();
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
-        if (tx_scan_info[i].error)
-        {
-          r = false;
-          break;
-        }
+        THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
         if (tx_scan_info[i].received)
         {
           scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
@@ -942,18 +924,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         check_acc_out_precomp(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i]);
-        if (tx_scan_info[i].error)
-        {
-          r = false;
-          break;
-        }
+        THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
         if (tx_scan_info[i].received)
         {
           scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
         }
       }
     }
-    THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
 
     if(!outs.empty() && num_vouts_received > 0)
     {
