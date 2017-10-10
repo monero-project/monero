@@ -48,6 +48,7 @@
 #endif
 
 using epee::string_tools::pod_to_hex;
+using namespace crypto;
 
 // Increase when the DB changes in a non backward compatible way, and there
 // is no automatic conversion, so that a full resync is needed.

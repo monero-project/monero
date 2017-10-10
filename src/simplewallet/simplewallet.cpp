@@ -4266,7 +4266,7 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
     return true;
   }
   crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  if (tx_pub_key == null_pkey)
+  if (tx_pub_key == crypto::null_pkey)
   {
     fail_msg_writer() << tr("Tx pubkey was not found");
     return true;
@@ -4993,7 +4993,7 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
       fail_msg_writer() << tr("failed to parse address");
       return true;
     }
-    crypto::hash payment_id = null_hash;
+    crypto::hash payment_id = crypto::null_hash;
     size_t description_start = 2;
     if (info.has_payment_id)
     {

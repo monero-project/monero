@@ -1011,7 +1011,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
     tools::msg_writer() << "   Age      Txes       Bytes";
     for (i=0; i<n; i++)
     {
-      tools::msg_writer() << get_time_hms(times[i]) << setw(8) << res.pool_stats.histo[i].txs << setw(12) << res.pool_stats.histo[i].bytes;
+      tools::msg_writer() << get_time_hms(times[i]) << std::setw(8) << res.pool_stats.histo[i].txs << std::setw(12) << res.pool_stats.histo[i].bytes;
     }
   }
   tools::msg_writer();

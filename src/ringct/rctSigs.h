@@ -36,7 +36,6 @@
 #define RCTSIGS_H
 
 #include <cstddef>
-#include <mutex>
 #include <vector>
 #include <tuple>
 
@@ -60,9 +59,6 @@ extern "C" {
 #endif
 
 
-
-using namespace std;
-using namespace crypto;
 
 namespace rct {
 
@@ -110,7 +106,7 @@ namespace rct {
     //populateFromBlockchain creates a keymatrix with "mixin" columns and one of the columns is inPk
     //   the return value are the key matrix, and the index where inPk was put (random).
     void getKeyFromBlockchain(ctkey & a, size_t reference_index);
-    tuple<ctkeyM, xmr_amount> populateFromBlockchain(ctkeyV inPk, int mixin);
+    std::tuple<ctkeyM, xmr_amount> populateFromBlockchain(ctkeyV inPk, int mixin);
 
     //RingCT protocol
     //genRct:
@@ -122,10 +118,10 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will return a random number
-    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk);
-    rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const keyV &amount_keys, const int mixin);
-    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, const keyV &amount_keys, xmr_amount txnFee, unsigned int mixin);
-    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & inamounts, const vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk);
+    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk);
+    rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const std::vector<xmr_amount> & amounts, const keyV &amount_keys, const int mixin);
+    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const std::vector<xmr_amount> & inamounts, const std::vector<xmr_amount> & outamounts, const keyV &amount_keys, xmr_amount txnFee, unsigned int mixin);
+    rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const std::vector<xmr_amount> & inamounts, const std::vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk);
     bool verRct(const rctSig & rv, bool semantics);
     static inline bool verRct(const rctSig & rv) { return verRct(rv, true) && verRct(rv, false); }
     bool verRctSimple(const rctSig & rv, bool semantics);

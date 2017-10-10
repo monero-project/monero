@@ -49,6 +49,7 @@
 #include "gtest/gtest.h"
 #include "unit_tests_utils.h"
 using namespace std;
+using namespace crypto;
 
 struct Struct
 {

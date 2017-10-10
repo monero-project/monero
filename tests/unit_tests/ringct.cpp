@@ -38,6 +38,7 @@
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
 
+using namespace std;
 using namespace crypto;
 using namespace rct;
 

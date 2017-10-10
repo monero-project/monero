@@ -221,7 +221,7 @@ void BootstrapFile::write_block(block& block)
   // now add all regular transactions
   for (const auto& tx_id : block.tx_hashes)
   {
-    if (tx_id == null_hash)
+    if (tx_id == crypto::null_hash)
     {
       throw std::runtime_error("Aborting: tx == null_hash");
     }
@@ -433,7 +433,7 @@ uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks,
 
 uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
 {
-  streampos dummy_pos;
+  std::streampos dummy_pos;
   uint64_t dummy_height = 0;
   return count_blocks(import_file_path, dummy_pos, dummy_height);
 }
@@ -441,7 +441,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path)
 // If seek_height is non-zero on entry, return a stream position <= this height when finished.
 // And return the actual height corresponding to this position. Allows the caller to locate its
 // starting position without having to reread the entire file again.
-uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, streampos &start_pos, uint64_t& seek_height)
+uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, std::streampos &start_pos, uint64_t& seek_height)
 {
   boost::filesystem::path raw_file_path(import_file_path);
   boost::system::error_code ec;

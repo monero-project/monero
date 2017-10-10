@@ -67,6 +67,8 @@ extern "C"
 #include "crypto/keccak.h"
 #include "crypto/crypto-ops.h"
 }
+using namespace std;
+using namespace crypto;
 using namespace cryptonote;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

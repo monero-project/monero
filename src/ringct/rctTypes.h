@@ -33,9 +33,7 @@
 #define RCT_TYPES_H
 
 #include <cstddef>
-#include <mutex>
 #include <vector>
-#include <tuple>
 #include <iostream>
 #include <cinttypes>
 
@@ -67,9 +65,6 @@ extern "C" {
 
 //for printing large ints
 
-using namespace std;
-using namespace crypto;
-
 //Namespace specifically for ring ct code
 namespace rct {
     //basic ops containers
@@ -89,8 +84,8 @@ namespace rct {
         bool operator==(const key &k) const { return !memcmp(bytes, k.bytes, sizeof(bytes)); }
         unsigned char bytes[32];
     };
-    typedef vector<key> keyV; //vector of keys
-    typedef vector<keyV> keyM; //matrix of keys (indexed by column first)
+    typedef std::vector<key> keyV; //vector of keys
+    typedef std::vector<keyV> keyM; //matrix of keys (indexed by column first)
 
     //containers For CT operations
     //if it's  representing a private ctkey then "dest" contains the secret key of the address
@@ -101,8 +96,8 @@ namespace rct {
         key dest;
         key mask; //C here if public
     };
-    typedef vector<ctkey> ctkeyV;
-    typedef vector<ctkeyV> ctkeyM;
+    typedef std::vector<ctkey> ctkeyV;
+    typedef std::vector<ctkeyV> ctkeyM;
 
     //data for passing the amount to the receiver secretly
     // If the pedersen commitment to an amount is C = aG + bH,
@@ -184,7 +179,7 @@ namespace rct {
         ctkeyM mixRing; //the set of all pubkeys / copy
         //pairs that you mix with
         keyV pseudoOuts; //C - for simple rct
-        vector<ecdhTuple> ecdhInfo;
+        std::vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
         xmr_amount txnFee; // contains b
 
@@ -245,8 +240,8 @@ namespace rct {
         }
     };
     struct rctSigPrunable {
-        vector<rangeSig> rangeSigs;
-        vector<mgSig> MGs; // simple rct has N, full has 1
+        std::vector<rangeSig> rangeSigs;
+        std::vector<mgSig> MGs; // simple rct has N, full has 1
 
         template<bool W, template <bool> class Archive>
         bool serialize_rctsig_prunable(Archive<W> &ar, uint8_t type, size_t inputs, size_t outputs, size_t mixin)

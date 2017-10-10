@@ -158,7 +158,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 	++ref_sock_count; // increase the global counter
 	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
 
-	string remote_addr_str = "?";
+	std::string remote_addr_str = "?";
 	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
 
 	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
@@ -166,7 +166,7 @@ connection_basic::connection_basic(boost::asio::io_service& io_service, std::ato
 }
 
 connection_basic::~connection_basic() noexcept(false) {
-	string remote_addr_str = "?";
+	std::string remote_addr_str = "?";
 	m_ref_sock_count--;
 	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
 	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
