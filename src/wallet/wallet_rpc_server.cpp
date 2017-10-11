@@ -57,7 +57,7 @@ namespace
   const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
   const command_line::arg_descriptor<bool> arg_disable_rpc_login = {"disable-rpc-login", "Disable HTTP authentication for RPC connections served by this process"};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", "Enable commands which rely on a trusted daemon", false};
-  const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
+  const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets", "", true};
 
   constexpr const char default_rpc_username[] = "monero";
 }
@@ -1830,7 +1830,7 @@ int main(int argc, char** argv) {
   {
     const auto wallet_file = command_line::get_arg(*vm, arg_wallet_file);
     const auto from_json = command_line::get_arg(*vm, arg_from_json);
-    const auto wallet_dir = command_line::get_arg(*vm, arg_wallet_dir);
+    const auto wallet_dir = command_line::has_arg(*vm, arg_wallet_dir) ? command_line::get_arg(*vm, arg_wallet_dir) : std::string{};
 
     if(!wallet_file.empty() && !from_json.empty())
     {
