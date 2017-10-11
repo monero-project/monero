@@ -1779,7 +1779,7 @@ namespace tools
     try {
       wal->generate(wallet_file, req.password, dummy_key, false, false);
     }
-    catch (const error::file_exists e)
+    catch (const error::file_exists& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_WALLET_ALREADY_EXISTS;
       er.message = "Cannot create wallet. Already exists.";
@@ -1839,7 +1839,7 @@ namespace tools
     try {
       wal = tools::wallet2::make_from_file(vm2, wallet_file).first;
     }
-    catch (const error::invalid_password)
+    catch (const error::invalid_password& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
       er.message = "Invalid password.";
