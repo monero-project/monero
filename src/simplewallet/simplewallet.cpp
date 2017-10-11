@@ -910,6 +910,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("sweep_unmixable", boost::bind(&simple_wallet::sweep_unmixable, this, _1), tr("Send all unmixable outputs to yourself with ring_size 1"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1), tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>] - Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used."));
   m_cmd_binder.set_handler("sweep_below", boost::bind(&simple_wallet::sweep_below, this, _1), tr("sweep_below <amount_threshold> [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>] - Send all unlocked outputs below the threshold to an address"));
+  m_cmd_binder.set_handler("sweep_single", boost::bind(&simple_wallet::sweep_single, this, _1), tr("sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>] - Send a single output of the given key image to an address without change"));
   m_cmd_binder.set_handler("donate", boost::bind(&simple_wallet::donate, this, _1), tr("donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>] - Donate <amount> to the development team (donate.getmonero.org)"));
   m_cmd_binder.set_handler("sign_transfer", boost::bind(&simple_wallet::sign_transfer, this, _1), tr("Sign a transaction from a file"));
   m_cmd_binder.set_handler("submit_transfer", boost::bind(&simple_wallet::submit_transfer, this, _1), tr("Submit a signed transaction from a file"));
@@ -3347,6 +3348,275 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   catch (const std::exception& e)
   {
     handle_transfer_exception(std::current_exception());
+  }
+  catch (...)
+  {
+    LOG_ERROR("unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
+{
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+  if (!try_connect_to_daemon())
+    return true;
+
+  std::vector<std::string> local_args = args_;
+
+  int priority = 0;
+  if(local_args.size() > 0) {
+    auto priority_pos = std::find(
+      allowed_priority_strings.begin(),
+      allowed_priority_strings.end(),
+      local_args[0]);
+    if(priority_pos != allowed_priority_strings.end()) {
+      local_args.erase(local_args.begin());
+      priority = std::distance(allowed_priority_strings.begin(), priority_pos);
+    }
+  }
+
+  size_t fake_outs_count = 0;
+  if(local_args.size() > 0) {
+    size_t ring_size;
+    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
+    {
+      fake_outs_count = m_wallet->default_mixin();
+      if (fake_outs_count == 0)
+        fake_outs_count = DEFAULT_MIX;
+    }
+    else
+    {
+      fake_outs_count = ring_size - 1;
+      local_args.erase(local_args.begin());
+    }
+  }
+
+  std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
+  if (local_args.size() == 3)
+  {
+    crypto::hash payment_id;
+    crypto::hash8 payment_id8;
+    std::string extra_nonce;
+    if (tools::wallet2::parse_long_payment_id(local_args.back(), payment_id))
+    {
+      set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+    }
+    else if(tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
+    {
+      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+    }
+    else
+    {
+      fail_msg_writer() << tr("failed to parse Payment ID");
+      return true;
+    }
+
+    if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+
+    local_args.pop_back();
+    payment_id_seen = true;
+  }
+
+  if (local_args.size() != 2)
+  {
+    fail_msg_writer() << tr("usage: sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]");
+    return true;
+  }
+
+  crypto::key_image ki;
+  if (!epee::string_tools::hex_to_pod(local_args[0], ki))
+  {
+    fail_msg_writer() << tr("failed to parse key image");
+    return true;
+  }
+
+  cryptonote::address_parse_info info;
+  if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->testnet(), local_args[1], oa_prompter))
+  {
+    fail_msg_writer() << tr("failed to parse address");
+    return true;
+  }
+
+  if (info.has_payment_id)
+  {
+    if (payment_id_seen)
+    {
+      fail_msg_writer() << tr("a single transaction cannot use more than one payment id: ") << local_args[0];
+      return true;
+    }
+
+    std::string extra_nonce;
+    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+    if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+    payment_id_seen = true;
+  }
+
+  // prompt if there is no payment id and confirmation is required
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  {
+     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     if (std::cin.eof())
+       return true;
+     if (!command_line::is_yes(accepted))
+     {
+       fail_msg_writer() << tr("transaction cancelled.");
+
+       // would like to return false, because no tx made, but everything else returns true
+       // and I don't know what returning false might adversely affect.  *sigh*
+       return true; 
+     }
+  }
+
+  try
+  {
+    // figure out what tx will be necessary
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, fake_outs_count, 0 /* unlock_time */, priority, extra, m_trusted_daemon);
+
+    if (ptx_vector.empty())
+    {
+      fail_msg_writer() << tr("No outputs found");
+      return true;
+    }
+    if (ptx_vector.size() > 1)
+    {
+      fail_msg_writer() << tr("Multiple transactions are created, which is not supposed to happen");
+      return true;
+    }
+    if (ptx_vector[0].selected_transfers.size() > 1)
+    {
+      fail_msg_writer() << tr("The transaction uses multiple inputs, which is not supposed to happen");
+      return true;
+    }
+
+    // give user total and fee, and prompt to confirm
+    uint64_t total_fee = ptx_vector[0].fee;
+    uint64_t total_sent = m_wallet->get_transfer_details(ptx_vector[0].selected_transfers.front()).amount();
+    std::ostringstream prompt;
+    if (!print_ring_members(ptx_vector, prompt))
+      return true;
+    prompt << boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
+      print_money(total_sent) %
+      print_money(total_fee);
+    std::string accepted = command_line::input_line(prompt.str());
+    if (std::cin.eof())
+      return true;
+    if (!command_line::is_yes(accepted))
+    {
+      fail_msg_writer() << tr("transaction cancelled.");
+      return true;
+    }
+
+    // actually commit the transactions
+    if (m_wallet->watch_only())
+    {
+      bool r = m_wallet->save_tx(ptx_vector, "unsigned_monero_tx");
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+      }
+      else
+      {
+        success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "unsigned_monero_tx";
+      }
+    }
+    else
+    {
+      m_wallet->commit_tx(ptx_vector[0]);
+      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx_vector[0].tx);
+    }
+
+  }
+  catch (const tools::error::daemon_busy&)
+  {
+    fail_msg_writer() << tr("daemon is busy. Please try again later.");
+  }
+  catch (const tools::error::no_connection_to_daemon&)
+  {
+    fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
+  }
+  catch (const tools::error::wallet_rpc_error& e)
+  {
+    LOG_ERROR("RPC error: " << e.to_string());
+    fail_msg_writer() << tr("RPC error: ") << e.what();
+  }
+  catch (const tools::error::get_random_outs_error &e)
+  {
+    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
+      print_money(e.available()) %
+      print_money(e.tx_amount()));
+    fail_msg_writer() << tr("Not enough money in unlocked balance");
+  }
+  catch (const tools::error::tx_not_possible& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
+      print_money(e.available()) %
+      print_money(e.tx_amount() + e.fee())  %
+      print_money(e.tx_amount()) %
+      print_money(e.fee()));
+    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
+  }
+  catch (const tools::error::not_enough_outs_to_mix& e)
+  {
+    auto writer = fail_msg_writer();
+    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
+    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
+    {
+      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
+    }
+  }
+  catch (const tools::error::tx_not_constructed&)
+  {
+    fail_msg_writer() << tr("transaction was not constructed");
+  }
+  catch (const tools::error::tx_rejected& e)
+  {
+    fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+    std::string reason = e.reason();
+    if (!reason.empty())
+      fail_msg_writer() << tr("Reason: ") << reason;
+  }
+  catch (const tools::error::tx_sum_overflow& e)
+  {
+    fail_msg_writer() << e.what();
+  }
+  catch (const tools::error::zero_destination&)
+  {
+    fail_msg_writer() << tr("one of destinations is zero");
+  }
+  catch (const tools::error::tx_too_big& e)
+  {
+    fail_msg_writer() << tr("failed to find a suitable way to split transactions");
+  }
+  catch (const tools::error::transfer_error& e)
+  {
+    LOG_ERROR("unknown transfer error: " << e.to_string());
+    fail_msg_writer() << tr("unknown transfer error: ") << e.what();
+  }
+  catch (const tools::error::wallet_internal_error& e)
+  {
+    LOG_ERROR("internal error: " << e.to_string());
+    fail_msg_writer() << tr("internal error: ") << e.what();
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << tr("unexpected error: ") << e.what();
   }
   catch (...)
   {
