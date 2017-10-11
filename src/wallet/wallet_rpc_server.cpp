@@ -1713,7 +1713,7 @@ namespace tools
   {
     if (m_wallet_dir.empty())
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
       er.message = "No wallet dir configured";
       return false;
     }
@@ -1779,6 +1779,12 @@ namespace tools
     try {
       wal->generate(wallet_file, req.password, dummy_key, false, false);
     }
+    catch (const error::file_exists e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WALLET_ALREADY_EXISTS;
+      er.message = "Cannot create wallet. Already exists.";
+      return false;
+    }
     catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -1795,7 +1801,7 @@ namespace tools
   {
     if (m_wallet_dir.empty())
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
       er.message = "No wallet dir configured";
       return false;
     }
@@ -1829,14 +1835,17 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal;
+    std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
       wal = tools::wallet2::make_from_file(vm2, wallet_file).first;
     }
-    catch (const std::exception& e)
+    catch (const error::invalid_password)
     {
-      wal = nullptr;
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
+      er.message = "Invalid password.";
+      return false;
     }
+    catch (const std::exception& e) {}
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
