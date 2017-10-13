@@ -84,7 +84,6 @@ int main(int argc, char* argv[])
 
   SL(cryptonote::txpool_tx_meta_t);
 
-  SL(epee::net_utils::network_address_base);
   SL(epee::net_utils::ipv4_network_address);
   SL(epee::net_utils::network_address);
   SL(epee::net_utils::connection_context_base);
