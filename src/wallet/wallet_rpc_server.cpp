@@ -1787,6 +1787,7 @@ namespace tools
       er.message = "Failed to open wallet";
       return false;
     }
+    wal->refresh();
     if (m_wallet)
       delete m_wallet;
     m_wallet = wal.release();
