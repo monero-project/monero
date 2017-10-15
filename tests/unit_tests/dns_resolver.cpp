@@ -157,3 +157,17 @@ TEST(DNSResolver, GetTXTRecord)
   addr = tools::DNSResolver::instance().get_dns_format_from_oa_address("donate.getmonero.org");
   EXPECT_STREQ("donate.getmonero.org", addr.c_str());
 }
+
+TEST(DNS_PUBLIC, empty) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("").c_str()); }
+TEST(DNS_PUBLIC, default) { EXPECT_STREQ("8.8.4.4", tools::dns_utils::parse_dns_public("tcp").c_str()); }
+TEST(DNS_PUBLIC, invalid_scheme) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("invalid").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_alpha) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://invalid").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_num1) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_num3) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4.5").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_num4_extra) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4.5.6x").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_num4_range) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4.542.6").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_dot) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4.5.6.").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_num5) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4.5.6.7").c_str()); }
+TEST(DNS_PUBLIC, invalid_ip_4_missing) { EXPECT_STREQ("", tools::dns_utils::parse_dns_public("tcp://3.4..7").c_str()); }
+TEST(DNS_PUBLIC, valid_ip_lo) { EXPECT_STREQ("127.0.0.1", tools::dns_utils::parse_dns_public("tcp://127.0.0.1").c_str()); }
+TEST(DNS_PUBLIC, valid_ip) { EXPECT_STREQ("3.4.5.6", tools::dns_utils::parse_dns_public("tcp://3.4.5.6").c_str()); }
