@@ -80,7 +80,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out")
   {
-    MINFO("test, connection constructor set m_connection_type="<<m_connection_type);
+    MDEBUG("test, connection constructor set m_connection_type="<<m_connection_type);
   }
 PRAGMA_WARNING_DISABLE_VS(4355)
   //---------------------------------------------------------------------------------
@@ -264,7 +264,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       address = endpoint.address().to_string();
       port = boost::lexical_cast<std::string>(endpoint.port());
     }
-    MINFO(" connection type " << to_string( m_connection_type ) << " "
+    MDEBUG(" connection type " << to_string( m_connection_type ) << " "
         << socket_.local_endpoint().address().to_string() << ":" << socket_.local_endpoint().port()
         << " <--> " << address << ":" << port);
   }

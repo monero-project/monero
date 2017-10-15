@@ -558,7 +558,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks, uint6
   if (batch_num_blocks > 0)
   {
     threshold_size = get_estimated_batch_size(batch_num_blocks, batch_bytes);
-    LOG_PRINT_L1("calculated batch size: " << threshold_size);
+    MDEBUG("calculated batch size: " << threshold_size);
 
     // The increased DB size could be a multiple of threshold_size, a fixed
     // size increase (> threshold_size), or other variations.
@@ -567,7 +567,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks, uint6
     // minimum size increase is used to avoid frequent resizes when the batch
     // size is set to a very small numbers of blocks.
     increase_size = (threshold_size > min_increase_size) ? threshold_size : min_increase_size;
-    LOG_PRINT_L1("increase size: " << increase_size);
+    MDEBUG("increase size: " << increase_size);
   }
 
   // if threshold_size is 0 (i.e. number of blocks for batch not passed in), it
@@ -605,7 +605,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
     block_start = block_stop - num_prev_blocks + 1;
   uint32_t num_blocks_used = 0;
   uint64_t total_block_size = 0;
-  LOG_PRINT_L1("[" << __func__ << "] " << "m_height: " << m_height << "  block_start: " << block_start << "  block_stop: " << block_stop);
+  MDEBUG("[" << __func__ << "] " << "m_height: " << m_height << "  block_start: " << block_start << "  block_stop: " << block_stop);
   size_t avg_block_size = 0;
   if (batch_bytes)
   {
@@ -614,12 +614,12 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
   }
   if (m_height == 0)
   {
-    LOG_PRINT_L1("No existing blocks to check for average block size");
+    MDEBUG("No existing blocks to check for average block size");
   }
   else if (m_cum_count >= num_prev_blocks)
   {
     avg_block_size = m_cum_size / m_cum_count;
-    LOG_PRINT_L1("average block size across recent " << m_cum_count << " blocks: " << avg_block_size);
+    MDEBUG("average block size across recent " << m_cum_count << " blocks: " << avg_block_size);
     m_cum_size = 0;
     m_cum_count = 0;
   }
@@ -638,12 +638,12 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
     }
     block_rtxn_stop();
     avg_block_size = total_block_size / num_blocks_used;
-    LOG_PRINT_L1("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
+    MDEBUG("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
   }
 estim:
   if (avg_block_size < min_block_size)
     avg_block_size = min_block_size;
-  LOG_PRINT_L1("estimated average block size for batch: " << avg_block_size);
+  MDEBUG("estimated average block size for batch: " << avg_block_size);
 
   // bigger safety margin on smaller block sizes
   if (batch_fudge_factor < 5000.0)
