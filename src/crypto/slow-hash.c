@@ -47,7 +47,7 @@
 extern int aesb_single_round(const uint8_t *in, uint8_t*out, const uint8_t *expandedKey);
 extern int aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
 
-#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))
+#if !defined NO_AES && (defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64)))
 // Optimised code below, uses x86-specific intrinsics, SSE2, AES-NI
 // Fall back to more portable code is down at the bottom
 
@@ -645,7 +645,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
     extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
 }
 
-#elif defined(__arm__) || defined(__aarch64__)
+#elif !defined NO_AES && (defined(__arm__) || defined(__aarch64__))
 void slow_hash_allocate_state(void)
 {
   // Do nothing, this is just to maintain compatibility with the upgraded slow-hash.c

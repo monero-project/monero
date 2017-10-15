@@ -454,7 +454,11 @@ else()
 
   option(NO_AES "Explicitly disable AES support" ${NO_AES})
 
-  if(NOT NO_AES AND NOT ARM AND NOT PPC64LE)
+  if(NO_AES)
+    message(STATUS "AES support explicitly disabled")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNO_AES")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNO_AES")
+  elseif(NOT ARM AND NOT PPC64LE)
     message(STATUS "AES support enabled")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maes")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maes")
