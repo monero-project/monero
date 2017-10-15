@@ -37,9 +37,7 @@
 #include <sstream>
 #include <vector>
 
-#ifdef _WIN32
-# include <winsock.h>
-#else
+#ifndef _WIN32
 # include <arpa/inet.h>
 #endif
 
