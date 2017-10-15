@@ -116,7 +116,7 @@ namespace tools
     void crop(size_t height) { m_blockchain.resize(height - m_offset); }
     void clear() { m_offset = 0; m_blockchain.clear(); }
     bool empty() const { return m_blockchain.empty() && m_offset == 0; }
-    void trim(size_t height) { while (height > m_offset+1 && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
+    void trim(size_t height) { while (height > m_offset && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
     void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
 
     template <class t_archive>
