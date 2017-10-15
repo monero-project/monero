@@ -792,7 +792,7 @@ simple_wallet::simple_wallet()
   , m_in_manual_refresh(false)
   , m_current_subaddress_account(0)
 {
-  m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), tr("start_mining [<number_of_threads>] - Start mining in daemon"));
+  m_cmd_binder.set_handler("start_mining", boost::bind(&simple_wallet::start_mining, this, _1), tr("start_mining [<number_of_threads>] [bg_mining] [ignore_battery] - Start mining in daemon (bg_mining and ignore_battery are optional booleans)"));
   m_cmd_binder.set_handler("stop_mining", boost::bind(&simple_wallet::stop_mining, this, _1), tr("Stop mining in daemon"));
   m_cmd_binder.set_handler("save_bc", boost::bind(&simple_wallet::save_bc, this, _1), tr("Save current blockchain data"));
   m_cmd_binder.set_handler("refresh", boost::bind(&simple_wallet::refresh, this, _1), tr("Synchronize transactions and balance"));
@@ -1871,8 +1871,8 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
   size_t arg_size = args.size();
-  if(arg_size >= 3) req.ignore_battery = args[2] == "true";
-  if(arg_size >= 2) req.do_background_mining = args[1] == "true";
+  if(arg_size >= 3) req.ignore_battery = is_it_true(args[2]);
+  if(arg_size >= 2) req.do_background_mining = is_it_true(args[1]);
   if(arg_size >= 1)
   {
     uint16_t num = 1;
