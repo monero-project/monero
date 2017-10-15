@@ -207,6 +207,12 @@ namespace cryptonote
      */
     std::string get_mnemonic_language();
 
+    /*!
+     * \brief When --do-not-relay option is specified, save the raw tx hex blob to a file instead of calling m_wallet->commit_tx(ptx).
+     * \param ptx_vector Pending tx(es) created by transfer/sweep_all
+     */
+    void commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_vector, bool do_not_relay);
+
     //----------------- i_wallet2_callback ---------------------
     virtual void on_new_block(uint64_t height, const cryptonote::block& block);
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index);
@@ -287,6 +293,7 @@ namespace cryptonote
     bool m_allow_mismatched_daemon_version;
     bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
+    bool m_do_not_relay;
 
     epee::console_handlers_binder m_cmd_binder;
 
