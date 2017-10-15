@@ -274,6 +274,7 @@ using namespace std;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
 			critical_section m_lock;
+			bool m_ssl;
 
 		public:
 			explicit http_simple_client()
@@ -291,33 +292,35 @@ using namespace std;
 				, m_chunked_state()
 				, m_chunked_cache()
 				, m_lock()
+				, m_ssl(false)
 			{}
 
 			const std::string &get_host() const { return m_host_buff; };
 			const std::string &get_port() const { return m_port; };
 
-			bool set_server(const std::string& address, boost::optional<login> user)
+			bool set_server(const std::string& address, boost::optional<login> user, bool ssl = false)
 			{
 				http::url_content parsed{};
 				const bool r = parse_url(address, parsed);
 				CHECK_AND_ASSERT_MES(r, false, "failed to parse url: " << address);
-				set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user));
+				set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), ssl);
 				return true;
 			}
 
-			void set_server(std::string host, std::string port, boost::optional<login> user)
+			void set_server(std::string host, std::string port, boost::optional<login> user, bool ssl = false)
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				disconnect();
 				m_host_buff = std::move(host);
 				m_port = std::move(port);
                                 m_auth = user ? http_client_auth{std::move(*user)} : http_client_auth{};
+				m_ssl = ssl;
 			}
 
       bool connect(std::chrono::milliseconds timeout)
       {
         CRITICAL_REGION_LOCAL(m_lock);
-        return m_net_client.connect(m_host_buff, m_port, timeout);
+        return m_net_client.connect(m_host_buff, m_port, timeout, m_ssl);
       }
 			//---------------------------------------------------------------------------
 			bool disconnect()
@@ -391,7 +394,6 @@ using namespace std;
 					if(body.size())
 						res = m_net_client.send(body, timeout);
 					CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
-
 
 					m_response_info.clear();
 					m_state = reciev_machine_state_header;

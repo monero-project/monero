@@ -37,6 +37,7 @@
 #include <ostream>
 #include <string>
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/preprocessor/selection/min.hpp>
 #include <boost/lambda/bind.hpp>
@@ -85,11 +86,13 @@ namespace net_utils
 		
 	public:
 		inline
-			blocked_mode_client():m_socket(m_io_service), 
-                            m_initialized(false), 
+			blocked_mode_client():m_initialized(false), 
                             m_connected(false), 
                             m_deadline(m_io_service), 
-                            m_shutdowned(0)
+                            m_shutdowned(0),
+                            m_ssl(false),
+                            m_ctx(boost::asio::ssl::context::sslv23),
+                            m_ssl_socket(m_io_service,m_ctx)
 		{
 			
 			
@@ -113,18 +116,25 @@ namespace net_utils
 		}
 
     inline
-      bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, const std::string& bind_ip = "0.0.0.0")
+      bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0")
     {
-      return connect(addr, std::to_string(port), timeout, bind_ip);
+      return connect(addr, std::to_string(port), timeout, ssl, bind_ip);
     }
 
     inline
-			bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, const std::string& bind_ip = "0.0.0.0")
+			bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0")
 		{
       m_connected = false;
+      m_ssl = ssl;
 			try
 			{
-				m_socket.close();
+				m_ssl_socket.next_layer().close();
+
+				// Set SSL options
+				// disable sslv2
+				m_ctx.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
+				m_ctx.set_default_verify_paths();
+
 				// Get a list of endpoints corresponding to the server name.
 				
 
@@ -147,11 +157,11 @@ namespace net_utils
 				boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
 
 
-				m_socket.open(remote_endpoint.protocol());
+				m_ssl_socket.next_layer().open(remote_endpoint.protocol());
 				if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
 				{
 					boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(addr.c_str()), 0);
-					m_socket.bind(local_endpoint);
+					m_ssl_socket.next_layer().bind(local_endpoint);
 				}
 
 				
@@ -160,17 +170,24 @@ namespace net_utils
 
 				boost::system::error_code ec = boost::asio::error::would_block;
 
-				//m_socket.connect(remote_endpoint);
-				m_socket.async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
+				m_ssl_socket.next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
 				while (ec == boost::asio::error::would_block)
 				{	
 					m_io_service.run_one(); 
 				}
 				
-				if (!ec && m_socket.is_open())
+				if (!ec && m_ssl_socket.next_layer().is_open())
 				{
 					m_connected = true;
 					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
+					// SSL Options
+					if(m_ssl) {
+						// Disable verification of host certificate
+						m_ssl_socket.set_verify_mode(boost::asio::ssl::verify_peer);
+						// Handshake
+						m_ssl_socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
+						m_ssl_socket.handshake(boost::asio::ssl::stream_base::client);
+					}
 					return true;
 				}else
 				{
@@ -193,7 +210,6 @@ namespace net_utils
 			return true;
 		}
 
-
 		inline 
 		bool disconnect()
 		{
@@ -202,8 +218,9 @@ namespace net_utils
 				if(m_connected)
 				{
 					m_connected = false;
-					m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-					
+					if(m_ssl)
+						shutdown_ssl();
+					m_ssl_socket.next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 				}
 			}
 			
@@ -240,7 +257,7 @@ namespace net_utils
 				// object is used as a callback and will update the ec variable when the
 				// operation completes. The blocking_udp_client.cpp example shows how you
 				// can use boost::bind rather than boost::lambda.
-				boost::asio::async_write(m_socket, boost::asio::buffer(buff), boost::lambda::var(ec) = boost::lambda::_1);
+				async_write(buff.c_str(), buff.size(), ec);
 
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block)
@@ -302,9 +319,7 @@ namespace net_utils
 				*/
 				boost::system::error_code ec;
 
-				size_t writen = m_socket.write_some(boost::asio::buffer(data, sz), ec);
-				
-
+				size_t writen = write(data, sz, ec);
 
 				if (!writen || ec)
 				{
@@ -334,10 +349,7 @@ namespace net_utils
 
 		bool is_connected()
 		{
-			return m_connected && m_socket.is_open();
-			//TRY_ENTRY()
-			//return m_socket.is_open();
-			//CATCH_ENTRY_L0("is_connected", false)
+			return m_connected && m_ssl_socket.next_layer().is_open();
 		}
 
 		inline 
@@ -369,8 +381,8 @@ namespace net_utils
 				handler_obj hndlr(ec, bytes_transfered);
 
 				char local_buff[10000] = {0};
-				//m_socket.async_read_some(boost::asio::buffer(local_buff, sizeof(local_buff)), hndlr);
-				boost::asio::async_read(m_socket, boost::asio::buffer(local_buff, sizeof(local_buff)), boost::asio::transfer_at_least(1), hndlr);
+				
+				async_read(local_buff, boost::asio::transfer_at_least(1), hndlr);
 
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block && !boost::interprocess::ipcdetail::atomic_read32(&m_shutdowned))
@@ -451,10 +463,8 @@ namespace net_utils
 
 				
 				handler_obj hndlr(ec, bytes_transfered);
-
-				//char local_buff[10000] = {0};
-				boost::asio::async_read(m_socket, boost::asio::buffer((char*)buff.data(), buff.size()), boost::asio::transfer_at_least(buff.size()), hndlr);
-
+				async_read((char*)buff.data(), boost::asio::transfer_at_least(buff.size()), hndlr);
+				
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block && !boost::interprocess::ipcdetail::atomic_read32(&m_shutdowned))
 				{
@@ -500,10 +510,18 @@ namespace net_utils
 		bool shutdown()
 		{
 			m_deadline.cancel();
-			boost::system::error_code ignored_ec;
-			m_socket.cancel(ignored_ec);
-			m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-			m_socket.close(ignored_ec);
+			boost::system::error_code ec;
+			if(m_ssl)
+				shutdown_ssl();
+			m_ssl_socket.next_layer().cancel(ec);
+			if(ec)
+				MDEBUG("Problems at cancel: " << ec.message());
+			m_ssl_socket.next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+			if(ec)
+				MDEBUG("Problems at shutdown: " << ec.message());
+			m_ssl_socket.next_layer().close(ec);
+			if(ec)
+				MDEBUG("Problems at close: " << ec.message());
 			boost::interprocess::ipcdetail::atomic_write32(&m_shutdowned, 1);
       m_connected = false;
 			return true;
@@ -520,7 +538,7 @@ namespace net_utils
 
 		boost::asio::ip::tcp::socket& get_socket()
 		{
-			return m_socket;
+			return m_ssl_socket.next_layer();
 		}
 		
 	private:
@@ -537,7 +555,7 @@ namespace net_utils
 				// connect(), read_line() or write_line() functions to return.
 				LOG_PRINT_L3("Timed out socket");
         m_connected = false;
-				m_socket.close();
+				m_ssl_socket.next_layer().close();
 
 				// There is no longer an active deadline. The expiry is set to positive
 				// infinity so that the actor takes no action until a new deadline is set.
@@ -547,12 +565,54 @@ namespace net_utils
 			// Put the actor back to sleep.
 			m_deadline.async_wait(boost::bind(&blocked_mode_client::check_deadline, this));
 		}
-		
 
+		void shutdown_ssl() {
+			// ssl socket shutdown blocks if server doesn't respond. We close after 2 secs
+			boost::system::error_code ec = boost::asio::error::would_block;
+			m_deadline.expires_from_now(std::chrono::milliseconds(2000));
+			m_ssl_socket.async_shutdown(boost::lambda::var(ec) = boost::lambda::_1);
+			while (ec == boost::asio::error::would_block)
+			{
+				m_io_service.run_one();
+			}
+			// Ignore "short read" error
+			if (ec.category() == boost::asio::error::get_ssl_category() && ec.value() != ERR_PACK(ERR_LIB_SSL, 0, SSL_R_SHORT_READ))
+				MDEBUG("Problems at ssl shutdown: " << ec.message());
+		}
+		
+	protected:
+		bool write(const void* data, size_t sz, boost::system::error_code& ec)
+		{
+			bool success;
+			if(m_ssl)
+				success = boost::asio::write(m_ssl_socket, boost::asio::buffer(data, sz), ec);
+			else
+				success = boost::asio::write(m_ssl_socket.next_layer(), boost::asio::buffer(data, sz), ec);
+			return success;
+		}
+		
+		void async_write(const void* data, size_t sz, boost::system::error_code& ec) 
+		{
+			if(m_ssl)
+				boost::asio::async_write(m_ssl_socket, boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
+			else
+				boost::asio::async_write(m_ssl_socket.next_layer(), boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
+		}
+		
+		void async_read(char* buff, boost::asio::detail::transfer_at_least_t transfer_at_least, handler_obj& hndlr)
+		{
+			if(!m_ssl)
+				boost::asio::async_read(m_ssl_socket.next_layer(), boost::asio::buffer(buff, sizeof(buff)), transfer_at_least, hndlr);
+			else
+				boost::asio::async_read(m_ssl_socket, boost::asio::buffer(buff, sizeof(buff)), transfer_at_least, hndlr);
+			
+		}
 		
 	protected:
 		boost::asio::io_service m_io_service;
-		boost::asio::ip::tcp::socket m_socket;
+		boost::asio::ssl::context m_ctx;
+		boost::asio::ssl::stream<boost::asio::ip::tcp::socket> m_ssl_socket;
+		bool m_ssl;
 		bool m_initialized;
 		bool m_connected;
 		boost::asio::steady_timer m_deadline;
@@ -618,8 +678,8 @@ namespace net_utils
 				
 				boost::system::error_code ec;
 
-				size_t writen = m_socket.write_some(boost::asio::buffer(data, sz), ec);
-
+				size_t writen = write(data, sz, ec);
+				
 				if (!writen || ec)
 				{
 					LOG_PRINT_L3("Problems at write: " << ec.message());
@@ -660,7 +720,7 @@ namespace net_utils
 				// asynchronous operations are cancelled. This allows the blocked
 				// connect(), read_line() or write_line() functions to return.
 				LOG_PRINT_L3("Timed out socket");
-				m_socket.close();
+				m_ssl_socket.next_layer().close();
 
 				// There is no longer an active deadline. The expiry is set to positive
 				// infinity so that the actor takes no action until a new deadline is set.

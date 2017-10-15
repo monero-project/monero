@@ -326,7 +326,7 @@ if (UNIX AND NOT APPLE)
   find_package(Threads)
 endif()
 
-# Handle OpenSSL, used for sha256sum on binary updates
+# Handle OpenSSL, used for sha256sum on binary updates and light wallet ssl http
 if (APPLE AND NOT IOS)
   if (NOT OpenSSL_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
@@ -337,6 +337,8 @@ if (APPLE AND NOT IOS)
 endif()
 
 find_package(OpenSSL REQUIRED)
+message(STATUS "Using OpenSSL include dir at ${OPENSSL_INCLUDE_DIR}")
+include_directories(${OPENSSL_INCLUDE_DIR})
 if(STATIC AND NOT IOS)
   if(UNIX)
     set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS};${CMAKE_THREAD_LIBS_INIT}")

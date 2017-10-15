@@ -71,11 +71,19 @@ namespace tools
   class i_wallet2_callback
   {
   public:
+    // Full wallet callbacks
     virtual void on_new_block(uint64_t height, const cryptonote::block& block) {}
     virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index) {}
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx) {}
+    // Light wallet callbacks
+    virtual void on_lw_new_block(uint64_t height) {}
+    virtual void on_lw_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    virtual void on_lw_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    virtual void on_lw_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    // Common callbacks
+    virtual void on_pool_tx_removed(const crypto::hash &txid) {}
     virtual ~i_wallet2_callback() {}
   };
 
@@ -165,7 +173,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const std::string& password, bool watch_only);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
 
     struct tx_scan_info_t
     {
@@ -227,6 +235,13 @@ namespace tools
       uint64_t m_unlock_time;
       uint64_t m_timestamp;
       cryptonote::subaddress_index m_subaddr_index;
+    };
+
+    struct address_tx : payment_details
+    {
+      bool m_coinbase;
+      bool m_mempool;
+      bool m_incoming;
     };
 
     struct unconfirmed_transfer_details
@@ -410,7 +425,7 @@ namespace tools
     // the minimum block size.
     bool deinit();
     bool init(std::string daemon_address = "http://localhost:8080",
-      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0);
+      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
@@ -422,6 +437,15 @@ namespace tools
      */
     bool is_deterministic() const;
     bool get_seed(std::string& electrum_words, const std::string &passphrase = std::string()) const;
+
+    /*!
+    * \brief Checks if light wallet. A light wallet sends view key to a server where the blockchain is scanned.
+    */
+    bool light_wallet() const { return m_light_wallet; }
+    void set_light_wallet(bool light_wallet) { m_light_wallet = light_wallet; }
+    uint64_t get_light_wallet_scanned_block_height() const { return m_light_wallet_scanned_block_height; }
+    uint64_t get_light_wallet_blockchain_height() const { return m_light_wallet_blockchain_height; }
+
     /*!
      * \brief Gets the seed language
      */
@@ -512,6 +536,7 @@ namespace tools
     void rescan_spent();
     void rescan_blockchain(bool refresh = true);
     bool is_transfer_unlocked(const transfer_details& td) const;
+    bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const;
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -695,6 +720,7 @@ namespace tools
     uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
 
     void update_pool_state(bool refreshed = false);
+    void remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashes);
 
     std::string encrypt(const std::string &plaintext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string encrypt_with_view_secret_key(const std::string &plaintext, bool authenticated = true) const;
@@ -712,6 +738,24 @@ namespace tools
 
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1);
     uint64_t get_per_kb_fee();
+
+    // Light wallet specific functions
+    // fetch unspent outs from lw node and store in m_transfers
+    void light_wallet_get_unspent_outs();
+    // fetch txs and store in m_payments
+    void light_wallet_get_address_txs();
+    // get_address_info
+    bool light_wallet_get_address_info(cryptonote::COMMAND_RPC_GET_ADDRESS_INFO::response &response);
+    // Login. new_address is true if address hasn't been used on lw node before.
+    bool light_wallet_login(bool &new_address);
+    // Send an import request to lw node. returns info about import fee, address and payment_id
+    bool light_wallet_import_wallet_request(cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::response &response);
+    // get random outputs from light wallet server
+    void light_wallet_get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::list<size_t> &selected_transfers, size_t fake_outputs_count);
+    // Parse rct string
+    bool light_wallet_parse_rct_str(const std::string& rct_string, const crypto::public_key& tx_pub_key, uint64_t internal_output_index, rct::key& decrypted_mask, rct::key& rct_commit, bool decrypt) const;
+    // check if key image is ours
+    bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index);
 
   private:
     /*!
@@ -759,6 +803,8 @@ namespace tools
     void set_spent(size_t idx, uint64_t height);
     void set_unspent(size_t idx);
     void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::list<size_t> &selected_transfers, size_t fake_outputs_count);
+    bool tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const;
+    bool wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki);
     crypto::public_key get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const;
     bool should_pick_a_second_output(bool use_rct, size_t n_transfers, const std::vector<size_t> &unused_transfers_indices, const std::vector<size_t> &unused_dust_indices) const;
     std::vector<size_t> get_only_rct(const std::vector<size_t> &unused_dust_indices, const std::vector<size_t> &unused_transfers_indices) const;
@@ -820,6 +866,20 @@ namespace tools
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
+
+    // Light wallet
+    bool m_light_wallet; /* sends view key to daemon for scanning */
+    uint64_t m_light_wallet_scanned_block_height;
+    uint64_t m_light_wallet_blockchain_height;
+    uint64_t m_light_wallet_per_kb_fee = FEE_PER_KB;
+    bool m_light_wallet_connected;
+    uint64_t m_light_wallet_balance;
+    uint64_t m_light_wallet_unlocked_balance;
+    // Light wallet info needed to populate m_payment requires 2 separate api calls (get_address_txs and get_unspent_outs)
+    // We save the info from the first call in m_light_wallet_address_txs for easier lookup.
+    std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
+    // store calculated key image for faster lookup
+    std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 20)
