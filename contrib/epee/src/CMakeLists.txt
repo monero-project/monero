@@ -49,4 +49,6 @@ target_link_libraries(epee
     easylogging
     ${Boost_FILESYSTEM_LIBRARY}
   PRIVATE
+    ssl
+    crypto
     ${EXTRA_LIBRARIES})
