@@ -205,8 +205,7 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
 
 bool block_queue::is_blockchain_placeholder(const span &span) const
 {
-  static const boost::uuids::uuid uuid0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  return span.connection_id == uuid0;
+  return span.connection_id == boost::uuids::nil_uuid();
 }
 
 std::pair<uint64_t, uint64_t> block_queue::get_start_gap_span() const
