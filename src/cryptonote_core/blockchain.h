@@ -955,6 +955,7 @@ namespace cryptonote
 
     bool is_within_compiled_block_hash_area(uint64_t height) const;
     bool is_within_compiled_block_hash_area() const { return is_within_compiled_block_hash_area(m_db->height()); }
+    uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes);
 
     void lock();
     void unlock();
@@ -995,6 +996,7 @@ namespace cryptonote
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, bool>> m_check_txin_table;
 
     // SHA-3 hashes for each block and for fast pow checking
+    std::vector<crypto::hash> m_blocks_hash_of_hashes;
     std::vector<crypto::hash> m_blocks_hash_check;
     std::vector<crypto::hash> m_blocks_txs_check;
 

@@ -169,6 +169,26 @@ int check_flush(cryptonote::core &core, std::list<block_complete_entry> &blocks,
   if (!force && blocks.size() < db_batch_size)
     return 0;
 
+  // wait till we can verify a full HOH without extra, for speed
+  uint64_t new_height = core.get_blockchain_storage().get_db().height() + blocks.size();
+  if (!force && new_height % HASH_OF_HASHES_STEP)
+    return 0;
+
+  std::list<crypto::hash> hashes;
+  for (const auto &b: blocks)
+  {
+    cryptonote::block block;
+    if (!parse_and_validate_block_from_blob(b.block, block))
+    {
+      MERROR("Failed to parse block: "
+          << epee::string_tools::pod_to_hex(get_blob_hash(b.block)));
+      core.cleanup_handle_incoming_blocks();
+      return 1;
+    }
+    hashes.push_back(cryptonote::get_block_hash(block));
+  }
+  core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes);
+
   core.prepare_handle_incoming_blocks(blocks);
 
   for(const block_complete_entry& block_entry: blocks)

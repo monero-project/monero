@@ -750,6 +750,13 @@ namespace cryptonote
       */
      bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
 
+     /**
+      * @brief check a set of hashes against the precompiled hash set
+      *
+      * @return number of usable blocks
+      */
+     uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes);
+
    private:
 
      /**
