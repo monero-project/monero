@@ -123,7 +123,7 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
 * Arch Linux (via [AUR](https://aur.archlinux.org/)):
   - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
-  - Bleeding edge: [`bitmonero-git`](https://aur.archlinux.org/packages/bitmonero-git)
+  - Bleeding edge: [`monero-git`](https://aur.archlinux.org/packages/monero-git)
 
 * OS X via [Homebrew](http://brew.sh)
 
