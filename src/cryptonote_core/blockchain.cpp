@@ -3244,7 +3244,7 @@ leave:
   {
     auto hash = get_block_hash(bl);
     const auto &expected_hash = m_blocks_hash_check[m_db->height()];
-    if (expected_hash != cryptonote::null_hash)
+    if (expected_hash != crypto::null_hash)
     {
       if (memcmp(&hash, &expected_hash, sizeof(hash)) != 0)
       {
@@ -3807,7 +3807,7 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<c
       size_t end = n * HASH_OF_HASHES_STEP + HASH_OF_HASHES_STEP;
       for (size_t i = n * HASH_OF_HASHES_STEP; i < end; ++i)
       {
-        CHECK_AND_ASSERT_MES(m_blocks_hash_check[i] == cryptonote::null_hash || m_blocks_hash_check[i] == data[i - first_index * HASH_OF_HASHES_STEP],
+        CHECK_AND_ASSERT_MES(m_blocks_hash_check[i] == crypto::null_hash || m_blocks_hash_check[i] == data[i - first_index * HASH_OF_HASHES_STEP],
             0, "Consistency failure in m_blocks_hash_check construction");
         m_blocks_hash_check[i] = data[i - first_index * HASH_OF_HASHES_STEP];
       }
@@ -4345,7 +4345,7 @@ void Blockchain::load_compiled_in_block_hashes()
           p += sizeof(hash.data);
           m_blocks_hash_of_hashes.push_back(hash);
         }
-        m_blocks_hash_check.resize(m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP, cryptonote::null_hash);
+        m_blocks_hash_check.resize(m_blocks_hash_of_hashes.size() * HASH_OF_HASHES_STEP, crypto::null_hash);
         MINFO(nblocks << " block hashes loaded");
 
         // FIXME: clear tx_pool because the process might have been
