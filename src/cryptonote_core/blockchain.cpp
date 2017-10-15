@@ -2292,6 +2292,24 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
   return true;
 }
 //------------------------------------------------------------------
+void Blockchain::on_new_tx_from_block(const cryptonote::transaction &tx)
+{
+#if defined(PER_BLOCK_CHECKPOINT)
+  // check if we're doing per-block checkpointing
+  if (m_db->height() < m_blocks_hash_check.size())
+  {
+    TIME_MEASURE_START(a);
+    m_blocks_txs_check.push_back(get_transaction_hash(tx));
+    TIME_MEASURE_FINISH(a);
+    if(m_show_time_stats)
+    {
+      size_t ring_size = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
+      MINFO("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << ring_size << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
+    }
+  }
+#endif
+}
+//------------------------------------------------------------------
 //FIXME: it seems this function is meant to be merely a wrapper around
 //       another function of the same name, this one adding one bit of
 //       functionality.  Should probably move anything more than that
@@ -2307,19 +2325,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
 
 #if defined(PER_BLOCK_CHECKPOINT)
   // check if we're doing per-block checkpointing
-  // FIXME: investigate why this block returns
   if (m_db->height() < m_blocks_hash_check.size() && kept_by_block)
   {
-    TIME_MEASURE_START(a);
-    m_blocks_txs_check.push_back(get_transaction_hash(tx));
     max_used_block_id = null_hash;
     max_used_block_height = 0;
-    TIME_MEASURE_FINISH(a);
-    if(m_show_time_stats)
-    {
-      size_t ring_size = tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
-      MINFO("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << ring_size << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
-    }
     return true;
   }
 #endif
