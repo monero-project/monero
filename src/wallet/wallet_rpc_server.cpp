@@ -154,7 +154,7 @@ namespace tools
 #else
 #define MKDIR(path, mode)    mkdir(path, mode)
 #endif
-      if (MKDIR(m_wallet_dir.c_str(), 0700) < 0)
+      if (!m_wallet_dir.empty() && MKDIR(m_wallet_dir.c_str(), 0700) < 0 && errno != EEXIST)
       {
 #ifdef _WIN32
         LOG_ERROR(tr("Failed to create directory ") + m_wallet_dir);
