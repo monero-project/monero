@@ -45,6 +45,8 @@ class TransactionHistoryImpl;
 class PendingTransactionImpl;
 class UnsignedTransactionImpl;
 class AddressBookImpl;
+class SubaddressImpl;
+class SubaddressAccountImpl;
 struct Wallet2CallbackImpl;
 
 class WalletImpl : public Wallet
@@ -71,7 +73,7 @@ public:
     int status() const;
     std::string errorString() const;
     bool setPassword(const std::string &password);
-    std::string address() const;
+    std::string address(uint32_t accountIndex, uint32_t addressIndex) const;
     std::string integratedAddress(const std::string &payment_id) const;
     std::string secretViewKey() const;
     std::string publicViewKey() const;
@@ -86,8 +88,8 @@ public:
     ConnectionStatus connected() const;
     void setTrustedDaemon(bool arg);
     bool trustedDaemon() const;
-    uint64_t balance() const;
-    uint64_t unlockedBalance() const;
+    uint64_t balance(uint32_t accountIndex) const;
+    uint64_t unlockedBalance(uint32_t accountIndex) const;
     uint64_t blockChainHeight() const;
     uint64_t approximateBlockChainHeight() const;
     uint64_t daemonBlockChainHeight() const;
@@ -106,8 +108,17 @@ public:
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     bool useForkRules(uint8_t version, int64_t early_blocks) const;
 
+    void addSubaddressAccount(const std::string& label);
+    size_t numSubaddressAccounts() const;
+    size_t numSubaddresses(uint32_t accountIndex) const;
+    void addSubaddress(uint32_t accountIndex, const std::string& label);
+    std::string getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const;
+    void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label);
+
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
+                                        uint32_t subaddr_account,
+                                        std::set<uint32_t> subaddr_indices,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
     virtual PendingTransaction * createSweepUnmixableTransaction();
     bool submitTransaction(const std::string &fileName);
@@ -116,8 +127,10 @@ public:
     bool importKeyImages(const std::string &filename);
 
     virtual void disposeTransaction(PendingTransaction * t);
-    virtual TransactionHistory * history() const;
-    virtual AddressBook * addressBook() const;
+    virtual TransactionHistory * history();
+    virtual AddressBook * addressBook();
+    virtual Subaddress * subaddress();
+    virtual SubaddressAccount * subaddressAccount();
     virtual void setListener(WalletListener * l);
     virtual uint32_t defaultMixin() const;
     virtual void setDefaultMixin(uint32_t arg);
@@ -146,6 +159,8 @@ private:
     friend class TransactionHistoryImpl;
     friend struct Wallet2CallbackImpl;
     friend class AddressBookImpl;
+    friend class SubaddressImpl;
+    friend class SubaddressAccountImpl;
 
     tools::wallet2 * m_wallet;
     mutable std::atomic<int>  m_status;
@@ -155,6 +170,8 @@ private:
     bool        m_trustedDaemon;
     Wallet2CallbackImpl * m_wallet2Callback;
     AddressBookImpl *  m_addressBook;
+    SubaddressImpl *  m_subaddress;
+    SubaddressAccountImpl *  m_subaddressAccount;
 
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;

@@ -1,21 +1,21 @@
-// Copyright (c) 2014-2017, The Monero Project
-// 
+// Copyright (c) 2017, The Monero Project
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,47 +25,67 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#include "subaddress.h"
+#include "wallet.h"
+#include "crypto/hash.h"
+#include "wallet/wallet2.h"
+#include "common_defines.h"
 
-#include "cryptonote_basic/account.h"
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_core/cryptonote_tx_utils.h"
+#include <vector>
 
-#include "single_tx_test_base.h"
+namespace Monero {
+  
+Subaddress::~Subaddress() {}
+  
+SubaddressImpl::SubaddressImpl(WalletImpl *wallet)
+    : m_wallet(wallet) {}
 
-class test_is_out_to_acc : public single_tx_test_base
+void SubaddressImpl::addRow(uint32_t accountIndex, const std::string &label)
 {
-public:
-  static const size_t loop_count = 1000;
+  m_wallet->m_wallet->add_subaddress(accountIndex, label);
+  refresh(accountIndex);
+}
 
-  bool test()
-  {
-    const cryptonote::txout_to_key& tx_out = boost::get<cryptonote::txout_to_key>(m_tx.vout[0].target);
-    return cryptonote::is_out_to_acc(m_bob.get_keys(), tx_out, m_tx_pub_key, m_additional_tx_pub_keys, 0);
-  }
-};
-
-class test_is_out_to_acc_precomp : public single_tx_test_base
+void SubaddressImpl::setLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label)
 {
-public:
-  static const size_t loop_count = 1000;
-
-  bool init()
+  try
   {
-    if (!single_tx_test_base::init())
-      return false;
-    crypto::generate_key_derivation(m_tx_pub_key, m_bob.get_keys().m_view_secret_key, m_derivation);
-    return true;
+    m_wallet->m_wallet->set_subaddress_label({accountIndex, addressIndex}, label);
+    refresh(accountIndex);
   }
-  bool test()
+  catch (const std::exception& e)
   {
-    const cryptonote::txout_to_key& tx_out = boost::get<cryptonote::txout_to_key>(m_tx.vout[0].target);
-    return cryptonote::is_out_to_acc_precomp(m_bob.get_keys().m_account_address.m_spend_public_key, tx_out, m_derivation, 0);
+    LOG_ERROR("setLabel: " << e.what());
   }
+}
 
-private:
-  crypto::key_derivation m_derivation;
-};
+void SubaddressImpl::refresh(uint32_t accountIndex) 
+{
+  LOG_PRINT_L2("Refreshing subaddress");
+  
+  clearRows();
+  for (size_t i = 0; i < m_wallet->m_wallet->get_num_subaddresses(accountIndex); ++i)
+  {
+    m_rows.push_back(new SubaddressRow(i, m_wallet->m_wallet->get_subaddress_as_str({accountIndex, (uint32_t)i}), m_wallet->m_wallet->get_subaddress_label({accountIndex, (uint32_t)i})));
+  }
+}
+
+void SubaddressImpl::clearRows() {
+   for (auto r : m_rows) {
+     delete r;
+   }
+   m_rows.clear();
+}
+
+std::vector<SubaddressRow*> SubaddressImpl::getAll() const
+{
+  return m_rows;
+}
+
+SubaddressImpl::~SubaddressImpl()
+{
+  clearRows();
+}
+
+} // namespace

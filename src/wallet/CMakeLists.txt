@@ -41,6 +41,8 @@ set(wallet_sources
   api/pending_transaction.cpp
   api/utils.cpp
   api/address_book.cpp
+  api/subaddress.cpp
+  api/subaddress_account.cpp
   api/unsigned_transaction.cpp)
 
 set(wallet_api_headers
@@ -62,6 +64,8 @@ set(wallet_private_headers
   api/pending_transaction.h
   api/common_defines.h
   api/address_book.h
+  api/subaddress.h
+  api/subaddress_account.h
   api/unsigned_transaction.h)
 
 monero_private_headers(wallet

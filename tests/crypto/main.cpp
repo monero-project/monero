@@ -52,10 +52,6 @@ bool operator !=(const ec_point &a, const ec_point &b) {
   return 0 != memcmp(&a, &b, sizeof(ec_point));
 }
 
-bool operator !=(const secret_key &a, const secret_key &b) {
-  return 0 != memcmp(&a, &b, sizeof(secret_key));
-}
-
 bool operator !=(const key_derivation &a, const key_derivation &b) {
   return 0 != memcmp(&a, &b, sizeof(key_derivation));
 }
@@ -99,7 +95,7 @@ int main(int argc, char *argv[]) {
       vector<char> data;
       ec_scalar expected, actual;
       get(input, data, expected);
-      hash_to_scalar(data.data(), data.size(), actual);
+      crypto::hash_to_scalar(data.data(), data.size(), actual);
       if (expected != actual) {
         goto error;
       }

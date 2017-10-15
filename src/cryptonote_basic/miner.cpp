@@ -228,11 +228,13 @@ namespace cryptonote
 
     if(command_line::has_arg(vm, arg_start_mining))
     {
-      if(!cryptonote::get_account_address_from_str(m_mine_address, testnet, command_line::get_arg(vm, arg_start_mining)))
+      address_parse_info info;
+      if(!cryptonote::get_account_address_from_str(info, testnet, command_line::get_arg(vm, arg_start_mining)) || info.is_subaddress)
       {
         LOG_ERROR("Target account address " << command_line::get_arg(vm, arg_start_mining) << " has wrong format, starting daemon canceled");
         return false;
       }
+      m_mine_address = info.address;
       m_threads_total = 1;
       m_do_mining = true;
       if(command_line::has_arg(vm, arg_mining_threads))
