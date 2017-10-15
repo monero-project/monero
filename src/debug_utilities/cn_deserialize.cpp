@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
   uint32_t log_level = 0;
   std::string input;
 
-  tools::sanitize_locale();
+  tools::on_startup();
 
   boost::filesystem::path output_file_path;
 

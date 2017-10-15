@@ -129,6 +129,8 @@ namespace tools
 
   bool sanitize_locale();
 
+  bool on_startup();
+
   /*! \brief Defines a signal handler for win32 and *nix
    */
   class signal_handler

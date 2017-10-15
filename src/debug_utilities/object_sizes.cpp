@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
 {
   size_logger sl;
 
-  tools::sanitize_locale();
+  tools::on_startup();
 
   mlog_configure("", true);
 
