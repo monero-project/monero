@@ -178,7 +178,7 @@ int main(int argc, char* argv[])
   }
   r = core_storage->init(db, opt_testnet);
 
-  CHECK_AND_ASSERT_MES(r, false, "Failed to initialize source blockchain storage");
+  CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
   LOG_PRINT_L0("Exporting blockchain raw data...");
 
@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
     BootstrapFile bootstrap;
     r = bootstrap.store_blockchain_raw(core_storage, NULL, output_file_path, block_stop);
   }
-  CHECK_AND_ASSERT_MES(r, false, "Failed to export blockchain raw data");
+  CHECK_AND_ASSERT_MES(r, 1, "Failed to export blockchain raw data");
   LOG_PRINT_L0("Blockchain raw data exported OK");
   return 0;
 
