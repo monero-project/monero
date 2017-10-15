@@ -5324,7 +5324,12 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
   // Not in cache - calculate key image
   crypto::key_image calculated_key_image;
   cryptonote::keypair in_ephemeral;
-  cryptonote::generate_key_image_helper(get_account().get_keys(), tx_public_key, out_index, in_ephemeral, calculated_key_image);
+  
+  // Subaddresses aren't supported in mymonero/openmonero yet. Using empty values. 
+  const std::vector<crypto::public_key> additional_tx_pub_keys;
+  const crypto::public_key pkey = crypto::null_pkey;
+  
+  cryptonote::generate_key_image_helper(get_account().get_keys(), m_subaddresses, pkey, tx_public_key, additional_tx_pub_keys, out_index, in_ephemeral, calculated_key_image);
   index_keyimage_map.emplace(out_index, calculated_key_image);
   m_key_image_cache.emplace(tx_public_key, index_keyimage_map);
   return key_image == calculated_key_image;
