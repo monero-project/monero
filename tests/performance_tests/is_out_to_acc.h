@@ -63,7 +63,10 @@ public:
   bool test()
   {
     const cryptonote::txout_to_key& tx_out = boost::get<cryptonote::txout_to_key>(m_tx.vout[0].target);
-    return cryptonote::is_out_to_acc_precomp(m_bob.get_keys().m_account_address.m_spend_public_key, tx_out, m_derivation, 0);
+    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+    std::vector<crypto::key_derivation> additional_derivations;
+    boost::optional<cryptonote::subaddress_receive_info> info = cryptonote::is_out_to_acc_precomp(subaddresses, tx_out.key, m_derivation, additional_derivations, 0);
+    return (bool)info;
   }
 
 private:
