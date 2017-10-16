@@ -65,6 +65,7 @@ namespace
     se.real_output = 0;
     se.rct = false;
     se.real_out_tx_key = get_tx_pub_key_from_extra(tx);
+    se.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(tx);
     se.real_output_in_tx_index = out_idx;
 
     sources.push_back(se);
@@ -175,7 +176,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(tx_destination_entry(sources.front().amount - MONEY_SUPPLY - MONEY_SUPPLY + 1 - TESTS_DEFAULT_FEE, bob_addr, false));
 
   cryptonote::transaction tx_1;
-  if (!construct_tx(miner_account.get_keys(), sources, destinations, std::vector<uint8_t>(), tx_1, 0))
+  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_1, 0))
     return false;
   events.push_back(tx_1);
 
@@ -201,7 +202,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(de);
 
   cryptonote::transaction tx_2;
-  if (!construct_tx(bob_account.get_keys(), sources, destinations, std::vector<uint8_t>(), tx_2, 0))
+  if (!construct_tx(bob_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_2, 0))
     return false;
   events.push_back(tx_2);
 
