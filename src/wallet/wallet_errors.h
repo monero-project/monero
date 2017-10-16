@@ -68,6 +68,7 @@ namespace tools
     //         get_tx_pool_error
     //       transfer_error *
     //         get_random_outs_general_error
+    //         not_enough_unlocked_money
     //         not_enough_money
     //         tx_not_possible
     //         not_enough_outs_to_mix
@@ -356,11 +357,37 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<transfer_error, get_random_outs_error_message_index> get_random_outs_error;
     //----------------------------------------------------------------------------------------------------
+    struct not_enough_unlocked_money : public transfer_error
+    {
+      explicit not_enough_unlocked_money(std::string&& loc, uint64_t available, uint64_t tx_amount, uint64_t fee)
+        : transfer_error(std::move(loc), "not enough unlocked money")
+        , m_available(available)
+        , m_tx_amount(tx_amount)
+      {
+      }
+
+      uint64_t available() const { return m_available; }
+      uint64_t tx_amount() const { return m_tx_amount; }
+
+      std::string to_string() const
+      {
+        std::ostringstream ss;
+        ss << transfer_error::to_string() <<
+          ", available = " << cryptonote::print_money(m_available) <<
+          ", tx_amount = " << cryptonote::print_money(m_tx_amount);
+        return ss.str();
+      }
+
+    private:
+      uint64_t m_available;
+      uint64_t m_tx_amount;
+    };
+    //----------------------------------------------------------------------------------------------------
     struct not_enough_money : public transfer_error
     {
-      explicit not_enough_money(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
+      explicit not_enough_money(std::string&& loc, uint64_t available, uint64_t tx_amount, uint64_t fee)
         : transfer_error(std::move(loc), "not enough money")
-        , m_available(availbable)
+        , m_available(available)
         , m_tx_amount(tx_amount)
       {
       }
@@ -384,9 +411,9 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_not_possible : public transfer_error
     {
-      explicit tx_not_possible(std::string&& loc, uint64_t availbable, uint64_t tx_amount, uint64_t fee)
+      explicit tx_not_possible(std::string&& loc, uint64_t available, uint64_t tx_amount, uint64_t fee)
         : transfer_error(std::move(loc), "tx not possible")
-        , m_available(availbable)
+        , m_available(available)
         , m_tx_amount(tx_amount)
         , m_fee(fee)
       {

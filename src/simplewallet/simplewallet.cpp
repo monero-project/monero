@@ -2821,12 +2821,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   {
     fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
-  catch (const tools::error::not_enough_money& e)
+  catch (const tools::error::not_enough_unlocked_money& e)
   {
     LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
       print_money(e.available()) %
       print_money(e.tx_amount()));
     fail_msg_writer() << tr("Not enough money in unlocked balance");
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, overall balance only %s, sent amount %s") %
+      print_money(e.available()) %
+      print_money(e.tx_amount()));
+    fail_msg_writer() << tr("Not enough money in overall balance");
   }
   catch (const tools::error::tx_not_possible& e)
   {
@@ -2993,12 +3000,19 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
-  catch (const tools::error::not_enough_money& e)
+  catch (const tools::error::not_enough_unlocked_money& e)
   {
     LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
       print_money(e.available()) %
       print_money(e.tx_amount()));
     fail_msg_writer() << tr("Not enough money in unlocked balance");
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, overall balance only %s, sent amount %s") %
+      print_money(e.available()) %
+      print_money(e.tx_amount()));
+    fail_msg_writer() << tr("Not enough money in overall balance");
   }
   catch (const tools::error::tx_not_possible& e)
   {
@@ -3273,12 +3287,19 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   {
     fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
-  catch (const tools::error::not_enough_money& e)
+  catch (const tools::error::not_enough_unlocked_money& e)
   {
     LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
       print_money(e.available()) %
       print_money(e.tx_amount()));
     fail_msg_writer() << tr("Not enough money in unlocked balance");
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, overall balance only %s, sent amount %s") %
+      print_money(e.available()) %
+      print_money(e.tx_amount()));
+    fail_msg_writer() << tr("Not enough money in overall balance");
   }
   catch (const tools::error::tx_not_possible& e)
   {
@@ -3623,12 +3644,19 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
   }
-  catch (const tools::error::not_enough_money& e)
+  catch (const tools::error::not_enough_unlocked_money& e)
   {
     LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
       print_money(e.available()) %
       print_money(e.tx_amount()));
     fail_msg_writer() << tr("Not enough money in unlocked balance");
+  }
+  catch (const tools::error::not_enough_money& e)
+  {
+    LOG_PRINT_L0(boost::format("not enough money to transfer, overall balance only %s, sent amount %s") %
+      print_money(e.available()) %
+      print_money(e.tx_amount()));
+    fail_msg_writer() << tr("Not enough money in overall balance");
   }
   catch (const tools::error::tx_not_possible& e)
   {

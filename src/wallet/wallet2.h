@@ -1249,10 +1249,10 @@ namespace tools
     }
 
     // randomly select inputs for transaction
-    // throw if requested send amount is greater than amount available to send
+    // throw if requested send amount is greater than (unlocked) amount available to send
     std::list<size_t> selected_transfers;
     uint64_t found_money = select_transfers(needed_money, unused_transfers_indices, selected_transfers, trusted_daemon);
-    THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_money, found_money, needed_money - fee, fee);
+    THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_unlocked_money, found_money, needed_money - fee, fee);
 
     uint32_t subaddr_account = m_transfers[*selected_transfers.begin()].m_subaddr_index.major;
     for (auto i = ++selected_transfers.begin(); i != selected_transfers.end(); ++i)
