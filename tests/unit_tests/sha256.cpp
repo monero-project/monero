@@ -28,8 +28,8 @@
 
 #include "gtest/gtest.h"
 
-#include "string_tools.h"
 #include "common/util.h"
+#include "string_tools.h"
 
 static bool check(const std::string &data, const char *expected_hash_hex)
 {
