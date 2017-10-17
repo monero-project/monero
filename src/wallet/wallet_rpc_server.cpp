@@ -618,7 +618,7 @@ namespace tools
       // reject proposed transactions if there are more than one.  see on_transfer_split below.
       if (ptx_vector.size() != 1)
       {
-        er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+        er.code = WALLET_RPC_ERROR_CODE_TX_TOO_LARGE;
         er.message = "Transaction would be too large.  try /transfer_split.";
         return false;
       }
@@ -645,6 +645,34 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::zero_destination& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
+        cryptonote::print_money(e.available()) %
+        cryptonote::print_money(e.tx_amount() + e.fee())  %
+        cryptonote::print_money(e.tx_amount()) %
+        cryptonote::print_money(e.fee())).str();
+      return false;
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
       er.message = e.what();
       return false;
     }
@@ -728,6 +756,34 @@ namespace tools
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::zero_destination& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+      return false;
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
+        cryptonote::print_money(e.available()) %
+        cryptonote::print_money(e.tx_amount() + e.fee())  %
+        cryptonote::print_money(e.tx_amount()) %
+        cryptonote::print_money(e.fee())).str();
+      return false;
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
       er.message = e.what();
       return false;
     }
@@ -1798,7 +1854,7 @@ namespace tools
   {
     if (m_wallet_dir.empty())
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
       er.message = "No wallet dir configured";
       return false;
     }
@@ -1864,6 +1920,12 @@ namespace tools
     try {
       wal->generate(wallet_file, req.password, dummy_key, false, false);
     }
+    catch (const error::file_exists& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WALLET_ALREADY_EXISTS;
+      er.message = "Cannot create wallet. Already exists.";
+      return false;
+    }
     catch (const std::exception& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -1880,7 +1942,7 @@ namespace tools
   {
     if (m_wallet_dir.empty())
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
       er.message = "No wallet dir configured";
       return false;
     }
@@ -1914,14 +1976,17 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal;
+    std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
       wal = tools::wallet2::make_from_file(vm2, wallet_file).first;
     }
-    catch (const std::exception& e)
+    catch (const error::invalid_password& e)
     {
-      wal = nullptr;
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
+      er.message = "Invalid password.";
+      return false;
     }
+    catch (const std::exception& e) {}
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
