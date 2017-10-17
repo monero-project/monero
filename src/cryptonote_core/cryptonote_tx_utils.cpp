@@ -174,9 +174,8 @@ namespace cryptonote
     tx.unlock_time = unlock_time;
 
     tx.extra = extra;
-    keypair txkey = keypair::generate();
-    remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
-    add_tx_pub_key_to_extra(tx, txkey.pub);
+    keypair txkey;
+    txkey.sec = rct::rct2sk(rct::skGen());
     tx_key = txkey.sec;
 
     // if we have a stealth payment id, find it and encrypt it with the tx key now
@@ -323,9 +322,13 @@ namespace cryptonote
     if (num_stdaddresses == 0 && num_subaddresses == 1)
     {
       txkey.pub = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(single_dest_subaddress.m_spend_public_key), rct::sk2rct(txkey.sec)));
-      remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
-      add_tx_pub_key_to_extra(tx, txkey.pub);
     }
+    else
+    {
+      txkey.pub = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(txkey.sec)));
+    }
+    remove_field_from_tx_extra(tx.extra, typeid(tx_extra_pub_key));
+    add_tx_pub_key_to_extra(tx, txkey.pub);
 
     std::vector<crypto::public_key> additional_tx_public_keys;
     additional_tx_keys.clear();
@@ -348,9 +351,11 @@ namespace cryptonote
       keypair additional_txkey;
       if (need_additional_txkeys)
       {
-        additional_txkey = keypair::generate();
+        additional_txkey.sec = rct::rct2sk(rct::skGen());
         if (dst_entr.is_subaddress)
           additional_txkey.pub = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(dst_entr.addr.m_spend_public_key), rct::sk2rct(additional_txkey.sec)));
+        else
+          additional_txkey.pub = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(additional_txkey.sec)));
       }
 
       bool r;
