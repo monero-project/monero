@@ -58,10 +58,10 @@ set(core_tests_headers
   v2_tests.h
   rct.h)
 
-add_executable(coretests
+add_executable(core_tests
   ${core_tests_sources}
   ${core_tests_headers})
-target_link_libraries(coretests
+target_link_libraries(core_tests
   PRIVATE
     cryptonote_core
     p2p
@@ -69,10 +69,10 @@ target_link_libraries(coretests
     epee
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-set_property(TARGET coretests
+set_property(TARGET core_tests
   PROPERTY
     FOLDER "tests")
 
 add_test(
-  NAME    coretests
-  COMMAND coretests --generate_and_play_test_data)
+  NAME    core_tests
+  COMMAND core_tests --generate_and_play_test_data)

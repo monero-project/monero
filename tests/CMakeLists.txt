@@ -111,7 +111,7 @@ add_test(
   COMMAND hash-target-tests)
 
 set(enabled_tests
-    coretests
+    core_tests
     difficulty
     hash
     performance_tests
