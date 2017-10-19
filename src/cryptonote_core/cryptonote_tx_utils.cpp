@@ -393,7 +393,6 @@ namespace cryptonote
     }
 
     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));
-    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
 
     LOG_PRINT_L2("tx pubkey: " << txkey.pub);
     if (need_additional_txkeys)
@@ -401,6 +400,7 @@ namespace cryptonote
       LOG_PRINT_L2("additional tx pubkeys: ");
       for (size_t i = 0; i < additional_tx_public_keys.size(); ++i)
         LOG_PRINT_L2(additional_tx_public_keys[i]);
+      add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
     }
 
     //check money
