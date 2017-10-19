@@ -161,18 +161,48 @@ namespace
     return tools::scoped_message_writer(console_color_red, true, sw::tr("Error: "), el::Level::Error);
   }
 
-  bool is_it_true(const std::string& s)
+  bool parse_bool(const std::string& s, bool& result)
   {
     if (s == "1" || command_line::is_yes(s))
+    {
+      result = true;
       return true;
+    }
+    if (s == "0" || command_line::is_no(s))
+    {
+      result = false;
+      return true;
+    }
 
     boost::algorithm::is_iequal ignore_case{};
-    if (boost::algorithm::equals("true", s, ignore_case))
+    if (boost::algorithm::equals("true", s, ignore_case) || boost::algorithm::equals(simple_wallet::tr("true"), s, ignore_case))
+    {
+      result = true;
       return true;
-    if (boost::algorithm::equals(simple_wallet::tr("true"), s, ignore_case))
+    }
+    if (boost::algorithm::equals("false", s, ignore_case) || boost::algorithm::equals(simple_wallet::tr("false"), s, ignore_case))
+    {
+      result = false;
       return true;
+    }
 
     return false;
+  }
+
+  template <typename F>
+  bool parse_bool_and_use(const std::string& s, F func)
+  {
+    bool r;
+    if (parse_bool(s, r))
+    {
+      func(r);
+      return true;
+    }
+    else
+    {
+      fail_msg_writer() << tr("invalid argument: must be either 0/1, true/false, y/n, yes/no");
+      return false;
+    }
   }
 
   const struct
@@ -507,8 +537,10 @@ bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> 
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->always_confirm_transfers(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->always_confirm_transfers(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -518,8 +550,10 @@ bool simple_wallet::set_print_ring_members(const std::vector<std::string> &args/
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->print_ring_members(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->print_ring_members(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -535,8 +569,10 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->store_tx_info(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->store_tx_info(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -631,14 +667,15 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    const bool auto_refresh = is_it_true(args[1]);
-    m_wallet->auto_refresh(auto_refresh);
-    m_idle_mutex.lock();
-    m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
-    m_idle_cond.notify_one();
-    m_idle_mutex.unlock();
+    parse_bool_and_use(args[1], [&](bool auto_refresh) {
+      m_wallet->auto_refresh(auto_refresh);
+      m_idle_mutex.lock();
+      m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
+      m_idle_cond.notify_one();
+      m_idle_mutex.unlock();
 
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -665,8 +702,10 @@ bool simple_wallet::set_confirm_missing_payment_id(const std::vector<std::string
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->confirm_missing_payment_id(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->confirm_missing_payment_id(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -676,8 +715,10 @@ bool simple_wallet::set_ask_password(const std::vector<std::string> &args/* = st
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->ask_password(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->ask_password(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -753,8 +794,10 @@ bool simple_wallet::set_merge_destinations(const std::vector<std::string> &args/
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->merge_destinations(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->merge_destinations(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -764,8 +807,10 @@ bool simple_wallet::set_confirm_backlog(const std::vector<std::string> &args/* =
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    m_wallet->confirm_backlog(is_it_true(args[1]));
-    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->confirm_backlog(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
   }
   return true;
 }
@@ -1904,8 +1949,16 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   bool ok = true;
   size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
   size_t arg_size = args.size();
-  if(arg_size >= 3) req.ignore_battery = is_it_true(args[2]);
-  if(arg_size >= 2) req.do_background_mining = is_it_true(args[1]);
+  if(arg_size >= 3)
+  {
+    if (!parse_bool_and_use(args[2], [&](bool r) { req.ignore_battery = r; }))
+      return true;
+  }
+  if(arg_size >= 2)
+  {
+    if (!parse_bool_and_use(args[1], [&](bool r) { req.do_background_mining = r; }))
+      return true;
+  }
   if(arg_size >= 1)
   {
     uint16_t num = 1;
