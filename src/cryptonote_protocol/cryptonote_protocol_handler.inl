@@ -52,6 +52,7 @@
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (5 * 1000000) // microseconds
 #define IDLE_PEER_KICK_TIME (600 * 1000000) // microseconds
+#define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 
 namespace cryptonote
 {
@@ -1184,13 +1185,15 @@ skip:
     std::vector<boost::uuids::uuid> kick_connections;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
-      if (context.m_state == cryptonote_connection_context::state_synchronizing)
+      if (context.m_state == cryptonote_connection_context::state_synchronizing || context.m_state == cryptonote_connection_context::state_before_handshake)
       {
+        const bool passive = context.m_state == cryptonote_connection_context::state_before_handshake;
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
-        if (dt.total_microseconds() > IDLE_PEER_KICK_TIME)
+        const int64_t threshold = passive ? PASSIVE_PEER_KICK_TIME : IDLE_PEER_KICK_TIME;
+        if (dt.total_microseconds() > threshold)
         {
-          MINFO(context << " kicking idle peer");
+          MINFO(context << " kicking " << (passive ? "passive" : "idle") << " peer");
           kick_connections.push_back(context.m_connection_id);
         }
       }
