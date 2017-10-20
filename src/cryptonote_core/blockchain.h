@@ -635,16 +635,6 @@ namespace cryptonote
     uint64_t get_current_cumulative_blocksize_limit() const;
 
     /**
-     * @brief checks if the blockchain is currently being stored
-     *
-     * Note: this should be meaningless in cases where Blockchain is not
-     * directly managing saving the blockchain to disk.
-     *
-     * @return true if Blockchain is having the chain stored currently, else false
-     */
-    bool is_storing_blockchain()const{return false;}
-
-    /**
      * @brief gets the difficulty of the block with a given height
      *
      * @param i the height
