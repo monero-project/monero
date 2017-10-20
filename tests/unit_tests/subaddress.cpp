@@ -44,12 +44,12 @@ class WalletSubaddress : public ::testing::Test
     {
       try
       {
-          w1.generate(wallet_name, password, recovery_key, true, false);
+        w1.generate(wallet_name, password, recovery_key, true, false);
       }
       catch (const std::exception& e)
       {
-          LOG_ERROR("failed to generate wallet: " << e.what());
-          throw e;
+        LOG_ERROR("failed to generate wallet: " << e.what());
+        throw e;
       }
 
       w1.add_subaddress_account(test_label);
@@ -58,20 +58,19 @@ class WalletSubaddress : public ::testing::Test
 
     virtual void TearDown()
     {
-        boost::filesystem::wpath wallet_file(wallet_name);
-        boost::filesystem::wpath wallet_address_file(wallet_name + ".address.txt");
-        boost::filesystem::wpath wallet_keys_file(wallet_name + ".keys");
+      boost::filesystem::wpath wallet_file(wallet_name);
+      boost::filesystem::wpath wallet_address_file(wallet_name + ".address.txt");
+      boost::filesystem::wpath wallet_keys_file(wallet_name + ".keys");
 
-        if ( boost::filesystem::exists(wallet_file) )
-            boost::filesystem::remove(wallet_file);
+      if ( boost::filesystem::exists(wallet_file) )
+        boost::filesystem::remove(wallet_file);
 
-        if ( boost::filesystem::exists(wallet_address_file) )
-            boost::filesystem::remove(wallet_address_file);
+      if ( boost::filesystem::exists(wallet_address_file) )
+        boost::filesystem::remove(wallet_address_file);
 
-        if ( boost::filesystem::exists(wallet_keys_file) )
-            boost::filesystem::remove(wallet_keys_file);
+      if ( boost::filesystem::exists(wallet_keys_file) )
+        boost::filesystem::remove(wallet_keys_file);
     }
-
 
     tools::wallet2 w1;
     std::string path_working_dir = ".";
@@ -86,7 +85,34 @@ class WalletSubaddress : public ::testing::Test
     const cryptonote::subaddress_index subaddress_index = {major_index, minor_index};
 };
 
-TEST_F(WalletSubaddress, AddRow)
+TEST_F(WalletSubaddress, GetSubaddressLabel)
 {
-    EXPECT_EQ(test_label, w1.get_subaddress_label(subaddress_index));
+  EXPECT_EQ(test_label, w1.get_subaddress_label(subaddress_index));
+}
+
+TEST_F(WalletSubaddress, AddSubaddress)
+{
+  std::string label = "test adding subaddress";
+  w1.add_subaddress(0, label);
+  EXPECT_EQ(label, w1.get_subaddress_label({0, 1}));
+}
+
+TEST_F(WalletSubaddress, OutOfBoundsIndexes)
+{
+  try 
+  {
+    w1.get_subaddress_label({1,0});
+  } 
+  catch(const std::exception& e)
+  {
+    EXPECT_STREQ("index_major is out of bound", e.what());  
+  }   
+  try 
+  {
+    w1.get_subaddress_label({0,2});
+  } 
+  catch(const std::exception& e)
+  {
+    EXPECT_STREQ("index.minor is out of bound", e.what());  
+  }   
 }
