@@ -30,7 +30,7 @@
 
 #include "ringct/rctSigs.h"
 #include "chaingen.h"
-#include "chaingen_tests_list.h"
+#include "rct.h"
 
 using namespace epee;
 using namespace crypto;

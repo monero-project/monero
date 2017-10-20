@@ -29,8 +29,6 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "chaingen.h"
-#include "chaingen_tests_list.h"
-
 #include "block_reward.h"
 
 using namespace epee;
