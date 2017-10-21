@@ -64,6 +64,7 @@ namespace cryptonote
       FIELD(amount)
       FIELD(rct)
       FIELD(mask)
+      FIELD(multisig_kLRki)
 
       if (real_output >= outputs.size())
         return false;
@@ -100,7 +101,7 @@ namespace cryptonote
 
 }
 
-BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 0)
+BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
 BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 1)
 
 namespace boost
@@ -117,7 +118,10 @@ namespace boost
       a & x.amount;
       a & x.rct;
       a & x.mask;
+      if (ver < 1)
+        return;
       a & x.multisig_kLRki;
+      a & x.real_out_additional_tx_keys;
     }
 
     template <class Archive>

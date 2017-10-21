@@ -42,21 +42,6 @@ using namespace std;
 namespace cryptonote
 {
   //-----------------------------------------------------------------
-  bool generate_key_image_helper_old(const account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
-  {
-    crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
-    bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
-    CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
-
-    r = crypto::derive_public_key(recv_derivation, real_output_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub);
-    CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to derive_public_key(" << recv_derivation << ", " << real_output_index <<  ", " << ack.m_account_address.m_spend_public_key << ")");
-
-    crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, in_ephemeral.sec);
-
-    crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
-    return true;
-  }
-  //-----------------------------------------------------------------
   void generate_multisig_N_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
   {
     // the multisig spend public key is the sum of all spend public keys
@@ -107,14 +92,11 @@ namespace cryptonote
     return rct::rct2pk(spend_public_key);
   }
   //-----------------------------------------------------------------
-  bool generate_multisig_key_image(const account_keys &keys, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki, size_t multisig_key_index)
+  bool generate_multisig_key_image(const account_keys &keys, size_t multisig_key_index, const crypto::public_key& out_key, crypto::key_image& ki)
   {
     if (multisig_key_index >= keys.m_multisig_keys.size())
       return false;
-    if (!cryptonote::generate_key_image_helper_old(keys, tx_public_key, real_output_index, in_ephemeral, ki))
-      return false;
-    // we got the ephemeral keypair, but the key image isn't right as it's done as per our private spend key, which is multisig
-    crypto::generate_key_image(in_ephemeral.pub, keys.m_multisig_keys[multisig_key_index], ki);
+    crypto::generate_key_image(out_key, keys.m_multisig_keys[multisig_key_index], ki);
     return true;
   }
   //-----------------------------------------------------------------
@@ -124,16 +106,16 @@ namespace cryptonote
     crypto::generate_key_image(pkey, k, (crypto::key_image&)R);
   }
   //-----------------------------------------------------------------
-  bool generate_multisig_composite_key_image(const account_keys &keys, const crypto::public_key &tx_public_key, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
+  bool generate_multisig_composite_key_image(const account_keys &keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
   {
     cryptonote::keypair in_ephemeral;
-    if (!cryptonote::generate_key_image_helper_old(keys, tx_public_key, real_output_index, in_ephemeral, ki))
+    if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki))
       return false;
     std::unordered_set<crypto::key_image> used;
     for (size_t m = 0; m < keys.m_multisig_keys.size(); ++m)
     {
       crypto::key_image pki;
-      bool r = cryptonote::generate_multisig_key_image(keys, tx_public_key, real_output_index, in_ephemeral, pki, m);
+      bool r = cryptonote::generate_multisig_key_image(keys, m, out_key, pki);
       if (!r)
         return false;
       used.insert(pki);

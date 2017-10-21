@@ -132,8 +132,14 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   std::vector<std::vector<crypto::public_key>> account_L(total);
   std::vector<std::vector<crypto::public_key>> account_R(total);
   std::vector<std::vector<crypto::key_image>> account_ki(total);
+  std::vector<crypto::public_key> additional_tx_keys;
+  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+  subaddresses[miner_account[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
   for (size_t msidx = 0; msidx < total; ++msidx)
   {
+    CHECK_AND_ASSERT_MES(miner_account[msidx].get_keys().m_account_address.m_spend_public_key == miner_account[0].get_keys().m_account_address.m_spend_public_key,
+        false, "Mismatched spend public keys");
+
     size_t nlr = threshold < total ? threshold - 1 : 1;
     account_L[msidx].resize(nlr);
     account_R[msidx].resize(nlr);
@@ -146,7 +152,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_ki[msidx].resize(numki);
     for (size_t kiidx = 0; kiidx < numki; ++kiidx)
     {
-      r = cryptonote::generate_multisig_key_image(miner_account[msidx].get_keys(), tx_pub_key, 0, in_ephemeral, account_ki[msidx][kiidx], kiidx);
+      r = cryptonote::generate_multisig_key_image(miner_account[msidx].get_keys(), kiidx, output_pub_key, account_ki[msidx][kiidx]);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate multisig export key image");
     }
     MDEBUG("Party " << msidx << ":");
@@ -200,7 +206,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   for (size_t msidx = 0; msidx < total; ++msidx)
     for (size_t n = 0; n < account_ki[msidx].size(); ++n)
       pkis.push_back(account_ki[msidx][n]);
-  r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), tx_pub_key, 0, pkis, (crypto::key_image&)kLRki.ki);
+  r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key, tx_pub_key, additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
   CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
   MDEBUG("composite ki: " << kLRki.ki);
   MDEBUG("L: " << kLRki.L);
@@ -208,7 +214,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   for (size_t n = 1; n < total; ++n)
   {
     rct::key ki;
-    r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), tx_pub_key, 0, pkis, (crypto::key_image&)ki);
+    r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key, tx_pub_key, additional_tx_keys, 0, pkis, (crypto::key_image&)ki);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
     CHECK_AND_ASSERT_MES(kLRki.ki == ki, false, "Composite key images do not match");
   }
@@ -254,10 +260,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   rct::multisig_out msout;
   rct::multisig_out *msoutp = &msout;
 #endif
-  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
-  subaddresses[miner_account[creator].get_keys().m_account_address.m_spend_public_key] = {0,0};
-  std::vector<crypto::secret_key> additional_tx_keys;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_keys, true, false, msoutp);
+  std::vector<crypto::secret_key> additional_tx_secret_keys;
+  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, false, msoutp);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
 #ifndef NO_MULTISIG
