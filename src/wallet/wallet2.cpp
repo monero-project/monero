@@ -573,6 +573,41 @@ const size_t MAX_SPLIT_ATTEMPTS = 30;
 constexpr const std::chrono::seconds wallet2::rpc_timeout;
 const char* wallet2::tr(const char* str) { return i18n_translate(str, "tools::wallet2"); }
 
+wallet2::wallet2(bool testnet, bool restricted):
+  m_multisig_rescan_info(NULL),
+  m_multisig_rescan_k(NULL),
+  m_run(true),
+  m_callback(0),
+  m_testnet(testnet),
+  m_always_confirm_transfers(true),
+  m_print_ring_members(false),
+  m_store_tx_info(true),
+  m_default_mixin(0),
+  m_default_priority(0),
+  m_refresh_type(RefreshOptimizeCoinbase),
+  m_auto_refresh(true),
+  m_refresh_from_block_height(0),
+  m_confirm_missing_payment_id(true),
+  m_ask_password(true),
+  m_min_output_count(0),
+  m_min_output_value(0),
+  m_merge_destinations(false),
+  m_confirm_backlog(true),
+  m_is_initialized(false),
+  m_restricted(restricted),
+  is_old_file_format(false),
+  m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex),
+  m_subaddress_lookahead_major(SUBADDRESS_LOOKAHEAD_MAJOR),
+  m_subaddress_lookahead_minor(SUBADDRESS_LOOKAHEAD_MINOR),
+  m_light_wallet(false),
+  m_light_wallet_scanned_block_height(0),
+  m_light_wallet_blockchain_height(0),
+  m_light_wallet_connected(false),
+  m_light_wallet_balance(0),
+  m_light_wallet_unlocked_balance(0)
+{
+}
+
 bool wallet2::has_testnet_option(const boost::program_options::variables_map& vm)
 {
   return command_line::get_arg(vm, options().testnet);
@@ -764,9 +799,9 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
   {
     // add new accounts
     cryptonote::subaddress_index index2;
-    for (index2.major = m_subaddress_labels.size(); index2.major < index.major + SUBADDRESS_LOOKAHEAD_MAJOR; ++index2.major)
+    for (index2.major = m_subaddress_labels.size(); index2.major < index.major + m_subaddress_lookahead_major; ++index2.major)
     {
-      for (index2.minor = 0; index2.minor < (index2.major == index.major ? index.minor : 0) + SUBADDRESS_LOOKAHEAD_MINOR; ++index2.minor)
+      for (index2.minor = 0; index2.minor < (index2.major == index.major ? index.minor : 0) + m_subaddress_lookahead_minor; ++index2.minor)
       {
         if (m_subaddresses_inv.count(index2) == 0)
         {
@@ -783,7 +818,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
   {
     // add new subaddresses
     cryptonote::subaddress_index index2 = index;
-    for (index2.minor = m_subaddress_labels[index.major].size(); index2.minor < index.minor + SUBADDRESS_LOOKAHEAD_MINOR; ++index2.minor)
+    for (index2.minor = m_subaddress_labels[index.major].size(); index2.minor < index.minor + m_subaddress_lookahead_minor; ++index2.minor)
     {
       if (m_subaddresses_inv.count(index2) == 0)
       {
@@ -811,6 +846,12 @@ void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, co
   THROW_WALLET_EXCEPTION_IF(index.major >= m_subaddress_labels.size(), error::account_index_outofbound);
   THROW_WALLET_EXCEPTION_IF(index.minor >= m_subaddress_labels[index.major].size(), error::address_index_outofbound);
   m_subaddress_labels[index.major][index.minor] = label;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
+{
+  m_subaddress_lookahead_major = major;
+  m_subaddress_lookahead_minor = minor;
 }
 //----------------------------------------------------------------------------------------------------
 /*!

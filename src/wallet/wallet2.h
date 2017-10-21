@@ -144,10 +144,6 @@ namespace tools
       RefreshDefault = RefreshOptimizeCoinbase,
     };
 
-  private:
-    wallet2(const wallet2&) : m_multisig_rescan_info(NULL), m_multisig_rescan_k(NULL), m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshDefault), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false),m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
-
-  public:
     static const char* tr(const char* str);
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
@@ -168,7 +164,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_multisig_rescan_info(NULL), m_multisig_rescan_k(NULL), m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshDefault), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
+    wallet2(bool testnet = false, bool restricted = false);
 
     struct multisig_info
     {
@@ -583,6 +579,7 @@ namespace tools
     void expand_subaddresses(const cryptonote::subaddress_index& index);
     std::string get_subaddress_label(const cryptonote::subaddress_index& index) const;
     void set_subaddress_label(const cryptonote::subaddress_index &index, const std::string &label);
+    void set_subaddress_lookahead(size_t major, size_t minor);
     /*!
      * \brief Tells if the wallet file is deprecated.
      */
@@ -1049,6 +1046,7 @@ namespace tools
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
+    size_t m_subaddress_lookahead_major, m_subaddress_lookahead_minor;
 
     // Light wallet
     bool m_light_wallet; /* sends view key to daemon for scanning */

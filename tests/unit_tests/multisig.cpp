@@ -62,6 +62,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
   try
   {
     wallet.init("");
+    wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(true));
   }
