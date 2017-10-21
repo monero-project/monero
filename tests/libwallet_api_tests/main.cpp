@@ -33,6 +33,7 @@
 #include "wallet/wallet2_api.h"
 #include "wallet/wallet2.h"
 #include "include_base_utils.h"
+#include "common/util.h"
 
 #include <boost/chrono/chrono.hpp>
 #include <boost/filesystem.hpp>
@@ -1138,6 +1139,7 @@ TEST_F(WalletManagerMainnetTest, RecoverAndRefreshWalletMainNetAsync)
 
 int main(int argc, char** argv)
 {
+    tools::on_startup();
     // we can override default values for "TESTNET_DAEMON_ADDRESS" and "WALLETS_ROOT_DIR"
 
     const char * testnet_daemon_addr = std::getenv("TESTNET_DAEMON_ADDRESS");

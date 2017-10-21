@@ -627,6 +627,7 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
 
 int main(int argc, char** argv)
 {
+  tools::on_startup();
   epee::debug::get_set_enable_assert(true, false);
   //set up logging options
   mlog_configure(mlog_get_default_log_path("net_load_tests_clt.log"), true);

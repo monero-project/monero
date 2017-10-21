@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include "common/util.h"
 #include "performance_tests.h"
 #include "performance_utils.h"
 
@@ -48,6 +49,7 @@
 
 int main(int argc, char** argv)
 {
+  tools::on_startup();
   set_process_affinity(1);
   set_thread_high_priority();
 

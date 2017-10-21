@@ -35,6 +35,7 @@
 
 #include "include_base_utils.h"
 #include "common/command_line.h"
+#include "common/util.h"
 #include "unit_tests_utils.h"
 
 namespace po = boost::program_options;
@@ -43,6 +44,7 @@ boost::filesystem::path unit_test::data_dir;
 
 int main(int argc, char** argv)
 {
+  tools::on_startup();
   epee::string_tools::set_module_name_and_folder(argv[0]);
   mlog_configure(mlog_get_default_log_path("unit_tests.log"), true);
   epee::debug::get_set_enable_assert(true, false);
