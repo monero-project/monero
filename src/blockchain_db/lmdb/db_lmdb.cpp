@@ -1123,6 +1123,12 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   m_folder = filename;
 
+#ifdef __OpenBSD__
+  if ((mdb_flags & MDB_WRITEMAP) == 0) {
+    MCLOG_RED(el::Level::Info, "global", "Running on OpenBSD: forcing WRITEMAP");
+    mdb_flags |= MDB_WRITEMAP;
+  }
+#endif
   // set up lmdb environment
   if ((result = mdb_env_create(&m_env)))
     throw0(DB_ERROR(lmdb_error("Failed to create lmdb environment: ", result).c_str()));
