@@ -360,7 +360,7 @@ struct Wallet
     //! in case error status, returns error string
     virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
-    virtual std::string address(uint32_t accountIndex, uint32_t addressIndex) const = 0;
+    virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
     virtual std::string path() const = 0;
     virtual bool testnet() const = 0;
@@ -476,14 +476,14 @@ struct Wallet
     virtual ConnectionStatus connected() const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
-    virtual uint64_t balance(uint32_t accountIndex) const = 0;
+    virtual uint64_t balance(uint32_t accountIndex = 0) const = 0;
     uint64_t balanceAll() const {
         uint64_t result = 0;
         for (uint32_t i = 0; i < numSubaddressAccounts(); ++i)
             result += balance(i);
         return result;
     }
-    virtual uint64_t unlockedBalance(uint32_t accountIndex) const = 0;
+    virtual uint64_t unlockedBalance(uint32_t accountIndex = 0) const = 0;
     uint64_t unlockedBalanceAll() const {
         uint64_t result = 0;
         for (uint32_t i = 0; i < numSubaddressAccounts(); ++i)
@@ -623,9 +623,9 @@ struct Wallet
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                                    optional<uint64_t> amount, uint32_t mixin_count,
-                                                   uint32_t subaddr_account,
-                                                   std::set<uint32_t> subaddr_indices,
-                                                   PendingTransaction::Priority = PendingTransaction::Priority_Low) = 0;
+                                                   PendingTransaction::Priority = PendingTransaction::Priority_Low,
+                                                   uint32_t subaddr_account = 0,
+                                                   std::set<uint32_t> subaddr_indices = {}) = 0;
 
     /*!
      * \brief createSweepUnmixableTransaction creates transaction with unmixable outputs.

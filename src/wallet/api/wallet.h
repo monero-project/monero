@@ -73,7 +73,7 @@ public:
     int status() const;
     std::string errorString() const;
     bool setPassword(const std::string &password);
-    std::string address(uint32_t accountIndex, uint32_t addressIndex) const;
+    std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const;
     std::string integratedAddress(const std::string &payment_id) const;
     std::string secretViewKey() const;
     std::string publicViewKey() const;
@@ -88,8 +88,8 @@ public:
     ConnectionStatus connected() const;
     void setTrustedDaemon(bool arg);
     bool trustedDaemon() const;
-    uint64_t balance(uint32_t accountIndex) const;
-    uint64_t unlockedBalance(uint32_t accountIndex) const;
+    uint64_t balance(uint32_t accountIndex = 0) const;
+    uint64_t unlockedBalance(uint32_t accountIndex = 0) const;
     uint64_t blockChainHeight() const;
     uint64_t approximateBlockChainHeight() const;
     uint64_t daemonBlockChainHeight() const;
@@ -117,9 +117,9 @@ public:
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
-                                        uint32_t subaddr_account,
-                                        std::set<uint32_t> subaddr_indices,
-                                        PendingTransaction::Priority priority = PendingTransaction::Priority_Low);
+                                        PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
+                                        uint32_t subaddr_account = 0,
+                                        std::set<uint32_t> subaddr_indices = {});
     virtual PendingTransaction * createSweepUnmixableTransaction();
     bool submitTransaction(const std::string &fileName);
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename);

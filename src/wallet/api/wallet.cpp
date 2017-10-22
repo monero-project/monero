@@ -1044,8 +1044,7 @@ void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex
 //    - confirmed_transfer_details)
 
 PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
-                                                  uint32_t subaddr_account, std::set<uint32_t> subaddr_indices,
-                                                  PendingTransaction::Priority priority)
+                                                  PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 
 {
     clearStatus();
