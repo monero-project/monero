@@ -341,8 +341,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -369,8 +368,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -406,8 +404,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -436,8 +433,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -454,8 +450,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -476,8 +471,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -492,8 +486,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -642,50 +635,9 @@ namespace tools
       }
       return true;
     }
-    catch (const tools::error::daemon_busy& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::zero_destination& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::not_enough_money& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::tx_not_possible& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
-      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
-        cryptonote::print_money(e.available()) %
-        cryptonote::print_money(e.tx_amount() + e.fee())  %
-        cryptonote::print_money(e.tx_amount()) %
-        cryptonote::print_money(e.fee())).str();
-      return false;
-    }
-    catch (const tools::error::not_enough_outs_to_mix& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
-      er.message = e.what();
-      return false;
-    }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
-      er.message = e.what();
-      return false;
-    }
-    catch (...)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR);
       return false;
     }
     return true;
@@ -753,50 +705,9 @@ namespace tools
 
       return true;
     }
-    catch (const tools::error::daemon_busy& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::zero_destination& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::not_enough_money& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
-      er.message = e.what();
-      return false;
-    }
-    catch (const tools::error::tx_not_possible& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
-      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
-        cryptonote::print_money(e.available()) %
-        cryptonote::print_money(e.tx_amount() + e.fee())  %
-        cryptonote::print_money(e.tx_amount()) %
-        cryptonote::print_money(e.fee())).str();
-      return false;
-    }
-    catch (const tools::error::not_enough_outs_to_mix& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
-      er.message = e.what();
-      return false;
-    }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
-      er.message = e.what();
-      return false;
-    }
-    catch (...)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR);
       return false;
     }
     return true;
@@ -838,22 +749,9 @@ namespace tools
 
       return true;
     }
-    catch (const tools::error::daemon_busy& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
-      er.message = e.what();
-      return false;
-    }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
-      er.message = e.what();
-      return false;
-    }
-    catch (...)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR);
       return false;
     }
     return true;
@@ -908,22 +806,9 @@ namespace tools
 
       return true;
     }
-    catch (const tools::error::daemon_busy& e)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
-      er.message = e.what();
-      return false;
-    }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
-      er.message = e.what();
-      return false;
-    }
-    catch (...)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR);
       return false;
     }
     return true;
@@ -953,10 +838,9 @@ namespace tools
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -985,10 +869,9 @@ namespace tools
       res.payment_id = epee::string_tools::pod_to_hex(info.payment_id);
       return true;
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -1010,8 +893,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -1241,8 +1123,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -1314,8 +1195,7 @@ namespace tools
     }
     catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -1550,10 +1430,9 @@ namespace tools
       }
     }
 
-    catch (...)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Failed";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
 
@@ -1606,10 +1485,9 @@ namespace tools
       res.height = height;
     }
 
-    catch (...)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Failed";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
 
@@ -1786,10 +1664,9 @@ namespace tools
       m_wallet->rescan_spent();
       return true;
     }
-    catch (const std::exception &e)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = e.what();
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
     return true;
@@ -1920,13 +1797,12 @@ namespace tools
     try {
       wal->generate(wallet_file, req.password, dummy_key, false, false);
     }
-    catch (const error::file_exists& e)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_WALLET_ALREADY_EXISTS;
-      er.message = "Cannot create wallet. Already exists.";
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
       return false;
     }
-    catch (const std::exception& e)
+    if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Failed to generate wallet";
@@ -1980,13 +1856,10 @@ namespace tools
     try {
       wal = tools::wallet2::make_from_file(vm2, wallet_file).first;
     }
-    catch (const error::invalid_password& e)
+    catch (const std::exception& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
-      er.message = "Invalid password.";
-      return false;
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
     }
-    catch (const std::exception& e) {}
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -1997,6 +1870,63 @@ namespace tools
       delete m_wallet;
     m_wallet = wal.release();
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  void wallet_rpc_server::handle_rpc_exception(const std::exception_ptr& e, epee::json_rpc::error& er, int default_error_code) {
+    try
+    {
+      std::rethrow_exception(e);
+    }
+    catch (const tools::error::daemon_busy& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
+      er.message = e.what();
+    }
+    catch (const tools::error::zero_destination& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ZERO_DESTINATION;
+      er.message = e.what();
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
+      er.message = (boost::format(tr("Transaction not possible. Available only %s, transaction amount %s = %s + %s (fee)")) %
+        cryptonote::print_money(e.available()) %
+        cryptonote::print_money(e.tx_amount() + e.fee())  %
+        cryptonote::print_money(e.tx_amount()) %
+        cryptonote::print_money(e.fee())).str();
+      er.message = e.what();
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
+      er.message = e.what();
+    }
+    catch (const error::file_exists& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WALLET_ALREADY_EXISTS;
+      er.message = "Cannot create wallet. Already exists.";
+    }
+    catch (const error::invalid_password& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
+      er.message = "Invalid password.";
+    }
+    catch (const std::exception& e)
+    {
+      er.code = default_error_code;
+      er.message = e.what();
+    }
+    catch (...)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR";
+    }
   }
   //------------------------------------------------------------------------------------------------------------------------------
 }
