@@ -216,7 +216,7 @@ namespace tools
 
     m_net_server.set_threads_prefix("RPC");
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
-      std::move(bind_port), std::move(rpc_config->bind_ip), std::move(http_login)
+      std::move(bind_port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login)
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------

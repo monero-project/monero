@@ -28,6 +28,7 @@
 //
 #include "rpc_args.h"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/address.hpp>
 #include "common/command_line.h"
 #include "common/i18n.h"
@@ -38,6 +39,7 @@ namespace cryptonote
      : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify ip to bind rpc server"), "127.0.0.1"})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
      , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
+     , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing"), ""})
   {}
 
   const char* rpc_args::tr(const char* str) { return i18n_translate(str, "cryptonote::rpc_args"); }
@@ -48,6 +50,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg.rpc_bind_ip);
     command_line::add_arg(desc, arg.rpc_login);
     command_line::add_arg(desc, arg.confirm_external_bind);
+    command_line::add_arg(desc, arg.rpc_access_control_origins);
   }
 
   boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm)
@@ -89,6 +92,21 @@ namespace cryptonote
         LOG_ERROR(tr("Username specified with --") << arg.rpc_login.name << tr(" cannot be empty"));
         return boost::none;
       }
+    }
+
+    auto access_control_origins_input = command_line::get_arg(vm, arg.rpc_access_control_origins);
+    if (!access_control_origins_input.empty())
+    {
+      if (!config.login)
+      {
+        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RFC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
+        return boost::none;
+      }
+
+      std::vector<std::string> access_control_origins;
+      boost::split(access_control_origins, access_control_origins_input, boost::is_any_of(","));
+      std::for_each(access_control_origins.begin(), access_control_origins.end(), boost::bind(&boost::trim<std::string>, _1, std::locale::classic()));
+      config.access_control_origins = std::move(access_control_origins);
     }
 
     return {std::move(config)};

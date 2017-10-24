@@ -53,6 +53,7 @@ namespace cryptonote
       const command_line::arg_descriptor<std::string> rpc_bind_ip;
       const command_line::arg_descriptor<std::string> rpc_login;
       const command_line::arg_descriptor<bool> confirm_external_bind;
+      const command_line::arg_descriptor<std::string> rpc_access_control_origins;
     };
 
     static const char* tr(const char* str);
@@ -62,6 +63,7 @@ namespace cryptonote
     static boost::optional<rpc_args> process(const boost::program_options::variables_map& vm);
 
     std::string bind_ip;
+    std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
   };
 }

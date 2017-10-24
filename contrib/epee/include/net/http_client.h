@@ -749,10 +749,10 @@ using namespace std;
 				MTRACE("http_stream_filter::parse_cached_header(*)");
 				
 				STATIC_REGEXP_EXPR_1(rexp_mach_field, 
-					"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)"
-					//  12            3         4                5              6                   7                  8      9        10
+					"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)|(Origin)"
+					//  12            3         4                5              6                   7                  8      9        10            11
 					"|([\\w-]+?)) ?: ?((.*?)(\r?\n))[^\t ]",	
-					//11             1213   14
+					//12             13 14   15
 					boost::regex::icase | boost::regex::normal);
 
 				boost::smatch		result;
@@ -764,7 +764,7 @@ using namespace std;
 				//lookup all fields and fill well-known fields
 				while( boost::regex_search( it_current_bound, it_end_bound, result, rexp_mach_field, boost::match_default) && result[0].matched) 
 				{
-					const size_t field_val = 13;
+					const size_t field_val = 14;
 					//const size_t field_etc_name = 11;
 
 					int i = 2; //start position = 2
@@ -788,8 +788,10 @@ using namespace std;
 						body_info.m_cookie = result[field_val];
 					else if(result[i++].matched)//"User-Agent"
 						body_info.m_user_agent = result[field_val];
+					else if(result[i++].matched)//"Origin"
+						body_info.m_origin = result[field_val];
 					else if(result[i++].matched)//e.t.c (HAVE TO BE MATCHED!)
-						body_info.m_etc_fields.emplace_back(result[11], result[field_val]);
+						body_info.m_etc_fields.emplace_back(result[12], result[field_val]);
 					else
 					{CHECK_AND_ASSERT_MES(false, false, "http_stream_filter::parse_cached_header() not matched last entry in:"<<m_cache_to_process);}
 
