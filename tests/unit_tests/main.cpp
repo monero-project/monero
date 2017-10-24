@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     return 1;
 
   if (vm["data-dir"].defaulted())
-    unit_test::data_dir = boost::filesystem::path(epee::string_tools::get_current_module_folder())
+    unit_test::data_dir = boost::filesystem::canonical(boost::filesystem::path(epee::string_tools::get_current_module_folder()))
                           .parent_path().parent_path().parent_path().parent_path()
                           .append("tests").append("data");
   else
