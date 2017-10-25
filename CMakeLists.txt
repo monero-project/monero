@@ -677,7 +677,15 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
+# when ON - will install libwallet_merged into "lib"
+option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
+
 option(USE_READLINE "Build with GNU readline support." ON)
+
+if(BUILD_GUI_DEPS)
+  set(USE_READLINE OFF)
+endif()
+
 if(USE_READLINE)
   find_package(Readline)
   if(READLINE_FOUND AND GNU_READLINE_FOUND)
@@ -742,9 +750,6 @@ if(BUILD_DOCUMENTATION)
       COMMENT "Generating API documentation with Doxygen.." VERBATIM)
   endif()
 endif()
-
-# when ON - will install libwallet_merged into "lib"
-option(BUILD_GUI_DEPS "Build GUI dependencies." OFF)
 
 # This is not nice, distribution packagers should not enable this, but depend
 # on libunbound shipped with their distribution instead
