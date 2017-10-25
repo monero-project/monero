@@ -1759,8 +1759,21 @@ void wallet2::update_pool_state(bool refreshed)
 void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history)
 {
   std::list<crypto::hash> hashes;
-  size_t current_index = m_blockchain.size();
 
+  const uint64_t checkpoint_height = m_checkpoints.get_max_height();
+  if (stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height)
+  {
+    // we will drop all these, so don't bother getting them
+    uint64_t missing_blocks = m_checkpoints.get_max_height() - m_blockchain.size();
+    while (missing_blocks-- > 0)
+      m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
+    m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
+    m_local_bc_height = m_blockchain.size();
+    short_chain_history.clear();
+    get_short_chain_history(short_chain_history);
+  }
+
+  size_t current_index = m_blockchain.size();
   while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
