@@ -53,6 +53,7 @@ set(unit_tests_sources
   mnemonics.cpp
   mul_div.cpp
   parse_amount.cpp
+  random.cpp
   serialization.cpp
   sha256.cpp
   slow_memmem.cpp

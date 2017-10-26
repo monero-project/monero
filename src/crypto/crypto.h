@@ -39,16 +39,13 @@
 #include <vector>
 
 #include "common/pod-class.h"
+#include "common/random.h"
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
 #include "hash.h"
 
 namespace crypto {
-
-  extern "C" {
-#include "random.h"
-  }
 
   extern boost::mutex random_lock;
 
@@ -152,7 +149,7 @@ namespace crypto {
    */
   inline void rand(size_t N, uint8_t *bytes) {
     boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(N, bytes);
+    GetStrongRandBytes(bytes, N);
   }
 
   /* Generate a value filled with random bytes.
@@ -161,7 +158,7 @@ namespace crypto {
   typename std::enable_if<std::is_pod<T>::value, T>::type rand() {
     typename std::remove_cv<T>::type res;
     boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(sizeof(T), &res);
+    GetStrongRandBytes((unsigned char*)&res, sizeof(T));
     return res;
   }
 

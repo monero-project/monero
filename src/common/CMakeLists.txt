@@ -38,6 +38,7 @@ set(common_sources
   memwipe.c
   password.cpp
   perf_timer.cpp
+  random.cpp
   threadpool.cpp
   updates.cpp)
 
@@ -58,6 +59,7 @@ set(common_private_headers
   http_connection.h
   int-util.h
   pod-class.h
+  random.h
   rpc_client.h
   scoped_message_writer.h
   unordered_containers_boost_serialization.h

@@ -39,6 +39,7 @@
 using namespace epee;
 
 #include "util.h"
+#include "random.h"
 #include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 
@@ -551,6 +552,14 @@ std::string get_nix_version_display_string()
     if (!strcmp(ver, "2.25"))
       MCLOG_RED(el::Level::Warning, "global", "Running with glibc " << ver << ", hangs may occur - change glibc version if possible");
 #endif
+
+    RandomInit();
+    if (!Random_SanityCheck())
+    {
+      MFATAL("Random number generator sanity check failed");
+      std::abort();
+    }
+
     return true;
   }
   void set_strict_default_file_permissions(bool strict)

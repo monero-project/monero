@@ -42,7 +42,6 @@ set(crypto_sources
   jh.c
   keccak.c
   oaes_lib.c
-  random.c
   skein.c
   slow-hash.c
   tree-hash.c)
@@ -64,7 +63,6 @@ set(crypto_private_headers
   keccak.h
   oaes_config.h
   oaes_lib.h
-  random.h
   skein.h
   skein_port.h)
 

@@ -769,6 +769,11 @@ include(CheckCCompilerFlag)
 CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
 
 include(CheckLibraryExists)
+include(CheckSymbolExists)
 
-check_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
-check_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
+check_symbol_exists(memset_s "string.h" HAVE_MEMSET_S)
+check_symbol_exists(explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
+check_symbol_exists(getentropy "unistd.h" HAVE_GETENTROPY)
+check_symbol_exists(SYS_getrandom "sys/syscall.h" HAVE_SYS_GETRANDOM)
+check_symbol_exists(getentropy "unistd.h" HAVE_GETENTROPY_RAND)
+check_symbol_exists(KERN_ARND "sys/sysctl.h" HAVE_SYSCTL_ARND)

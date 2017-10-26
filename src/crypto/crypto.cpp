@@ -54,7 +54,6 @@ namespace crypto {
 
   extern "C" {
 #include "crypto-ops.h"
-#include "random.h"
   }
 
   boost::mutex random_lock;
@@ -78,7 +77,7 @@ namespace crypto {
   /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar_not_thread_safe(ec_scalar &res) {
     unsigned char tmp[64];
-    generate_random_bytes_not_thread_safe(64, tmp);
+    GetStrongRandBytes(tmp, 64);
     sc_reduce(tmp);
     memcpy(&res, tmp, 32);
   }
