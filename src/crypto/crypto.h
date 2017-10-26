@@ -36,9 +36,12 @@
 #include <boost/thread/lock_guard.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/optional.hpp>
+#include <type_traits>
 #include <vector>
 
 #include "common/pod-class.h"
+#include "common/util.h"
+#include "common/memwipe.h"
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
@@ -65,9 +68,7 @@ namespace crypto {
     friend class crypto_ops;
   };
 
-  POD_CLASS secret_key: ec_scalar {
-    friend class crypto_ops;
-  };
+  using secret_key = tools::scrubbed<ec_scalar>;
 
   POD_CLASS public_keyV {
     std::vector<public_key> keys;
