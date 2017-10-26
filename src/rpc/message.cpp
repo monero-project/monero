@@ -45,6 +45,15 @@ const char* Message::STATUS_FAILED = "Failed";
 const char* Message::STATUS_BAD_REQUEST = "Invalid request type";
 const char* Message::STATUS_BAD_JSON = "Malformed json";
 
+namespace
+{
+constexpr const char error_field[] = "error";
+constexpr const char id_field[] = "id";
+constexpr const char method_field[] = "method";
+constexpr const char params_field[] = "params";
+constexpr const char result_field[] = "result";
+}
+
 rapidjson::Value Message::toJson(rapidjson::Document& doc) const
 {
   rapidjson::Value val(rapidjson::kObjectType);
@@ -70,8 +79,8 @@ FullMessage::FullMessage(const std::string& request, Message* message)
 {
   doc.SetObject();
 
-  doc.AddMember("method", rapidjson::StringRef(request.c_str()), doc.GetAllocator());
-  doc.AddMember("params", message->toJson(doc), doc.GetAllocator());
+  doc.AddMember(method_field, rapidjson::StringRef(request.c_str()), doc.GetAllocator());
+  doc.AddMember(params_field, message->toJson(doc), doc.GetAllocator());
 
   // required by JSON-RPC 2.0 spec
   doc.AddMember("jsonrpc", rapidjson::Value("2.0"), doc.GetAllocator());
@@ -86,7 +95,7 @@ FullMessage::FullMessage(Message* message)
 
   if (message->status == Message::STATUS_OK)
   {
-    doc.AddMember("response", message->toJson(doc), doc.GetAllocator());
+    doc.AddMember(result_field, message->toJson(doc), doc.GetAllocator());
   }
   else
   {
@@ -111,14 +120,14 @@ FullMessage::FullMessage(const std::string& json_string, bool request)
 
   if (request)
   {
-    OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
-    OBJECT_HAS_MEMBER_OR_THROW(doc, "params")
+    OBJECT_HAS_MEMBER_OR_THROW(doc, method_field)
+    OBJECT_HAS_MEMBER_OR_THROW(doc, params_field)
   }
   else
   {
-    if (!doc.HasMember("response") && !doc.HasMember("error"))
+    if (!doc.HasMember(result_field) && !doc.HasMember(error_field))
     {
-      throw cryptonote::json::MISSING_KEY("error/response");
+      throw cryptonote::json::MISSING_KEY("error/result");
     }
   }
 }
@@ -126,9 +135,9 @@ FullMessage::FullMessage(const std::string& json_string, bool request)
 std::string FullMessage::getJson()
 {
 
-  if (!doc.HasMember("id"))
+  if (!doc.HasMember(id_field))
   {
-    doc.AddMember("id", rapidjson::Value("unused"), doc.GetAllocator());
+    doc.AddMember(id_field, rapidjson::Value("unused"), doc.GetAllocator());
   }
 
   rapidjson::StringBuffer buf;
@@ -142,24 +151,24 @@ std::string FullMessage::getJson()
 
 std::string FullMessage::getRequestType() const
 {
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "method")
-  return doc["method"].GetString();
+  OBJECT_HAS_MEMBER_OR_THROW(doc, method_field)
+  return doc[method_field].GetString();
 }
 
 rapidjson::Value& FullMessage::getMessage()
 {
-  if (doc.HasMember("params"))
+  if (doc.HasMember(params_field))
   {
-    return doc["params"];
+    return doc[params_field];
   }
-  else if (doc.HasMember("response"))
+  else if (doc.HasMember(result_field))
   {
-    return doc["response"];
+    return doc[result_field];
   }
 
   //else
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "error")
-  return doc["error"];
+  OBJECT_HAS_MEMBER_OR_THROW(doc, error_field)
+  return doc[error_field];
 
 }
 
@@ -172,20 +181,20 @@ rapidjson::Value FullMessage::getMessageCopy()
 
 rapidjson::Value& FullMessage::getID()
 {
-  OBJECT_HAS_MEMBER_OR_THROW(doc, "id")
-  return doc["id"];
+  OBJECT_HAS_MEMBER_OR_THROW(doc, id_field)
+  return doc[id_field];
 }
 
 void FullMessage::setID(rapidjson::Value& id)
 {
-  auto itr = doc.FindMember("id");
+  auto itr = doc.FindMember(id_field);
   if (itr != doc.MemberEnd())
   {
     itr->value = id;
   }
   else
   {
-    doc.AddMember("id", id, doc.GetAllocator());
+    doc.AddMember(id_field, id, doc.GetAllocator());
   }
 }
 
@@ -193,7 +202,7 @@ cryptonote::rpc::error FullMessage::getError()
 {
   cryptonote::rpc::error err;
   err.use = false;
-  if (doc.HasMember("error"))
+  if (doc.HasMember(error_field))
   {
     GET_FROM_JSON_OBJECT(doc, err, error);
     err.use = true;
