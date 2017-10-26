@@ -39,6 +39,7 @@
 #if defined(__cplusplus)
 #include <memory.h>
 
+#include "common/memwipe.h"
 #include "hash.h"
 
 namespace crypto {
@@ -54,7 +55,7 @@ namespace crypto {
 
     ~chacha8_key()
     {
-      memset(data, 0, sizeof(data));
+      memwipe(data, sizeof(data));
     }
   };
 
@@ -75,7 +76,7 @@ namespace crypto {
     char pwd_hash[HASH_SIZE];
     crypto::cn_slow_hash(data, size, pwd_hash);
     memcpy(&key, pwd_hash, sizeof(key));
-    memset(pwd_hash, 0, sizeof(pwd_hash));
+    memwipe(pwd_hash, sizeof(pwd_hash));
   }
 
   inline void generate_chacha8_key(std::string password, chacha8_key& key) {

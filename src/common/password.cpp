@@ -46,6 +46,8 @@
   #include "readline_buffer.h"
 #endif
 
+#include "common/memwipe.h"
+
 namespace
 {
 #if defined(_WIN32)
@@ -163,8 +165,9 @@ namespace
 
   void clear(std::string& pass) noexcept
   {
-    //! TODO Call a memory wipe function that hopefully is not optimized out
-    pass.replace(0, pass.capacity(), pass.capacity(), '\0');
+    // technically, the std::string documentation says the data should not be modified,
+    // but there seems to be no way to get a non const raw pointer to the data
+    memwipe((void*)pass.data(), pass.size());
     pass.clear();
   }
 
