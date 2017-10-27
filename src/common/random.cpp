@@ -200,9 +200,9 @@ static void RandAddSeedPerfmon()
 /** Fallback: get 32 bytes of system entropy from /dev/urandom. The most
  * compatible way to get cryptographic randomness on UNIX-ish platforms.
  */
-void GetDevURandom(unsigned char *ent32)
+static void GetDevice(const char *device, unsigned char *ent32)
 {
-    int f = open("/dev/urandom", O_RDONLY);
+    int f = open(device, O_RDONLY);
     if (f == -1) {
         RandFailure();
     }
@@ -216,6 +216,26 @@ void GetDevURandom(unsigned char *ent32)
         have += n;
     } while (have < NUM_OS_RANDOM_BYTES);
     close(f);
+}
+void GetDevURandom(unsigned char *ent32)
+{
+  GetDevice("/dev/urandom", ent32);
+}
+void GetDevRandom(unsigned char *ent32)
+{
+  GetDevice("/dev/random", ent32);
+}
+static bool HasDevRandom()
+{
+  int f = open("/dev/random", O_RDONLY);
+  if (!f)
+  {
+    MINFO("/dev/random is not available");
+    return false;
+  }
+  close(f);
+  MINFO("/dev/random is available");
+  return true;
 }
 #endif
 
@@ -439,7 +459,40 @@ bool Random_SanityCheck()
     return true;
 }
 
+// May block till enough entropy is accumulated
+static void FirstSeedIfNeeded()
+{
+#ifndef HAVE_SYS_GETRANDOM
+    if (!HasDevRandom())
+    {
+        MWARNING("No getrandom, and /dev/random does not exist");
+        return;
+    }
+
+    Hasher hasher;
+    unsigned char buf[64];
+
+    MINFO("Seeding with /dev/random");
+
+    GetDevRandom(buf);
+    hasher.Write(buf, 32);
+
+    // Combine with and update state
+    {
+        std::unique_lock<std::mutex> lock(cs_rng_state);
+        hasher.Write(rng_state, sizeof(rng_state));
+        hasher.Write((const unsigned char*)&rng_counter, sizeof(rng_counter));
+        ++rng_counter;
+        hasher.Finalize(buf);
+        memcpy(rng_state, buf + 32, 32);
+    }
+
+    memwipe(buf, 64);
+#endif
+}
+
 void RandomInit()
 {
+    FirstSeedIfNeeded();
     RDRandInit();
 }
