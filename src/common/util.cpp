@@ -542,6 +542,8 @@ std::string get_nix_version_display_string()
   }
   bool on_startup()
   {
+    mlog_configure("", true);
+
     sanitize_locale();
 
 #ifdef __GLIBC__
