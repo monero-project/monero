@@ -102,6 +102,7 @@ target_link_libraries(daemon
     ${Boost_SYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${ZMQ_LIB}
+    ${Readline_LIBRARY}
     ${EXTRA_LIBRARIES})
 set_property(TARGET daemon
   PROPERTY
