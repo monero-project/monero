@@ -82,7 +82,6 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
       bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
       command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
-      command_line::add_arg(visible_options, command_line::arg_test_dbg_lock_sleep);
 
       // Settings
       bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
@@ -144,8 +143,6 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, command_line::arg_test_dbg_lock_sleep);
-
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
 
     // verify that blockchaindb type is valid
@@ -156,9 +153,9 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    bool testnet_mode = command_line::get_arg(vm, command_line::arg_testnet_on);
+    bool testnet_mode = command_line::get_arg(vm, cryptonote::arg_testnet_on);
 
-    auto data_dir_arg = testnet_mode ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    auto data_dir_arg = testnet_mode ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
 
     // data_dir
     //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet

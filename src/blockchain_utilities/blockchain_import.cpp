@@ -585,11 +585,6 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<uint64_t> arg_batch_size  = {"batch-size", "", db_batch_size};
   const command_line::arg_descriptor<uint64_t> arg_pop_blocks  = {"pop-blocks", "Remove blocks from end of blockchain", num_blocks};
   const command_line::arg_descriptor<bool>        arg_drop_hf  = {"drop-hard-fork", "Drop hard fork subdbs", false};
-  const command_line::arg_descriptor<bool>     arg_testnet_on  = {
-    "testnet"
-      , "Run on testnet."
-      , false
-  };
   const command_line::arg_descriptor<bool>     arg_count_blocks = {
     "count-blocks"
       , "Count blocks in bootstrap file and exit"
@@ -674,8 +669,8 @@ int main(int argc, char* argv[])
     }
   }
 
-  opt_testnet = command_line::get_arg(vm, arg_testnet_on);
-  auto data_dir_arg = opt_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+  opt_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
+  auto data_dir_arg = opt_testnet ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
   m_config_folder = command_line::get_arg(vm, data_dir_arg);
   db_arg_str = command_line::get_arg(vm, arg_database);
 

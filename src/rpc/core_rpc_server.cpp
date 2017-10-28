@@ -85,7 +85,7 @@ namespace cryptonote
       const boost::program_options::variables_map& vm
     )
   {
-    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     m_net_server.set_threads_prefix("RPC");
 
     auto p2p_bind_arg = m_testnet ? arg_testnet_rpc_bind_port : arg_rpc_bind_port;

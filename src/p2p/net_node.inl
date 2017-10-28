@@ -48,6 +48,7 @@
 #include "net/local_ip.h"
 #include "crypto/crypto.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "cryptonote_core/cryptonote_core.h"
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
@@ -434,7 +435,7 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm)
   {
     std::set<std::string> full_addrs;
-    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
 
     if (m_testnet)
     {
@@ -535,7 +536,7 @@ namespace nodetool
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
 
-    auto config_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    auto config_arg = m_testnet ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
     m_config_folder = command_line::get_arg(vm, config_arg);
 
     if ((!m_testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))

@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 
   po::options_description desc_options("Command line options");
   const command_line::arg_descriptor<std::string> arg_data_dir = {"data-dir", "Data files directory", "", true};
-  command_line::add_arg(desc_options, command_line::arg_data_dir, "");
+  command_line::add_arg(desc_options, arg_data_dir, "");
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()

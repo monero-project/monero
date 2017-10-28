@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 
   po::options_description desc("Allowed options");
   // tools::get_default_data_dir() can't be called during static initialization
-  command_line::add_arg(desc, command_line::arg_data_dir, tools::get_default_data_dir());
+  command_line::add_arg(desc, cryptonote::arg_data_dir, tools::get_default_data_dir());
   nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<tests::proxy_core> >::init_options(desc);
 
   po::variables_map vm;

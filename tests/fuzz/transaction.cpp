@@ -27,7 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "include_base_utils.h"
-#include "common/command_line.h"
 #include "file_io_utils.h"
 #include "cryptonote_protocol/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
