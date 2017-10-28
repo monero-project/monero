@@ -47,6 +47,7 @@ namespace epee
 
     PRAGMA_WARNING_PUSH
       PRAGMA_GCC("GCC diagnostic ignored \"-Wstrict-aliasing\"")
+      PRAGMA_GCC("GCC diagnostic ignored \"-Wtautological-constant-out-of-range-compare\"")
       template<class t_stream>
     size_t pack_varint(t_stream& strm, size_t val)
     {   //the first two bits always reserved for size information
