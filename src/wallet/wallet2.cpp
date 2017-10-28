@@ -135,7 +135,7 @@ uint64_t calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, ui
   return calculate_fee(fee_per_kb, blob.size(), fee_multiplier);
 }
 
-std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, const options& opts)
+std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool restricted = command_line::get_arg(vm, opts.restricted);
@@ -154,7 +154,9 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (command_line::has_arg(vm, opts.daemon_login))
   {
     auto parsed = tools::login::parse(
-      command_line::get_arg(vm, opts.daemon_login), false, "Daemon client password"
+      command_line::get_arg(vm, opts.daemon_login), false, [password_prompter](bool verify) {
+        return password_prompter("Daemon client password", verify);
+      }
     );
     if (!parsed)
       return nullptr;
@@ -178,7 +180,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   return wallet;
 }
 
-boost::optional<tools::password_container> get_password(const boost::program_options::variables_map& vm, const options& opts, const bool verify)
+boost::optional<tools::password_container> get_password(const boost::program_options::variables_map& vm, const options& opts, const std::function<boost::optional<tools::password_container>(const char*, bool)> &password_prompter, const bool verify)
 {
   if (command_line::has_arg(vm, opts.password) && command_line::has_arg(vm, opts.password_file))
   {
@@ -207,10 +209,10 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
     return {tools::password_container{std::move(password)}};
   }
 
-  return tools::wallet2::password_prompt(verify);
+  return password_prompter(verify ? tr("Enter new wallet password") : tr("Wallet password"), verify);
 }
 
-std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, const options& opts)
+std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
 
@@ -359,7 +361,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       return false;
     }
 
-    wallet.reset(make_basic(vm, opts).release());
+    wallet.reset(make_basic(vm, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
 
     try
@@ -496,34 +498,22 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.restricted);
 }
 
-boost::optional<password_container> wallet2::password_prompt(const bool new_password)
-{
-  auto pwd_container = tools::password_container::prompt(
-    new_password, (new_password ? tr("Enter new wallet password") : tr("Wallet password"))
-  );
-  if (!pwd_container)
-  {
-    tools::fail_msg_writer() << tr("failed to read wallet password");
-  }
-  return pwd_container;
-}
-
-std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file)
+std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const options opts{};
-  return generate_from_json(json_file, vm, opts);
+  return generate_from_json(json_file, vm, opts, password_prompter);
 }
 
 std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
-  const boost::program_options::variables_map& vm, const std::string& wallet_file)
+  const boost::program_options::variables_map& vm, const std::string& wallet_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const options opts{};
-  auto pwd = get_password(vm, opts, false);
+  auto pwd = get_password(vm, opts, password_prompter, false);
   if (!pwd)
   {
     return {nullptr, password_container{}};
   }
-  auto wallet = make_basic(vm, opts);
+  auto wallet = make_basic(vm, opts, password_prompter);
   if (wallet)
   {
     wallet->load(wallet_file, pwd->password());
@@ -531,21 +521,21 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
   return {std::move(wallet), std::move(*pwd)};
 }
 
-std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const boost::program_options::variables_map& vm)
+std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter)
 {
   const options opts{};
-  auto pwd = get_password(vm, opts, true);
+  auto pwd = get_password(vm, opts, password_prompter, true);
   if (!pwd)
   {
     return {nullptr, password_container{}};
   }
-  return {make_basic(vm, opts), std::move(*pwd)};
+  return {make_basic(vm, opts, password_prompter), std::move(*pwd)};
 }
 
-std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::variables_map& vm)
+std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const options opts{};
-  return make_basic(vm, opts);
+  return make_basic(vm, opts, password_prompter);
 }
 
 //----------------------------------------------------------------------------------------------------

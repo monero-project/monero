@@ -82,7 +82,7 @@ namespace tools
        \return The username and password, or boost::none if
          `password_container::prompt` fails.
      */
-    static boost::optional<login> parse(std::string&& userpass, bool verify, const char* message = "Password");
+    static boost::optional<login> parse(std::string&& userpass, bool verify, const std::function<boost::optional<password_container>(bool)> &prompt);
 
     login(const login&) = delete;
     login(login&&) = default;

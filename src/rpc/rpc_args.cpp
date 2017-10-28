@@ -83,7 +83,9 @@ namespace cryptonote
 
     if (command_line::has_arg(vm, arg.rpc_login))
     {
-      config.login = tools::login::parse(command_line::get_arg(vm, arg.rpc_login), true, "RPC server password");
+      config.login = tools::login::parse(command_line::get_arg(vm, arg.rpc_login), true, [](bool verify) {
+        return tools::password_container::prompt(verify, "RPC server password");
+      });
       if (!config.login)
         return boost::none;
 
