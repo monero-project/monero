@@ -144,11 +144,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
   auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
 
-  if (!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port)
-  {
-    tools::fail_msg_writer() << tools::wallet2::tr("can't specify daemon host or port more than once");
-    return nullptr;
-  }
+  THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
+      tools::error::wallet_internal_error, tools::wallet2::tr("can't specify daemon host or port more than once"));
 
   boost::optional<epee::net_utils::http::login> login{};
   if (command_line::has_arg(vm, opts.daemon_login))
@@ -184,8 +181,7 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 {
   if (command_line::has_arg(vm, opts.password) && command_line::has_arg(vm, opts.password_file))
   {
-    tools::fail_msg_writer() << tools::wallet2::tr("can't specify more than one of --password and --password-file");
-    return boost::none;
+    THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("can't specify more than one of --password and --password-file"));
   }
 
   if (command_line::has_arg(vm, opts.password))
@@ -198,11 +194,7 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
     std::string password;
     bool r = epee::file_io_utils::load_file_to_string(command_line::get_arg(vm, opts.password_file),
                                                       password);
-    if (!r)
-    {
-      tools::fail_msg_writer() << tools::wallet2::tr("the password file specified could not be read");
-      return boost::none;
-    }
+    THROW_WALLET_EXCEPTION_IF(!r, tools::error::wallet_internal_error, tools::wallet2::tr("the password file specified could not be read"));
 
     // Remove line breaks the user might have inserted
     boost::trim_right_if(password, boost::is_any_of("\r\n"));
@@ -223,22 +215,20 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
   const auto do_generate = [&]() -> bool {
     std::string buf;
     if (!epee::file_io_utils::load_file_to_string(json_file, buf)) {
-      tools::fail_msg_writer() << tools::wallet2::tr("Failed to load file ") << json_file;
+      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, std::string(tools::wallet2::tr("Failed to load file ")) + json_file);
       return false;
     }
 
     rapidjson::Document json;
     if (json.Parse(buf.c_str()).HasParseError()) {
-      tools::fail_msg_writer() << tools::wallet2::tr("Failed to parse JSON");
+      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Failed to parse JSON"));
       return false;
     }
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, version, unsigned, Uint, true, 0);
     const int current_version = 1;
-    if (field_version > current_version) {
-      tools::fail_msg_writer() << boost::format(tools::wallet2::tr("Version %u too new, we can only grok up to %u")) % field_version % current_version;
-      return false;
-    }
+    THROW_WALLET_EXCEPTION_IF(field_version > current_version, tools::error::wallet_internal_error,
+      ((boost::format(tools::wallet2::tr("Version %u too new, we can only grok up to %u")) % field_version % current_version)).str());
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, filename, std::string, String, true, std::string());
 
@@ -254,14 +244,12 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       cryptonote::blobdata viewkey_data;
       if(!epee::string_tools::parse_hexstr_to_binbuff(field_viewkey, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
       {
-        tools::fail_msg_writer() << tools::wallet2::tr("failed to parse view key secret key");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to parse view key secret key"));
       }
       viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
       crypto::public_key pkey;
       if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
-        tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify view key secret key"));
       }
     }
 
@@ -272,14 +260,12 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       cryptonote::blobdata spendkey_data;
       if(!epee::string_tools::parse_hexstr_to_binbuff(field_spendkey, spendkey_data) || spendkey_data.size() != sizeof(crypto::secret_key))
       {
-        tools::fail_msg_writer() << tools::wallet2::tr("failed to parse spend key secret key");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to parse spend key secret key"));
       }
       spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
       crypto::public_key pkey;
       if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
-        tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify spend key secret key"));
       }
     }
 
@@ -291,8 +277,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     {
       if (!crypto::ElectrumWords::words_to_bytes(field_seed, recovery_key, old_language))
       {
-        tools::fail_msg_writer() << tools::wallet2::tr("Electrum-style word list failed verification");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Electrum-style word list failed verification"));
       }
       restore_deterministic_wallet = true;
 
@@ -309,13 +294,11 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     // compatibility checks
     if (!field_seed_found && !field_viewkey_found && !field_spendkey_found)
     {
-      tools::fail_msg_writer() << tools::wallet2::tr("At least one of Electrum-style word list and private view key and private spend key must be specified");
-      return false;
+      THROW_WALLET_EXCEPTION(tools::wallet2::tr("At least one of Electrum-style word list and private view key and private spend key must be specified"));
     }
     if (field_seed_found && (field_viewkey_found || field_spendkey_found))
     {
-      tools::fail_msg_writer() << tools::wallet2::tr("Both Electrum-style word list and private key(s) specified");
-      return false;
+      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Both Electrum-style word list and private key(s) specified"));
     }
 
     // if an address was given, we check keys against it, and deduce the spend
@@ -325,41 +308,34 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       cryptonote::address_parse_info info;
       if(!get_account_address_from_str(info, testnet, field_address))
       {
-        tools::fail_msg_writer() << tools::wallet2::tr("invalid address");
-        return false;
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("invalid address"));
       }
       if (field_viewkey_found)
       {
         crypto::public_key pkey;
         if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
-          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
-          return false;
+          THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify view key secret key"));
         }
         if (info.address.m_view_public_key != pkey) {
-          tools::fail_msg_writer() << tools::wallet2::tr("view key does not match standard address");
-          return false;
+          THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("view key does not match standard address"));
         }
       }
       if (field_spendkey_found)
       {
         crypto::public_key pkey;
         if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
-          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
-          return false;
+          THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify spend key secret key"));
         }
         if (info.address.m_spend_public_key != pkey) {
-          tools::fail_msg_writer() << tools::wallet2::tr("spend key does not match standard address");
-          return false;
+          THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("spend key does not match standard address"));
         }
       }
     }
 
     const bool deprecated_wallet = restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
       crypto::ElectrumWords::get_is_old_style_seed(field_seed));
-    if (deprecated_wallet) {
-      tools::fail_msg_writer() << tools::wallet2::tr("Cannot create deprecated wallets from JSON");
-      return false;
-    }
+    THROW_WALLET_EXCEPTION_IF(deprecated_wallet, tools::error::wallet_internal_error,
+      tools::wallet2::tr("Cannot create deprecated wallets from JSON"));
 
     wallet.reset(make_basic(vm, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
@@ -378,8 +354,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       {
         cryptonote::account_public_address address;
         if (!crypto::secret_key_to_public_key(viewkey, address.m_view_public_key)) {
-          tools::fail_msg_writer() << tools::wallet2::tr("failed to verify view key secret key");
-          return false;
+          THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify view key secret key"));
         }
 
         if (field_spendkey.empty())
@@ -391,8 +366,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
             cryptonote::address_parse_info info;
             if(!get_account_address_from_str(info, testnet, field_address))
             {
-              tools::fail_msg_writer() << tools::wallet2::tr("failed to parse address: ") << field_address;
-              return false;
+              THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, std::string(tools::wallet2::tr("failed to parse address: ")) + field_address);
             }
             address.m_spend_public_key = info.address.m_spend_public_key;
           }
@@ -406,8 +380,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
         else
         {
           if (!crypto::secret_key_to_public_key(spendkey, address.m_spend_public_key)) {
-            tools::fail_msg_writer() << tools::wallet2::tr("failed to verify spend key secret key");
-            return false;
+            THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to verify spend key secret key"));
           }
           wallet->generate(field_filename, field_password, address, spendkey, viewkey);
         }
@@ -415,8 +388,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     }
     catch (const std::exception& e)
     {
-      tools::fail_msg_writer() << tools::wallet2::tr("failed to generate new wallet: ") << e.what();
-      return false;
+      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, std::string(tools::wallet2::tr("failed to generate new wallet: ")) + e.what());
     }
     return true;
   };
@@ -6513,16 +6485,12 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   std::string data;
   bool r = epee::file_io_utils::load_file_to_string(filename, data);
 
-  if (!r)
-  {
-    fail_msg_writer() << tr("failed to read file ") << filename;
-    return 0;
-  }
+  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, std::string(tr("failed to read file ")) + filename);
+
   const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
   if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
   {
-    fail_msg_writer() << "Bad key image export file magic in " << filename;
-    return 0;
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad key image export file magic in ") + filename);
   }
 
   try
@@ -6531,31 +6499,22 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   }
   catch (const std::exception &e)
   {
-    fail_msg_writer() << "Failed to decrypt " << filename << ": " << e.what();
-    return 0;
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to decrypt ") + filename + ": " + e.what());
   }
 
   const size_t headerlen = 2 * sizeof(crypto::public_key);
-  if (data.size() < headerlen)
-  {
-    fail_msg_writer() << "Bad data size from file " << filename;
-    return 0;
-  }
+  THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, std::string("Bad data size from file ") + filename);
   const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
   const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
   if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
   {
-    fail_msg_writer() << "Key images from " << filename << " are for a different account";
-    return 0;
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string( "Key images from ") + filename + " are for a different account");
   }
 
   const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
-  if ((data.size() - headerlen) % record_size)
-  {
-    fail_msg_writer() << "Bad data size from file " << filename;
-    return 0;
-  }
+  THROW_WALLET_EXCEPTION_IF((data.size() - headerlen) % record_size,
+      error::wallet_internal_error, std::string("Bad data size from file ") + filename);
   size_t nki = (data.size() - headerlen) / record_size;
 
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;

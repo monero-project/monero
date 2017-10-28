@@ -30,7 +30,6 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/format.hpp>
 #include "common/i18n.h"
-#include "common/scoped_message_writer.h"
 #include "common/util.h"
 #include "misc_log_ex.h"
 #include "string_tools.h"
@@ -50,6 +49,20 @@
 #define DEFAULT_MAX_CONCURRENCY 0
 #endif
 
+namespace
+{
+  class Print
+  {
+  public:
+    Print(const std::function<void(const std::string&, bool)> &p, bool em = false): print(p), emphasis(em) {}
+    ~Print() { print(ss.str(), emphasis); }
+    template<typename T> std::ostream &operator<<(const T &t) { ss << t; return ss; }
+  private:
+    const std::function<void(const std::string&, bool)> &print;
+    std::stringstream ss;
+    bool emphasis;
+  };
+}
 
 namespace wallet_args
 {
@@ -73,6 +86,7 @@ namespace wallet_args
     const char* const usage,
     boost::program_options::options_description desc_params,
     const boost::program_options::positional_options_description& positional_options,
+    const std::function<void(const std::string&, bool)> &print,
     const char *default_log_name,
     bool log_to_console)
   
@@ -118,16 +132,16 @@ namespace wallet_args
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {
-        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
-        tools::msg_writer() << wallet_args::tr("This is the command line monero wallet. It needs to connect to a monero\n"
+        Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
+        Print(print) << wallet_args::tr("This is the command line monero wallet. It needs to connect to a monero\n"
 												  "daemon to work correctly.") << ENDL;
-        tools::msg_writer() << wallet_args::tr("Usage:") << ENDL << "  " << usage;
-        tools::msg_writer() << desc_all;
+        Print(print) << wallet_args::tr("Usage:") << ENDL << "  " << usage;
+        Print(print) << desc_all;
         return false;
       }
       else if (command_line::get_arg(vm, command_line::arg_version))
       {
-        tools::msg_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+        Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
         return false;
       }
 
@@ -142,7 +156,7 @@ namespace wallet_args
         }
         else
         {
-          tools::fail_msg_writer() << wallet_args::tr("Can't find config file ") << config;
+          MERROR(wallet_args::tr("Can't find config file ") << config);
           return false;
         }
       }
@@ -167,14 +181,15 @@ namespace wallet_args
     if(command_line::has_arg(vm, arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
 
-    tools::scoped_message_writer(epee::console_color_white, true) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+    Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
 
     if (!command_line::is_arg_defaulted(vm, arg_log_level))
       MINFO("Setting log level = " << command_line::get_arg(vm, arg_log_level));
     else
       MINFO("Setting log levels = " << getenv("MONERO_LOGS"));
     MINFO(wallet_args::tr("Logging to: ") << log_path);
-    tools::scoped_message_writer(epee::console_color_white, true) << boost::format(wallet_args::tr("Logging to %s")) % log_path;
+
+    Print(print) << boost::format(wallet_args::tr("Logging to %s")) % log_path;
 
     return {std::move(vm)};
   }

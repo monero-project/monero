@@ -1501,7 +1501,15 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     else if (!m_generate_from_json.empty())
     {
       m_wallet_file = m_generate_from_json;
-      m_wallet = tools::wallet2::make_from_json(vm, m_wallet_file, password_prompter);
+      try
+      {
+        m_wallet = tools::wallet2::make_from_json(vm, m_wallet_file, password_prompter);
+      }
+      catch (const std::exception &e)
+      {
+        fail_msg_writer() << e.what();
+        return false;
+      }
       if (!m_wallet)
         return false;
     }
@@ -5702,6 +5710,7 @@ int main(int argc, char* argv[])
    "monero-wallet-cli [--wallet-file=<file>|--generate-new-wallet=<file>] [<COMMAND>]",
     desc_params,
     positional_options,
+    [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },
     "monero-wallet-cli.log"
   );
 
