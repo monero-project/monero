@@ -125,6 +125,19 @@ namespace
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
+  std::string input_line(const std::string& prompt)
+  {
+#ifdef HAVE_READLINE
+    rdln::suspend_readline pause_readline;
+#endif
+    std::cout << prompt;
+
+    std::string buf;
+    std::getline(std::cin, buf);
+
+    return epee::string_tools::trim(buf);
+  }
+
   inline std::string interpret_rpc_response(bool ok, const std::string& status)
   {
     std::string err;

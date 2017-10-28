@@ -36,10 +36,6 @@
 #include "cryptonote_config.h"
 #include "string_tools.h"
 
-#ifdef HAVE_READLINE
-  #include "readline_buffer.h"
-#endif
-
 namespace command_line
 {
   namespace
@@ -48,20 +44,6 @@ namespace command_line
     {
       return i18n_translate(str, "command_line");
     }
-  }
-
-  std::string input_line(const std::string& prompt)
-  {
-#ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
-#endif
-    std::cout << prompt;
-
-    std::string buf;
-    std::getline(std::cin, buf);
-
-    return epee::string_tools::trim(buf);
-
   }
 
   bool is_yes(const std::string& str)
