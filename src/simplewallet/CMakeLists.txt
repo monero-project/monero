@@ -49,7 +49,7 @@ target_link_libraries(simplewallet
     common
     mnemonics
     epee
-    epee_readline
+    ${EPEE_READLINE}
     version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

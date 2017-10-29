@@ -108,7 +108,7 @@ if (NOT BUILD_GUI_DEPS)
     PRIVATE
       wallet
       epee
-      epee_readline
+      ${EPEE_READLINE}
       rpc
       cryptonote_core
       cncrypto
