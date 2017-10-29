@@ -26,10 +26,9 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp net_utils_base.cpp string_tools.cpp)
 if (USE_READLINE AND GNU_READLINE_FOUND)
-  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp net_utils_base.cpp string_tools.cpp readline_buffer.cpp)
-else()
-  add_library(epee STATIC hex.cpp http_auth.cpp mlog.cpp net_utils_base.cpp string_tools.cpp)
+  add_library(epee_readline STATIC readline_buffer.cpp)
 endif()
 
 # Build and install libepee if we're building for GUI
@@ -41,6 +40,10 @@ if (BUILD_GUI_DEPS)
     endif()
     install(TARGETS epee
         ARCHIVE DESTINATION ${lib_folder})
+    if (USE_READLINE AND GNU_READLINE_FOUND)
+      install(TARGETS epee_readline
+          ARCHIVE DESTINATION ${lib_folder})
+    endif()
 endif()
 
 target_link_libraries(epee
@@ -51,3 +54,11 @@ target_link_libraries(epee
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
+
+if (USE_READLINE AND GNU_READLINE_FOUND)
+  target_link_libraries(epee_readline
+    PUBLIC
+      easylogging
+    PRIVATE
+      ${Readline_LIBRARY})
+endif()
