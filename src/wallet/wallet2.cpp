@@ -468,6 +468,19 @@ static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
   container.emplace(key, pd);
 }
 
+void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_t N)
+{
+  std::list<crypto::hash>::iterator right;
+  // drop early N off, skipping the genesis block
+  if (short_chain_history.size() > N) {
+    right = short_chain_history.end();
+    std::advance(right,-1);
+    std::list<crypto::hash>::iterator left = right;
+    std::advance(left, -N);
+    short_chain_history.erase(left, right);
+  }
+}
+
 } //namespace
 
 namespace tools
@@ -1521,6 +1534,8 @@ void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_hei
 
   try
   {
+    drop_from_short_history(short_chain_history, 3);
+
     // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
     cryptonote::block bl;
     std::list<cryptonote::block_complete_entry>::const_reverse_iterator i = prev_blocks.rbegin();
@@ -1810,16 +1825,8 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     if (hashes.size() <= 3)
       return;
     if (hashes.size() + current_index < stop_height) {
-      std::list<crypto::hash>::iterator right;
-      // drop early 3 off, skipping the genesis block
-      if (short_chain_history.size() > 3) {
-        right = short_chain_history.end();
-        std::advance(right,-1);
-        std::list<crypto::hash>::iterator left = right;
-        std::advance(left, -3);
-        short_chain_history.erase(left, right);
-      }
-      right = hashes.end();
+      drop_from_short_history(short_chain_history, 3);
+      std::list<crypto::hash>::iterator right = hashes.end();
       // prepend 3 more
       for (int i = 0; i<3; i++) {
         right--;
