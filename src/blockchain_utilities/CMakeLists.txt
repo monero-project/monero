@@ -93,6 +93,7 @@ endif()
 set_property(TARGET blockchain_import
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-import")
+install(TARGETS blockchain_import DESTINATION bin)
 
 monero_add_executable(blockchain_export
   ${blockchain_export_sources}
@@ -114,4 +115,5 @@ target_link_libraries(blockchain_export
 set_property(TARGET blockchain_export
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-export")
+install(TARGETS blockchain_export DESTINATION bin)
 
