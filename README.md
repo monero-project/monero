@@ -1,14 +1,14 @@
 # Electroneum
 
-Copyright (c) 2017, The Electroneum Project
-Copyright (c) 2014-2017, The Monero Project
-Portions Copyright (c) 2012-2013, The Cryptonote developers
+Copyright (c) 2017, The Electroneum Project  
+Copyright (c) 2014-2017, The Monero Project  
+Portions Copyright (c) 2012-2013, The Cryptonote developers  
 
 ## Development Resources
 
 - Web: [electroneum.com](https://electroneum.com)
 - Forum: [electroneumtalk.proboards.com](https://electroneumtalk.proboards.com)
-- Mail: [dev@electroneum.com](mailto:dev@electroneum.com)
+- Mail: [support@electroneum.com](mailto:support@electroneum.com)
 - GitHub: [https://github.com/electroneum/electroneum](https://github.com/electroneum/electroneum)
 
 ## Introduction
