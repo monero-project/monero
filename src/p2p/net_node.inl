@@ -413,15 +413,15 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("13.124.111.116:26967");
-      full_addrs.insert("13.124.159.125:26967");
-      full_addrs.insert("13.124.92.135:26967");
-      full_addrs.insert("52.48.6.23:26967");
-      full_addrs.insert("34.240.223.115:26967");
-      full_addrs.insert("52.210.63.142:26967");
-      full_addrs.insert("34.236.159.1:26967");
-      full_addrs.insert("52.54.144.107:26967");
-      full_addrs.insert("34.236.55.172:26967");
+      full_addrs.insert("13.125.37.208:26967");
+      full_addrs.insert("13.125.50.165:26967");
+      full_addrs.insert("13.124.43.88:26967");
+      full_addrs.insert("34.250.126.109:26967");
+      full_addrs.insert("52.50.2.110:26967");
+      full_addrs.insert("34.240.247.44:26967");
+      full_addrs.insert("34.237.39.232:26967");
+      full_addrs.insert("34.236.180.233:26967");
+      full_addrs.insert("34.197.74.127:26967");
     }
     return full_addrs;
   }
