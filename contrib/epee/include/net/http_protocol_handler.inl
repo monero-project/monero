@@ -316,7 +316,10 @@ namespace net_utils
 		CHECK_AND_ASSERT_MES(result[0].matched, false, "simple_http_connection_handler::analize_http_method() assert failed...");
 		http_ver_major = boost::lexical_cast<int>(result[11]);
 		http_ver_minor = boost::lexical_cast<int>(result[12]);
-		if(result[4].matched)
+
+		if(result[3].matched)
+			method = http::http_method_options;
+		else if(result[4].matched)
 			method = http::http_method_get;
 		else if(result[5].matched)
 			method = http::http_method_head;
@@ -472,8 +475,8 @@ namespace net_utils
 	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
 	{ 
 		STATIC_REGEXP_EXPR_1(rexp_mach_field, 
-			"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)"
-			//  12            3         4                5              6                   7                  8      9        10
+			"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)|(Origin)"
+			//  12            3         4                5              6                   7                  8      9        10           11
 			"|([\\w-]+?)) ?: ?((.*?)(\r?\n))[^\t ]",	
 			//11             1213   14 
 			boost::regex::icase | boost::regex::normal);
@@ -487,8 +490,8 @@ namespace net_utils
 		//lookup all fields and fill well-known fields
 		while( boost::regex_search( it_current_bound, it_end_bound, result, rexp_mach_field, boost::match_default) && result[0].matched) 
 		{
-			const size_t field_val = 13;
-			const size_t field_etc_name = 11;
+			const size_t field_val = 14;
+			const size_t field_etc_name = 12;
 
 			int i = 2; //start position = 2
 			if(result[i++].matched)//"Connection"
@@ -509,6 +512,8 @@ namespace net_utils
 				body_info.m_cookie = result[field_val];
 			else if(result[i++].matched)//"User-Agent"
 				body_info.m_user_agent = result[field_val];
+			else if(result[i++].matched)//"Origin"
+				body_info.m_origin = result[field_val];
 			else if(result[i++].matched)//e.t.c (HAVE TO BE MATCHED!)
 				body_info.m_etc_fields.push_back(std::pair<std::string, std::string>(result[field_etc_name], result[field_val]));
 			else
@@ -537,17 +542,27 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::handle_request_and_send_response(const http::http_request_info& query_info)
 	{
-		http_response_info response;
-		bool res = handle_request(query_info, response);
+		http_response_info response{};
 		//CHECK_AND_ASSERT_MES(res, res, "handle_request(query_info, response) returned false" );
+		bool res = true;
+
+		if (query_info.m_http_method != http::http_method_options)
+		{
+			res = handle_request(query_info, response);
+		}
+		else
+		{
+			response.m_response_code = 200;
+			response.m_response_comment = "OK";
+		}
 
 		std::string response_data = get_response_header(response);
-		
 		//LOG_PRINT_L0("HTTP_SEND: << \r\n" << response_data + response.m_body);
+
     LOG_PRINT_L3("HTTP_RESPONSE_HEAD: << \r\n" << response_data);
 		
 		m_psnd_hndlr->do_send((void*)response_data.data(), response_data.size());
-		if(response.m_body.size() && (query_info.m_http_method != http::http_method_head))
+		if ((response.m_body.size() && (query_info.m_http_method != http::http_method_head)) || (query_info.m_http_method == http::http_method_options))
 			m_psnd_hndlr->do_send((void*)response.m_body.data(), response.m_body.size());
 		return res;
 	}
@@ -579,7 +594,6 @@ namespace net_utils
 		response.m_response_comment = "OK";
 		response.m_mime_tipe = get_file_mime_tipe(uri_to_path);
 
-
 		return true;
 	}
 	//-----------------------------------------------------------------------------------
@@ -591,8 +605,12 @@ namespace net_utils
 			"Server: Epee-based\r\n"
 			"Content-Length: ";
 		buf += boost::lexical_cast<std::string>(response.m_body.size()) + "\r\n";
-		buf += "Content-Type: ";
-		buf += response.m_mime_tipe + "\r\n";
+
+		if(!response.m_mime_tipe.empty())
+		{
+			buf += "Content-Type: ";
+			buf += response.m_mime_tipe + "\r\n";
+		}
 
 		buf += "Last-Modified: ";
 		time_t tm;
@@ -612,6 +630,19 @@ namespace net_utils
 				m_want_close = true;
 			}
 		}
+
+		// Cross-origin resource sharing
+		if(m_query_info.m_header_info.m_origin.size())
+		{
+			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
+			{
+				buf += "Access-Control-Allow-Origin: ";
+				buf += m_query_info.m_header_info.m_origin;
+				buf += "\r\n";
+				buf += "Access-Control-Allow-Methods: POST, PUT, GET, OPTIONS\r\n";
+			}
+		}
+
 		//add additional fields, if it is
 		for(fields_list::const_iterator it = response.m_additional_fields.begin(); it!=response.m_additional_fields.end(); it++)
 			buf += it->first + ":" + it->second + "\r\n";

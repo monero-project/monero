@@ -56,6 +56,7 @@ namespace epee
     {}
 
     bool init(const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
+      std::vector<std::string> access_control_origins = std::vector<std::string>(),
       boost::optional<net_utils::http::login> user = boost::none)
     {
 
@@ -64,6 +65,10 @@ namespace epee
 
       //here set folder for hosting reqests
       m_net_server.get_config_object().m_folder = "";
+
+      //set access control allow origins if configured
+      std::sort(access_control_origins.begin(), access_control_origins.end());
+      m_net_server.get_config_object().m_access_control_origins = std::move(access_control_origins);
 
       m_net_server.get_config_object().m_user = std::move(user);
 

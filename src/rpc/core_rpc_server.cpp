@@ -101,7 +101,7 @@ namespace cryptonote
       http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
 
     return epee::http_server_impl_base<core_rpc_server, connection_context>::init(
-      std::move(port), std::move(rpc_config->bind_ip), std::move(http_login)
+      std::move(port), std::move(rpc_config->bind_ip), std::move(rpc_config->access_control_origins), std::move(http_login)
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------

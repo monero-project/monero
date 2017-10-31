@@ -54,6 +54,7 @@ namespace net_utils
 		struct http_server_config
 		{
 			std::string m_folder;
+			std::vector<std::string> m_access_control_origins;
 			boost::optional<login> m_user;
 			critical_section m_lock;
 		};
@@ -193,6 +194,7 @@ namespace net_utils
 				response.m_response_code = 200;
 				response.m_response_comment = "OK";
 				response.m_body.clear();
+
 				return m_config.m_phandler->handle_http_request(query_info, response, m_conn_context);
 			}
 

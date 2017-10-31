@@ -46,6 +46,7 @@ namespace net_utils
 	{
 
 		enum http_method{
+			http_method_options,
 			http_method_get,
 			http_method_post,
 			http_method_put,
@@ -115,6 +116,7 @@ namespace net_utils
 			std::string m_host;             //"Host:"
 			std::string m_cookie;			//"Cookie:"
 			std::string m_user_agent;	//"User-Agent:"
+			std::string m_origin;           //"Origin:"
 			fields_list m_etc_fields;
 
 			void clear()
@@ -128,6 +130,7 @@ namespace net_utils
 				m_host.clear();
 				m_cookie.clear();
 				m_user_agent.clear();
+				m_origin.clear();
 				m_etc_fields.clear();
 			}
 		};
