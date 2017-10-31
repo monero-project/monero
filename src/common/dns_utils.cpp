@@ -484,7 +484,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   if (num_valid_records < 2)
   {
-    LOG_PRINT_L0("WARNING: no two valid MoneroPulse DNS checkpoint records were received");
+    LOG_PRINT_L0("WARNING: no two valid ElectroneumPulse DNS checkpoint records were received");
     return false;
   }
 
@@ -506,7 +506,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   if (good_records_index < 0)
   {
-    LOG_PRINT_L0("WARNING: no two MoneroPulse DNS checkpoint records matched");
+    LOG_PRINT_L0("WARNING: no two ElectroneumPulse DNS checkpoint records matched");
     return false;
   }
 

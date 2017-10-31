@@ -409,22 +409,19 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (testnet)
     {
-      full_addrs.insert("212.83.175.67:28080");
-      full_addrs.insert("5.9.100.248:28080");
-      full_addrs.insert("163.172.182.165:28080");
-      full_addrs.insert("195.154.123.123:28080");
-      full_addrs.insert("212.83.172.165:28080");
+      // Add testnet nodes here
     }
     else
     {
-      full_addrs.insert("107.152.130.98:18080");
-      full_addrs.insert("212.83.175.67:18080");
-      full_addrs.insert("5.9.100.248:18080");
-      full_addrs.insert("163.172.182.165:18080");
-      full_addrs.insert("161.67.132.39:18080");
-      full_addrs.insert("198.74.231.92:18080");
-      full_addrs.insert("195.154.123.123:28080");
-      full_addrs.insert("212.83.172.165:28080");
+      full_addrs.insert("13.124.111.116:26967");
+      full_addrs.insert("13.124.159.125:26967");
+      full_addrs.insert("13.124.92.135:26967");
+      full_addrs.insert("52.48.6.23:26967");
+      full_addrs.insert("34.240.223.115:26967");
+      full_addrs.insert("52.210.63.142:26967");
+      full_addrs.insert("34.236.159.1:26967");
+      full_addrs.insert("52.54.144.107:26967");
+      full_addrs.insert("34.236.55.172:26967");
     }
     return full_addrs;
   }

@@ -1626,7 +1626,7 @@ Warning: Some input keys being spent are from </source>
         <source>Your wallet has been generated!
 To start synchronizing with the daemon, use &quot;refresh&quot; command.
 Use &quot;help&quot; command to see the list of available commands.
-Always use &quot;exit&quot; command when closing monero-wallet-cli to save your
+Always use &quot;exit&quot; command when closing electroneum-wallet-cli to save your
 current session&apos;s state. Otherwise, you might need to synchronize 
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>

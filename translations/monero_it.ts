@@ -1618,14 +1618,14 @@ Warning: Some input keys being spent are from </source>
         <source>Your wallet has been generated!
 To start synchronizing with the daemon, use &quot;refresh&quot; command.
 Use &quot;help&quot; command to see the list of available commands.
-Always use &quot;exit&quot; command when closing monero-wallet-cli to save your
+Always use &quot;exit&quot; command when closing electroneum-wallet-cli to save your
 current session&apos;s state. Otherwise, you might need to synchronize 
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Il tuo portafoglio è stato generato!
 Per iniziare a sincronizzarlo con il daemon, usa il comando &quot;refresh&quot;.
 Usa il comando &quot;help&quot; per vedere la lista dei comandi disponibili.
-Usa sempre il comando &quot;exit&quot; quando chiudi monero-wallet-cli per salvare
+Usa sempre il comando &quot;exit&quot; quando chiudi electroneum-wallet-cli per salvare
 lo stato della tua sessione &apos;s corrente. Altrimenti potresti dover sincronizzare 
 di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in sessun caso).</translation>
     </message>

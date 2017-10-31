@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-export.log"), true);
+  mlog_configure(mlog_get_default_log_path("electroneum-blockchain-export.log"), true);
   if (!vm["log-level"].defaulted())
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else

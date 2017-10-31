@@ -1658,14 +1658,14 @@ Attention : Certaines clés d&apos;entrées étant dépensées sont issues de <
         <source>Your wallet has been generated!
 To start synchronizing with the daemon, use &quot;refresh&quot; command.
 Use &quot;help&quot; command to see the list of available commands.
-Always use &quot;exit&quot; command when closing monero-wallet-cli to save your
+Always use &quot;exit&quot; command when closing electroneum-wallet-cli to save your
 current session&apos;s state. Otherwise, you might need to synchronize 
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Votre portefeuille a été généré !
 Pour commencer la synchronisation avec le démon, utilisez la commande &quot;refresh&quot;.
 Utilisez la commande &quot;help&quot; pour voir la liste des commandes disponibles.
-Utilisez toujours la commande &quot;exit&quot; pour fermer monero-wallet-cli afin de sauvegarder
+Utilisez toujours la commande &quot;exit&quot; pour fermer electroneum-wallet-cli afin de sauvegarder
 l&apos;état actuel de votre session. Sinon vous pourriez avoir besoin de synchroniser
 votre portefeuille à nouveau (mais les clés de votre portefeuille ne risquent rien).
 </translation>

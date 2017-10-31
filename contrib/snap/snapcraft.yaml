@@ -9,23 +9,23 @@ grade: devel
 confinement: strict
 
 apps:
-    monerod:
+    electroneumd:
         daemon: forking
         command: |
-          monerod-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/monerod.conf
+          electroneumd-wrapper --detach --data-dir ${SNAP_COMMON} --config-file ${SNAP_USER_DATA}/etc/electroneumd.conf
         plugs:
             - network
             - network-bind
-    monero-wallet-rpc:
+    electroneum-wallet-rpc:
         command: |
-          monero-wallet-rpc --log-file ${SNAP_USER_DATA}
+          electroneum-wallet-rpc --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
             - network-bind
-    monero-wallet-cli:
+    electroneum-wallet-cli:
         command: |
-          monero-wallet-cli --log-file ${SNAP_USER_DATA}
+          electroneum-wallet-cli --log-file ${SNAP_USER_DATA}
         plugs:
             - home
             - network
@@ -68,8 +68,8 @@ parts:
         plugin: dump
         source: .
         organize:
-            contrib/snap/monerod.conf: etc/monerod.conf
-            contrib/snap/monerod-wrapper: bin/monerod-wrapper
+            contrib/snap/electroneumd.conf: etc/electroneumd.conf
+            contrib/snap/electroneumd-wrapper: bin/electroneumd-wrapper
         prime:
             - etc
             - bin
