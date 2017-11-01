@@ -692,20 +692,20 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& index) const
 {
-  if (index.major >= m_subaddress_labels.size())
-    throw std::runtime_error("index.major is out of bound");
-  if (index.minor >= m_subaddress_labels[index.major].size())
-    throw std::runtime_error("index.minor is out of bound");
+  if (index.major >= m_subaddress_labels.size() || index.minor >= m_subaddress_labels[index.major].size())
+  {
+    MERROR("Subaddress label doesn't exist");
+    return "";
+  }
   return m_subaddress_labels[index.major][index.minor];
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, const std::string &label)
 {
-  if (index.major >= m_subaddress_labels.size())
-    throw std::runtime_error("index.major is out of bound");
-  if (index.minor >= m_subaddress_labels[index.major].size())
-    throw std::runtime_error("index.minor is out of bound");
-  m_subaddress_labels[index.major][index.minor] = label;
+  if (index.major >= m_subaddress_labels.size() || index.minor >= m_subaddress_labels[index.major].size())
+    MERROR("Subaddress index is out of bounds. Failed to set subaddress label.");
+  else
+    m_subaddress_labels[index.major][index.minor] = label;
 }
 //----------------------------------------------------------------------------------------------------
 /*!
