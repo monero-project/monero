@@ -117,6 +117,11 @@ namespace epee
       return m_net_server.get_binded_port();
     }
 
+    long get_connections_count() const
+    {
+      return m_net_server.get_connections_count();
+    }
+
   protected: 
     net_utils::boosted_tcp_server<net_utils::http::http_custom_handler<t_connection_context> > m_net_server;
   };

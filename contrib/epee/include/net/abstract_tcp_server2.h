@@ -213,6 +213,12 @@ namespace net_utils
 
     int get_binded_port(){return m_port;}
 
+    long get_connections_count() const
+    {
+      auto connections_count = (m_sock_count > 0) ? (m_sock_count - 1) : 0; // Socket count minus listening socket
+      return connections_count;
+    }
+
     boost::asio::io_service& get_io_service(){return io_service_;}
 
     struct idle_callback_conext_base
