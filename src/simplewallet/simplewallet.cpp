@@ -1470,7 +1470,17 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
     }
     if (m_restoring)
+    {
+      std::string errmsg;
+      uint64_t blockchain_target_height = m_wallet->get_daemon_blockchain_target_height(errmsg);
+      if (errmsg.empty() && m_restore_height > blockchain_target_height){
+        message_writer() << tr("The restore height ") << m_restore_height << tr(" is not yet reached. The current target height is ") << blockchain_target_height;
+        std::string confirm = command_line::input_line(tr("Proceed anyway?  (Y/Yes/N/No): "));
+        if (std::cin.eof() || !command_line::is_yes(confirm))
+          return false;
+      }
       m_wallet->set_refresh_from_block_height(m_restore_height);
+    }
   }
   else
   {
