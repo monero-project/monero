@@ -158,7 +158,7 @@ namespace cryptonote
     return destinations[0].addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const cryptonote::account_public_address& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct)
   {
     if (destinations.empty())
     {
@@ -301,7 +301,7 @@ namespace cryptonote
     account_public_address single_dest_subaddress;
     for(const tx_destination_entry& dst_entr: destinations)
     {
-      if (dst_entr.addr == change_addr)
+      if (change_addr && dst_entr.addr == *change_addr)
         continue;
       if (unique_dst_addresses.count(dst_entr.addr) == 0)
       {
@@ -354,7 +354,7 @@ namespace cryptonote
       }
 
       bool r;
-      if (dst_entr.addr == change_addr)
+      if (change_addr && dst_entr.addr == *change_addr)
       {
         // sending change to yourself; derivation = a*R
         r = crypto::generate_key_derivation(txkey.pub, sender_account_keys.m_view_secret_key, derivation);
@@ -565,13 +565,13 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
+  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
   {
      std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
      subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0,0};
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations, destinations.back().addr, extra, tx, unlock_time, tx_key, additional_tx_keys);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

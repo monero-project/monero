@@ -563,7 +563,7 @@ bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote
   vector<tx_destination_entry> destinations;
   fill_tx_sources_and_destinations(events, blk_head, from, to, amount, fee, nmix, sources, destinations);
 
-  return construct_tx(from.get_keys(), sources, destinations, std::vector<uint8_t>(), tx, 0);
+  return construct_tx(from.get_keys(), sources, destinations, from.get_keys().m_account_address, std::vector<uint8_t>(), tx, 0);
 }
 
 transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const block& blk_head,
