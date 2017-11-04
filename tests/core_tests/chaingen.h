@@ -521,10 +521,12 @@ inline bool do_replay_file(const std::string& filename)
         { \
           if (msidx_inner != msidx) \
           { \
-            crypto::hash vkh; \
-            crypto::cn_fast_hash(&account[msidx_inner].get_keys().m_view_secret_key, sizeof(crypto::secret_key), vkh); \
-            view_keys[msidx].push_back((const crypto::secret_key&)vkh); \
-            spend_keys[msidx].push_back(account[msidx_inner].get_keys().m_account_address.m_spend_public_key); \
+            crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_view_secret_key); \
+            view_keys[msidx].push_back(vkh); \
+            crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_spend_secret_key); \
+            crypto::public_key pskh; \
+            crypto::secret_key_to_public_key(skh, pskh); \
+            spend_keys[msidx].push_back(pskh); \
           } \
         } \
       } \

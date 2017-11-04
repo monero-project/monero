@@ -41,6 +41,7 @@ using namespace epee;
 #include "common/i18n.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
+#include "multisig/multisig.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "misc_language.h"
 #include "string_coding.h"
@@ -2424,11 +2425,10 @@ namespace tools
     }
 
     // people may include their own, weed it out
-    crypto::hash hash;
-    crypto::cn_fast_hash(&m_wallet->get_account().get_keys().m_view_secret_key, sizeof(crypto::secret_key), hash);
+    crypto::secret_key local_skey = cryptonote::get_multisig_blinded_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
     for (size_t i = 0; i < secret_keys.size(); ++i)
     {
-      if (rct::sk2rct(secret_keys[i]) == rct::hash2rct(hash))
+      if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(local_skey))
       {
         secret_keys[i] = secret_keys.back();
         public_keys[i] = public_keys.back();

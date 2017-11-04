@@ -39,18 +39,29 @@
 
 using namespace std;
 
+static const rct::key multisig_salt = { {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+
 namespace cryptonote
 {
+  //-----------------------------------------------------------------
+  crypto::secret_key get_multisig_blinded_secret_key(const crypto::secret_key &key)
+  {
+    rct::keyV data;
+    data.push_back(rct::sk2rct(key));
+    data.push_back(multisig_salt);
+    return rct::rct2sk(rct::hash_to_scalar(data));
+  }
   //-----------------------------------------------------------------
   void generate_multisig_N_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
   {
     // the multisig spend public key is the sum of all spend public keys
     multisig_keys.clear();
-    spend_pkey = rct::pk2rct(keys.m_account_address.m_spend_public_key);
+    const crypto::secret_key spend_secret_key = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
+    CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(spend_secret_key, (crypto::public_key&)spend_pkey), "Failed to derive public key");
     for (const auto &k: spend_keys)
       rct::addKeys(spend_pkey, spend_pkey, rct::pk2rct(k));
-    multisig_keys.push_back(keys.m_spend_secret_key);
-    spend_skey = rct::sk2rct(keys.m_spend_secret_key);
+    multisig_keys.push_back(spend_secret_key);
+    spend_skey = rct::sk2rct(spend_secret_key);
   }
   //-----------------------------------------------------------------
   void generate_multisig_N1_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
@@ -60,23 +71,19 @@ namespace cryptonote
     spend_skey = rct::zero();
 
     // create all our composite private keys
+    crypto::secret_key blinded_skey = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
     for (const auto &k: spend_keys)
     {
-      rct::keyV data;
-      data.push_back(rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(keys.m_spend_secret_key)));
-      static const rct::key salt = { {'M', 'u', 'l', 't' , 'i', 's', 'i', 'g' , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-      data.push_back(salt);
-      rct::key msk = rct::hash_to_scalar(data);
-      multisig_keys.push_back(rct::rct2sk(msk));
-      sc_add(spend_skey.bytes, spend_skey.bytes, msk.bytes);
+      rct::key sk = rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(blinded_skey));
+      crypto::secret_key msk = get_multisig_blinded_secret_key(rct::rct2sk(sk));
+      multisig_keys.push_back(msk);
+      sc_add(spend_skey.bytes, spend_skey.bytes, (const unsigned char*)msk.data);
     }
   }
   //-----------------------------------------------------------------
   crypto::secret_key generate_multisig_view_secret_key(const crypto::secret_key &skey, const std::vector<crypto::secret_key> &skeys)
   {
-    crypto::hash hash;
-    crypto::cn_fast_hash(&skey, sizeof(crypto::hash), hash);
-    rct::key view_skey = rct::hash2rct(hash);
+    rct::key view_skey = rct::sk2rct(get_multisig_blinded_secret_key(skey));
     for (const auto &k: skeys)
       sc_add(view_skey.bytes, view_skey.bytes, rct::sk2rct(k).bytes);
     return rct::rct2sk(view_skey);

@@ -60,6 +60,7 @@
 #include "rapidjson/document.h"
 #include "common/json_util.h"
 #include "ringct/rctSigs.h"
+#include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
 #include <stdexcept>
 
@@ -801,8 +802,8 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
   }
 
   // people may include their own, weed it out
-  const crypto::secret_key local_skey = m_wallet->get_account().get_keys().m_view_secret_key;
-  const crypto::public_key local_pkey = m_wallet->get_account().get_keys().m_account_address.m_spend_public_key;
+  const crypto::secret_key local_skey = cryptonote::get_multisig_blinded_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
+  const crypto::public_key local_pkey = m_wallet->get_multisig_signer_public_key(m_wallet->get_account().get_keys().m_spend_secret_key);
   for (size_t i = 0; i < secret_keys.size(); ++i)
   {
     if (secret_keys[i] == local_skey)
