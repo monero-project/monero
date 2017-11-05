@@ -192,6 +192,7 @@ namespace rpc
     };
 
     std::vector<uint64_t> heights(num_found);
+    std::vector<uint64_t> timestamps(num_found);
     std::vector<bool> in_pool(num_found, false);
     std::vector<crypto::hash> found_hashes(num_found);
 
@@ -199,6 +200,7 @@ namespace rpc
     {
       found_hashes[i] = get_transaction_hash(found_txs_vec[i]);
       heights[i] = m_core.get_blockchain_storage().get_db().get_tx_block_height(found_hashes[i]);
+      timestamps[i] = m_core.get_blockchain_storage().get_db().get_block_timestamp(heights[i]);
     }
 
     // if any missing from blockchain, check in tx pool
@@ -219,6 +221,7 @@ namespace rpc
           found_hashes.push_back(h);
           found_txs_vec.push_back(tx);
           heights.push_back(std::numeric_limits<uint64_t>::max());
+          timestamps.push_back(std::numeric_limits<uint64_t>::max());
           in_pool.push_back(true);
           missed_vec.erase(itr);
         }
@@ -228,7 +231,8 @@ namespace rpc
     for (size_t i=0; i < found_hashes.size(); i++)
     {
       cryptonote::rpc::transaction_info info;
-      info.height = heights[i];
+      info.block_height = heights[i];
+      info.block_timestamp = timestamps[i];
       info.in_pool = in_pool[i];
       info.transaction = std::move(found_txs_vec[i]);
 

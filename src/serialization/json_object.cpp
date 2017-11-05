@@ -656,7 +656,8 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::transaction_in
 {
   val.SetObject();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, height, tx_info.height);
+  INSERT_INTO_JSON_OBJECT(val, doc, height, tx_info.block_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, timestamp, tx_info.block_timestamp);
   INSERT_INTO_JSON_OBJECT(val, doc, in_pool, tx_info.in_pool);
   INSERT_INTO_JSON_OBJECT(val, doc, transaction, tx_info.transaction);
 }
@@ -669,7 +670,8 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::transaction_inf
     throw WRONG_TYPE("json object");
   }
 
-  GET_FROM_JSON_OBJECT(val, tx_info.height, height);
+  GET_FROM_JSON_OBJECT(val, tx_info.block_height, height);
+  GET_FROM_JSON_OBJECT(val, tx_info.block_timestamp, timestamp);
   GET_FROM_JSON_OBJECT(val, tx_info.in_pool, in_pool);
   GET_FROM_JSON_OBJECT(val, tx_info.transaction, transaction);
 }

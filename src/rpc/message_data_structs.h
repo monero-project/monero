@@ -55,7 +55,8 @@ namespace rpc
   {
     cryptonote::transaction transaction;
     bool in_pool;
-    uint64_t height;
+    uint64_t block_height;
+    uint64_t block_timestamp;
   };
 
   struct output_key_and_amount_index

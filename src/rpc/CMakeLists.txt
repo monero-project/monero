@@ -38,12 +38,19 @@ set(daemon_rpc_server_sources
   daemon_handler.cpp
   zmq_server.cpp)
 
+set(daemon_rpc_client_sources
+  daemon_rpc_client.cpp
+  daemon_rpc_client_zmq.cpp
+  zmq_client.cpp
+  daemon_rpc_client_old.cpp)
 
 set(rpc_headers
   rpc_args.h)
 
 set(daemon_rpc_server_headers)
 
+set(daemon_rpc_client_headers
+  daemon_rpc_client.h)
 
 set(rpc_daemon_private_headers
   core_rpc_server.h
@@ -61,12 +68,20 @@ set(daemon_rpc_server_private_headers
   rpc_handler.h
   zmq_server.h)
 
+set(daemon_rpc_client_private_headers
+  daemon_rpc_client_zmq.h
+  zmq_client.h
+  daemon_rpc_client_old.h)
+
 
 monero_private_headers(rpc
   ${rpc_private_headers})
 
 monero_private_headers(daemon_rpc_server
   ${daemon_rpc_server_private_headers})
+
+monero_private_headers(daemon_rpc_client
+  ${daemon_rpc_client_private_headers})
 
 
 monero_add_library(rpc
@@ -84,6 +99,10 @@ monero_add_library(daemon_rpc_server
   ${daemon_rpc_server_headers}
   ${daemon_rpc_server_private_headers})
 
+monero_add_library(daemon_rpc_client
+  ${daemon_rpc_client_sources}
+  ${daemon_rpc_client_headers}
+  ${daemon_rpc_client_private_headers})
 
 target_link_libraries(rpc
   PUBLIC
@@ -117,3 +136,26 @@ target_link_libraries(daemon_rpc_server
     ${EXTRA_LIBRARIES})
 target_include_directories(daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
 target_include_directories(obj_daemon_rpc_server PUBLIC ${ZMQ_INCLUDE_PATH})
+
+target_link_libraries(daemon_rpc_client
+  LINK_PRIVATE
+    cryptonote_protocol
+    daemon_messages
+    serialization
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${ZMQ_LIB}
+    ${EXTRA_LIBRARIES})
+target_include_directories(daemon_rpc_client PRIVATE ${ZMQ_INCLUDE_PATH})
+target_include_directories(obj_daemon_rpc_client PRIVATE ${ZMQ_INCLUDE_PATH})
+
+add_dependencies(rpc
+  version)
+
+add_dependencies(daemon_rpc_server
+  version)
+
+add_dependencies(daemon_rpc_client
+  version)
