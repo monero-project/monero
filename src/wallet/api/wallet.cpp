@@ -1146,11 +1146,20 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             m_errorString = (boost::format(tr("failed to get random outputs to mix: %s")) % e.what()).str();
             m_status = Status_Error;
 
-        } catch (const tools::error::not_enough_money& e) {
+        } catch (const tools::error::not_enough_unlocked_money& e) {
             m_status = Status_Error;
             std::ostringstream writer;
 
             writer << boost::format(tr("not enough money to transfer, available only %s, sent amount %s")) %
+                      print_money(e.available()) %
+                      print_money(e.tx_amount());
+            m_errorString = writer.str();
+
+        } catch (const tools::error::not_enough_money& e) {
+            m_status = Status_Error;
+            std::ostringstream writer;
+
+            writer << boost::format(tr("not enough money to transfer, overall balance only %s, sent amount %s")) %
                       print_money(e.available()) %
                       print_money(e.tx_amount());
             m_errorString = writer.str();
@@ -1240,11 +1249,20 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
             m_errorString = tr("failed to get random outputs to mix");
             m_status = Status_Error;
 
-        } catch (const tools::error::not_enough_money& e) {
+        } catch (const tools::error::not_enough_unlocked_money& e) {
             m_status = Status_Error;
             std::ostringstream writer;
 
             writer << boost::format(tr("not enough money to transfer, available only %s, sent amount %s")) %
+                      print_money(e.available()) %
+                      print_money(e.tx_amount());
+            m_errorString = writer.str();
+
+        } catch (const tools::error::not_enough_money& e) {
+            m_status = Status_Error;
+            std::ostringstream writer;
+
+            writer << boost::format(tr("not enough money to transfer, overall balance only %s, sent amount %s")) %
                       print_money(e.available()) %
                       print_money(e.tx_amount());
             m_errorString = writer.str();
