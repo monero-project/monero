@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include "rpc/daemon_rpc_client.h"
 
 #include <string>
 #include <vector>
@@ -870,6 +871,10 @@ struct WalletManager
 
     //! checks for an update and returns version, hash and url
     static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(const std::string &software, const std::string &subdir);
+
+    static cryptonote::rpc::DaemonRPCClient::CLIENT_TYPE rpcClientType;
+
+    static void setRPCClientType(const cryptonote::rpc::DaemonRPCClient::CLIENT_TYPE type) { rpcClientType = type; }
 };
 
 

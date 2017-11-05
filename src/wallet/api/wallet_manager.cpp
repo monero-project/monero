@@ -36,7 +36,6 @@
 #include "common/util.h"
 #include "common/updates.h"
 #include "version.h"
-#include "net/http_client.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
@@ -48,16 +47,9 @@ namespace epee {
     unsigned int g_test_dbg_lock_sleep = 0;
 }
 
-namespace {
-    template<typename Request, typename Response>
-    bool connect_and_invoke(const std::string& address, const std::string& path, const Request& request, Response& response)
-    {
-        epee::net_utils::http::http_simple_client client{};
-        return client.set_server(address, boost::none) && epee::net_utils::invoke_http_json(path, request, response, client);
-    }
-}
-
 namespace Monero {
+
+cryptonote::rpc::DaemonRPCClient::CLIENT_TYPE WalletManager::rpcClientType = cryptonote::rpc::DaemonRPCClient::TYPE_OLD;
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language, bool testnet)
@@ -172,20 +164,20 @@ std::string WalletManagerImpl::errorString() const
 void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
     m_daemonAddress = address;
+    m_daemon.reset(cryptonote::rpc::DaemonRPCClient::makeDaemonRPCClient(WalletManager::rpcClientType, address, boost::none));
 }
 
 bool WalletManagerImpl::connected(uint32_t *version) const
 {
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-    req_t.jsonrpc = "2.0";
-    req_t.id = epee::serialization::storage_entry(0);
-    req_t.method = "get_version";
-    if (!connect_and_invoke(m_daemonAddress, "/json_rpc", req_t, resp_t))
+    uint32_t rpc_version = 0;
+    boost::optional<std::string> r = m_daemon->getRPCVersion(rpc_version);
+
+    if (r)
       return false;
 
     if (version)
-        *version = resp_t.result.version;
+        *version = rpc_version;
+
     return true;
 }
 
@@ -222,38 +214,23 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
     return false;
   }
 
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  if (!connect_and_invoke(m_daemonAddress, "/gettransactions", req, res) ||
-      (res.txs.size() != 1 && res.txs_as_hex.size() != 1))
+  std::vector<crypto::hash> tx_hashes;
+  tx_hashes.push_back(txid);
+
+  std::unordered_map<crypto::hash, cryptonote::rpc::transaction_info> txs;
+  std::vector<crypto::hash> missed_hashes;
+
+  boost::optional<std::string> r = m_daemon->getTransactions(tx_hashes, txs, missed_hashes);
+
+  if (r || txs.size() != 1)
   {
     error = tr("failed to get transaction from daemon");
     return false;
   }
-  cryptonote::blobdata tx_data;
-  bool ok;
-  if (res.txs.size() == 1)
-    ok = epee::string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-  else
-    ok = epee::string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-  if (!ok)
-  {
-    error = tr("failed to parse transaction from daemon");
-    return false;
-  }
-  crypto::hash tx_hash, tx_prefix_hash;
-  cryptonote::transaction tx;
-  if (!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash))
-  {
-    error = tr("failed to validate transaction from daemon");
-    return false;
-  }
-  if (tx_hash != txid)
-  {
-    error = tr("failed to get the right transaction from daemon");
-    return false;
-  }
+
+  cryptonote::transaction& tx = txs[txid].transaction;
+  bool in_pool = txs[txid].in_pool;
+  uint64_t block_height = txs[txid].block_height;
 
   crypto::key_derivation derivation;
   if (!crypto::generate_key_derivation(info.address.m_view_public_key, tx_key, derivation))
@@ -326,13 +303,13 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
   {
     LOG_PRINT_L1(get_account_address_as_str(testnet, info.is_subaddress, info.address) << " " << tr("received nothing in txid") << " " << txid);
   }
-  if (res.txs.front().in_pool)
+  if (in_pool)
   {
     height = 0;
   }
   else
   {
-    height = res.txs.front().block_height;
+    height = block_height;
   }
 
   return true;
@@ -340,80 +317,80 @@ bool WalletManagerImpl::checkPayment(const std::string &address_text, const std:
 
 uint64_t WalletManagerImpl::blockchainHeight() const
 {
-    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
-    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+    uint64_t height;
+    boost::optional<std::string> r = m_daemon->getHeight(height);
 
-    if (!connect_and_invoke(m_daemonAddress, "/getinfo", ireq, ires))
+    if (r)
       return 0;
-    return ires.height;
+
+    return height;
 }
 
 uint64_t WalletManagerImpl::blockchainTargetHeight() const
 {
-    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
-    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+    uint64_t target_height;
 
-    if (!connect_and_invoke(m_daemonAddress, "/getinfo", ireq, ires))
+    boost::optional<std::string> r = m_daemon->getHeight(target_height);
+    if (r)
       return 0;
-    return ires.target_height >= ires.height ? ires.target_height : ires.height;
+
+    uint64_t height = blockchainHeight();
+
+    return target_height >= height ? target_height : height;
 }
 
 uint64_t WalletManagerImpl::networkDifficulty() const
 {
-    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
-    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+    uint64_t difficulty;
+    boost::optional<std::string> r = m_daemon->getNetworkDifficulty(difficulty);
 
-    if (!connect_and_invoke(m_daemonAddress, "/getinfo", ireq, ires))
+    if (r)
       return 0;
-    return ires.difficulty;
+
+    return difficulty;
 }
 
 double WalletManagerImpl::miningHashRate() const
 {
-    cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
-    cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+    uint64_t speed;
+    boost::optional<std::string> r = m_daemon->getMiningHashRate(speed);
 
-    epee::net_utils::http::http_simple_client http_client;
-    if (!connect_and_invoke(m_daemonAddress, "/mining_status", mreq, mres))
+    if (r)
       return 0.0;
-    if (!mres.active)
-      return 0.0;
-    return mres.speed;
+
+    return (double)speed;
 }
 
 uint64_t WalletManagerImpl::blockTarget() const
 {
-    cryptonote::COMMAND_RPC_GET_INFO::request ireq;
-    cryptonote::COMMAND_RPC_GET_INFO::response ires;
+    uint64_t difficulty_target;
+    boost::optional<std::string> r = m_daemon->getDifficultyTarget(difficulty_target);
 
-    if (!connect_and_invoke(m_daemonAddress, "/getinfo", ireq, ires))
-        return 0;
-    return ires.target;
+    if (r)
+      return 0;
+
+    return difficulty_target;
 }
 
 bool WalletManagerImpl::isMining() const
 {
-    cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
-    cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+    bool isMining;
+    boost::optional<std::string> r = m_daemon->isMining(isMining);
 
-    if (!connect_and_invoke(m_daemonAddress, "/mining_status", mreq, mres))
+    if (r)
       return false;
-    return mres.active;
+
+    return isMining;
 }
 
 bool WalletManagerImpl::startMining(const std::string &address, uint32_t threads, bool background_mining, bool ignore_battery)
 {
-    cryptonote::COMMAND_RPC_START_MINING::request mreq;
-    cryptonote::COMMAND_RPC_START_MINING::response mres;
+    boost::optional<std::string> r = m_daemon->startMining(address, threads, background_mining, ignore_battery);
 
-    mreq.miner_address = address;
-    mreq.threads_count = threads;
-    mreq.ignore_battery = ignore_battery;
-    mreq.do_background_mining = background_mining;
-
-    if (!connect_and_invoke(m_daemonAddress, "/start_mining", mreq, mres))
+    if (r)
       return false;
-    return mres.status == CORE_RPC_STATUS_OK;
+
+    return true;
 }
 
 bool WalletManagerImpl::stopMining()
@@ -421,9 +398,12 @@ bool WalletManagerImpl::stopMining()
     cryptonote::COMMAND_RPC_STOP_MINING::request mreq;
     cryptonote::COMMAND_RPC_STOP_MINING::response mres;
 
-    if (!connect_and_invoke(m_daemonAddress, "/stop_mining", mreq, mres))
+    boost::optional<std::string> r = m_daemon->stopMining();
+
+    if (r)
       return false;
-    return mres.status == CORE_RPC_STATUS_OK;
+
+    return true;
 }
 
 std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const

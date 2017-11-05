@@ -55,6 +55,9 @@
 #include "ringct/rctOps.h"
 #include "checkpoints/checkpoints.h"
 
+#include "rpc/daemon_rpc_client.h"
+#include "rpc/message_data_structs.h"
+
 #include "wallet_errors.h"
 #include "common/password.h"
 #include "node_rpc_proxy.h"
@@ -147,7 +150,7 @@ namespace tools
     };
 
   private:
-    wallet2(const wallet2&) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false),m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex) {}
+    wallet2(const wallet2& other) : m_run(true), m_callback(0), m_testnet(false), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_daemon(other.m_daemon) {}
 
   public:
     static const char* tr(const char* str);
@@ -173,7 +176,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const std::string& password, bool watch_only);
 
-    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
+    wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshOptimizeCoinbase), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
 
     struct tx_scan_info_t
     {
@@ -424,7 +427,7 @@ namespace tools
     // into account the current median block size rather than
     // the minimum block size.
     bool deinit();
-    bool init(std::string daemon_address = "http://localhost:8080",
+    bool init(cryptonote::rpc::DaemonRPCClient* daemon_client, std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
@@ -678,7 +681,7 @@ namespace tools
     uint64_t get_num_rct_outputs();
     const transfer_details &get_transfer_details(size_t idx) const;
 
-    void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
+    void get_hard_fork_earliest_height(uint8_t version, uint64_t &earliest_height);
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
     int get_fee_algorithm();
 
@@ -773,16 +776,16 @@ namespace tools
      */
     bool load_keys(const std::string& keys_file_name, const std::string& password);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool);
-    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices);
+    void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::rpc::block_with_transactions& bwt, const crypto::hash& bl_id, uint64_t height, const cryptonote::rpc::block_output_indices &o_indices);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const;
     bool clear();
-    void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices);
+    void pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::rpc::block_with_transactions>& blocks, std::vector<cryptonote::rpc::block_output_indices> &o_indices);
     void pull_hashes(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes);
     void fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history);
-    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, bool &error);
-    void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, const std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t& blocks_added);
+    void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::rpc::block_with_transactions> &prev_blocks, std::vector<cryptonote::rpc::block_with_transactions> &blocks, std::vector<cryptonote::rpc::block_output_indices> &o_indices, bool &error);
+    void process_blocks(uint64_t start_height, const std::vector<cryptonote::rpc::block_with_transactions> &blocks, const std::vector<cryptonote::rpc::block_output_indices> &o_indices, uint64_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<size_t>& selected_transfers, bool trusted_daemon);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height);
@@ -864,7 +867,6 @@ namespace tools
     bool m_confirm_backlog;
     uint32_t m_confirm_backlog_threshold;
     bool m_is_initialized;
-    NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
 
     // Light wallet
@@ -880,6 +882,7 @@ namespace tools
     std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
     // store calculated key image for faster lookup
     std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
+    std::shared_ptr<cryptonote::rpc::DaemonRPCClient> m_daemon;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 20)
@@ -1272,40 +1275,37 @@ namespace tools
     uint32_t subaddr_account = m_transfers[*selected_transfers.begin()].m_subaddr_index.major;
     for (auto i = ++selected_transfers.begin(); i != selected_transfers.end(); ++i)
       THROW_WALLET_EXCEPTION_IF(subaddr_account != *i, error::wallet_internal_error, "the tx uses funds from multiple accounts");
-
-    typedef COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry out_entry;
     typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
 
-    COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
+    std::vector<uint64_t> req_amounts;
+    uint64_t req_count;
+    std::vector<cryptonote::rpc::amount_with_random_outputs> amounts_with_outputs;
+
     if(fake_outputs_count)
     {
-      COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request req = AUTO_VAL_INIT(req);
-      req.outs_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
+      req_count = fake_outputs_count + 1;// add one to make possible (if need) to skip real output key
       for(size_t idx: selected_transfers)
       {
         const transfer_container::const_iterator it = m_transfers.begin() + idx;
         THROW_WALLET_EXCEPTION_IF(it->m_tx.vout.size() <= it->m_internal_output_index, error::wallet_internal_error,
           "m_internal_output_index = " + std::to_string(it->m_internal_output_index) +
           " is greater or equal to outputs count = " + std::to_string(it->m_tx.vout.size()));
-        req.amounts.push_back(it->amount());
+        req_amounts.push_back(it->amount());
       }
 
-      m_daemon_rpc_mutex.lock();
-      bool r = epee::net_utils::invoke_http_bin("/getrandom_outs.bin", req, daemon_resp, m_http_client, rpc_timeout);
-      m_daemon_rpc_mutex.unlock();
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getrandom_outs.bin");
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
-      THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != selected_transfers.size(), error::wallet_internal_error,
+      std::string error_details;
+      boost::optional<std::string> r = m_daemon->getRandomOutputsForAmounts(req_amounts, req_count, amounts_with_outputs);
+      THROW_WALLET_EXCEPTION_IF(r, error::get_random_outs_error, *r);
+      THROW_WALLET_EXCEPTION_IF(amounts_with_outputs.size() != selected_transfers.size(), error::wallet_internal_error,
         "daemon returned wrong response for getrandom_outs.bin, wrong amounts count = " +
-        std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
+        std::to_string(amounts_with_outputs.size()) + ", expected " +  std::to_string(selected_transfers.size()));
 
       std::unordered_map<uint64_t, uint64_t> scanty_outs;
-      for(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& amount_outs: daemon_resp.outs)
+      for (auto& amount_outs : amounts_with_outputs)
       {
-        if (amount_outs.outs.size() < fake_outputs_count)
+        if (amount_outs.outputs.size() < fake_outputs_count)
         {
-          scanty_outs[amount_outs.amount] = amount_outs.outs.size();
+          scanty_outs[amount_outs.amount] = amount_outs.outputs.size();
         }
       }
       THROW_WALLET_EXCEPTION_IF(!scanty_outs.empty(), error::not_enough_outs_to_mix, scanty_outs, fake_outputs_count);
@@ -1322,16 +1322,16 @@ namespace tools
       src.amount = td.amount();
       src.rct = false;
       //paste mixin transaction
-      if(daemon_resp.outs.size())
+      if(amounts_with_outputs.size())
       {
-        daemon_resp.outs[i].outs.sort([](const out_entry& a, const out_entry& b){return a.global_amount_index < b.global_amount_index;});
-        for(out_entry& daemon_oe: daemon_resp.outs[i].outs)
+        std::sort(amounts_with_outputs[i].outputs.begin(), amounts_with_outputs[i].outputs.end(), [](const cryptonote::rpc::output_key_and_amount_index& a, const cryptonote::rpc::output_key_and_amount_index& b){return a.amount_index < b.amount_index;});
+        for (cryptonote::rpc::output_key_and_amount_index& daemon_oe : amounts_with_outputs[i].outputs)
         {
-          if(td.m_global_output_index == daemon_oe.global_amount_index)
+          if(td.m_global_output_index == daemon_oe.amount_index)
             continue;
           tx_output_entry oe;
-          oe.first = daemon_oe.global_amount_index;
-          oe.second.dest = rct::pk2rct(daemon_oe.out_key);
+          oe.first = daemon_oe.amount_index;
+          oe.second.dest = rct::pk2rct(daemon_oe.key);
           oe.second.mask = rct::identity();
           src.outputs.push_back(oe);
           if(src.outputs.size() >= fake_outputs_count)

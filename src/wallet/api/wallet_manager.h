@@ -29,8 +29,10 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 
+#include "rpc/daemon_rpc_client.h"
 #include "wallet/wallet2_api.h"
 #include <string>
+#include <memory>
 
 namespace Monero {
 
@@ -71,6 +73,8 @@ private:
     friend struct WalletManagerFactory;
     std::string m_daemonAddress;
     std::string m_errorString;
+
+    std::shared_ptr<cryptonote::rpc::DaemonRPCClient> m_daemon;
 };
 
 } // namespace

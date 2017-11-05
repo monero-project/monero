@@ -80,6 +80,7 @@ target_link_libraries(wallet
     cryptonote_core
     mnemonics
     p2p
+    daemon_rpc_client
     ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -138,6 +139,7 @@ if (BUILD_GUI_DEPS)
             cncrypto
             ringct
             checkpoints
+            daemon_rpc_client
             version)
 
     foreach(lib ${libs_to_merge})
