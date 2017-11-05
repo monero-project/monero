@@ -693,7 +693,9 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
   return true;
 }
 
-bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
+bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
+  bool include_hex,
+  bool include_json) {
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req;
   cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res;
 
@@ -728,30 +730,34 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash) {
         tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height;
     }
 
-    // first as hex
     const std::string &as_hex = (1 == res.txs.size()) ? res.txs.front().as_hex : res.txs_as_hex.front();
-    tools::success_msg_writer() << as_hex;
+    // Print raw hex if requested
+    if (include_hex)
+      tools::success_msg_writer() << as_hex << std::endl;
 
-    // then as json
-    crypto::hash tx_hash, tx_prefix_hash;
-    cryptonote::transaction tx;
-    cryptonote::blobdata blob;
-    if (!string_tools::parse_hexstr_to_binbuff(as_hex, blob))
+    // Print json if requested
+    if (include_json)
     {
-      tools::fail_msg_writer() << "Failed to parse tx";
-    }
-    else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
-    {
-      tools::fail_msg_writer() << "Failed to parse tx blob";
-    }
-    else
-    {
-      tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+      crypto::hash tx_hash, tx_prefix_hash;
+      cryptonote::transaction tx;
+      cryptonote::blobdata blob;
+      if (!string_tools::parse_hexstr_to_binbuff(as_hex, blob))
+      {
+        tools::fail_msg_writer() << "Failed to parse tx to get json format";
+      }
+      else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
+      {
+        tools::fail_msg_writer() << "Failed to parse tx blob to get json format";
+      }
+      else
+      {
+        tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+      }
     }
   }
   else
   {
-    tools::fail_msg_writer() << "transaction wasn't found: " << transaction_hash << std::endl;
+    tools::fail_msg_writer() << "Transaction wasn't found: " << transaction_hash << std::endl;
   }
 
   return true;
