@@ -739,6 +739,48 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_SET_ATTRIBUTE
+  {
+    struct request
+    {
+      std::string key;
+      std::string value;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key)
+        KV_SERIALIZE(value)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ATTRIBUTE
+  {
+    struct request
+    {
+
+      std::string key;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string value;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(value)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct transfer_entry
   {
     std::string txid;
