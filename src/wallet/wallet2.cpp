@@ -5479,10 +5479,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // we could also check for being within FEE_PER_KB, but if the fee calculation
   // ever changes, this might be missed, so let this go through
   // first check overall balance is enough, then unlocked one, so we throw distinct exceptions
-  THROW_WALLET_EXCEPTION_IF(needed_money > balance(), error::not_enough_money,
-      unlocked_balance(), needed_money, 0);
-  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance(), error::not_enough_unlocked_money,
-      unlocked_balance(), needed_money, 0);
+  THROW_WALLET_EXCEPTION_IF(needed_money > balance(subaddr_account), error::not_enough_money,
+      unlocked_balance(subaddr_account), needed_money, 0);
+  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance(subaddr_account), error::not_enough_unlocked_money,
+      unlocked_balance(subaddr_account), needed_money, 0);
 
   // shuffle & sort output indices
   {
