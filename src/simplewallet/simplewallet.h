@@ -192,7 +192,6 @@ namespace cryptonote
     bool print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr);
     std::string get_prompt() const;
     bool print_seed(bool encrypted);
-    uint64_t get_approximate_blockchain_height() const;
 
     /*!
      * \brief Prints the seed with a nice message
