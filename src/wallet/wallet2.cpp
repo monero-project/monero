@@ -7157,7 +7157,8 @@ void wallet2::generate_genesis(cryptonote::block& b) {
   }
 }
 //------------------------------------------------------------------------------------------------------
-    uint64_t wallet2::get_approximate_maximum_blockchain_refresh_height(){
+    uint64_t wallet2::get_approximate_maximum_blockchain_refresh_height()
+    {
         // -1 month for fluctuations in block time and machine date/time setup.
         // avg seconds per block
         const int seconds_per_block = DIFFICULTY_TARGET_V2;
