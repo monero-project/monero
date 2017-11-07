@@ -5416,9 +5416,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // throw if attempting a transaction with no money
   THROW_WALLET_EXCEPTION_IF(needed_money == 0, error::zero_destination);
 
-  std::map<uint32_t, uint64_t> balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, uint64_t> unlocked_balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, uint64_t> balance_per_subaddr = balance_per_subaddress(subaddr_account);
 
-  if (subaddr_indices.empty()) // "index=<N1>[,<N2>,...]" wasn't specified -> use all the indices with non-zero unlocked bakance
+  if (subaddr_indices.empty()) // "index=<N1>[,<N2>,...]" wasn't specified -> use all the indices with non-zero unlocked balance
   {
     for (const auto& i : balance_per_subaddr)
       subaddr_indices.insert(i.first);
@@ -5428,10 +5429,17 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // we could also check for being within FEE_PER_KB, but if the fee calculation
   // ever changes, this might be missed, so let this go through
   uint64_t balance_subtotal = 0;
+  uint64_t unlocked_balance_subtotal = 0;
   for (uint32_t index_minor : subaddr_indices)
+  {
     balance_subtotal += balance_per_subaddr[index_minor];
+    unlocked_balance_subtotal += unlocked_balance_per_subaddr[index_minor];
+  }
   THROW_WALLET_EXCEPTION_IF(needed_money > balance_subtotal, error::not_enough_money,
     balance_subtotal, needed_money, 0);
+  // first check overall balance is enough, then unlocked one, so we throw distinct exceptions
+  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance_subtotal, error::not_enough_unlocked_money,
+      unlocked_balance_subtotal, needed_money, 0);
 
   for (uint32_t i : subaddr_indices)
     LOG_PRINT_L2("Candidate subaddress index for spending: " << i);
@@ -5475,24 +5483,15 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
   }
 
-  // early out if we know we can't make it anyway
-  // we could also check for being within FEE_PER_KB, but if the fee calculation
-  // ever changes, this might be missed, so let this go through
-  // first check overall balance is enough, then unlocked one, so we throw distinct exceptions
-  THROW_WALLET_EXCEPTION_IF(needed_money > balance(subaddr_account), error::not_enough_money,
-      unlocked_balance(subaddr_account), needed_money, 0);
-  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance(subaddr_account), error::not_enough_unlocked_money,
-      unlocked_balance(subaddr_account), needed_money, 0);
-
   // shuffle & sort output indices
   {
     std::random_device rd;
     std::mt19937 g(rd());
     std::shuffle(unused_transfers_indices_per_subaddr.begin(), unused_transfers_indices_per_subaddr.end(), g);
     std::shuffle(unused_dust_indices_per_subaddr.begin(), unused_dust_indices_per_subaddr.end(), g);
-    auto sort_predicate = [&balance_per_subaddr] (const std::pair<uint32_t, std::vector<size_t>>& x, const std::pair<uint32_t, std::vector<size_t>>& y)
+    auto sort_predicate = [&unlocked_balance_per_subaddr] (const std::pair<uint32_t, std::vector<size_t>>& x, const std::pair<uint32_t, std::vector<size_t>>& y)
     {
-      return balance_per_subaddr[x.first] > balance_per_subaddr[y.first];
+      return unlocked_balance_per_subaddr[x.first] > unlocked_balance_per_subaddr[y.first];
     };
     std::sort(unused_transfers_indices_per_subaddr.begin(), unused_transfers_indices_per_subaddr.end(), sort_predicate);
     std::sort(unused_dust_indices_per_subaddr.begin(), unused_dust_indices_per_subaddr.end(), sort_predicate);
