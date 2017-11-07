@@ -1471,10 +1471,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     if (m_restoring)
     {
-      std::string errmsg;
-      uint64_t blockchain_target_height = m_wallet->get_daemon_blockchain_target_height(errmsg);
-      if (errmsg.empty() && m_restore_height > blockchain_target_height){
-        message_writer() << tr("The restore height ") << m_restore_height << tr(" is not yet reached. The current target height is ") << blockchain_target_height;
+      uint64_t approximate_blockchain_height = simple_wallet::get_approximate_blockchain_height();
+      if (m_restore_height > approximate_blockchain_height){
+        message_writer() << tr("The restore height ") << m_restore_height << tr(" seems too high as the approximate blockchain height is ") << approximate_blockchain_height;
         std::string confirm = command_line::input_line(tr("Proceed anyway?  (Y/Yes/N/No): "));
         if (std::cin.eof() || !command_line::is_yes(confirm))
           return false;
@@ -5476,6 +5475,21 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
     ptx_vector.pop_back();
   }
 }
+//----------------------------------------------------------------------------------------------------
+// @TODO Implement testnet version (see wallet2 version)
+uint64_t simple_wallet::get_approximate_blockchain_height() const
+{
+    // time of v2 fork
+    const time_t fork_time = 1458748658;
+    // v2 fork block
+    const uint64_t fork_block = 1009827;
+    // avg seconds per block
+    const int seconds_per_block = DIFFICULTY_TARGET_V2;
+    // Calculated blockchain height
+    uint64_t approx_blockchain_height = fork_block + (time(NULL) - fork_time)/seconds_per_block;
+    return approx_blockchain_height;
+}
+
 //----------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
