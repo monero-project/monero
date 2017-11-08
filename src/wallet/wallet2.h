@@ -1010,7 +1010,7 @@ namespace boost
       if (ver < 6)
       {
         // v5 did not properly initialize
-        uint8_t u;
+        uint8_t u = 0;
         a & u;
         x.m_key_image_known = true;
         return;
