@@ -4211,9 +4211,9 @@ void Blockchain::remove_txpool_tx(const crypto::hash &txid)
   m_db->remove_txpool_tx(txid);
 }
 
-uint64_t Blockchain::get_txpool_tx_count() const
+uint64_t Blockchain::get_txpool_tx_count(bool include_unrelayed_txes) const
 {
-  return m_db->get_txpool_tx_count();
+  return m_db->get_txpool_tx_count(include_unrelayed_txes);
 }
 
 txpool_tx_meta_t Blockchain::get_txpool_tx_meta(const crypto::hash& txid) const
@@ -4231,9 +4231,9 @@ cryptonote::blobdata Blockchain::get_txpool_tx_blob(const crypto::hash& txid) co
   return m_db->get_txpool_tx_blob(txid);
 }
 
-bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob) const
+bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob, bool include_unrelayed_txes) const
 {
-  return m_db->for_all_txpool_txes(f, include_blob);
+  return m_db->for_all_txpool_txes(f, include_blob, include_unrelayed_txes);
 }
 
 void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync, blockchain_db_sync_mode sync_mode, bool fast_sync)

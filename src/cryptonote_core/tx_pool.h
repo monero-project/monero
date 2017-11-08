@@ -233,29 +233,37 @@ namespace cryptonote
      * @brief get a list of all transactions in the pool
      *
      * @param txs return-by-reference the list of transactions
+     * @param include_unrelayed_txes include unrelayed txes in the result
+     *
      */
-    void get_transactions(std::list<transaction>& txs) const;
+    void get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get a list of all transaction hashes in the pool
      *
      * @param txs return-by-reference the list of transactions
+     * @param include_unrelayed_txes include unrelayed txes in the result
+     *
      */
-    void get_transaction_hashes(std::vector<crypto::hash>& txs) const;
+    void get_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get (size, fee, receive time) for all transaction in the pool
      *
      * @param txs return-by-reference that data
+     * @param include_unrelayed_txes include unrelayed txes in the result
+     *
      */
-    void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog) const;
+    void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get a summary statistics of all transaction hashes in the pool
      *
      * @param stats return-by-reference the pool statistics
+     * @param include_unrelayed_txes include unrelayed txes in the result
+     *
      */
-    void get_transaction_stats(struct txpool_stats& stats) const;
+    void get_transaction_stats(struct txpool_stats& stats, bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get information about all transactions and key images in the pool
@@ -264,10 +272,11 @@ namespace cryptonote
      *
      * @param tx_infos return-by-reference the transactions' information
      * @param key_image_infos return-by-reference the spent key images' information
+     * @param include_sensitive_data include unrelayed txes and fields that are sensitive to the node privacy
      *
      * @return true
      */
-    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data = true) const;
 
     /**
      * @brief get information about all transactions and key images in the pool
@@ -308,6 +317,7 @@ namespace cryptonote
      *   nonzero fee
      *   hasn't been relayed too recently
      *   isn't old enough that relaying it is considered harmful
+     * Note a transaction can be "relayable" even if do_not_relay is true
      *
      * @param txs return-by-reference the transactions and their hashes
      *
@@ -327,7 +337,7 @@ namespace cryptonote
      *
      * @return the number of transactions in the pool
      */
-    size_t get_transactions_count() const;
+    size_t get_transactions_count(bool include_unrelayed_txes = true) const;
 
     /**
      * @brief get a string containing human-readable pool information
