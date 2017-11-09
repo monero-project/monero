@@ -2504,16 +2504,25 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   size_t fake_outs_count = 0;
   if(local_args.size() > 0) {
     size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
+    float ring_size_faulty;
+    if (epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
+      // string is an integer: it is the ring size
+      fake_outs_count = ring_size - 1;
+      local_args.erase(local_args.begin());
+    }
+    else if(epee::string_tools::get_xtype_from_string(ring_size_faulty, local_args[0]))
+    {
+      // string is a number but not an integer: failed attempt to specify ring size. Confusion with amount?
+      fail_msg_writer() << tr("ring size must be an integer >= 3: ") << ring_size_faulty;
+      return true;
     }
     else
     {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
+      // string is not a number at all: ring size not specified, use default
+      fake_outs_count = m_wallet->default_mixin();
+      if (fake_outs_count == 0)
+        fake_outs_count = DEFAULT_MIX;
     }
   }
 
@@ -3109,16 +3118,25 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   size_t fake_outs_count = 0;
   if(local_args.size() > 0) {
     size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
+    float ring_size_faulty;
+    if (epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
     {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
+      // string is an integer: it is the ring size
+      fake_outs_count = ring_size - 1;
+      local_args.erase(local_args.begin());
+    }
+    else if(epee::string_tools::get_xtype_from_string(ring_size_faulty, local_args[0]))
+    {
+      // string is a number but not an integer: failed attempt to specify ring size. Confusion with amount?
+      fail_msg_writer() << tr("ring size must be an integer >= 3: ") << ring_size_faulty;
+      return true;
     }
     else
     {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
+      // string is not a number at all: ring size not specified, use default
+      fake_outs_count = m_wallet->default_mixin();
+      if (fake_outs_count == 0)
+        fake_outs_count = DEFAULT_MIX;
     }
   }
 
