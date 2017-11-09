@@ -714,6 +714,70 @@ bool wallet2::get_seed(std::string& electrum_words, const epee::wipeable_string 
 
   return true;
 }
+//----------------------------------------------------------------------------------------------------
+bool wallet2::get_multisig_seed(std::string& seed, const epee::wipeable_string &passphrase, bool raw) const
+{
+  bool ready;
+  uint32_t threshold, total;
+  if (!multisig(&ready, &threshold, &total))
+  {
+    std::cout << "This is not a multisig wallet" << std::endl;
+    return false;
+  }
+  if (!ready)
+  {
+    std::cout << "This multisig wallet is not yet finalized" << std::endl;
+    return false;
+  }
+  if (!raw && seed_language.empty())
+  {
+    std::cout << "seed_language not set" << std::endl;
+    return false;
+  }
+
+  crypto::secret_key skey;
+  crypto::public_key pkey;
+  const account_keys &keys = get_account().get_keys();
+  std::string data;
+  data.append((const char*)&threshold, sizeof(uint32_t));
+  data.append((const char*)&total, sizeof(uint32_t));
+  skey = keys.m_spend_secret_key;
+  data.append((const char*)&skey, sizeof(skey));
+  pkey = keys.m_account_address.m_spend_public_key;
+  data.append((const char*)&pkey, sizeof(pkey));
+  skey = keys.m_view_secret_key;
+  data.append((const char*)&skey, sizeof(skey));
+  pkey = keys.m_account_address.m_view_public_key;
+  data.append((const char*)&pkey, sizeof(pkey));
+  for (const auto &skey: keys.m_multisig_keys)
+    data.append((const char*)&skey, sizeof(skey));
+  for (const auto &signer: m_multisig_signers)
+    data.append((const char*)&signer, sizeof(signer));
+
+  if (!passphrase.empty())
+  {
+    crypto::secret_key key;
+    crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key);
+    sc_reduce32((unsigned char*)key.data);
+    data = encrypt(data, key, true);
+  }
+
+  if (raw)
+  {
+    seed = epee::string_tools::buff_to_hex_nodelimer(data);
+  }
+  else
+  {
+    if (!crypto::ElectrumWords::bytes_to_words(data.data(), data.size(), seed, seed_language))
+    {
+      std::cout << "Failed to encode seed";
+      return false;
+    }
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 /*!
  * \brief Gets the seed language
  */
@@ -2617,6 +2681,97 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   if(!no_spend_key)
     r = r && verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   return r;
+}
+
+/*!
+ * \brief  Generates a wallet or restores one.
+ * \param  wallet_        Name of wallet file
+ * \param  password       Password of wallet file
+ * \param  multisig_data  The multisig restore info and keys
+ */
+void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
+  const std::string& multisig_data)
+{
+  clear();
+  prepare_file_names(wallet_);
+
+  if (!wallet_.empty())
+  {
+    boost::system::error_code ignored_ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
+
+  m_account.generate(rct::rct2sk(rct::zero()), true, false);
+
+  THROW_WALLET_EXCEPTION_IF(multisig_data.size() < 32, error::invalid_multisig_seed);
+  size_t offset = 0;
+  uint32_t threshold = *(uint32_t*)(multisig_data.data() + offset);
+  offset += sizeof(uint32_t);
+  uint32_t total = *(uint32_t*)(multisig_data.data() + offset);
+  offset += sizeof(uint32_t);
+  THROW_WALLET_EXCEPTION_IF(threshold < 2, error::invalid_multisig_seed);
+  THROW_WALLET_EXCEPTION_IF(total != threshold && total != threshold + 1, error::invalid_multisig_seed);
+  const size_t n_multisig_keys =  total == threshold ? 1 : threshold;
+  THROW_WALLET_EXCEPTION_IF(multisig_data.size() != 8 + 32 * (4 + n_multisig_keys + total), error::invalid_multisig_seed);
+
+  std::vector<crypto::secret_key> multisig_keys;
+  std::vector<crypto::public_key> multisig_signers;
+  crypto::secret_key spend_secret_key = *(crypto::secret_key*)(multisig_data.data() + offset);
+  offset += sizeof(crypto::secret_key);
+  crypto::public_key spend_public_key = *(crypto::public_key*)(multisig_data.data() + offset);
+  offset += sizeof(crypto::public_key);
+  crypto::secret_key view_secret_key = *(crypto::secret_key*)(multisig_data.data() + offset);
+  offset += sizeof(crypto::secret_key);
+  crypto::public_key view_public_key = *(crypto::public_key*)(multisig_data.data() + offset);
+  offset += sizeof(crypto::public_key);
+  for (size_t n = 0; n < n_multisig_keys; ++n)
+  {
+    multisig_keys.push_back(*(crypto::secret_key*)(multisig_data.data() + offset));
+    offset += sizeof(crypto::secret_key);
+  }
+  for (size_t n = 0; n < total; ++n)
+  {
+    multisig_signers.push_back(*(crypto::public_key*)(multisig_data.data() + offset));
+    offset += sizeof(crypto::public_key);
+  }
+
+  crypto::public_key calculated_view_public_key;
+  THROW_WALLET_EXCEPTION_IF(!crypto::secret_key_to_public_key(view_secret_key, calculated_view_public_key), error::invalid_multisig_seed);
+  THROW_WALLET_EXCEPTION_IF(view_public_key != calculated_view_public_key, error::invalid_multisig_seed);
+  crypto::public_key local_signer;
+  THROW_WALLET_EXCEPTION_IF(!crypto::secret_key_to_public_key(spend_secret_key, local_signer), error::invalid_multisig_seed);
+  THROW_WALLET_EXCEPTION_IF(std::find(multisig_signers.begin(), multisig_signers.end(), local_signer) == multisig_signers.end(), error::invalid_multisig_seed);
+  rct::key skey = rct::zero();
+  for (const auto &msk: multisig_keys)
+    sc_add(skey.bytes, skey.bytes, rct::sk2rct(msk).bytes);
+  THROW_WALLET_EXCEPTION_IF(!(rct::rct2sk(skey) == spend_secret_key), error::invalid_multisig_seed);
+
+  m_account.make_multisig(view_secret_key, spend_secret_key, spend_public_key, multisig_keys);
+  m_account.finalize_multisig(spend_public_key);
+
+  m_account_public_address = m_account.get_keys().m_account_address;
+  m_watch_only = false;
+  m_multisig = true;
+  m_multisig_threshold = threshold;
+  m_multisig_signers = multisig_signers;
+
+  if (!wallet_.empty())
+  {
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
+
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
+
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+  add_subaddress_account(tr("Primary account"));
+
+  if (!wallet_.empty())
+    store();
 }
 
 /*!
