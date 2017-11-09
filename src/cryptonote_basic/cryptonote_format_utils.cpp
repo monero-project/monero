@@ -728,7 +728,7 @@ namespace cryptonote
     // v1 transactions hash the entire blob
     if (t.version == 1)
     {
-      size_t ignored_blob_size, &blob_size_ref = blob_size ? *blob_size : ignored_blob_size;
+      size_t ignored_blob_size = 0, &blob_size_ref = blob_size ? *blob_size : ignored_blob_size;
       return get_object_hash(t, res, blob_size_ref);
     }
 
