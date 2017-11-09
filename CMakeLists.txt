@@ -703,8 +703,6 @@ if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32" AND NOT IOS)
   list(APPEND EXTRA_LIBRARIES ${ATOMIC})
 endif()
 
-include(version.cmake)
-
 find_path(ZMQ_INCLUDE_PATH zmq.hpp)
 find_library(ZMQ_LIB zmq)
 find_library(PGM_LIBRARY pgm)

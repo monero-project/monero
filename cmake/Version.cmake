@@ -41,7 +41,7 @@ elseif (GIT_FOUND OR Git_FOUND)
     COMMAND           "${CMAKE_COMMAND}"
                       "-D" "GIT=${GIT_EXECUTABLE}"
                       "-D" "TO=${CMAKE_BINARY_DIR}/version.cpp"
-                      "-P" "src/version.cmake"
+                      "-P" "cmake/GenVersion.cmake"
     BYPRODUCTS        "${CMAKE_BINARY_DIR}/version.cpp"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 else()
