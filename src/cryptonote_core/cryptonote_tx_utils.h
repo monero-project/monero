@@ -53,6 +53,20 @@ namespace cryptonote
     rct::key mask;                      //ringct amount mask
 
     void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(outputs)
+      FIELD(real_output)
+      FIELD(real_out_tx_key)
+      FIELD(real_out_additional_tx_keys)
+      FIELD(real_output_in_tx_index)
+      FIELD(amount)
+      FIELD(rct)
+      FIELD(mask)
+
+      if (real_output >= outputs.size())
+        return false;
+    END_SERIALIZE()
   };
 
   struct tx_destination_entry
