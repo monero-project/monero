@@ -735,8 +735,6 @@ namespace cryptonote
 
     #elif defined(__linux__)
 
-      const std::string STR_CPU("cpu");
-      const std::size_t STR_CPU_LEN = STR_CPU.size();
       const std::string STAT_FILE_PATH = "/proc/stat";
 
       if( !epee::file_io_utils::is_file_exist(STAT_FILE_PATH) )
@@ -787,7 +785,7 @@ namespace cryptonote
 
     #endif
 
-    return false; // unsupported systemm..
+    return false; // unsupported system
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::get_process_time(uint64_t& total_time)
@@ -818,7 +816,7 @@ namespace cryptonote
 
     #endif
 
-    return false; // unsupported system..
+    return false; // unsupported system
   }
   //-----------------------------------------------------------------------------------------------------  
   uint8_t miner::get_percent_of_total(uint64_t other, uint64_t total)
