@@ -757,6 +757,13 @@ namespace cryptonote
       */
      uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes);
 
+     /**
+      * @brief get free disk space on the blockchain partition
+      *
+      * @return free space in bytes
+      */
+     uint64_t get_free_space() const;
+
    private:
 
      /**
@@ -916,6 +923,13 @@ namespace cryptonote
       */
      bool check_updates();
 
+     /**
+      * @brief checks free disk space
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_disk_space();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
@@ -939,6 +953,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
+     epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 

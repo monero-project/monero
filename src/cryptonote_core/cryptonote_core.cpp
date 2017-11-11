@@ -1269,6 +1269,7 @@ namespace cryptonote
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
+    m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1400,6 +1401,17 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::check_disk_space()
+  {
+    uint64_t free_space = get_free_space();
+    if (free_space < 1ull * 1024 * 1024 * 1024) // 1 GB
+    {
+      const el::Level level = el::Level::Warning;
+      MCLOG_RED(level, "global", "Free space is below 1 GB on " << m_config_folder);
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::set_target_blockchain_height(uint64_t target_blockchain_height)
   {
     m_target_blockchain_height = target_blockchain_height;
@@ -1413,6 +1425,13 @@ namespace cryptonote
   uint64_t core::prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes)
   {
     return get_blockchain_storage().prevalidate_block_hashes(height, hashes);
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_free_space() const
+  {
+    boost::filesystem::path path(m_config_folder);
+    boost::filesystem::space_info si = boost::filesystem::space(path);
+    return si.available;
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const
