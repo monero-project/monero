@@ -949,6 +949,47 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_relay_tx(const wallet_rpc::COMMAND_RPC_RELAY_TX::request& req, wallet_rpc::COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    cryptonote::blobdata blob;
+    if (!epee::string_tools::parse_hexstr_to_binbuff(req.hex, blob))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+      er.message = "Failed to parse hex.";
+      return false;
+    }
+
+    std::stringstream ss;
+    ss << blob;
+    binary_archive<false> ba(ss);
+
+    tools::wallet2::pending_tx ptx;
+    bool r = ::serialization::serialize(ba, ptx);
+    if (!r)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_TX_METADATA;
+      er.message = "Failed to parse tx metadata.";
+      return false;
+    }
+
+    try
+    {
+      m_wallet->commit_tx(ptx);
+    }
+    catch(const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_GENERIC_TRANSFER_ERROR;
+      er.message = "Failed to commit tx.";
+      return false;
+    }
+
+    res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx));
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_make_integrated_address(const wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_MAKE_INTEGRATED_ADDRESS::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
