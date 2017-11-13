@@ -4663,21 +4663,25 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   change_dts.amount = found_money - needed_money;
   if (change_dts.amount == 0)
   {
-    // If the change is 0, send it to a random address, to avoid confusing
-    // the sender with a 0 amount output. We send a 0 amount in order to avoid
-    // letting the destination be able to work out which of the inputs is the
-    // real one in our rings
-    LOG_PRINT_L2("generating dummy address for 0 change");
-    cryptonote::account_base dummy;
-    dummy.generate();
-    change_dts.addr = dummy.get_keys().m_account_address;
-    LOG_PRINT_L2("generated dummy address for 0 change");
+    if (splitted_dsts.size() == 1)
+    {
+      // If the change is 0, send it to a random address, to avoid confusing
+      // the sender with a 0 amount output. We send a 0 amount in order to avoid
+      // letting the destination be able to work out which of the inputs is the
+      // real one in our rings
+      LOG_PRINT_L2("generating dummy address for 0 change");
+      cryptonote::account_base dummy;
+      dummy.generate();
+      change_dts.addr = dummy.get_keys().m_account_address;
+      LOG_PRINT_L2("generated dummy address for 0 change");
+      splitted_dsts.push_back(change_dts);
+    }
   }
   else
   {
     change_dts.addr = get_subaddress({subaddr_account, 0});
+    splitted_dsts.push_back(change_dts);
   }
-  splitted_dsts.push_back(change_dts);
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
