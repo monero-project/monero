@@ -4580,9 +4580,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
   uint64_t needed_money = fee;
   LOG_PRINT_L2("transfer_selected_rct: starting with fee " << print_money (needed_money));
-  LOG_PRINT_L0("selected transfers: ");
-  for (auto t: selected_transfers)
-    LOG_PRINT_L2("  " << t);
+  LOG_PRINT_L2("selected transfers: " << strjoin(selected_transfers, " "));
 
   // calculate total amount being sent to all destinations
   // throw if total amount overflows uint64_t
@@ -5558,7 +5556,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     if (!preferred_inputs.empty())
     {
       string s;
-      for (auto i: preferred_inputs) s += boost::lexical_cast<std::string>(i) + "(" + print_money(m_transfers[i].amount()) + ") ";
+      for (auto i: preferred_inputs) s += boost::lexical_cast<std::string>(i) + " (" + print_money(m_transfers[i].amount()) + ") ";
       LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
 
       // bring the list of available outputs stored by the same subaddress index to the front of the list
@@ -5594,10 +5592,9 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     TX &tx = txes.back();
 
     LOG_PRINT_L2("Start of loop with " << unused_transfers_indices->size() << " " << unused_dust_indices->size());
-    LOG_PRINT_L2("Start of loop with " << unused_transfers_indices->size() << " " << unused_dust_indices->size());
     LOG_PRINT_L2("unused_transfers_indices: " << strjoin(*unused_transfers_indices, " "));
-    LOG_PRINT_L2("unused_dust_indices:" << strjoin(*unused_dust_indices, " "));
-    LOG_PRINT_L2("dsts size " << dsts.size() << ", first " << (dsts.empty() ? -1 : dsts[0].amount));
+    LOG_PRINT_L2("unused_dust_indices: " << strjoin(*unused_dust_indices, " "));
+    LOG_PRINT_L2("dsts size " << dsts.size() << ", first " << (dsts.empty() ? "-" : cryptonote::print_money(dsts[0].amount)));
     LOG_PRINT_L2("adding_fee " << adding_fee << ", use_rct " << use_rct);
 
     // if we need to spend money and don't have any left, we fail
