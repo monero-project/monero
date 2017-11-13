@@ -326,9 +326,17 @@ application.
  
         pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium
 
-* Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
-  or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
-  running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
+* Install git:
+
+        pacman -S git
+        
+* Open `mingw32.exe` (32-bit) or `mingw64.exe` (64-bit) and clone the repository:
+
+        git clone https://github.com/monero-project/monero.git
+        
+* Change directory:
+
+        cd monero
 
 **Building**
 
