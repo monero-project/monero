@@ -85,7 +85,6 @@ typedef cryptonote::simple_wallet sw;
 #define MIN_RING_SIZE 5 // Used to inform user about min ring size -- does not track actual protocol
 
 #define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\003"
-#define MULTISIG_EXPORT_FILE_MAGIC "Monero multisig export\001"
 
 #define LOCK_IDLE_SCOPE() \
   bool auto_refresh_enabled = m_auto_refresh_enabled.load(std::memory_order_relaxed); \
@@ -916,21 +915,9 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
   const std::string filename = args[0];
   try
   {
-    std::vector<tools::wallet2::multisig_info> outs = m_wallet->export_multisig();
+    cryptonote::blobdata ciphertext = m_wallet->export_multisig();
 
-    std::stringstream oss;
-    boost::archive::portable_binary_oarchive ar(oss);
-    ar << outs;
-
-    std::string magic(MULTISIG_EXPORT_FILE_MAGIC, strlen(MULTISIG_EXPORT_FILE_MAGIC));
-    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-    std::string header;
-    header += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
-    header += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
-    crypto::public_key signer = m_wallet->get_multisig_signer_public_key();
-    header += std::string((const char *)&signer, sizeof(crypto::public_key));
-    std::string ciphertext = m_wallet->encrypt_with_view_secret_key(header + oss.str());
-    bool r = epee::file_io_utils::save_string_to_file(filename, magic + ciphertext);
+    bool r = epee::file_io_utils::save_string_to_file(filename, ciphertext);
     if (!r)
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
@@ -970,8 +957,7 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
   if (m_wallet->ask_password() && !get_and_verify_password())
     return true;
 
-  std::vector<std::vector<tools::wallet2::multisig_info>> info;
-  std::unordered_set<crypto::public_key> seen;
+  std::vector<cryptonote::blobdata> info;
   for (size_t n = 0; n < args.size(); ++n)
   {
     const std::string filename = args[n];
@@ -982,65 +968,7 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
       fail_msg_writer() << tr("failed to read file ") << filename;
       return true;
     }
-    const size_t magiclen = strlen(MULTISIG_EXPORT_FILE_MAGIC);
-    if (data.size() < magiclen || memcmp(data.data(), MULTISIG_EXPORT_FILE_MAGIC, magiclen))
-    {
-      fail_msg_writer() << tr("Bad multisig info file magic in ") << filename;
-      return true;
-    }
-
-    try
-    {
-      data = m_wallet->decrypt_with_view_secret_key(std::string(data, magiclen));
-    }
-    catch (const std::exception &e)
-    {
-      fail_msg_writer() << tr("Failed to decrypt ") << filename << ": " << e.what();
-      return true;
-    }
-
-    const size_t headerlen = 3 * sizeof(crypto::public_key);
-    if (data.size() < headerlen)
-    {
-      fail_msg_writer() << tr("Bad data size from file ") << filename;
-      return true;
-    }
-    const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
-    const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
-    const crypto::public_key &signer = *(const crypto::public_key*)&data[2*sizeof(crypto::public_key)];
-    const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-    if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
-    {
-      fail_msg_writer() << (boost::format(tr("Multisig info from %s is for a different account")) % filename).str();
-      return true;
-    }
-    if (m_wallet->get_multisig_signer_public_key() == signer)
-    {
-      message_writer() << (boost::format(tr("Multisig info from %s is from this wallet, ignored")) % filename).str();
-      continue;
-    }
-    if (seen.find(signer) != seen.end())
-    {
-      message_writer() << (boost::format(tr("Multisig info from %s already seen, ignored")) % filename).str();
-      continue;
-    }
-    seen.insert(signer);
-
-    try
-    {
-      std::string body(data, headerlen);
-      std::istringstream iss(body);
-      std::vector<tools::wallet2::multisig_info> i;
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> i;
-      message_writer() << (boost::format(tr("%u outputs found in %s")) % boost::lexical_cast<std::string>(i.size()) % filename).str();
-      info.push_back(std::move(i));
-    }
-    catch (const std::exception &e)
-    {
-      fail_msg_writer() << tr("Failed to import multisig info: ") << e.what();
-      return true;
-    }
+    info.push_back(std::move(data));
   }
 
   LOCK_IDLE_SCOPE();

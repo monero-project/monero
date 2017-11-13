@@ -499,12 +499,12 @@ namespace tools
      * Export multisig info
      * This will generate and remember new k values
      */
-    std::vector<tools::wallet2::multisig_info> export_multisig();
+    cryptonote::blobdata export_multisig();
     /*!
      * Import a set of multisig info from multisig partners
      * \return the number of inputs which were imported
      */
-    size_t import_multisig(std::vector<std::vector<tools::wallet2::multisig_info>> info);
+    size_t import_multisig(std::vector<cryptonote::blobdata> info);
     /*!
      * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
      * \param wallet_name Name of wallet file (should exist)

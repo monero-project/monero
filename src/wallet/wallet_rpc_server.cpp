@@ -2626,7 +2626,7 @@ namespace tools
       return false;
     }
 
-    std::vector<tools::wallet2::multisig_info> info;
+    cryptonote::blobdata info;
     try
     {
       info = m_wallet->export_multisig();
@@ -2638,20 +2638,7 @@ namespace tools
       return false;
     }
 
-    res.info.resize(info.size());
-    for (size_t n = 0; n < info.size(); ++n)
-    {
-      res.info[n].signer = epee::string_tools::pod_to_hex(info[n].m_signer);
-      res.info[n].LR.resize(info[n].m_LR.size());
-      for (size_t l = 0; l < info[n].m_LR.size(); ++l)
-      {
-        res.info[n].LR[l].L = epee::string_tools::pod_to_hex(info[n].m_LR[l].m_L);
-        res.info[n].LR[l].R = epee::string_tools::pod_to_hex(info[n].m_LR[l].m_R);
-      }
-      res.info[n].partial_key_images.resize(info[n].m_partial_key_images.size());
-      for (size_t l = 0; l < info[n].m_partial_key_images.size(); ++l)
-        res.info[n].partial_key_images[l] = epee::string_tools::pod_to_hex(info[n].m_partial_key_images[l]);
-    }
+    res.info = epee::string_tools::buff_to_hex_nodelimer(info);
 
     return true;
   }
@@ -2687,42 +2674,15 @@ namespace tools
       return false;
     }
 
-    std::vector<std::vector<tools::wallet2::multisig_info>> info;
+    std::vector<cryptonote::blobdata> info;
     info.resize(req.info.size());
     for (size_t n = 0; n < info.size(); ++n)
     {
-      info[n].resize(req.info[n].info.size());
-      for (size_t i = 0; i < info[n].size(); ++i)
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.info[n], info[n]))
       {
-        const auto &src = req.info[n].info[i];
-        auto &dst = info[n][i];
-
-        if (!epee::string_tools::hex_to_pod(src.signer, dst.m_signer))
-        {
-          er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
-          er.message = "Failed to parse signer from multisig info";
-          return false;
-        }
-        dst.m_LR.resize(src.LR.size());
-        for (size_t l = 0; l < src.LR.size(); ++l)
-        {
-          if (!epee::string_tools::hex_to_pod(src.LR[l].L, dst.m_LR[l].m_L) || !epee::string_tools::hex_to_pod(src.LR[l].R, dst.m_LR[l].m_R))
-          {
-            er.code = WALLET_RPC_ERROR_CODE_WRONG_LR;
-            er.message = "Failed to parse L/R from multisig info";
-            return false;
-          }
-        }
-        dst.m_partial_key_images.resize(src.partial_key_images.size());
-        for (size_t l = 0; l < src.partial_key_images.size(); ++l)
-        {
-          if (!epee::string_tools::hex_to_pod(src.partial_key_images[l], dst.m_partial_key_images[l]))
-          {
-            er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
-            er.message = "Failed to parse partial key image from multisig info";
-            return false;
-          }
-        }
+        er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+        er.message = "Failed to parse hex.";
+        return false;
       }
     }
 

@@ -1567,30 +1567,6 @@ namespace wallet_rpc
     };
   };
 
-  struct LR_entry
-  {
-    std::string L;
-    std::string R;
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(L)
-      KV_SERIALIZE(R)
-    END_KV_SERIALIZE_MAP()
-  };
-
-  struct multisig_info_entry
-  {
-    std::string signer;
-    std::vector<LR_entry> LR;
-    std::vector<std::string> partial_key_images;
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(signer)
-      KV_SERIALIZE(LR)
-      KV_SERIALIZE(partial_key_images)
-    END_KV_SERIALIZE_MAP()
-  };
-
   struct COMMAND_RPC_EXPORT_MULTISIG
   {
     struct request
@@ -1601,7 +1577,7 @@ namespace wallet_rpc
 
     struct response
     {
-      std::vector<multisig_info_entry> info;
+      std::string info;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(info)
@@ -1611,18 +1587,9 @@ namespace wallet_rpc
 
   struct COMMAND_RPC_IMPORT_MULTISIG
   {
-    struct participant_entry
-    {
-      std::vector<multisig_info_entry> info;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(info)
-      END_KV_SERIALIZE_MAP()
-    };
-
     struct request
     {
-      std::vector<participant_entry> info;
+      std::vector<std::string> info;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(info)

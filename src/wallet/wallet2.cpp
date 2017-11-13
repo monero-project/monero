@@ -103,6 +103,8 @@ using namespace cryptonote;
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 
+#define MULTISIG_EXPORT_FILE_MAGIC "Monero multisig export\001"
+
 namespace
 {
 // Create on-demand to prevent static initialization order fiasco issues.
@@ -8421,7 +8423,7 @@ crypto::key_image wallet2::get_multisig_composite_key_image(size_t n) const
   return ki;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<tools::wallet2::multisig_info> wallet2::export_multisig()
+cryptonote::blobdata wallet2::export_multisig()
 {
   std::vector<tools::wallet2::multisig_info> info;
 
@@ -8456,7 +8458,19 @@ std::vector<tools::wallet2::multisig_info> wallet2::export_multisig()
     info[n].m_signer = signer;
   }
 
-  return info;
+  std::stringstream oss;
+  boost::archive::portable_binary_oarchive ar(oss);
+  ar << info;
+
+  std::string magic(MULTISIG_EXPORT_FILE_MAGIC, strlen(MULTISIG_EXPORT_FILE_MAGIC));
+  const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
+  std::string header;
+  header += std::string((const char *)&keys.m_spend_public_key, sizeof(crypto::public_key));
+  header += std::string((const char *)&keys.m_view_public_key, sizeof(crypto::public_key));
+  header += std::string((const char *)&signer, sizeof(crypto::public_key));
+  std::string ciphertext = encrypt_with_view_secret_key(header + oss.str());
+
+  return MULTISIG_EXPORT_FILE_MAGIC + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n)
@@ -8480,9 +8494,50 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   m_key_images[td.m_key_image] = n;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::import_multisig(std::vector<std::vector<tools::wallet2::multisig_info>> info)
+size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
+
+  std::vector<std::vector<tools::wallet2::multisig_info>> info;
+  std::unordered_set<crypto::public_key> seen;
+  for (cryptonote::blobdata &data: blobs)
+  {
+    const size_t magiclen = strlen(MULTISIG_EXPORT_FILE_MAGIC);
+    THROW_WALLET_EXCEPTION_IF(data.size() < magiclen || memcmp(data.data(), MULTISIG_EXPORT_FILE_MAGIC, magiclen),
+        error::wallet_internal_error, "Bad multisig info file magic in ");
+
+    data = decrypt_with_view_secret_key(std::string(data, magiclen));
+
+    const size_t headerlen = 3 * sizeof(crypto::public_key);
+    THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, "Bad data size");
+
+    const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[0];
+    const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[sizeof(crypto::public_key)];
+    const crypto::public_key &signer = *(const crypto::public_key*)&data[2*sizeof(crypto::public_key)];
+    const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
+    THROW_WALLET_EXCEPTION_IF(public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key,
+        error::wallet_internal_error, "Multisig info is for a different account");
+    if (get_multisig_signer_public_key() == signer)
+    {
+      MINFO("Multisig info from this wallet ignored");
+      continue;
+    }
+    if (seen.find(signer) != seen.end())
+    {
+      MINFO("Duplicate multisig info ignored");
+      continue;
+    }
+    seen.insert(signer);
+
+    std::string body(data, headerlen);
+    std::istringstream iss(body);
+    std::vector<tools::wallet2::multisig_info> i;
+    boost::archive::portable_binary_iarchive ar(iss);
+    ar >> i;
+    MINFO(boost::format("%u outputs found") % boost::lexical_cast<std::string>(i.size()));
+    info.push_back(std::move(i));
+  }
+
   CHECK_AND_ASSERT_THROW_MES(info.size() + 1 <= m_multisig_signers.size() && info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
 
   std::vector<std::vector<rct::key>> k;
