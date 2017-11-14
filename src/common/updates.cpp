@@ -100,7 +100,7 @@ namespace tools
   {
     const char *base = user ? "https://downloads.getmonero.org/" : "http://updates.getmonero.org/";
 #ifdef _WIN32
-    static const char extension[] = ".zip";
+    static const char *extension = strncmp(buildtag.c_str(), "install-", 8) ? ".zip" : ".exe";
 #else
     static const char extension[] = ".tar.bz2";
 #endif
