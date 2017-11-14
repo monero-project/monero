@@ -1270,7 +1270,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       m_wallet_file = m_generate_from_spend_key;
       // parse spend secret key
-      std::string spendkey_string = command_line::input_line("Secret spend key: ");
+      std::string spendkey_string = input_line("Secret spend key: ");
       if (std::cin.eof())
         return false;
       if (spendkey_string.empty()) {
@@ -3752,7 +3752,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 
   // fetch tx pubkey
   crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  if (tx_pub_key == null_pkey)
+  if (tx_pub_key == crypto::null_pkey)
   {
     fail_msg_writer() << tr("Tx pubkey was not found");
     return true;
