@@ -78,6 +78,20 @@ namespace command_line
     return false;
   }
 
+  bool is_no(const std::string& str)
+  {
+    if (str == "n" || str == "N")
+      return true;
+
+    boost::algorithm::is_iequal ignore_case{};
+    if (boost::algorithm::equals("no", str, ignore_case))
+      return true;
+    if (boost::algorithm::equals(command_line::tr("no"), str, ignore_case))
+      return true;
+
+    return false;
+  }
+
   const arg_descriptor<bool> arg_help = {"help", "Produce help message"};
   const arg_descriptor<bool> arg_version = {"version", "Output version information"};
   const arg_descriptor<std::string> arg_data_dir = {"data-dir", "Specify data directory"};
