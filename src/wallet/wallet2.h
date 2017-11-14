@@ -244,6 +244,12 @@ namespace tools
       bool m_incoming;
     };
 
+    struct pool_payment_details
+    {
+      payment_details m_pd;
+      bool m_double_spend_seen;
+    };
+
     struct unconfirmed_transfer_details
     {
       cryptonote::transaction_prefix m_tx;
@@ -530,7 +536,7 @@ namespace tools
     void get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
       uint64_t min_height, uint64_t max_height = (uint64_t)-1, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
-    void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
+    void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
@@ -585,7 +591,7 @@ namespace tools
         std::unordered_map<crypto::hash, payment_details> m;
         a & m;
         for (std::unordered_map<crypto::hash, payment_details>::const_iterator i = m.begin(); i != m.end(); ++i)
-          m_unconfirmed_payments.insert(*i);
+          m_unconfirmed_payments.insert(std::make_pair(i->first, pool_payment_details{i->second, false}));
       }
       if(ver < 14)
         return;
@@ -607,7 +613,15 @@ namespace tools
       a & m_address_book;
       if(ver < 17)
         return;
-      a & m_unconfirmed_payments;
+      if (ver < 21)
+      {
+        // we're loading an old version, where m_unconfirmed_payments payload was payment_details
+        std::unordered_map<crypto::hash, payment_details> m;
+        a & m;
+        for (const auto &i: m)
+          m_unconfirmed_payments.insert(std::make_pair(i.first, pool_payment_details{i.second, false}));
+        return;
+      }
       if(ver < 18)
         return;
       a & m_scanned_pool_txs[0];
@@ -621,6 +635,9 @@ namespace tools
       if(ver < 21)
         return;
       a & m_attributes;
+      if(ver < 22)
+        return;
+      a & m_unconfirmed_payments;
     }
 
     /*!
@@ -797,7 +814,7 @@ namespace tools
      * \param password       Password of wallet file
      */
     bool load_keys(const std::string& keys_file_name, const std::string& password);
-    void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool);
+    void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen);
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices);
     void detach_blockchain(uint64_t height);
     void get_short_chain_history(std::list<crypto::hash>& ids) const;
@@ -846,7 +863,7 @@ namespace tools
     std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
-    std::unordered_multimap<crypto::hash, payment_details> m_unconfirmed_payments;
+    std::unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
     std::unordered_map<crypto::hash, crypto::secret_key> m_tx_keys;
     cryptonote::checkpoints m_checkpoints;
     std::unordered_map<crypto::hash, std::vector<crypto::secret_key>> m_additional_tx_keys;
@@ -908,9 +925,10 @@ namespace tools
     std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 21)
+BOOST_CLASS_VERSION(tools::wallet2, 22)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 2)
+BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
@@ -1137,7 +1155,14 @@ namespace boost
       }
       a & x.m_subaddr_index;
     }
-    
+
+    template <class Archive>
+    inline void serialize(Archive& a, tools::wallet2::pool_payment_details& x, const boost::serialization::version_type ver)
+    {
+      a & x.m_pd;
+      a & x.m_double_spend_seen;
+    }
+
     template <class Archive>
     inline void serialize(Archive& a, tools::wallet2::address_book_row& x, const boost::serialization::version_type ver)
     {

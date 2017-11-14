@@ -299,8 +299,9 @@ namespace tools
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd)
+  void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::pool_payment_details &ppd)
   {
+    const tools::wallet2::payment_details &pd = ppd.m_pd;
     entry.txid = string_tools::pod_to_hex(pd.m_tx_hash);
     entry.payment_id = string_tools::pod_to_hex(payment_id);
     if (entry.payment_id.substr(16).find_first_not_of('0') == std::string::npos)
@@ -311,6 +312,7 @@ namespace tools
     entry.unlock_time = pd.m_unlock_time;
     entry.fee = 0; // TODO
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
+    entry.double_spend_seen = ppd.m_double_spend_seen;
     entry.type = "pool";
     entry.subaddr_index = pd.m_subaddr_index;
   }
@@ -1357,9 +1359,9 @@ namespace tools
     {
       m_wallet->update_pool_state();
 
-      std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+      std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> payments;
       m_wallet->get_unconfirmed_payments(payments, req.account_index, req.subaddr_indices);
-      for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
+      for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
         res.pool.push_back(wallet_rpc::transfer_entry());
         fill_transfer_entry(res.pool.back(), i->first, i->second);
       }
@@ -1430,10 +1432,10 @@ namespace tools
 
     m_wallet->update_pool_state();
 
-    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> pool_payments;
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
     m_wallet->get_unconfirmed_payments(pool_payments);
-    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
-      if (i->second.m_tx_hash == txid)
+    for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
+      if (i->second.m_pd.m_tx_hash == txid)
       {
         fill_transfer_entry(res.transfer, i->first, i->second);
         return true;

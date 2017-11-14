@@ -137,10 +137,11 @@ namespace cryptonote
      * @param fee the transaction fee
      * @param relayed return-by-reference was transaction relayed to us by the network?
      * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
+     * @param double_spend_seen return-by-reference was a double spend seen for that transaction?
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay);
+    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
@@ -391,6 +392,8 @@ namespace cryptonote
       time_t last_relayed_time;  //!< the last time the transaction was relayed to the network
       bool relayed;  //!< whether or not the transaction has been relayed to the network
       bool do_not_relay; //!< to avoid relay this transaction to the network
+
+      bool double_spend_seen; //!< true iff another tx was seen double spending this one
     };
 
   private:
@@ -477,6 +480,11 @@ namespace cryptonote
      * @return true if the transaction is good to go, otherwise false
      */
     bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, transaction &tx) const;
+
+    /**
+     * @brief mark all transactions double spending the one passed
+     */
+    void mark_double_spend(const transaction &tx);
 
     //TODO: confirm the below comments and investigate whether or not this
     //      is the desired behavior

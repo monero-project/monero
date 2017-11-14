@@ -95,6 +95,7 @@ namespace rpc
     uint64_t last_relayed_time;
     bool relayed;
     bool do_not_relay;
+    bool double_spend_seen;
   };
 
   typedef std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images_with_tx_hashes;
