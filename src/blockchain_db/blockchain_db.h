@@ -1315,7 +1315,7 @@ public:
   /**
    * @brief get the number of transactions in the txpool
    */
-  virtual uint64_t get_txpool_tx_count() const = 0;
+  virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const = 0;
 
   /**
    * @brief check whether a txid is in the txpool
@@ -1370,7 +1370,7 @@ public:
    *
    * @return false if the function returns false for any transaction, otherwise true
    */
-  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false) const = 0;
+  virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, bool include_unrelayed_txes = true) const = 0;
 
   /**
    * @brief runs a function over all key images stored

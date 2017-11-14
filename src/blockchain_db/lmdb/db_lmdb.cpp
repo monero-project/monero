@@ -1522,21 +1522,49 @@ void BlockchainLMDB::update_txpool_tx(const crypto::hash &txid, const txpool_tx_
   }
 }
 
-uint64_t BlockchainLMDB::get_txpool_tx_count() const
+uint64_t BlockchainLMDB::get_txpool_tx_count(bool include_unrelayed_txes) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
-  TXN_PREFIX_RDONLY();
   int result;
+  uint64_t num_entries = 0;
 
-  MDB_stat db_stats;
-  if ((result = mdb_stat(m_txn, m_txpool_meta, &db_stats)))
-    throw0(DB_ERROR(lmdb_error("Failed to query m_txpool_meta: ", result).c_str()));
+  TXN_PREFIX_RDONLY();
 
+  if (include_unrelayed_txes)
+  {
+    // No filtering, we can get the number of tx the "fast" way
+    MDB_stat db_stats;
+    if ((result = mdb_stat(m_txn, m_txpool_meta, &db_stats)))
+      throw0(DB_ERROR(lmdb_error("Failed to query m_txpool_meta: ", result).c_str()));
+    num_entries = db_stats.ms_entries;
+  }
+  else
+  {
+    // Filter unrelayed tx out of the result, so we need to loop over transactions and check their meta data
+    RCURSOR(txpool_meta);
+    RCURSOR(txpool_blob);
+
+    MDB_val k;
+    MDB_val v;
+    MDB_cursor_op op = MDB_FIRST;
+    while (1)
+    {
+      result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, op);
+      op = MDB_NEXT;
+      if (result == MDB_NOTFOUND)
+        break;
+      if (result)
+        throw0(DB_ERROR(lmdb_error("Failed to enumerate txpool tx metadata: ", result).c_str()));
+      const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
+      if (!meta.do_not_relay)
+        ++num_entries;
+    }
+  }
   TXN_POSTFIX_RDONLY();
 
-  return db_stats.ms_entries;
+  return num_entries;
 }
 
 bool BlockchainLMDB::txpool_has_tx(const crypto::hash& txid) const
@@ -1633,7 +1661,7 @@ cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid
   return bd;
 }
 
-bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob) const
+bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob, bool include_unrelayed_txes) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1657,6 +1685,9 @@ bool BlockchainLMDB::for_all_txpool_txes(std::function<bool(const crypto::hash&,
       throw0(DB_ERROR(lmdb_error("Failed to enumerate txpool tx metadata: ", result).c_str()));
     const crypto::hash txid = *(const crypto::hash*)k.mv_data;
     const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
+    if (!include_unrelayed_txes && meta.do_not_relay)
+      // Skipping that tx
+      continue;
     const cryptonote::blobdata *passed_bd = NULL;
     cryptonote::blobdata bd;
     if (include_blob)

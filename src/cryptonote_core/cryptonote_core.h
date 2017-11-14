@@ -420,11 +420,12 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_transactions
+      * @param include_unrelayed_txes include unrelayed txes in result
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transactions(std::list<transaction>& txs) const;
-     
+     bool get_pool_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
+
      /**
       * @copydoc tx_memory_pool::get_txpool_backlog
       *
@@ -434,17 +435,19 @@ namespace cryptonote
      
      /**
       * @copydoc tx_memory_pool::get_transactions
+      * @param include_unrelayed_txes include unrelayed txes in result
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs) const;
+     bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions
+      * @param include_unrelayed_txes include unrelayed txes in result
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transaction_stats(struct txpool_stats& stats) const;
+     bool get_pool_transaction_stats(struct txpool_stats& stats, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_transaction
@@ -455,10 +458,11 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_pool_transactions_and_spent_keys_info
+      * @param include_unrelayed_txes include unrelayed txes in result
       *
       * @note see tx_memory_pool::get_pool_transactions_and_spent_keys_info
       */
-     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
+     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_for_rpc

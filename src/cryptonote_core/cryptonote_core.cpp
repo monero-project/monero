@@ -1182,21 +1182,21 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions(std::list<transaction>& txs) const
+  bool core::get_pool_transactions(std::list<transaction>& txs, bool include_sensitive_data) const
   {
-    m_mempool.get_transactions(txs);
+    m_mempool.get_transactions(txs, include_sensitive_data);
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transaction_hashes(std::vector<crypto::hash>& txs) const
+  bool core::get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_sensitive_data) const
   {
-    m_mempool.get_transaction_hashes(txs);
+    m_mempool.get_transaction_hashes(txs, include_sensitive_data);
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transaction_stats(struct txpool_stats& stats) const
+  bool core::get_pool_transaction_stats(struct txpool_stats& stats, bool include_sensitive_data) const
   {
-    m_mempool.get_transaction_stats(stats);
+    m_mempool.get_transaction_stats(stats, include_sensitive_data);
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -1210,9 +1210,9 @@ namespace cryptonote
     return m_mempool.have_tx(id);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
   {
-    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const

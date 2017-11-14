@@ -436,7 +436,7 @@ namespace cryptonote
         remove.insert(txid);
       }
       return true;
-    });
+    }, false);
 
     if (!remove.empty())
     {
@@ -498,7 +498,7 @@ namespace cryptonote
         }
       }
       return true;
-    });
+    }, false);
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -525,14 +525,14 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::get_transactions_count() const
+  size_t tx_memory_pool::get_transactions_count(bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    return m_blockchain.get_txpool_tx_count();
+    return m_blockchain.get_txpool_tx_count(include_unrelayed_txes);
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::get_transactions(std::list<transaction>& txs) const
+  void tx_memory_pool::get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -546,20 +546,20 @@ namespace cryptonote
       }
       txs.push_back(tx);
       return true;
-    }, true);
+    }, true, include_unrelayed_txes);
   }
   //------------------------------------------------------------------
-  void tx_memory_pool::get_transaction_hashes(std::vector<crypto::hash>& txs) const
+  void tx_memory_pool::get_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     m_blockchain.for_all_txpool_txes([&txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       txs.push_back(txid);
       return true;
-    });
+    }, false, include_unrelayed_txes);
   }
   //------------------------------------------------------------------
-  void tx_memory_pool::get_transaction_backlog(std::vector<tx_backlog_entry>& backlog) const
+  void tx_memory_pool::get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -567,16 +567,16 @@ namespace cryptonote
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       backlog.push_back({meta.blob_size, meta.fee, meta.receive_time - now});
       return true;
-    });
+    }, false, include_unrelayed_txes);
   }
   //------------------------------------------------------------------
-  void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats) const
+  void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats, bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
     std::map<uint64_t, txpool_histo> agebytes;
-    stats.txs_total = m_blockchain.get_txpool_tx_count();
+    stats.txs_total = m_blockchain.get_txpool_tx_count(include_unrelayed_txes);
     std::vector<uint32_t> sizes;
     sizes.reserve(stats.txs_total);
     m_blockchain.for_all_txpool_txes([&stats, &sizes, now, &agebytes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
@@ -601,7 +601,7 @@ namespace cryptonote
       if (meta.double_spend_seen)
         ++stats.num_double_spends;
       return true;
-    });
+      }, false, include_unrelayed_txes);
     stats.bytes_med = epee::misc_utils::median(sizes);
     if (stats.txs_total > 1)
     {
@@ -648,11 +648,11 @@ namespace cryptonote
   }
   //------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
+  bool tx_memory_pool::get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+    m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       tx_info txi;
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
       txi.tx_blob = *bd;
@@ -671,15 +671,18 @@ namespace cryptonote
       txi.max_used_block_id_hash = epee::string_tools::pod_to_hex(meta.max_used_block_id);
       txi.last_failed_height = meta.last_failed_height;
       txi.last_failed_id_hash = epee::string_tools::pod_to_hex(meta.last_failed_id);
-      txi.receive_time = meta.receive_time;
+      // In restricted mode we do not include this data:
+      txi.receive_time = include_sensitive_data ? meta.receive_time : 0;
       txi.relayed = meta.relayed;
-      txi.last_relayed_time = meta.last_relayed_time;
+      // In restricted mode we do not include this data:
+      txi.last_relayed_time = include_sensitive_data ? meta.last_relayed_time : 0;
       txi.do_not_relay = meta.do_not_relay;
       txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
       return true;
-    }, true);
+    }, true, include_sensitive_data);
 
+    txpool_tx_meta_t meta;
     for (const key_images_container::value_type& kee : m_spent_key_images) {
       const crypto::key_image& k_image = kee.first;
       const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
@@ -687,9 +690,26 @@ namespace cryptonote
       ki.id_hash = epee::string_tools::pod_to_hex(k_image);
       for (const crypto::hash& tx_id_hash : kei_image_set)
       {
+        if (!include_sensitive_data)
+        {
+          try
+          {
+            meta = m_blockchain.get_txpool_tx_meta(tx_id_hash);
+            if (!meta.relayed)
+              // Do not include that transaction if in restricted mode and it's not relayed
+              continue;
+          }
+          catch (const std::exception &e)
+          {
+            MERROR("Failed to get tx meta from txpool: " << e.what());
+            return false;
+          }
+        }
         ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
       }
-      key_image_infos.push_back(ki);
+      // Only return key images for which we have at least one tx that we can show for them
+      if (!ki.txs_hashes.empty())
+        key_image_infos.push_back(ki);
     }
     return true;
   }
@@ -723,7 +743,7 @@ namespace cryptonote
       txi.double_spend_seen = meta.double_spend_seen;
       tx_infos.push_back(txi);
       return true;
-    }, true);
+    }, true, false);
 
     for (const key_images_container::value_type& kee : m_spent_key_images) {
       std::vector<crypto::hash> tx_hashes;
@@ -1090,7 +1110,7 @@ namespace cryptonote
         remove.insert(txid);
       }
       return true;
-    });
+    }, false);
 
     size_t n_removed = 0;
     if (!remove.empty())
