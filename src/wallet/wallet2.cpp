@@ -59,7 +59,6 @@ using namespace epee;
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
 #include "common/base58.h"
-#include "common/scoped_message_writer.h"
 #include "ringct/rctSigs.h"
 
 extern "C"
@@ -374,8 +373,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
           }
           else
           {
-            tools::fail_msg_writer() << tools::wallet2::tr("Address must be specified in order to create watch-only wallet");
-            return false;
+            THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Address must be specified in order to create watch-only wallet"));
           }
           wallet->generate(field_filename, field_password, address, viewkey);
         }
