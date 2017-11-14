@@ -393,7 +393,8 @@ namespace cryptonote
     }
 
     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));
-    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
+    if (need_additional_txkeys)
+      add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
 
     LOG_PRINT_L2("tx pubkey: " << txkey.pub);
     if (need_additional_txkeys)
