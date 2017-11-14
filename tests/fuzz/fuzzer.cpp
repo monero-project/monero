@@ -29,6 +29,7 @@
 #include <boost/program_options.hpp>
 #include "include_base_utils.h"
 #include "common/command_line.h"
+#include "common/util.h"
 #include "fuzzer.h"
 
 #if (!defined(__clang__) || (__clang__ < 5))
@@ -48,6 +49,7 @@ using namespace boost::program_options;
 int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
 {
   TRY_ENTRY();
+  tools::on_startup();
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options

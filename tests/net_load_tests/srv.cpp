@@ -215,6 +215,7 @@ namespace
 
 int main(int argc, char** argv)
 {
+  tools::on_startup();
   //set up logging options
   mlog_configure(mlog_get_default_log_path("net_load_tests_srv.log"), true);
 

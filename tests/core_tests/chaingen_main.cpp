@@ -47,6 +47,7 @@ namespace
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
+  tools::on_startup();
   epee::string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
