@@ -288,7 +288,7 @@ namespace tools
       std::vector<cryptonote::tx_source_entry> sources;
       cryptonote::tx_destination_entry change_dts;
       std::vector<cryptonote::tx_destination_entry> splitted_dsts; // split, includes change
-      std::list<size_t> selected_transfers;
+      std::vector<size_t> selected_transfers;
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
@@ -309,7 +309,7 @@ namespace tools
       uint64_t dust, fee;
       bool dust_added_to_fee;
       cryptonote::tx_destination_entry change_dts;
-      std::list<size_t> selected_transfers;
+      std::vector<size_t> selected_transfers;
       std::string key_images;
       crypto::secret_key tx_key;
       std::vector<crypto::secret_key> additional_tx_keys;
@@ -507,10 +507,10 @@ namespace tools
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, bool trusted_daemon);
     void transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outputs_count, const std::vector<size_t> &unused_transfers_indices, uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx, bool trusted_daemon);
     template<typename T>
-    void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::list<size_t>& selected_transfers, size_t fake_outputs_count,
+    void transfer_selected(const std::vector<cryptonote::tx_destination_entry>& dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
-    void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::list<size_t>& selected_transfers, size_t fake_outputs_count,
+    void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx);
 
@@ -717,8 +717,8 @@ namespace tools
     std::vector<size_t> select_available_unmixable_outputs(bool trusted_daemon);
     std::vector<size_t> select_available_mixable_outputs(bool trusted_daemon);
 
-    size_t pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_dust_indices, const std::list<size_t>& selected_transfers, bool smallest = false) const;
-    size_t pop_best_value(std::vector<size_t> &unused_dust_indices, const std::list<size_t>& selected_transfers, bool smallest = false) const;
+    size_t pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_dust_indices, const std::vector<size_t>& selected_transfers, bool smallest = false) const;
+    size_t pop_best_value(std::vector<size_t> &unused_dust_indices, const std::vector<size_t>& selected_transfers, bool smallest = false) const;
 
     void set_tx_note(const crypto::hash &txid, const std::string &note);
     std::string get_tx_note(const crypto::hash &txid) const;
@@ -774,7 +774,7 @@ namespace tools
     // Send an import request to lw node. returns info about import fee, address and payment_id
     bool light_wallet_import_wallet_request(cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::response &response);
     // get random outputs from light wallet server
-    void light_wallet_get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::list<size_t> &selected_transfers, size_t fake_outputs_count);
+    void light_wallet_get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count);
     // Parse rct string
     bool light_wallet_parse_rct_str(const std::string& rct_string, const crypto::public_key& tx_pub_key, uint64_t internal_output_index, rct::key& decrypted_mask, rct::key& rct_commit, bool decrypt) const;
     // check if key image is ours
@@ -825,7 +825,7 @@ namespace tools
     void fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history);
     void pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, bool &error);
     void process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, const std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t& blocks_added);
-    uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::list<size_t>& selected_transfers, bool trusted_daemon);
+    uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers, bool trusted_daemon);
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received, uint32_t subaddr_account, const std::set<uint32_t>& subaddr_indices);
@@ -844,7 +844,7 @@ namespace tools
     std::vector<size_t> pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices) const;
     void set_spent(size_t idx, uint64_t height);
     void set_unspent(size_t idx);
-    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::list<size_t> &selected_transfers, size_t fake_outputs_count);
+    void get_outs(std::vector<std::vector<get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count);
     bool tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const;
     bool wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki);
     crypto::public_key get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const;
@@ -934,8 +934,8 @@ BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 1)
-BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 1)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 2)
+BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 2)
 
 namespace boost
 {
@@ -1197,7 +1197,16 @@ namespace boost
       a & x.sources;
       a & x.change_dts;
       a & x.splitted_dsts;
-      a & x.selected_transfers;
+      if (ver < 2)
+      {
+        // load list to vector
+        std::list<size_t> selected_transfers;
+        a & selected_transfers;
+        x.selected_transfers.clear();
+        x.selected_transfers.reserve(selected_transfers.size());
+        for (size_t t: selected_transfers)
+          x.selected_transfers.push_back(t);
+      }
       a & x.extra;
       a & x.unlock_time;
       a & x.use_rct;
@@ -1209,6 +1218,9 @@ namespace boost
       }
       a & x.subaddr_account;
       a & x.subaddr_indices;
+      if (ver < 2)
+        return;
+      a & x.selected_transfers;
     }
 
     template <class Archive>
@@ -1219,7 +1231,16 @@ namespace boost
       a & x.fee;
       a & x.dust_added_to_fee;
       a & x.change_dts;
-      a & x.selected_transfers;
+      if (ver < 2)
+      {
+        // load list to vector
+        std::list<size_t> selected_transfers;
+        a & selected_transfers;
+        x.selected_transfers.clear();
+        x.selected_transfers.reserve(selected_transfers.size());
+        for (size_t t: selected_transfers)
+          x.selected_transfers.push_back(t);
+      }
       a & x.key_images;
       a & x.tx_key;
       a & x.dests;
@@ -1227,6 +1248,9 @@ namespace boost
       if (ver < 1)
         return;
       a & x.additional_tx_keys;
+      if (ver < 2)
+        return;
+      a & x.selected_transfers;
     }
   }
 }
@@ -1316,7 +1340,7 @@ namespace tools
 
     // randomly select inputs for transaction
     // throw if requested send amount is greater than (unlocked) amount available to send
-    std::list<size_t> selected_transfers;
+    std::vector<size_t> selected_transfers;
     uint64_t found_money = select_transfers(needed_money, unused_transfers_indices, selected_transfers, trusted_daemon);
     THROW_WALLET_EXCEPTION_IF(found_money < needed_money, error::not_enough_unlocked_money, found_money, needed_money - fee, fee);
 
