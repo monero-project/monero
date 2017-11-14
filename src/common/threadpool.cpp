@@ -39,7 +39,7 @@ namespace tools
 threadpool::threadpool() : running(true), active(0) {
   boost::thread::attributes attrs;
   attrs.set_stack_size(THREAD_STACK_SIZE);
-  max = tools::get_max_concurrency() * 2;
+  max = tools::get_max_concurrency();
   size_t i = max;
   while(i--) {
     threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this)));
@@ -74,7 +74,7 @@ void threadpool::submit(waiter *obj, std::function<void()> f) {
 }
 
 int threadpool::get_max_concurrency() {
-  return max / 2;
+  return max;
 }
 
 void threadpool::waiter::wait() {
