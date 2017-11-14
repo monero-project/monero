@@ -51,6 +51,7 @@ if (BUILD_GUI_DEPS)
         set(lib_folder lib)
     endif()
     install(TARGETS easylogging
-        ARCHIVE DESTINATION ${lib_folder})
+        ARCHIVE DESTINATION ${lib_folder}
+        LIBRARY DESTINATION ${lib_folder})
 endif()
 
