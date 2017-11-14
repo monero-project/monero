@@ -79,7 +79,6 @@ target_link_libraries(wallet
     common
     cryptonote_core
     mnemonics
-    p2p
     ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

@@ -48,7 +48,6 @@ target_link_libraries(simplewallet
     cncrypto
     common
     mnemonics
-    p2p
     version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
