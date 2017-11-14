@@ -5359,11 +5359,27 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
   crypto::key_image calculated_key_image;
   cryptonote::keypair in_ephemeral;
   
-  // Subaddresses aren't supported in mymonero/openmonero yet. Using empty values. 
-  const std::vector<crypto::public_key> additional_tx_pub_keys;
-  const crypto::public_key pkey = crypto::null_pkey;
-  
-  cryptonote::generate_key_image_helper(get_account().get_keys(), m_subaddresses, pkey, tx_public_key, additional_tx_pub_keys, out_index, in_ephemeral, calculated_key_image);
+  // Subaddresses aren't supported in mymonero/openmonero yet. Roll out the original scheme:
+  //   compute D = a*R
+  //   compute P = Hs(D || i)*G + B
+  //   compute x = Hs(D || i) + b      (and check if P==x*G)
+  //   compute I = x*Hp(P)
+  const account_keys& ack = get_account().get_keys();
+  crypto::key_derivation derivation;
+  bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, derivation);
+  CHECK_AND_ASSERT_MES(r, false, "failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
+
+  r = crypto::derive_public_key(derivation, out_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub);
+  CHECK_AND_ASSERT_MES(r, false, "failed to derive_public_key (" << derivation << ", " << out_index << ", " << ack.m_account_address.m_spend_public_key << ")");
+
+  crypto::derive_secret_key(derivation, out_index, ack.m_spend_secret_key, in_ephemeral.sec);
+  crypto::public_key out_pkey_test;
+  r = crypto::secret_key_to_public_key(in_ephemeral.sec, out_pkey_test);
+  CHECK_AND_ASSERT_MES(r, false, "failed to secret_key_to_public_key(" << in_ephemeral.sec << ")");
+  CHECK_AND_ASSERT_MES(in_ephemeral.pub == out_pkey_test, false, "derived secret key doesn't match derived public key");
+
+  crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, calculated_key_image);
+
   index_keyimage_map.emplace(out_index, calculated_key_image);
   m_key_image_cache.emplace(tx_public_key, index_keyimage_map);
   return key_image == calculated_key_image;
