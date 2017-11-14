@@ -40,6 +40,8 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 
+using namespace crypto;
+
 namespace cryptonote
 {
   //---------------------------------------------------------------

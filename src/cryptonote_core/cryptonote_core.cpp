@@ -498,8 +498,8 @@ namespace cryptonote
       return false;
     }
 
-    tx_hash = null_hash;
-    tx_prefixt_hash = null_hash;
+    tx_hash = crypto::null_hash;
+    tx_prefixt_hash = crypto::null_hash;
 
     if(!parse_tx_from_blob(tx, tx_hash, tx_prefixt_hash, tx_blob))
     {

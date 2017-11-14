@@ -208,7 +208,7 @@ uint64_t BlockchainDB::add_block( const block& blk
   time1 = epee::misc_utils::get_tick_count();
   add_transaction(blk_hash, blk.miner_tx);
   int tx_i = 0;
-  crypto::hash tx_hash = null_hash;
+  crypto::hash tx_hash = crypto::null_hash;
   for (const transaction& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];

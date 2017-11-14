@@ -34,12 +34,8 @@
 
 #include "include_base_utils.h"
 #include "version.h"
-
-using namespace epee;
-
 #include <iostream>
 #include <sstream>
-using namespace std;
 
 #include <boost/program_options.hpp>
 
@@ -56,6 +52,8 @@ using namespace std;
 #endif
 
 namespace po = boost::program_options;
+using namespace std;
+using namespace epee;
 using namespace cryptonote;
 using namespace crypto;
 

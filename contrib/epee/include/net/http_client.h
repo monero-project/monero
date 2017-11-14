@@ -66,8 +66,6 @@ namespace epee
 namespace net_utils
 {
 
-using namespace std; 
-
 	/*struct url 
 	{
 	public:

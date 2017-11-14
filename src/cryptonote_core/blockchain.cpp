@@ -61,6 +61,8 @@
 
 #define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
 
+using namespace crypto;
+
 //#include "serialization/json_archive.h"
 
 /* TODO:

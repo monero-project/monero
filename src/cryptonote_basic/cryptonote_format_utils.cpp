@@ -45,6 +45,8 @@ using namespace epee;
 
 // #define ENABLE_HASH_CASH_INTEGRITY_CHECK
 
+using namespace crypto;
+
 static const uint64_t valid_decomposed_outputs[] = {
   (uint64_t)1, (uint64_t)2, (uint64_t)3, (uint64_t)4, (uint64_t)5, (uint64_t)6, (uint64_t)7, (uint64_t)8, (uint64_t)9, // 1 piconero
   (uint64_t)10, (uint64_t)20, (uint64_t)30, (uint64_t)40, (uint64_t)50, (uint64_t)60, (uint64_t)70, (uint64_t)80, (uint64_t)90,

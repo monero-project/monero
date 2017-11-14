@@ -47,6 +47,7 @@
 using namespace std;
 
 using namespace epee;
+using namespace crypto;
 using namespace cryptonote;
 
 
