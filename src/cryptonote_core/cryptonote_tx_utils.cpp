@@ -160,12 +160,6 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct)
   {
-    if (destinations.empty())
-    {
-      LOG_ERROR("The destinations must be non-empty");
-      return false;
-    }
-
     std::vector<rct::key> amount_keys;
     tx.set_null();
     amount_keys.clear();
@@ -398,7 +392,6 @@ namespace cryptonote
     }
 
     remove_field_from_tx_extra(tx.extra, typeid(tx_extra_additional_pub_keys));
-    add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
 
     LOG_PRINT_L2("tx pubkey: " << txkey.pub);
     if (need_additional_txkeys)
@@ -406,6 +399,7 @@ namespace cryptonote
       LOG_PRINT_L2("additional tx pubkeys: ");
       for (size_t i = 0; i < additional_tx_public_keys.size(); ++i)
         LOG_PRINT_L2(additional_tx_public_keys[i]);
+      add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
     }
 
     //check money
