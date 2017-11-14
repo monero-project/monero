@@ -3752,7 +3752,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 
   // fetch tx pubkey
   crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  if (tx_pub_key == null_pkey)
+  if (tx_pub_key == crypto::null_pkey)
   {
     fail_msg_writer() << tr("Tx pubkey was not found");
     return true;
