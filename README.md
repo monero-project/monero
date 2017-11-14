@@ -350,6 +350,8 @@ We expect to add Monero into the ports tree in the near future, which will aid i
 
 ### On OpenBSD:
 
+#### OpenBSD < 6.2
+
 This has been tested on OpenBSD 5.8.
 
 You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ miniupnpc gtest`.
@@ -362,6 +364,71 @@ https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
 You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Monero.
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
+
+#### OpenBSD >= 6.2
+
+You will need to add a few packages to your system. Choose version 4 for db. `pkg_add db cmake miniupnpc zeromq`.
+
+The doxygen and graphviz packages are optional and require the xbase set.
+
+
+Build the Boost library using clang. This guide is derived from: https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
+
+We assume you are compiling with a non-root user and you have `doas` enabled.
+
+Note: do not use the boost package provided by OpenBSD, as we are installing boost to `/usr/local`.
+
+```
+# Create boost building directory
+mkdir ~/boost
+cd ~/boost
+
+# Fetch boost source
+ftp -o boost_1_64_0.tar.bz2 https://netcologne.dl.sourceforge.net/project/boost/boost/1.64.0/boost_1_64_0.tar.bz2 
+
+# MUST output: (SHA256) boost_1_64_0.tar.bz2: OK
+echo "7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332 boost_1_64_0.tar.bz2" | sha256 -c
+tar xfj boost_1_64_0.tar.bz2
+
+# Fetch a boost patch, required for OpenBSD
+ftp -o boost.patch https://raw.githubusercontent.com/openbsd/ports/bee9e6df517077a7269ff0dfd57995f5c6a10379/devel/boost/patches/patch-boost_test_impl_execution_monitor_ipp
+cd boost_1_64_0
+patch -p0 < ../boost.patch
+
+# Start building boost
+echo 'using clang : : c++ : <cxxflags>"-fvisibility=hidden -fPIC" <linkflags>"" <archiver>"ar" <striper>"strip"  <ranlib>"ranlib" <rc>"" : ;' > user-config.jam
+./bootstrap.sh --without-icu --with-libraries=chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization --with-toolset=clang
+./b2 toolset=clang cxxflags="-stdlib=libc++" linkflags="-stdlib=libc++"
+doas ./b2 -d0 runtime-link=shared threadapi=pthread threading=multi link=static variant=release --layout=tagged --build-type=complete --user-config=user-config.jam -sNO_BZIP2=1 --prefix=/usr/local install
+```
+
+Build cppzmq
+
+Build the cppzmq bindings.
+
+We assume you are compiling with a non-root user and you have `doas` enabled.
+
+```
+# Create cppzmq building directory
+mkdir ~/cppzmq
+cd ~/cppzmq
+
+# Fetch cppzmq source
+ftp -o cppzmq-4.2.2.tar.gz https://github.com/zeromq/cppzmq/archive/v4.2.2.tar.gz
+
+# MUST output: (SHA256) cppzmq-4.2.2.tar.gz: OK
+echo "3ef50070ac5877c06c6bb25091028465020e181bbfd08f110294ed6bc419737d cppzmq-4.2.2.tar.gz" | sha256 -c
+tar xfz cppzmq-4.2.2.tar.gz
+
+# Start building cppzmq
+cd cppzmq-4.2.2
+mkdir build
+cd build
+cmake ..
+doas make install
+```
+
+Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static`
 
 ### On Linux for Android (using docker):
 
