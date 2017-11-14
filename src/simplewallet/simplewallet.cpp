@@ -5271,7 +5271,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   const uint64_t last_block_height = m_wallet->get_blockchain_current_height();
 
   std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
-  m_wallet->get_payments(payments, 0, m_current_subaddress_account);
+  m_wallet->get_payments(payments, 0, (uint64_t)-1, m_current_subaddress_account);
   for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
     const tools::wallet2::payment_details &pd = i->second;
     if (pd.m_tx_hash == txid) {
@@ -5342,7 +5342,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   {
     m_wallet->update_pool_state();
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
-    m_wallet->get_unconfirmed_payments(pool_payments);
+    m_wallet->get_unconfirmed_payments(pool_payments, m_current_subaddress_account);
     for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
       const tools::wallet2::payment_details &pd = i->second.m_pd;
       if (pd.m_tx_hash == txid)
@@ -5369,7 +5369,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
   }
 
   std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
-  m_wallet->get_unconfirmed_payments_out(upayments);
+  m_wallet->get_unconfirmed_payments_out(upayments, m_current_subaddress_account);
   for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
     if (i->first == txid)
     {
