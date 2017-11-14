@@ -55,6 +55,7 @@ set(unit_tests_sources
   serialization.cpp
   sha256.cpp
   slow_memmem.cpp
+  subaddress.cpp
   test_tx_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
