@@ -212,7 +212,7 @@ invokes cmake commands as needed.
 
         make release-test
 
-    *NOTE*: `coretests` test may take a few hours to complete.
+    *NOTE*: `core_tests` test may take a few hours to complete.
 
 * **Optional**: to build binaries suitable for debugging:
 
