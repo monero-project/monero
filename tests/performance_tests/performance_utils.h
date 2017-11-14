@@ -40,7 +40,7 @@
 
 void set_process_affinity(int core)
 {
-#if defined (__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#if defined (__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__sun)
     return;
 #elif defined(BOOST_WINDOWS)
   DWORD_PTR mask = 1;
@@ -62,7 +62,7 @@ void set_process_affinity(int core)
 
 void set_thread_high_priority()
 {
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__sun)
     return;
 #elif defined(BOOST_WINDOWS)
   ::SetPriorityClass(::GetCurrentProcess(), HIGH_PRIORITY_CLASS);

@@ -331,6 +331,10 @@ if (UNIX AND NOT APPLE)
 endif()
 
 # Handle OpenSSL, used for sha256sum on binary updates and light wallet ssl http
+if (CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthreads")
+endif ()
+
 if (APPLE AND NOT IOS)
   if (NOT OpenSSL_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
@@ -675,6 +679,8 @@ elseif(FREEBSD)
 elseif(DRAGONFLY)
   find_library(COMPAT compat)
   set(EXTRA_LIBRARIES execinfo ${COMPAT})
+elseif(CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
+  set(EXTRA_LIBRARIES socket nsl resolv)
 elseif(NOT MSVC)
   find_library(RT rt)
   set(EXTRA_LIBRARIES ${RT})
