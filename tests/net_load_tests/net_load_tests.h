@@ -151,6 +151,11 @@ namespace net_load_tests
     bool handle_new_connection(const boost::uuids::uuid& connection_id, bool ignore_close_fails = false)
     {
       size_t idx = m_next_opened_conn_idx.fetch_add(1, std::memory_order_relaxed);
+      if (idx >= m_connections.size())
+      {
+        LOG_PRINT_L0("ERROR: connections overflow");
+        exit(1);
+      }
       m_connections[idx] = connection_id;
 
       size_t prev_connection_count = m_opened_connection_count.fetch_add(1, std::memory_order_relaxed);

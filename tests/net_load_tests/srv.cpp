@@ -224,8 +224,8 @@ int main(int argc, char** argv)
   if (!tcp_server.init_server(srv_port, "127.0.0.1"))
     return 1;
 
-  srv_levin_commands_handler commands_handler(tcp_server);
-  tcp_server.get_config_object().m_pcommands_handler = &commands_handler;
+  srv_levin_commands_handler *commands_handler = new srv_levin_commands_handler(tcp_server);
+  tcp_server.get_config_object().set_handler(commands_handler, [](epee::levin::levin_commands_handler<test_connection_context> *handler) { delete handler; });
   tcp_server.get_config_object().m_invoke_timeout = 10000;
   //tcp_server.get_config_object().m_max_packet_size = max_packet_size;
 

@@ -43,6 +43,8 @@ namespace levin
 	struct protocl_handler_config
 	{
 		levin_commands_handler<t_connection_context>* m_pcommands_handler;
+		void (*m_pcommands_handler_destroy)(levin_commands_handler<t_connection_context>*);
+		~protocl_handler_config() { if (m_pcommands_handler && m_pcommands_handler_destroy) (*m_pcommands_handler_destroy)(m_pcommands_handler); }
 	};
 
   template<class t_connection_context = net_utils::connection_context_base>

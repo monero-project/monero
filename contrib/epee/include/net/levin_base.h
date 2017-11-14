@@ -87,6 +87,7 @@ namespace levin
     virtual void on_connection_new(t_connection_context& context){};
     virtual void on_connection_close(t_connection_context& context){};
 
+    virtual ~levin_commands_handler(){}
   };
 
 #define LEVIN_OK                                        0

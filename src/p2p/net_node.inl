@@ -560,7 +560,7 @@ namespace nodetool
 
     //configure self
     m_net_server.set_threads_prefix("P2P");
-    m_net_server.get_config_object().m_pcommands_handler = this;
+    m_net_server.get_config_object().set_handler(this);
     m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
     m_net_server.set_connection_filter(this);
 

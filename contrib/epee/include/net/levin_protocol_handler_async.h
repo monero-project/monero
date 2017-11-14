@@ -72,9 +72,11 @@ class async_protocol_handler_config
 
   friend class async_protocol_handler<t_connection_context>;
 
+  levin_commands_handler<t_connection_context>* m_pcommands_handler;
+  void (*m_pcommands_handler_destroy)(levin_commands_handler<t_connection_context>*);
+
 public:
   typedef t_connection_context connection_context;
-  levin_commands_handler<t_connection_context>* m_pcommands_handler;
   uint64_t m_max_packet_size; 
   uint64_t m_invoke_timeout;
 
@@ -91,8 +93,9 @@ public:
   template<class callback_t>
   bool for_connection(const boost::uuids::uuid &connection_id, callback_t cb);
   size_t get_connections_count();
+  void set_handler(levin_commands_handler<t_connection_context>* handler, void (*destroy)(levin_commands_handler<t_connection_context>*) = NULL);
 
-  async_protocol_handler_config():m_pcommands_handler(NULL), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE)
+  async_protocol_handler_config():m_pcommands_handler(NULL), m_pcommands_handler_destroy(NULL), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE)
   {}
   void del_out_connections(size_t count);
 };
@@ -829,6 +832,15 @@ size_t async_protocol_handler_config<t_connection_context>::get_connections_coun
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   return m_connects.size();
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
+void async_protocol_handler_config<t_connection_context>::set_handler(levin_commands_handler<t_connection_context>* handler, void (*destroy)(levin_commands_handler<t_connection_context>*))
+{
+  if (m_pcommands_handler && m_pcommands_handler_destroy)
+    (*m_pcommands_handler_destroy)(m_pcommands_handler);
+  m_pcommands_handler = handler;
+  m_pcommands_handler_destroy = destroy;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
