@@ -919,6 +919,7 @@ namespace cryptonote
       uint64_t alt_blocks_count;
       uint64_t outgoing_connections_count;
       uint64_t incoming_connections_count;
+      uint64_t rpc_connections_count;
       uint64_t white_peerlist_size;
       uint64_t grey_peerlist_size;
       bool testnet;
@@ -938,6 +939,7 @@ namespace cryptonote
         KV_SERIALIZE(alt_blocks_count)
         KV_SERIALIZE(outgoing_connections_count)
         KV_SERIALIZE(incoming_connections_count)
+        KV_SERIALIZE(rpc_connections_count)
         KV_SERIALIZE(white_peerlist_size)
         KV_SERIALIZE(grey_peerlist_size)
         KV_SERIALIZE(testnet)

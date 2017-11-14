@@ -153,6 +153,7 @@ namespace cryptonote
     uint64_t total_conn = m_p2p.get_connections_count();
     res.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
     res.incoming_connections_count = total_conn - res.outgoing_connections_count;
+    res.rpc_connections_count = get_connections_count();
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
     res.testnet = m_testnet;
@@ -1395,6 +1396,7 @@ namespace cryptonote
     uint64_t total_conn = m_p2p.get_connections_count();
     res.outgoing_connections_count = m_p2p.get_outgoing_connections_count();
     res.incoming_connections_count = total_conn - res.outgoing_connections_count;
+    res.rpc_connections_count = get_connections_count();
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
     res.testnet = m_testnet;
