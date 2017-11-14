@@ -3173,6 +3173,12 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &args_)
 {
   // sweep_all [index=<N1>[,<N2>,...]] [<ring_size>] <address> [<payment_id>]
+  if (args_.size() == 0)
+  {
+    fail_msg_writer() << tr("No address given");
+    return true;
+  }
+
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
     return true;
@@ -3253,12 +3259,6 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     }
     if (payment_id_seen)
       local_args.pop_back();
-  }
-
-  if (local_args.size() == 0)
-  {
-    fail_msg_writer() << tr("No address given");
-    return true;
   }
 
   cryptonote::address_parse_info info;
