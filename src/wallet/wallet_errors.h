@@ -765,6 +765,12 @@ namespace tools
 #define STRINGIZE_DETAIL(x) #x
 #define STRINGIZE(x) STRINGIZE_DETAIL(x)
 
+#define THROW_WALLET_EXCEPTION(err_type, ...)                                                               \
+  do {                                                                                                      \
+    LOG_ERROR("THROW EXCEPTION: " << #err_type);                                                 \
+    tools::error::throw_wallet_ex<err_type>(std::string(__FILE__ ":" STRINGIZE(__LINE__)), ## __VA_ARGS__); \
+  } while(0)
+
 #define THROW_WALLET_EXCEPTION_IF(cond, err_type, ...)                                                      \
   if (cond)                                                                                                 \
   {                                                                                                         \

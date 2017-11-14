@@ -38,6 +38,7 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "common/scoped_message_writer.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "wallet_rpc_server_commands_defs.h"
@@ -60,6 +61,16 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
 
   constexpr const char default_rpc_username[] = "monero";
+
+  boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
+  {
+    auto pwd_container = tools::password_container::prompt(verify, prompt);
+    if (!pwd_container)
+    {
+      MERROR("failed to read wallet password");
+    }
+    return pwd_container;
+  }
 }
 
 namespace tools
@@ -131,7 +142,7 @@ namespace tools
       walvars = m_wallet;
     else
     {
-      tmpwal = tools::wallet2::make_dummy(*m_vm);
+      tmpwal = tools::wallet2::make_dummy(*m_vm, password_prompter);
       walvars = tmpwal.get();
     }
     boost::optional<epee::net_utils::http::login> http_login{};
@@ -1798,7 +1809,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2).first;
+    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, password_prompter).first;
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -1872,7 +1883,7 @@ namespace tools
     }
     std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
-      wal = tools::wallet2::make_from_file(vm2, wallet_file).first;
+      wal = tools::wallet2::make_from_file(vm2, wallet_file, password_prompter).first;
     }
     catch (const std::exception& e)
     {
@@ -1971,6 +1982,7 @@ int main(int argc, char** argv) {
     "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>|--wallet-dir=<directory>] [--rpc-bind-port=<port>]",
     desc_params,
     po::positional_options_description(),
+    [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },
     "monero-wallet-rpc.log",
     true
   );
@@ -2007,11 +2019,19 @@ int main(int argc, char** argv) {
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
     if(!wallet_file.empty())
     {
-      wal = tools::wallet2::make_from_file(*vm, wallet_file).first;
+      wal = tools::wallet2::make_from_file(*vm, wallet_file, password_prompter).first;
     }
     else
     {
-      wal = tools::wallet2::make_from_json(*vm, from_json);
+      try
+      {
+        wal = tools::wallet2::make_from_json(*vm, from_json, password_prompter);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Error creating wallet: " << e.what());
+        return 1;
+      }
     }
     if (!wal)
     {

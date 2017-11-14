@@ -48,11 +48,14 @@ target_link_libraries(simplewallet
     cncrypto
     common
     mnemonics
+    epee
+    ${EPEE_READLINE}
     version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${Readline_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET simplewallet

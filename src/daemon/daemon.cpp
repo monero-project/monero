@@ -88,7 +88,7 @@ t_daemon::t_daemon(
   )
   : mp_internals{new t_internals{vm}}
 {
-  bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+  bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
   if (testnet)
   {
     zmq_rpc_bind_port = command_line::get_arg(vm, daemon_args::arg_zmq_testnet_rpc_bind_port);

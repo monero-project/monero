@@ -41,6 +41,7 @@
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/threadpool.h"
+#include "common/command_line.h"
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "cryptonote_basic/miner.h"
@@ -57,6 +58,10 @@ namespace cryptonote
    struct test_options {
      const std::pair<uint8_t, uint64_t> *hard_forks;
    };
+
+  extern const command_line::arg_descriptor<std::string> arg_data_dir;
+  extern const command_line::arg_descriptor<std::string> arg_testnet_data_dir;
+  extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
 
   /************************************************************************/
   /*                                                                      */

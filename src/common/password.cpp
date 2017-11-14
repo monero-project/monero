@@ -238,9 +238,6 @@ namespace tools
 
   boost::optional<password_container> password_container::prompt(const bool verify, const char *message)
   {
-#ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
-#endif
     password_container pass1{};
     password_container pass2{};
     if (is_cin_tty() ? read_from_tty(verify, message, pass1.m_password, pass2.m_password) : read_from_file(pass1.m_password))
@@ -249,7 +246,7 @@ namespace tools
     return boost::none;
   }
 
-  boost::optional<login> login::parse(std::string&& userpass, bool verify, const char* message)
+  boost::optional<login> login::parse(std::string&& userpass, bool verify, const std::function<boost::optional<password_container>(bool)> &prompt)
   {
     login out{};
     password_container wipe{std::move(userpass)};
@@ -257,7 +254,7 @@ namespace tools
     const auto loc = wipe.password().find(':');
     if (loc == std::string::npos)
     {
-      auto result = tools::password_container::prompt(verify, message);
+      auto result = prompt(verify);
       if (!result)
         return boost::none;
 

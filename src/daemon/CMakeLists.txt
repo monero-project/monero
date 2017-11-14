@@ -94,6 +94,8 @@ target_link_libraries(daemon
     daemonizer
     serialization
     daemon_rpc_server
+    epee
+    ${EPEE_READLINE}
     version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -102,6 +104,7 @@ target_link_libraries(daemon
     ${Boost_SYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${ZMQ_LIB}
+    ${Readline_LIBRARY}
     ${EXTRA_LIBRARIES})
 set_property(TARGET daemon
   PROPERTY

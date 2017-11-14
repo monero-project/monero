@@ -38,6 +38,7 @@ using namespace epee;
 #include "common/updates.h"
 #include "common/download.h"
 #include "common/threadpool.h"
+#include "common/command_line.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -61,6 +62,69 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace cryptonote
 {
+  const command_line::arg_descriptor<std::string> arg_data_dir = {
+    "data-dir"
+  , "Specify data directory"
+  };
+  const command_line::arg_descriptor<std::string> arg_testnet_data_dir = {
+    "testnet-data-dir"
+  , "Specify testnet data directory"
+  };
+  const command_line::arg_descriptor<bool, false> arg_testnet_on  = {
+    "testnet"
+  , "Run on testnet. The wallet must be launched with --testnet flag."
+  , false
+  };
+
+  static const command_line::arg_descriptor<bool> arg_test_drop_download = {
+    "test-drop-download"
+  , "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
+  };
+  static const command_line::arg_descriptor<uint64_t> arg_test_drop_download_height = {
+    "test-drop-download-height"
+  , "Like test-drop-download but disards only after around certain height"
+  , 0
+  };
+  static const command_line::arg_descriptor<int> arg_test_dbg_lock_sleep = {
+    "test-dbg-lock-sleep"
+  , "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests."
+  , 0
+  };
+  static const command_line::arg_descriptor<bool> arg_dns_checkpoints  = {
+    "enforce-dns-checkpointing"
+  , "checkpoints from DNS server will be enforced"
+  , false
+  };
+  static const command_line::arg_descriptor<uint64_t> arg_fast_block_sync = {
+    "fast-block-sync"
+  , "Sync up most of the way by using embedded, known block hashes."
+  , 1
+  };
+  static const command_line::arg_descriptor<uint64_t> arg_prep_blocks_threads = {
+    "prep-blocks-threads"
+  , "Max number of threads to use when preparing block hashes in groups."
+  , 4
+  };
+  static const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
+    "show-time-stats"
+  , "Show time-stats when processing blocks/txs and disk synchronization."
+  , 0
+  };
+  static const command_line::arg_descriptor<size_t> arg_block_sync_size  = {
+    "block-sync-size"
+  , "How many blocks to sync at once during chain synchronization (0 = adaptive)."
+  , 0
+  };
+  static const command_line::arg_descriptor<std::string> arg_check_updates = {
+    "check-updates"
+  , "Check for new versions of monero: [disabled|notify|download|update]"
+  , "notify"
+  };
+  static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
+    "fluffy-blocks"
+  , "Relay blocks as fluffy blocks where possible (automatic on testnet)"
+  , false
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -148,20 +212,21 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, command_line::arg_data_dir, tools::get_default_data_dir());
-    command_line::add_arg(desc, command_line::arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
+    command_line::add_arg(desc, arg_data_dir, tools::get_default_data_dir());
+    command_line::add_arg(desc, arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
 
-    command_line::add_arg(desc, command_line::arg_test_drop_download);
-    command_line::add_arg(desc, command_line::arg_test_drop_download_height);
+    command_line::add_arg(desc, arg_test_drop_download);
+    command_line::add_arg(desc, arg_test_drop_download_height);
 
-    command_line::add_arg(desc, command_line::arg_testnet_on);
-    command_line::add_arg(desc, command_line::arg_dns_checkpoints);
-    command_line::add_arg(desc, command_line::arg_prep_blocks_threads);
-    command_line::add_arg(desc, command_line::arg_fast_block_sync);
-    command_line::add_arg(desc, command_line::arg_show_time_stats);
-    command_line::add_arg(desc, command_line::arg_block_sync_size);
-    command_line::add_arg(desc, command_line::arg_check_updates);
-    command_line::add_arg(desc, command_line::arg_fluffy_blocks);
+    command_line::add_arg(desc, arg_testnet_on);
+    command_line::add_arg(desc, arg_dns_checkpoints);
+    command_line::add_arg(desc, arg_prep_blocks_threads);
+    command_line::add_arg(desc, arg_fast_block_sync);
+    command_line::add_arg(desc, arg_show_time_stats);
+    command_line::add_arg(desc, arg_block_sync_size);
+    command_line::add_arg(desc, arg_check_updates);
+    command_line::add_arg(desc, arg_fluffy_blocks);
+    command_line::add_arg(desc, arg_test_dbg_lock_sleep);
 
     // we now also need some of net_node's options (p2p bind arg, for separate data dir)
     command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
@@ -173,9 +238,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)
   {
-    m_testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    m_testnet = command_line::get_arg(vm, arg_testnet_on);
 
-    auto data_dir_arg = m_testnet ? command_line::arg_testnet_data_dir : command_line::arg_data_dir;
+    auto data_dir_arg = m_testnet ? arg_testnet_data_dir : arg_data_dir;
     m_config_folder = command_line::get_arg(vm, data_dir_arg);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
@@ -196,12 +261,14 @@ namespace cryptonote
     }
 
 
-    set_enforce_dns_checkpoints(command_line::get_arg(vm, command_line::arg_dns_checkpoints));
-    test_drop_download_height(command_line::get_arg(vm, command_line::arg_test_drop_download_height));
-    m_fluffy_blocks_enabled = m_testnet || get_arg(vm, command_line::arg_fluffy_blocks);
+    set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
+    test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
+    m_fluffy_blocks_enabled = m_testnet || get_arg(vm, arg_fluffy_blocks);
 
-    if (command_line::get_arg(vm, command_line::arg_test_drop_download) == true)
+    if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
+
+    epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
     return true;
   }
@@ -268,7 +335,7 @@ namespace cryptonote
 
     m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
-    bool testnet = command_line::get_arg(vm, command_line::arg_testnet_on);
+    bool testnet = command_line::get_arg(vm, arg_testnet_on);
     auto p2p_bind_arg = testnet ? nodetool::arg_testnet_p2p_bind_port : nodetool::arg_p2p_bind_port;
     std::string m_port = command_line::get_arg(vm, p2p_bind_arg);
     std::string m_config_folder_mempool = m_config_folder;
@@ -281,9 +348,9 @@ namespace cryptonote
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
     bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
-    bool fast_sync = command_line::get_arg(vm, command_line::arg_fast_block_sync) != 0;
-    uint64_t blocks_threads = command_line::get_arg(vm, command_line::arg_prep_blocks_threads);
-    std::string check_updates_string = command_line::get_arg(vm, command_line::arg_check_updates);
+    bool fast_sync = command_line::get_arg(vm, arg_fast_block_sync) != 0;
+    uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
+    std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
@@ -409,11 +476,11 @@ namespace cryptonote
     // transactions in the pool that do not conform to the current fork
     m_mempool.validate(m_blockchain_storage.get_current_hard_fork_version());
 
-    bool show_time_stats = command_line::get_arg(vm, command_line::arg_show_time_stats) != 0;
+    bool show_time_stats = command_line::get_arg(vm, arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
-    block_sync_size = command_line::get_arg(vm, command_line::arg_block_sync_size);
+    block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
 
     MGINFO("Loading checkpoints");
 
