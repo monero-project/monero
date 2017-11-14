@@ -178,7 +178,7 @@ namespace wallet_args
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
     }
 
-    if(command_line::has_arg(vm, arg_max_concurrency))
+    if (!command_line::is_arg_defaulted(vm, arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
 
     Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";

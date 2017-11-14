@@ -278,7 +278,7 @@ int main(int argc, char const * argv[])
     tools::set_stack_trace_log(log_file_path.filename().string());
 #endif // STACK_TRACE
 
-    if (command_line::has_arg(vm, daemon_args::arg_max_concurrency))
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     // logging is now set up
