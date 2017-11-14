@@ -305,9 +305,9 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false, std::string());
 
     // compatibility checks
-    if (!field_seed_found && !field_viewkey_found)
+    if (!field_seed_found && !field_viewkey_found && !field_spendkey_found)
     {
-      tools::fail_msg_writer() << tools::wallet2::tr("At least one of Electrum-style word list and private view key must be specified");
+      tools::fail_msg_writer() << tools::wallet2::tr("At least one of Electrum-style word list and private view key and private spend key must be specified");
       return false;
     }
     if (field_seed_found && (field_viewkey_found || field_spendkey_found))
@@ -368,6 +368,10 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
       {
         wallet->generate(field_filename, field_password, recovery_key, recover, false);
       }
+      else if (field_viewkey.empty() && !field_spendkey.empty())
+      {
+        wallet->generate(field_filename, field_password, spendkey, recover, false);
+      }
       else
       {
         cryptonote::account_public_address address;
@@ -389,6 +393,11 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
               return false;
             }
             address.m_spend_public_key = info.address.m_spend_public_key;
+          }
+          else
+          {
+            tools::fail_msg_writer() << tools::wallet2::tr("Address must be specified in order to create watch-only wallet");
+            return false;
           }
           wallet->generate(field_filename, field_password, address, viewkey);
         }
