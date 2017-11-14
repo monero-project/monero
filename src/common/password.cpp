@@ -88,13 +88,11 @@ namespace
         {
           pass.back() = '\0';
           pass.resize(pass.size() - 1);
-          std::cout << "\b \b";
         }
       }
       else
       {
         pass.push_back(ch);
-        std::cout << '*';
       }
     }
 
@@ -150,13 +148,11 @@ namespace
         {
           aPass.back() = '\0';
           aPass.resize(aPass.size() - 1);
-          std::cout << "\b \b";
         }
       }
       else
       {
         aPass.push_back(ch);
-        std::cout << '*';
       }
     }
 
