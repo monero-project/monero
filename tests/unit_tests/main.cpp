@@ -52,7 +52,7 @@ int main(int argc, char** argv)
   ::testing::InitGoogleTest(&argc, argv);
 
   po::options_description desc_options("Command line options");
-  const command_line::arg_descriptor<std::string> arg_data_dir = {"data-dir", "Data files directory", "", true};
+  const command_line::arg_descriptor<std::string> arg_data_dir = { "data-dir", "Data files directory" };
   command_line::add_arg(desc_options, arg_data_dir, "");
 
   po::variables_map vm;
@@ -65,7 +65,7 @@ int main(int argc, char** argv)
   if (! r)
     return 1;
 
-  if (vm["data-dir"].defaulted())
+  if (command_line::is_arg_defaulted(vm, arg_data_dir))
     unit_test::data_dir = boost::filesystem::canonical(boost::filesystem::path(epee::string_tools::get_current_module_folder()))
                           .parent_path().parent_path().parent_path().parent_path()
                           .append("tests").append("data");
