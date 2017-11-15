@@ -3466,7 +3466,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   // prompt if there is no payment id and confirmation is required
   if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
   {
-     std::string accepted = command_line::input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
+     std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
        return true;
      if (!command_line::is_yes(accepted))
@@ -3509,7 +3509,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     prompt << boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)")) %
       print_money(total_sent) %
       print_money(total_fee);
-    std::string accepted = command_line::input_line(prompt.str());
+    std::string accepted = input_line(prompt.str());
     if (std::cin.eof())
       return true;
     if (!command_line::is_yes(accepted))
