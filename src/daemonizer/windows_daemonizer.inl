@@ -111,9 +111,9 @@ namespace daemonizer
   {
     if (command_line::has_arg(vm, arg_is_service))
     {
-      if (command_line::has_arg(vm, command_line::arg_data_dir))
+      if (command_line::has_arg(vm, cryptonote::arg_data_dir))
       {
-        return command_line::get_arg(vm, command_line::arg_data_dir);
+        return command_line::get_arg(vm, cryptonote::arg_data_dir);
       }
       else
       {

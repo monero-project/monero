@@ -39,6 +39,11 @@
 #include <memory>
 #include <string>
 
+#ifdef _WIN32
+#include "windows.h"
+#include "misc_log_ex.h"
+#endif
+
 #include "crypto/hash.h"
 
 /*! \brief Various Tools
