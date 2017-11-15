@@ -2,6 +2,8 @@
 // 19-Nov-11  Markku-Juhani O. Saarinen <mjos@iki.fi>
 // A baseline Keccak (3rd round) implementation.
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "hash-ops.h"
 #include "keccak.h"
 
@@ -73,11 +75,17 @@ void keccakf(uint64_t st[25], int rounds)
 // compute a keccak hash (md) of given byte length from "in"
 typedef uint64_t state_t[25];
 
-int keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
+void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 {
     state_t st;
     uint8_t temp[144];
     size_t i, rsiz, rsizw;
+
+    if (mdlen <= 0 || mdlen > 200 || sizeof(st) != 200)
+    {
+      fprintf(stderr, "Bad keccak use");
+      abort();
+    }
 
     rsiz = sizeof(state_t) == mdlen ? HASH_DATA_AREA : 200 - 2 * mdlen;
     rsizw = rsiz / 8;
@@ -91,6 +99,12 @@ int keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
     }
     
     // last block and padding
+    if (inlen >= sizeof(temp) || inlen > rsiz || rsiz - inlen + inlen + 1 >= sizeof(temp) || rsiz == 0 || rsiz - 1 >= sizeof(temp) || rsizw * 8 > sizeof(temp))
+    {
+      fprintf(stderr, "Bad keccak use");
+      abort();
+    }
+
     memcpy(temp, in, inlen);
     temp[inlen++] = 1;
     memset(temp + inlen, 0, rsiz - inlen);
@@ -102,8 +116,6 @@ int keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
     keccakf(st, KECCAK_ROUNDS);
 
     memcpy(md, st, mdlen);
-
-    return 0;
 }
 
 void keccak1600(const uint8_t *in, size_t inlen, uint8_t *md)
