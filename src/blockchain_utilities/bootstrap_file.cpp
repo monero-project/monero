@@ -134,8 +134,7 @@ bool BootstrapFile::initialize_file()
   bbi.block_last_pos = 0;
 
   buffer_type buffer2;
-  boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>* output_stream_header;
-  output_stream_header = new boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>(buffer2);
+  boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>> output_stream_header(buffer2);
 
   uint32_t bd_size = 0;
 
@@ -147,8 +146,8 @@ bool BootstrapFile::initialize_file()
   {
     throw std::runtime_error("Error in serialization of bootstrap::file_info size");
   }
-  *output_stream_header << blob;
-  *output_stream_header << bd;
+  output_stream_header << blob;
+  output_stream_header << bd;
 
   bd = t_serializable_object_to_blob(bbi);
   MDEBUG("bootstrap::blocks_info size: " << bd.size());
@@ -158,12 +157,12 @@ bool BootstrapFile::initialize_file()
   {
     throw std::runtime_error("Error in serialization of bootstrap::blocks_info size");
   }
-  *output_stream_header << blob;
-  *output_stream_header << bd;
+  output_stream_header << blob;
+  output_stream_header << bd;
 
-  output_stream_header->flush();
-  *output_stream_header << std::string(header_size-buffer2.size(), 0); // fill in rest with null bytes
-  output_stream_header->flush();
+  output_stream_header.flush();
+  output_stream_header << std::string(header_size-buffer2.size(), 0); // fill in rest with null bytes
+  output_stream_header.flush();
   std::copy(buffer2.begin(), buffer2.end(), std::ostreambuf_iterator<char>(*m_raw_data_file));
 
   return true;
