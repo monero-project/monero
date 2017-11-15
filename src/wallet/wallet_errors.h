@@ -269,6 +269,28 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct index_outofbound : public wallet_logic_error
+    {
+      explicit index_outofbound(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    struct account_index_outofbound : public index_outofbound
+    {
+      explicit account_index_outofbound(std::string&& loc)
+        : index_outofbound(std::move(loc), "account index is out of bound")
+      {
+      }
+    };
+    struct address_index_outofbound: public index_outofbound
+    {
+      explicit address_index_outofbound(std::string&& loc)
+        : index_outofbound(std::move(loc), "address index is out of bound")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct acc_outs_lookup_error : public refresh_error
     {
       explicit acc_outs_lookup_error(std::string&& loc, const cryptonote::transaction& tx,
