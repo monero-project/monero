@@ -610,14 +610,13 @@ namespace tools
       a & m_address_book;
       if(ver < 17)
         return;
-      if (ver < 21)
+      if (ver < 22)
       {
         // we're loading an old version, where m_unconfirmed_payments payload was payment_details
-        std::unordered_map<crypto::hash, payment_details> m;
+        std::unordered_multimap<crypto::hash, payment_details> m;
         a & m;
         for (const auto &i: m)
           m_unconfirmed_payments.insert(std::make_pair(i.first, pool_payment_details{i.second, false}));
-        return;
       }
       if(ver < 18)
         return;
