@@ -74,13 +74,9 @@ namespace
   {
     size_t inlen = sizeof(source);
     int mdlen = (int)sizeof(md);
-    int ret = keccak(source, inlen, md, mdlen);
+    keccak(source, inlen, md, mdlen);
 
     if (md[0] != 0x00)
-    {
-        return true;
-    }
-    else if (!ret)
     {
         return true;
     }

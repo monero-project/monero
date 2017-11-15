@@ -71,7 +71,7 @@ public:
 
 private:
   bool help(const std::vector<std::string>& args);
-
+  std::string get_commands_desc(const std::string &name);
   std::string get_commands_str();
 };
 

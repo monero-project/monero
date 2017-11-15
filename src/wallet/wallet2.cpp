@@ -59,7 +59,6 @@ using namespace epee;
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
 #include "common/base58.h"
-#include "common/scoped_message_writer.h"
 #include "ringct/rctSigs.h"
 
 extern "C"
@@ -374,8 +373,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
           }
           else
           {
-            tools::fail_msg_writer() << tools::wallet2::tr("Address must be specified in order to create watch-only wallet");
-            return false;
+            THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Address must be specified in order to create watch-only wallet"));
           }
           wallet->generate(field_filename, field_password, address, viewkey);
         }
@@ -832,7 +830,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
     int num_vouts_received = 0;
     tx_pub_key = pub_key_field.pub_key;
-    bool r = true;
     tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter;
     const cryptonote::account_keys& keys = m_account.get_keys();
@@ -855,46 +852,33 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)
     {
       check_acc_out_precomp(tx.vout[0], derivation, additional_derivations, 0, tx_scan_info[0]);
-      if (tx_scan_info[0].error)
+      THROW_WALLET_EXCEPTION_IF(tx_scan_info[0].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
+
+      // this assumes that the miner tx pays a single address
+      if (tx_scan_info[0].received)
       {
-        r = false;
-      }
-      else
-      {
-        // this assumes that the miner tx pays a single address
-        if (tx_scan_info[0].received)
+        // process the other outs from that tx
+        // the first one was already checked
+        for (size_t i = 1; i < tx.vout.size(); ++i)
         {
-          scan_output(keys, tx, tx_pub_key, 0, tx_scan_info[0], num_vouts_received, tx_money_got_in_outs, outs);
+          tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
+            std::ref(tx_scan_info[i])));
+        }
+        waiter.wait();
 
-          // process the other outs from that tx
-          // the first one was already checked
-          for (size_t i = 1; i < tx.vout.size(); ++i)
+        // then scan all outputs from 0
+        for (size_t i = 0; i < tx.vout.size(); ++i)
+        {
+          THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
+          if (tx_scan_info[i].received)
           {
-            tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
-              std::ref(tx_scan_info[i])));
-          }
-          waiter.wait();
-
-          for (size_t i = 1; i < tx.vout.size(); ++i)
-          {
-            if (tx_scan_info[i].error)
-            {
-              r = false;
-              break;
-            }
-            if (tx_scan_info[i].received)
-            {
-              scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
-            }
+            scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
           }
         }
       }
     }
     else if (tx.vout.size() > 1 && tools::threadpool::getInstance().get_max_concurrency() > 1)
     {
-      tools::threadpool& tpool = tools::threadpool::getInstance();
-      tools::threadpool::waiter waiter;
-
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
@@ -903,11 +887,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       waiter.wait();
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
-        if (tx_scan_info[i].error)
-        {
-          r = false;
-          break;
-        }
+        THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
         if (tx_scan_info[i].received)
         {
           scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
@@ -919,18 +899,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         check_acc_out_precomp(tx.vout[i], derivation, additional_derivations, i, tx_scan_info[i]);
-        if (tx_scan_info[i].error)
-        {
-          r = false;
-          break;
-        }
+        THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
         if (tx_scan_info[i].received)
         {
           scan_output(keys, tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
         }
       }
     }
-    THROW_WALLET_EXCEPTION_IF(!r, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
 
     if(!outs.empty() && num_vouts_received > 0)
     {
@@ -5464,9 +5439,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // throw if attempting a transaction with no money
   THROW_WALLET_EXCEPTION_IF(needed_money == 0, error::zero_destination);
 
-  std::map<uint32_t, uint64_t> balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, uint64_t> unlocked_balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, uint64_t> balance_per_subaddr = balance_per_subaddress(subaddr_account);
 
-  if (subaddr_indices.empty()) // "index=<N1>[,<N2>,...]" wasn't specified -> use all the indices with non-zero unlocked bakance
+  if (subaddr_indices.empty()) // "index=<N1>[,<N2>,...]" wasn't specified -> use all the indices with non-zero unlocked balance
   {
     for (const auto& i : balance_per_subaddr)
       subaddr_indices.insert(i.first);
@@ -5476,10 +5452,17 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   // we could also check for being within FEE_PER_KB, but if the fee calculation
   // ever changes, this might be missed, so let this go through
   uint64_t balance_subtotal = 0;
+  uint64_t unlocked_balance_subtotal = 0;
   for (uint32_t index_minor : subaddr_indices)
+  {
     balance_subtotal += balance_per_subaddr[index_minor];
+    unlocked_balance_subtotal += unlocked_balance_per_subaddr[index_minor];
+  }
   THROW_WALLET_EXCEPTION_IF(needed_money > balance_subtotal, error::not_enough_money,
     balance_subtotal, needed_money, 0);
+  // first check overall balance is enough, then unlocked one, so we throw distinct exceptions
+  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance_subtotal, error::not_enough_unlocked_money,
+      unlocked_balance_subtotal, needed_money, 0);
 
   for (uint32_t i : subaddr_indices)
     LOG_PRINT_L2("Candidate subaddress index for spending: " << i);
@@ -5523,24 +5506,15 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
   }
 
-  // early out if we know we can't make it anyway
-  // we could also check for being within FEE_PER_KB, but if the fee calculation
-  // ever changes, this might be missed, so let this go through
-  // first check overall balance is enough, then unlocked one, so we throw distinct exceptions
-  THROW_WALLET_EXCEPTION_IF(needed_money > balance(subaddr_account), error::not_enough_money,
-      unlocked_balance(subaddr_account), needed_money, 0);
-  THROW_WALLET_EXCEPTION_IF(needed_money > unlocked_balance(subaddr_account), error::not_enough_unlocked_money,
-      unlocked_balance(subaddr_account), needed_money, 0);
-
   // shuffle & sort output indices
   {
     std::random_device rd;
     std::mt19937 g(rd());
     std::shuffle(unused_transfers_indices_per_subaddr.begin(), unused_transfers_indices_per_subaddr.end(), g);
     std::shuffle(unused_dust_indices_per_subaddr.begin(), unused_dust_indices_per_subaddr.end(), g);
-    auto sort_predicate = [&balance_per_subaddr] (const std::pair<uint32_t, std::vector<size_t>>& x, const std::pair<uint32_t, std::vector<size_t>>& y)
+    auto sort_predicate = [&unlocked_balance_per_subaddr] (const std::pair<uint32_t, std::vector<size_t>>& x, const std::pair<uint32_t, std::vector<size_t>>& y)
     {
-      return balance_per_subaddr[x.first] > balance_per_subaddr[y.first];
+      return unlocked_balance_per_subaddr[x.first] > unlocked_balance_per_subaddr[y.first];
     };
     std::sort(unused_transfers_indices_per_subaddr.begin(), unused_transfers_indices_per_subaddr.end(), sort_predicate);
     std::sort(unused_dust_indices_per_subaddr.begin(), unused_dust_indices_per_subaddr.end(), sort_predicate);
@@ -5851,7 +5825,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   std::vector<size_t> unused_dust_indices;
   const bool use_rct = use_fork_rules(4, 0);
 
-  THROW_WALLET_EXCEPTION_IF(unlocked_balance(subaddr_account) == 0, error::wallet_internal_error, "No unclocked balance in the entire wallet");
+  THROW_WALLET_EXCEPTION_IF(unlocked_balance(subaddr_account) == 0, error::wallet_internal_error, "No unlocked balance in the entire wallet");
 
   std::map<uint32_t, uint64_t> balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
 
@@ -5885,6 +5859,27 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
 
   THROW_WALLET_EXCEPTION_IF(unused_transfers_indices.empty() && unused_dust_indices.empty(), error::not_enough_money, 0, 0, 0); // not sure if a new error class (something like 'cant_sweep_empty'?) should be introduced
 
+  return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
+}
+
+std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
+{
+  std::vector<size_t> unused_transfers_indices;
+  std::vector<size_t> unused_dust_indices;
+  const bool use_rct = use_fork_rules(4, 0);
+  // find output with the given key image
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (td.m_key_image_known && td.m_key_image == ki && !td.m_spent && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
+    {
+      if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
+        unused_transfers_indices.push_back(i);
+      else
+        unused_dust_indices.push_back(i);
+      break;
+    }
+  }
   return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
 }
 

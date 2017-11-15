@@ -1757,7 +1757,7 @@ bool t_rpc_command_executor::update(const std::string &command)
   }
 
   tools::msg_writer() << "Update available: v" << res.version << ": " << res.user_uri << ", hash " << res.hash;
-  if (command == "check")
+  if (command.empty())
     return true;
 
   if (!res.path.empty())

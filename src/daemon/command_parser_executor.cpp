@@ -65,18 +65,10 @@ bool t_command_parser_executor::save_blockchain(const std::vector<std::string>& 
   return m_executor.save_blockchain();
 }
 
-bool t_command_parser_executor::show_hash_rate(const std::vector<std::string>& args)
+bool t_command_parser_executor::set_hash_rate_visibility(const std::vector<std::string>& args)
 {
-  if (!args.empty()) return false;
-
-  return m_executor.show_hash_rate();
-}
-
-bool t_command_parser_executor::hide_hash_rate(const std::vector<std::string>& args)
-{
-  if (!args.empty()) return false;
-
-  return m_executor.hide_hash_rate();
+ if (args.empty() || (args[0] != "show" && args[0] != "hide")) return false;
+ return args[0] != "show" ? m_executor.show_hash_rate() : m_executor.hide_hash_rate();
 }
 
 bool t_command_parser_executor::show_difficulty(const std::vector<std::string>& args)
@@ -152,7 +144,7 @@ bool t_command_parser_executor::set_log_level(const std::vector<std::string>& ar
   }
 }
 
-bool t_command_parser_executor::print_height(const std::vector<std::string>& args) 
+bool t_command_parser_executor::print_height(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
 
@@ -238,25 +230,11 @@ bool t_command_parser_executor::is_key_image_spent(const std::vector<std::string
   return true;
 }
 
-bool t_command_parser_executor::print_transaction_pool_long(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_transaction_pool(const std::vector<std::string>& args)
 {
-  if (!args.empty()) return false;
+  if (!args.empty() && args[0] != "long" && args[0] != "stats") return false;
 
-  return m_executor.print_transaction_pool_long();
-}
-
-bool t_command_parser_executor::print_transaction_pool_short(const std::vector<std::string>& args)
-{
-  if (!args.empty()) return false;
-
-  return m_executor.print_transaction_pool_short();
-}
-
-bool t_command_parser_executor::print_transaction_pool_stats(const std::vector<std::string>& args)
-{
-  if (!args.empty()) return false;
-
-  return m_executor.print_transaction_pool_stats();
+  return args.empty() ? m_executor.print_transaction_pool_short() : args[0] == "long" ? m_executor.print_transaction_pool_long() : m_executor.print_transaction_pool_stats();
 }
 
 bool t_command_parser_executor::start_mining(const std::vector<std::string>& args)
@@ -302,23 +280,23 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   if(testnet)
     std::cout << "Mining to a testnet address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
-  bool do_background_mining = false;  
-  bool ignore_battery = false;  
+  bool do_background_mining = false;
+  bool ignore_battery = false;
   if(args.size() > 4)
   {
     return false;
   }
-  
+
   if(args.size() == 4)
   {
     ignore_battery = args[3] == "true";
-  }  
-  
+  }
+
   if(args.size() >= 3)
   {
     do_background_mining = args[2] == "true";
   }
-  
+
   if(args.size() >= 2)
   {
     bool ok = epee::string_tools::get_xtype_from_string(threads_count, args[1]);
@@ -353,13 +331,13 @@ bool t_command_parser_executor::print_status(const std::vector<std::string>& arg
 
 bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
 {
-  if(args.size()>1) return false;
-  if(args.size()==0) {
+  if(args.size()>2 || (args.size() == 2 && args[0] != "up" && args[0] != "down")) return false;
+  if(args.empty()) {
     return m_executor.get_limit();
   }
   int64_t limit;
   try {
-      limit = std::stoll(args[0]);
+      limit = std::stoll(args[args.size()-1]);
   }
   catch(const std::exception& ex) {
       std::cout << "failed to parse argument" << std::endl;
@@ -368,76 +346,30 @@ bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
   if (limit > 0)
     limit *= 1024;
 
-  return m_executor.set_limit(limit, limit);
-}
-
-bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& args)
-{
-  if(args.size()>1) return false;
-  if(args.size()==0) {
-    return m_executor.get_limit_up();
-  }
-  int64_t limit;
-  try {
-      limit = std::stoll(args[0]);
-  }
-  catch(const std::exception& ex) {
-      std::cout << "failed to parse argument" << std::endl;
-      return false;
-  }
-  if (limit > 0)
-    limit *= 1024;
-
-  return m_executor.set_limit(0, limit);
-}
-
-bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& args)
-{
-  if(args.size()>1) return false;
-  if(args.size()==0) {
-    return m_executor.get_limit_down();
-  }
-  int64_t limit;
-  try {
-      limit = std::stoll(args[0]);
-  }
-  catch(const std::exception& ex) {
-      std::cout << "failed to parse argument" << std::endl;
-      return false;
-  }
-  if (limit > 0)
-    limit *= 1024;
-
-  return m_executor.set_limit(limit, 0);
+  return args.size() == 1 ? m_executor.set_limit(limit, limit) : args[0] == "up" ? m_executor.set_limit(0, limit) : m_executor.set_limit(limit, 0);
 }
 
 bool t_command_parser_executor::out_peers(const std::vector<std::string>& args)
 {
 	if (args.empty()) return false;
-	
+
 	unsigned int limit;
 	try {
 		limit = std::stoi(args[0]);
 	}
-	  
+
 	catch(std::exception& ex) {
 		_erro("stoi exception");
 		return false;
 	}
-	
+
 	return m_executor.out_peers(limit);
 }
 
-bool t_command_parser_executor::start_save_graph(const std::vector<std::string>& args)
+bool t_command_parser_executor::save_graph(const std::vector<std::string>& args)
 {
-	if (!args.empty()) return false;
-	return m_executor.start_save_graph();
-}
-
-bool t_command_parser_executor::stop_save_graph(const std::vector<std::string>& args)
-{
-	if (!args.empty()) return false;
-	return m_executor.stop_save_graph();
+ if (args.empty() || (args[0] != "start" && args[0] != "stop")) return false;
+ return args[0] == "start" ? m_executor.start_save_graph() : m_executor.stop_save_graph();
 }
 
 bool t_command_parser_executor::hard_fork_info(const std::vector<std::string>& args)
@@ -602,9 +534,9 @@ bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector
 
 bool t_command_parser_executor::update(const std::vector<std::string>& args)
 {
-  if(args.size() != 1)
+  if(args.size() > 1)
   {
-    std::cout << "Exactly one parameter is needed: check, download, or update" << std::endl;
+    std::cout << "Maximum one parameter is allowed: download." << std::endl;
     return false;
   }
 
