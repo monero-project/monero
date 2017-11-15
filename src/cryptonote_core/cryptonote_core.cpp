@@ -1329,6 +1329,7 @@ namespace cryptonote
         << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)" << ENDL
         << ENDL
         << "Use the \"help\" command to see the list of available commands." << ENDL
+        << "Use the \"help <command>\" command to see the command's documentation." << ENDL
         << "**********************************************************************" << ENDL);
       m_starter_message_showed = true;
     }

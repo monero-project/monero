@@ -63,9 +63,7 @@ public:
 
   bool save_blockchain(const std::vector<std::string>& args);
 
-  bool show_hash_rate(const std::vector<std::string>& args);
-
-  bool hide_hash_rate(const std::vector<std::string>& args);
+  bool set_hash_rate_visibility(const std::vector<std::string>& args);
 
   bool show_difficulty(const std::vector<std::string>& args);
 
@@ -87,11 +85,7 @@ public:
 
   bool is_key_image_spent(const std::vector<std::string>& args);
 
-  bool print_transaction_pool_long(const std::vector<std::string>& args);
-
-  bool print_transaction_pool_short(const std::vector<std::string>& args);
-
-  bool print_transaction_pool_stats(const std::vector<std::string>& args);
+  bool print_transaction_pool(const std::vector<std::string>& args);
 
   bool start_mining(const std::vector<std::string>& args);
 
@@ -103,15 +97,9 @@ public:
 
   bool set_limit(const std::vector<std::string>& args);
 
-  bool set_limit_up(const std::vector<std::string>& args);
-
-  bool set_limit_down(const std::vector<std::string>& args);
-
   bool out_peers(const std::vector<std::string>& args);
-  
-  bool start_save_graph(const std::vector<std::string>& args);
-  
-  bool stop_save_graph(const std::vector<std::string>& args);
+
+  bool save_graph(const std::vector<std::string>& args);
   
   bool hard_fork_info(const std::vector<std::string>& args);
 
