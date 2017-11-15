@@ -632,7 +632,7 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/*
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
     {
-      m_wallet->default_mixin(ring_size - 1);
+      m_wallet->default_mixin(ring_size > 0 ? ring_size - 1 : 0);
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
     return true;
