@@ -1588,7 +1588,16 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
     }
     if (m_restoring)
+    {
+      uint64_t approximate_blockchain_height = m_wallet->get_approximate_maximum_blockchain_refresh_height();
+      if (m_restore_height >= approximate_blockchain_height){
+        message_writer() << tr("The restore height ") << m_restore_height << tr(" seems too high as the approximate blockchain height is ") << approximate_blockchain_height;
+        std::string confirm = command_line::input_line(tr("Proceed anyway?  (Y/Yes/N/No): "));
+        if (std::cin.eof() || !command_line::is_yes(confirm))
+          return false;
+      }
       m_wallet->set_refresh_from_block_height(m_restore_height);
+    }
   }
   else
   {

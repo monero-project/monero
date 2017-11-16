@@ -2404,35 +2404,13 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
-
-  // -1 month for fluctuations in block time and machine date/time setup.
-  // avg seconds per block
-  const int seconds_per_block = DIFFICULTY_TARGET_V2;
-  // ~num blocks per month
-  const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
-
   // try asking the daemon first
   if(m_refresh_from_block_height == 0 && !recover){
-    std::string err;
-    uint64_t height = 0;
-
-    // we get the max of approximated height and known height
-    // approximated height is the least of daemon target height
-    // (the max of what the other daemons are claiming is their
-    // height) and the theoretical height based on the local
-    // clock. This will be wrong only if both the local clock
-    // is bad *and* a peer daemon claims a highest height than
-    // the real chain.
-    // known height is the height the local daemon is currently
-    // synced to, it will be lower than the real chain height if
-    // the daemon is currently syncing.
-    height = get_approximate_blockchain_height();
-    uint64_t target_height = get_daemon_blockchain_target_height(err);
-    if (err.empty() && target_height < height)
-      height = target_height;
-    uint64_t local_height = get_daemon_blockchain_height(err);
-    if (err.empty() && local_height > height)
-      height = local_height;
+    // avg seconds per block
+    const int seconds_per_block = DIFFICULTY_TARGET_V2;
+    // ~num blocks per month
+    const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
+    uint64_t height = get_approximate_maximum_blockchain_refresh_height();
     m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
   }
 
@@ -7240,4 +7218,35 @@ void wallet2::generate_genesis(cryptonote::block& b) {
     cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
   }
 }
+//------------------------------------------------------------------------------------------------------
+    uint64_t wallet2::get_approximate_maximum_blockchain_refresh_height()
+    {
+        // -1 month for fluctuations in block time and machine date/time setup.
+        // avg seconds per block
+        const int seconds_per_block = DIFFICULTY_TARGET_V2;
+        // ~num blocks per month
+        const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
+
+        std::string err;
+        uint64_t height = 0;
+
+        // we get the max of approximated height and known height
+        // approximated height is the least of daemon target height
+        // (the max of what the other daemons are claiming is their
+        // height) and the theoretical height based on the local
+        // clock. This will be wrong only if both the local clock
+        // is bad *and* a peer daemon claims a highest height than
+        // the real chain.
+        // known height is the height the local daemon is currently
+        // synced to, it will be lower than the real chain height if
+        // the daemon is currently syncing.
+        height = get_approximate_blockchain_height();
+        uint64_t target_height = get_daemon_blockchain_target_height(err);
+        if (err.empty() && target_height < height)
+            height = target_height;
+        uint64_t local_height = get_daemon_blockchain_height(err);
+        if (err.empty() && local_height > height)
+            height = local_height;
+        return height;
+    }
 }
