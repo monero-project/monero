@@ -144,6 +144,9 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
         # or in background
         docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
+
+**Warning** make sure to use `tty: true` with `docker-compose`, if `monerod` don't have a tty it will exit once it's initialized.
+
 Packaging for your favorite distribution would be a welcome contribution!
 
 ## Compiling Monero from Source
