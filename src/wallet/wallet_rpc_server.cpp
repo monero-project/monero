@@ -2539,58 +2539,9 @@ namespace tools
       return false;
     }
 
-    // parse all multisig info
-    std::vector<crypto::secret_key> secret_keys(req.multisig_info.size());
-    std::vector<crypto::public_key> public_keys(req.multisig_info.size());
-    for (size_t i = 0; i < req.multisig_info.size(); ++i)
-    {
-      if (!m_wallet->verify_multisig_info(req.multisig_info[i], secret_keys[i], public_keys[i]))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
-        er.message = "Bad multisig info: " + req.multisig_info[i];
-        return false;
-      }
-    }
-
-    // remove duplicates
-    for (size_t i = 1; i < secret_keys.size(); ++i)
-    {
-      for (size_t j = i + 1; j < secret_keys.size(); ++j)
-      {
-        if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(secret_keys[j]))
-        {
-          secret_keys[j] = secret_keys.back();
-          public_keys[j] = public_keys.back();
-          secret_keys.pop_back();
-          public_keys.pop_back();
-          --j;
-        }
-      }
-    }
-
-    // people may include their own, weed it out
-    crypto::secret_key local_skey = cryptonote::get_multisig_blinded_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
-    for (size_t i = 0; i < secret_keys.size(); ++i)
-    {
-      if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(local_skey))
-      {
-        secret_keys[i] = secret_keys.back();
-        public_keys[i] = public_keys.back();
-        secret_keys.pop_back();
-        public_keys.pop_back();
-        --i;
-      }
-      else if (public_keys[i] == m_wallet->get_account().get_keys().m_account_address.m_spend_public_key)
-      {
-        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
-        er.message = "Found local spend public key, but not local view secret key - something very weird";
-        return false;
-      }
-    }
-
     try
     {
-      res.multisig_info = m_wallet->make_multisig(req.password, secret_keys, public_keys, req.threshold);
+      res.multisig_info = m_wallet->make_multisig(req.password, req.multisig_info, req.threshold);
       res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     }
     catch (const std::exception &e)

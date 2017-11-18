@@ -771,61 +771,13 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  // parse all multisig info
-  std::vector<crypto::secret_key> secret_keys(args.size() - 1);
-  std::vector<crypto::public_key> public_keys(args.size() - 1);
-  for (size_t i = 1; i < args.size(); ++i)
-  {
-    if (!tools::wallet2::verify_multisig_info(args[i], secret_keys[i - 1], public_keys[i - 1]))
-    {
-      fail_msg_writer() << tr("Bad multisig info: ") << args[i];
-      return true;
-    }
-  }
-
-  // remove duplicates
-  for (size_t i = 0; i < secret_keys.size(); ++i)
-  {
-    for (size_t j = i + 1; j < secret_keys.size(); ++j)
-    {
-      if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(secret_keys[j]))
-      {
-        message_writer() << tr("Duplicate key found, ignoring");
-        secret_keys[j] = secret_keys.back();
-        public_keys[j] = public_keys.back();
-        secret_keys.pop_back();
-        public_keys.pop_back();
-        --j;
-      }
-    }
-  }
-
-  // people may include their own, weed it out
-  const crypto::secret_key local_skey = cryptonote::get_multisig_blinded_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
-  const crypto::public_key local_pkey = m_wallet->get_multisig_signer_public_key(m_wallet->get_account().get_keys().m_spend_secret_key);
-  for (size_t i = 0; i < secret_keys.size(); ++i)
-  {
-    if (secret_keys[i] == local_skey)
-    {
-      message_writer() << tr("Local key is present, ignoring");
-      secret_keys[i] = secret_keys.back();
-      public_keys[i] = public_keys.back();
-      secret_keys.pop_back();
-      public_keys.pop_back();
-      --i;
-    }
-    else if (public_keys[i] == local_pkey)
-    {
-      fail_msg_writer() << tr("Found local spend public key, but not local view secret key - something very weird");
-      return true;
-    }
-  }
-
   LOCK_IDLE_SCOPE();
 
   try
   {
-    std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), secret_keys, public_keys, threshold);
+    auto local_args = args;
+    local_args.erase(local_args.begin());
+    std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
     if (!multisig_extra_info.empty())
     {
       success_msg_writer() << tr("Another step is needed");
@@ -840,7 +792,8 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  uint32_t total = secret_keys.size() + 1;
+  uint32_t total;
+  m_wallet->multisig(NULL, &threshold, &total);
   success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 

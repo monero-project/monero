@@ -2895,6 +2895,60 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   return extra_multisig_info;
 }
 
+std::string wallet2::make_multisig(const epee::wipeable_string &password,
+  const std::vector<std::string> &info,
+  uint32_t threshold)
+{
+  // parse all multisig info
+  std::vector<crypto::secret_key> secret_keys(info.size());
+  std::vector<crypto::public_key> public_keys(info.size());
+  for (size_t i = 0; i < info.size(); ++i)
+  {
+    THROW_WALLET_EXCEPTION_IF(!verify_multisig_info(info[i], secret_keys[i], public_keys[i]),
+        error::wallet_internal_error, "Bad multisig info: " + info[i]);
+  }
+
+  // remove duplicates
+  for (size_t i = 0; i < secret_keys.size(); ++i)
+  {
+    for (size_t j = i + 1; j < secret_keys.size(); ++j)
+    {
+      if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(secret_keys[j]))
+      {
+        MDEBUG("Duplicate key found, ignoring");
+        secret_keys[j] = secret_keys.back();
+        public_keys[j] = public_keys.back();
+        secret_keys.pop_back();
+        public_keys.pop_back();
+        --j;
+      }
+    }
+  }
+
+  // people may include their own, weed it out
+  const crypto::secret_key local_skey = cryptonote::get_multisig_blinded_secret_key(get_account().get_keys().m_view_secret_key);
+  const crypto::public_key local_pkey = get_multisig_signer_public_key(get_account().get_keys().m_spend_secret_key);
+  for (size_t i = 0; i < secret_keys.size(); ++i)
+  {
+    if (secret_keys[i] == local_skey)
+    {
+      MDEBUG("Local key is present, ignoring");
+      secret_keys[i] = secret_keys.back();
+      public_keys[i] = public_keys.back();
+      secret_keys.pop_back();
+      public_keys.pop_back();
+      --i;
+    }
+    else
+    {
+      THROW_WALLET_EXCEPTION_IF(public_keys[i] == local_pkey, error::wallet_internal_error,
+          "Found local spend public key, but not local view secret key - something very weird");
+    }
+  }
+
+  return make_multisig(password, secret_keys, public_keys, threshold);
+}
+
 bool wallet2::finalize_multisig(const epee::wipeable_string &password, std::unordered_set<crypto::public_key> pkeys, std::vector<crypto::public_key> signers)
 {
   CHECK_AND_ASSERT_THROW_MES(!pkeys.empty(), "empty pkeys");

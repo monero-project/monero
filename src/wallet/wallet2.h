@@ -472,6 +472,14 @@ namespace tools
      * to other participants
      */
     std::string make_multisig(const epee::wipeable_string &password,
+      const std::vector<std::string> &info,
+      uint32_t threshold);
+    /*!
+     * \brief Creates a multisig wallet
+     * \return empty if done, non empty if we need to send another string
+     * to other participants
+     */
+    std::string make_multisig(const epee::wipeable_string &password,
       const std::vector<crypto::secret_key> &view_keys,
       const std::vector<crypto::public_key> &spend_keys,
       uint32_t threshold);
