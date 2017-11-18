@@ -20,7 +20,7 @@ RUN apt-get update && \
 WORKDIR /src
 COPY . .
 RUN rm -rf build && \
-    qmake -j$(nproc) release-static
+    make -j$(nproc) release-static
 
 # runtime stage
 FROM ubuntu:16.04
