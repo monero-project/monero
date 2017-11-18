@@ -10,7 +10,9 @@ RUN apt-get update && \
         g++ \
         libboost1.58-all-dev \
         libssl-dev \
-        libzmq-dev \
+        libzmq3-dev \
+        libreadline-dev \
+        libsodium-dev \
         make \
         pkg-config \
         graphviz \
@@ -26,11 +28,7 @@ RUN rm -rf build && \
 FROM ubuntu:16.04
 
 RUN apt-get update && \
-    apt-get --no-install-recommends --yes install \
-        ca-certificates \
-        libboost1.58-all \
-        libssl1.0.0 \
-        libzmq1 && \
+    apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt
 
