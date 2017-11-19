@@ -376,9 +376,17 @@ namespace tools
   bool wallet_rpc_server::on_create_address(const wallet_rpc::COMMAND_RPC_CREATE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_CREATE_ADDRESS::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
-    m_wallet->add_subaddress(req.account_index, req.label);
-    res.address_index = m_wallet->get_num_subaddresses(req.account_index) - 1;
-    res.address = m_wallet->get_subaddress_as_str({req.account_index, res.address_index});
+    try
+    {
+      m_wallet->add_subaddress(req.account_index, req.label);
+      res.address_index = m_wallet->get_num_subaddresses(req.account_index) - 1;
+      res.address = m_wallet->get_subaddress_as_str({req.account_index, res.address_index});
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
