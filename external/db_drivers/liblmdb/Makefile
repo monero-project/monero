@@ -38,8 +38,8 @@ mandir = $(datarootdir)/man
 
 IHDRS	= lmdb.h
 ILIBS	= liblmdb.a liblmdb.so
-IPROGS	= mdb_stat mdb_copy mdb_dump mdb_load
-IDOCS	= mdb_stat.1 mdb_copy.1 mdb_dump.1 mdb_load.1
+IPROGS	= mdb_stat mdb_copy mdb_dump mdb_load mdb_drop
+IDOCS	= mdb_stat.1 mdb_copy.1 mdb_dump.1 mdb_load.1 mdb_drop.1
 PROGS	= $(IPROGS) mtest mtest2 mtest3 mtest4 mtest5
 all:	$(ILIBS) $(PROGS)
 
@@ -71,6 +71,7 @@ mdb_stat: mdb_stat.o liblmdb.a
 mdb_copy: mdb_copy.o liblmdb.a
 mdb_dump: mdb_dump.o liblmdb.a
 mdb_load: mdb_load.o liblmdb.a
+mdb_drop: mdb_drop.o liblmdb.a
 mtest:    mtest.o    liblmdb.a
 mtest2:	mtest2.o liblmdb.a
 mtest3:	mtest3.o liblmdb.a
