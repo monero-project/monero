@@ -64,3 +64,7 @@ main()
   char * s  = rl_copy_text(0, 0);
 }
 " GNU_READLINE_FOUND)
+
+if(NOT Readline_LIBRARY)
+  set(Readline_LIBRARY "")
+endif()
