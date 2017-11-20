@@ -1,6 +1,6 @@
 FROM debian:jessie
 
-RUN apt-get update && apt-get install -y unzip automake build-essential curl file pkg-config git python
+RUN apt-get update && apt-get install -y unzip automake build-essential curl file pkg-config git python libtool
 
 WORKDIR /opt/android
 ## INSTALL ANDROID SDK
@@ -72,10 +72,23 @@ RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
     && make build_crypto build_ssl \
     && cd .. && mv openssl-${OPENSSL_VERSION}  openssl
 
+# ZMQ
+RUN git clone https://github.com/zeromq/zeromq4-1.git \
+    && git clone https://github.com/zeromq/cppzmq.git \
+    && cd zeromq4-1 \
+    && ./autogen.sh \
+    && CC=clang CXX=clang++ ./configure --host=arm-none-linux-gnueabi \
+    && make
+
+RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a /opt/android/toolchain-arm/arm-linux-androideabi/lib/armv7-a
+
 RUN git clone https://github.com/monero-project/monero.git \
     && cd monero \
     && mkdir -p build/release \
     && CC=clang CXX=clang++ \
          BOOST_ROOT=${WORKDIR}/boost_${BOOST_VERSION} BOOST_LIBRARYDIR=${WORKDIR}/boost_${BOOST_VERSION}/android32/lib/ \
          OPENSSL_ROOT_DIR=${WORKDIR}/openssl/ \
+         CMAKE_INCLUDE_PATH=${WORKDIR}/cppzmq/ \
+         CMAKE_LIBRARY_PATH=${WORKDIR}/zeromq4-1/.libs \
+         CXXFLAGS="-I ${WORKDIR}/zeromq4-1/include/" \
          make release-static-android
