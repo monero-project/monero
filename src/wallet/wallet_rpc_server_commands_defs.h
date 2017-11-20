@@ -828,6 +828,114 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_GET_TX_KEY
+  {
+    struct request
+    {
+      std::string txid;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string tx_key;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_key)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CHECK_TX_KEY
+  {
+    struct request
+    {
+      std::string txid;
+      std::string tx_key;
+      std::string address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+        KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t received;
+      bool in_pool;
+      uint64_t confirmations;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(received)
+        KV_SERIALIZE(in_pool)
+        KV_SERIALIZE(confirmations)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_TX_PROOF
+  {
+    struct request
+    {
+      std::string txid;
+      std::string address;
+      std::string message;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(message)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(signature)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CHECK_TX_PROOF
+  {
+    struct request
+    {
+      std::string txid;
+      std::string address;
+      std::string message;
+      std::string signature;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(txid)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(message)
+        KV_SERIALIZE(signature)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool good;
+      uint64_t received;
+      bool in_pool;
+      uint64_t confirmations;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(good)
+        KV_SERIALIZE(received)
+        KV_SERIALIZE(in_pool)
+        KV_SERIALIZE(confirmations)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct transfer_entry
   {
     std::string txid;

@@ -1385,24 +1385,148 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
     return m_wallet->get_tx_note(htxid);
 }
 
-std::string WalletImpl::getTxKey(const std::string &txid) const
+std::string WalletImpl::getTxKey(const std::string &txid_str) const
 {
-    cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
+    crypto::hash txid;
+    if(!epee::string_tools::hex_to_pod(txid_str, txid))
     {
-      return "";
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return "";
     }
-    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    if (m_wallet->get_tx_key(htxid, tx_key, additional_tx_keys))
+    if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
     {
-      return epee::string_tools::pod_to_hex(tx_key);
+        m_status = Status_Ok;
+        std::ostringstream oss;
+        oss << epee::string_tools::pod_to_hex(tx_key);
+        for (size_t i = 0; i < additional_tx_keys.size(); ++i)
+            oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+        return oss.str();
     }
     else
     {
-      return "";
+        m_status = Status_Error;
+        m_errorString = tr("no tx keys found for this txid");
+        return "";
+    }
+}
+
+bool WalletImpl::checkTxKey(const std::string &txid_str, std::string tx_key_str, const std::string &address_str, uint64_t &received, bool &in_pool, uint64_t &confirmations)
+{
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(txid_str, txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return false;
+    }
+
+    crypto::secret_key tx_key;
+    std::vector<crypto::secret_key> additional_tx_keys;
+    if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), tx_key))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse tx key");
+        return false;
+    }
+    tx_key_str = tx_key_str.substr(64);
+    while (!tx_key_str.empty())
+    {
+        additional_tx_keys.resize(additional_tx_keys.size() + 1);
+        if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), additional_tx_keys.back()))
+        {
+            m_status = Status_Error;
+            m_errorString = tr("Failed to parse tx key");
+            return false;
+        }
+        tx_key_str = tx_key_str.substr(64);
+    }
+
+    cryptonote::address_parse_info info;
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse address");
+        return false;
+    }
+
+    try
+    {
+        m_wallet->check_tx_key(txid, tx_key, additional_tx_keys, info.address, received, in_pool, confirmations);
+        m_status = Status_Ok;
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return false;
+    }
+}
+
+std::string WalletImpl::getTxProof(const std::string &txid_str, const std::string &address_str, const std::string &message, std::string &error_str) const
+{
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(txid_str, txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return "";
+    }
+
+    cryptonote::address_parse_info info;
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse address");
+        return "";
+    }
+
+    try
+    {
+        m_status = Status_Ok;
+        return m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, message, error_str);
+    }
+    catch (const std::exception &e)
+    {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return "";
+    }
+}
+
+bool WalletImpl::checkTxProof(const std::string &txid_str, const std::string &address_str, const std::string &message, const std::string &signature, bool &good, uint64_t &received, bool &in_pool, uint64_t &confirmations)
+{
+    crypto::hash txid;
+    if (!epee::string_tools::hex_to_pod(txid_str, txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return false;
+    }
+
+    cryptonote::address_parse_info info;
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse address");
+        return false;
+    }
+
+    try
+    {
+        good = m_wallet->check_tx_proof(txid, info.address, info.is_subaddress, message, signature, received, in_pool, confirmations);
+        m_status = Status_Ok;
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return false;
     }
 }
 

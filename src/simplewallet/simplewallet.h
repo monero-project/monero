@@ -161,7 +161,6 @@ namespace cryptonote
     bool set_log(const std::vector<std::string> &args);
     bool get_tx_key(const std::vector<std::string> &args);
     bool check_tx_key(const std::vector<std::string> &args);
-    bool check_tx_key_helper(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const crypto::key_derivation &derivation);
     bool get_tx_proof(const std::vector<std::string> &args);
     bool check_tx_proof(const std::vector<std::string> &args);
     bool show_transfers(const std::vector<std::string> &args);
