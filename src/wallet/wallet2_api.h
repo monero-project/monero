@@ -701,7 +701,7 @@ struct Wallet
     virtual std::string getUserNote(const std::string &txid) const = 0;
     virtual std::string getTxKey(const std::string &txid) const = 0;
     virtual bool checkTxKey(const std::string &txid, std::string tx_key, const std::string &address, uint64_t &received, bool &in_pool, uint64_t &confirmations) = 0;
-    virtual std::string getTxProof(const std::string &txid, const std::string &address, const std::string &message, std::string &error_str) const = 0;
+    virtual std::string getTxProof(const std::string &txid, const std::string &address, const std::string &message) const = 0;
     virtual bool checkTxProof(const std::string &txid, const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &received, bool &in_pool, uint64_t &confirmations) = 0;
 
     /*
