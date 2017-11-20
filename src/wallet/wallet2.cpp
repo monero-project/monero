@@ -202,6 +202,8 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
     return {tools::password_container{std::move(password)}};
   }
 
+  THROW_WALLET_EXCEPTION_IF(!password_prompter, tools::error::wallet_internal_error, tools::wallet2::tr("no password specified; use --prompt-for-password to prompt for a password"));
+
   return password_prompter(verify ? tr("Enter new wallet password") : tr("Wallet password"), verify);
 }
 

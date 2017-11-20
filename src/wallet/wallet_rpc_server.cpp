@@ -58,6 +58,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_disable_rpc_login = {"disable-rpc-login", "Disable HTTP authentication for RPC connections served by this process"};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", "Enable commands which rely on a trusted daemon", false};
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
+  const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
 
   constexpr const char default_rpc_username[] = "monero";
 
@@ -2065,7 +2066,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, password_prompter).first;
+    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, nullptr).first;
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -2139,7 +2140,7 @@ namespace tools
     }
     std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
-      wal = tools::wallet2::make_from_file(vm2, wallet_file, password_prompter).first;
+      wal = tools::wallet2::make_from_file(vm2, wallet_file, nullptr).first;
     }
     catch (const std::exception& e)
     {
@@ -2231,7 +2232,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_wallet_file);
   command_line::add_arg(desc_params, arg_from_json);
   command_line::add_arg(desc_params, arg_wallet_dir);
-
+  command_line::add_arg(desc_params, arg_prompt_for_password);
 
   const auto vm = wallet_args::main(
     argc, argv,
@@ -2253,6 +2254,8 @@ int main(int argc, char** argv) {
     const auto wallet_file = command_line::get_arg(*vm, arg_wallet_file);
     const auto from_json = command_line::get_arg(*vm, arg_from_json);
     const auto wallet_dir = command_line::get_arg(*vm, arg_wallet_dir);
+    const auto prompt_for_password = command_line::get_arg(*vm, arg_prompt_for_password);
+    const auto password_prompt = prompt_for_password ? password_prompter : nullptr;
 
     if(!wallet_file.empty() && !from_json.empty())
     {
@@ -2275,13 +2278,13 @@ int main(int argc, char** argv) {
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
     if(!wallet_file.empty())
     {
-      wal = tools::wallet2::make_from_file(*vm, wallet_file, password_prompter).first;
+      wal = tools::wallet2::make_from_file(*vm, wallet_file, password_prompt).first;
     }
     else
     {
       try
       {
-        wal = tools::wallet2::make_from_json(*vm, from_json, password_prompter);
+        wal = tools::wallet2::make_from_json(*vm, from_json, password_prompt);
       }
       catch (const std::exception &e)
       {
