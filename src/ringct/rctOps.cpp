@@ -262,6 +262,15 @@ namespace rct {
         ge_tobytes(aAbB.bytes, &rv);
     }
 
+    //addKeys3
+    //aAbB = a*A + b*B where a, b are scalars, A, B are curve points
+    //A and B must be input after applying "precomp"
+    void addKeys3(key &aAbB, const key &a, const ge_dsmp A, const key &b, const ge_dsmp B) {
+        ge_p2 rv;
+        ge_double_scalarmult_precomp_vartime2(&rv, a.bytes, A, b.bytes, B);
+        ge_tobytes(aAbB.bytes, &rv);
+    }
+
 
     //subtract Keys (subtracts curve points)
     //AB = A - B where A, B are curve points
