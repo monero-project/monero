@@ -433,7 +433,7 @@ static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
   auto range = container.equal_range(key);
   for (auto i = range.first; i != range.second; ++i)
   {
-    if (i->second.m_pd.m_tx_hash == pd.m_pd.m_tx_hash)
+    if (i->second.m_pd.m_tx_hash == pd.m_pd.m_tx_hash && i->second.m_pd.m_subaddr_index == pd.m_pd.m_subaddr_index)
     {
       i->second = pd;
       return;
