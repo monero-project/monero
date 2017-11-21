@@ -220,6 +220,11 @@ namespace rct {
         ge_p3_tobytes(AB.bytes, &A2);
     }
 
+    rct::key addKeys(const key &A, const key &B) {
+      key k;
+      addKeys(k, A, B);
+      return k;
+    }
 
     //addKeys1
     //aGB = aG + B where a is a scalar, G is the basepoint, and B is a point
