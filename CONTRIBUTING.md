@@ -25,6 +25,17 @@ modifying is encourgaged. Proper squashing should be done (eg, if
 you're making a buggy patch, then a later patch to fix the bug,
 both patches should be merged).
 
+If you've made random unrelated changes (either because your editor
+is annoying or you made them for other reasons), you can select
+what changes go into the coming commit using git add -p, which
+walks you through all the changes and asks whether or not to
+include this particular change. This helps create clean patches
+without any irrelevant changes. git diff will show you the changes
+in your tree. git diff --cached will show what is currently staged
+for commit. As you add hunks with git add -p, those hunks will
+"move" from the git diff output to the git diff --cached output,
+so you can see clearly what your commit is going to look like.
+
 ## Commits and Pull Requests
 
 Commit messages should be sensible. That means a subject line that
