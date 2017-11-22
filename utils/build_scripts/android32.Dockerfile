@@ -72,8 +72,8 @@ RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
     && make build_crypto build_ssl \
     && cd .. && mv openssl-${OPENSSL_VERSION}  openssl
 
-RUN git clone https://github.com/monero-project/monero.git \
-    && cd monero \
+RUN git clone https://github.com/electroneum/electroneum.git \
+    && cd electroneum \
     && mkdir -p build/release \
     && CC=clang CXX=clang++ \
          BOOST_ROOT=${WORKDIR}/boost_${BOOST_VERSION} BOOST_LIBRARYDIR=${WORKDIR}/boost_${BOOST_VERSION}/android32/lib/ \
