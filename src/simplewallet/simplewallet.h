@@ -77,6 +77,7 @@ namespace cryptonote
     //wallet *create_wallet();
     bool process_command(const std::vector<std::string> &args);
     std::string get_commands_str();
+    std::string get_command_usage(const std::vector<std::string> &args);
   private:
     bool handle_command_line(const boost::program_options::variables_map& vm);
 
