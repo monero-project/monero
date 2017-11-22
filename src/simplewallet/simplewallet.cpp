@@ -4785,6 +4785,11 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if (args.size() == 0)
   {
+    if (m_current_subaddress_account != 0)
+    {
+      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
+      return true;
+    }
     payment_id = crypto::rand<crypto::hash8>();
     success_msg_writer() << tr("Random payment ID: ") << payment_id;
     success_msg_writer() << tr("Matching integrated address: ") << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
@@ -4792,6 +4797,11 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if(tools::wallet2::parse_short_payment_id(args.back(), payment_id))
   {
+    if (m_current_subaddress_account != 0)
+    {
+      fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
+      return true;
+    }
     success_msg_writer() << m_wallet->get_account().get_public_integrated_address_str(payment_id, m_wallet->testnet());
     return true;
   }
