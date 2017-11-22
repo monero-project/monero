@@ -409,6 +409,9 @@ Build the cppzmq bindings.
 We assume you are compiling with a non-root user and you have `doas` enabled.
 
 ```
+# Create a library link so cmake is able to find it
+doas ln -s /usr/local/lib/libzmq.so.4.1 /usr/local/lib/libzmq.so
+
 # Create cppzmq building directory
 mkdir ~/cppzmq
 cd ~/cppzmq
