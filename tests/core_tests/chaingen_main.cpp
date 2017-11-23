@@ -200,6 +200,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
 
     GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2);
+    GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2_many_inputs);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_22_2_1);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_33_1_23);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_33_3_21);
@@ -208,6 +209,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_1);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_3);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_45_1_234);
+    GENERATE_AND_PLAY(gen_multisig_tx_valid_45_4_135_many_inputs);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_89_3_1245789);
     GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
     GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);

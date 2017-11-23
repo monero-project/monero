@@ -69,7 +69,7 @@ struct gen_multisig_tx_validation_base : public test_chain_unit_base
     return true;
   }
 
-  bool generate_with(std::vector<test_event_entry>& events, int mixin,
+  bool generate_with(std::vector<test_event_entry>& events, size_t inputs, size_t mixin,
       uint64_t amount_paid, bool valid,
       size_t threshold, size_t total, size_t creator, std::vector<size_t> signers,
       const std::function<void(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations)> &pre_tx,
@@ -94,6 +94,12 @@ struct gen_multisig_tx_valid_22_1_2: public gen_multisig_tx_validation_base
   bool generate(std::vector<test_event_entry>& events) const;
 };
 template<> struct get_test_options<gen_multisig_tx_valid_22_1_2>: public get_test_options<gen_multisig_tx_validation_base> {};
+
+struct gen_multisig_tx_valid_22_1_2_many_inputs: public gen_multisig_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_multisig_tx_valid_22_1_2_many_inputs>: public get_test_options<gen_multisig_tx_validation_base> {};
 
 struct gen_multisig_tx_valid_22_2_1: public gen_multisig_tx_validation_base
 {
@@ -141,8 +147,14 @@ struct gen_multisig_tx_valid_45_1_234: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-
 template<> struct get_test_options<gen_multisig_tx_valid_45_1_234>: public get_test_options<gen_multisig_tx_validation_base> {};
+
+struct gen_multisig_tx_valid_45_4_135_many_inputs: public gen_multisig_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_multisig_tx_valid_45_4_135_many_inputs>: public get_test_options<gen_multisig_tx_validation_base> {};
+
 struct gen_multisig_tx_valid_89_3_1245789: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
