@@ -30,10 +30,12 @@
 
 #include "gtest/gtest.h"
 
-#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/program_options.hpp>
 
 #include "include_base_utils.h"
+#include "string_tools.h"
 #include "common/command_line.h"
 #include "common/util.h"
 #include "unit_tests_utils.h"

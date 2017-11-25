@@ -32,7 +32,9 @@
 using namespace epee;
 
 #include <atomic>
+#include <boost/algorithm/string.hpp>
 #include "wipeable_string.h"
+#include "string_tools.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"

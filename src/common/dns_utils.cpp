@@ -34,6 +34,8 @@
 #include "include_base_utils.h"
 #include <random>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 using namespace epee;
 namespace bf = boost::filesystem;
 

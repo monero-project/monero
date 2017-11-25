@@ -28,7 +28,11 @@
 #ifndef _MLOG_H_
 #define _MLOG_H_
 
+#include <time.h>
 #include <atomic>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+#include "string_tools.h"
 #include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

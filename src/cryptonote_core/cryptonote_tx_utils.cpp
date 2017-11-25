@@ -30,6 +30,7 @@
 
 #include <unordered_set>
 #include "include_base_utils.h"
+#include "string_tools.h"
 using namespace epee;
 
 #include "common/apply_permutation.h"

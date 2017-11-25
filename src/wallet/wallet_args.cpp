@@ -28,6 +28,7 @@
 #include "wallet/wallet_args.h"
 
 #include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/format.hpp>
 #include "common/i18n.h"
 #include "common/util.h"

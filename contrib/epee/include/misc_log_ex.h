@@ -28,26 +28,7 @@
 #ifndef _MISC_LOG_EX_H_
 #define _MISC_LOG_EX_H_
 
-#include "static_initializer.h"
-#include "string_tools.h"
-#include "time_helper.h"
-#include "misc_os_dependent.h"
-
-#include "syncobj.h"
-
-#include <iostream>
-#include <sstream>
-#include <iomanip>
-#include <fstream>
-#include <algorithm>
-#include <list>
-#include <map>
 #include <string>
-#include <time.h>
-#include <boost/cstdint.hpp>
-#include <boost/thread.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include "easylogging++.h"
 

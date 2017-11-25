@@ -28,7 +28,10 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/algorithm/string.hpp>
+
 #include "include_base_utils.h"
+#include "string_tools.h"
 using namespace epee;
 
 #include <unordered_set>

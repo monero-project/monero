@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/filesystem.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/tx_extra.h"
 #include "cryptonote_core/blockchain.h"

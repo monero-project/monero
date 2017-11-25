@@ -37,6 +37,7 @@
 #include <boost/uuid/random_generator.hpp>
 
 #include "misc_os_dependent.h"
+#include "syncobj.h"
 
 namespace epee
 {

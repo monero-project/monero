@@ -31,8 +31,9 @@
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
-
 #include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"

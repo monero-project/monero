@@ -27,6 +27,7 @@
 #pragma once
 
 #include "misc_log_ex.h"
+#include "string_tools.h"
 #include <atomic>
 #include <condition_variable>
 #include <functional>
@@ -37,6 +38,8 @@
 #include <stdio.h>
 #endif
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #ifdef HAVE_READLINE
   #include "readline_buffer.h"

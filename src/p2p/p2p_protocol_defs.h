@@ -34,6 +34,8 @@
 #include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
 #include "misc_language.h"
+#include "string_tools.h"
+#include "time_helper.h"
 #include "cryptonote_config.h"
 #ifdef ALLOW_DEBUG_COMMANDS
 #include "crypto/crypto.h"

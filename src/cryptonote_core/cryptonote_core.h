@@ -36,7 +36,6 @@
 #include <boost/program_options/variables_map.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 
-#include "p2p/net_node_common.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"

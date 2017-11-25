@@ -32,6 +32,7 @@
 #include <fstream>
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #include "misc_log_ex.h"
 #include "bootstrap_file.h"
 #include "bootstrap_serialization.h"
