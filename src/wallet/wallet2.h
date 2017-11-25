@@ -168,7 +168,7 @@ namespace tools
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
-    static bool verify_password(const std::string& keys_file_name, const std::string& password, bool watch_only);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only);
 
     wallet2(bool testnet = false, bool restricted = false) : m_run(true), m_callback(0), m_testnet(testnet), m_always_confirm_transfers(true), m_print_ring_members(false), m_store_tx_info(true), m_default_mixin(0), m_default_priority(0), m_refresh_type(RefreshDefault), m_auto_refresh(true), m_refresh_from_block_height(0), m_confirm_missing_payment_id(true), m_ask_password(true), m_min_output_count(0), m_min_output_value(0), m_merge_destinations(false), m_confirm_backlog(true), m_is_initialized(false), m_restricted(restricted), is_old_file_format(false), m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex), m_light_wallet(false), m_light_wallet_scanned_block_height(0), m_light_wallet_blockchain_height(0), m_light_wallet_connected(false), m_light_wallet_balance(0), m_light_wallet_unlocked_balance(0) {}
 
@@ -398,7 +398,7 @@ namespace tools
      * \param  two_random     Whether it is a non-deterministic wallet
      * \return                The secret key of the generated wallet
      */
-    crypto::secret_key generate(const std::string& wallet, const std::string& password,
+    crypto::secret_key generate(const std::string& wallet, const epee::wipeable_string& password,
       const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
       bool two_random = false);
     /*!
@@ -408,7 +408,7 @@ namespace tools
      * \param  viewkey        view secret key
      * \param  spendkey       spend secret key
      */
-    void generate(const std::string& wallet, const std::string& password,
+    void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& spendkey, const crypto::secret_key& viewkey);
     /*!
@@ -417,7 +417,7 @@ namespace tools
      * \param  password       Password of wallet file
      * \param  viewkey        view secret key
      */
-    void generate(const std::string& wallet, const std::string& password,
+    void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& viewkey = crypto::secret_key());
     /*!
@@ -425,23 +425,23 @@ namespace tools
      * \param wallet_name Name of wallet file (should exist)
      * \param password    Password for wallet file
      */
-    void rewrite(const std::string& wallet_name, const std::string& password);
-    void write_watch_only_wallet(const std::string& wallet_name, const std::string& password);
-    void load(const std::string& wallet, const std::string& password);
+    void rewrite(const std::string& wallet_name, const epee::wipeable_string& password);
+    void write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password);
+    void load(const std::string& wallet, const epee::wipeable_string& password);
     void store();
     /*!
      * \brief store_to - stores wallet to another file(s), deleting old ones
      * \param path     - path to the wallet file (keys and address filenames will be generated based on this filename)
      * \param password - password to protect new wallet (TODO: probably better save the password in the wallet object?)
      */
-    void store_to(const std::string &path, const std::string &password);
+    void store_to(const std::string &path, const epee::wipeable_string &password);
 
     std::string path() const;
 
     /*!
      * \brief verifies given password is correct for default wallet keys file
      */
-    bool verify_password(const std::string& password) const;
+    bool verify_password(const epee::wipeable_string& password) const;
     cryptonote::account_base& get_account(){return m_account;}
     const cryptonote::account_base& get_account()const{return m_account;}
 
@@ -466,7 +466,7 @@ namespace tools
      * \brief Checks if deterministic wallet
      */
     bool is_deterministic() const;
-    bool get_seed(std::string& electrum_words, const std::string &passphrase = std::string()) const;
+    bool get_seed(std::string& electrum_words, const epee::wipeable_string &passphrase = epee::wipeable_string()) const;
 
     /*!
     * \brief Checks if light wallet. A light wallet sends view key to a server where the blockchain is scanned.
@@ -838,13 +838,13 @@ namespace tools
      * \param  watch_only     true to save only view key, false to save both spend and view keys
      * \return                Whether it was successful.
      */
-    bool store_keys(const std::string& keys_file_name, const std::string& password, bool watch_only = false);
+    bool store_keys(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only = false);
     /*!
      * \brief Load wallet information from wallet file.
      * \param keys_file_name Name of wallet file
      * \param password       Password of wallet file
      */
-    bool load_keys(const std::string& keys_file_name, const std::string& password);
+    bool load_keys(const std::string& keys_file_name, const epee::wipeable_string& password);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen);
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices);
     void detach_blockchain(uint64_t height);

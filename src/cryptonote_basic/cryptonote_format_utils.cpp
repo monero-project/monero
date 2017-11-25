@@ -32,6 +32,7 @@
 using namespace epee;
 
 #include <atomic>
+#include "wipeable_string.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
@@ -994,7 +995,7 @@ namespace cryptonote
     block_hashes_cached = block_hashes_cached_count;
   }
   //---------------------------------------------------------------
-  crypto::secret_key encrypt_key(crypto::secret_key key, const std::string &passphrase)
+  crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
     crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
@@ -1002,7 +1003,7 @@ namespace cryptonote
     return key;
   }
   //---------------------------------------------------------------
-  crypto::secret_key decrypt_key(crypto::secret_key key, const std::string &passphrase)
+  crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
   {
     crypto::hash hash;
     crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);

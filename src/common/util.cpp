@@ -36,9 +36,11 @@
 
 #include "include_base_utils.h"
 #include "file_io_utils.h"
+#include "wipeable_string.h"
 using namespace epee;
 
 #include "util.h"
+#include "memwipe.h"
 #include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 
@@ -542,6 +544,8 @@ std::string get_nix_version_display_string()
   }
   bool on_startup()
   {
+    wipeable_string::set_wipe(&memwipe);
+
     mlog_configure("", true);
 
     sanitize_locale();

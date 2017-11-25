@@ -602,7 +602,7 @@ bool wallet2::is_deterministic() const
   return keys_deterministic;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(std::string& electrum_words, const std::string &passphrase) const
+bool wallet2::get_seed(std::string& electrum_words, const epee::wipeable_string &passphrase) const
 {
   bool keys_deterministic = is_deterministic();
   if (!keys_deterministic)
@@ -2128,7 +2128,7 @@ bool wallet2::clear()
  * \param  watch_only     true to save only view key, false to save both spend and view keys
  * \return                Whether it was successful.
  */
-bool wallet2::store_keys(const std::string& keys_file_name, const std::string& password, bool watch_only)
+bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only)
 {
   std::string account_data;
   cryptonote::account_base account = m_account;
@@ -2214,7 +2214,7 @@ bool wallet2::store_keys(const std::string& keys_file_name, const std::string& p
 
   // Encrypt the entire JSON object.
   crypto::chacha8_key key;
-  crypto::generate_chacha8_key(password, key);
+  crypto::generate_chacha8_key(password.data(), password.size(), key);
   std::string cipher;
   cipher.resize(account_data.size());
   keys_file_data.iv = crypto::rand<crypto::chacha8_iv>();
@@ -2244,7 +2244,7 @@ namespace
  * \param keys_file_name Name of wallet file
  * \param password       Password of wallet file
  */
-bool wallet2::load_keys(const std::string& keys_file_name, const std::string& password)
+bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_string& password)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
@@ -2255,7 +2255,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   r = ::serialization::parse_binary(buf, keys_file_data);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
   crypto::chacha8_key key;
-  crypto::generate_chacha8_key(password, key);
+  crypto::generate_chacha8_key(password.data(), password.size(), key);
   std::string account_data;
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
@@ -2379,7 +2379,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& password) const
+bool wallet2::verify_password(const epee::wipeable_string& password) const
 {
   return verify_password(m_keys_file, password, m_watch_only);
 }
@@ -2396,7 +2396,7 @@ bool wallet2::verify_password(const std::string& password) const
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& keys_file_name, const std::string& password, bool watch_only)
+bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only)
 {
   wallet2::keys_file_data keys_file_data;
   std::string buf;
@@ -2407,7 +2407,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const std::stri
   r = ::serialization::parse_binary(buf, keys_file_data);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
   crypto::chacha8_key key;
-  crypto::generate_chacha8_key(password, key);
+  crypto::generate_chacha8_key(password.data(), password.size(), key);
   std::string account_data;
   account_data.resize(keys_file_data.account_data.size());
   crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
@@ -2444,7 +2444,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const std::stri
  * \param  two_random     Whether it is a non-deterministic wallet
  * \return                The secret key of the generated wallet
  */
-crypto::secret_key wallet2::generate(const std::string& wallet_, const std::string& password,
+crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const crypto::secret_key& recovery_param, bool recover, bool two_random)
 {
   clear();
@@ -2511,7 +2511,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
 * \param  password       Password of wallet file
 * \param  viewkey        view secret key
 */
-void wallet2::generate(const std::string& wallet_, const std::string& password,
+void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const cryptonote::account_public_address &account_public_address,
   const crypto::secret_key& viewkey)
 {
@@ -2547,7 +2547,7 @@ void wallet2::generate(const std::string& wallet_, const std::string& password,
 * \param  spendkey       spend secret key
 * \param  viewkey        view secret key
 */
-void wallet2::generate(const std::string& wallet_, const std::string& password,
+void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const cryptonote::account_public_address &account_public_address,
   const crypto::secret_key& spendkey, const crypto::secret_key& viewkey)
 {
@@ -2581,7 +2581,7 @@ void wallet2::generate(const std::string& wallet_, const std::string& password,
  * \param wallet_name Name of wallet file (should exist)
  * \param password    Password for wallet file
  */
-void wallet2::rewrite(const std::string& wallet_name, const std::string& password)
+void wallet2::rewrite(const std::string& wallet_name, const epee::wipeable_string& password)
 {
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
@@ -2594,7 +2594,7 @@ void wallet2::rewrite(const std::string& wallet_name, const std::string& passwor
  * \param wallet_name Base name of wallet file
  * \param password    Password for wallet file
  */
-void wallet2::write_watch_only_wallet(const std::string& wallet_name, const std::string& password)
+void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password)
 {
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
@@ -2730,7 +2730,7 @@ bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) co
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::load(const std::string& wallet_, const std::string& password)
+void wallet2::load(const std::string& wallet_, const epee::wipeable_string& password)
 {
   clear();
   prepare_file_names(wallet_);
@@ -2881,10 +2881,10 @@ std::string wallet2::path() const
 //----------------------------------------------------------------------------------------------------
 void wallet2::store()
 {
-  store_to("", "");
+  store_to("", epee::wipeable_string());
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::store_to(const std::string &path, const std::string &password)
+void wallet2::store_to(const std::string &path, const epee::wipeable_string &password)
 {
   trim_hashchain();
 

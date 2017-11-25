@@ -411,7 +411,7 @@ bool simple_wallet::print_seed(bool encrypted)
       m_wallet->set_seed_language(mnemonic_language);
     }
 
-    std::string seed_pass;
+    epee::wipeable_string seed_pass;
     if (encrypted)
     {
       auto pwd_container = tools::password_container::prompt(true, tr("Enter optional seed encryption passphrase, empty to see raw seed"));
@@ -1212,7 +1212,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       auto pwd_container = tools::password_container::prompt(false, tr("Enter seed encryption passphrase, empty if none"));
       if (std::cin.eof() || !pwd_container)
         return false;
-      std::string seed_pass = pwd_container->password();
+      epee::wipeable_string seed_pass = pwd_container->password();
       if (!seed_pass.empty())
         m_recovery_key = cryptonote::decrypt_key(m_recovery_key, seed_pass);
     }
@@ -1862,12 +1862,12 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
     fail_msg_writer() << tr("wallet file path not valid: ") << m_wallet_file;
     return false;
   }
-  std::string password;
+  epee::wipeable_string password;
   try
   {
     auto rc = tools::wallet2::make_from_file(vm, m_wallet_file, password_prompter);
     m_wallet = std::move(rc.first);
-    password = std::move(rc.second).password();
+    password = std::move(std::move(rc.second).password());
     if (!m_wallet)
     {
       return false;
