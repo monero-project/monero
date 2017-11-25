@@ -1507,12 +1507,7 @@ namespace tools
 
     try
     {
-      res.signature = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, req.message, er.message);
-      if (res.signature.empty())
-      {
-        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        return false;
-      }
+      res.signature = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, req.message);
     }
     catch (const std::exception &e)
     {

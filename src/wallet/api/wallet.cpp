@@ -1467,7 +1467,7 @@ bool WalletImpl::checkTxKey(const std::string &txid_str, std::string tx_key_str,
     }
 }
 
-std::string WalletImpl::getTxProof(const std::string &txid_str, const std::string &address_str, const std::string &message, std::string &error_str) const
+std::string WalletImpl::getTxProof(const std::string &txid_str, const std::string &address_str, const std::string &message) const
 {
     crypto::hash txid;
     if (!epee::string_tools::hex_to_pod(txid_str, txid))
@@ -1488,7 +1488,7 @@ std::string WalletImpl::getTxProof(const std::string &txid_str, const std::strin
     try
     {
         m_status = Status_Ok;
-        return m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, message, error_str);
+        return m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, message);
     }
     catch (const std::exception &e)
     {

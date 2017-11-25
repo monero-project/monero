@@ -6306,9 +6306,8 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
   }
 }
 
-std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message, std::string &error_str)
+std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message)
 {
-  error_str = "";
   // determine if the address is found in the subaddress hash table (i.e. whether the proof is outbound or inbound)
   const bool is_out = m_subaddresses.count(address.m_spend_public_key) == 0;
 
@@ -6324,11 +6323,7 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
   {
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    if (!get_tx_key(txid, tx_key, additional_tx_keys))
-    {
-      error_str = tr("Tx secret key wasn't found in the wallet file.");
-      return {};
-    }
+    THROW_WALLET_EXCEPTION_IF(!get_tx_key(txid, tx_key, additional_tx_keys), error::wallet_internal_error, "Tx secret key wasn't found in the wallet file.");
 
     const size_t num_sigs = 1 + additional_tx_keys.size();
     shared_secret.resize(num_sigs);
@@ -6431,11 +6426,7 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
   bool in_pool;
   uint64_t confirmations;
   check_tx_key_helper(txid, derivation, additional_derivations, address, received, in_pool, confirmations);
-  if (!received)
-  {
-    error_str = tr("No funds received in this tx.");
-    return {};
-  }
+  THROW_WALLET_EXCEPTION_IF(!received, error::wallet_internal_error, tr("No funds received in this tx."));
 
   // concatenate all signature strings
   for (size_t i = 0; i < num_sigs; ++i)

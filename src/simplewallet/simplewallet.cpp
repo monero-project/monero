@@ -3964,20 +3964,12 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 
   try
   {
-    std::string error_str;
-    std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "", error_str);
-    if (sig_str.empty())
-    {
-      fail_msg_writer() << error_str;
-    }
+    std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "");
+    const std::string filename = "monero_tx_proof";
+    if (epee::file_io_utils::save_string_to_file(filename, sig_str))
+      success_msg_writer() << tr("signature file saved to: ") << filename;
     else
-    {
-      const std::string filename = "monero_tx_proof";
-      if (epee::file_io_utils::save_string_to_file(filename, sig_str))
-        success_msg_writer() << tr("signature file saved to:") << filename;
-      else
-        fail_msg_writer() << tr("failed to save signature file");
-    }
+      fail_msg_writer() << tr("failed to save signature file");
   }
   catch (const std::exception &e)
   {
