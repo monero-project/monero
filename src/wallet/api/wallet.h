@@ -31,7 +31,7 @@
 #ifndef WALLET_IMPL_H
 #define WALLET_IMPL_H
 
-#include "wallet/wallet2_api.h"
+#include "wallet/api/wallet2_api.h"
 #include "wallet/wallet2.h"
 
 #include <string>
