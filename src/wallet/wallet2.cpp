@@ -699,8 +699,7 @@ void wallet2::add_subaddress_account(const std::string& label)
 //----------------------------------------------------------------------------------------------------
 void wallet2::add_subaddress(uint32_t index_major, const std::string& label)
 {
-  if (index_major >= m_subaddress_labels.size())
-    throw std::runtime_error("index_major is out of bound");
+  THROW_WALLET_EXCEPTION_IF(index_major >= m_subaddress_labels.size(), error::account_index_outofbound);
   uint32_t index_minor = (uint32_t)get_num_subaddresses(index_major);
   expand_subaddresses({index_major, index_minor});
   m_subaddress_labels[index_major][index_minor] = label;
@@ -756,10 +755,9 @@ std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& in
 //----------------------------------------------------------------------------------------------------
 void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, const std::string &label)
 {
-  if (index.major >= m_subaddress_labels.size() || index.minor >= m_subaddress_labels[index.major].size())
-    MERROR("Subaddress index is out of bounds. Failed to set subaddress label.");
-  else
-    m_subaddress_labels[index.major][index.minor] = label;
+  THROW_WALLET_EXCEPTION_IF(index.major >= m_subaddress_labels.size(), error::account_index_outofbound);
+  THROW_WALLET_EXCEPTION_IF(index.minor >= m_subaddress_labels[index.major].size(), error::address_index_outofbound);
+  m_subaddress_labels[index.major][index.minor] = label;
 }
 //----------------------------------------------------------------------------------------------------
 /*!
