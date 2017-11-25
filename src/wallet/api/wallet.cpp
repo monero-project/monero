@@ -1530,6 +1530,52 @@ bool WalletImpl::checkTxProof(const std::string &txid_str, const std::string &ad
     }
 }
 
+std::string WalletImpl::getSpendProof(const std::string &txid_str, const std::string &message) const {
+    crypto::hash txid;
+    if(!epee::string_tools::hex_to_pod(txid_str, txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return "";
+    }
+
+    try
+    {
+        m_status = Status_Ok;
+        return m_wallet->get_spend_proof(txid, message);
+    }
+    catch (const std::exception &e)
+    {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return "";
+    }
+}
+
+bool WalletImpl::checkSpendProof(const std::string &txid_str, const std::string &message, const std::string &signature, bool &good) const {
+    good = false;
+    crypto::hash txid;
+    if(!epee::string_tools::hex_to_pod(txid_str, txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return false;
+    }
+
+    try
+    {
+        m_status = Status_Ok;
+        good = m_wallet->check_spend_proof(txid, message, signature);
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        m_status = Status_Error;
+        m_errorString = e.what();
+        return false;
+    }
+}
+
 std::string WalletImpl::signMessage(const std::string &message)
 {
   return m_wallet->sign(message);
