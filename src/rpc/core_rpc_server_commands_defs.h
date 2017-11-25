@@ -927,6 +927,7 @@ namespace cryptonote
       uint64_t cumulative_difficulty;
       uint64_t block_size_limit;
       uint64_t start_time;
+      uint64_t free_space;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -947,6 +948,7 @@ namespace cryptonote
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(block_size_limit)
         KV_SERIALIZE(start_time)
+        KV_SERIALIZE(free_space)
       END_KV_SERIALIZE_MAP()
     };
   };
