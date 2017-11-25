@@ -56,3 +56,5 @@
 #define WALLET_RPC_ERROR_CODE_NO_WALLET_DIR          -23
 #define WALLET_RPC_ERROR_CODE_NO_TXKEY               -24
 #define WALLET_RPC_ERROR_CODE_WRONG_KEY              -25
+#define WALLET_RPC_ERROR_CODE_BAD_HEX                -26
+#define WALLET_RPC_ERROR_CODE_BAD_TX_METADATA        -27

@@ -292,6 +292,19 @@ namespace tools
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(sources)
+        FIELD(change_dts)
+        FIELD(splitted_dsts)
+        FIELD(selected_transfers)
+        FIELD(extra)
+        FIELD(unlock_time)
+        FIELD(use_rct)
+        FIELD(dests)
+        FIELD(subaddr_account)
+        FIELD(subaddr_indices)
+      END_SERIALIZE()
     };
 
     typedef std::vector<transfer_details> transfer_container;
@@ -313,6 +326,20 @@ namespace tools
       std::vector<cryptonote::tx_destination_entry> dests;
 
       tx_construction_data construction_data;
+
+      BEGIN_SERIALIZE_OBJECT()
+        FIELD(tx)
+        FIELD(dust)
+        FIELD(fee)
+        FIELD(dust_added_to_fee)
+        FIELD(change_dts)
+        FIELD(selected_transfers)
+        FIELD(key_images)
+        FIELD(tx_key)
+        FIELD(additional_tx_keys)
+        FIELD(dests)
+        FIELD(construction_data)
+      END_SERIALIZE()
     };
 
     // The term "Unsigned tx" is not really a tx since it's not signed yet.
