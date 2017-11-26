@@ -1547,7 +1547,7 @@ namespace cryptonote
         res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
         return false;
       }
-      epee::net_utils::connection_basic::set_rate_down_limit(nodetool::default_limit_down * 1024);
+      epee::net_utils::connection_basic::set_rate_down_limit(nodetool::default_limit_down);
     }
 
     if (req.limit_up > 0)
@@ -1561,7 +1561,7 @@ namespace cryptonote
         res.status = CORE_RPC_ERROR_CODE_WRONG_PARAM;
         return false;
       }
-      epee::net_utils::connection_basic::set_rate_up_limit(nodetool::default_limit_up * 1024);
+      epee::net_utils::connection_basic::set_rate_up_limit(nodetool::default_limit_up);
     }
 
     res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit();

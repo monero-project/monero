@@ -286,7 +286,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     
     {
 			CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::network_throttle_manager::m_lock_get_global_throttle_in );
-			epee::net_utils::network_throttle_manager::network_throttle_manager::get_global_throttle_in().handle_trafic_exact(bytes_transferred * 1024);
+			epee::net_utils::network_throttle_manager::network_throttle_manager::get_global_throttle_in().handle_trafic_exact(bytes_transferred);
 		}
 
 		double delay=0; // will be calculated - how much we should sleep to obey speed limit etc
@@ -297,7 +297,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			{
 				{ //_scope_dbg1("CRITICAL_REGION_LOCAL");
 					CRITICAL_REGION_LOCAL(	epee::net_utils::network_throttle_manager::m_lock_get_global_throttle_in );
-					delay = epee::net_utils::network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick( bytes_transferred ); // decission from global throttle
+					delay = epee::net_utils::network_throttle_manager::get_global_throttle_in().get_sleep_time_after_tick( bytes_transferred );
 				}
 				
 				delay *= 0.5;
@@ -482,9 +482,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //some data should be wrote to stream
     //request complete
     
-		if (speed_limit_is_enabled()) {
-			sleep_before_packet(cb, 1, 1);
-		}
+    // No sleeping here; sleeping is done once and for all in "handle_write"
 
     m_send_que_lock.lock(); // *** critical ***
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_send_que_lock.unlock();});
@@ -607,6 +605,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }
     logger_handle_net_write(cb);
 
+                // The single sleeping that is needed for correctly handling "out" speed throttling
 		if (speed_limit_is_enabled()) {
 			sleep_before_packet(cb, 1, 1);
 		}
