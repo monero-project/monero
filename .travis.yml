@@ -1,15 +1,13 @@
 language: cpp
+dist: xenial
 script: make release-static
-before_install:
-  - sudo add-apt-repository ppa:kzemek/boost -y
-  - sudo apt-get update -q
-  - sudo apt-get install boost1.58 -y
 addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
     packages:
       - libssl-dev
+      - libboost-all-dev
       - build-essential
       - cmake
       - pkg-config
