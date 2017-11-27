@@ -1,6 +1,8 @@
 language: cpp
-dist: xenial
 script: make release-static
+dist: xenial
+before_install:
+  - sudo apt-get install libboost-all-dev -y
 addons:
   apt:
     sources:
