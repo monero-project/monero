@@ -610,11 +610,6 @@ namespace tools
         return false;
       }
 
-      if (!req.do_not_relay)
-        m_wallet->commit_tx(ptx_vector);
-
-      // populate response with tx hash
-      res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
       if (req.get_tx_key)
       {
         res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
@@ -623,18 +618,45 @@ namespace tools
       }
       res.fee = ptx_vector.back().fee;
 
-      if (req.get_tx_hex)
+      if (m_wallet->multisig())
       {
-        cryptonote::blobdata blob;
-        tx_to_blob(ptx_vector.back().tx, blob);
-        res.tx_blob = epee::string_tools::buff_to_hex_nodelimer(blob);
+        res.multisig_txset = epee::string_tools::buff_to_hex_nodelimer(m_wallet->save_multisig_tx(ptx_vector));
+        if (res.multisig_txset.empty())
+        {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "Failed to save multisig tx set after creation";
+          return false;
+        }
       }
-      if (req.get_tx_metadata)
+      else
       {
-        std::ostringstream oss;
-        binary_archive<true> ar(oss);
-        ::serialization::serialize(ar, ptx_vector.back());
-        res.tx_metadata = epee::string_tools::buff_to_hex_nodelimer(oss.str());
+        if (!req.do_not_relay)
+          m_wallet->commit_tx(ptx_vector);
+
+        // populate response with tx hash
+        res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx_vector.back().tx));
+        if (req.get_tx_hex)
+        {
+          cryptonote::blobdata blob;
+          tx_to_blob(ptx_vector.back().tx, blob);
+          res.tx_blob = epee::string_tools::buff_to_hex_nodelimer(blob);
+        }
+        if (req.get_tx_metadata)
+        {
+          std::ostringstream oss;
+          boost::archive::portable_binary_oarchive ar(oss);
+          try
+          {
+            ar << ptx_vector.back();
+          }
+          catch (...)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to save multisig tx set after creation";
+            return false;
+          }
+          res.tx_metadata = epee::string_tools::buff_to_hex_nodelimer(oss.str());
+        }
       }
       return true;
     }
@@ -675,17 +697,9 @@ namespace tools
       ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, req.priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
-      if (!req.do_not_relay)
-      {
-        LOG_PRINT_L2("on_transfer_split calling commit_tx");
-        m_wallet->commit_tx(ptx_vector);
-        LOG_PRINT_L2("on_transfer_split called commit_tx");
-      }
-
       // populate response with tx hashes
       for (const auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
@@ -699,19 +713,56 @@ namespace tools
         res.amount_list.push_back(ptx_amount);
 
         res.fee_list.push_back(ptx.fee);
+      }
 
-        if (req.get_tx_hex)
+      if (m_wallet->multisig())
+      {
+        res.multisig_txset = epee::string_tools::buff_to_hex_nodelimer(m_wallet->save_multisig_tx(ptx_vector));
+        if (res.multisig_txset.empty())
         {
-          cryptonote::blobdata blob;
-          tx_to_blob(ptx.tx, blob);
-          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "Failed to save multisig tx set after creation";
+          return false;
         }
-        if (req.get_tx_metadata)
+      }
+
+      // populate response with tx hashes
+      for (const auto & ptx : ptx_vector)
+      {
+        if (!req.do_not_relay)
         {
-          std::ostringstream oss;
-          binary_archive<true> ar(oss);
-          ::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx));
-          res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          LOG_PRINT_L2("on_transfer_split calling commit_tx");
+          m_wallet->commit_tx(ptx_vector);
+          LOG_PRINT_L2("on_transfer_split called commit_tx");
+        }
+
+        // populate response with tx hashes
+        for (auto & ptx : ptx_vector)
+        {
+          res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
+
+          if (req.get_tx_hex)
+          {
+            cryptonote::blobdata blob;
+            tx_to_blob(ptx.tx, blob);
+            res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+          }
+          if (req.get_tx_metadata)
+          {
+            std::ostringstream oss;
+            boost::archive::portable_binary_oarchive ar(oss);
+            try
+            {
+              ar << ptx;
+            }
+            catch (...)
+            {
+              er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+              er.message = "Failed to save multisig tx set after creation";
+              return false;
+            }
+            res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          }
         }
       }
 
@@ -739,30 +790,65 @@ namespace tools
     {
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
 
-      if (!req.do_not_relay)
-        m_wallet->commit_tx(ptx_vector);
-
-      // populate response with tx hashes
       for (const auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
         res.fee_list.push_back(ptx.fee);
-        if (req.get_tx_hex)
-        {
-          cryptonote::blobdata blob;
-          tx_to_blob(ptx.tx, blob);
-          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
-        }
-        if (req.get_tx_metadata)
+      }
+
+      if (m_wallet->multisig())
+      {
+        for (tools::wallet2::pending_tx &ptx: ptx_vector)
         {
           std::ostringstream oss;
-          binary_archive<true> ar(oss);
-          ::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx));
-          res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          boost::archive::portable_binary_oarchive ar(oss);
+          try
+          {
+            ar << ptx;
+          }
+          catch (...)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to save multisig tx set after creation";
+            return false;
+          }
+          res.multisig_txset.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+        }
+      }
+      else
+      {
+        if (!req.do_not_relay)
+          m_wallet->commit_tx(ptx_vector);
+
+        // populate response with tx hashes
+        for (auto & ptx : ptx_vector)
+        {
+          res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
+          if (req.get_tx_hex)
+          {
+            cryptonote::blobdata blob;
+            tx_to_blob(ptx.tx, blob);
+            res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+          }
+          if (req.get_tx_metadata)
+          {
+            std::ostringstream oss;
+            boost::archive::portable_binary_oarchive ar(oss);
+            try
+            {
+              ar << ptx;
+            }
+            catch (...)
+            {
+              er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+              er.message = "Failed to save multisig tx set after creation";
+              return false;
+            }
+            res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          }
         }
       }
 
@@ -804,29 +890,64 @@ namespace tools
       uint64_t mixin = m_wallet->adjust_mixin(req.mixin);
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, req.priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
 
-      if (!req.do_not_relay)
-        m_wallet->commit_tx(ptx_vector);
-
-      // populate response with tx hashes
       for (const auto & ptx : ptx_vector)
       {
-        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
         if (req.get_tx_keys)
         {
           res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
         }
-        if (req.get_tx_hex)
-        {
-          cryptonote::blobdata blob;
-          tx_to_blob(ptx.tx, blob);
-          res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
-        }
-        if (req.get_tx_metadata)
+      }
+
+      if (m_wallet->multisig())
+      {
+        for (tools::wallet2::pending_tx &ptx: ptx_vector)
         {
           std::ostringstream oss;
-          binary_archive<true> ar(oss);
-          ::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx));
-          res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          boost::archive::portable_binary_oarchive ar(oss);
+          try
+          {
+            ar << ptx;
+          }
+          catch (...)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to save multisig tx set after creation";
+            return false;
+          }
+          res.multisig_txset.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+        }
+      }
+      else
+      {
+        if (!req.do_not_relay)
+          m_wallet->commit_tx(ptx_vector);
+
+        // populate response with tx hashes
+        for (auto & ptx : ptx_vector)
+        {
+          res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
+          if (req.get_tx_hex)
+          {
+            cryptonote::blobdata blob;
+            tx_to_blob(ptx.tx, blob);
+            res.tx_blob_list.push_back(epee::string_tools::buff_to_hex_nodelimer(blob));
+          }
+          if (req.get_tx_metadata)
+          {
+            std::ostringstream oss;
+            boost::archive::portable_binary_oarchive ar(oss);
+            try
+            {
+              ar << ptx;
+            }
+            catch (...)
+            {
+              er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+              er.message = "Failed to save multisig tx set after creation";
+              return false;
+            }
+            res.tx_metadata_list.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+          }
         }
       }
 
@@ -888,37 +1009,59 @@ namespace tools
         er.message = "Multiple transactions are created, which is not supposed to happen";
         return false;
       }
-      if (ptx_vector[0].selected_transfers.size() > 1)
+      const wallet2::pending_tx &ptx = ptx_vector[0];
+      if (ptx.selected_transfers.size() > 1)
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = "The transaction uses multiple inputs, which is not supposed to happen";
         return false;
       }
 
-      if (!req.do_not_relay)
-        m_wallet->commit_tx(ptx_vector);
-
-      // populate response with tx hashes
-      const wallet2::pending_tx &ptx = ptx_vector[0];
-      res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx));
       if (req.get_tx_key)
       {
         res.tx_key = epee::string_tools::pod_to_hex(ptx.tx_key);
       }
-      if (req.get_tx_hex)
-      {
-        cryptonote::blobdata blob;
-        tx_to_blob(ptx.tx, blob);
-        res.tx_blob = epee::string_tools::buff_to_hex_nodelimer(blob);
-      }
-      if (req.get_tx_metadata)
-      {
-        std::ostringstream oss;
-        binary_archive<true> ar(oss);
-        ::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx));
-        res.tx_metadata = epee::string_tools::buff_to_hex_nodelimer(oss.str());
-      }
 
+      if (m_wallet->multisig())
+      {
+        res.multisig_txset = epee::string_tools::buff_to_hex_nodelimer(m_wallet->save_multisig_tx(ptx_vector));
+        if (res.multisig_txset.empty())
+        {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "Failed to save multisig tx set after creation";
+          return false;
+        }
+      }
+      else
+      {
+        if (!req.do_not_relay)
+          m_wallet->commit_tx(ptx_vector);
+
+        // populate response with tx hashes
+        res.tx_hash = epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx));
+        if (req.get_tx_hex)
+        {
+          cryptonote::blobdata blob;
+          tx_to_blob(ptx.tx, blob);
+          res.tx_blob = epee::string_tools::buff_to_hex_nodelimer(blob);
+        }
+        if (req.get_tx_metadata)
+        {
+          std::ostringstream oss;
+          boost::archive::portable_binary_oarchive ar(oss);
+          try
+          {
+            ar << ptx;
+          }
+          catch (...)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to save multisig tx set after creation";
+            return false;
+          }
+          res.tx_metadata = epee::string_tools::buff_to_hex_nodelimer(oss.str());
+        }
+      }
       return true;
     }
     catch (const tools::error::daemon_busy& e)
@@ -954,13 +1097,14 @@ namespace tools
       return false;
     }
 
-    std::stringstream ss;
-    ss << blob;
-    binary_archive<false> ba(ss);
-
     tools::wallet2::pending_tx ptx;
-    bool r = ::serialization::serialize(ba, ptx);
-    if (!r)
+    try
+    {
+      std::istringstream iss(blob);
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> ptx;
+    }
+    catch (...)
     {
       er.code = WALLET_RPC_ERROR_CODE_BAD_TX_METADATA;
       er.message = "Failed to parse tx metadata.";
@@ -2659,6 +2803,141 @@ namespace tools
       return false;
     }
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_sign_multisig(const wallet_rpc::COMMAND_RPC_SIGN_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_SIGN_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    bool ready;
+    uint32_t threshold, total;
+    if (!m_wallet->multisig(&ready, &threshold, &total))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is not multisig";
+      return false;
+    }
+    if (!ready)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is multisig, but not yet finalized";
+      return false;
+    }
+
+    cryptonote::blobdata blob;
+    if (!epee::string_tools::parse_hexstr_to_binbuff(req.tx_data_hex, blob))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+      er.message = "Failed to parse hex.";
+      return false;
+    }
+
+    tools::wallet2::multisig_tx_set txs;
+    bool r = m_wallet->load_multisig_tx(blob, txs, NULL);
+    if (!r)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_TX_DATA;
+      er.message = "Failed to parse multisig tx data.";
+      return false;
+    }
+
+    std::vector<crypto::hash> txids;
+    try
+    {
+      bool r = m_wallet->sign_multisig_tx(txs, txids);
+      if (!r)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_MULTISIG_SIGNATURE;
+        er.message = "Failed to sign multisig tx";
+        return false;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_MULTISIG_SIGNATURE;
+      er.message = std::string("Failed to sign multisig tx: ") + e.what();
+      return false;
+    }
+
+    res.tx_data_hex = epee::string_tools::buff_to_hex_nodelimer(m_wallet->save_multisig_tx(txs));
+    if (!txids.empty())
+    {
+      for (const crypto::hash &txid: txids)
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(txid));
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_submit_multisig(const wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    bool ready;
+    uint32_t threshold, total;
+    if (!m_wallet->multisig(&ready, &threshold, &total))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is not multisig";
+      return false;
+    }
+    if (!ready)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is multisig, but not yet finalized";
+      return false;
+    }
+
+    cryptonote::blobdata blob;
+    if (!epee::string_tools::parse_hexstr_to_binbuff(req.tx_data_hex, blob))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+      er.message = "Failed to parse hex.";
+      return false;
+    }
+
+    tools::wallet2::multisig_tx_set txs;
+    bool r = m_wallet->load_multisig_tx(blob, txs, NULL);
+    if (!r)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_TX_DATA;
+      er.message = "Failed to parse multisig tx data.";
+      return false;
+    }
+
+    if (txs.m_signers.size() < threshold)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_THRESHOLD_NOT_REACHED;
+      er.message = "Not enough signers signed this transaction.";
+      return false;
+    }
+
+    try
+    {
+      for (auto &ptx: txs.m_ptx)
+      {
+        m_wallet->commit_tx(ptx);
+        res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
+      }
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_MULTISIG_SUBMISSION;
+      er.message = std::string("Failed to submit multisig tx: ") + e.what();
+      return false;
+    }
 
     return true;
   }

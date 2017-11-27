@@ -4477,25 +4477,12 @@ bool wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const 
   return epee::file_io_utils::save_string_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
 {
-  std::string s;
-  boost::system::error_code errcode;
-
-  if (!boost::filesystem::exists(filename, errcode))
-  {
-    LOG_PRINT_L0("File " << filename << " does not exist: " << errcode);
-    return false;
-  }
-  if (!epee::file_io_utils::load_file_to_string(filename.c_str(), s))
-  {
-    LOG_PRINT_L0("Failed to load from " << filename);
-    return false;
-  }
   const size_t magiclen = strlen(MULTISIG_UNSIGNED_TX_PREFIX);
   if (strncmp(s.c_str(), MULTISIG_UNSIGNED_TX_PREFIX, magiclen))
   {
-    LOG_PRINT_L0("Bad magic from " << filename);
+    LOG_PRINT_L0("Bad magic from multisig tx data");
     return false;
   }
   try
@@ -4504,8 +4491,8 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
   }
   catch (const std::exception &e)
   {
-    LOG_PRINT_L0("Failed to decrypt " << filename << ": " << e.what());
-    return 0;
+    LOG_PRINT_L0("Failed to decrypt multisig tx data: " << e.what());
+    return false;
   }
   try
   {
@@ -4515,7 +4502,7 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
   }
   catch (...)
   {
-    LOG_PRINT_L0("Failed to parse data from " << filename);
+    LOG_PRINT_L0("Failed to parse multisig tx data");
     return false;
   }
 
@@ -4557,11 +4544,42 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+{
+  std::string s;
+  boost::system::error_code errcode;
+
+  if (!boost::filesystem::exists(filename, errcode))
+  {
+    LOG_PRINT_L0("File " << filename << " does not exist: " << errcode);
+    return false;
+  }
+  if (!epee::file_io_utils::load_file_to_string(filename.c_str(), s))
+  {
+    LOG_PRINT_L0("Failed to load from " << filename);
+    return false;
+  }
+
+  if (!load_multisig_tx(s, exported_txs, accept_func))
+  {
+    LOG_PRINT_L0("Failed to parse multisig tx data from " << filename);
+    return false;
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids)
 {
   THROW_WALLET_EXCEPTION_IF(exported_txs.m_ptx.empty(), error::wallet_internal_error, "No tx found");
 
   const crypto::public_key local_signer = get_multisig_signer_public_key();
+
+  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.find(local_signer) != exported_txs.m_signers.end(),
+      error::wallet_internal_error, "Transaction already signed by this private key");
+  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.size() > m_multisig_threshold,
+      error::wallet_internal_error, "Transaction was signed by too many signers");
+  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.size() == m_multisig_threshold,
+      error::wallet_internal_error, "Transaction is already fully signed");
 
   txids.clear();
 
@@ -4666,14 +4684,6 @@ bool wallet2::sign_multisig_tx_from_file(const std::string &filename, std::vecto
   multisig_tx_set exported_txs;
   if(!load_multisig_tx_from_file(filename, exported_txs))
     return false;
-
-  const crypto::public_key signer = get_multisig_signer_public_key();
-  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.find(signer) != exported_txs.m_signers.end(),
-      error::wallet_internal_error, "Transaction already signed by this private key");
-  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.size() > m_multisig_threshold,
-      error::wallet_internal_error, "Transaction was signed by too many signers");
-  THROW_WALLET_EXCEPTION_IF(exported_txs.m_signers.size() == m_multisig_threshold,
-      error::wallet_internal_error, "Transaction is already fully signed");
 
   if (accept_func && !accept_func(exported_txs))
   {
