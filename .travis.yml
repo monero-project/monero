@@ -1,4 +1,5 @@
 language: cpp
+script: make release-static
 addons:
   apt:
     sources:
