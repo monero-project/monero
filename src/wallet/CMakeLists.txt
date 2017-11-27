@@ -98,6 +98,7 @@ set_property(TARGET wallet_rpc_server
     OUTPUT_NAME "monero-wallet-rpc")
 install(TARGETS wallet_rpc_server DESTINATION bin)
 
+add_subdirectory(api)
 
 # build and install libwallet_merged only if we building for GUI
 if (BUILD_GUI_DEPS)
@@ -125,5 +126,4 @@ if (BUILD_GUI_DEPS)
     install(TARGETS wallet_merged
         ARCHIVE DESTINATION ${lib_folder})
 
-    add_subdirectory(api)
 endif()
