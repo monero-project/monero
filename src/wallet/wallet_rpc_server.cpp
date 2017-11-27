@@ -2339,6 +2339,240 @@ namespace tools
     }
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_is_multisig(const wallet_rpc::COMMAND_RPC_IS_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_IS_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    res.multisig = m_wallet->multisig(&res.threshold, &res.total);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_prepare_multisig(const wallet_rpc::COMMAND_RPC_PREPARE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_PREPARE_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet->multisig())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ALREADY_MULTISIG;
+      er.message = "This wallet is already multisig";
+      return false;
+    }
+    if (m_wallet->watch_only())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WATCH_ONLY;
+      er.message = "wallet is watch-only and cannot be made multisig";
+      return false;
+    }
+
+    res.multisig_info = m_wallet->get_multisig_info();
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_multisig(const wallet_rpc::COMMAND_RPC_MAKE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_MAKE_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet->multisig())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ALREADY_MULTISIG;
+      er.message = "This wallet is already multisig";
+      return false;
+    }
+    if (m_wallet->watch_only())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WATCH_ONLY;
+      er.message = "wallet is watch-only and cannot be made multisig";
+      return false;
+    }
+
+    // parse all multisig info
+    std::vector<crypto::secret_key> secret_keys(req.multisig_info.size());
+    std::vector<crypto::public_key> public_keys(req.multisig_info.size());
+    for (size_t i = 0; i < req.multisig_info.size(); ++i)
+    {
+      if (!m_wallet->verify_multisig_info(req.multisig_info[i], secret_keys[i], public_keys[i]))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
+        er.message = "Bad multisig info: " + req.multisig_info[i];
+        return false;
+      }
+    }
+
+    // remove duplicates
+    for (size_t i = 1; i < secret_keys.size(); ++i)
+    {
+      for (size_t j = i + 1; j < secret_keys.size(); ++j)
+      {
+        if (rct::sk2rct(secret_keys[i]) == rct::sk2rct(secret_keys[j]))
+        {
+          secret_keys[j] = secret_keys.back();
+          public_keys[j] = public_keys.back();
+          secret_keys.pop_back();
+          public_keys.pop_back();
+          --j;
+        }
+      }
+    }
+
+    // people may include their own, weed it out
+    crypto::hash hash;
+    crypto::cn_fast_hash(&m_wallet->get_account().get_keys().m_view_secret_key, sizeof(crypto::secret_key), hash);
+    for (size_t i = 0; i < secret_keys.size(); ++i)
+    {
+      if (rct::sk2rct(secret_keys[i]) == rct::hash2rct(hash))
+      {
+        secret_keys[i] = secret_keys.back();
+        public_keys[i] = public_keys.back();
+        secret_keys.pop_back();
+        public_keys.pop_back();
+        --i;
+      }
+      else if (public_keys[i] == m_wallet->get_account().get_keys().m_account_address.m_spend_public_key)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_MULTISIG_INFO;
+        er.message = "Found local spend public key, but not local view secret key - something very weird";
+        return false;
+      }
+    }
+
+    try
+    {
+      m_wallet->make_multisig(req.password, secret_keys, public_keys, req.threshold);
+      res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_export_multisig(const wallet_rpc::COMMAND_RPC_EXPORT_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_EXPORT_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (!m_wallet->multisig())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is not multisig";
+      return false;
+    }
+
+    std::vector<tools::wallet2::multisig_info> info;
+    try
+    {
+      info = m_wallet->export_multisig();
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = e.what();
+      return false;
+    }
+
+    res.info.resize(info.size());
+    for (size_t n = 0; n < info.size(); ++n)
+    {
+      res.info[n].partial_key_image = epee::string_tools::pod_to_hex(info[n].m_partial_key_image);
+      res.info[n].L = epee::string_tools::pod_to_hex(info[n].m_L);
+      res.info[n].R = epee::string_tools::pod_to_hex(info[n].m_R);
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_import_multisig(const wallet_rpc::COMMAND_RPC_IMPORT_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_IMPORT_MULTISIG::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_wallet->restricted())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    uint32_t threshold, total;
+    if (!m_wallet->multisig(&threshold, &total))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+      er.message = "This wallet is not multisig";
+      return false;
+    }
+
+    if (req.info.size() < threshold - 1)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_THRESHOLD_NOT_REACHED;
+      er.message = "Needs multisig export info from more participants";
+      return false;
+    }
+
+    std::vector<std::vector<tools::wallet2::multisig_info>> info;
+    info.resize(req.info.size());
+    for (size_t n = 0; n < info.size(); ++n)
+    {
+      info[n].resize(req.info[n].info.size());
+      for (size_t i = 0; i < info[n].size(); ++i)
+      {
+        if (!epee::string_tools::hex_to_pod(req.info[n].info[i].partial_key_image, info[n][i].m_partial_key_image))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+          er.message = "Failed to parse partial key image from multisig info";
+          return false;
+        }
+        if (!epee::string_tools::hex_to_pod(req.info[n].info[i].L, info[n][i].m_L) || !epee::string_tools::hex_to_pod(req.info[n].info[i].R, info[n][i].m_R))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_LR;
+          er.message = "Failed to parse L/R info from hex";
+          return false;
+        }
+      }
+    }
+
+    try
+    {
+      res.n_outputs = m_wallet->import_multisig(info);
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Error calling import_multisig";
+      return false;
+    }
+
+    if (m_trusted_daemon)
+    {
+      try
+      {
+        m_wallet->rescan_spent();
+      }
+      catch (const std::exception &e)
+      {
+        er.message = std::string("Success, but failed to update spent status after import multisig info: ") + e.what();
+      }
+    }
+    else
+    {
+      er.message = "Success, but cannot update spent status after import multisig info as dameon is untrusted";
+    }
+
+    return true;
+  }
 }
 
 int main(int argc, char** argv) {

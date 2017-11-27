@@ -4234,7 +4234,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::save_multisig_tx(multisig_tx_set txs, const std::string &filename)
+std::string wallet2::save_multisig_tx(multisig_tx_set txs)
 {
   LOG_PRINT_L0("saving " << txs.m_ptx.size() << " multisig transactions");
 
@@ -4265,21 +4265,37 @@ bool wallet2::save_multisig_tx(multisig_tx_set txs, const std::string &filename)
   }
   catch (...)
   {
-    return false;
+    return std::string();
   }
   LOG_PRINT_L2("Saving multisig unsigned tx data: " << oss.str());
   std::string ciphertext = encrypt_with_view_secret_key(oss.str());
-  return epee::file_io_utils::save_string_to_file(filename, std::string(MULTISIG_UNSIGNED_TX_PREFIX) + ciphertext);  
+  return std::string(MULTISIG_UNSIGNED_TX_PREFIX) + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename)
+bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &filename)
+{
+  std::string ciphertext = save_multisig_tx(txs);
+  if (ciphertext.empty())
+    return false;
+  return epee::file_io_utils::save_string_to_file(filename, ciphertext);
+}
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector)
 {
   multisig_tx_set txs;
   txs.m_ptx = ptx_vector;
   crypto::hash hash;
   cn_fast_hash(&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (char*)&hash);
   txs.m_signers.insert(hash);
-  return save_multisig_tx(txs, filename);
+  return save_multisig_tx(txs);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename)
+{
+  std::string ciphertext = save_multisig_tx(ptx_vector);
+  if (ciphertext.empty())
+    return false;
+  return epee::file_io_utils::save_string_to_file(filename, ciphertext);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)

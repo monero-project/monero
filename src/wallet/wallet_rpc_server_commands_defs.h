@@ -1487,5 +1487,131 @@ namespace wallet_rpc
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_IS_MULTISIG
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      bool multisig;
+      uint32_t threshold;
+      uint32_t total;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(multisig)
+        KV_SERIALIZE(threshold)
+        KV_SERIALIZE(total)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PREPARE_MULTISIG
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string multisig_info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(multisig_info)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_MAKE_MULTISIG
+  {
+    struct request
+    {
+      std::vector<std::string> multisig_info;
+      uint32_t threshold;
+      std::string password;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(multisig_info)
+        KV_SERIALIZE(threshold)
+        KV_SERIALIZE(password)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string address;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct multisig_info_entry
+  {
+    std::string partial_key_image;
+    std::string L;
+    std::string R;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(partial_key_image)
+      KV_SERIALIZE(L)
+      KV_SERIALIZE(R)
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_EXPORT_MULTISIG
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<multisig_info_entry> info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_IMPORT_MULTISIG
+  {
+    struct participant_entry
+    {
+      std::vector<multisig_info_entry> info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      std::vector<participant_entry> info;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(info)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t n_outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(n_outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 }
 }
