@@ -11,6 +11,11 @@ Portions Copyright (c) 2012-2013, The Cryptonote developers
 - Mail: [support@electroneum.com](mailto:support@electroneum.com)
 - GitHub: [https://github.com/electroneum/electroneum](https://github.com/electroneum/electroneum)
 
+## Build
+
+| Operating System | CPU Arch | Status | `make` command / args |
+| ---------------- | -------- |--------| --------------------- |
+| Ubuntu 16.04     | x64    | [![Build Status](https://travis-ci.org/electroneum/electroneum.svg?branch=master)](https://travis-ci.org/electroneum/electroneum) | make release-static
 ## Introduction
 
 Electroneum is a private, secure, untraceable, mobile based cryptocurrency. You are your bank, you control your funds, and nobody can trace your transfers unless you allow them to do so.
