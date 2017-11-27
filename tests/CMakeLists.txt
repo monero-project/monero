@@ -87,7 +87,9 @@ add_subdirectory(unit_tests)
 add_subdirectory(difficulty)
 add_subdirectory(hash)
 add_subdirectory(net_load_tests)
-add_subdirectory(libwallet_api_tests)
+if (BUILD_GUI_DEPS)
+  add_subdirectory(libwallet_api_tests)
+endif()
 
 # add_subdirectory(daemon_tests)
 
