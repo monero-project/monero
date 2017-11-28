@@ -1135,8 +1135,8 @@ bool simple_wallet::ask_wallet_create_if_needed()
  */
 void simple_wallet::print_seed(std::string seed)
 {
-  success_msg_writer(true) << "\n" << tr("PLEASE NOTE: the following 25 words can be used to recover access to your wallet. "
-    "Please write them down and store them somewhere safe and secure. Please do not store them in "
+  success_msg_writer(true) << "\n" << tr("NOTE: the following 25 words can be used to recover access to your wallet. "
+    "Write them down and store them somewhere safe and secure. Please do not store them in "
     "your email or on file storage services outside of your immediate control.\n");
   boost::replace_nth(seed, " ", 15, "\n");
   boost::replace_nth(seed, " ", 7, "\n");

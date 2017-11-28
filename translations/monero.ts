@@ -568,7 +568,7 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="912"/>
-        <source>PLEASE NOTE: the following 25 words can be used to recover access to your wallet. Please write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.
+        <source>NOTE: the following 25 words can be used to recover access to your wallet. Write them down and store them somewhere safe and secure. Please do not store them in your email or on file storage services outside of your immediate control.
 </source>
         <translation type="unfinished"></translation>
     </message>
