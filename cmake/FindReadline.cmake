@@ -68,3 +68,7 @@ main()
 if(NOT Readline_LIBRARY)
   set(Readline_LIBRARY "")
 endif()
+
+if(Readline_LIBRARY AND OPENBSD)
+  list(APPEND EXTRA_LIBRARIES curses)
+endif()
