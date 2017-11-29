@@ -2832,7 +2832,8 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
     // We need an extra step, so we package all the composite public keys
     // we know about, and make a signed string out of them
     std::string data;
-    const crypto::public_key signer = get_multisig_signer_public_key(rct::rct2sk(spend_skey));
+    crypto::public_key signer;
+    CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(rct::rct2sk(spend_skey), signer), "Failed to derive public spend key");
     data += std::string((const char *)&signer, sizeof(crypto::public_key));
 
     for (const auto &msk: multisig_keys)
@@ -2844,7 +2845,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
     data.resize(data.size() + sizeof(crypto::signature));
     crypto::cn_fast_hash(data.data(), data.size() - sizeof(signature), hash);
     crypto::signature &signature = *(crypto::signature*)&data[data.size() - sizeof(crypto::signature)];
-    crypto::generate_signature(hash, signer, get_multisig_blinded_secret_key(rct::rct2sk(spend_skey)), signature);
+    crypto::generate_signature(hash, signer, rct::rct2sk(spend_skey), signature);
 
     extra_multisig_info = std::string("MultisigxV1") + tools::base58::encode(data);
   }
@@ -2954,7 +2955,9 @@ bool wallet2::finalize_multisig(const epee::wipeable_string &password, std::unor
   CHECK_AND_ASSERT_THROW_MES(!pkeys.empty(), "empty pkeys");
 
   // add ours if not included
-  const crypto::public_key local_signer = get_multisig_signer_public_key();
+  crypto::public_key local_signer;
+  CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(get_account().get_keys().m_spend_secret_key, local_signer),
+      "Failed to derive public spend key");
   if (std::find(signers.begin(), signers.end(), local_signer) == signers.end())
   {
     signers.push_back(local_signer);
@@ -8381,13 +8384,9 @@ crypto::public_key wallet2::get_multisig_signer_public_key(const crypto::secret_
 crypto::public_key wallet2::get_multisig_signer_public_key() const
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
-  if (m_multisig_threshold == m_multisig_signers.size())
-  {
-    crypto::public_key signer;
-    CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(get_account().get_keys().m_spend_secret_key, signer), "Failed to generate signer public key");
-    return signer;
-  }
-  return get_multisig_signer_public_key(get_account().get_keys().m_spend_secret_key);
+  crypto::public_key signer;
+  CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(get_account().get_keys().m_spend_secret_key, signer), "Failed to generate signer public key");
+  return signer;
 }
 //----------------------------------------------------------------------------------------------------
 crypto::public_key wallet2::get_multisig_signing_public_key(const crypto::secret_key &msk) const
