@@ -26,9 +26,11 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+set(rpc_base_sources
+  rpc_args.cpp)
+
 set(rpc_sources
   core_rpc_server.cpp
-  rpc_args.cpp
   instanciations)
 
 set(daemon_messages_sources
@@ -40,8 +42,10 @@ set(daemon_rpc_server_sources
   zmq_server.cpp)
 
 
-set(rpc_headers
+set(rpc_base_headers
   rpc_args.h)
+
+set(rpc_headers)
 
 set(daemon_rpc_server_headers)
 
@@ -70,6 +74,11 @@ monero_private_headers(daemon_rpc_server
   ${daemon_rpc_server_private_headers})
 
 
+monero_add_library(rpc_base
+  ${rpc_base_sources}
+  ${rpc_base_headers}
+  ${rpc_base_private_headers})
+
 monero_add_library(rpc
   ${rpc_sources}
   ${rpc_headers}
@@ -86,8 +95,18 @@ monero_add_library(daemon_rpc_server
   ${daemon_rpc_server_private_headers})
 
 
+target_link_libraries(rpc_base
+  PUBLIC
+    common
+    epee
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+  PRIVATE
+    ${EXTRA_LIBRARIES})
+
 target_link_libraries(rpc
   PUBLIC
+    rpc_base
     common
     cryptonote_core
     cryptonote_protocol
