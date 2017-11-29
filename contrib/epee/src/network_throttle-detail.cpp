@@ -74,7 +74,7 @@
 #include "net/abstract_tcp_server2.h"
 
 // TODO:
-#include "network_throttle-detail.hpp"
+#include "net/network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.throttle"

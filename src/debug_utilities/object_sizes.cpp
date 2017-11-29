@@ -31,7 +31,7 @@
 #include "cryptonote_basic/tx_extra.h"
 #include "cryptonote_core/blockchain.h"
 #include "p2p/p2p_protocol_defs.h"
-#include "p2p/connection_basic.hpp"
+#include "net/connection_basic.hpp"
 #include "p2p/net_peerlist.h"
 #include "p2p/net_node.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"

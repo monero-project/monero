@@ -54,8 +54,8 @@
 #include <boost/thread/thread.hpp>
 #include "net_utils_base.h"
 #include "syncobj.h"
-#include "../../../../src/p2p/connection_basic.hpp"
-#include "../../../../src/p2p/network_throttle-detail.hpp"
+#include "connection_basic.hpp"
+#include "network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"

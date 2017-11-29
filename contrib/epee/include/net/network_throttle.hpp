@@ -34,8 +34,8 @@
 /* rfree: also includes the manager for singeton/global such objects */
 
 
-#ifndef INCLUDED_p2p_network_throttle_hpp
-#define INCLUDED_p2p_network_throttle_hpp
+#ifndef INCLUDED_network_throttle_hpp
+#define INCLUDED_network_throttle_hpp
 
 #include <boost/asio.hpp>
 #include <string>
