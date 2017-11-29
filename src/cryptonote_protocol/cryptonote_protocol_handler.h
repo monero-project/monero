@@ -36,7 +36,6 @@
 
 #include <boost/program_options/variables_map.hpp>
 #include <string>
-#include <ctime>
 
 #include "math_helper.h"
 #include "storages/levin_abstract_invoke2.h"
@@ -46,8 +45,6 @@
 #include "block_queue.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
-#include "cryptonote_basic/verification_context.h"
-// #include <netinet/in.h>
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
@@ -172,8 +169,5 @@ namespace cryptonote
   };
 
 } // namespace
-
-
-#include "cryptonote_protocol_handler.inl"
 
 POP_WARNINGS

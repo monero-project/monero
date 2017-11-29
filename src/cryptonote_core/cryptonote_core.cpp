@@ -45,11 +45,11 @@ using namespace epee;
 #include "cryptonote_tx_utils.h"
 #include "misc_language.h"
 #include <csignal>
-#include <p2p/net_node.h>
 #include "checkpoints/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
+#include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
@@ -233,10 +233,6 @@ namespace cryptonote
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
 
-    // we now also need some of net_node's options (p2p bind arg, for separate data dir)
-    command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
-    command_line::add_arg(desc, nodetool::arg_p2p_bind_port, false);
-
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
   }
@@ -335,21 +331,17 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options)
+  bool core::init(const boost::program_options::variables_map& vm, const char *config_subdir, const cryptonote::test_options *test_options)
   {
     start_time = std::time(nullptr);
 
     m_fakechain = test_options != NULL;
     bool r = handle_command_line(vm);
     bool testnet = command_line::get_arg(vm, arg_testnet_on);
-    auto p2p_bind_arg = testnet ? nodetool::arg_testnet_p2p_bind_port : nodetool::arg_p2p_bind_port;
-    std::string m_port = command_line::get_arg(vm, p2p_bind_arg);
     std::string m_config_folder_mempool = m_config_folder;
 
-    if ((!testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
-        || (testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {
-      m_config_folder_mempool = m_config_folder_mempool + "/" + m_port;
-    }
+    if (config_subdir)
+      m_config_folder_mempool = m_config_folder_mempool + "/" + config_subdir;
 
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);

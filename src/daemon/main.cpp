@@ -44,6 +44,7 @@
 #include "rpc/rpc_args.h"
 #include "daemon/command_line_args.h"
 #include "blockchain_db/db_types.h"
+#include "version.h"
 
 #ifdef STACK_TRACE
 #include "common/stack_trace.h"

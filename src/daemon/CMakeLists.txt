@@ -67,7 +67,6 @@ set(daemon_private_headers
 
   # p2p
   ../p2p/net_node.h
-  ../p2p/net_node.inl
   ../p2p/net_node_common.h
   ../p2p/net_peerlist.h
   ../p2p/net_peerlist_boost_serialization.h

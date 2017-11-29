@@ -30,13 +30,6 @@
 
 #pragma once
 #include <boost/thread.hpp>
-#include <boost/bind.hpp>
-#include <boost/bimap.hpp>
-#include <boost/multi_index_container.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/identity.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/global_fun.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/serialization/version.hpp>
@@ -335,8 +328,30 @@ namespace nodetool
 
     bool m_testnet;
   };
-}
 
-#include "net_node.inl"
+    const int64_t default_limit_up = 2048;
+    const int64_t default_limit_down = 8192;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port;
+    extern const command_line::arg_descriptor<std::string> arg_testnet_p2p_bind_port;
+    extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
+    extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
+    extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
+
+    extern const command_line::arg_descriptor<bool>        arg_no_igd;
+    extern const command_line::arg_descriptor<bool>        arg_offline;
+    extern const command_line::arg_descriptor<int64_t>     arg_out_peers;
+    extern const command_line::arg_descriptor<int> arg_tos_flag;
+
+    extern const command_line::arg_descriptor<int64_t> arg_limit_rate_up;
+    extern const command_line::arg_descriptor<int64_t> arg_limit_rate_down;
+    extern const command_line::arg_descriptor<int64_t> arg_limit_rate;
+
+    extern const command_line::arg_descriptor<bool> arg_save_graph;
+}
 
 POP_WARNINGS
