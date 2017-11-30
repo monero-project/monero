@@ -304,7 +304,7 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::test_options *test_options)
+bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const cryptonote::test_options *test_options)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_tx_pool);
@@ -326,6 +326,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   m_db = db;
 
   m_testnet = testnet;
+  m_offline = offline;
   if (m_hardfork == nullptr)
   {
     if (fakechain)
@@ -413,11 +414,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
+bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet, bool offline)
 {
   if (hf != nullptr)
     m_hardfork = hf;
-  bool res = init(db, testnet, NULL);
+  bool res = init(db, testnet, offline, NULL);
   if (hf == nullptr)
     hf = m_hardfork;
   return res;
@@ -3624,14 +3625,14 @@ bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns
 
   // if we're checking both dns and json, load checkpoints from dns.
   // if we're not hard-enforcing dns checkpoints, handle accordingly
-  if (m_enforce_dns_checkpoints && check_dns)
+  if (m_enforce_dns_checkpoints && check_dns && !m_offline)
   {
     if (!m_checkpoints.load_checkpoints_from_dns())
     {
       return false;
     }
   }
-  else if (check_dns)
+  else if (check_dns && !m_offline)
   {
     checkpoints dns_points;
     dns_points.load_checkpoints_from_dns();
