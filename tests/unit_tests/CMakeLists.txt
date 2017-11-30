@@ -34,6 +34,7 @@ set(unit_tests_sources
   blockchain_db.cpp
   block_queue.cpp
   block_reward.cpp
+  bulletproofs.cpp
   canonical_amounts.cpp
   chacha8.cpp
   checkpoints.cpp
