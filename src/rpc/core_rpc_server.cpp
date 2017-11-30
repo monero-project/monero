@@ -150,6 +150,7 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     res.start_time = (uint64_t)m_core.get_start_time();
     res.free_space = m_restricted ? std::numeric_limits<uint64_t>::max() : m_core.get_free_space();
+    res.offline = m_core.offline();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1330,6 +1331,7 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     res.start_time = (uint64_t)m_core.get_start_time();
     res.free_space = m_restricted ? std::numeric_limits<uint64_t>::max() : m_core.get_free_space();
+    res.offline = m_core.offline();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
