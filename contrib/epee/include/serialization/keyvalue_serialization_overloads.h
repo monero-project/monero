@@ -73,7 +73,7 @@ namespace epee
     template<class serializible_type, class t_storage>
     static bool unserialize_t_obj(serializible_type& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, true);
+      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, false);
       if(!hchild_section) return false;
       return obj._load(stg, hchild_section);
     }
@@ -90,7 +90,7 @@ namespace epee
     static bool unserialize_t_obj(enableable<serializible_type>& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       obj.enabled = false;
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, true);
+      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, false);
       if(!hchild_section) return false;
       obj.enabled = true;
       return obj.v._load(stg, hchild_section);
