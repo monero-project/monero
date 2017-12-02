@@ -60,7 +60,7 @@ private:
 public:
   t_core core;
   t_p2p p2p;
-  t_rpc rpc;
+  std::vector<std::unique_ptr<t_rpc>> rpcs;
 
   t_internals(
       boost::program_options::variables_map const & vm
@@ -68,11 +68,22 @@ public:
     : core{vm}
     , protocol{vm, core}
     , p2p{vm, protocol}
-    , rpc{vm, core, p2p}
   {
     // Handle circular dependencies
     protocol.set_p2p_endpoint(p2p.get());
     core.set_protocol(protocol.get());
+
+    const auto testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
+    const auto restricted = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
+    const auto main_rpc_port = command_line::get_arg(vm, testnet ? cryptonote::core_rpc_server::arg_testnet_rpc_bind_port : cryptonote::core_rpc_server::arg_rpc_bind_port);
+    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, testnet, main_rpc_port, "core"});
+
+    auto restricted_rpc_port_arg = testnet ? cryptonote::core_rpc_server::arg_testnet_rpc_restricted_bind_port : cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
+    if(!command_line::is_arg_defaulted(vm, restricted_rpc_port_arg))
+    {
+      auto restricted_rpc_port = command_line::get_arg(vm, restricted_rpc_port_arg);
+      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, testnet, restricted_rpc_port, "restricted"});
+    }
   }
 };
 
@@ -135,14 +146,15 @@ bool t_daemon::run(bool interactive)
   {
     if (!mp_internals->core.run())
       return false;
-    mp_internals->rpc.run();
+
+    for(auto& rpc: mp_internals->rpcs)
+      rpc->run();
 
     std::unique_ptr<daemonize::t_command_server> rpc_commands;
-
-    if (interactive)
+    if (interactive && mp_internals->rpcs.size())
     {
       // The first three variables are not used when the fourth is false
-      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpc.get_server()));
+      rpc_commands.reset(new daemonize::t_command_server(0, 0, boost::none, false, mp_internals->rpcs.front()->get_server()));
       rpc_commands->start_handling(std::bind(&daemonize::t_daemon::stop_p2p, this));
     }
 
@@ -154,12 +166,11 @@ bool t_daemon::run(bool interactive)
       LOG_ERROR(std::string("Failed to add TCP Socket (") + zmq_rpc_bind_address
           + ":" + zmq_rpc_bind_port + ") to ZMQ RPC Server");
 
-      if (interactive)
-      {
+      if (rpc_commands)
         rpc_commands->stop_handling();
-      }
 
-      mp_internals->rpc.stop();
+      for(auto& rpc : mp_internals->rpcs)
+        rpc->stop();
 
       return false;
     }
@@ -173,13 +184,12 @@ bool t_daemon::run(bool interactive)
     mp_internals->p2p.run(); // blocks until p2p goes down
 
     if (rpc_commands)
-    {
       rpc_commands->stop_handling();
-    }
 
     zmq_server.stop();
 
-    mp_internals->rpc.stop();
+    for(auto& rpc : mp_internals->rpcs)
+      rpc->stop();
     mp_internals->core.get().get_miner().stop();
     MGINFO("Node stopped.");
     return true;
@@ -204,7 +214,9 @@ void t_daemon::stop()
   }
   mp_internals->core.get().get_miner().stop();
   mp_internals->p2p.stop();
-  mp_internals->rpc.stop();
+  for(auto& rpc : mp_internals->rpcs)
+    rpc->stop();
+
   mp_internals.reset(nullptr); // Ensure resources are cleaned up before we return
 }
 

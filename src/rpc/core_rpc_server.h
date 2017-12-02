@@ -53,7 +53,9 @@ namespace cryptonote
   public:
 
     static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
+    static const command_line::arg_descriptor<std::string> arg_rpc_restricted_bind_port;
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
+    static const command_line::arg_descriptor<std::string> arg_testnet_rpc_restricted_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
 
     typedef epee::net_utils::connection_context_base connection_context;
@@ -65,7 +67,10 @@ namespace cryptonote
 
     static void init_options(boost::program_options::options_description& desc);
     bool init(
-        const boost::program_options::variables_map& vm
+        const boost::program_options::variables_map& vm,
+        const bool restricted,
+        const bool testnet,
+        const std::string& port
       );
     bool is_testnet() const { return m_testnet; }
 
