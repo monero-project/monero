@@ -212,6 +212,23 @@ namespace boost
   }
 
   template <class Archive>
+  inline void serialize(Archive &a, rct::Bulletproof &x, const boost::serialization::version_type ver)
+  {
+    a & x.V;
+    a & x.A;
+    a & x.S;
+    a & x.T1;
+    a & x.T2;
+    a & x.taux;
+    a & x.mu;
+    a & x.L;
+    a & x.R;
+    a & x.a;
+    a & x.b;
+    a & x.t;
+  }
+
+  template <class Archive>
   inline void serialize(Archive &a, rct::boroSig &x, const boost::serialization::version_type ver)
   {
     a & x.s0;
@@ -278,6 +295,8 @@ namespace boost
   inline void serialize(Archive &a, rct::rctSigPrunable &x, const boost::serialization::version_type ver)
   {
     a & x.rangeSigs;
+    if (x.rangeSigs.empty())
+      a & x.bulletproofs;
     a & x.MGs;
   }
 
@@ -298,6 +317,8 @@ namespace boost
     a & x.txnFee;
     //--------------
     a & x.p.rangeSigs;
+    if (x.p.rangeSigs.empty())
+      a & x.p.bulletproofs;
     a & x.p.MGs;
   }
 }

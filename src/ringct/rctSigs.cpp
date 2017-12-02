@@ -33,6 +33,7 @@
 #include "common/threadpool.h"
 #include "common/util.h"
 #include "rctSigs.h"
+#include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace crypto;
@@ -42,6 +43,14 @@ using namespace std;
 #define MONERO_DEFAULT_LOG_CATEGORY "ringct"
 
 namespace rct {
+    Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
+    {
+        mask = rct::skGen();
+        Bulletproof proof = bulletproof_PROVE(amount, mask);
+        C = proof.V;
+        return proof;
+    }
+
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
@@ -563,7 +572,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
     //   Thus the amounts vector will be "one" longer than the destinations vectort
-    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk) {
+    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk, bool bulletproof) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
@@ -585,8 +594,14 @@ namespace rct {
             //add destination to sig
             rv.outPk[i].dest = copy(destinations[i]);
             //compute range proof
-            rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
+            if (bulletproof)
+                rv.p.bulletproofs[i] = proveRangeBulletproof(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
+            else
+                rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, amounts[i]);
             #ifdef DBG
+            if (bulletproof)
+                CHECK_AND_ASSERT_THROW_MES(bulletproof_VERIFY(rv.p.bulletproofs[i]), "bulletproof_VERIFY failed on newly created proof");
+            else
                 CHECK_AND_ASSERT_THROW_MES(verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]), "verRange failed on newly created proof");
             #endif
 
@@ -618,12 +633,12 @@ namespace rct {
         ctkeyM mixRing;
         ctkeyV outSk;
         tie(mixRing, index) = populateFromBlockchain(inPk, mixin);
-        return genRct(message, inSk, destinations, amounts, mixRing, amount_keys, index, outSk);
+        return genRct(message, inSk, destinations, amounts, mixRing, amount_keys, index, outSk, false);
     }
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk, bool bulletproof) {
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
@@ -638,7 +653,10 @@ namespace rct {
         rv.type = RCTTypeSimple;
         rv.message = message;
         rv.outPk.resize(destinations.size());
-        rv.p.rangeSigs.resize(destinations.size());
+        if (bulletproof)
+          rv.p.bulletproofs.resize(destinations.size());
+        else
+          rv.p.rangeSigs.resize(destinations.size());
         rv.ecdhInfo.resize(destinations.size());
 
         size_t i;
@@ -650,10 +668,16 @@ namespace rct {
             //add destination to sig
             rv.outPk[i].dest = copy(destinations[i]);
             //compute range proof
-            rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, outamounts[i]);
-         #ifdef DBG
-             verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-         #endif
+            if (bulletproof)
+              rv.p.bulletproofs[i] = proveRangeBulletproof(rv.outPk[i].mask, outSk[i].mask, outamounts[i]);
+            else
+              rv.p.rangeSigs[i] = proveRange(rv.outPk[i].mask, outSk[i].mask, outamounts[i]);
+            #ifdef DBG
+            if (bulletproof)
+                CHECK_AND_ASSERT_THROW_MES(bulletproof_VERIFY(rv.p.bulletproofs[i]), "bulletproof_VERIFY failed on newly created proof");
+            else
+                CHECK_AND_ASSERT_THROW_MES(verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]), "verRange failed on newly created proof");
+            #endif
          
             sc_add(sumout.bytes, outSk[i].mask.bytes, sumout.bytes);
 
@@ -699,7 +723,7 @@ namespace rct {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, index, outSk);
+        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, index, outSk, false);
     }
 
     //RingCT protocol
@@ -717,7 +741,10 @@ namespace rct {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull, false, "verRct called on non-full rctSig");
         if (semantics)
         {
-          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
+          if (rv.p.rangeSigs.empty())
+            CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.bulletproofs.size(), false, "Mismatched sizes of outPk and rv.p.bulletproofs");
+          else
+            CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
           CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
           CHECK_AND_ASSERT_MES(rv.p.MGs.size() == 1, false, "full rctSig has not one MG");
         }
@@ -736,7 +763,10 @@ namespace rct {
             DP("range proofs verified?");
             for (size_t i = 0; i < rv.outPk.size(); i++) {
               tpool.submit(&waiter, [&, i] {
-                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+                if (rv.p.rangeSigs.empty())
+                  results[i] = bulletproof_VERIFY(rv.p.bulletproofs[i]); // TODO
+                else
+                  results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
               });
             }
             waiter.wait();
@@ -779,7 +809,10 @@ namespace rct {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple, false, "verRctSimple called on non simple rctSig");
         if (semantics)
         {
-          CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
+          if (rv.p.rangeSigs.empty())
+            CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.bulletproofs.size(), false, "Mismatched sizes of outPk and rv.p.bulletproofs");
+          else
+            CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
           CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
           CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
         }
@@ -820,7 +853,10 @@ namespace rct {
           results.resize(rv.outPk.size());
           for (size_t i = 0; i < rv.outPk.size(); i++) {
             tpool.submit(&waiter, [&, i] {
-              results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
+              if (rv.p.rangeSigs.empty())
+                results[i] = bulletproof_VERIFY(rv.p.bulletproofs[i]);
+              else
+                results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
             });
           }
           waiter.wait();

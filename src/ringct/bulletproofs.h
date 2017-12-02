@@ -33,41 +33,10 @@
 #ifndef BULLETPROOFS_H
 #define BULLETPROOFS_H
 
-#include "serialization/serialization.h"
-#include "ringct/rctOps.h"
+#include "rctTypes.h"
 
 namespace rct
 {
-
-struct Bulletproof
-{
-  rct::key V, A, S, T1, T2;
-  rct::key taux, mu;
-  rct::keyV L, R;
-  rct::key a, b, t;
-
-  Bulletproof() {}
-  Bulletproof(const rct::key &V, const rct::key &A, const rct::key &S, const rct::key &T1, const rct::key &T2, const rct::key &taux, const rct::key &mu, const rct::keyV &L, const rct::keyV &R, const rct::key &a, const rct::key &b, const rct::key &t):
-    V(V), A(A), S(S), T1(T1), T2(T2), taux(taux), mu(mu), L(L), R(R), a(a), b(b), t(t) {}
-
-  BEGIN_SERIALIZE_OBJECT()
-    FIELD(V)
-    FIELD(A)
-    FIELD(S)
-    FIELD(T1)
-    FIELD(T2)
-    FIELD(taux)
-    FIELD(mu)
-    FIELD(L)
-    FIELD(R)
-    FIELD(a)
-    FIELD(b)
-    FIELD(t)
-
-    if (L.empty() || L.size() != R.size())
-      return false;
-  END_SERIALIZE()
-};
 
 Bulletproof bulletproof_PROVE(const rct::key &v, const rct::key &gamma);
 Bulletproof bulletproof_PROVE(uint64_t v, const rct::key &gamma);

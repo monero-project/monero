@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 
+#include "ringct/rctOps.h"
 #include "ringct/bulletproofs.h"
 
 TEST(bulletproofs, valid_zero)
