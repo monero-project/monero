@@ -639,6 +639,9 @@ namespace net_utils
 				buf += "Access-Control-Allow-Origin: ";
 				buf += m_query_info.m_header_info.m_origin;
 				buf += "\r\n";
+				buf += "Access-Control-Expose-Headers: www-authenticate\r\n";
+				if (m_query_info.m_http_method == http::http_method_options)
+					buf += "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n";
 				buf += "Access-Control-Allow-Methods: POST, PUT, GET, OPTIONS\r\n";
 			}
 		}
