@@ -74,7 +74,7 @@ namespace cryptonote
   
 	uint32_t support_flags;
 
-	boost::uuids::uuid connection_id;
+	std::string connection_id;
 
     uint64_t height;
 
@@ -98,7 +98,7 @@ namespace cryptonote
       KV_SERIALIZE(avg_upload)
       KV_SERIALIZE(current_upload)
       KV_SERIALIZE(support_flags)
-      KV_SERIALIZE_VAL_POD_AS_BLOB(connection_id)
+      KV_SERIALIZE(connection_id)
       KV_SERIALIZE(height)
     END_KV_SERIALIZE_MAP()
   };

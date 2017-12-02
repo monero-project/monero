@@ -2077,7 +2077,7 @@ namespace cryptonote
     {
       uint64_t start_block_height;
       uint64_t nblocks;
-      boost::uuids::uuid connection_id;
+      std::string connection_id;
       uint32_t rate;
       uint32_t speed;
       uint64_t size;
@@ -2086,7 +2086,7 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(start_block_height)
         KV_SERIALIZE(nblocks)
-        KV_SERIALIZE_VAL_POD_AS_BLOB(connection_id)
+        KV_SERIALIZE(connection_id)
         KV_SERIALIZE(rate)
         KV_SERIALIZE(speed)
         KV_SERIALIZE(size)
