@@ -311,7 +311,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   rct::keyV aL(N), aR(N);
 
   PERF_TIMER_START_BP(PROVE_v);
-  rct::addKeys2(V, sv, gamma, rct::H);
+  rct::addKeys2(V, gamma, sv, rct::H);
   PERF_TIMER_STOP(PROVE_v);
 
   PERF_TIMER_START_BP(PROVE_aLaR);
@@ -351,14 +351,14 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   rct::key alpha = rct::skGen();
   rct::key ve = vector_exponent(aL, aR);
   rct::key A;
-  rct::addKeys(A, ve, rct::scalarmultKey(rct::H, alpha));
+  rct::addKeys(A, ve, rct::scalarmultBase(alpha));
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(N), sR = rct::skvGen(N);
   rct::key rho = rct::skGen();
   ve = vector_exponent(sL, sR);
   rct::key S;
-  rct::addKeys(S, ve, rct::scalarmultKey(rct::H, rho));
+  rct::addKeys(S, ve, rct::scalarmultBase(rho));
 
   // PAPER LINES 43-45
   rct::keyV hashed;
@@ -423,8 +423,8 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultBase(t1), rct::scalarmultKey(rct::H, tau1));
-  rct::key T2 = rct::addKeys(rct::scalarmultBase(t2), rct::scalarmultKey(rct::H, tau2));
+  rct::key T1 = rct::addKeys(rct::scalarmultKey(rct::H, t1), rct::scalarmultBase(tau1));
+  rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
 
   // PAPER LINES 49-51
   hashed.clear();
@@ -503,10 +503,10 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
     // PAPER LINES 18-19
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
-    rct::addKeys(L[round], L[round], rct::scalarmultBase(tmp));
+    rct::addKeys(L[round], L[round], rct::scalarmultKey(rct::H, tmp));
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
-    rct::addKeys(R[round], R[round], rct::scalarmultBase(tmp));
+    rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
 
     // PAPER LINES 21-22
     hashed.clear();
@@ -597,7 +597,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
   PERF_TIMER_START_BP(VERIFY_line_61);
   // PAPER LINE 61
-  rct::key L61Left = rct::addKeys(rct::scalarmultKey(rct::H, proof.taux), rct::scalarmultBase(proof.t));
+  rct::key L61Left = rct::addKeys(rct::scalarmultBase(proof.taux), rct::scalarmultKey(rct::H, proof.t));
 
   rct::key k = rct::zero();
   const auto yN = vector_powers(y, N);
@@ -613,9 +613,10 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
   PERF_TIMER_START_BP(VERIFY_line_61rl);
   sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
-  rct::key L61Right = rct::scalarmultBase(tmp);
+  rct::key L61Right = rct::scalarmultKey(rct::H, tmp);
 
-  tmp = rct::scalarmultKey(proof.V, zsq);
+  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "proof.V does not have exactly one element");
+  tmp = rct::scalarmultKey(proof.V[0], zsq);
   rct::addKeys(L61Right, L61Right, tmp);
 
   tmp = rct::scalarmultKey(proof.T1, x);
@@ -720,7 +721,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   // PAPER LINE 26
   rct::key pprime;
   sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
-  rct::addKeys(pprime, P, rct::scalarmultKey(rct::H, tmp));
+  rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
 
   for (size_t i = 0; i < rounds; ++i)
   {
@@ -738,13 +739,13 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 #endif
   }
   sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
-  rct::addKeys(pprime, pprime, rct::scalarmultBase(tmp));
+  rct::addKeys(pprime, pprime, rct::scalarmultKey(rct::H, tmp));
   PERF_TIMER_STOP(VERIFY_line_26);
 
   PERF_TIMER_START_BP(VERIFY_step2_check);
   sc_mul(tmp.bytes, proof.a.bytes, proof.b.bytes);
   sc_mul(tmp.bytes, tmp.bytes, x_ip.bytes);
-  tmp = rct::scalarmultBase(tmp);
+  tmp = rct::scalarmultKey(rct::H, tmp);
   rct::addKeys(tmp, tmp, inner_prod);
   PERF_TIMER_STOP(VERIFY_step2_check);
   if (!(pprime == tmp))
