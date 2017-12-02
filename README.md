@@ -111,6 +111,10 @@ Dates are provided in the format YYYY-MM-DD.
 
 X's indicate that these details have not been determined as of commit date, 2017-09-20. 
 
+## Monero release staging schedule and protocol
+
+Approximately 3 months prior to a Network Consensus Protocol Upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optmizations and new features) should *not* be made to the release branch. 
+
 ## Installing Monero from a Package
 
 Packages are available for
