@@ -94,7 +94,7 @@ If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidel
 
 See [Vulnerability Response Process](VULNERABILITY_RESPONSE_PROCESS.md).
 
-## Monero software updates and Network Consensus Protocol Upgrade (hard fork schedule)
+## Monero Software Updates and Network Consensus Protocol Upgrades (hard fork schedule)
 
 Monero uses a fixed-schedule network consensus protocol upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and upgrade their software on a regular schedule. Network consensus protocol upgrades occur during the months of March and September. Required software for these consensus protocol upgrades is available prior to the date of the consensus protocol upgrade. Please check the git repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. 
@@ -111,7 +111,7 @@ Dates are provided in the format YYYY-MM-DD.
 
 X's indicate that these details have not been determined as of commit date, 2017-09-20. 
 
-## Monero release staging schedule and protocol
+## Monero Release Staging Schedule and Protocol
 
 Approximately 3 months prior to a Network Consensus Protocol Upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optmizations and new features) should *not* be made to the release branch. 
 
@@ -185,7 +185,7 @@ library archives (`.a`).
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
-### Build instructions
+### Build Instructions
 
 Monero uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
