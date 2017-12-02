@@ -1007,6 +1007,7 @@ void toJsonValue(rapidjson::Document& doc, const rct::rctSigPrunable& sig, rapid
   val.SetObject();
 
   INSERT_INTO_JSON_OBJECT(val, doc, rangeSigs, sig.rangeSigs);
+  INSERT_INTO_JSON_OBJECT(val, doc, bulletproofs, sig.bulletproofs);
   INSERT_INTO_JSON_OBJECT(val, doc, MGs, sig.MGs);
 }
 
@@ -1018,6 +1019,7 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSigPrunable& sig)
   }
 
   GET_FROM_JSON_OBJECT(val, sig.rangeSigs, rangeSigs);
+  GET_FROM_JSON_OBJECT(val, sig.bulletproofs, bulletproofs);
   GET_FROM_JSON_OBJECT(val, sig.MGs, MGs);
 }
 
@@ -1050,6 +1052,45 @@ void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig)
   {
     sig.Ci[i] = keyVector[i];
   }
+}
+
+void toJsonValue(rapidjson::Document& doc, const rct::Bulletproof& p, rapidjson::Value& val)
+{
+  val.SetObject();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, V, p.V);
+  INSERT_INTO_JSON_OBJECT(val, doc, A, p.A);
+  INSERT_INTO_JSON_OBJECT(val, doc, S, p.S);
+  INSERT_INTO_JSON_OBJECT(val, doc, T1, p.T1);
+  INSERT_INTO_JSON_OBJECT(val, doc, T2, p.T2);
+  INSERT_INTO_JSON_OBJECT(val, doc, taux, p.taux);
+  INSERT_INTO_JSON_OBJECT(val, doc, mu, p.mu);
+  INSERT_INTO_JSON_OBJECT(val, doc, L, p.L);
+  INSERT_INTO_JSON_OBJECT(val, doc, R, p.R);
+  INSERT_INTO_JSON_OBJECT(val, doc, a, p.a);
+  INSERT_INTO_JSON_OBJECT(val, doc, b, p.b);
+  INSERT_INTO_JSON_OBJECT(val, doc, t, p.t);
+}
+
+void fromJsonValue(const rapidjson::Value& val, rct::Bulletproof& p)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, p.V, V);
+  GET_FROM_JSON_OBJECT(val, p.A, A);
+  GET_FROM_JSON_OBJECT(val, p.S, S);
+  GET_FROM_JSON_OBJECT(val, p.T1, T1);
+  GET_FROM_JSON_OBJECT(val, p.T2, T2);
+  GET_FROM_JSON_OBJECT(val, p.taux, taux);
+  GET_FROM_JSON_OBJECT(val, p.mu, mu);
+  GET_FROM_JSON_OBJECT(val, p.L, L);
+  GET_FROM_JSON_OBJECT(val, p.R, R);
+  GET_FROM_JSON_OBJECT(val, p.a, a);
+  GET_FROM_JSON_OBJECT(val, p.b, b);
+  GET_FROM_JSON_OBJECT(val, p.t, t);
 }
 
 void toJsonValue(rapidjson::Document& doc, const rct::boroSig& sig, rapidjson::Value& val)

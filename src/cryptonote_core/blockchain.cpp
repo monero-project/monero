@@ -127,6 +127,7 @@ static const struct {
   { 5, 802660, 0, 1472415036 + 86400*180 }, // add 5 months on testnet to shut the update warning up since there's a large gap to v6
 
   { 6, 971400, 0, 1501709789 },
+  { 7, 1057028, 0, 1512211236 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
@@ -2387,8 +2388,10 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  const uint8_t hf_version = m_hardfork->get_current_version();
+
   // from hard fork 2, we forbid dust and compound outputs
-  if (m_hardfork->get_current_version() >= 2) {
+  if (hf_version >= 2) {
     for (auto &o: tx.vout) {
       if (tx.version == 1)
       {
@@ -2401,7 +2404,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // in a v2 tx, all outputs must have 0 amount
-  if (m_hardfork->get_current_version() >= 3) {
+  if (hf_version >= 3) {
     if (tx.version >= 2) {
       for (auto &o: tx.vout) {
         if (o.amount != 0) {
@@ -2413,7 +2416,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v4, forbid invalid pubkeys
-  if (m_hardfork->get_current_version() >= 4) {
+  if (hf_version >= 4) {
     for (const auto &o: tx.vout) {
       if (o.target.type() == typeid(txout_to_key)) {
         const txout_to_key& out_to_key = boost::get<txout_to_key>(o.target);
@@ -2422,6 +2425,16 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
           return false;
         }
       }
+    }
+  }
+
+  // from v7, allow bulletproofs
+  if (hf_version < 7 || !m_testnet) {
+    if (!tx.rct_signatures.p.bulletproofs.empty())
+    {
+      MERROR("Bulletproofs are not allowed before v7 or on mainnet");
+      tvc.m_invalid_output = true;
+      return false;
     }
   }
 
@@ -2450,7 +2463,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
   rv.message = rct::hash2rct(tx_prefix_hash);
 
   // mixRing - full and simple store it in opposite ways
-  if (rv.type == rct::RCTTypeFull)
+  if (rv.type == rct::RCTTypeFull || rv.type == rct::RCTTypeFullBulletproof)
   {
     rv.mixRing.resize(pubkeys[0].size());
     for (size_t m = 0; m < pubkeys[0].size(); ++m)
@@ -2464,7 +2477,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
       }
     }
   }
-  else if (rv.type == rct::RCTTypeSimple)
+  else if (rv.type == rct::RCTTypeSimple || rv.type == rct::RCTTypeSimpleBulletproof)
   {
     rv.mixRing.resize(pubkeys.size());
     for (size_t n = 0; n < pubkeys.size(); ++n)
@@ -2482,14 +2495,14 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
   }
 
   // II
-  if (rv.type == rct::RCTTypeFull)
+  if (rv.type == rct::RCTTypeFull || rv.type == rct::RCTTypeFullBulletproof)
   {
     rv.p.MGs.resize(1);
     rv.p.MGs[0].II.resize(tx.vin.size());
     for (size_t n = 0; n < tx.vin.size(); ++n)
       rv.p.MGs[0].II[n] = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
   }
-  else if (rv.type == rct::RCTTypeSimple)
+  else if (rv.type == rct::RCTTypeSimple || rv.type == rct::RCTTypeSimpleBulletproof)
   {
     CHECK_AND_ASSERT_MES(rv.p.MGs.size() == tx.vin.size(), false, "Bad MGs size");
     for (size_t n = 0; n < tx.vin.size(); ++n)
@@ -2753,7 +2766,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       MERROR_VER("Null rct signature on non-coinbase tx");
       return false;
     }
-    case rct::RCTTypeSimple: {
+    case rct::RCTTypeSimple:
+    case rct::RCTTypeSimpleBulletproof:
+    {
       // check all this, either recontructed (so should really pass), or not
       {
         if (pubkeys.size() != rv.mixRing.size())
@@ -2809,7 +2824,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
       break;
     }
-    case rct::RCTTypeFull: {
+    case rct::RCTTypeFull:
+    case rct::RCTTypeFullBulletproof:
+    {
       // check all this, either recontructed (so should really pass), or not
       {
         bool size_matches = true;
