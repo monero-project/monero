@@ -194,6 +194,10 @@ uint64_t BlockchainDB::add_block( const block& blk
                                 , const std::vector<transaction>& txs
                                 )
 {
+  // sanity
+  if (blk.tx_hashes.size() != txs.size())
+    throw new std::runtime_error("Inconsistent tx/hashes sizes");
+
   block_txn_start(false);
 
   TIME_MEASURE_START(time1);
