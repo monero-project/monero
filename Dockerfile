@@ -1,31 +1,38 @@
+# Multistage docker build, requires docker 17.05
+
+# builder stage
+FROM ubuntu:16.04 as builder
+
+RUN apt-get update && \
+    apt-get --no-install-recommends --yes install \
+        ca-certificates \
+        cmake \
+        g++ \
+        libboost1.58-all-dev \
+        libssl-dev \
+        libzmq3-dev \
+        libreadline-dev \
+        libsodium-dev \
+        make \
+        pkg-config \
+        graphviz \
+        doxygen \
+        git
+
+WORKDIR /src
+COPY . .
+RUN rm -rf build && \
+    make -j$(nproc) release-static
+
+# runtime stage
 FROM ubuntu:16.04
 
-ENV SRC_DIR /usr/local/src/monero
+RUN apt-get update && \
+    apt-get --no-install-recommends --yes install ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt
 
-RUN set -x \
-  && buildDeps=' \
-      ca-certificates \
-      cmake \
-      g++ \
-      git \
-      libboost1.58-all-dev \
-      libssl-dev \
-      libzmq3-dev \
-      libsodium-dev \
-      make \
-      pkg-config \
-  ' \
-  && apt-get -qq update \
-  && apt-get -qq --no-install-recommends install $buildDeps
-
-RUN git clone https://github.com/monero-project/monero.git $SRC_DIR
-WORKDIR $SRC_DIR
-RUN make -j$(nproc) release-static
-
-RUN cp build/release/bin/* /usr/local/bin/ \
-  \
-  && rm -r $SRC_DIR \
-  && apt-get -qq --auto-remove purge $buildDeps
+COPY --from=builder /src/build/release/bin/* /usr/local/bin/
 
 # Contains the blockchain
 VOLUME /root/.bitmonero
@@ -35,13 +42,7 @@ VOLUME /root/.bitmonero
 # monero-wallet-cli
 VOLUME /wallet
 
-ENV LOG_LEVEL 0
-ENV P2P_BIND_IP 0.0.0.0
-ENV P2P_BIND_PORT 18080
-ENV RPC_BIND_IP 127.0.0.1
-ENV RPC_BIND_PORT 18081
-
 EXPOSE 18080
 EXPOSE 18081
 
-CMD monerod --log-level=$LOG_LEVEL --p2p-bind-ip=$P2P_BIND_IP --p2p-bind-port=$P2P_BIND_PORT --rpc-bind-ip=$RPC_BIND_IP --rpc-bind-port=$RPC_BIND_PORT
+ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=127.0.0.1", "--rpc-bind-port=18081", "--non-interactive"] 
