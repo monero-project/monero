@@ -5,6 +5,11 @@
 	<filename>mdb_copy.1</filename>
   </compound>
   <compound kind="page">
+    <name>mdb_drop_1</name>
+	<title>mdb_drop - database delete tool</title>
+	<filename>mdb_drop.1</filename>
+  </compound>
+  <compound kind="page">
     <name>mdb_dump_1</name>
 	<title>mdb_dump - environment export tool</title>
 	<filename>mdb_dump.1</filename>
