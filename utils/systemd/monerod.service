@@ -14,5 +14,8 @@ PIDFile=/run/monero/monerod.pid
 ExecStart=/usr/bin/monerod --config-file /etc/monerod.conf \
     --detach --pidfile /run/monero/monerod.pid
 
+Restart=always
+PrivateTmp=true
+
 [Install]
 WantedBy=multi-user.target
