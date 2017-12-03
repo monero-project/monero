@@ -1414,6 +1414,10 @@ skip:
         // take out blocks we already have
         while (!context.m_needed_objects.empty() && m_core.have_block(context.m_needed_objects.front()))
         {
+          // if we're popping the last hash, record it so we can ask again from that hash,
+          // this prevents never being able to progress on peers we get old hash lists from
+          if (context.m_needed_objects.size() == 1)
+            context.m_last_known_hash = context.m_needed_objects.front();
           context.m_needed_objects.pop_front();
         }
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
