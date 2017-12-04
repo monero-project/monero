@@ -2289,7 +2289,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     m_confirm_backlog = true;
     m_confirm_backlog_threshold = 0;
   }
-  else
+  else if(json.IsObject())
   {
     if (!json.HasMember("key_data"))
     {
@@ -2367,6 +2367,11 @@ bool wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
     THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
     // Wallet is being opened without testnet flag but is saved as a testnet wallet.
     THROW_WALLET_EXCEPTION_IF(!m_testnet && field_testnet, error::wallet_internal_error, "Testnet wallet can not be opened as mainnet wallet");
+  }
+  else
+  {
+      THROW_WALLET_EXCEPTION(error::wallet_internal_error, "invalid password");
+      return false;
   }
 
   const cryptonote::account_keys& keys = m_account.get_keys();
