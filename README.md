@@ -3,7 +3,7 @@
 Copyright (c) 2014-2017 The Monero Project.   
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
-## Development Resources
+## Development resources
 
 - Web: [getmonero.org](https://getmonero.org)
 - Forum: [forum.getmonero.org](https://forum.getmonero.org)
@@ -11,9 +11,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
 - IRC: [#monero-dev on Freenode](http://webchat.freenode.net/?randomnick=1&channels=%23monero-dev&prompt=1&uio=d4)
 
-## Vulnerability Response
+## Vulnerability response
 
-- Our [Vulnerability Response Process](https://github.com/monero-project/meta/blob/master/VULNERABILITY_RESPONSE_PROCESS.md) encourages responsible disclosure
+- Our [vulnerability response process](https://github.com/monero-project/meta/blob/master/VULNERABILITY_RESPONSE_PROCESS.md) encourages responsible disclosure
 - We are also available via [HackerOne](https://hackerone.com/monero)
 
 ## Build
@@ -50,7 +50,7 @@ Monero is a private, secure, untraceable, decentralised digital currency. You ar
 
 **Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Monero is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
 
-## About this Project
+## About this project
 
 This is the core implementation of Monero. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Monero that uses the protocol and network in a compatible manner.
 
@@ -58,7 +58,7 @@ As with many development projects, the repository on Github is considered to be 
 
 **Anyone is welcome to contribute to Monero's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
-## Supporting the Project
+## Supporting the project
 
 Monero development can be supported directly through donations.
 
@@ -90,11 +90,11 @@ See [LICENSE](LICENSE).
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
-## Vulnerability Response Process
+## Vulnerability response process
 
-See [Vulnerability Response Process](VULNERABILITY_RESPONSE_PROCESS.md).
+See [vulnerability response process](VULNERABILITY_RESPONSE_PROCESS.md).
 
-## Monero Software Updates and Network Consensus Protocol Upgrades (hard fork schedule)
+## Monero software updates and network consensus protocol upgrades (hard fork schedule)
 
 Monero uses a fixed-schedule network consensus protocol upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and upgrade their software on a regular schedule. Network consensus protocol upgrades occur during the months of March and September. Required software for these consensus protocol upgrades is available prior to the date of the consensus protocol upgrade. Please check the git repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. 
@@ -111,11 +111,11 @@ Dates are provided in the format YYYY-MM-DD.
 
 X's indicate that these details have not been determined as of commit date, 2017-09-20. 
 
-## Monero Release Staging Schedule and Protocol
+## Monero release staging schedule and protocol
 
 Approximately 3 months prior to a Network Consensus Protocol Upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optmizations and new features) should *not* be made to the release branch. 
 
-## Installing Monero from a Package
+## Installing Monero from a package
 
 Packages are available for
 
@@ -150,7 +150,7 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
 Packaging for your favorite distribution would be a welcome contribution!
 
-## Compiling Monero from Source
+## Compiling Monero from source
 
 ### Dependencies
 
@@ -185,7 +185,7 @@ library archives (`.a`).
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
-### Build Instructions
+### Build instructions
 
 Monero uses the CMake build system and a top-level [Makefile](Makefile) that
 invokes cmake commands as needed.
@@ -265,7 +265,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 
 * You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
 
-#### *Note for Raspbian Jessie Users:*
+#### *Note for Raspbian Jessie users:*
 
 If you are using the older Raspbian Jessie image, compiling Monero is a bit more complicated. The version of Boost available in the Debian Jessie repositories is too old to use with Monero, and thus you must compile a newer version yourself. The following explains the extra steps, and has been tested on a Raspberry Pi 2 with a clean install of minimal Raspbian Jessie.
 
@@ -305,7 +305,7 @@ POSIX system. The toolchain runs within the environment and *cross-compiles*
 binaries that can run outside of the environment as a regular Windows
 application.
 
-**Preparing the Build Environment**
+**Preparing the build environment**
 
 * Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
@@ -457,7 +457,7 @@ Then you can run make as usual.
         # Get binaries
         docker cp monero-android:/opt/android/monero/build/release/bin .
 
-### Building Portable Statically Linked Binaries
+### Building portable statically linked binaries
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
 
@@ -523,7 +523,7 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the github repo.
 
-## Obtaining Stack Traces and Core Dumps on Unix Systems
+## Obtaining stack traces and core dumps on Unix systems
 
 We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
 
@@ -563,7 +563,7 @@ Pass command-line options with `--args` followed by the relevant arguments
 
 Type `run` to run monerod
 
-## Analysing Memory Corruption
+## Analysing memory corruption
 
 We use the tool `valgrind` for this.
 
