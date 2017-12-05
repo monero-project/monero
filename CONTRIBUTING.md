@@ -6,13 +6,13 @@ if you want to help that way. Testing is invaluable in making a piece
 of software solid and usable.
 
 
-## General Guidelines
+## General guidelines
 
 * Comments are encouraged.
 * If modifying code for which Doxygen headers exist, that header must be modified to match.
 * Tests would be nice to have if you're adding functionality.
 
-Patches are preferably to be sent via a github pull request. If that
+Patches are preferably to be sent via a Github pull request. If that
 can't be done, patches in "git format-patch" format can be sent
 (eg, posted to fpaste.org with a long enough timeout and a link
 posted to #monero-dev on irc.freenode.net).
@@ -21,7 +21,7 @@ Patches should be self contained. A good rule of thumb is to have
 one patch per separate issue, feature, or logical change. Also, no
 other changes, such as random whitespace changes or reindentation.
 Following the code style of the particular chunk of code you're
-modifying is encourgaged. Proper squashing should be done (eg, if
+modifying is encouraged. Proper squashing should be done (eg, if
 you're making a buggy patch, then a later patch to fix the bug,
 both patches should be merged).
 
@@ -36,13 +36,13 @@ for commit. As you add hunks with git add -p, those hunks will
 "move" from the git diff output to the git diff --cached output,
 so you can see clearly what your commit is going to look like.
 
-## Commits and Pull Requests
+## Commits and pull requests
 
 Commit messages should be sensible. That means a subject line that
 describes the patch, with an optional longer body that gives details,
 documentation, etc.
 
-When submitting a pull request on github, make sure your branch is
+When submitting a pull request on Github, make sure your branch is
 rebased. No merge commits nor stray commits from other people in
 your submitted branch, please. You may be asked to rebase if there
 are conflicts (even trivially resolvable ones).
@@ -100,7 +100,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Maintainers SHALL have commit access to the repository.
 - Everyone, without distinction or discrimination, SHALL have an equal right to become a Contributor under the terms of this contract.
 
-### Licensing and Ownership
+### Licensing and ownership
 
 - The project SHALL use a share-alike license, such as BSD-3, the GPLv3 or a variant thereof (LGPL, AGPL), or the MPLv2.
 - All contributions to the project source code ("patches") SHALL use the same license as the project.
@@ -108,7 +108,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - The copyrights in the project SHALL be owned collectively by all its Contributors.
 - Each Contributor SHALL be responsible for identifying themselves in the project Contributor list.
 
-### Patch Requirements
+### Patch requirements
 
 - Maintainers MUST have a Platform account and SHOULD use their real names or a well-known alias.
 - Contributors SHOULD have a Platform account and MAY use their real names or a well-known alias.
@@ -120,7 +120,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - A patch commit message SHOULD consist of a single short (less than 50 character) line summarizing the change, optionally followed by a blank line and then a more thorough description.
 - A "Correct Patch" is one that satisfies the above requirements.
 
-### Development Process
+### Development process
 
 - Change on the project SHALL be governed by the pattern of accurately identifying problems and applying minimal, accurate solutions to these problems.
 - To request changes, a user SHOULD log an issue on the project Platform issue tracker.
@@ -143,7 +143,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Any Contributor who has value judgments on a correct patch SHOULD express these via their own patches.
 - Maintainers MAY commit changes to non-source documentation directly to the project.
 
-### Creating Stable Releases
+### Creating stable releases
 
 - The project SHALL have one branch ("master") that always holds the latest in-progress version and SHOULD always build.
 - The project SHALL NOT use topic branches for any reason. Personal forks MAY use topic branches.
@@ -151,7 +151,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Forking a project for stabilization MAY be done unilaterally and without agreement of project maintainers.
 - A patch to a stabilization project declared "stable" SHALL be accompanied by a reproducible test case.
 
-### Evolution of Public Contracts
+### Evolution of public contracts
 
 - All Public Contracts (APIs or protocols) SHALL be documented.
 - All Public Contracts SHOULD have space for extensibility and experimentation.
@@ -162,7 +162,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Old names SHALL NOT be reused by new features.
 - When old names are removed, their implementations MUST provoke an exception (assertion) if used by applications.
 
-### Project Administration
+### Project administration
 
 - The project founders SHALL act as Administrators to manage the set of project Maintainers.
 - The Administrators SHALL ensure their own succession over time by promoting the most effective Maintainers.
