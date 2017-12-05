@@ -86,21 +86,17 @@ There are also several mining pools that kindly donate a portion of their fees, 
 
 See [LICENSE](LICENSE).
 
-# Contributing
+## Contributing
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
-## Vulnerability response process
-
-See [vulnerability response process](VULNERABILITY_RESPONSE_PROCESS.md).
-
-## Monero software updates and network consensus protocol upgrades (hard fork schedule)
+## Network consensus protocol upgrades (hard fork schedule)
 
 Monero uses a fixed-schedule network consensus protocol upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and upgrade their software on a regular schedule. Network consensus protocol upgrades occur during the months of March and September. Required software for these consensus protocol upgrades is available prior to the date of the consensus protocol upgrade. Please check the git repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. 
 
 
-| Consensus Upgrade Block Height | Date       | Consensus version | Minimum Monero Version | Recommended Monero Version | Details                                                                            |  
+| Consensus upgrade block height | Date       | Consensus version | Minimum Monero version | Recommended Monero version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 1009827                        | 2016-03-22 | v2                | v0.9.4                 | v0.9.4                     | Allow only >= ringsize 3, blocktime = 120 seconds, fee-free blocksize 60 kb       |
 | 1141317                        | 2016-09-21 | v3                | v0.9.4                 | v0.10.0                    | Splits coinbase into denominations  |
@@ -111,9 +107,9 @@ Dates are provided in the format YYYY-MM-DD.
 
 X's indicate that these details have not been determined as of commit date, 2017-09-20. 
 
-## Monero release staging schedule and protocol
+## Release staging schedule and protocol
 
-Approximately 3 months prior to a Network Consensus Protocol Upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optmizations and new features) should *not* be made to the release branch. 
+Approximately 3 months prior to a network consensus protocol upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optimizations and new features) should *not* be made to the release branch. 
 
 ## Installing Monero from a package
 
@@ -154,7 +150,7 @@ Packaging for your favorite distribution would be a welcome contribution!
 
 ### Dependencies
 
-The following table summarizes the tools and libraries required to build.  A
+The following table summarizes the tools and libraries required to build. A
 few of the libraries are also included in this repository (marked as
 "Vendored"). By default, the build uses the library installed on the system,
 and ignores the vendored sources. However, if no library is found installed on
@@ -163,7 +159,7 @@ sources are also used for statically-linked builds because distribution
 packages often include only shared library binaries (`.so`) but not static
 library archives (`.a`).
 
-| Dep            | Min. Version  | Vendored | Debian/Ubuntu Pkg  | Arch Pkg       | Optional | Purpose        |
+| Dep            | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg       | Optional | Purpose        |
 | -------------- | ------------- | ---------| ------------------ | -------------- | -------- | -------------- |
 | GCC            | 4.7.3         | NO       | `build-essential`  | `base-devel`   | NO       |                |
 | CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
@@ -519,11 +515,11 @@ TAILS ships with a very restrictive set of firewall rules. Therefore, you need t
 
 `./monero-wallet-cli`
 
-# Debugging
+## Debugging
 
-This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the github repo.
+This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the Github repo.
 
-## Obtaining stack traces and core dumps on Unix systems
+### Obtaining stack traces and core dumps on Unix systems
 
 We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
 
@@ -563,13 +559,13 @@ Pass command-line options with `--args` followed by the relevant arguments
 
 Type `run` to run monerod
 
-## Analysing memory corruption
+### Analysing memory corruption
 
 We use the tool `valgrind` for this.
 
 Run with `valgrind /path/to/monerod`. It will be slow.
 
-## LMDB
+### LMDB
 
 Instructions for debugging suspected blockchain corruption as per @HYC
 
