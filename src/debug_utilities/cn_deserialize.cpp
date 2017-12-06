@@ -153,7 +153,11 @@ int main(int argc, char* argv[])
     std::cout << "Parsed transaction:" << std::endl;
     std::cout << cryptonote::obj_to_json_str(tx) << std::endl;
 
-    if (cryptonote::parse_tx_extra(tx.extra, fields))
+    bool parsed = cryptonote::parse_tx_extra(tx.extra, fields);
+    if (!parsed)
+      std::cout << "Failed to parse tx_extra" << std::endl;
+
+    if (!fields.empty())
     {
       std::cout << "tx_extra has " << fields.size() << " field(s)" << std::endl;
       for (size_t n = 0; n < fields.size(); ++n)
@@ -170,7 +174,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-      std::cout << "Failed to parse tx_extra" << std::endl;
+      std::cout << "No fields were found in tx_extra" << std::endl;
     }
   }
   else
