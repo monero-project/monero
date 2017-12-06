@@ -877,7 +877,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       LOG_PRINT_L0("Public key wasn't found in the transaction extra. Skipping transaction " << txid);
       if(0 != m_callback)
 	m_callback->on_skip_transaction(height, txid, tx);
-      return;
+      break;
     }
 
     int num_vouts_received = 0;
