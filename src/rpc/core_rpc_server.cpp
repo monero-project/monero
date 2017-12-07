@@ -1436,19 +1436,25 @@ namespace cryptonote
         {
           failed = true;
         }
-        crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
-        txids.push_back(txid);
+        else
+        {
+          crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+          txids.push_back(txid);
+        }
       }
     }
     if (!m_core.get_blockchain_storage().flush_txes_from_pool(txids))
     {
-      res.status = "Failed to remove one more tx";
+      res.status = "Failed to remove one or more tx(es)";
       return false;
     }
 
     if (failed)
     {
-      res.status = "Failed to parse txid";
+      if (txids.empty())
+        res.status = "Failed to parse txid";
+      else
+        res.status = "Failed to parse some of the txids";
       return false;
     }
 
@@ -1705,13 +1711,16 @@ namespace cryptonote
     PERF_TIMER(on_relay_tx);
 
     bool failed = false;
+    res.status = "";
     for (const auto &str: req.txids)
     {
       cryptonote::blobdata txid_data;
       if(!epee::string_tools::parse_hexstr_to_binbuff(str, txid_data))
       {
-        res.status = std::string("Invalid transaction id: ") + str;
+        if (!res.status.empty()) res.status += ", ";
+        res.status += std::string("invalid transaction id: ") + str;
         failed = true;
+        continue;
       }
       crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
 
@@ -1727,8 +1736,10 @@ namespace cryptonote
       }
       else
       {
-        res.status = std::string("Transaction not found in pool: ") + str;
+        if (!res.status.empty()) res.status += ", ";
+        res.status += std::string("transaction not found in pool: ") + str;
         failed = true;
+        continue;
       }
     }
 
