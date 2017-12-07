@@ -1585,6 +1585,12 @@ skip:
       drop_connection(context, true, false);
       return 1;
     }
+    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
+    {
+      LOG_ERROR_CCONTEXT("sent invalid start/nblocks/height, dropping connection");
+      drop_connection(context, true, false);
+      return 1;
+    }
 
     context.m_remote_blockchain_height = arg.total_height;
     context.m_last_response_height = arg.start_height + arg.m_block_ids.size()-1;
