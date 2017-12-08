@@ -166,15 +166,37 @@ namespace net_utils
 
 		BEGIN_KV_SERIALIZE_MAP()
 			uint8_t type = is_store ? this_ref.get_type_id() : 0;
-			epee::serialization::selector<is_store>::serialize(type, stg, hparent_section, "type");
+			if (!epee::serialization::selector<is_store>::serialize(type, stg, hparent_section, "type"))
+				return false;
 			switch (type)
 			{
 				case ipv4_network_address::ID:
+				{
 					if (!is_store)
+					{
 						const_cast<network_address&>(this_ref) = ipv4_network_address{0, 0};
-					KV_SERIALIZE(template as_mutable<ipv4_network_address>());
+						auto &addr = this_ref.template as_mutable<ipv4_network_address>();
+						if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
+							MDEBUG("Found as addr: " << this_ref.str());
+						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as<ipv4_network_address>()"))
+							MDEBUG("Found as template as<ipv4_network_address>(): " << this_ref.str());
+						else if (epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "template as_mutable<ipv4_network_address>()"))
+							MDEBUG("Found as template as_mutable<ipv4_network_address>(): " << this_ref.str());
+						else
+						{
+							MWARNING("Address not found");
+							return false;
+						}
+					}
+					else
+					{
+						auto &addr = this_ref.template as_mutable<ipv4_network_address>();
+						if (!epee::serialization::selector<is_store>::serialize(addr, stg, hparent_section, "addr"))
+							return false;
+					}
 					break;
-				default: MERROR("Unsupported network address type: " << type); return false;
+				}
+				default: MERROR("Unsupported network address type: " << (unsigned)type); return false;
 			}
 		END_KV_SERIALIZE_MAP()
 	};
