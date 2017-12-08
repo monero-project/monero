@@ -274,6 +274,9 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSigPrunable& sig);
 void toJsonValue(rapidjson::Document& doc, const rct::rangeSig& sig, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig);
 
+void toJsonValue(rapidjson::Document& doc, const rct::Bulletproof& p, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, rct::Bulletproof& p);
+
 void toJsonValue(rapidjson::Document& doc, const rct::boroSig& sig, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, rct::boroSig& sig);
 
