@@ -936,15 +936,7 @@ namespace rct {
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeFullBulletproof, false, "decodeRct called on non-full rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
-        if (rv.type == RCTTypeFullBulletproof)
-        {
-          CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.p.bulletproofs and rv.ecdhInfo");
-          CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs[i].V.size() == 1, "Unexpected sizes of rv.p.bulletproofs[i].V");
-        }
-        else
-        {
-          CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
-        }
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
@@ -972,22 +964,14 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeSimpleBulletproof, false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
-        if (rv.type == RCTTypeSimpleBulletproof)
-        {
-          CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.p.bulletproofs and rv.ecdhInfo");
-          CHECK_AND_ASSERT_THROW_MES(rv.p.bulletproofs[i].V.size() == 1, "Unexpected sizes of rv.p.bulletproofs[i].V");
-        }
-        else
-        {
-          CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
-        }
+        CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
         ecdhDecode(ecdh_info, sk);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
-        key C = (rv.type == RCTTypeSimpleBulletproof) ? rv.p.bulletproofs[i].V.front() : rv.outPk[i].mask;
+        key C = rv.outPk[i].mask;
         DP("C");
         DP(C);
         key Ctmp;
