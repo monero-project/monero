@@ -347,11 +347,11 @@ namespace rct {
       keyV kv;
       if (rv.type == RCTTypeSimpleBulletproof || rv.type == RCTTypeFullBulletproof)
       {
-        kv.reserve((6*2+10) * rv.p.bulletproofs.size());
+        kv.reserve((6*2+9) * rv.p.bulletproofs.size());
         for (const auto &p: rv.p.bulletproofs)
         {
-          for (size_t n = 0; n < p.V.size(); ++n)
-            kv.push_back(p.V[n]);
+          // V are not hashed as they're expanded from outPk.mask
+          // (and thus hashed as part of rctSigBase above)
           kv.push_back(p.A);
           kv.push_back(p.S);
           kv.push_back(p.T1);
