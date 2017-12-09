@@ -203,16 +203,17 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #  if (ELPP_COMPILER_GCC && !ELPP_MINGW && !ELPP_OS_OPENBSD)
 #    define ELPP_STACKTRACE 1
 #  else
-#      define ELPP_STACKTRACE 0
-#      if ELPP_COMPILER_MSVC
-#         pragma message("Stack trace not available for this compiler")
-#      else
-#         warning "Stack trace not available for this compiler";
-#      endif  // ELPP_COMPILER_MSVC
 #    define ELPP_STACKTRACE 0
+#    ifdef EASYLOGGING_CC
+#      if ELPP_COMPILER_MSVC
+#        pragma message("Stack trace not available for this compiler")
+#      else
+#        warning "Stack trace not available for this compiler";
+#      endif  // ELPP_COMPILER_MSVC
+#    endif
 #  endif  // ELPP_COMPILER_GCC
 #else
-#    define ELPP_STACKTRACE 0
+#  define ELPP_STACKTRACE 0
 #endif  // (defined(ELPP_FEATURE_ALL)) || (defined(ELPP_FEATURE_CRASH_LOG))
 // Miscellaneous macros
 #define ELPP_UNUSED(x) (void)x
