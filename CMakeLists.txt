@@ -238,6 +238,16 @@ if(STATIC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DZMQ_STATIC")
 endif()
 
+if(SANITIZE)
+  if (MSVC)
+    message(FATAL_ERROR "Cannot sanitize with MSVC")
+  else()
+    message(STATUS "Using ASAN")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+  endif()
+endif()
+
 # Set default blockchain storage location:
 # memory was the default in Cryptonote before Monero implimented LMDB, it still works but is unneccessary.
 # set(DATABASE memory)
