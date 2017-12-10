@@ -125,3 +125,16 @@ set_property(TARGET base58_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+add_executable(parse-url_fuzz_tests parse_url.cpp fuzzer.cpp)
+target_link_libraries(parse-url_fuzz_tests
+  PRIVATE
+    epee
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+set_property(TARGET parse-url_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
