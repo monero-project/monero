@@ -18,4 +18,5 @@ case "$type" in
   *) echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json"; exit 1 ;;
 esac
 
-afl-fuzz -i tests/data/fuzz/$type -m 150 -t 250 -o fuzz-out/$type build/fuzz/tests/fuzz/${type}_fuzz_tests
+mkdir -p fuzz-out
+afl-fuzz -i tests/data/fuzz/$type -m none -t 250 -o fuzz-out/$type build/fuzz/tests/fuzz/${type}_fuzz_tests @@
