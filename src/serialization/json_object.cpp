@@ -53,7 +53,7 @@ namespace
   void convert_numeric(Source source, Type& i)
   {
     static_assert(
-      (std::is_same<Type, char>() && std::is_same<Source, int>()) ||
+      (std::is_same<Type, char>::value && std::is_same<Source, int>::value) ||
       std::numeric_limits<Source>::is_signed == std::numeric_limits<Type>::is_signed,
       "comparisons below may have undefined behavior"
     );

@@ -56,7 +56,7 @@ namespace epee
        derived-to-base conversions. This is NOT desireable because an array of
        derived types is not an array of base types. It is possible to handle
        this case, implement when/if needed. */
-    static_assert(!std::is_class<T>(), "no class types are currently allowed");
+    static_assert(!std::is_class<T>::value, "no class types are currently allowed");
   public:
     using value_type = T;
     using size_type = std::size_t;
@@ -108,7 +108,7 @@ namespace epee
   template<typename T>
   constexpr bool has_padding() noexcept
   {
-    return !std::is_pod<T>() || alignof(T) != 1;
+    return !std::is_pod<T>::value || alignof(T) != 1;
   }
 
   //! \return Cast data from `src` as `span<const std::uint8_t>`.
@@ -123,7 +123,7 @@ namespace epee
   template<typename T>
   span<const std::uint8_t> as_byte_span(const T& src) noexcept
   {
-    static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
+    static_assert(!std::is_empty<T>::value, "empty types will not work -> sizeof == 1");
     static_assert(!has_padding<T>(), "source type may have padding");
     return {reinterpret_cast<const std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }

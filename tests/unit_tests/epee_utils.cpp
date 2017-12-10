@@ -55,12 +55,12 @@ namespace
   bool can_construct()
   {
     const unsigned count =
-      unsigned(std::is_constructible<Destination, Source>()) +
-      unsigned(std::is_constructible<Destination, Source&>()) +
-      unsigned(std::is_convertible<Source, Destination>()) +
-      unsigned(std::is_convertible<Source&, Destination>()) +
-      unsigned(std::is_assignable<Destination, Source>()) +
-      unsigned(std::is_assignable<Destination, Source&>());
+      unsigned(std::is_constructible<Destination, Source>::value) +
+      unsigned(std::is_constructible<Destination, Source&>::value) +
+      unsigned(std::is_convertible<Source, Destination>::value) +
+      unsigned(std::is_convertible<Source&, Destination>::value) +
+      unsigned(std::is_assignable<Destination, Source>::value) +
+      unsigned(std::is_assignable<Destination, Source&>::value);
     EXPECT_TRUE(count == 6 || count == 0) <<
       "Mismatch on construction results - " << count << " were true";
     return count == 6; 
@@ -141,35 +141,35 @@ namespace
 
 TEST(Span, Traits)
 {
-  EXPECT_TRUE((std::is_same<std::size_t, typename epee::span<char>::size_type>()));
-  EXPECT_TRUE((std::is_same<std::ptrdiff_t, typename epee::span<char>::difference_type>()));
-  EXPECT_TRUE((std::is_same<char, typename epee::span<char>::value_type>()));
-  EXPECT_TRUE((std::is_same<char*, typename epee::span<char>::pointer>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<char>::const_pointer>()));
-  EXPECT_TRUE((std::is_same<char*, typename epee::span<char>::iterator>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<char>::const_iterator>()));
-  EXPECT_TRUE((std::is_same<char&, typename epee::span<char>::reference>()));
-  EXPECT_TRUE((std::is_same<const char&, typename epee::span<char>::const_reference>()));
+  EXPECT_TRUE((std::is_same<std::size_t, typename epee::span<char>::size_type>::value));
+  EXPECT_TRUE((std::is_same<std::ptrdiff_t, typename epee::span<char>::difference_type>::value));
+  EXPECT_TRUE((std::is_same<char, typename epee::span<char>::value_type>::value));
+  EXPECT_TRUE((std::is_same<char*, typename epee::span<char>::pointer>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<char>::const_pointer>::value));
+  EXPECT_TRUE((std::is_same<char*, typename epee::span<char>::iterator>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<char>::const_iterator>::value));
+  EXPECT_TRUE((std::is_same<char&, typename epee::span<char>::reference>::value));
+  EXPECT_TRUE((std::is_same<const char&, typename epee::span<char>::const_reference>::value));
 
-  EXPECT_TRUE((std::is_same<std::size_t, typename epee::span<const char>::size_type>()));
-  EXPECT_TRUE((std::is_same<std::ptrdiff_t, typename epee::span<const char>::difference_type>()));
-  EXPECT_TRUE((std::is_same<const char, typename epee::span<const char>::value_type>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::pointer>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::const_pointer>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::iterator>()));
-  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::const_iterator>()));
-  EXPECT_TRUE((std::is_same<const char&, typename epee::span<const char>::reference>()));
-  EXPECT_TRUE((std::is_same<const char&, typename epee::span<const char>::const_reference>()));
+  EXPECT_TRUE((std::is_same<std::size_t, typename epee::span<const char>::size_type>::value));
+  EXPECT_TRUE((std::is_same<std::ptrdiff_t, typename epee::span<const char>::difference_type>::value));
+  EXPECT_TRUE((std::is_same<const char, typename epee::span<const char>::value_type>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::pointer>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::const_pointer>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::iterator>::value));
+  EXPECT_TRUE((std::is_same<const char*, typename epee::span<const char>::const_iterator>::value));
+  EXPECT_TRUE((std::is_same<const char&, typename epee::span<const char>::reference>::value));
+  EXPECT_TRUE((std::is_same<const char&, typename epee::span<const char>::const_reference>::value));
 }
 
 TEST(Span, MutableConstruction)
 {
   struct no_conversion{};
 
-  EXPECT_TRUE(std::is_constructible<epee::span<char>>());
-  EXPECT_TRUE((std::is_constructible<epee::span<char>, char*, std::size_t>()));
-  EXPECT_FALSE((std::is_constructible<epee::span<char>, const char*, std::size_t>()));
-  EXPECT_FALSE((std::is_constructible<epee::span<char>, unsigned char*, std::size_t>()));
+  EXPECT_TRUE(std::is_constructible<epee::span<char>>::value);
+  EXPECT_TRUE((std::is_constructible<epee::span<char>, char*, std::size_t>::value));
+  EXPECT_FALSE((std::is_constructible<epee::span<char>, const char*, std::size_t>::value));
+  EXPECT_FALSE((std::is_constructible<epee::span<char>, unsigned char*, std::size_t>::value));
 
   EXPECT_TRUE((can_construct<epee::span<char>, std::nullptr_t>()));
   EXPECT_TRUE((can_construct<epee::span<char>, char(&)[1]>()));
@@ -193,10 +193,10 @@ TEST(Span, ImmutableConstruction)
 {
   struct no_conversion{};
 
-  EXPECT_TRUE(std::is_constructible<epee::span<const char>>());
-  EXPECT_TRUE((std::is_constructible<epee::span<const char>, char*, std::size_t>()));
-  EXPECT_TRUE((std::is_constructible<epee::span<const char>, const char*, std::size_t>()));
-  EXPECT_FALSE((std::is_constructible<epee::span<const char>, unsigned char*, std::size_t>()));
+  EXPECT_TRUE(std::is_constructible<epee::span<const char>>::value);
+  EXPECT_TRUE((std::is_constructible<epee::span<const char>, char*, std::size_t>::value));
+  EXPECT_TRUE((std::is_constructible<epee::span<const char>, const char*, std::size_t>::value));
+  EXPECT_FALSE((std::is_constructible<epee::span<const char>, unsigned char*, std::size_t>::value));
 
   EXPECT_FALSE((can_construct<epee::span<const char>, std::string>()));
   EXPECT_FALSE((can_construct<epee::span<const char>, std::vector<char>>()));
@@ -219,11 +219,11 @@ TEST(Span, ImmutableConstruction)
 
 TEST(Span, NoExcept)
 {
-  EXPECT_TRUE(std::is_nothrow_default_constructible<epee::span<char>>());
-  EXPECT_TRUE(std::is_nothrow_move_constructible<epee::span<char>>());
-  EXPECT_TRUE(std::is_nothrow_copy_constructible<epee::span<char>>());
-  EXPECT_TRUE(std::is_move_assignable<epee::span<char>>());
-  EXPECT_TRUE(std::is_copy_assignable<epee::span<char>>());
+  EXPECT_TRUE(std::is_nothrow_default_constructible<epee::span<char>>::value);
+  EXPECT_TRUE(std::is_nothrow_move_constructible<epee::span<char>>::value);
+  EXPECT_TRUE(std::is_nothrow_copy_constructible<epee::span<char>>::value);
+  EXPECT_TRUE(std::is_move_assignable<epee::span<char>>::value);
+  EXPECT_TRUE(std::is_copy_assignable<epee::span<char>>::value);
 
   char data[10];
   epee::span<char> lvalue(data);
