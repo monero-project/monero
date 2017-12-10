@@ -204,7 +204,7 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::load_checkpoints_from_json(const std::string json_hashfile_fullpath)
+  bool checkpoints::load_checkpoints_from_json(const std::string &json_hashfile_fullpath)
   {
     boost::system::error_code errcode;
     if (! (boost::filesystem::exists(json_hashfile_fullpath, errcode)))
@@ -286,7 +286,7 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::load_new_checkpoints(const std::string json_hashfile_fullpath, bool testnet, bool dns)
+  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, bool testnet, bool dns)
   {
     bool result;
 

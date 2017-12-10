@@ -165,7 +165,7 @@ namespace cryptonote
      *
      * @return true if loading successful and no conflicts
      */
-    bool load_new_checkpoints(const std::string json_hashfile_fullpath, bool testnet=false, bool dns=true);
+    bool load_new_checkpoints(const std::string &json_hashfile_fullpath, bool testnet=false, bool dns=true);
 
     /**
      * @brief load new checkpoints from json
@@ -174,7 +174,7 @@ namespace cryptonote
      *
      * @return true if loading successful and no conflicts
      */
-    bool load_checkpoints_from_json(const std::string json_hashfile_fullpath);
+    bool load_checkpoints_from_json(const std::string &json_hashfile_fullpath);
 
     /**
      * @brief load new checkpoints from DNS
