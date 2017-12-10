@@ -10,12 +10,12 @@ fi
 type="$1"
 if test -z "$type"
 then
-  echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json"
+  echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58"
   exit 1
 fi
 case "$type" in
-  block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json) ;;
-  *) echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json"; exit 1 ;;
+  block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58) ;;
+  *) echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58"; exit 1 ;;
 esac
 
 if test -d "fuzz-out/$type"

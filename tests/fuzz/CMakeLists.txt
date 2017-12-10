@@ -113,3 +113,15 @@ set_property(TARGET load-from-json_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+add_executable(base58_fuzz_tests base58.cpp fuzzer.cpp)
+target_link_libraries(base58_fuzz_tests
+  PRIVATE
+    common
+    epee
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+set_property(TARGET base58_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
