@@ -4950,6 +4950,7 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
   if (global_index == real_index) // don't re-add real one
     return false;
   auto item = std::make_tuple(global_index, tx_public_key, mask);
+  CHECK_AND_ASSERT_MES(!outs.empty(), false, "internal error: outs is empty");
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
     return false;
   outs.back().push_back(item);

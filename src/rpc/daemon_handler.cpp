@@ -799,6 +799,10 @@ namespace rpc
     }
 
     header.hash = hash_in;
+    if (b.miner_tx.vin.size() != 1 || b.miner_tx.vin.front().type() != typeid(txin_gen))
+    {
+      return false;
+    }
     header.height = boost::get<txin_gen>(b.miner_tx.vin.front()).height;
 
     header.major_version = b.major_version;

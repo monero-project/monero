@@ -305,7 +305,7 @@ namespace net_utils
 		m_connections.back().powner = this;
 		m_connections.back().m_self_it = --m_connections.end();
 		m_connections.back().m_context.m_remote_address = remote_address;
-		m_connections.back().m_htread = threads_helper::create_thread(ConnectionHandlerProc, &m_connections.back());
+		m_connections.back().m_htread = threads_helper::create_thread(ConnectionHandlerProc, &m_connections.back()); // ugh, seems very risky
 
 		return true;
 	}

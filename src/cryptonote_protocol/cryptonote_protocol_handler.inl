@@ -1003,6 +1003,11 @@ skip:
           MDEBUG(context << " next span in the queue has blocks " << start_height << "-" << (start_height + blocks.size() - 1)
               << ", we need " << previous_height);
 
+          if (blocks.empty())
+          {
+            MERROR("Next span has no blocks");
+            break;
+          }
 
           block new_block;
           if (!parse_and_validate_block_from_blob(blocks.front().block, new_block))
@@ -1498,6 +1503,7 @@ skip:
 
       NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
       m_core.get_short_chain_history(r.block_ids);
+      CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
 
       if (!start_from_current_chain)
       {

@@ -205,6 +205,8 @@ namespace
    */
   bool checksum_test(std::vector<std::string> seed, uint32_t unique_prefix_length)
   {
+    if (seed.empty())
+      return false;
     // The last word is the checksum.
     std::string last_word = seed.back();
     seed.pop_back();
