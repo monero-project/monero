@@ -2894,7 +2894,7 @@ uint64_t BlockchainLMDB::add_block(const block& blk, const size_t& block_size, c
   {
     BlockchainDB::add_block(blk, block_size, cumulative_difficulty, coins_generated, txs);
   }
-  catch (DB_ERROR_TXN_START& e)
+  catch (const DB_ERROR_TXN_START& e)
   {
     throw;
   }
