@@ -236,7 +236,8 @@ namespace net_utils
 	namespace http
 	{
 
-		class http_simple_client: public i_target_handler
+		template<typename net_client_type>
+		class http_simple_client_template: public i_target_handler
 		{
 		private:
 			enum reciev_machine_state
@@ -259,7 +260,7 @@ namespace net_utils
 			};
 
 
-			blocked_mode_client m_net_client;
+			net_client_type m_net_client;
 			std::string m_host_buff;
 			std::string m_port;
 			http_client_auth m_auth;
@@ -276,7 +277,7 @@ namespace net_utils
 			bool m_ssl;
 
 		public:
-			explicit http_simple_client()
+			explicit http_simple_client_template()
 				: i_target_handler()
 				, m_net_client()
 				, m_host_buff()
@@ -428,6 +429,15 @@ namespace net_utils
 				CRITICAL_REGION_LOCAL(m_lock);
 				return invoke(uri, "POST", body, timeout, ppresponse_info, additional_params);
 			}
+			//---------------------------------------------------------------------------
+			bool test(const std::string &s, std::chrono::milliseconds timeout) // TEST FUNC ONLY
+			{
+				CRITICAL_REGION_LOCAL(m_lock);
+				m_net_client.set_test_data(s);
+				m_state = reciev_machine_state_header;
+				return handle_reciev(timeout);
+			}
+			//---------------------------------------------------------------------------
 		private: 
 			//---------------------------------------------------------------------------
 			inline bool handle_reciev(std::chrono::milliseconds timeout)
@@ -957,6 +967,7 @@ namespace net_utils
 				return true;
 			}
 		};
+		typedef http_simple_client_template<blocked_mode_client> http_simple_client;
 	}
 }
 }
