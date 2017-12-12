@@ -540,6 +540,11 @@ crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx)
   {
     if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
     {
+      if (ptx.dests.empty())
+      {
+        MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
+        return crypto::null_hash8;
+      }
       decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key); 
     }
   }
@@ -4050,6 +4055,11 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
     crypto::hash8 payment_id8 = null_hash8;
     if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
     {
+      if (ptx.dests.empty())
+      {
+        MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
+        return crypto::null_hash;
+      }
       if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key))
       {
         memcpy(payment_id.data, payment_id8.data, 8);
@@ -4274,6 +4284,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
   for (size_t n = 0; n < exported_txs.txes.size(); ++n)
   {
     tools::wallet2::tx_construction_data &sd = exported_txs.txes[n];
+    THROW_WALLET_EXCEPTION_IF(sd.sources.empty(), error::wallet_internal_error, "Empty sources");
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << sd.sources[0].outputs.size());
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
@@ -6637,7 +6648,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       LOG_PRINT_L2("Made a " << ((txBlob.size() + 1023) / 1024) << " kB tx, with " << print_money(available_for_fee) << " available for fee (" <<
         print_money(needed_fee) << " needed)");
 
-      if (needed_fee > available_for_fee && dsts[0].amount > 0)
+      if (needed_fee > available_for_fee && !dsts.empty() && dsts[0].amount > 0)
       {
         // we don't have enough for the fee, but we've only partially paid the current address,
         // so we can take the fee from the paid amount, since we'll have to make another tx anyway
@@ -8912,6 +8923,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
       throw std::runtime_error(oss.str());
     }
     cryptonote::block blk_min, blk_mid, blk_max;
+    if (res.blocks.size() < 3) throw std::runtime_error("Not enough blocks returned from daemon");
     if (!parse_and_validate_block_from_blob(res.blocks[0].block, blk_min)) throw std::runtime_error("failed to parse blob at height " + std::to_string(height_min));
     if (!parse_and_validate_block_from_blob(res.blocks[1].block, blk_mid)) throw std::runtime_error("failed to parse blob at height " + std::to_string(height_mid));
     if (!parse_and_validate_block_from_blob(res.blocks[2].block, blk_max)) throw std::runtime_error("failed to parse blob at height " + std::to_string(height_max));

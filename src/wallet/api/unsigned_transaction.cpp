@@ -293,6 +293,10 @@ std::vector<std::string> UnsignedTransactionImpl::recipientAddress() const
     // TODO: return integrated address if short payment ID exists
     std::vector<string> result;
     for (const auto &utx: m_unsigned_tx_set.txes) {
+        if (utx.dests.empty()) {
+          MERROR("empty destinations, skipped");
+          continue;
+        }
         result.push_back(cryptonote::get_account_address_as_str(m_wallet.m_wallet->testnet(), utx.dests[0].is_subaddress, utx.dests[0].addr));
     }
     return result;
