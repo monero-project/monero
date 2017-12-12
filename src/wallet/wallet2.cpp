@@ -6224,7 +6224,8 @@ bool wallet2::light_wallet_parse_rct_str(const std::string& rct_string, const cr
   if (decrypt) {
     // Decrypt the mask
     crypto::key_derivation derivation;
-    generate_key_derivation(tx_pub_key, get_account().get_keys().m_view_secret_key, derivation);
+    bool r = generate_key_derivation(tx_pub_key, get_account().get_keys().m_view_secret_key, derivation);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
     crypto::secret_key scalar;
     crypto::derivation_to_scalar(derivation, internal_output_index, scalar);
     sc_sub(decrypted_mask.bytes,encrypted_mask.bytes,rct::hash_to_scalar(rct::sk2rct(scalar)).bytes);
@@ -7414,12 +7415,14 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
       continue;
 
     crypto::public_key derived_out_key;
-    derive_public_key(derivation, n, address.m_spend_public_key, derived_out_key);
+    bool r = derive_public_key(derivation, n, address.m_spend_public_key, derived_out_key);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to derive public key");
     bool found = out_key->key == derived_out_key;
     crypto::key_derivation found_derivation = derivation;
     if (!found && !additional_derivations.empty())
     {
-      derive_public_key(additional_derivations[n], n, address.m_spend_public_key, derived_out_key);
+      r = derive_public_key(additional_derivations[n], n, address.m_spend_public_key, derived_out_key);
+      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to derive public key");
       found = out_key->key == derived_out_key;
       found_derivation = additional_derivations[n];
     }
@@ -7884,13 +7887,15 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
   for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
   {
     additional_derivations.push_back({});
-    generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back());
+    bool r = generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back());
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
   }
 
   while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++)) {
     const crypto::public_key tx_pub_key = pub_key_field.pub_key;
     crypto::key_derivation derivation;
-    generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+    bool r = generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
 
     for (size_t i = 0; i < td.m_tx.vout.size(); ++i)
     {
@@ -8177,13 +8182,15 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       const cryptonote::account_keys& keys = m_account.get_keys();
       const crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(spent_tx);
       crypto::key_derivation derivation;
-      generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+      bool r = generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
+      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
       const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(spent_tx);
       std::vector<crypto::key_derivation> additional_derivations;
       for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
       {
         additional_derivations.push_back({});
-        generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back());
+        r = generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back());
+        THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
       }
       size_t output_index = 0;
       for (const cryptonote::tx_out& out : spent_tx.vout)
