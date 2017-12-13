@@ -1611,7 +1611,7 @@ bool t_rpc_command_executor::alt_chain_info()
   }
 
   tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
-  for (const auto chain: res.chains)
+  for (const auto &chain: res.chains)
   {
     uint64_t start_height = (chain.height - chain.length + 1);
     tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)

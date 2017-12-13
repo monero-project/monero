@@ -5126,7 +5126,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       // if there are just enough outputs to mix with, use all of them.
       // Eventually this should become impossible.
       uint64_t num_outs = 0, num_recent_outs = 0;
-      for (auto he: resp_t.result.histogram)
+      for (const auto &he: resp_t.result.histogram)
       {
         if (he.amount == amount)
         {

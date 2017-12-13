@@ -385,7 +385,7 @@ float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
       i->second = (i->second + span.rate) / 2;
   }
   float conn_rate = -1, best_rate = 0;
-  for (auto i: speeds)
+  for (const auto &i: speeds)
   {
     if (i.first == connection_id)
       conn_rate = i.second;
