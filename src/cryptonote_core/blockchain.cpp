@@ -2053,49 +2053,6 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
   return true;
 }
 //------------------------------------------------------------------
-void Blockchain::print_blockchain(uint64_t start_index, uint64_t end_index) const
-{
-  LOG_PRINT_L3("Blockchain::" << __func__);
-  std::stringstream ss;
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  auto h = m_db->height();
-  if(start_index > h)
-  {
-    MERROR("Wrong starter index set: " << start_index << ", expected max index " << h);
-    return;
-  }
-
-  for(size_t i = start_index; i <= h && i != end_index; i++)
-  {
-    ss << "height " << i << ", timestamp " << m_db->get_block_timestamp(i) << ", cumul_dif " << m_db->get_block_cumulative_difficulty(i) << ", size " << m_db->get_block_size(i) << "\nid\t\t" << m_db->get_block_hash_from_height(i) << "\ndifficulty\t\t" << m_db->get_block_difficulty(i) << ", nonce " << m_db->get_block_from_height(i).nonce << ", tx_count " << m_db->get_block_from_height(i).tx_hashes.size() << std::endl;
-  }
-  MCINFO("globlal", "Current blockchain:" << std::endl << ss.str());
-}
-//------------------------------------------------------------------
-void Blockchain::print_blockchain_index() const
-{
-  LOG_PRINT_L3("Blockchain::" << __func__);
-  std::stringstream ss;
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  auto height = m_db->height();
-  if (height != 0)
-  {
-    for(uint64_t i = 0; i <= height; i++)
-    {
-      ss << "height: " << i << ", hash: " << m_db->get_block_hash_from_height(i);
-    }
-  }
-
-  MINFO("Current blockchain index:" << std::endl << ss.str());
-}
-//------------------------------------------------------------------
-//TODO: remove this function and references to it
-void Blockchain::print_blockchain_outs(const std::string& file) const
-{
-  LOG_PRINT_L3("Blockchain::" << __func__);
-  return;
-}
-//------------------------------------------------------------------
 // Find the split point between us and foreign blockchain and return
 // (by reference) the most recent common block hash along with up to
 // BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.

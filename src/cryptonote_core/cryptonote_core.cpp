@@ -1052,21 +1052,6 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, start_height, max_count);
   }
   //-----------------------------------------------------------------------------------------------
-  void core::print_blockchain(uint64_t start_index, uint64_t end_index) const
-  {
-    m_blockchain_storage.print_blockchain(start_index, end_index);
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::print_blockchain_index() const
-  {
-    m_blockchain_storage.print_blockchain_index();
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::print_blockchain_outs(const std::string& file)
-  {
-    m_blockchain_storage.print_blockchain_outs(file);
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const
   {
     return m_blockchain_storage.get_random_outs_for_amounts(req, res);
