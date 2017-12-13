@@ -4726,7 +4726,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
   for (const auto& td : transfers)
   {
     uint64_t amount = td.amount();
-    if (td.m_spent || amount < min_amount || amount > max_amount || td.m_subaddr_index.major != m_current_subaddress_account || subaddr_indices.count(td.m_subaddr_index.minor) == 0)
+    if (td.m_spent || amount < min_amount || amount > max_amount || td.m_subaddr_index.major != m_current_subaddress_account || (subaddr_indices.count(td.m_subaddr_index.minor) == 0 && !subaddr_indices.empty()))
       continue;
     amount_to_tds[amount].push_back(td);
     if (min_height > td.m_block_height) min_height = td.m_block_height;
