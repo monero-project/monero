@@ -321,6 +321,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
   if (!db->is_open())
   {
     LOG_ERROR("Attempted to init Blockchain with unopened DB");
+    delete db;
     return false;
   }
 
