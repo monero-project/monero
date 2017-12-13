@@ -95,8 +95,10 @@ namespace wallet_rpc
     struct request
     {
       uint32_t account_index;
+      std::vector<uint32_t> address_index;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
+        KV_SERIALIZE(address_index)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -601,6 +603,7 @@ namespace wallet_rpc
     uint64_t block_height;
     uint64_t unlock_time;
     cryptonote::subaddress_index subaddr_index;
+    std::string address;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(payment_id)
@@ -609,6 +612,7 @@ namespace wallet_rpc
       KV_SERIALIZE(block_height)
       KV_SERIALIZE(unlock_time)
       KV_SERIALIZE(subaddr_index)
+      KV_SERIALIZE(address)
     END_KV_SERIALIZE_MAP()
   };
 

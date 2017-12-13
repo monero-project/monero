@@ -356,13 +356,24 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      res.addresses.resize(m_wallet->get_num_subaddresses(req.account_index));
+      res.addresses.clear();
+      std::vector<uint32_t> req_address_index;
+      if (req.address_index.empty())
+      {
+        for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(req.account_index); ++i)
+          req_address_index.push_back(i);
+      }
+      else
+      {
+        req_address_index = req.address_index;
+      }
       tools::wallet2::transfer_container transfers;
       m_wallet->get_transfers(transfers);
-      cryptonote::subaddress_index index = {req.account_index, 0};
-      for (; index.minor < m_wallet->get_num_subaddresses(req.account_index); ++index.minor)
+      for (uint32_t i : req_address_index)
       {
-        auto& info = res.addresses[index.minor];
+        res.addresses.resize(res.addresses.size() + 1);
+        auto& info = res.addresses.back();
+        const cryptonote::subaddress_index index = {req.account_index, i};
         info.address = m_wallet->get_subaddress_as_str(index);
         info.label = m_wallet->get_subaddress_label(index);
         info.address_index = index.minor;
@@ -1254,6 +1265,7 @@ namespace tools
       rpc_payment.block_height = payment.m_block_height;
       rpc_payment.unlock_time  = payment.m_unlock_time;
       rpc_payment.subaddr_index = payment.m_subaddr_index;
+      rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
       res.payments.push_back(rpc_payment);
     }
 
@@ -1280,6 +1292,7 @@ namespace tools
         rpc_payment.block_height = payment.second.m_block_height;
         rpc_payment.unlock_time  = payment.second.m_unlock_time;
         rpc_payment.subaddr_index = payment.second.m_subaddr_index;
+        rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.second.m_subaddr_index);
         res.payments.push_back(std::move(rpc_payment));
       }
 
@@ -1330,6 +1343,7 @@ namespace tools
         rpc_payment.block_height = payment.m_block_height;
         rpc_payment.unlock_time  = payment.m_unlock_time;
         rpc_payment.subaddr_index = payment.m_subaddr_index;
+        rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
         res.payments.push_back(std::move(rpc_payment));
       }
     }
