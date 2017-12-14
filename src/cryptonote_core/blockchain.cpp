@@ -4236,9 +4236,9 @@ uint64_t Blockchain::get_txpool_tx_count(bool include_unrelayed_txes) const
   return m_db->get_txpool_tx_count(include_unrelayed_txes);
 }
 
-txpool_tx_meta_t Blockchain::get_txpool_tx_meta(const crypto::hash& txid) const
+bool Blockchain::get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const
 {
-  return m_db->get_txpool_tx_meta(txid);
+  return m_db->get_txpool_tx_meta(txid, meta);
 }
 
 bool Blockchain::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const
