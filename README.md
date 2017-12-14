@@ -133,6 +133,10 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
     xbps-install -S monero
 
+* GuixSD
+
+        guix package -i monero
+
 * OS X via [Homebrew](http://brew.sh)
 
         brew tap sammy007/cryptonight
