@@ -1024,7 +1024,7 @@ namespace cryptonote
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
 
-    HardFork *m_hardfork;
+    std::unique_ptr<HardFork> m_hardfork;
 
     bool m_testnet;
 
