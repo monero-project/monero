@@ -7818,6 +7818,46 @@ std::string wallet2::get_description() const
   return get_attribute(ATTRIBUTE_DESCRIPTION);
 }
 
+const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
+{
+  // ensure consistency
+  if (m_account_tags.second.size() != get_num_subaddress_accounts())
+    m_account_tags.second.resize(get_num_subaddress_accounts(), "");
+  for (const std::string& tag : m_account_tags.second)
+  {
+    if (!tag.empty() && m_account_tags.first.count(tag) == 0)
+      m_account_tags.first.insert({tag, ""});
+  }
+  for (auto i = m_account_tags.first.begin(); i != m_account_tags.first.end(); )
+  {
+    if (std::find(m_account_tags.second.begin(), m_account_tags.second.end(), i->first) == m_account_tags.second.end())
+      i = m_account_tags.first.erase(i);
+    else
+      ++i;
+  }
+  return m_account_tags;
+}
+
+void wallet2::set_account_tag(const std::set<uint32_t> account_indices, const std::string& tag)
+{
+  for (uint32_t account_index : account_indices)
+  {
+    THROW_WALLET_EXCEPTION_IF(account_index >= get_num_subaddress_accounts(), error::wallet_internal_error, "Account index out of bound");
+    if (m_account_tags.second[account_index] == tag)
+      MDEBUG("This tag is already assigned to this account");
+    else
+      m_account_tags.second[account_index] = tag;
+  }
+  get_account_tags();
+}
+
+void wallet2::set_account_tag_description(const std::string& tag, const std::string& description)
+{
+  THROW_WALLET_EXCEPTION_IF(tag.empty(), error::wallet_internal_error, "Tag must not be empty");
+  THROW_WALLET_EXCEPTION_IF(m_account_tags.first.count(tag) == 0, error::wallet_internal_error, "Tag is unregistered");
+  m_account_tags.first[tag] = description;
+}
+
 std::string wallet2::sign(const std::string &data) const
 {
   crypto::hash hash;

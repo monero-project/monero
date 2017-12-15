@@ -418,14 +418,24 @@ namespace tools
       res.total_balance = 0;
       res.total_unlocked_balance = 0;
       cryptonote::subaddress_index subaddr_index = {0,0};
+      const std::pair<std::map<std::string, std::string>, std::vector<std::string>> account_tags = m_wallet->get_account_tags();
+      if (!req.tag.empty() && account_tags.first.count(req.tag) == 0)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = (boost::format(tr("Tag %s is unregistered.")) % req.tag).str();
+        return false;
+      }
       for (; subaddr_index.major < m_wallet->get_num_subaddress_accounts(); ++subaddr_index.major)
       {
+        if (!req.tag.empty() && req.tag != account_tags.second[subaddr_index.major])
+          continue;
         wallet_rpc::COMMAND_RPC_GET_ACCOUNTS::subaddress_account_info info;
         info.account_index = subaddr_index.major;
         info.base_address = m_wallet->get_subaddress_as_str(subaddr_index);
         info.balance = m_wallet->balance(subaddr_index.major);
         info.unlocked_balance = m_wallet->unlocked_balance(subaddr_index.major);
         info.label = m_wallet->get_subaddress_label(subaddr_index);
+        info.tag = account_tags.second[subaddr_index.major];
         res.subaddress_accounts.push_back(info);
         res.total_balance += info.balance;
         res.total_unlocked_balance += info.unlocked_balance;
@@ -462,6 +472,66 @@ namespace tools
     try
     {
       m_wallet->set_subaddress_label({req.account_index, 0}, req.label);
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_account_tags(const wallet_rpc::COMMAND_RPC_GET_ACCOUNT_TAGS::request& req, wallet_rpc::COMMAND_RPC_GET_ACCOUNT_TAGS::response& res, epee::json_rpc::error& er)
+  {
+    const std::pair<std::map<std::string, std::string>, std::vector<std::string>> account_tags = m_wallet->get_account_tags();
+    for (const std::pair<std::string, std::string>& p : account_tags.first)
+    {
+      res.account_tags.resize(res.account_tags.size() + 1);
+      auto& info = res.account_tags.back();
+      info.tag = p.first;
+      info.label = p.second;
+      for (size_t i = 0; i < account_tags.second.size(); ++i)
+      {
+        if (account_tags.second[i] == info.tag)
+          info.accounts.push_back(i);
+      }
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_tag_accounts(const wallet_rpc::COMMAND_RPC_TAG_ACCOUNTS::request& req, wallet_rpc::COMMAND_RPC_TAG_ACCOUNTS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      m_wallet->set_account_tag(req.accounts, req.tag);
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_untag_accounts(const wallet_rpc::COMMAND_RPC_UNTAG_ACCOUNTS::request& req, wallet_rpc::COMMAND_RPC_UNTAG_ACCOUNTS::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      m_wallet->set_account_tag(req.accounts, "");
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_set_account_tag_description(const wallet_rpc::COMMAND_RPC_SET_ACCOUNT_TAG_DESCRIPTION::request& req, wallet_rpc::COMMAND_RPC_SET_ACCOUNT_TAG_DESCRIPTION::response& res, epee::json_rpc::error& er)
+  {
+    try
+    {
+      m_wallet->set_account_tag_description(req.tag, req.description);
     }
     catch (const std::exception& e)
     {
