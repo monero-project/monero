@@ -630,7 +630,11 @@ bool wallet2::get_seed(std::string& electrum_words, const std::string &passphras
   crypto::secret_key key = get_account().get_keys().m_spend_secret_key;
   if (!passphrase.empty())
     key = cryptonote::encrypt_key(key, passphrase);
-  crypto::ElectrumWords::bytes_to_words(key, electrum_words, seed_language);
+  if (!crypto::ElectrumWords::bytes_to_words(key, electrum_words, seed_language))
+  {
+    std::cout << "Failed to create seed from key for language: " << seed_language << std::endl;
+    return false;
+  }
 
   return true;
 }
