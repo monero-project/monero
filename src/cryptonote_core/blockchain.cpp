@@ -133,7 +133,7 @@ static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0),
+  m_db(), m_tx_pool(tx_pool), m_hardfork(nullptr), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -330,11 +330,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   if (m_hardfork == nullptr)
   {
     if (fakechain)
-      m_hardfork = new HardFork(*db, 1, 0);
+      m_hardfork.reset(new HardFork(*db, 1, 0));
     else if (m_testnet)
-      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      m_hardfork.reset(new HardFork(*db, 1, testnet_hard_fork_version_1_till));
     else
-      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      m_hardfork.reset(new HardFork(*db, 1, mainnet_hard_fork_version_1_till));
   }
   if (fakechain)
   {
@@ -353,7 +353,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   }
   m_hardfork->init();
 
-  m_db->set_hard_fork(m_hardfork);
+  m_db->set_hard_fork(m_hardfork.get());
 
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.
@@ -412,16 +412,6 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
 
   update_next_cumulative_size_limit();
   return true;
-}
-//------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
-{
-  if (hf != nullptr)
-    m_hardfork = hf;
-  bool res = init(db, testnet, NULL);
-  if (hf == nullptr)
-    hf = m_hardfork;
-  return res;
 }
 //------------------------------------------------------------------
 bool Blockchain::store_blockchain()
@@ -487,7 +477,6 @@ bool Blockchain::deinit()
     LOG_ERROR("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
   }
 
-  delete m_hardfork;
   delete m_db;
   return true;
 }
