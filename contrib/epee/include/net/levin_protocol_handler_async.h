@@ -743,9 +743,18 @@ void async_protocol_handler_config<t_connection_context>::del_out_connections(si
 	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
 	while (count > 0 && out_connections.size() > 0)
 	{
-		close(*out_connections.begin());
-		del_connection(m_connects.at(*out_connections.begin()));
-		out_connections.erase(out_connections.begin());
+		try
+		{
+			auto i = out_connections.begin();
+			async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
+			del_connection(conn);
+			close(*i);
+			out_connections.erase(i);
+		}
+		catch (const std::out_of_range &e)
+		{
+			MWARNING("Connection not found in m_connects, continuing");
+		}
 		--count;
 	}
 	
