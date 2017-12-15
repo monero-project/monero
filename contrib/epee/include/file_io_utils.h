@@ -132,6 +132,26 @@ namespace file_io_utils
 			return false;
 		}
 	}
+
+	inline
+		bool get_file_size(const std::string& path_to_file, uint64_t &size)
+	{
+		try
+		{
+			std::ifstream fstream;
+			fstream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+			fstream.open(path_to_file, std::ios_base::binary | std::ios_base::in | std::ios::ate);
+			size = fstream.tellg();
+			fstream.close();
+			return true;
+		}
+
+		catch(...)
+		{
+			return false;
+		}
+	}
+
 }
 }
 
