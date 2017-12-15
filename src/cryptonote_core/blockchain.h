@@ -119,17 +119,6 @@ namespace cryptonote
     bool init(BlockchainDB* db, const bool testnet = false, const cryptonote::test_options *test_options = NULL);
 
     /**
-     * @brief Initialize the Blockchain state
-     *
-     * @param db a pointer to the backing store to use for the blockchain
-     * @param hf a structure containing hardfork information
-     * @param testnet true if on testnet, else false
-     *
-     * @return true on success, false if any initialization steps fail
-     */
-    bool init(BlockchainDB* db, HardFork*& hf, const bool testnet = false);
-
-    /**
      * @brief Uninitializes the blockchain state
      *
      * Saves to disk any state that needs to be maintained

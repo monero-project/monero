@@ -414,16 +414,6 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, const cryptonote::te
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet)
-{
-  if (hf != nullptr)
-    m_hardfork.reset(hf);
-  bool res = init(db, testnet, NULL);
-  if (hf == nullptr)
-    hf = m_hardfork.get();
-  return res;
-}
-//------------------------------------------------------------------
 bool Blockchain::store_blockchain()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
