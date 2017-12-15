@@ -376,12 +376,16 @@ public:
         if(m_cache_in_buffer.size() < m_current_head.m_cb)
         {
           is_continue = false;
-          if(cb >= MIN_BYTES_WANTED && !m_invoke_response_handlers.empty())
+          if(cb >= MIN_BYTES_WANTED)
           {
-            //async call scenario
-            boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
-            response_handler->reset_timer();
-            MDEBUG(m_connection_context << "LEVIN_PACKET partial msg received. len=" << cb);
+            CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
+            if (!m_invoke_response_handlers.empty())
+            {
+              //async call scenario
+              boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
+              response_handler->reset_timer();
+              MDEBUG(m_connection_context << "LEVIN_PACKET partial msg received. len=" << cb);
+            }
           }
           break;
         }
