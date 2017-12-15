@@ -33,6 +33,7 @@
 #include <boost/thread/thread.hpp>
 #include "cryptonote_config.h"
 #include "include_base_utils.h"
+#include "file_io_utils.h"
 #include "net/http_client.h"
 #include "download.h"
 
@@ -74,9 +75,20 @@ namespace tools
     try
     {
       boost::unique_lock<boost::mutex> lock(control->mutex);
-      MINFO("Downloading " << control->uri << " to " << control->path);
+      std::ios_base::openmode mode = std::ios_base::out | std::ios_base::binary;
+      uint64_t existing_size = 0;
+      if (epee::file_io_utils::get_file_size(control->path, existing_size) && existing_size > 0)
+      {
+        MINFO("Resuming downloading " << control->uri << " to " << control->path << " from " << existing_size);
+        mode |= std::ios_base::app;
+      }
+      else
+      {
+        MINFO("Downloading " << control->uri << " to " << control->path);
+        mode |= std::ios_base::trunc;
+      }
       std::ofstream f;
-      f.open(control->path, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+      f.open(control->path, mode);
       if (!f.good()) {
         MERROR("Failed to open file " << control->path);
         control->result_cb(control->path, control->uri, control->success);
@@ -85,11 +97,13 @@ namespace tools
       class download_client: public epee::net_utils::http::http_simple_client
       {
       public:
-        download_client(download_async_handle control, std::ofstream &f):
-          control(control), f(f), content_length(-1), total(0) {}
+        download_client(download_async_handle control, std::ofstream &f, uint64_t offset = 0):
+          control(control), f(f), content_length(-1), total(0), offset(offset) {}
         virtual ~download_client() { f.close(); }
         virtual bool on_header(const epee::net_utils::http::http_response_info &headers)
         {
+          for (const auto &kv: headers.m_header_info.m_etc_fields)
+            MDEBUG("Header: " << kv.first << ": " << kv.second);
           ssize_t length;
           if (epee::string_tools::get_xtype_from_string(length, headers.m_header_info.m_content_length) && length >= 0)
           {
@@ -102,6 +116,26 @@ namespace tools
               const uint64_t avail = (si.available + 1023) / 1024, needed = (content_length + 1023) / 1024;
               MERROR("Not enough space to download " << needed << " kB to " << path << " (" << avail << " kB available)");
               return false;
+            }
+          }
+          if (offset > 0)
+          {
+            // we requested a range, so check if we're getting it, otherwise truncate
+            bool got_range = false;
+            const std::string prefix = "bytes=" + std::to_string(offset) + "-";
+            for (const auto &kv: headers.m_header_info.m_etc_fields)
+            {
+              if (kv.first == "Content-Range" && strncmp(kv.second.c_str(), prefix.c_str(), prefix.size()))
+              {
+                got_range = true;
+                break;
+              }
+            }
+            if (!got_range)
+            {
+              MWARNING("We did not get the requested range, downloading from start");
+              f.close();
+              f.open(control->path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
             }
           }
           return true;
@@ -130,7 +164,8 @@ namespace tools
         std::ofstream &f;
         ssize_t content_length;
         size_t total;
-      } client(control, f);
+        uint64_t offset;
+      } client(control, f, existing_size);
       epee::net_utils::http::url_content u_c;
       if (!epee::net_utils::parse_url(control->uri, u_c))
       {
@@ -159,7 +194,14 @@ namespace tools
       }
       MDEBUG("GETting " << u_c.uri);
       const epee::net_utils::http::http_response_info *info = NULL;
-      if (!client.invoke_get(u_c.uri, std::chrono::seconds(30), "", &info))
+      epee::net_utils::http::fields_list fields;
+      if (existing_size > 0)
+      {
+        const std::string range = "bytes=" + std::to_string(existing_size) + "-";
+        MDEBUG("Asking for range: " << range);
+        fields.push_back(std::make_pair("Range", range));
+      }
+      if (!client.invoke_get(u_c.uri, std::chrono::seconds(30), "", &info, fields))
       {
         boost::lock_guard<boost::mutex> lock(control->mutex);
         MERROR("Failed to connect to " << control->uri);
@@ -189,7 +231,7 @@ namespace tools
       MDEBUG("response body: " << info->m_body);
       for (const auto &f: info->m_additional_fields)
         MDEBUG("additional field: " << f.first << ": " << f.second);
-      if (info->m_response_code != 200)
+      if (info->m_response_code != 200 && info->m_response_code != 206)
       {
         boost::lock_guard<boost::mutex> lock(control->mutex);
         MERROR("Status code " << info->m_response_code);
