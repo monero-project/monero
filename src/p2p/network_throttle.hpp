@@ -80,7 +80,8 @@ namespace net_utils
 {
 
 // just typedefs to in code define the units used. TODO later it will be enforced that casts to other numericals are only explicit to avoid mistakes? use boost::chrono?
-typedef double network_speed_kbps;
+typedef double network_speed_kbps;   // externally, for parameters and return values, all defined in kilobytes per second
+typedef double network_speed_bps;    // throttle-internally, bytes per second
 typedef double network_time_seconds;
 typedef double network_MB;
 
@@ -137,7 +138,6 @@ class i_network_throttle {
 	public:
 		virtual void set_name(const std::string &name)=0;
 		virtual void set_target_speed( network_speed_kbps target )=0;
-		virtual void set_real_target_speed(network_speed_kbps real_target)=0;
 		virtual network_speed_kbps get_target_speed()=0;
 
 		virtual void handle_trafic_exact(size_t packet_size) =0; // count the new traffic/packet; the size is exact considering all network costs
