@@ -42,6 +42,7 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
+#include <boost/regex.hpp>
 #include "include_base_utils.h"
 #include "common/i18n.h"
 #include "common/command_line.h"
@@ -933,6 +934,10 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("stop_mining",
                            boost::bind(&simple_wallet::stop_mining, this, _1),
                            tr("Stop mining in the daemon."));
+  m_cmd_binder.set_handler("set_daemon",
+                           boost::bind(&simple_wallet::set_daemon, this, _1),
+                           tr("set_daemon <host>[:<port>]"),
+                           tr("Set another daemon to connect to."));
   m_cmd_binder.set_handler("save_bc",
                            boost::bind(&simple_wallet::save_bc, this, _1),
                            tr("Save the current blockchain data."));
@@ -1890,7 +1895,7 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
     if (!silent)
       fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
         tr("Daemon either is not started or wrong port was passed. "
-        "Please make sure daemon is running or restart the wallet with the correct daemon address.");
+        "Please make sure daemon is running or change the daemon address using the 'set_daemon' command.");
     return false;
   }
   if (!m_allow_mismatched_daemon_version && ((*version >> 16) != CORE_RPC_VERSION_MAJOR))
@@ -2292,6 +2297,42 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
     success_msg_writer() << tr("Mining stopped in daemon");
   else
     fail_msg_writer() << tr("mining has NOT been stopped: ") << err;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::set_daemon(const std::vector<std::string>& args)
+{
+  std::string daemon_url;
+
+  if (args.size() < 1)
+  {
+    fail_msg_writer() << tr("missing daemon URL argument");
+    return true;
+  }
+
+  boost::regex rgx("^(.*://)?([A-Za-z0-9\\-\\.]+)(:[0-9]+)?");
+  boost::cmatch match;
+  // If user input matches URL regex
+  if (boost::regex_match(args[0].c_str(), match, rgx))
+  {
+    if (match.length() < 4)
+    {
+      fail_msg_writer() << tr("Unexpected array length - Exited simple_wallet::set_daemon()");
+      return true;
+    }
+    // If no port has been provided, use the default from config
+    if (!match[3].length())
+    {
+      int daemon_port = m_wallet->testnet() ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+      daemon_url = match[1] + match[2] + std::string(":") + std::to_string(daemon_port);
+    } else {
+      daemon_url = args[0];
+    }
+    LOCK_IDLE_SCOPE();
+    m_wallet->init(daemon_url);
+  } else {
+    fail_msg_writer() << tr("This does not seem to be a valid daemon URL.");
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------

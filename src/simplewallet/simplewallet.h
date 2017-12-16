@@ -128,7 +128,8 @@ namespace cryptonote
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
-    bool save_bc(const std::vector<std::string>& args);
+    bool set_daemon(const std::vector<std::string> &args);
+    bool save_bc(const std::vector<std::string> &args);
     bool refresh(const std::vector<std::string> &args);
     bool show_balance_unlocked(bool detailed = false);
     bool show_balance(const std::vector<std::string> &args = std::vector<std::string>());
