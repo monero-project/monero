@@ -75,6 +75,10 @@ namespace cryptonote
   , "Run on testnet. The wallet must be launched with --testnet flag."
   , false
   };
+  const command_line::arg_descriptor<bool> arg_offline = {
+    "offline"
+  , "Do not listen for peers, nor connect to any"
+  };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
@@ -227,6 +231,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_check_updates);
     command_line::add_arg(desc, arg_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
+    command_line::add_arg(desc, arg_offline);
 
     // we now also need some of net_node's options (p2p bind arg, for separate data dir)
     command_line::add_arg(desc, nodetool::arg_testnet_p2p_bind_port, false);
@@ -264,6 +269,7 @@ namespace cryptonote
     set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_fluffy_blocks_enabled = m_testnet || get_arg(vm, arg_fluffy_blocks);
+    m_offline = get_arg(vm, arg_offline);
 
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
@@ -1340,8 +1346,13 @@ namespace cryptonote
   {
     if(!m_starter_message_showed)
     {
+      std::string main_message;
+      if (m_offline)
+        main_message = "The daemon is running offline and will not attempt to sync to the Monero network.";
+      else
+        main_message = "The daemon will start synchronizing with the network. This may take a long time to complete.";
       MGINFO_YELLOW(ENDL << "**********************************************************************" << ENDL
-        << "The daemon will start synchronizing with the network. This may take a long time to complete." << ENDL
+        << main_message << ENDL
         << ENDL
         << "You can set the level of process detailization through \"set_log <level|categories>\" command," << ENDL
         << "where <level> is between 0 (no details) and 4 (very verbose), or custom category based levels (eg, *:WARNING)." << ENDL
@@ -1403,6 +1414,9 @@ namespace cryptonote
     static const char buildtag[] = "source";
     static const char subdir[] = "source"; // because it can never be simple
 #endif
+
+    if (m_offline)
+      return true;
 
     if (check_updates_level == UPDATES_DISABLED)
       return true;

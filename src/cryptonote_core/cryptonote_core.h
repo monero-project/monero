@@ -62,6 +62,7 @@ namespace cryptonote
   extern const command_line::arg_descriptor<std::string> arg_data_dir;
   extern const command_line::arg_descriptor<std::string> arg_testnet_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
+  extern const command_line::arg_descriptor<bool> arg_offline;
 
   /************************************************************************/
   /*                                                                      */
@@ -773,6 +774,13 @@ namespace cryptonote
       */
      uint64_t get_free_space() const;
 
+     /**
+      * @brief get whether the core is running offline
+      *
+      * @return whether the core is running offline
+      */
+     bool offline() const { return m_offline; }
+
    private:
 
      /**
@@ -1000,6 +1008,7 @@ namespace cryptonote
      boost::mutex m_update_mutex;
 
      bool m_fluffy_blocks_enabled;
+     bool m_offline;
    };
 }
 
