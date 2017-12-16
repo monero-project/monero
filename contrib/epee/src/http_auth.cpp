@@ -125,6 +125,14 @@ namespace
       {
         (*this)(boost::string_ref(arg));
       }
+      void operator()(const epee::wipeable_string& arg) const
+      {
+        md5::MD5Update(
+          std::addressof(ctx),
+          reinterpret_cast<const std::uint8_t*>(arg.data()),
+          arg.size()
+        );
+      }
 
       md5::MD5_CTX& ctx;
     };

@@ -206,7 +206,8 @@ namespace tools
         }
         std::fputs(http_login->username.c_str(), rpc_login_file.handle());
         std::fputc(':', rpc_login_file.handle());
-        std::fputs(http_login->password.c_str(), rpc_login_file.handle());
+        const epee::wipeable_string password = http_login->password;
+        std::fwrite(password.data(), 1, password.size(), rpc_login_file.handle());
         std::fflush(rpc_login_file.handle());
         if (std::ferror(rpc_login_file.handle()))
         {

@@ -46,6 +46,8 @@
   #include "readline_buffer.h"
 #endif
 
+#include "common/memwipe.h"
+
 namespace
 {
 #if defined(_WIN32)
@@ -54,7 +56,7 @@ namespace
     return 0 != _isatty(_fileno(stdin));
   }
 
-  bool read_from_tty(std::string& pass)
+  bool read_from_tty(epee::wipeable_string& pass)
   {
     static constexpr const char BACKSPACE = 8;
 
@@ -86,8 +88,7 @@ namespace
       {
         if (!pass.empty())
         {
-          pass.back() = '\0';
-          pass.resize(pass.size() - 1);
+          pass.pop_back();
         }
       }
       else
@@ -125,7 +126,7 @@ namespace
     return ch;
   }
 
-  bool read_from_tty(std::string& aPass)
+  bool read_from_tty(epee::wipeable_string& aPass)
   {
     static constexpr const char BACKSPACE = 127;
 
@@ -146,8 +147,7 @@ namespace
       {
         if (!aPass.empty())
         {
-          aPass.back() = '\0';
-          aPass.resize(aPass.size() - 1);
+          aPass.pop_back();
         }
       }
       else
@@ -161,14 +161,7 @@ namespace
 
 #endif // end !WIN32
 
-  void clear(std::string& pass) noexcept
-  {
-    //! TODO Call a memory wipe function that hopefully is not optimized out
-    pass.replace(0, pass.capacity(), pass.capacity(), '\0');
-    pass.clear();
-  }
-
-  bool read_from_tty(const bool verify, const char *message, std::string& pass1, std::string& pass2)
+  bool read_from_tty(const bool verify, const char *message, epee::wipeable_string& pass1, epee::wipeable_string& pass2)
   {
     while (true)
     {
@@ -184,8 +177,8 @@ namespace
         if(pass1!=pass2)
         {
           std::cout << "Passwords do not match! Please try again." << std::endl;
-          clear(pass1);
-          clear(pass2);
+          pass1.clear();
+          pass2.clear();
         }
         else //new password matches
           return true;
@@ -198,7 +191,7 @@ namespace
     return false;
   }
 
-  bool read_from_file(std::string& pass)
+  bool read_from_file(epee::wipeable_string& pass)
   {
     pass.reserve(tools::password_container::max_password_size);
     for (size_t i = 0; i < tools::password_container::max_password_size; ++i)
@@ -233,7 +226,7 @@ namespace tools
 
   password_container::~password_container() noexcept
   {
-    clear(m_password);
+    m_password.clear();
   }
 
   boost::optional<password_container> password_container::prompt(const bool verify, const char *message)
@@ -249,9 +242,8 @@ namespace tools
   boost::optional<login> login::parse(std::string&& userpass, bool verify, const std::function<boost::optional<password_container>(bool)> &prompt)
   {
     login out{};
-    password_container wipe{std::move(userpass)};
 
-    const auto loc = wipe.password().find(':');
+    const auto loc = userpass.find(':');
     if (loc == std::string::npos)
     {
       auto result = prompt(verify);
@@ -262,10 +254,11 @@ namespace tools
     }
     else
     {
-      out.password = password_container{wipe.password().substr(loc + 1)};
+      out.password = password_container{userpass.substr(loc + 1)};
     }
 
-    out.username = wipe.password().substr(0, loc);
+    out.username = userpass.substr(0, loc);
+    password_container wipe{std::move(userpass)};
     return {std::move(out)};
   }
 } 

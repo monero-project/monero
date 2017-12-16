@@ -211,7 +211,7 @@ std::string get_a1(const http::login& user, const fields& src)
 {
   const std::string& realm = src.at(u8"realm");
   return boost::join(
-    std::vector<std::string>{user.username, realm, user.password}, u8":"
+    std::vector<std::string>{user.username, realm, std::string(user.password.data(), user.password.size())}, u8":"
   );
 }
 

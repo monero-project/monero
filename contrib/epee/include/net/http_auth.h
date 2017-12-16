@@ -33,7 +33,7 @@
 #include <functional>
 #include <string>
 #include <utility>
-
+#include "wipeable_string.h"
 #include "http_base.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -48,12 +48,12 @@ namespace net_utils
     struct login
     {
       login() : username(), password() {}
-      login(std::string username_, std::string password_)
+      login(std::string username_, wipeable_string password_)
         : username(std::move(username_)), password(std::move(password_))
       {}
 
       std::string username;
-      std::string password;
+      wipeable_string password;
     };
 
     //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.

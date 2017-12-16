@@ -50,6 +50,7 @@ set(unit_tests_sources
   hashchain.cpp
   http.cpp
   main.cpp
+  memwipe.cpp
   mnemonics.cpp
   mul_div.cpp
   parse_amount.cpp
@@ -100,6 +101,8 @@ if (NOT MSVC)
     PROPERTY
       COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 endif ()
+
+SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 
 add_test(
   NAME    unit_tests
