@@ -188,6 +188,15 @@ namespace cryptonote
     bool change_password(const std::vector<std::string>& args);
     bool payment_id(const std::vector<std::string> &args);
     bool print_fee_info(const std::vector<std::string> &args);
+    bool prepare_multisig(const std::vector<std::string>& args);
+    bool make_multisig(const std::vector<std::string>& args);
+    bool finalize_multisig(const std::vector<std::string> &args);
+    bool export_multisig(const std::vector<std::string>& args);
+    bool import_multisig(const std::vector<std::string>& args);
+    bool accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs);
+    bool sign_multisig(const std::vector<std::string>& args);
+    bool submit_multisig(const std::vector<std::string>& args);
+    bool export_raw_multisig(const std::vector<std::string>& args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);

@@ -111,7 +111,7 @@ TEST(ringct, MG_sigs)
             sk[j] = xm[ind][j];
         }
         key message = identity();
-        mgSig IIccss = MLSAG_Gen(message, P, sk, ind, R);
+        mgSig IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R);
         ASSERT_TRUE(MLSAG_Ver(message, P, IIccss, R));
 
         //#MG sig: false one
@@ -132,7 +132,7 @@ TEST(ringct, MG_sigs)
             sk[j] = xx[ind][j];
         }
         sk[2] = skGen();//asume we don't know one of the private keys..
-        IIccss = MLSAG_Gen(message, P, sk, ind, R);
+        IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R);
         ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, R));
 }
 
@@ -171,7 +171,7 @@ TEST(ringct, range_proofs)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -188,7 +188,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -235,7 +235,7 @@ TEST(ringct, range_proofs_with_fee)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3);
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -252,7 +252,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3);
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -310,7 +310,7 @@ TEST(ringct, simple)
         //compute sig with mixin 2
         xmr_amount txnfee = 1;
 
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, txnfee, 2);
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2);
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
@@ -344,7 +344,7 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
         }
     }
 
-    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, 3);;
+    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3);;
 }
 
 static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], uint64_t fee)
@@ -370,7 +370,7 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
         destinations.push_back(Pk);
     }
 
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, fee, 3);;
+    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3);;
 }
 
 static bool range_proof_test(bool expected_valid,

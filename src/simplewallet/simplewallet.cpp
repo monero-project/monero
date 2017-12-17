@@ -60,6 +60,7 @@
 #include "rapidjson/document.h"
 #include "common/json_util.h"
 #include "ringct/rctSigs.h"
+#include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
 #include <stdexcept>
 
@@ -340,6 +341,106 @@ namespace
     }
     return true;
   }
+
+  void handle_transfer_exception(const std::exception_ptr &e)
+  {
+    try
+    {
+      std::rethrow_exception(e);
+    }
+    catch (const tools::error::daemon_busy&)
+    {
+      fail_msg_writer() << tr("daemon is busy. Please try again later.");
+    }
+    catch (const tools::error::no_connection_to_daemon&)
+    {
+      fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
+    }
+    catch (const tools::error::wallet_rpc_error& e)
+    {
+      LOG_ERROR("RPC error: " << e.to_string());
+      fail_msg_writer() << tr("RPC error: ") << e.what();
+    }
+    catch (const tools::error::get_random_outs_error &e)
+    {
+      fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
+    }
+    catch (const tools::error::not_enough_unlocked_money& e)
+    {
+      LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
+        print_money(e.available()) %
+        print_money(e.tx_amount()));
+      fail_msg_writer() << tr("Not enough money in unlocked balance");
+    }
+    catch (const tools::error::not_enough_money& e)
+    {
+      LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
+        print_money(e.available()) %
+        print_money(e.tx_amount()));
+      fail_msg_writer() << tr("Not enough money in unlocked balance");
+    }
+    catch (const tools::error::tx_not_possible& e)
+    {
+      LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
+        print_money(e.available()) %
+        print_money(e.tx_amount() + e.fee())  %
+        print_money(e.tx_amount()) %
+        print_money(e.fee()));
+      fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
+    }
+    catch (const tools::error::not_enough_outs_to_mix& e)
+    {
+      auto writer = fail_msg_writer();
+      writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
+      for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
+      {
+        writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
+      }
+    }
+    catch (const tools::error::tx_not_constructed&)
+      {
+      fail_msg_writer() << tr("transaction was not constructed");
+    }
+    catch (const tools::error::tx_rejected& e)
+    {
+      fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+      std::string reason = e.reason();
+      if (!reason.empty())
+        fail_msg_writer() << tr("Reason: ") << reason;
+    }
+    catch (const tools::error::tx_sum_overflow& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+    catch (const tools::error::zero_destination&)
+    {
+      fail_msg_writer() << tr("one of destinations is zero");
+    }
+    catch (const tools::error::tx_too_big& e)
+    {
+      fail_msg_writer() << tr("failed to find a suitable way to split transactions");
+    }
+    catch (const tools::error::transfer_error& e)
+    {
+      LOG_ERROR("unknown transfer error: " << e.to_string());
+      fail_msg_writer() << tr("unknown transfer error: ") << e.what();
+    }
+    catch (const tools::error::multisig_export_needed& e)
+    {
+      LOG_ERROR("Multisig error: " << e.to_string());
+      fail_msg_writer() << tr("Multisig error: ") << e.what();
+    }
+    catch (const tools::error::wallet_internal_error& e)
+    {
+      LOG_ERROR("internal error: " << e.to_string());
+      fail_msg_writer() << tr("internal error: ") << e.what();
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR("unexpected error: " << e.what());
+      fail_msg_writer() << tr("unexpected error: ") << e.what();
+    }
+  }
 }
 
 bool parse_priority(const std::string& arg, uint32_t& priority)
@@ -417,6 +518,11 @@ bool simple_wallet::print_seed(bool encrypted)
   bool success =  false;
   std::string electrum_words;
 
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("wallet is multisig and has no seed");
+    return true;
+  }
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and has no seed");
@@ -468,6 +574,11 @@ bool simple_wallet::encrypted_seed(const std::vector<std::string> &args/* = std:
 
 bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("wallet is multisig and has no seed");
+    return true;
+  }
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and has no seed");
@@ -584,6 +695,469 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     else
       message_writer() << tr("No backlog at priority ") << priority;
   }
+  return true;
+}
+
+bool simple_wallet::prepare_multisig(const std::vector<std::string> &args)
+{
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is already multisig");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot be made multisig");
+    return true;
+  }
+
+  if(m_wallet->get_num_transfer_details())
+  {
+    fail_msg_writer() << tr("This wallet has been used before, please use a new wallet to create a multisig wallet");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your password is incorrect.");
+    return true;
+  }
+
+  std::string multisig_info = m_wallet->get_multisig_info();
+  success_msg_writer() << multisig_info;
+  success_msg_writer() << tr("Send this multisig info to all other participants, then use make_multisig <threshold> <info1> [<info2>...] with others' multisig info");
+  success_msg_writer() << tr("This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ");
+  return true;
+}
+
+bool simple_wallet::make_multisig(const std::vector<std::string> &args)
+{
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is already multisig");
+    return true;
+  }
+  if (m_wallet->watch_only())
+  {
+    fail_msg_writer() << tr("wallet is watch-only and cannot be made multisig");
+    return true;
+  }
+
+  if(m_wallet->get_num_transfer_details())
+  {
+    fail_msg_writer() << tr("This wallet has been used before, please use a new wallet to create a multisig wallet");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your original password was incorrect.");
+    return true;
+  }
+
+  if (args.size() < 2)
+  {
+    fail_msg_writer() << tr("usage: make_multisig <threshold> <multisiginfo1> [<multisiginfo2>...]");
+    return true;
+  }
+
+  // parse threshold
+  uint32_t threshold;
+  if (!string_tools::get_xtype_from_string(threshold, args[0]))
+  {
+    fail_msg_writer() << tr("Invalid threshold");
+    return true;
+  }
+
+  LOCK_IDLE_SCOPE();
+
+  try
+  {
+    auto local_args = args;
+    local_args.erase(local_args.begin());
+    std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
+    if (!multisig_extra_info.empty())
+    {
+      success_msg_writer() << tr("Another step is needed");
+      success_msg_writer() << multisig_extra_info;
+      success_msg_writer() << tr("Send this multisig info to all other participants, then use finalize_multisig <info1> [<info2>...] with others' multisig info");
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Error creating multisig: ") << e.what();
+    return true;
+  }
+
+  uint32_t total;
+  m_wallet->multisig(NULL, &threshold, &total);
+  success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
+      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+
+  return true;
+}
+
+bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  if (!m_wallet->multisig(&ready))
+  {
+    fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (ready)
+  {
+    fail_msg_writer() << tr("This wallet is already finalized");
+    return true;
+  }
+
+  const auto orig_pwd_container = get_and_verify_password();
+  if(orig_pwd_container == boost::none)
+  {
+    fail_msg_writer() << tr("Your original password was incorrect.");
+    return true;
+  }
+
+  if (args.size() < 2)
+  {
+    fail_msg_writer() << tr("usage: finalize_multisig <multisiginfo1> [<multisiginfo2>...]");
+    return true;
+  }
+
+  try
+  {
+    if (!m_wallet->finalize_multisig(orig_pwd_container->password(), args))
+    {
+      fail_msg_writer() << tr("Failed to finalize multisig");
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to finalize multisig: ") << e.what();
+    return true;
+  }
+
+  return true;
+}
+
+bool simple_wallet::export_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  if (!m_wallet->multisig(&ready))
+  {
+    fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_multisig_info <filename>");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password())
+    return true;
+
+  const std::string filename = args[0];
+  try
+  {
+    cryptonote::blobdata ciphertext = m_wallet->export_multisig();
+
+    bool r = epee::file_io_utils::save_string_to_file(filename, ciphertext);
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to save file ") << filename;
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting multisig info: " << e.what());
+    fail_msg_writer() << tr("Error exporting multisig info: ") << e.what();
+    return true;
+  }
+
+  success_msg_writer() << tr("Multisig info exported to ") << filename;
+  return true;
+}
+
+bool simple_wallet::import_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  uint32_t threshold, total;
+  if (!m_wallet->multisig(&ready, &threshold, &total))
+  {
+    fail_msg_writer() << tr("This wallet is not multisig");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() < threshold - 1)
+  {
+    fail_msg_writer() << tr("usage: import_multisig_info <filename1> [<filename2>...] - one for each other participant");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password())
+    return true;
+
+  std::vector<cryptonote::blobdata> info;
+  for (size_t n = 0; n < args.size(); ++n)
+  {
+    const std::string filename = args[n];
+    std::string data;
+    bool r = epee::file_io_utils::load_file_to_string(filename, data);
+    if (!r)
+    {
+      fail_msg_writer() << tr("failed to read file ") << filename;
+      return true;
+    }
+    info.push_back(std::move(data));
+  }
+
+  LOCK_IDLE_SCOPE();
+
+  // all read and parsed, actually import
+  try
+  {
+    size_t n_outputs = m_wallet->import_multisig(info);
+    // Clear line "Height xxx of xxx"
+    std::cout << "\r                                                                \r";
+    success_msg_writer() << tr("Multisig info imported");
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to import multisig info: ") << e.what();
+    return true;
+  }
+  if (m_trusted_daemon)
+  {
+    try
+    {
+      m_wallet->rescan_spent();
+    }
+    catch (const std::exception &e)
+    {
+      message_writer() << tr("Failed to update spent status after importing multisig info: ") << e.what();
+    }
+  }
+  else
+  {
+    message_writer() << tr("Untrusted daemon, spent status may be incorrect. Use a trusted daemon and run \"rescan_spent\"");
+  }
+  return true;
+}
+
+bool simple_wallet::accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs)
+{
+  std::string extra_message;
+  return accept_loaded_tx([&txs](){return txs.m_ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.m_ptx[n].construction_data;}, extra_message);
+}
+
+bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  if(!m_wallet->multisig(&ready))
+  {
+    fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: sign_multisig <filename>");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+
+  std::string filename = args[0];
+  std::vector<crypto::hash> txids;
+  uint32_t signers = 0;
+  try
+  {
+    bool r = m_wallet->sign_multisig_tx_from_file(filename, txids, [&](const tools::wallet2::multisig_tx_set &tx){ signers = tx.m_signers.size(); return accept_loaded_tx(tx); });
+    if (!r)
+    {
+      fail_msg_writer() << tr("Failed to sign multisig transaction");
+      return true;
+    }
+  }
+  catch (const tools::error::multisig_export_needed& e)
+  {
+    fail_msg_writer() << tr("Multisig error: ") << e.what();
+    return true;
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to sign multisig transaction: ") << e.what();
+    return true;
+  }
+
+  if (txids.empty())
+  {
+    uint32_t threshold;
+    m_wallet->multisig(NULL, &threshold);
+    uint32_t signers_needed = threshold - signers - 1;
+    success_msg_writer(true) << tr("Transaction successfully signed to file ") << filename << ", "
+        << signers_needed << " more signer(s) needed";
+    return true;
+  }
+  else
+  {
+    std::string txids_as_text;
+    for (const auto &txid: txids)
+    {
+      if (!txids_as_text.empty())
+        txids_as_text += (", ");
+      txids_as_text += epee::string_tools::pod_to_hex(txid);
+    }
+    success_msg_writer(true) << tr("Transaction successfully signed to file ") << filename << ", txid " << txids_as_text;
+    success_msg_writer(true) << tr("It may be relayed to the network with submit_multisig");
+  }
+  return true;
+}
+
+bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  uint32_t threshold;
+  if (!m_wallet->multisig(&ready, &threshold))
+  {
+    fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: submit_multisig <filename>");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+
+  if (!try_connect_to_daemon())
+    return true;
+
+  std::string filename = args[0];
+  try
+  {
+    tools::wallet2::multisig_tx_set txs;
+    bool r = m_wallet->load_multisig_tx_from_file(filename, txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
+    if (!r)
+    {
+      fail_msg_writer() << tr("Failed to load multisig transaction from file");
+      return true;
+    }
+    if (txs.m_signers.size() < threshold)
+    {
+      fail_msg_writer() << (boost::format(tr("Multisig transaction signed by only %u signers, needs %u more signatures"))
+          % txs.m_signers.size() % (threshold - txs.m_signers.size())).str();
+      return true;
+    }
+
+    // actually commit the transactions
+    for (auto &ptx: txs.m_ptx)
+    {
+      m_wallet->commit_tx(ptx);
+      success_msg_writer(true) << tr("Transaction successfully submitted, transaction ") << get_transaction_hash(ptx.tx) << ENDL
+          << tr("You can check its status by using the `show_transfers` command.");
+    }
+  }
+  catch (const std::exception &e)
+  {
+    handle_transfer_exception(std::current_exception());
+  }
+  catch (...)
+  {
+    LOG_ERROR("unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
+  return true;
+}
+
+bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
+{
+  bool ready;
+  uint32_t threshold;
+  if (!m_wallet->multisig(&ready, &threshold))
+  {
+    fail_msg_writer() << tr("This is not a multisig wallet");
+    return true;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return true;
+  }
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: export_raw_multisig <filename>");
+    return true;
+  }
+  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
+
+  std::string filename = args[0];
+  try
+  {
+    tools::wallet2::multisig_tx_set txs;
+    bool r = m_wallet->load_multisig_tx_from_file(filename, txs, [&](const tools::wallet2::multisig_tx_set &tx){ return accept_loaded_tx(tx); });
+    if (!r)
+    {
+      fail_msg_writer() << tr("Failed to load multisig transaction from file");
+      return true;
+    }
+    if (txs.m_signers.size() < threshold)
+    {
+      fail_msg_writer() << (boost::format(tr("Multisig transaction signed by only %u signers, needs %u more signatures"))
+          % txs.m_signers.size() % (threshold - txs.m_signers.size())).str();
+      return true;
+    }
+
+    // save the transactions
+    std::string filenames;
+    for (auto &ptx: txs.m_ptx)
+    {
+      const crypto::hash txid = cryptonote::get_transaction_hash(ptx.tx);
+      const std::string filename = std::string("raw_multisig_monero_tx_") + epee::string_tools::pod_to_hex(txid);
+      if (!filenames.empty())
+        filenames += ", ";
+      filenames += filename;
+      if (!epee::file_io_utils::save_string_to_file(filename, cryptonote::tx_to_blob(ptx.tx)))
+      {
+        fail_msg_writer() << tr("Failed to export multisig transaction to file ") << filename;
+        return true;
+      }
+    }
+    success_msg_writer() << tr("Saved exported multisig transaction file(s): ") << filenames;
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("unexpected error: " << e.what());
+    fail_msg_writer() << tr("unexpected error: ") << e.what();
+  }
+  catch (...)
+  {
+    LOG_ERROR("Unknown error");
+    fail_msg_writer() << tr("unknown error");
+  }
+
   return true;
 }
 
@@ -1165,6 +1739,35 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("fee",
                            boost::bind(&simple_wallet::print_fee_info, this, _1),
                            tr("Print the information about the current fee and transaction backlog."));
+  m_cmd_binder.set_handler("prepare_multisig", boost::bind(&simple_wallet::prepare_multisig, this, _1),
+                           tr("Export data needed to create a multisig wallet"));
+  m_cmd_binder.set_handler("make_multisig", boost::bind(&simple_wallet::make_multisig, this, _1),
+                           tr("make_multisig <threshold> <string1> [<string>...]"),
+                           tr("Turn this wallet into a multisig wallet"));
+  m_cmd_binder.set_handler("finalize_multisig",
+                           boost::bind(&simple_wallet::finalize_multisig, this, _1),
+                           tr("finalize_multisig <string> [<string>...]"),
+                           tr("Turn this wallet into a multisig wallet, extra step for N-1/N wallets"));
+  m_cmd_binder.set_handler("export_multisig_info",
+                           boost::bind(&simple_wallet::export_multisig, this, _1),
+                           tr("export_multisig <filename>"),
+                           tr("Export multisig info for other participants"));
+  m_cmd_binder.set_handler("import_multisig_info",
+                           boost::bind(&simple_wallet::import_multisig, this, _1),
+                           tr("import_multisig <filename> [<filename>...]"),
+                           tr("Import multisig info from other participants"));
+  m_cmd_binder.set_handler("sign_multisig",
+                           boost::bind(&simple_wallet::sign_multisig, this, _1),
+                           tr("sign_multisig <filename>"),
+                           tr("Sign a multisig transaction from a file"));
+  m_cmd_binder.set_handler("submit_multisig",
+                           boost::bind(&simple_wallet::submit_multisig, this, _1),
+                           tr("submit_multisig <filename>"),
+                           tr("Submit a signed multisig transaction from a file"));
+  m_cmd_binder.set_handler("export_raw_multisig_tx",
+                           boost::bind(&simple_wallet::export_raw_multisig, this, _1),
+                           tr("export_raw_multisig <filename>"),
+                           tr("Export a signed multisig transaction to a file"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),
@@ -2098,9 +2701,17 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
       return false;
     }
 
+    std::string prefix;
+    bool ready;
+    uint32_t threshold, total;
+    if (m_wallet->watch_only())
+      prefix = tr("Opened watch-only wallet");
+    else if (m_wallet->multisig(&ready, &threshold, &total))
+      prefix = (boost::format(tr("Opened %u/%u multisig wallet%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
+    else
+      prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<
-      (m_wallet->watch_only() ? tr("Opened watch-only wallet") : tr("Opened wallet")) << ": "
-      << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+      prefix << ": " << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     // If the wallet file is deprecated, we should ask for mnemonic language again and store
     // everything in the new format.
     // NOTE: this is_deprecated() refers to the wallet file format before becoming JSON. It does not refer to the "old english" seed words form of "deprecated" used elsewhere.
@@ -2205,6 +2816,12 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("wallet is multisig and cannot save a watch-only version");
+    return true;
+  }
+
   const auto pwd_container = tools::password_container::prompt(true, tr("Password for new watch-only wallet"));
 
   if (!pwd_container)
@@ -2498,9 +3115,12 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance_unlocked(bool detailed)
 {
+  std::string extra;
+  if (m_wallet->has_multisig_partial_key_images())
+    extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
-    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account));
+    << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
   std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(m_current_subaddress_account);
   if (!detailed || balance_per_subaddress.empty())
@@ -2594,7 +3214,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
       }
       std::string verbose_string;
       if (verbose)
-        verbose_string = (boost::format("%68s%68s") % td.get_public_key() % (td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : std::string('?', 64))).str();
+        verbose_string = (boost::format("%68s%68s") % td.get_public_key() % (td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : td.m_key_image_partial ? (epee::string_tools::pod_to_hex(td.m_key_image) + "/p") : std::string(64, '?'))).str();
       message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
         print_money(td.amount()) %
@@ -2856,101 +3476,6 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
     ostr << ENDL;
   }
   return true;
-}
-//----------------------------------------------------------------------------------------------------
-static void handle_transfer_exception(const std::exception_ptr &e)
-{
-  try
-  {
-    std::rethrow_exception(e);
-  }
-  catch (const tools::error::daemon_busy&)
-  {
-    fail_msg_writer() << tr("daemon is busy. Please try again later.");
-  }
-  catch (const tools::error::no_connection_to_daemon&)
-  {
-    fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
-  }
-  catch (const tools::error::wallet_rpc_error& e)
-  {
-    LOG_ERROR("RPC error: " << e.to_string());
-    fail_msg_writer() << tr("RPC error: ") << e.what();
-  }
-  catch (const tools::error::get_random_outs_error &e)
-  {
-    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
-  }
-  catch (const tools::error::not_enough_unlocked_money& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
-      print_money(e.available()) %
-      print_money(e.tx_amount()));
-    fail_msg_writer() << tr("Not enough money in unlocked balance");
-  }
-  catch (const tools::error::not_enough_money& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
-      print_money(e.available()) %
-      print_money(e.tx_amount()));
-    fail_msg_writer() << tr("Not enough money in unlocked balance");
-  }
-  catch (const tools::error::tx_not_possible& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
-      print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee())  %
-      print_money(e.tx_amount()) %
-      print_money(e.fee()));
-    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
-  }
-  catch (const tools::error::not_enough_outs_to_mix& e)
-  {
-    auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
-    {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
-    }
-  }
-  catch (const tools::error::tx_not_constructed&)
-  {
-    fail_msg_writer() << tr("transaction was not constructed");
-  }
-  catch (const tools::error::tx_rejected& e)
-  {
-    fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
-    std::string reason = e.reason();
-    if (!reason.empty())
-      fail_msg_writer() << tr("Reason: ") << reason;
-  }
-  catch (const tools::error::tx_sum_overflow& e)
-  {
-    fail_msg_writer() << e.what();
-  }
-  catch (const tools::error::zero_destination&)
-  {
-    fail_msg_writer() << tr("one of destinations is zero");
-  }
-  catch (const tools::error::tx_too_big& e)
-  {
-    fail_msg_writer() << tr("failed to find a suitable way to split transactions");
-  }
-  catch (const tools::error::transfer_error& e)
-  {
-    LOG_ERROR("unknown transfer error: " << e.to_string());
-    fail_msg_writer() << tr("unknown transfer error: ") << e.what();
-  }
-  catch (const tools::error::wallet_internal_error& e)
-  {
-    LOG_ERROR("internal error: " << e.to_string());
-    fail_msg_writer() << tr("internal error: ") << e.what();
-  }
-  catch (const std::exception& e)
-  {
-    LOG_ERROR("unexpected error: " << e.what());
-    fail_msg_writer() << tr("unexpected error: ") << e.what();
-  }
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_)
@@ -3279,7 +3804,19 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     // actually commit the transactions
-    if (m_wallet->watch_only())
+    if (m_wallet->multisig())
+    {
+      bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+      }
+      else
+      {
+        success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->watch_only())
     {
       bool r = m_wallet->save_tx(ptx_vector, "unsigned_monero_tx");
       if (!r)
@@ -3375,7 +3912,19 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     }
 
     // actually commit the transactions
-    if (m_wallet->watch_only())
+    if (m_wallet->multisig())
+    {
+      bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+      }
+      else
+      {
+        success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->watch_only())
     {
       bool r = m_wallet->save_tx(ptx_vector, "unsigned_monero_tx");
       if (!r)
@@ -3594,7 +4143,19 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     }
 
     // actually commit the transactions
-    if (m_wallet->watch_only())
+    if (m_wallet->multisig())
+    {
+      bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+      }
+      else
+      {
+        success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->watch_only())
     {
       bool r = m_wallet->save_tx(ptx_vector, "unsigned_monero_tx");
       if (!r)
@@ -3785,7 +4346,19 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     }
 
     // actually commit the transactions
-    if (m_wallet->watch_only())
+    if (m_wallet->multisig())
+    {
+      bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
+      if (!r)
+      {
+        fail_msg_writer() << tr("Failed to write transaction(s) to file");
+      }
+      else
+      {
+        success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->watch_only())
     {
       bool r = m_wallet->save_tx(ptx_vector, "unsigned_monero_tx");
       if (!r)
@@ -3873,6 +4446,11 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   {
     LOG_ERROR("unknown transfer error: " << e.to_string());
     fail_msg_writer() << tr("unknown transfer error: ") << e.what();
+  }
+  catch (const tools::error::multisig_export_needed& e)
+  {
+    LOG_ERROR("Multisig error: " << e.to_string());
+    fail_msg_writer() << tr("Multisig error: ") << e.what();
   }
   catch (const tools::error::wallet_internal_error& e)
   {
@@ -4086,6 +4664,11 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::signed_tx_set &txs)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
 {
+  if(m_wallet->multisig())
+  {
+     fail_msg_writer() << tr("This is a multisig wallet, it can only sign with sign_multisig");
+     return true;
+  }
   if(m_wallet->watch_only())
   {
      fail_msg_writer() << tr("This is a watch only wallet");
@@ -5359,10 +5942,20 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
+  bool ready;
+  uint32_t threshold, total;
+
   message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
   message_writer() << tr("Description: ") << m_wallet->get_description();
   message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-  message_writer() << tr("Watch only: ") << (m_wallet->watch_only() ? tr("Yes") : tr("No"));
+  std::string type;
+  if (m_wallet->watch_only())
+    type = tr("Watch only");
+  else if (m_wallet->multisig(&ready, &threshold, &total))
+    type = (boost::format(tr("%u/%u multisig%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
+  else
+    type = tr("Normal");
+  message_writer() << tr("Type: ") << type;
   message_writer() << tr("Testnet: ") << (m_wallet->testnet() ? tr("Yes") : tr("No"));
   return true;
 }
@@ -5377,6 +5970,11 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
   if (m_wallet->watch_only())
   {
     fail_msg_writer() << tr("wallet is watch-only and cannot sign");
+    return true;
+  }
+  if (m_wallet->multisig())
+  {
+    fail_msg_writer() << tr("This wallet is multisig and cannot sign");
     return true;
   }
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
@@ -5840,6 +6438,7 @@ int main(int argc, char* argv[])
   const auto vm = wallet_args::main(
    argc, argv,
    "monero-wallet-cli [--wallet-file=<file>|--generate-new-wallet=<file>] [<COMMAND>]",
+    sw::tr("This is the command line monero wallet. It needs to connect to a monero\ndaemon to work correctly."),
     desc_params,
     positional_options,
     [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },

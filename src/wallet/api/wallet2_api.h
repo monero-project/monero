@@ -812,10 +812,10 @@ struct WalletManager
      * @brief verifyWalletPassword - check if the given filename is the wallet
      * @param keys_file_name - location of keys file
      * @param password - password to verify
-     * @param watch_only - verify only view keys?
+     * @param no_spend_key - verify only view keys?
      * @return - true if password is correct
      */
-    virtual bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool watch_only) const = 0;
+    virtual bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key) const = 0;
 
     /*!
      * \brief findWallets - searches for the wallet files by given path name recursively

@@ -50,6 +50,8 @@ namespace tools
     //       wallet_internal_error
     //         unexpected_txin_type
     //         wallet_not_initialized
+    //       multisig_export_needed
+    //       multisig_import_needed
     //   std::logic_error
     //     wallet_logic_error *
     //       file_exists
@@ -186,7 +188,22 @@ namespace tools
       {
       }
     };
-
+    //----------------------------------------------------------------------------------------------------
+    struct multisig_export_needed : public wallet_runtime_error
+    {
+      explicit multisig_export_needed(std::string&& loc)
+        : wallet_runtime_error(std::move(loc), "This signature was made with stale data: export fresh multisig data, which other participants must then use")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct multisig_import_needed : public wallet_runtime_error
+    {
+      explicit multisig_import_needed(std::string&& loc)
+        : wallet_runtime_error(std::move(loc), "Not enough multisig data was found to sign: import multisig data from more other participants")
+      {
+      }
+    };
     //----------------------------------------------------------------------------------------------------
     const char* const file_error_messages[] = {
       "file already exists",
