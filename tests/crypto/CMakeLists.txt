@@ -42,6 +42,7 @@ add_executable(cncrypto-tests
   ${crypto_headers})
 target_link_libraries(cncrypto-tests
   PRIVATE
+    common
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
 set_property(TARGET cncrypto-tests

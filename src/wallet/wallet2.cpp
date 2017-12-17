@@ -60,6 +60,7 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
+#include "common/memwipe.h"
 #include "common/base58.h"
 #include "ringct/rctSigs.h"
 
@@ -2764,12 +2765,11 @@ bool wallet2::generate_chacha8_key_from_secret_keys(crypto::chacha8_key &key) co
   const account_keys &keys = m_account.get_keys();
   const crypto::secret_key &view_key = keys.m_view_secret_key;
   const crypto::secret_key &spend_key = keys.m_spend_secret_key;
-  char data[sizeof(view_key) + sizeof(spend_key) + 1];
-  memcpy(data, &view_key, sizeof(view_key));
-  memcpy(data + sizeof(view_key), &spend_key, sizeof(spend_key));
+  tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1> data;
+  memcpy(data.data(), &view_key, sizeof(view_key));
+  memcpy(data.data() + sizeof(view_key), &spend_key, sizeof(spend_key));
   data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
-  crypto::generate_chacha8_key(data, sizeof(data), key);
-  memset(data, 0, sizeof(data));
+  crypto::generate_chacha8_key(data.data(), sizeof(data), key);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
