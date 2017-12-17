@@ -241,11 +241,12 @@ namespace cryptonote
       * a miner instance with parameters given on the command line (or defaults)
       *
       * @param vm command line parameters
+      * @param config_subdir subdirectory for config storage
       * @param test_options configuration options for testing
       *
       * @return false if one of the init steps fails, otherwise true
       */
-     bool init(const boost::program_options::variables_map& vm, const test_options *test_options = NULL);
+     bool init(const boost::program_options::variables_map& vm, const char *config_subdir = NULL, const test_options *test_options = NULL);
 
      /**
       * @copydoc Blockchain::reset_and_set_genesis_block

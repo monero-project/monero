@@ -70,7 +70,7 @@
 #include <boost/asio/ip/unicast.hpp>
 
 #include "cryptonote_protocol_handler.h"
-#include "p2p/network_throttle.hpp"
+#include "net/network_throttle.hpp"
 
 #include "cryptonote_core/cryptonote_core.h" // e.g. for the send_stop_signal()
 

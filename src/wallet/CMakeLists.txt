@@ -82,7 +82,7 @@ target_link_libraries(wallet_rpc_server
   PRIVATE
     wallet
     epee
-    rpc
+    rpc_base
     cryptonote_core
     cncrypto
     common

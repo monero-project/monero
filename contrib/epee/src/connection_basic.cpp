@@ -32,7 +32,7 @@
 
 /* rfree: implementation for the non-template base, can be used by connection<> template class in abstract_tcp_server2 file  */
 
-#include "connection_basic.hpp"
+#include "net/connection_basic.hpp"
 
 #include <boost/asio.hpp>
 #include <string>
@@ -77,7 +77,7 @@
 #include "net/abstract_tcp_server2.h"
 
 // TODO:
-#include "network_throttle-detail.hpp"
+#include "net/network_throttle-detail.hpp"
 #include "cryptonote_core/cryptonote_core.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

@@ -37,11 +37,11 @@
 
 #include <boost/interprocess/detail/atomic.hpp>
 #include <list>
-#include <unordered_map>
+#include <ctime>
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
-#include "p2p/network_throttle-detail.hpp"
+#include "net/network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -1561,7 +1561,7 @@ skip:
   size_t t_cryptonote_protocol_handler<t_core>::get_synchronizing_connections_count()
   {
     size_t count = 0;
-    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id)->bool{
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
       if(context.m_state == cryptonote_connection_context::state_synchronizing)
         ++count;
       return true;
