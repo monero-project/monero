@@ -26,6 +26,8 @@
 
 #include "string_tools.h"
 
+#include <ctype.h>
+
 #ifdef _WIN32
 # include <winsock2.h>
 #else
@@ -54,6 +56,16 @@ namespace string_tools
     if(INADDR_NONE == ip)
       return false;
 
+    return true;
+  }
+  //----------------------------------------------------------------------------
+  bool validate_hex(uint64_t length, const std::string& str)
+  {
+    if (str.size() != length)
+      return false;
+    for (char c: str)
+      if (!isxdigit(c))
+        return false;
     return true;
   }
 }

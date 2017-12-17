@@ -2,9 +2,7 @@
 
 #include <streambuf>
 #include <sstream>
-#include <iostream>
 #include <vector>
-#include <algorithm>
 
 namespace rdln
 {

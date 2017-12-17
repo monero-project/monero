@@ -31,6 +31,7 @@
 #include <vector>
 #include <unordered_map>
 #include <boost/uuid/nil_generator.hpp>
+#include "string_tools.h"
 #include "cryptonote_protocol_defs.h"
 #include "block_queue.h"
 

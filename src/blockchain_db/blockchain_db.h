@@ -36,7 +36,7 @@
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
-#include "cryptonote_protocol/blobdatatype.h"
+#include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"

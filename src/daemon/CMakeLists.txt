@@ -59,7 +59,6 @@ set(daemon_private_headers
   rpc_command_executor.h
 
   # cryptonote_protocol
-  ../cryptonote_protocol/blobdatatype.h
   ../cryptonote_protocol/cryptonote_protocol_defs.h
   ../cryptonote_protocol/cryptonote_protocol_handler.h
   ../cryptonote_protocol/cryptonote_protocol_handler.inl

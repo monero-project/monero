@@ -31,23 +31,16 @@
 
 //#include <Winsock2.h>
 //#include <Ws2tcpip.h>
-#include <boost/lexical_cast.hpp>
-#include <iostream>
-#include <istream>
-#include <ostream>
 #include <string>
 #include <boost/version.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/preprocessor/selection/min.hpp>
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include "net/net_utils_base.h"
 #include "misc_language.h"
-//#include "profile_tools.h"
-#include "../string_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"

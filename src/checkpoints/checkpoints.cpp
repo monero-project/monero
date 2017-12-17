@@ -36,15 +36,38 @@ using namespace epee;
 
 #include "common/dns_utils.h"
 #include "include_base_utils.h"
+#include "string_tools.h"
 #include "storages/portable_storage_template_helper.h" // epee json include
-#include <sstream>
-#include <random>
+#include "serialization/keyvalue_serialization.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "checkpoints"
 
 namespace cryptonote
 {
+  /**
+   * @brief struct for loading a checkpoint from json
+   */
+  struct t_hashline
+  {
+    uint64_t height; //!< the height of the checkpoint
+    std::string hash; //!< the hash for the checkpoint
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(height)
+          KV_SERIALIZE(hash)
+        END_KV_SERIALIZE_MAP()
+  };
+
+  /**
+   * @brief struct for loading many checkpoints from json
+   */
+  struct t_hash_json {
+    std::vector<t_hashline> hashlines; //!< the checkpoint lines from the file
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(hashlines)
+        END_KV_SERIALIZE_MAP()
+  };
+
   //---------------------------------------------------------------------------
   checkpoints::checkpoints()
   {

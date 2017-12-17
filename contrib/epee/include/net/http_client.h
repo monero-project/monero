@@ -50,6 +50,7 @@
 #include "http_auth.h"
 #include "to_nonconst_iterator.h"
 #include "net_parse_helpers.h"
+#include "syncobj.h"
 
 //#include "shlwapi.h"
 

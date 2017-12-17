@@ -30,6 +30,7 @@
 #include "net/http_auth.h"
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/fusion/adapted/std_pair.hpp>
 #include <boost/range/algorithm/find_if.hpp>
 #include <boost/range/iterator_range_core.hpp>

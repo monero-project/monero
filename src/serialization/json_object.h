@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "string_tools.h"
 #include "rapidjson/document.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "rpc/message_data_structs.h"

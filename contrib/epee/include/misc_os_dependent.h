@@ -42,6 +42,9 @@
 #include <mach/mach.h>
 #endif
 
+#include <iostream>
+#include <boost/lexical_cast.hpp>
+
 #pragma once 
 namespace epee
 {

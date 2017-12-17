@@ -28,6 +28,7 @@
 
 #pragma once 
 
+#include "pragma_comp_defs.h"
 #include "misc_language.h"
 #include "portable_storage_base.h"
 

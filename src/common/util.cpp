@@ -54,6 +54,7 @@ using namespace epee;
   #include <sys/stat.h>
 #endif
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <openssl/sha.h>
 

@@ -59,8 +59,6 @@
 #include "common/password.h"
 #include "node_rpc_proxy.h"
 
-#include <iostream>
-
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 

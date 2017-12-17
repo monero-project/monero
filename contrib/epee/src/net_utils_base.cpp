@@ -1,5 +1,6 @@
 
 #include "net/net_utils_base.h"
+#include "string_tools.h"
 
 #include <cstring>
 #include <typeindex>
@@ -56,5 +57,34 @@ namespace epee { namespace net_utils
 		if (typeid(*self_) != typeid(*other_self)) return false;
 		return self_->is_same_host(*other_self);
 	}
+
+	bool create_network_address(network_address &address, const std::string &string, uint16_t default_port)
+	{
+		uint32_t ip;
+		uint16_t port;
+		if (epee::string_tools::parse_peer_from_string(ip, port, string))
+		{
+			if (default_port && !port)
+				port = default_port;
+			address = ipv4_network_address{ip, port};
+			return true;
+		}
+		return false;
+	}
+
+  std::string print_connection_context(const connection_context_base& ctx)
+  {
+    std::stringstream ss;
+    ss << ctx.m_remote_address.str() << " " << epee::string_tools::get_str_from_guid_a(ctx.m_connection_id) << (ctx.m_is_income ? " INC":" OUT");
+    return ss.str();
+  }
+
+  std::string print_connection_context_short(const connection_context_base& ctx)
+  {
+    std::stringstream ss;
+    ss << ctx.m_remote_address.str() << (ctx.m_is_income ? " INC":" OUT");
+    return ss.str();
+  }
+
 }}
 

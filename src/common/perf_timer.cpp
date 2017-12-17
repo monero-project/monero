@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <vector>
+#include "misc_os_dependent.h"
 #include "perf_timer.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -35,7 +37,8 @@ namespace tools
 {
 
 el::Level performance_timer_log_level = el::Level::Debug;
-__thread std::vector<PerformanceTimer*> *performance_timers = NULL;
+
+static __thread std::vector<PerformanceTimer*> *performance_timers = NULL;
 
 void set_performance_timer_log_level(el::Level level)
 {
@@ -46,6 +49,40 @@ void set_performance_timer_log_level(el::Level level)
     level = el::Level::Debug;
   }
   performance_timer_log_level = level;
+}
+
+PerformanceTimer::PerformanceTimer(const std::string &s, uint64_t unit, el::Level l): name(s), unit(unit), level(l), started(false)
+{
+  ticks = epee::misc_utils::get_ns_count();
+  if (!performance_timers)
+  {
+    MLOG(level, "PERF             ----------");
+    performance_timers = new std::vector<PerformanceTimer*>();
+  }
+  else
+  {
+    PerformanceTimer *pt = performance_timers->back();
+    if (!pt->started)
+    {
+      MLOG(pt->level, "PERF           " << std::string((performance_timers->size()-1) * 2, ' ') << "  " << pt->name);
+      pt->started = true;
+    }
+  }
+  performance_timers->push_back(this);
+}
+
+PerformanceTimer::~PerformanceTimer()
+{
+  performance_timers->pop_back();
+  ticks = epee::misc_utils::get_ns_count() - ticks;
+  char s[12];
+  snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)ticks / (1000000000 / unit));
+  MLOG(level, "PERF " << s << std::string(performance_timers->size() * 2, ' ') << "  " << name);
+  if (performance_timers->empty())
+  {
+    delete performance_timers;
+    performance_timers = NULL;
+  }
 }
 
 }
