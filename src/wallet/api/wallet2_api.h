@@ -42,6 +42,7 @@ namespace Monero {
 
     namespace Utils {
         bool isAddressLocal(const std::string &hostaddr);
+        void onStartup();
     }
 
     template<typename T>
