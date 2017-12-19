@@ -199,6 +199,11 @@ namespace tools
       bool not_open(epee::json_rpc::error& er);
       void handle_rpc_exception(const std::exception_ptr& e, epee::json_rpc::error& er, int default_error_code);
 
+      template<typename Ts, typename Tu>
+      bool fill_response(std::vector<tools::wallet2::pending_tx> &ptx_vector,
+          bool get_tx_key, Ts& tx_key, Tu &amount, Tu &fee, std::string &multisig_txset, bool do_not_relay,
+          Ts &tx_hash, bool get_tx_hex, Ts &tx_blob, bool get_tx_metadata, Ts &tx_metadata, epee::json_rpc::error &er);
+
       wallet2 *m_wallet;
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
