@@ -89,6 +89,8 @@ void wipeable_string::grow(size_t sz, size_t reserved)
     reserved = sz;
   if (reserved <= buffer.capacity())
   {
+    if (sz < buffer.size())
+      wipefunc(buffer.data() + sz, buffer.size() - sz);
     buffer.resize(sz);
     return;
   }
@@ -115,9 +117,6 @@ void wipeable_string::pop_back()
 
 void wipeable_string::resize(size_t sz)
 {
-  CHECK_AND_ASSERT_THROW_MES(wipefunc, "wipefunc is not set");
-  if (sz < buffer.size())
-    wipefunc(buffer.data() + sz, buffer.size() - sz);
   grow(sz);
 }
 
