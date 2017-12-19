@@ -44,7 +44,7 @@ class WalletSubaddress : public ::testing::Test
     {
       try
       {
-        w1.generate(wallet_name, password, recovery_key, true, false);
+        w1.generate("", password, recovery_key, true, false);
       }
       catch (const std::exception& e)
       {
@@ -58,24 +58,9 @@ class WalletSubaddress : public ::testing::Test
 
     virtual void TearDown()
     {
-      boost::filesystem::wpath wallet_file(wallet_name);
-      boost::filesystem::wpath wallet_address_file(wallet_name + ".address.txt");
-      boost::filesystem::wpath wallet_keys_file(wallet_name + ".keys");
-
-      if ( boost::filesystem::exists(wallet_file) )
-        boost::filesystem::remove(wallet_file);
-
-      if ( boost::filesystem::exists(wallet_address_file) )
-        boost::filesystem::remove(wallet_address_file);
-
-      if ( boost::filesystem::exists(wallet_keys_file) )
-        boost::filesystem::remove(wallet_keys_file);
     }
 
     tools::wallet2 w1;
-    std::string path_working_dir = ".";
-    std::string path_test_wallet = "test_wallet";
-    const std::string wallet_name = path_working_dir + "/" + path_test_wallet;
     const std::string password = "testpass";
     crypto::secret_key recovery_key = crypto::secret_key();
     const std::string test_label = "subaddress test label";
