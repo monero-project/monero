@@ -85,9 +85,8 @@ void wipeable_string::wipe()
 void wipeable_string::grow(size_t sz, size_t reserved)
 {
   CHECK_AND_ASSERT_THROW_MES(wipefunc, "wipefunc is not set");
-  if (reserved == 0)
+  if (reserved < sz)
     reserved = sz;
-  CHECK_AND_ASSERT_THROW_MES(reserved >= sz, "reserved < sz");
   if (reserved <= buffer.capacity())
   {
     buffer.resize(sz);
