@@ -89,7 +89,10 @@ void wipeable_string::grow(size_t sz, size_t reserved)
     reserved = sz;
   CHECK_AND_ASSERT_THROW_MES(reserved >= sz, "reserved < sz");
   if (reserved <= buffer.capacity())
+  {
+    buffer.resize(sz);
     return;
+  }
   size_t old_sz = buffer.size();
   std::unique_ptr<char[]> tmp{new char[old_sz]};
   memcpy(tmp.get(), buffer.data(), old_sz * sizeof(char));
@@ -103,7 +106,7 @@ void wipeable_string::grow(size_t sz, size_t reserved)
 void wipeable_string::push_back(char c)
 {
   grow(size() + 1);
-  buffer.push_back(c);
+  buffer.back() = c;
 }
 
 void wipeable_string::pop_back()
