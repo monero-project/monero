@@ -751,8 +751,8 @@ TEST(Serialization, portability_wallet)
       swap(tx_key0, tx_key1);
     ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key0->first) == "b9aac8c020ab33859e0c0b6331f46a8780d349e7ac17b067116e2d87bf48daad");
     ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key1->first) == "6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key0->second) == "bf3614c6de1d06c09add5d92a5265d8c76af706f7bc6ac830d6b0d109aa87701");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key1->second) == "e556884246df5a787def6732c6ea38f1e092fa13e5ea98f732b99c07a6332003");
+    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key0->second.inner()) == "bf3614c6de1d06c09add5d92a5265d8c76af706f7bc6ac830d6b0d109aa87701");
+    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key1->second.inner()) == "e556884246df5a787def6732c6ea38f1e092fa13e5ea98f732b99c07a6332003");
   }
   // confirmed txs
   ASSERT_TRUE(w.m_confirmed_txs.size() == 1);
@@ -824,7 +824,7 @@ TEST(Serialization, portability_outputs)
     return std::move(plaintext);
   };
   crypto::secret_key view_secret_key;
-  epee::string_tools::hex_to_pod("339673bb1187e2f73ba7841ab6841c5553f96e9f13f8fe6612e69318db4e9d0a", view_secret_key);
+  epee::string_tools::hex_to_pod("339673bb1187e2f73ba7841ab6841c5553f96e9f13f8fe6612e69318db4e9d0a", view_secret_key.inner());
   bool authenticated = true;
   data = decrypt(std::string(data, magiclen), view_secret_key, authenticated);
   ASSERT_FALSE(data.empty());
@@ -1108,7 +1108,7 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(ptx.selected_transfers.front() == 2);
   // ptx.{key_images, tx_key}
   ASSERT_TRUE(ptx.key_images == "<6c3cd6af97c4070a7aef9b1344e7463e29c7cd245076fdb65da447a34da3ca76> ");
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(ptx.tx_key) == "0100000000000000000000000000000000000000000000000000000000000000");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(ptx.tx_key.inner()) == "0100000000000000000000000000000000000000000000000000000000000000");
   // ptx.dests
   ASSERT_TRUE(ptx.dests.size() == 1);
   ASSERT_TRUE(ptx.dests[0].amount == 1400000000000);

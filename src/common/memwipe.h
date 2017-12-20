@@ -57,6 +57,9 @@ namespace tools {
       scrub();
     }
 
+    T& inner() { return *this; }
+    const T& inner() const { return *this; }
+
     /// Destroy the contents of the contained type.
     void scrub() {
       static_assert(std::is_pod<T>::value,
@@ -70,15 +73,5 @@ namespace tools {
   template <class T, size_t N>
   using scrubbed_arr = scrubbed<std::array<T, N>>;
 } // namespace tools
-
-// Partial specialization for std::is_pod<tools::scrubbed<T>> so that it can
-// pretend to be the containted type in those contexts.
-namespace std
-{
-  template<class t_scrubbee>
-  struct is_pod<tools::scrubbed<t_scrubbee>> {
-    static const bool value = is_pod<t_scrubbee>::value;
-  };
-}
 
 #endif // __cplusplus
