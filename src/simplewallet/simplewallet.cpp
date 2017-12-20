@@ -492,7 +492,7 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 {
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   // don't log
-  std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
+  std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key.inner()) << std::endl;
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_view_public_key) << std::endl;
 
   return true;
@@ -507,7 +507,7 @@ bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vecto
   }
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   // don't log
-  std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
+  std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key.inner()) << std::endl;
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key) << std::endl;
 
   return true;
@@ -2099,7 +2099,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("No data supplied, cancelled");
         return false;
       }
-      if (!epee::string_tools::hex_to_pod(spendkey_string, m_recovery_key))
+      if (!epee::string_tools::hex_to_pod(spendkey_string, m_recovery_key.inner()))
       {
         fail_msg_writer() << tr("failed to parse spend key secret key");
         return false;
@@ -2614,7 +2614,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random);
     message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
-    std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
+    std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key.inner()) << ENDL;
   }
   catch (const std::exception& e)
   {
@@ -4774,9 +4774,9 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if (m_wallet->get_tx_key(txid, tx_key, additional_tx_keys))
   {
     ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
+    oss << epee::string_tools::pod_to_hex(tx_key.inner());
     for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i].inner());
     success_msg_writer() << tr("Tx key: ") << oss.str();
     return true;
   }
@@ -4853,7 +4853,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
 
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
-  if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), tx_key))
+  if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), tx_key.inner()))
   {
     fail_msg_writer() << tr("failed to parse tx key");
     return true;
@@ -4862,7 +4862,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
   while (!local_args[1].empty())
   {
     additional_tx_keys.resize(additional_tx_keys.size() + 1);
-    if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), additional_tx_keys.back()))
+    if(!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), additional_tx_keys.back().inner()))
     {
       fail_msg_writer() << tr("failed to parse tx key");
       return true;

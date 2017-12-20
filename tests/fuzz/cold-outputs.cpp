@@ -49,7 +49,7 @@ int ColdOutputsFuzzer::init()
 {
   static const char * const spendkey_hex = "0b4f47697ec99c3de6579304e5f25c68b07afbe55b71d99620bf6cbf4e45a80f";
   crypto::secret_key spendkey;
-  epee::string_tools::hex_to_pod(spendkey_hex, spendkey);
+  epee::string_tools::hex_to_pod(spendkey_hex, spendkey.inner());
 
   try
   {

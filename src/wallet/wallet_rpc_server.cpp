@@ -612,9 +612,9 @@ namespace tools
 
       if (req.get_tx_key)
       {
-        res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key);
+        res.tx_key = epee::string_tools::pod_to_hex(ptx_vector.back().tx_key.inner());
         for (const crypto::secret_key& additional_tx_key : ptx_vector.back().additional_tx_keys)
-          res.tx_key += epee::string_tools::pod_to_hex(additional_tx_key);
+          res.tx_key += epee::string_tools::pod_to_hex(additional_tx_key.inner());
       }
       res.fee = ptx_vector.back().fee;
 
@@ -702,9 +702,9 @@ namespace tools
       {
         if (req.get_tx_keys)
         {
-          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key.inner()));
           for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
-            res.tx_key_list.back() += epee::string_tools::pod_to_hex(additional_tx_key);
+            res.tx_key_list.back() += epee::string_tools::pod_to_hex(additional_tx_key.inner());
         }
         // Compute amount leaving wallet in tx. By convention dests does not include change outputs
         ptx_amount = 0;
@@ -794,7 +794,7 @@ namespace tools
       {
         if (req.get_tx_keys)
         {
-          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key.inner()));
         }
         res.fee_list.push_back(ptx.fee);
       }
@@ -894,7 +894,7 @@ namespace tools
       {
         if (req.get_tx_keys)
         {
-          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+          res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key.inner()));
         }
       }
 
@@ -1019,7 +1019,7 @@ namespace tools
 
       if (req.get_tx_key)
       {
-        res.tx_key = epee::string_tools::pod_to_hex(ptx.tx_key);
+        res.tx_key = epee::string_tools::pod_to_hex(ptx.tx_key.inner());
       }
 
       if (m_wallet->multisig())
@@ -1410,7 +1410,7 @@ namespace tools
       }
       else if(req.key_type.compare("view_key") == 0)
       {
-          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key.inner());
       }
       else
       {
@@ -1637,9 +1637,9 @@ namespace tools
     }
 
     std::ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
+    oss << epee::string_tools::pod_to_hex(tx_key.inner());
     for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i].inner());
     res.tx_key = oss.str();
     return true;
   }
@@ -1658,7 +1658,7 @@ namespace tools
 
     std::string tx_key_str = req.tx_key;
     crypto::secret_key tx_key;
-    if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), tx_key))
+    if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), tx_key.inner()))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
       er.message = "Tx key has invalid format";
@@ -1669,7 +1669,7 @@ namespace tools
     while (!tx_key_str.empty())
     {
       additional_tx_keys.resize(additional_tx_keys.size() + 1);
-      if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), additional_tx_keys.back()))
+      if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), additional_tx_keys.back().inner()))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
         er.message = "Tx key has invalid format";

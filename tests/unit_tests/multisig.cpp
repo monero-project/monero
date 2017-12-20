@@ -57,7 +57,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
   ASSERT_TRUE(idx < sizeof(test_addresses) / sizeof(test_addresses[0]));
 
   crypto::secret_key spendkey;
-  epee::string_tools::hex_to_pod(test_addresses[idx].spendkey, spendkey);
+  epee::string_tools::hex_to_pod(test_addresses[idx].spendkey, spendkey.inner());
 
   try
   {

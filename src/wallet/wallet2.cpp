@@ -4074,7 +4074,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::request oreq;
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::response ores;
     oreq.address = get_account().get_public_address_str(m_testnet);
-    oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+    oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
     oreq.tx = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
     m_daemon_rpc_mutex.lock();
     bool r = epee::net_utils::invoke_http_json("/submit_raw_tx", oreq, ores, m_http_client, rpc_timeout, "POST");
@@ -5817,7 +5817,7 @@ bool wallet2::light_wallet_login(bool &new_address)
   cryptonote::COMMAND_RPC_LOGIN::request request;
   cryptonote::COMMAND_RPC_LOGIN::response response;
   request.address = get_account().get_public_address_str(m_testnet);
-  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
   // Always create account if it doesnt exist.
   request.create_account = true;
   m_daemon_rpc_mutex.lock();
@@ -5844,7 +5844,7 @@ bool wallet2::light_wallet_import_wallet_request(cryptonote::COMMAND_RPC_IMPORT_
   MDEBUG("Light wallet import wallet request");
   cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::request oreq;
   oreq.address = get_account().get_public_address_str(m_testnet);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/import_wallet_request", oreq, response, m_http_client, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
@@ -5863,7 +5863,7 @@ void wallet2::light_wallet_get_unspent_outs()
   
   oreq.amount = "0";
   oreq.address = get_account().get_public_address_str(m_testnet);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
   // openMonero specific
   oreq.dust_threshold = boost::lexical_cast<std::string>(::config::DEFAULT_DUST_THRESHOLD);
   // below are required by openMonero api - but are not used.
@@ -6012,7 +6012,7 @@ bool wallet2::light_wallet_get_address_info(cryptonote::COMMAND_RPC_GET_ADDRESS_
   cryptonote::COMMAND_RPC_GET_ADDRESS_INFO::request request;
   
   request.address = get_account().get_public_address_str(m_testnet);
-  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/get_address_info", request, response, m_http_client, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
@@ -6029,7 +6029,7 @@ void wallet2::light_wallet_get_address_txs()
   cryptonote::COMMAND_RPC_GET_ADDRESS_TXS::response ires;
   
   ireq.address = get_account().get_public_address_str(m_testnet);
-  ireq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  ireq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key.inner());
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/get_address_txs", ireq, ires, m_http_client, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
