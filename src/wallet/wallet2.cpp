@@ -6794,37 +6794,48 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
 
   THROW_WALLET_EXCEPTION_IF(unlocked_balance(subaddr_account) == 0, error::wallet_internal_error, "No unlocked balance in the entire wallet");
 
-  std::map<uint32_t, uint64_t> balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, std::pair<std::vector<size_t>, std::vector<size_t>>> unused_transfer_dust_indices_per_subaddr;
+
+  // gather all dust and non-dust outputs of specified subaddress (if any) and below specified threshold (if any)
+  bool fund_found = false;
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && (subaddr_indices.empty() || subaddr_indices.count(td.m_subaddr_index.minor) == 1))
+    {
+      fund_found = true;
+      if (below == 0 || td.amount() < below)
+      {
+        if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
+          unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].first.push_back(i);
+        else
+          unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].second.push_back(i);
+      }
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(!fund_found, error::wallet_internal_error, "No unlocked balance in the specified subaddress(es)");
+  THROW_WALLET_EXCEPTION_IF(unused_transfer_dust_indices_per_subaddr.empty(), error::wallet_internal_error, "The smallest amount found is not below the specified threshold");
 
   if (subaddr_indices.empty())
   {
     // in case subaddress index wasn't specified, choose non-empty subaddress randomly (with index=0 being chosen last)
-    if (balance_per_subaddr.count(0) == 1 && balance_per_subaddr.size() > 1)
-      balance_per_subaddr.erase(0);
-    auto i = balance_per_subaddr.begin();
-    std::advance(i, crypto::rand<size_t>() % balance_per_subaddr.size());
-    subaddr_indices.insert(i->first);
+    if (unused_transfer_dust_indices_per_subaddr.count(0) == 1 && unused_transfer_dust_indices_per_subaddr.size() > 1)
+      unused_transfer_dust_indices_per_subaddr.erase(0);
+    auto i = unused_transfer_dust_indices_per_subaddr.begin();
+    std::advance(i, crypto::rand<size_t>() % unused_transfer_dust_indices_per_subaddr.size());
+    unused_transfers_indices = i->second.first;
+    unused_dust_indices = i->second.second;
+    LOG_PRINT_L2("Spending from subaddress index " << i->first);
   }
-  for (uint32_t i : subaddr_indices)
-    LOG_PRINT_L2("Spending from subaddress index " << i);
-
-  // gather all dust and non-dust outputs of specified subaddress
-  for (size_t i = 0; i < m_transfers.size(); ++i)
+  else
   {
-    const transfer_details& td = m_transfers[i];
-    if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
+    for (const auto& p : unused_transfer_dust_indices_per_subaddr)
     {
-      if (below == 0 || td.amount() < below)
-      {
-        if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
-          unused_transfers_indices.push_back(i);
-        else
-          unused_dust_indices.push_back(i);
-      }
+      unused_transfers_indices.insert(unused_transfers_indices.end(), p.second.first.begin(), p.second.first.end());
+      unused_dust_indices.insert(unused_dust_indices.end(), p.second.second.begin(), p.second.second.end());
+      LOG_PRINT_L2("Spending from subaddress index " << p.first);
     }
   }
-
-  THROW_WALLET_EXCEPTION_IF(unused_transfers_indices.empty() && unused_dust_indices.empty(), error::not_enough_money, 0, 0, 0); // not sure if a new error class (something like 'cant_sweep_empty'?) should be introduced
 
   return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
 }
