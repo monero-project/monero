@@ -46,7 +46,7 @@
   #include "readline_buffer.h"
 #endif
 
-#include "common/memwipe.h"
+#include "memwipe.h"
 
 namespace
 {
