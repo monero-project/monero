@@ -99,8 +99,6 @@ struct calculate_times_struct {
 typedef calculate_times_struct calculate_times_struct;
 
 
-namespace cryptonote { class cryptonote_protocol_handler_base; } // a friend class // TODO friend not working
-
 /*** 
 @brief Access to simple throttles, with singlton to access global network limits
 */
@@ -117,7 +115,6 @@ class network_throttle_manager {
     static boost::mutex m_lock_get_global_throttle_inreq;
     static boost::mutex m_lock_get_global_throttle_out;
 
-		friend class cryptonote::cryptonote_protocol_handler_base; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
 		friend class connection_basic; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
 		friend class connection_basic_pimpl; // ditto
 

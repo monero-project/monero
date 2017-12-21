@@ -66,7 +66,6 @@
 #include <tuple>
 #include <type_traits>
 
-#include "crypto/crypto.h"
 #include "hex.h"
 #include "md5_l.h"
 #include "string_coding.h"
@@ -711,8 +710,8 @@ namespace epee
   {
     namespace http
     {
-      http_server_auth::http_server_auth(login credentials)
-        : user(session{std::move(credentials)}) {
+      http_server_auth::http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r)
+        : user(session{std::move(credentials)}), rng(std::move(r)) {
       }
 
       boost::optional<http_response_info> http_server_auth::do_get_response(const http_request_info& request)
@@ -746,7 +745,7 @@ namespace epee
         user->counter = 0;
         {
           std::array<std::uint8_t, 16> rand_128bit{{}};
-          crypto::rand(rand_128bit.size(), rand_128bit.data());
+          rng(rand_128bit.size(), rand_128bit.data());
           user->nonce = string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size());
         }
         return create_digest_response(user->nonce, is_stale);

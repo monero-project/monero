@@ -49,7 +49,6 @@ endif()
 
 target_link_libraries(epee
   PUBLIC
-    cncrypto
     easylogging
     ${Boost_FILESYSTEM_LIBRARY}
   PRIVATE
