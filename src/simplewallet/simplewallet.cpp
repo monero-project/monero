@@ -3206,6 +3206,13 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   {
     if (!parse_subaddress_indices(local_args[0], subaddr_indices))
       return true;
+    local_args.erase(local_args.begin());
+  }
+
+  if (local_args.size() > 0)
+  {
+    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N>]");
+    return true;
   }
 
   tools::wallet2::transfer_container transfers;
