@@ -54,4 +54,5 @@ if (BUILD_GUI_DEPS)
         ARCHIVE DESTINATION ${lib_folder}
         LIBRARY DESTINATION ${lib_folder})
 endif()
+set_property(TARGET easylogging APPEND PROPERTY COMPILE_FLAGS "-fPIC")
 
