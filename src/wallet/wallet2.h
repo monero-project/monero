@@ -162,7 +162,7 @@ namespace tools
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
-    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, ledger::Device& device=ledger::no_device);
 
     wallet2(bool testnet = false, bool restricted = false);
 
@@ -467,6 +467,11 @@ namespace tools
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& viewkey = crypto::secret_key());
     /*!
+     *
+     */
+    void generate(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name);
+
+    /*!
      * \brief Creates a multisig wallet
      * \return empty if done, non empty if we need to send another string
      * to other participants
@@ -610,6 +615,7 @@ namespace tools
     bool watch_only() const { return m_watch_only; }
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
+    bool key_on_device() const { return m_key_on_device; }
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;
@@ -1034,6 +1040,7 @@ namespace tools
     boost::mutex m_daemon_rpc_mutex;
 
     i_wallet2_callback* m_callback;
+    bool m_key_on_device;
     bool m_testnet;
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
@@ -1663,7 +1670,7 @@ namespace tools
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, m_multisig ? &msout : NULL);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, m_multisig ? &msout : NULL, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
     THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 

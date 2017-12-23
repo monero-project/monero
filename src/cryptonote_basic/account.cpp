@@ -116,6 +116,28 @@ DISABLE_VS_WARNINGS(4244 4345)
     if (m_creation_timestamp == (uint64_t)-1) // failure
       m_creation_timestamp = 0; // lowest value
   }
+
+  //-----------------------------------------------------------------
+  void account_base::create_from_device(const std::string &device_name) 
+  {
+    m_keys.m_device.set_name(device_name);
+    m_keys.m_device.init();
+    m_keys.m_device.connect();
+    m_keys.m_device.get_public_address(m_keys.m_account_address);
+
+    struct tm timestamp = {0};
+    timestamp.tm_year = 2014 - 1900;  // year 2014
+    timestamp.tm_mon = 4 - 1;  // month april
+    timestamp.tm_mday = 15;  // 15th of april
+    timestamp.tm_hour = 0;
+    timestamp.tm_min = 0;
+    timestamp.tm_sec = 0;
+
+    m_creation_timestamp = mktime(&timestamp);
+    if (m_creation_timestamp == (uint64_t)-1) // failure
+      m_creation_timestamp = 0; // lowest value
+  }
+
   //-----------------------------------------------------------------
   void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
   {

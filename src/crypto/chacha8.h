@@ -64,10 +64,10 @@ namespace crypto {
     chacha8(data, length, key.data(), reinterpret_cast<const uint8_t*>(&iv), cipher);
   }
 
-  inline void generate_chacha8_key(const void *data, size_t size, chacha8_key& key) {
+  inline void generate_chacha8_key(const void *data, size_t size, chacha8_key& key, bool prehashed=false) {
     static_assert(sizeof(chacha8_key) <= sizeof(hash), "Size of hash must be at least that of chacha8_key");
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
-    crypto::cn_slow_hash(data, size, pwd_hash.data());
+    crypto::cn_slow_hash_pre(data, size, pwd_hash.data(), prehashed);
     memcpy(&key, pwd_hash.data(), sizeof(key));
   }
 

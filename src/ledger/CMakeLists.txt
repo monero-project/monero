@@ -26,20 +26,14 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(cryptonote_core_sources
-  blockchain.cpp
-  cryptonote_core.cpp
-  tx_pool.cpp
-  cryptonote_tx_utils.cpp)
+set(ledger_sources
+  device.cpp)
 
-set(cryptonote_core_headers)
+set(ledger_headers
+  device.hpp)
 
-set(cryptonote_core_private_headers
-  blockchain_storage_boost_serialization.h
-  blockchain.h
-  cryptonote_core.h
-  tx_pool.h
-  cryptonote_tx_utils.h)
+set(ledger_private_headers)
+  
 
 if(PER_BLOCK_CHECKPOINT)
   set(Blocks "blocks")
@@ -47,28 +41,18 @@ else()
   set(Blocks "")
 endif()
 
-monero_private_headers(cryptonote_core
-  ${cryptonote_core_private_headers}
-  ${crypto_private_headers})
-monero_add_library(cryptonote_core
-  ${cryptonote_core_sources}
-  ${cryptonote_core_headers}
-  ${cryptonote_core_private_headers})
-target_link_libraries(cryptonote_core
+monero_private_headers(ledger
+  ${ledger_private_headers})
+
+monero_add_library(ledger
+  ${ledger_sources}
+  ${ledger_headers}
+  ${ledger_private_headers})
+  
+target_link_libraries(ledger
   PUBLIC
-    version
-    common
-    cncrypto
-    blockchain_db
-    multisig
-    ringct
-    ledger
-    ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SERIALIZATION_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
+    pcsclite
+    
   PRIVATE
     ${Blocks}
     ${EXTRA_LIBRARIES})

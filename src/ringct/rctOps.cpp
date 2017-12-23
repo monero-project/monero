@@ -31,6 +31,7 @@
 #include <boost/lexical_cast.hpp>
 #include "misc_log_ex.h"
 #include "rctOps.h"
+#include "ledger/device.hpp"
 using namespace crypto;
 using namespace std;
 
@@ -157,40 +158,56 @@ namespace rct {
     //Scalar multiplications of curve points
 
     //does a * G where a is a scalar and G is the curve basepoint
-    void scalarmultBase(key &aG,const key &a) {
-        ge_p3 point;
-        sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand!
-        ge_scalarmult_base(&point, aG.bytes);
-        ge_p3_tobytes(aG.bytes, &point);
-    }
+    void scalarmultBase(key &aG,const key &a, ledger::Device &device) {
+        if (device) {
+            device.scalarmultBase(a,aG);
+        } else {
+          ge_p3 point;
+          sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand!
+          ge_scalarmult_base(&point, aG.bytes);
+          ge_p3_tobytes(aG.bytes, &point);
+      }
+  }
 
     //does a * G where a is a scalar and G is the curve basepoint
-    key scalarmultBase(const key & a) {
-        ge_p3 point;
+    key scalarmultBase(const key & a, ledger::Device &device) {
         key aG;
-        sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand
-        ge_scalarmult_base(&point, aG.bytes);
-        ge_p3_tobytes(aG.bytes, &point);
+        if (device){
+            device.scalarmultBase(a,aG);
+        } else {
+            ge_p3 point;
+            sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand
+            ge_scalarmult_base(&point, aG.bytes);
+            ge_p3_tobytes(aG.bytes, &point);
+        }
         return aG;
     }
 
     //does a * P where a is a scalar and P is an arbitrary point
-    void scalarmultKey(key & aP, const key &P, const key &a) {
-        ge_p3 A;
-        ge_p2 R;
-        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
-        ge_scalarmult(&R, a.bytes, &A);
-        ge_tobytes(aP.bytes, &R);
-    }
+    void scalarmultKey(key & aP, const key &P, const key &a, ledger::Device &device) {
+      if (device){
+            device.scalarmultKey(P,a,aP);
+        } else {
+          ge_p3 A;
+          ge_p2 R;
+          CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+          ge_scalarmult(&R, a.bytes, &A);
+          ge_tobytes(aP.bytes, &R);
+      }
+   }
 
     //does a * P where a is a scalar and P is an arbitrary point
-    key scalarmultKey(const key & P, const key & a) {
-        ge_p3 A;
-        ge_p2 R;
-        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
-        ge_scalarmult(&R, a.bytes, &A);
+    key scalarmultKey(const key & P, const key & a, ledger::Device &device) {
         key aP;
-        ge_tobytes(aP.bytes, &R);
+        if (device){
+            device.scalarmultKey(P,a,aP);
+        } else {
+           ge_p3 A;
+           ge_p2 R;
+           CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+           ge_scalarmult(&R, a.bytes, &A);
+           ge_tobytes(aP.bytes, &R);
+       }
         return aP;
     }
 
@@ -441,18 +458,26 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
-        //encode
-        sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
-        sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, ledger::Device &device) {
+        if (device) {
+            device.blind(unmasked,sharedSec);
+        } else {
+            key sharedSec1 = hash_to_scalar(sharedSec);
+            key sharedSec2 = hash_to_scalar(sharedSec1);
+            //encode
+            sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
+            sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+        }
     }
-    void ecdhDecode(ecdhTuple & masked, const key & sharedSec) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
-        //decode
-        sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
-        sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, ledger::Device &device) {
+        if (device) {
+            device.unblind(masked,sharedSec);
+        } else {
+            key sharedSec1 = hash_to_scalar(sharedSec);
+            key sharedSec2 = hash_to_scalar(sharedSec1);
+            //decode
+            sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
+            sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+        }
     }
 }

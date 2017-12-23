@@ -35,6 +35,9 @@
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/subaddress_index.h"
+#include "ledger/device.hpp"
 
 using namespace crypto;
 using namespace std;
@@ -122,7 +125,8 @@ namespace rct {
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
-    mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const multisig_kLRki *kLRki, key *mscout, const unsigned int index, size_t dsRows) {
+
+    mgSig MLSAG_Gen(const key &message, const keyM & pk, const keyV & xx, const multisig_kLRki *kLRki, key *mscout, const unsigned int index, size_t dsRows, ledger::Device &device) {
         mgSig rv;
         size_t cols = pk.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 2, "Error! What is c if cols = 1!");
@@ -150,23 +154,50 @@ namespace rct {
         toHash[0] = message;
         DP("here1");
         for (i = 0; i < dsRows; i++) {
-            toHash[3 * i + 1] = pk[index][i];
-            if (kLRki) {
-              // multisig
-              alpha[i] = kLRki->k;
-              toHash[3 * i + 2] = kLRki->L;
-              toHash[3 * i + 3] = kLRki->R;
-              rv.II[i] = kLRki->ki;
+           if (device) {
+                Hi = hashToPoint(pk[index][i]);
+                device.mlsag_prepare(Hi, xx[i], alpha[i] , aG[i] , aHP[i] , rv.II[i]);
+                toHash[3 * i + 1] = pk[index][i];
+                toHash[3 * i + 2] = aG[i];
+                toHash[3 * i + 3] = aHP[i];
+                precomp(Ip[i].k, rv.II[i]);
+ 
+                #ifdef DEBUGLEDGER
+                key  alphG, alphHP, rvII;
+                key alpha_i, xx_i;
+
+                memmove(&alpha_i, &alpha[i], sizeof(key));
+                ledger::decrypt((char*)alpha_i.bytes, 32);
+                memmove(&xx_i, &xx[i], sizeof(key));             
+                ledger::decrypt((char*)xx_i.bytes, 32);
+   
+                ledger::log_hexbuffer("MLSAG_Gen.prepare.x["+std::to_string(i)+"]", (char*)xx_i.bytes, 32);
+                scalarmultBase(alphG, alpha_i);
+                alphHP = scalarmultKey(Hi, alpha_i);
+                rvII = scalarmultKey(Hi, xx_i);
+                ledger::check32("MLSAG_Gen.prepare", "aG[i]   ", (char*)alphG.bytes,  (char*)aG[i].bytes);
+                ledger::check32("MLSAG_Gen.prepare", "aHP[i]  ", (char*)alphHP.bytes, (char*)aHP[i].bytes);
+                ledger::check32("MLSAG_Gen.prepare", "rvII[i] ", (char*)rvII.bytes,   (char*)rv.II[i].bytes);
+                #endif
+            } else {
+                toHash[3 * i + 1] = pk[index][i];
+                if (kLRki) {
+                    // multisig
+                    alpha[i] = kLRki->k;
+                    toHash[3 * i + 2] = kLRki->L;
+                    toHash[3 * i + 3] = kLRki->R;
+                    rv.II[i] = kLRki->ki;
+                }
+                else {
+                    Hi = hashToPoint(pk[index][i]);
+                    skpkGen(alpha[i], aG[i]); //need to save alphas for later..
+                    aHP[i] = scalarmultKey(Hi, alpha[i]);
+                    toHash[3 * i + 2] = aG[i];
+                    toHash[3 * i + 3] = aHP[i];
+                    rv.II[i] = scalarmultKey(Hi, xx[i]);
+                }
+                precomp(Ip[i].k, rv.II[i]);   
             }
-            else {
-              Hi = hashToPoint(pk[index][i]);
-              skpkGen(alpha[i], aG[i]); //need to save alphas for later..
-              aHP[i] = scalarmultKey(Hi, alpha[i]);
-              toHash[3 * i + 2] = aG[i];
-              toHash[3 * i + 3] = aHP[i];
-              rv.II[i] = scalarmultKey(Hi, xx[i]);
-            }
-            precomp(Ip[i].k, rv.II[i]);
         }
         size_t ndsRows = 3 * dsRows; //non Double Spendable Rows (see identity chains paper)
         for (i = dsRows, ii = 0 ; i < rows ; i++, ii++) {
@@ -175,8 +206,17 @@ namespace rct {
             toHash[ndsRows + 2 * ii + 2] = aG[i];
         }
 
-        c_old = hash_to_scalar(toHash);
+        if (device) {
+            device.mlsag_hash(toHash, c_old);
+            #ifdef DEBUGLEDGER   
+            key c_oldx;
+            c_oldx = hash_to_scalar(toHash);
+            ledger::check32("MLSAG_Gen.hash", "c_old", (char*)c_oldx.bytes,  (char*)c_old.bytes);
+            #endif
 
+        } else  {
+            c_old = hash_to_scalar(toHash);
+        }
         
         i = (index + 1) % cols;
         if (i == 0) {
@@ -199,7 +239,16 @@ namespace rct {
                 toHash[ndsRows + 2 * ii + 1] = pk[i][j];
                 toHash[ndsRows + 2 * ii + 2] = L;
             }
-            c = hash_to_scalar(toHash);
+            if (device) {
+                device.mlsag_hash(toHash, c);
+                #ifdef DEBUGLEDGER   
+                key cx;
+                cx = hash_to_scalar(toHash);
+                ledger::check32("MLSAG_Gen.hash", "c", (char*)cx.bytes,  (char*)c.bytes);
+                #endif
+            } else   {
+                c = hash_to_scalar(toHash);
+            }
             copy(c_old, c);
             i = (i + 1) % cols;
             
@@ -207,8 +256,29 @@ namespace rct {
                 copy(rv.cc, c_old);
             }   
         }
-        for (j = 0; j < rows; j++) {
-            sc_mulsub(rv.ss[index][j].bytes, c.bytes, xx[j].bytes, alpha[j].bytes);
+        if (device)  {
+            device.mlsag_sign(rv.ss[index], xx, alpha, dsRows);
+            #ifdef DEBUGLEDGER
+            for (j = 0; j < dsRows; j++) {
+                unsigned char ss[32];
+                key alpha_j, xx_j;
+
+                memmove(&alpha_j, &alpha[j], sizeof(key));
+                ledger::decrypt((char*)alpha_j.bytes, 32);
+                memmove(&xx_j, &xx[j], sizeof(key));
+                ledger::decrypt((char*)xx_j.bytes, 32);
+                ledger::log_hexbuffer("MLSAG_Gen.sign.x["+std::to_string(j)+"]",  (char*)xx_j.bytes, 32);
+                sc_mulsub(ss, c.bytes, xx_j.bytes, alpha_j.bytes);
+                ledger::check32("MLSAG_Gen.sign ", std::to_string(j), (char*)ss, (char*)rv.ss[index][j].bytes);
+            }
+            #endif
+            for (j = dsRows; j < rows; j++) {
+                sc_mulsub(rv.ss[index][j].bytes, c.bytes, xx[j].bytes, alpha[j].bytes);
+            }
+        } else {
+            for (j = 0; j < rows; j++) {
+                sc_mulsub(rv.ss[index][j].bytes, c.bytes, xx[j].bytes, alpha[j].bytes);
+            }
         }
         if (mscout)
           *mscout = c;
@@ -341,7 +411,7 @@ namespace rct {
       catch (...) { return false; }
     }
 
-    key get_pre_mlsag_hash(const rctSig &rv)
+    key get_pre_mlsag_hash(const rctSig &rv, ledger::Device &device)
     {
       keyV hashes;
       hashes.reserve(3);
@@ -352,10 +422,16 @@ namespace rct {
       binary_archive<true> ba(ss);
       const size_t inputs = rv.pseudoOuts.size();
       const size_t outputs = rv.ecdhInfo.size();
+      key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
           "Failed to serialize rctSigBase");
       cryptonote::get_blob_hash(ss.str(), h);
-      hashes.push_back(hash2rct(h));
+    
+      if (device) {   
+        hashes.push_back(key());                   
+      } else {
+        hashes.push_back(hash2rct(h));
+      }
 
       keyV kv;
       if (rv.type == RCTTypeSimpleBulletproof || rv.type == RCTTypeFullBulletproof)
@@ -395,7 +471,22 @@ namespace rct {
         }
       }
       hashes.push_back(cn_fast_hash(kv));
-      return cn_fast_hash(hashes);
+      if (device) {
+        device.mlsag_prehash(ss.str(), inputs, outputs, hashes, rv.outPk, prehash);
+        #ifdef DEBUGLEDGER
+        keyV hashesx;
+        key prehashx;
+        hashesx.reserve(3);
+        hashesx.push_back(hashes[0]);
+        hashesx.push_back(hash2rct(h));
+        hashesx.push_back(hashes[2]);
+        prehashx = cn_fast_hash(hashesx);
+        ledger::check32("get_pre_mlsag_hash", "prehash", (char*)prehashx.bytes,  (char*)prehash.bytes);
+        #endif
+      } else {
+        prehash = cn_fast_hash(hashes);
+      }
+      return  prehash;
     }
 
     //Ring-ct MG sigs
@@ -406,7 +497,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, key txnFeeKey) {
+    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, key txnFeeKey, ledger::Device &device) {
         mgSig mg;
         //setup vars
         size_t cols = pubs.size();
@@ -451,7 +542,7 @@ namespace rct {
         for (size_t j = 0; j < outPk.size(); j++) {
             sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes); //subtract output masks in last row..
         }
-        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows);
+        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, device);
     }
 
 
@@ -462,7 +553,7 @@ namespace rct {
     //   inSk is x, a_in corresponding to signing index
     //       a_out, Cout is for the output commitment
     //       index is the signing index..
-    mgSig proveRctMGSimple(const key &message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, const multisig_kLRki *kLRki, key *mscout, unsigned int index) {
+    mgSig proveRctMGSimple(const key &message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, const multisig_kLRki *kLRki, key *mscout, unsigned int index, ledger::Device &device) {
         mgSig mg;
         //setup vars
         size_t rows = 1;
@@ -479,7 +570,7 @@ namespace rct {
             sk[0] = copy(inSk.dest);
             sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);  
         }
-        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows);
+        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, device);
     }
 
 
@@ -613,7 +704,7 @@ namespace rct {
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
     //   Thus the amounts vector will be "one" longer than the destinations vectort
-    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, const multisig_kLRki *kLRki, multisig_out *msout, unsigned int index, ctkeyV &outSk, bool bulletproof) {
+    rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, const multisig_kLRki *kLRki, multisig_out *msout, unsigned int index, ctkeyV &outSk, bool bulletproof, ledger::Device &device) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
         CHECK_AND_ASSERT_THROW_MES(index < mixRing.size(), "Bad index into mixRing");
@@ -653,8 +744,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
-
+            ecdhEncode(rv.ecdhInfo[i], amount_keys[i], device);
         }
 
         //set txn fee
@@ -671,21 +761,22 @@ namespace rct {
         rv.mixRing = mixRing;
         if (msout)
           msout->c.resize(1);
-        rv.p.MGs.push_back(proveRctMG(get_pre_mlsag_hash(rv), rv.mixRing, inSk, outSk, rv.outPk, kLRki, msout ? &msout->c[0] : NULL, index, txnFeeKey));
+        rv.p.MGs.push_back(proveRctMG(get_pre_mlsag_hash(rv, device), rv.mixRing, inSk, outSk, rv.outPk, kLRki, msout ? &msout->c[0] : NULL, index, txnFeeKey,device));
         return rv;
     }
 
-    rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const keyV &amount_keys, const multisig_kLRki *kLRki, multisig_out *msout, const int mixin) {
+    rctSig genRct(const key &message, const ctkeyV & inSk, const ctkeyV  & inPk, const keyV & destinations, const vector<xmr_amount> & amounts, const keyV &amount_keys, const multisig_kLRki *kLRki, multisig_out *msout, const int mixin, ledger::Device &device) {
         unsigned int index;
         ctkeyM mixRing;
         ctkeyV outSk;
         tie(mixRing, index) = populateFromBlockchain(inPk, mixin);
-        return genRct(message, inSk, destinations, amounts, mixRing, amount_keys, kLRki, msout, index, outSk, false);
+        return genRct(message, inSk, destinations, amounts, mixRing, amount_keys, kLRki, msout, index, outSk, false, device);
+
     }
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, bool bulletproof) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, bool bulletproof, ledger::Device &device) {
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
@@ -735,7 +826,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
+            ecdhEncode(rv.ecdhInfo[i], amount_keys[i],device);
         }
             
         //set txn fee
@@ -757,16 +848,16 @@ namespace rct {
         genC(rv.pseudoOuts[i], a[i], inamounts[i]);
         DP(rv.pseudoOuts[i]);
 
-        key full_message = get_pre_mlsag_hash(rv);
+        key full_message = get_pre_mlsag_hash(rv,device);
         if (msout)
           msout->c.resize(inamounts.size());
         for (i = 0 ; i < inamounts.size(); i++) {
-            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], rv.pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i]);
+            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], rv.pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i], device);
         }
         return rv;
     }
 
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, xmr_amount txnFee, unsigned int mixin) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, xmr_amount txnFee, unsigned int mixin, ledger::Device &device) {
         std::vector<unsigned int> index;
         index.resize(inPk.size());
         ctkeyM mixRing;
@@ -776,7 +867,7 @@ namespace rct {
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, false);
+        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, kLRki, msout, index, outSk, false, device);
     }
 
     //RingCT protocol
@@ -835,7 +926,7 @@ namespace rct {
           if (!semantics) {
             //compute txn fee
             key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-            bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv));
+            bool mgVerd = verRctMG(rv.p.MGs[0], rv.mixRing, rv.outPk, txnFeeKey, get_pre_mlsag_hash(rv, ledger::no_device));
             DP("mg sig verified?");
             DP(mgVerd);
             if (!mgVerd) {
@@ -928,7 +1019,7 @@ namespace rct {
           }
         }
         else {
-          const key message = get_pre_mlsag_hash(rv);
+          const key message = get_pre_mlsag_hash(rv, ledger::no_device);
 
           results.clear();
           results.resize(rv.mixRing.size());
@@ -972,14 +1063,14 @@ namespace rct {
     //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
-    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask) {
+    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask, ledger::Device &device) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeFullBulletproof, false, "decodeRct called on non-full rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
-        ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        ecdhDecode(ecdh_info, sk);
+        ecdhTuple ecdh_info = rv.ecdhInfo[i];        
+        ecdhDecode(ecdh_info, sk, device);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -995,19 +1086,19 @@ namespace rct {
         return h2d(amount);
     }
 
-    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i) {
+    xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, ledger::Device &device) {
       key mask;
-      return decodeRct(rv, sk, i, mask);
+      return decodeRct(rv, sk, i, mask, device);
     }
 
-    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask) {
+    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask, ledger::Device &device) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeSimpleBulletproof, false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        ecdhDecode(ecdh_info, sk);
+        ecdhDecode(ecdh_info, sk, device);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1023,9 +1114,9 @@ namespace rct {
         return h2d(amount);
     }
 
-    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i) {
+    xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, ledger::Device &device) {
       key mask;
-      return decodeRctSimple(rv, sk, i, mask);
+      return decodeRctSimple(rv, sk, i, mask, device);
     }
 
     bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const multisig_out &msout, const key &secret_key) {
