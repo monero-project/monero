@@ -55,3 +55,6 @@ if (BUILD_GUI_DEPS)
         LIBRARY DESTINATION ${lib_folder})
 endif()
 
+if(COTIRE)
+cotire(easylogging)
+endif()

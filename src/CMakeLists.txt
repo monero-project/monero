@@ -63,6 +63,14 @@ function (enable_stack_trace target)
   endif()
 endfunction()
 
+function (monero_cotire name)
+  if(COTIRE)
+    cotire("${name}")
+  endif()
+endfunction()
+
+set(MONERO_COTIRE_EXTRA_DIRS "${CMAKE_SOURCE_DIR}/external;${CMAKE_SOURCE_DIR}/contrib")
+
 function (monero_add_executable name)
   source_group("${name}"
     FILES
@@ -80,6 +88,9 @@ function (monero_add_executable name)
     PROPERTY
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   enable_stack_trace("${name}")
+
+  set_target_properties(${objlib} PROPERTIES COTIRE_PREFIX_HEADER_INCLUDE_PATH "${MONERO_COTIRE_EXTRA_DIRS}")
+  monero_cotire("${name}")
 endfunction ()
 
 function (monero_add_library name)
@@ -103,6 +114,8 @@ function (monero_add_library_with_deps)
   set_property(TARGET "${MONERO_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
   target_compile_definitions(${objlib}
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
+  set_target_properties(${objlib} PROPERTIES COTIRE_PREFIX_HEADER_INCLUDE_PATH "${MONERO_COTIRE_EXTRA_DIRS}")
+  monero_cotire(${objlib})
 endfunction ()
 
 include(Version)

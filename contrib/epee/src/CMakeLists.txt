@@ -56,6 +56,10 @@ target_link_libraries(epee
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
 
+if(COTIRE)
+cotire(epee)
+endif()
+
 if (USE_READLINE AND GNU_READLINE_FOUND)
   target_link_libraries(epee_readline
     PUBLIC
