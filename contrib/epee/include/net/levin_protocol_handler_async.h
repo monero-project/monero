@@ -99,6 +99,7 @@ public:
 
   async_protocol_handler_config():m_pcommands_handler(NULL), m_pcommands_handler_destroy(NULL), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE)
   {}
+  ~async_protocol_handler_config() { set_handler(NULL, NULL); }
   void del_out_connections(size_t count);
 };
 
