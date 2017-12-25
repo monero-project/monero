@@ -3504,14 +3504,6 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   const std::string old_keys_file = m_keys_file;
   const std::string old_address_file = m_wallet_file + ".address.txt";
 
-  // save to new file
-  std::ofstream ostr;
-  ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-  binary_archive<true> oar(ostr);
-  bool success = ::serialization::serialize(oar, cache_file_data);
-  ostr.close();
-  THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
-
   // save keys to the new file
   // if we here, main wallet file is saved and we only need to save keys and address files
   if (!same_file) {
@@ -3538,6 +3530,14 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
       LOG_ERROR("error removing file: " << old_address_file);
     }
   } else {
+    // save to new file
+    std::ofstream ostr;
+    ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+    binary_archive<true> oar(ostr);
+    bool success = ::serialization::serialize(oar, cache_file_data);
+    ostr.close();
+    THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
+
     // here we have "*.new" file, we need to rename it to be without ".new"
     std::error_code e = tools::replace_file(new_file, m_wallet_file);
     THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
