@@ -4321,9 +4321,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
       fail_msg_writer() << tr("Multiple transactions are created, which is not supposed to happen");
       return true;
     }
-    if (ptx_vector[0].selected_transfers.size() > 1)
+    if (ptx_vector[0].selected_transfers.size() != 1)
     {
-      fail_msg_writer() << tr("The transaction uses multiple inputs, which is not supposed to happen");
+      fail_msg_writer() << tr("The transaction uses multiple or no inputs, which is not supposed to happen");
       return true;
     }
 
@@ -5175,7 +5175,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     try {
       min_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
-    catch (boost::bad_lexical_cast &) {
+    catch (const boost::bad_lexical_cast &) {
       fail_msg_writer() << tr("bad min_height parameter:") << " " << local_args[0];
       return true;
     }
@@ -5187,7 +5187,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     try {
       max_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
-    catch (boost::bad_lexical_cast &) {
+    catch (const boost::bad_lexical_cast &) {
       fail_msg_writer() << tr("bad max_height parameter:") << " " << local_args[0];
       return true;
     }

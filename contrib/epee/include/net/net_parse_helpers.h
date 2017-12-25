@@ -103,7 +103,7 @@ namespace net_utils
     STATIC_REGEXP_EXPR_1(rexp_match_uri, "^([^?#]*)(\\?([^#]*))?(#(.*))?", boost::regex::icase | boost::regex::normal);
 
     boost::smatch result;	
-    if(!boost::regex_search(uri, result, rexp_match_uri, boost::match_default) && result[0].matched)
+    if(!(boost::regex_search(uri, result, rexp_match_uri, boost::match_default) && result[0].matched))
     {
       LOG_PRINT_L1("[PARSE URI] regex not matched for uri: " << uri);
       content.m_path = uri;
@@ -139,7 +139,7 @@ namespace net_utils
     //                                     12         34      5 6        7
     content.port = 0;
     boost::smatch result;	
-    if(!boost::regex_search(url_str, result, rexp_match_uri, boost::match_default) && result[0].matched)
+    if(!(boost::regex_search(url_str, result, rexp_match_uri, boost::match_default) && result[0].matched))
     {
       LOG_PRINT_L1("[PARSE URI] regex not matched for uri: " << rexp_match_uri);
       //content.m_path = uri;

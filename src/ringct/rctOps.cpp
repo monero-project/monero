@@ -76,6 +76,7 @@ namespace rct {
     //Generates a vector of secret key
     //Mainly used in testing
     keyV skvGen(size_t rows ) {
+        CHECK_AND_ASSERT_THROW_MES(rows > 0, "0 keys requested");
         keyV rv(rows);
         size_t i = 0;
         crypto::rand(rows * sizeof(key), (uint8_t*)&rv[0]);
@@ -351,6 +352,7 @@ namespace rct {
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
     key cn_fast_hash(const ctkeyV &PC) {
+        if (PC.empty()) return rct::hash2rct(crypto::cn_fast_hash("", 0));
         key rv;
         cn_fast_hash(rv, &PC[0], 64*PC.size());
         return rv;
@@ -367,6 +369,7 @@ namespace rct {
    //put them in the key vector and it concatenates them
    //and then hashes them
    key cn_fast_hash(const keyV &keys) {
+       if (keys.empty()) return rct::hash2rct(crypto::cn_fast_hash("", 0));
        key rv;
        cn_fast_hash(rv, &keys[0], keys.size() * sizeof(keys[0]));
        //dp(rv);
