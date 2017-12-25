@@ -47,6 +47,7 @@ using namespace epee;
 #include "cryptonote_config.h"
 #include "cryptonote_tx_utils.h"
 #include "misc_language.h"
+#include "file_io_utils.h"
 #include <csignal>
 #include "checkpoints/checkpoints.h"
 #include "ringct/rctTypes.h"
@@ -1437,27 +1438,56 @@ namespace cryptonote
     if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
     {
       MCDEBUG("updates", "We don't have that file already, downloading");
+      const std::string tmppath = path.string() + ".tmp";
+      if (epee::file_io_utils::is_file_exist(tmppath))
+      {
+        MCDEBUG("updates", "We have part of the file already, resuming download");
+      }
       m_last_update_length = 0;
-      m_update_download = tools::download_async(path.string(), url, [this, hash](const std::string &path, const std::string &uri, bool success) {
+      m_update_download = tools::download_async(tmppath, url, [this, hash, path](const std::string &tmppath, const std::string &uri, bool success) {
+        bool remove = false, good = true;
         if (success)
         {
           crypto::hash file_hash;
-          if (!tools::sha256sum(path, file_hash))
+          if (!tools::sha256sum(tmppath, file_hash))
           {
-            MCERROR("updates", "Failed to hash " << path);
+            MCERROR("updates", "Failed to hash " << tmppath);
+            remove = true;
+            good = false;
           }
-          if (hash != epee::string_tools::pod_to_hex(file_hash))
+          else if (hash != epee::string_tools::pod_to_hex(file_hash))
           {
             MCERROR("updates", "Download from " << uri << " does not match the expected hash");
+            remove = true;
+            good = false;
           }
-          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path);
         }
         else
         {
           MCERROR("updates", "Failed to download " << uri);
+          good = false;
         }
         boost::unique_lock<boost::mutex> lock(m_update_mutex);
         m_update_download = 0;
+        if (success && !remove)
+        {
+          std::error_code e = tools::replace_file(tmppath, path.string());
+          if (e)
+          {
+            MCERROR("updates", "Failed to rename downloaded file");
+            good = false;
+          }
+        }
+        else if (remove)
+        {
+          if (!boost::filesystem::remove(tmppath))
+          {
+            MCERROR("updates", "Failed to remove invalid downloaded file");
+            good = false;
+          }
+        }
+        if (good)
+          MCLOG_CYAN(el::Level::Info, "updates", "New version downloaded to " << path.string());
       }, [this](const std::string &path, const std::string &uri, size_t length, ssize_t content_length) {
         if (length >= m_last_update_length + 1024 * 1024 * 10)
         {
