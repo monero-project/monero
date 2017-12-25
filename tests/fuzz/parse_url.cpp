@@ -26,43 +26,49 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/program_options.hpp>
 #include "include_base_utils.h"
-#include "string_tools.h"
-#include "common/command_line.h"
-#include "common/util.h"
+#include "file_io_utils.h"
+#include "net/net_parse_helpers.h"
 #include "fuzzer.h"
 
-#if (!defined(__clang__) || (__clang__ < 5))
-static int __AFL_LOOP(int)
+class ParseURLFuzzer: public Fuzzer
 {
-  static int once = 0;
-  if (once)
-    return 0;
-  once = 1;
-  return 1;
-}
-#endif
+public:
+  ParseURLFuzzer() {}
+  virtual int init();
+  virtual int run(const std::string &filename);
+};
 
-int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
+int ParseURLFuzzer::init()
 {
-  if (argc < 2)
-  {
-    std::cout << "usage: " << argv[0] << " " << "<filename>" << std::endl;
-    return 1;
-  }
-
-  int ret = fuzzer.init();
-  if (ret)
-    return ret;
-
-  const std::string filename = argv[1];
-  while (__AFL_LOOP(1000))
-  {
-    ret = fuzzer.run(filename);
-    if (ret)
-      return ret;
-  }
-
   return 0;
 }
+
+int ParseURLFuzzer::run(const std::string &filename)
+{
+  std::string s;
+
+  if (!epee::file_io_utils::load_file_to_string(filename, s))
+  {
+    std::cout << "Error: failed to load file " << filename << std::endl;
+    return 1;
+  }
+  try
+  {
+    epee::net_utils::http::url_content url;
+    epee::net_utils::parse_url(s, url);
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to load from binary: " << e.what() << std::endl;
+    return 1;
+  }
+  return 0;
+}
+
+int main(int argc, const char **argv)
+{
+  ParseURLFuzzer fuzzer;
+  return run_fuzzer(argc, argv, fuzzer);
+}
+

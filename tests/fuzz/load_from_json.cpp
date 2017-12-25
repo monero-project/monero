@@ -26,43 +26,51 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/program_options.hpp>
 #include "include_base_utils.h"
-#include "string_tools.h"
-#include "common/command_line.h"
-#include "common/util.h"
+#include "file_io_utils.h"
+#include "serialization/keyvalue_serialization.h"
+#include "storages/portable_storage_template_helper.h"
+#include "storages/portable_storage_base.h"
 #include "fuzzer.h"
 
-#if (!defined(__clang__) || (__clang__ < 5))
-static int __AFL_LOOP(int)
+class PortableStorageFuzzer: public Fuzzer
 {
-  static int once = 0;
-  if (once)
-    return 0;
-  once = 1;
-  return 1;
-}
-#endif
+public:
+  PortableStorageFuzzer() {}
+  virtual int init();
+  virtual int run(const std::string &filename);
+};
 
-int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
+int PortableStorageFuzzer::init()
 {
-  if (argc < 2)
-  {
-    std::cout << "usage: " << argv[0] << " " << "<filename>" << std::endl;
-    return 1;
-  }
-
-  int ret = fuzzer.init();
-  if (ret)
-    return ret;
-
-  const std::string filename = argv[1];
-  while (__AFL_LOOP(1000))
-  {
-    ret = fuzzer.run(filename);
-    if (ret)
-      return ret;
-  }
-
   return 0;
 }
+
+int PortableStorageFuzzer::run(const std::string &filename)
+{
+  std::string s;
+
+  if (!epee::file_io_utils::load_file_to_string(filename, s))
+  {
+    std::cout << "Error: failed to load file " << filename << std::endl;
+    return 1;
+  }
+  try
+  {
+    epee::serialization::portable_storage ps;
+    ps.load_from_json(s);
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to load from binary: " << e.what() << std::endl;
+    return 1;
+  }
+  return 0;
+}
+
+int main(int argc, const char **argv)
+{
+  PortableStorageFuzzer fuzzer;
+  return run_fuzzer(argc, argv, fuzzer);
+}
+
