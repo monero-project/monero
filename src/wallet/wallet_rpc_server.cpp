@@ -1371,7 +1371,6 @@ namespace tools
       {
         wallet_rpc::payment_details rpc_payment;
         rpc_payment.payment_id   = epee::string_tools::pod_to_hex(payment.first);
-        rpc_payment.subaddress   = m_wallet->get_subaddress_as_str(payment.second.m_subaddr_index);
         rpc_payment.tx_hash      = epee::string_tools::pod_to_hex(payment.second.m_tx_hash);
         rpc_payment.amount       = payment.second.m_amount;
         rpc_payment.block_height = payment.second.m_block_height;
