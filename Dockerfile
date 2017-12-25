@@ -21,8 +21,10 @@ RUN apt-get update && \
 
 WORKDIR /src
 COPY . .
+
+ARG NPROC
 RUN rm -rf build && \
-    make -j$(nproc) release-static
+    if [ -z "$NPROC" ];then make -j$(nproc) release-static;else make -j$NPROC release-static;fi
 
 # runtime stage
 FROM ubuntu:16.04

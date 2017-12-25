@@ -136,7 +136,11 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
 * Docker
 
+        # Build using all available cores
         docker build -t monero .
+
+        # or build using a specific number of cores (reduce RAM requirement)
+        docker build --build-arg NPROC=1 -t monero .
      
         # either run in foreground
         docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
