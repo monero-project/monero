@@ -767,6 +767,9 @@ namespace tools
       if(ver < 22)
         return;
       a & m_unconfirmed_payments;
+      if(ver < 23)
+        return;
+      a & m_account_tags;
     }
 
     /*!
@@ -862,6 +865,24 @@ namespace tools
 
     void set_description(const std::string &description);
     std::string get_description() const;
+
+    /*!
+     * \brief  Get the list of registered account tags. 
+     * \return first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)
+     */
+    const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& get_account_tags();
+    /*!
+     * \brief  Set a tag to the given accounts.
+     * \param  account_indices  Indices of accounts.
+     * \param  tag              Tag's name. If empty, the accounts become untagged.
+     */
+    void set_account_tag(const std::set<uint32_t> account_indices, const std::string& tag);
+    /*!
+     * \brief  Set the label of the given tag.
+     * \param  tag            Tag's name (which must be non-empty).
+     * \param  label          Tag's description.
+     */
+    void set_account_tag_description(const std::string& tag, const std::string& description);
 
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
@@ -1025,6 +1046,7 @@ namespace tools
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     std::unordered_map<std::string, std::string> m_attributes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
+    std::pair<std::map<std::string, std::string>, std::vector<std::string>> m_account_tags;
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
     const std::vector<std::vector<tools::wallet2::multisig_info>> *m_multisig_rescan_info;
     const std::vector<std::vector<rct::key>> *m_multisig_rescan_k;
@@ -1077,7 +1099,7 @@ namespace tools
     std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 22)
+BOOST_CLASS_VERSION(tools::wallet2, 23)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)

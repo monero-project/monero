@@ -1575,8 +1575,20 @@ simple_wallet::simple_wallet()
                            tr("Change the current log detail (level must be <0-4>)."));
   m_cmd_binder.set_handler("account",
                            boost::bind(&simple_wallet::account, this, _1),
-                           tr("account [new <label text with white spaces allowed> | switch <index> | label <index> <label text with white spaces allowed>]"),
-                           tr("If no arguments are specified, the wallet shows all the existing accounts along with their balances. If the \"new\" argument is specified, the wallet creates a new account with its label initialized by the provided label text (which can be empty). If the \"switch\" argument is specified, the wallet switches to the account specified by <index>. If the \"label\" argument is specified, the wallet sets the label of the account specified by <index> to the provided label text."));
+                           tr("account\n"
+                            "  account new <label text with white spaces allowed>\n"
+                            "  account switch <index> \n"
+                            "  account label <index> <label text with white spaces allowed>\n"
+                            "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
+                            "  account untag <account_index_1> [<account_index_2> ...]\n"
+                            "  account tag_description <tag_name> <description>"),
+                           tr("If no arguments are specified, the wallet shows all the existing accounts along with their balances.\n"
+                              "If the \"new\" argument is specified, the wallet creates a new account with its label initialized by the provided label text (which can be empty).\n"
+                              "If the \"switch\" argument is specified, the wallet switches to the account specified by <index>.\n"
+                              "If the \"label\" argument is specified, the wallet sets the label of the account specified by <index> to the provided label text.\n"
+                              "If the \"tag\" argument is specified, a tag <tag_name> is assigned to the specified accounts <account_index_1>, <account_index_2>, ....\n"
+                              "If the \"untag\" argument is specified, the tags assigned to the specified accounts <account_index_1>, <account_index_2> ..., are removed.\n"
+                              "If the \"tag_description\" argument is specified, the tag <tag_name> is assigned an arbitrary text <description>."));
   m_cmd_binder.set_handler("address",
                            boost::bind(&simple_wallet::print_address, this, _1),
                            tr("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed>]"),
@@ -3119,6 +3131,8 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
   if (m_wallet->has_multisig_partial_key_images())
     extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
+  const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
+  success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
     << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
@@ -5513,6 +5527,9 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
   //   account new <label text with white spaces allowed>
   //   account switch <index>
   //   account label <index> <label text with white spaces allowed>
+  //   account tag <tag_name> <account_index_1> [<account_index_2> ...]
+  //   account untag <account_index_1> [<account_index_2> ...]
+  //   account tag_description <tag_name> <description>
 
   if (args.empty())
   {
@@ -5577,18 +5594,128 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
       fail_msg_writer() << e.what();
     }
   }
+  else if (command == "tag" && local_args.size() >= 2)
+  {
+    const std::string tag = local_args[0];
+    std::set<uint32_t> account_indices;
+    for (size_t i = 1; i < local_args.size(); ++i)
+    {
+      uint32_t account_index;
+      if (!epee::string_tools::get_xtype_from_string(account_index, local_args[i]))
+      {
+        fail_msg_writer() << tr("failed to parse index: ") << local_args[i];
+        return true;
+      }
+      account_indices.insert(account_index);
+    }
+    try
+    {
+      m_wallet->set_account_tag(account_indices, tag);
+      print_accounts(tag);
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
+  else if (command == "untag" && local_args.size() >= 1)
+  {
+    std::set<uint32_t> account_indices;
+    for (size_t i = 0; i < local_args.size(); ++i)
+    {
+      uint32_t account_index;
+      if (!epee::string_tools::get_xtype_from_string(account_index, local_args[i]))
+      {
+        fail_msg_writer() << tr("failed to parse index: ") << local_args[i];
+        return true;
+      }
+      account_indices.insert(account_index);
+    }
+    try
+    {
+      m_wallet->set_account_tag(account_indices, "");
+      print_accounts();
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
+  else if (command == "tag_description" && local_args.size() >= 1)
+  {
+    const std::string tag = local_args[0];
+    std::string description;
+    if (local_args.size() > 1)
+    {
+      local_args.erase(local_args.begin());
+      description = boost::join(local_args, " ");
+    }
+    try
+    {
+      m_wallet->set_account_tag_description(tag, description);
+      print_accounts(tag);
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
   else
   {
-    fail_msg_writer() << tr("usage: account [new <label text with white spaces allowed> | switch <index> | label <index> <label text with white spaces allowed>]");
+    fail_msg_writer() << tr("usage:\n"
+                            "  account\n"
+                            "  account new <label text with white spaces allowed>\n"
+                            "  account switch <index>\n"
+                            "  account label <index> <label text with white spaces allowed>\n"
+                            "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
+                            "  account untag <account_index_1> [<account_index_2> ...]\n"
+                            "  account tag_description <tag_name> <description>");
   }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::print_accounts()
 {
+  const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
+  size_t num_untagged_accounts = m_wallet->get_num_subaddress_accounts();
+  for (const std::pair<std::string, std::string>& p : account_tags.first)
+  {
+    const std::string& tag = p.first;
+    print_accounts(tag);
+    num_untagged_accounts -= std::count(account_tags.second.begin(), account_tags.second.end(), tag);
+    success_msg_writer() << "";
+  }
+
+  if (num_untagged_accounts > 0)
+    print_accounts("");
+
+  if (num_untagged_accounts < m_wallet->get_num_subaddress_accounts())
+    success_msg_writer() << tr("\nGrand total:\n  Balance: ") << print_money(m_wallet->balance_all()) << tr(", unlocked balance: ") << print_money(m_wallet->unlocked_balance_all());
+}
+//----------------------------------------------------------------------------------------------------
+void simple_wallet::print_accounts(const std::string& tag)
+{
+  const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
+  if (tag.empty())
+  {
+    success_msg_writer() << tr("Untagged accounts:");
+  }
+  else
+  {
+    if (account_tags.first.count(tag) == 0)
+    {
+      fail_msg_writer() << boost::format(tr("Tag %s is unregistered.")) % tag;
+      return;
+    }
+    success_msg_writer() << tr("Accounts with tag: ") << tag;
+    success_msg_writer() << tr("Tag's description: ") << account_tags.first.find(tag)->second;
+  }
   success_msg_writer() << boost::format("  %15s %21s %21s %21s") % tr("Account") % tr("Balance") % tr("Unlocked balance") % tr("Label");
+  uint64_t total_balance = 0, total_unlocked_balance = 0;
   for (uint32_t account_index = 0; account_index < m_wallet->get_num_subaddress_accounts(); ++account_index)
   {
+    if (account_tags.second[account_index] != tag)
+      continue;
     success_msg_writer() << boost::format(tr(" %c%8u %6s %21s %21s %21s"))
       % (m_current_subaddress_account == account_index ? '*' : ' ')
       % account_index
@@ -5596,9 +5723,11 @@ void simple_wallet::print_accounts()
       % print_money(m_wallet->balance(account_index))
       % print_money(m_wallet->unlocked_balance(account_index))
       % m_wallet->get_subaddress_label({account_index, 0});
+    total_balance += m_wallet->balance(account_index);
+    total_unlocked_balance += m_wallet->unlocked_balance(account_index);
   }
   success_msg_writer() << tr("----------------------------------------------------------------------------------");
-  success_msg_writer() << boost::format(tr("%15s %21s %21s")) % "Total" % print_money(m_wallet->balance_all()) % print_money(m_wallet->unlocked_balance_all());
+  success_msg_writer() << boost::format(tr("%15s %21s %21s")) % "Total" % print_money(total_balance) % print_money(total_unlocked_balance);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)

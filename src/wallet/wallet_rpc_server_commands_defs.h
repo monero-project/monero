@@ -178,7 +178,10 @@ namespace wallet_rpc
   {
     struct request
     {
+      std::string tag;      // all accounts if empty, otherwise those accounts with this tag
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tag)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -189,6 +192,7 @@ namespace wallet_rpc
       uint64_t balance;
       uint64_t unlocked_balance;
       std::string label;
+      std::string tag;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
@@ -196,6 +200,7 @@ namespace wallet_rpc
         KV_SERIALIZE(balance)
         KV_SERIALIZE(unlocked_balance)
         KV_SERIALIZE(label)
+        KV_SERIALIZE(tag)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -244,6 +249,95 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(label)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ACCOUNT_TAGS
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct account_tag_info
+    {
+      std::string tag;
+      std::string label;
+      std::vector<uint32_t> accounts;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tag);
+        KV_SERIALIZE(label);
+        KV_SERIALIZE(accounts);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<account_tag_info> account_tags;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(account_tags)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_TAG_ACCOUNTS
+  {
+    struct request
+    {
+      std::string tag;
+      std::set<uint32_t> accounts;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tag)
+        KV_SERIALIZE(accounts)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_UNTAG_ACCOUNTS
+  {
+    struct request
+    {
+      std::set<uint32_t> accounts;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(accounts)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SET_ACCOUNT_TAG_DESCRIPTION
+  {
+    struct request
+    {
+      std::string tag;
+      std::string description;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tag)
+        KV_SERIALIZE(description)
       END_KV_SERIALIZE_MAP()
     };
 
