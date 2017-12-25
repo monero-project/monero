@@ -448,19 +448,20 @@ namespace
             }
           };
 
+          namespace SP = std::placeholders;
           field_table.add
-            (u8"algorithm", std::bind(parse_token{}, _1, _2, _3, std::bind(&auth_message::algorithm, _4)))
-            (u8"cnonce", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::cnonce, _4)))
-            (u8"domain", std::bind(parse_string{}, _1, _2, _3)) // ignore field
+            (u8"algorithm", std::bind(parse_token{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::algorithm, SP::_4)))
+            (u8"cnonce", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::cnonce, SP::_4)))
+            (u8"domain", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3)) // ignore field
             (u8"nc", parse_nc{})
-            (u8"nonce", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::nonce, _4)))
-            (u8"opaque", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::opaque, _4)))
-            (u8"qop", std::bind(parse_token{}, _1, _2, _3, std::bind(&auth_message::qop, _4)))
-            (u8"realm", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::realm, _4)))
+            (u8"nonce", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::nonce, SP::_4)))
+            (u8"opaque", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::opaque, SP::_4)))
+            (u8"qop", std::bind(parse_token{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::qop, SP::_4)))
+            (u8"realm", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::realm, SP::_4)))
             (u8"response", parse_response{})
-            (u8"stale", std::bind(parse_token{}, _1, _2, _3, std::bind(&auth_message::stale, _4)))
-            (u8"uri", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::uri, _4)))
-            (u8"username", std::bind(parse_string{}, _1, _2, _3, std::bind(&auth_message::username, _4)));
+            (u8"stale", std::bind(parse_token{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::stale, SP::_4)))
+            (u8"uri", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::uri, SP::_4)))
+            (u8"username", std::bind(parse_string{}, SP::_1, SP::_2, SP::_3, std::bind(&auth_message::username, SP::_4)));
 
           skip_whitespace = *(&qi::ascii::char_ >> qi::ascii::space);
           header = skip_whitespace >> qi::ascii::no_case[u8"digest"] >> skip_whitespace;
