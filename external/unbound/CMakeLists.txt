@@ -53,6 +53,7 @@ add_definitions(-std=c99)
 
 option(USE_ECDSA "Use ECDSA algorithms" ON)
 option(USE_SHA2 "Enable SHA2 support" ON)
+option(USE_SHA1 "Enable SHA1 support" ON)
 set(ENABLE_DNSTAP 0)
 set(HAVE_SSL 1)
 if (CMAKE_USE_PTHREADS_INIT AND NOT CMAKE_USE_WIN32_THREADS_INIT)
