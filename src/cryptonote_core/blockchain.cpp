@@ -2949,6 +2949,8 @@ uint64_t Blockchain::get_dynamic_per_kb_fee(uint64_t block_reward, size_t median
 //------------------------------------------------------------------
 bool Blockchain::check_fee(size_t blob_size, uint64_t fee) const
 {
+  return fee >= MINIMUM_RELAY_FEE;  // TODO
+
   const uint8_t version = get_current_hard_fork_version();
 
   uint64_t fee_per_kb;
