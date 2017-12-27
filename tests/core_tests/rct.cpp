@@ -58,7 +58,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     miner_accounts[n].generate();
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, miner_accounts[n],
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
-        2, 2, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        2, 2, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0, 2),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
@@ -75,7 +75,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
-          2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+          2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0, 2),
           false, "Failed to generate block");
       events.push_back(blk);
@@ -96,8 +96,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     sources.resize(1);
     tx_source_entry& src = sources.back();
 
-    const size_t index_in_tx = 5;
-    src.amount = 30000000000000;
+    const size_t index_in_tx = 4;
+    src.amount = 70000000000000;
     for (int m = 0; m < 4; ++m) {
       src.push_output(m, boost::get<txout_to_key>(blocks[m].miner_tx.vout[index_in_tx].target).key, src.amount);
     }
@@ -110,12 +110,12 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     //fill outputs entry
     tx_destination_entry td;
     td.addr = miner_accounts[n].get_keys().m_account_address;
-    td.amount = 7390000000000;
+    td.amount = 17390000000000;
     std::vector<tx_destination_entry> destinations;
     destinations.push_back(td);
     destinations.push_back(td);
     destinations.push_back(td);
-    destinations.push_back(td); // 30 -> 7.39 * 4
+    destinations.push_back(td); // 70 -> 17.39 * 4
 
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
@@ -141,8 +141,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-        crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, 4),
+        4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+        crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 4, 4),
         false, "Failed to generate block");
     events.push_back(blk_txes[n]);
     blk_last = blk_txes[n];
@@ -155,8 +155,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 6, 4),
+          4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 4, 4),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;
@@ -166,7 +166,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
   // create a tx from the requested ouputs
   std::vector<tx_source_entry> sources;
-  size_t global_rct_idx = 6; // skip first coinbase (6 outputs)
+  size_t global_rct_idx = 4; // skip first coinbase (4 outputs)
   size_t rct_idx = 0;
   size_t pre_rct_idx = 0;
   for (size_t out_idx_idx = 0; out_idx[out_idx_idx] >= 0; ++out_idx_idx) {
@@ -176,7 +176,7 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
     src.real_output = 0;
     if (out_idx[out_idx_idx]) {
       // rct
-      src.amount = 7390000000000;
+      src.amount = 17390000000000;
       src.real_out_tx_key = get_tx_pub_key_from_extra(rct_txes[rct_idx/4]);
       src.real_output_in_tx_index = rct_idx&3;
       src.mask = rct_tx_masks[rct_idx];
@@ -188,20 +188,20 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
         src.outputs.push_back(std::make_pair(global_rct_idx, ctkey));
         ++rct_idx;
         ++global_rct_idx;
-        if (global_rct_idx % 10 == 0)
-          global_rct_idx += 6; // skip the coinbase
+        if (global_rct_idx % 8 == 0)
+          global_rct_idx += 4; // skip the coinbase
       }
     }
     else
     {
       // pre rct
-      src.amount = 5000000000000;
+      src.amount = 300000000000;
       src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[pre_rct_idx].miner_tx);
-      src.real_output_in_tx_index = 4;
+      src.real_output_in_tx_index = 3;
       src.mask = rct::identity();
       src.rct = false;
       for (int m = 0; m <= mixin; ++m) {
-        src.push_output(m, boost::get<txout_to_key>(blocks[pre_rct_idx].miner_tx.vout[4].target).key, src.amount);
+        src.push_output(m, boost::get<txout_to_key>(blocks[pre_rct_idx].miner_tx.vout[3].target).key, src.amount);
         ++pre_rct_idx;
       }
     }

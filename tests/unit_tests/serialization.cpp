@@ -670,10 +670,10 @@ TEST(Serialization, serializes_ringct_types)
 
 TEST(Serialization, portability_wallet)
 {
-  const cryptonote::network_type nettype = cryptonote::TESTNET;
+  const cryptonote::network_type nettype = cryptonote::MAINNET;
   const bool restricted = false;
   tools::wallet2 w(nettype, restricted);
-  const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_9svHk1";
+  const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_WmsMW3";
   string password = "test";
   bool r = false;
   try
@@ -701,96 +701,151 @@ TEST(Serialization, portability_wallet)
   */
   // blockchain
   ASSERT_TRUE(w.m_blockchain.size() == 1);
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_blockchain[0]) == "48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_blockchain[0]) == "c4890ac26e2806f95859c7725d66a248643fbc6b8fefcb5b8f408c24aa3c6f56");
   // transfers (TODO)
-  ASSERT_TRUE(w.m_transfers.size() == 3);
+  ASSERT_TRUE(w.m_transfers.size() == 9);
   // account public address
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_account_public_address.m_view_public_key) == "e47d4b6df6ab7339539148c2a03ad3e2f3434e5ab2046848e1f21369a3937cad");
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_account_public_address.m_spend_public_key) == "13daa2af00ad26a372d317195de0bdd716f7a05d33bc4d7aff1664b6ee93c060");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_account_public_address.m_view_public_key) == "bce39f3187ea721f2382f6d869ec4355c9fc98b8b48447797603c8f67e529f0f");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(w.m_account_public_address.m_spend_public_key) == "314919dff11bdd66b6ef9ab476bed945027899e5fe97ed05db73a981d9d8fe49");
   // key images
-  ASSERT_TRUE(w.m_key_images.size() == 3);
+  ASSERT_TRUE(w.m_key_images.size() == 9);
   {
-    crypto::key_image ki[3];
-    epee::string_tools::hex_to_pod("c5680d3735b90871ca5e3d90cd82d6483eed1151b9ab75c2c8c3a7d89e00a5a8", ki[0]);
-    epee::string_tools::hex_to_pod("d54cbd435a8d636ad9b01b8d4f3eb13bd0cf1ce98eddf53ab1617f9b763e66c0", ki[1]);
-    epee::string_tools::hex_to_pod("6c3cd6af97c4070a7aef9b1344e7463e29c7cd245076fdb65da447a34da3ca76", ki[2]);
-    ASSERT_EQ_MAP(0, w.m_key_images, ki[0]);
-    ASSERT_EQ_MAP(1, w.m_key_images, ki[1]);
-    ASSERT_EQ_MAP(2, w.m_key_images, ki[2]);
+    const std::vector<std::string> ki_str =
+    {
+      "10dfc5688233609ff5cfca7c150c2567fa36c72687f1b6352a703657d8f6130d",
+      "8cdf30335036aff70bfac09199706ad0a1716f572edba95f46858df67e8aef8a",
+      "0f3cd94bb830262476314fcb4b46e2d7e6607f109efda6d709560f5f04607a85",
+      "0b368153f04042bc53aa69ec31e17e14432464b3d24804bbfa71e1747be32851",
+      "eaaf14fe0a0c4e11c03628484216c0e71c4580bbdcb27d5451b8201af2b33e25",
+      "57bc45a7e7e56c6aca04043ac39338cab16d0e17312587ae8a75dd35909d106f",
+      "719f399afa6af07743e1cfb7f20d28b7843ca0002f625130fc7cc3ea8cdec31d",
+      "080af77965131b626ac76501cfa76d8fead27090e8fd28b4960f7d65bcd56add",
+      "53fae2e3d35cfedc38c5054f36b0be28b85591cd1c2ed4e85a4206135a6c4f5b",
+    };
+    for (size_t i = 0; i < ki_str.size(); ++i)
+    {
+      crypto::key_image ki;
+      epee::string_tools::hex_to_pod(ki_str[i], ki);
+      ASSERT_EQ_MAP(i, w.m_key_images, ki);
+    }
   }
   // unconfirmed txs
   ASSERT_TRUE(w.m_unconfirmed_txs.size() == 0);
   // payments
-  ASSERT_TRUE(w.m_payments.size() == 2);
+  ASSERT_TRUE(w.m_payments.size() == 3);
   {
-    auto pd0 = w.m_payments.begin();
-    auto pd1 = pd0;
-    ++pd1;
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(pd0->first) == "0000000000000000000000000000000000000000000000000000000000000000");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(pd1->first) == "0000000000000000000000000000000000000000000000000000000000000000");
-    if (epee::string_tools::pod_to_hex(pd0->second.m_tx_hash) == "ec34c9bb12b99af33d49691384eee5bed9171498ff04e59516505f35d1fc5efc")
-      swap(pd0, pd1);
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(pd0->second.m_tx_hash) == "15024343b38e77a1a9860dfed29921fa17e833fec837191a6b04fa7cb9605b8e");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(pd1->second.m_tx_hash) == "ec34c9bb12b99af33d49691384eee5bed9171498ff04e59516505f35d1fc5efc");
-    ASSERT_TRUE(pd0->second.m_amount == 13400845012231);
-    ASSERT_TRUE(pd1->second.m_amount == 1200000000000);
-    ASSERT_TRUE(pd0->second.m_block_height == 818424);
-    ASSERT_TRUE(pd1->second.m_block_height == 818522);
-    ASSERT_TRUE(pd0->second.m_unlock_time == 818484);
-    ASSERT_TRUE(pd1->second.m_unlock_time == 0);
-    ASSERT_TRUE(pd0->second.m_timestamp == 1483263366);
-    ASSERT_TRUE(pd1->second.m_timestamp == 1483272963);
+    const struct
+    {
+      const char *txid;
+      uint64_t amount;
+      uint64_t block_height;
+      uint64_t timestamp;
+    } payments[] =
+    {
+      { "7dab7ebeb69e14b1321e928da174e5ea83a413c521141035275c357ab497f10b", 100000000000, 921444, 1518020620 },
+      { "d6ac8a0edd08a7c694f8d9cf768961f7fe987622d20e4e27e33032a7d3d18dc5", 200000000000, 921447, 1518021834 },
+      { "be1f73ccf9ba14ee24cd9a39a008394aa145813c2c40ca708f360d516c165a90", 100000000000, 921461, 1518026459 },
+    };
+    for (const auto &i : payments)
+    {
+      crypto::hash txid;
+      epee::string_tools::hex_to_pod(i.txid, txid);
+      size_t j = 0;
+      for (const auto &p : w.m_payments)
+      {
+        ASSERT_EQ(null_hash, p.first);
+        const tools::wallet2::payment_details &pd = p.second;
+        ASSERT_EQ(0, pd.m_unlock_time);
+        ASSERT_EQ(0, pd.m_subaddr_index.major);
+        ASSERT_EQ(0, pd.m_subaddr_index.minor);
+        if (pd.m_tx_hash == txid)
+        {
+          ASSERT_EQ(i.amount, pd.m_amount);
+          ASSERT_EQ(i.block_height, pd.m_block_height);
+          ASSERT_EQ(i.timestamp, pd.m_timestamp);
+          break;
+        }
+        ++j;
+      }
+      ASSERT_TRUE(j < w.m_payments.size());
+    }
   }
   // tx keys
-  ASSERT_TRUE(w.m_tx_keys.size() == 2);
+  ASSERT_TRUE(w.m_tx_keys.size() == 6);
   {
-    const std::vector<std::pair<std::string, std::string>> txid_txkey =
+    const struct
     {
-      {"b9aac8c020ab33859e0c0b6331f46a8780d349e7ac17b067116e2d87bf48daad", "bf3614c6de1d06c09add5d92a5265d8c76af706f7bc6ac830d6b0d109aa87701"},
-      {"6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba", "e556884246df5a787def6732c6ea38f1e092fa13e5ea98f732b99c07a6332003"},
+      const char *txid;
+      const char *txkey;
+    } pairs[] =
+    {
+      { "f4eb7d1e1a30edd1dff5f6203eb2286cd1ce2d0f6286903d12dd2861898dc021", "6875cd9855683c9cd7eb344ad595163437b080429e2fc84f908a4046a0137501" },
+      { "5e37f3b5e388db5a50aa66215a0d8e22db9e97599a3bf7085def2481f69c50be", "df96f639413e99c21072050037664e1260d51a994d646308a341347fdd223001" },
+      { "6241edce6bcaa3d9a15e352cc439b98f736ac002078c913e34df42ec9485a4bc", "9617936b30a8a391b2273e6fa5df8c115a661efee8e75b48507aeadf0583620b" },
+      { "2b529ebbf9ea9ac20924b0bafe0a2a4caa973e6c3258b1f4683f60acae3284db", "3b72a34fc842f0deba56d219d6b4c124f313a8a2c9ee3f014c70c85e178a800c" },
+      { "2596faa2fb12e0ae3c9b8480617b95637bc8b99e0637760a94ae421ecea71262", "4625cd7f96312fab5424be2f774fae792c5810f91f36c48416be35fc8cee470f" },
+      { "733a11a5138ae6c65ffd849b1b53e45d57b82a4696389e026dc2c825164995a3", "526c0645dec1251462e1de96da37903734b55515f619e179f96004f8d768330c" },
     };
-    for (size_t i = 0; i < txid_txkey.size(); ++i)
+    for (const auto &i : pairs)
     {
       crypto::hash txid;
       crypto::secret_key txkey;
-      epee::string_tools::hex_to_pod(txid_txkey[i].first, txid);
-      epee::string_tools::hex_to_pod(txid_txkey[i].second, txkey);
+      epee::string_tools::hex_to_pod(i.txid, txid);
+      epee::string_tools::hex_to_pod(i.txkey, txkey);
       ASSERT_EQ_MAP(txkey, w.m_tx_keys, txid);
     }
   }
   // confirmed txs
-  ASSERT_TRUE(w.m_confirmed_txs.size() == 1);
+  ASSERT_TRUE(w.m_confirmed_txs.size() == 6);
   // tx notes
   ASSERT_TRUE(w.m_tx_notes.size() == 2);
   {
     crypto::hash h[2];
-    epee::string_tools::hex_to_pod("15024343b38e77a1a9860dfed29921fa17e833fec837191a6b04fa7cb9605b8e", h[0]);
-    epee::string_tools::hex_to_pod("6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba", h[1]);
+    epee::string_tools::hex_to_pod("f4eb7d1e1a30edd1dff5f6203eb2286cd1ce2d0f6286903d12dd2861898dc021", h[0]);
+    epee::string_tools::hex_to_pod("5e37f3b5e388db5a50aa66215a0d8e22db9e97599a3bf7085def2481f69c50be", h[1]);
     ASSERT_EQ_MAP("sample note", w.m_tx_notes, h[0]);
     ASSERT_EQ_MAP("sample note 2", w.m_tx_notes, h[1]);
   }
   // unconfirmed payments
   ASSERT_TRUE(w.m_unconfirmed_payments.size() == 0);
   // pub keys
-  ASSERT_TRUE(w.m_pub_keys.size() == 3);
+  ASSERT_TRUE(w.m_pub_keys.size() == 9);
   {
-    crypto::public_key pubkey[3];
-    epee::string_tools::hex_to_pod("33f75f264574cb3a9ea5b24220a5312e183d36dc321c9091dfbb720922a4f7b0", pubkey[0]);
-    epee::string_tools::hex_to_pod("5066ff2ce9861b1d131cf16eeaa01264933a49f28242b97b153e922ec7b4b3cb", pubkey[1]);
-    epee::string_tools::hex_to_pod("0d8467e16e73d16510452b78823e082e05ee3a63788d40de577cf31eb555f0c8", pubkey[2]);
-    ASSERT_EQ_MAP(0, w.m_pub_keys, pubkey[0]);
-    ASSERT_EQ_MAP(1, w.m_pub_keys, pubkey[1]);
-    ASSERT_EQ_MAP(2, w.m_pub_keys, pubkey[2]);
+    const std::vector<std::string> pubkey_str =
+    {
+      "293d4d17f3b16b56fa9aa634f05bfc0c995139fb4e7725246555ca11d412caf7",
+      "c0244f13fd3d215fb2e74b146f6f23d6bdf93e40949fd114af3fd23471bf3099",
+      "0aef2bf3d3f14f4754f385abe1dcfcb7d8e626105301269d5630eb7e1d88ad50",
+      "f938a6406a09de6b280d80ed4159ad8090e9460d41547893759e8cd3850a0875",
+      "bc79bd0fde68b398078f6c4c98223e9be89dab319ff99cf0b34df8c3008a3e4d",
+      "a8615506be09a3f27edb967a78ea7b5c5c9f360f49f8139c0921587d54c8b93a",
+      "27c55f695d69a6a297e0c2f1a3cf836e7a87f080015d96e1fbfe073927771886",
+      "14968bc3afb31503af6c8bef08e69a47058cc10ea7442c02595263df019feb40",
+      "517df7a97069791ac98ee6fab99c030897a3fa1921fdd9c49ee0cd1dbeb62981",
+    };
+    for (size_t i = 0; i < pubkey_str.size(); ++i)
+    {
+      crypto::public_key pubkey;
+      epee::string_tools::hex_to_pod(pubkey_str[i], pubkey);
+      ASSERT_EQ_MAP(i, w.m_pub_keys, pubkey);
+    }
   }
   // address book
   ASSERT_TRUE(w.m_address_book.size() == 1);
   {
-    auto address_book_row = w.m_address_book.begin();
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(address_book_row->m_address.m_spend_public_key) == "9bc53a6ff7b0831c9470f71b6b972dbe5ad1e8606f72682868b1dda64e119fb3");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(address_book_row->m_address.m_view_public_key) == "49fece1ef97dc0c0f7a5e2106e75e96edd910f7e86b56e1e308cd0cf734df191");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(address_book_row->m_payment_id) == "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    ASSERT_TRUE(address_book_row->m_description == "testnet wallet 9y52S6");
+    const tools::wallet2::address_book_row &x = w.m_address_book[0];
+    ASSERT_EQ("XnXQHQzk7LybGcHoZuGiXE74E4yeUBccxWT6Lvs69t5XBMfcdH17SXD2EwkwkjkQmxB2eTfqRUd1bTEf7WrXZY1a27wrcpdvJ", cryptonote::get_account_address_as_str(cryptonote::MAINNET, x.m_is_subaddress, x.m_address));
+    ASSERT_EQ(null_hash, x.m_payment_id);
+    ASSERT_EQ("John Doe", x.m_description);
   }
+  // subaddresses
+  ASSERT_EQ(2, w.m_subaddresses.size());
+  ASSERT_EQ(1, w.m_subaddress_labels.size());
+  ASSERT_EQ(2, w.m_subaddress_labels[0].size());
+  ASSERT_EQ_MAP((cryptonote::subaddress_index{0,0}), w.m_subaddresses, w.get_subaddress_spend_public_key({0,0}));
+  ASSERT_EQ_MAP((cryptonote::subaddress_index{0,1}), w.m_subaddresses, w.get_subaddress_spend_public_key({0,1}));
+  ASSERT_EQ("foo", w.m_subaddress_labels[0][0]);
+  ASSERT_EQ("bar", w.m_subaddress_labels[0][1]);
 }
 
 #define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\003"
@@ -992,15 +1047,15 @@ TEST(Serialization, portability_unsigned_tx)
   ASSERT_TRUE(epee::string_tools::pod_to_hex(tse.mask) == "789bafff169ef206aa21219342c69ca52ce1d78d776c10b21d14bdd960fc7703");
   // tcd.change_dts
   ASSERT_TRUE(tcd.change_dts.amount == 9631208773403);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, tcd.change_dts.addr) == "9svHk1wHPo3ULf2AZykghzcye6sitaRE4MaDjPC6uanTHCynHjJHZaiAb922PojE1GexhhRt1LVf5DC43feyrRZMLXQr3mk");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, tcd.change_dts.addr) == "UmiR3Pk2Lkk7Tqp2wRdw8KYkgtP37b8DRDxf8irRXX4WZBK7aqmwdhULGpMc4dBpvmcSZkg1rP3qVJSh9ZSrd1Z4255z4xXSd");
   // tcd.splitted_dsts
   ASSERT_TRUE(tcd.splitted_dsts.size() == 2);
   auto& splitted_dst0 = tcd.splitted_dsts[0];
   auto& splitted_dst1 = tcd.splitted_dsts[1];
   ASSERT_TRUE(splitted_dst0.amount == 1400000000000);
   ASSERT_TRUE(splitted_dst1.amount == 9631208773403);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst0.addr) == "9xnhrMczQkPeoGi6dyu6BgKAYX4tZsDs6KHCkyTStDBKL4M4pM1gfCR3utmTAcSaKHGa1R5o266FbdnubErmij3oMdLyYgA");
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst1.addr) == "9svHk1wHPo3ULf2AZykghzcye6sitaRE4MaDjPC6uanTHCynHjJHZaiAb922PojE1GexhhRt1LVf5DC43feyrRZMLXQr3mk");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst0.addr) == "UmjX2WchhNkfxFk3CMrk4MjiwDmYZdeFuMJzbQotTQgJE81u2JCxgHra8WT7KiZNyG14Xb5Yu7bERSuL41fTka4W2G4PQ7a6K");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst1.addr) == "UmiR3Pk2Lkk7Tqp2wRdw8KYkgtP37b8DRDxf8irRXX4WZBK7aqmwdhULGpMc4dBpvmcSZkg1rP3qVJSh9ZSrd1Z4255z4xXSd");
   // tcd.selected_transfers
   ASSERT_TRUE(tcd.selected_transfers.size() == 1);
   ASSERT_TRUE(tcd.selected_transfers.front() == 2);
@@ -1013,7 +1068,7 @@ TEST(Serialization, portability_unsigned_tx)
   ASSERT_TRUE(tcd.dests.size() == 1);
   auto& dest = tcd.dests[0];
   ASSERT_TRUE(dest.amount == 1400000000000);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, dest.addr) == "9xnhrMczQkPeoGi6dyu6BgKAYX4tZsDs6KHCkyTStDBKL4M4pM1gfCR3utmTAcSaKHGa1R5o266FbdnubErmij3oMdLyYgA");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, dest.addr) == "UmjX2WchhNkfxFk3CMrk4MjiwDmYZdeFuMJzbQotTQgJE81u2JCxgHra8WT7KiZNyG14Xb5Yu7bERSuL41fTka4W2G4PQ7a6K");
   // transfers
   ASSERT_TRUE(exported_txs.transfers.size() == 3);
   auto& td0 = exported_txs.transfers[0];
@@ -1106,7 +1161,7 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_FALSE(ptx.dust_added_to_fee);
   // ptx.change.{amount, addr}
   ASSERT_TRUE(ptx.change_dts.amount == 9631208773403);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, ptx.change_dts.addr) == "9svHk1wHPo3ULf2AZykghzcye6sitaRE4MaDjPC6uanTHCynHjJHZaiAb922PojE1GexhhRt1LVf5DC43feyrRZMLXQr3mk");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, ptx.change_dts.addr) == "UmiR3Pk2Lkk7Tqp2wRdw8KYkgtP37b8DRDxf8irRXX4WZBK7aqmwdhULGpMc4dBpvmcSZkg1rP3qVJSh9ZSrd1Z4255z4xXSd");
   // ptx.selected_transfers
   ASSERT_TRUE(ptx.selected_transfers.size() == 1);
   ASSERT_TRUE(ptx.selected_transfers.front() == 2);
@@ -1116,7 +1171,7 @@ TEST(Serialization, portability_signed_tx)
   // ptx.dests
   ASSERT_TRUE(ptx.dests.size() == 1);
   ASSERT_TRUE(ptx.dests[0].amount == 1400000000000);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, ptx.dests[0].addr) == "9xnhrMczQkPeoGi6dyu6BgKAYX4tZsDs6KHCkyTStDBKL4M4pM1gfCR3utmTAcSaKHGa1R5o266FbdnubErmij3oMdLyYgA");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, ptx.dests[0].addr) == "UmjX2WchhNkfxFk3CMrk4MjiwDmYZdeFuMJzbQotTQgJE81u2JCxgHra8WT7KiZNyG14Xb5Yu7bERSuL41fTka4W2G4PQ7a6K");
   // ptx.construction_data
   auto& tcd = ptx.construction_data;
   ASSERT_TRUE(tcd.sources.size() == 1);
@@ -1147,15 +1202,15 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(epee::string_tools::pod_to_hex(tse.mask) == "789bafff169ef206aa21219342c69ca52ce1d78d776c10b21d14bdd960fc7703");
   // ptx.construction_data.change_dts
   ASSERT_TRUE(tcd.change_dts.amount == 9631208773403);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, tcd.change_dts.addr) == "9svHk1wHPo3ULf2AZykghzcye6sitaRE4MaDjPC6uanTHCynHjJHZaiAb922PojE1GexhhRt1LVf5DC43feyrRZMLXQr3mk");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, tcd.change_dts.addr) == "UmiR3Pk2Lkk7Tqp2wRdw8KYkgtP37b8DRDxf8irRXX4WZBK7aqmwdhULGpMc4dBpvmcSZkg1rP3qVJSh9ZSrd1Z4255z4xXSd");
   // ptx.construction_data.splitted_dsts
   ASSERT_TRUE(tcd.splitted_dsts.size() == 2);
   auto& splitted_dst0 = tcd.splitted_dsts[0];
   auto& splitted_dst1 = tcd.splitted_dsts[1];
   ASSERT_TRUE(splitted_dst0.amount == 1400000000000);
   ASSERT_TRUE(splitted_dst1.amount == 9631208773403);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst0.addr) == "9xnhrMczQkPeoGi6dyu6BgKAYX4tZsDs6KHCkyTStDBKL4M4pM1gfCR3utmTAcSaKHGa1R5o266FbdnubErmij3oMdLyYgA");
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst1.addr) == "9svHk1wHPo3ULf2AZykghzcye6sitaRE4MaDjPC6uanTHCynHjJHZaiAb922PojE1GexhhRt1LVf5DC43feyrRZMLXQr3mk");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst0.addr) == "UmjX2WchhNkfxFk3CMrk4MjiwDmYZdeFuMJzbQotTQgJE81u2JCxgHra8WT7KiZNyG14Xb5Yu7bERSuL41fTka4W2G4PQ7a6K");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, splitted_dst1.addr) == "UmiR3Pk2Lkk7Tqp2wRdw8KYkgtP37b8DRDxf8irRXX4WZBK7aqmwdhULGpMc4dBpvmcSZkg1rP3qVJSh9ZSrd1Z4255z4xXSd");
   // ptx.construction_data.selected_transfers
   ASSERT_TRUE(tcd.selected_transfers.size() == 1);
   ASSERT_TRUE(tcd.selected_transfers.front() == 2);
@@ -1168,7 +1223,7 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(tcd.dests.size() == 1);
   auto& dest = tcd.dests[0];
   ASSERT_TRUE(dest.amount == 1400000000000);
-  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, dest.addr) == "9xnhrMczQkPeoGi6dyu6BgKAYX4tZsDs6KHCkyTStDBKL4M4pM1gfCR3utmTAcSaKHGa1R5o266FbdnubErmij3oMdLyYgA");
+  ASSERT_TRUE(cryptonote::get_account_address_as_str(nettype, false, dest.addr) == "UmjX2WchhNkfxFk3CMrk4MjiwDmYZdeFuMJzbQotTQgJE81u2JCxgHra8WT7KiZNyG14Xb5Yu7bERSuL41fTka4W2G4PQ7a6K");
   // key_images
   ASSERT_TRUE(exported_txs.key_images.size() == 3);
   auto& ki0 = exported_txs.key_images[0];
