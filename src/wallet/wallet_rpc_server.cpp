@@ -255,6 +255,7 @@ namespace tools
     entry.note = m_wallet->get_tx_note(pd.m_tx_hash);
     entry.type = "in";
     entry.subaddr_index = pd.m_subaddr_index;
+    entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::confirmed_transfer_details &pd)
@@ -280,6 +281,7 @@ namespace tools
 
     entry.type = "out";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
+    entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::unconfirmed_transfer_details &pd)
@@ -298,6 +300,7 @@ namespace tools
     entry.note = m_wallet->get_tx_note(txid);
     entry.type = is_failed ? "failed" : "pending";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
+    entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::pool_payment_details &ppd)
@@ -316,6 +319,7 @@ namespace tools
     entry.double_spend_seen = ppd.m_double_spend_seen;
     entry.type = "pool";
     entry.subaddr_index = pd.m_subaddr_index;
+    entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er)

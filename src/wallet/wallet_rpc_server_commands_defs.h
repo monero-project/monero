@@ -1106,6 +1106,7 @@ namespace wallet_rpc
     std::string type;
     uint64_t unlock_time;
     cryptonote::subaddress_index subaddr_index;
+    std::string address;
     bool double_spend_seen;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -1120,6 +1121,7 @@ namespace wallet_rpc
       KV_SERIALIZE(type);
       KV_SERIALIZE(unlock_time)
       KV_SERIALIZE(subaddr_index);
+      KV_SERIALIZE(address);
       KV_SERIALIZE(double_spend_seen)
     END_KV_SERIALIZE_MAP()
   };
