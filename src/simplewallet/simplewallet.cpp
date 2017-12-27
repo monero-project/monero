@@ -6586,7 +6586,8 @@ int main(int argc, char* argv[])
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
   if (!command.empty())
   {
-    w.process_command(command);
+    if (!w.process_command(command))
+      fail_msg_writer() << tr("Unknown command: ") << command.front();
     w.stop();
     w.deinit();
   }
