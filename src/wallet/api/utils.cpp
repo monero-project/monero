@@ -48,6 +48,11 @@ bool isAddressLocal(const std::string &address)
     }
 }
 
+void onStartup()
+{
+    tools::on_startup();
+}
+
 }
 
 
