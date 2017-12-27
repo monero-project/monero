@@ -30,6 +30,8 @@
 // This algorithm is adapted from Raymond Chen's code:
 // https://blogs.msdn.microsoft.com/oldnewthing/20170109-00/?p=95145
 
+#pragma once
+
 #include <vector>
 #include <functional>
 #include "misc_log_ex.h"
