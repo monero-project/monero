@@ -654,7 +654,7 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1497"/>
-        <source>Use &quot;help&quot; command to see the list of available commands.
+        <source>Use the &quot;help&quot; command to see the list of available commands.
 </source>
         <translation>Usa il comando &quot;help&quot; per visualizzare la lista dei comandi disponibili.</translation>
     </message>
@@ -1620,10 +1620,10 @@ Avviso: alcune chiavi di input spese vengono da </translation>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1385"/>
         <source>Your wallet has been generated!
-To start synchronizing with the daemon, use &quot;refresh&quot; command.
-Use &quot;help&quot; command to see the list of available commands.
-Always use &quot;exit&quot; command when closing monero-wallet-cli to save your
-current session&apos;s state. Otherwise, you might need to synchronize 
+To start synchronizing with the daemon, use the &quot;refresh&quot; command.
+Use the &quot;help&quot; command to see the list of available commands.
+Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
+your current session&apos;s state. Otherwise, you might need to synchronize 
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
         <translation>Il tuo portafoglio è stato generato!
