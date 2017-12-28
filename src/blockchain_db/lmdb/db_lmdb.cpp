@@ -2623,6 +2623,12 @@ bool BlockchainLMDB::batch_start(uint64_t batch_num_blocks, uint64_t batch_bytes
 
   m_batch_active = true;
   memset(&m_wcursors, 0, sizeof(m_wcursors));
+  if (m_tinfo.get())
+  {
+    if (m_tinfo->m_ti_rflags.m_rf_txn)
+      mdb_txn_reset(m_tinfo->m_ti_rtxn);
+    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
+  }
 
   LOG_PRINT_L3("batch transaction: begin");
   return true;
@@ -2772,28 +2778,9 @@ void BlockchainLMDB::block_txn_start(bool readonly)
 {
   if (readonly)
   {
-    bool didit = false;
-    if (m_write_txn && m_writer == boost::this_thread::get_id())
-      return;
-    if (!m_tinfo.get())
-    {
-      m_tinfo.reset(new mdb_threadinfo);
-      memset(&m_tinfo->m_ti_rcursors, 0, sizeof(m_tinfo->m_ti_rcursors));
-      memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-      if (auto mdb_res = lmdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
-        throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a read transaction for the db: ", mdb_res).c_str()));
-      didit = true;
-    } else if (!m_tinfo->m_ti_rflags.m_rf_txn)
-    {
-      if (auto mdb_res = lmdb_txn_renew(m_tinfo->m_ti_rtxn))
-        throw0(DB_ERROR_TXN_START(lmdb_error("Failed to renew a read transaction for the db: ", mdb_res).c_str()));
-      didit = true;
-    }
-    if (didit)
-    {
-      m_tinfo->m_ti_rflags.m_rf_txn = true;
-      LOG_PRINT_L3("BlockchainLMDB::" << __func__ << " RO");
-    }
+    MDB_txn *mtxn;
+	mdb_txn_cursors *mcur;
+	block_rtxn_start(&mtxn, &mcur);
     return;
   }
 
@@ -2818,6 +2805,12 @@ void BlockchainLMDB::block_txn_start(bool readonly)
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a transaction for the db: ", mdb_res).c_str()));
     }
     memset(&m_wcursors, 0, sizeof(m_wcursors));
+    if (m_tinfo.get())
+    {
+      if (m_tinfo->m_ti_rflags.m_rf_txn)
+        mdb_txn_reset(m_tinfo->m_ti_rtxn);
+      memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
+    }
   } else if (m_writer != boost::this_thread::get_id())
     throw0(DB_ERROR_TXN_START((std::string("Attempted to start new write txn when batch txn already exists in ")+__FUNCTION__).c_str()));
 }
