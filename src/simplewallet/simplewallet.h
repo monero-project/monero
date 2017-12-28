@@ -170,6 +170,8 @@ namespace cryptonote
     bool check_tx_proof(const std::vector<std::string> &args);
     bool get_spend_proof(const std::vector<std::string> &args);
     bool check_spend_proof(const std::vector<std::string> &args);
+    bool get_reserve_proof(const std::vector<std::string> &args);
+    bool check_reserve_proof(const std::vector<std::string> &args);
     bool show_transfers(const std::vector<std::string> &args);
     bool unspent_outputs(const std::vector<std::string> &args);
     bool rescan_blockchain(const std::vector<std::string> &args);
