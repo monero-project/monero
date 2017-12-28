@@ -2738,29 +2738,34 @@ void BlockchainLMDB::set_batch_transactions(bool batch_transactions)
 bool BlockchainLMDB::block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const
 {
   bool ret = false;
+  mdb_threadinfo *tinfo;
   if (m_write_txn && m_writer == boost::this_thread::get_id()) {
     *mtxn = m_write_txn->m_txn;
     *mcur = (mdb_txn_cursors *)&m_wcursors;
     return ret;
   }
-  if (!m_tinfo.get())
+  /* Check for existing info and force reset if env doesn't match -
+   * only happens if env was opened/closed multiple times in same process
+   */
+  if (!(tinfo = m_tinfo.get()) || mdb_txn_env(tinfo->m_ti_rtxn) != m_env)
   {
-    m_tinfo.reset(new mdb_threadinfo);
-    memset(&m_tinfo->m_ti_rcursors, 0, sizeof(m_tinfo->m_ti_rcursors));
-    memset(&m_tinfo->m_ti_rflags, 0, sizeof(m_tinfo->m_ti_rflags));
-    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, MDB_RDONLY, &m_tinfo->m_ti_rtxn))
+    tinfo = new mdb_threadinfo;
+    m_tinfo.reset(tinfo);
+    memset(&tinfo->m_ti_rcursors, 0, sizeof(tinfo->m_ti_rcursors));
+    memset(&tinfo->m_ti_rflags, 0, sizeof(tinfo->m_ti_rflags));
+    if (auto mdb_res = lmdb_txn_begin(m_env, NULL, MDB_RDONLY, &tinfo->m_ti_rtxn))
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to create a read transaction for the db: ", mdb_res).c_str()));
     ret = true;
-  } else if (!m_tinfo->m_ti_rflags.m_rf_txn)
+  } else if (!tinfo->m_ti_rflags.m_rf_txn)
   {
-    if (auto mdb_res = lmdb_txn_renew(m_tinfo->m_ti_rtxn))
+    if (auto mdb_res = lmdb_txn_renew(tinfo->m_ti_rtxn))
       throw0(DB_ERROR_TXN_START(lmdb_error("Failed to renew a read transaction for the db: ", mdb_res).c_str()));
     ret = true;
   }
   if (ret)
-    m_tinfo->m_ti_rflags.m_rf_txn = true;
-  *mtxn = m_tinfo->m_ti_rtxn;
-  *mcur = &m_tinfo->m_ti_rcursors;
+    tinfo->m_ti_rflags.m_rf_txn = true;
+  *mtxn = tinfo->m_ti_rtxn;
+  *mcur = &tinfo->m_ti_rcursors;
 
   if (ret)
     LOG_PRINT_L3("BlockchainLMDB::" << __func__);
