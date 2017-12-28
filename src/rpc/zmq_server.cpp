@@ -102,7 +102,7 @@ bool ZmqServer::addTCPSocket(std::string address, std::string port)
 
     rep_socket.reset(new zmq::socket_t(context, ZMQ_REP));
 
-    rep_socket->setsockopt(ZMQ_RCVTIMEO, DEFAULT_RPC_RECV_TIMEOUT_MS);
+    rep_socket->setsockopt(ZMQ_RCVTIMEO, &DEFAULT_RPC_RECV_TIMEOUT_MS, sizeof(DEFAULT_RPC_RECV_TIMEOUT_MS));
 
     std::string bind_address = addr_prefix + address + std::string(":") + port;
     rep_socket->bind(bind_address.c_str());
