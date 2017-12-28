@@ -43,8 +43,9 @@
 #include "daemon/protocol.h"
 #include "daemon/rpc.h"
 #include "daemon/command_server.h"
+#include "daemon/command_server.h"
+#include "daemon/command_line_args.h"
 #include "version.h"
-#include "syncobj.h"
 
 using namespace epee;
 
