@@ -2821,6 +2821,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  add_subaddress_account(tr("Primary account"));
 
   if (!wallet_.empty())
     store();
