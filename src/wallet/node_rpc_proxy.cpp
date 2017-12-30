@@ -68,7 +68,6 @@ void NodeRPCProxy::invalidate()
 
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version) const
 {
-  const time_t now = time(NULL);
   if (m_rpc_version == 0)
   {
     epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);

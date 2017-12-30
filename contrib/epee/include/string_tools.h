@@ -161,7 +161,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
       val = boost::lexical_cast<XType>(str_id);
       return true;
     }
-    catch(std::exception& /*e*/)
+    catch(const std::exception& /*e*/)
     {
       //const char* pmsg = e.what();
       return false;

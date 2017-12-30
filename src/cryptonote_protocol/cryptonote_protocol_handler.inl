@@ -266,13 +266,17 @@ namespace cryptonote
       return true;
 
     // from v6, if the peer advertises a top block version, reject if it's not what it should be (will only work if no voting)
-    const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
-    if (version >= 6 && version != hshd.top_version)
+    if (hshd.current_height > 0)
     {
-      if (version < hshd.top_version)
-        MCLOG_RED(el::Level::Warning, "global", context << " peer claims higher version that we think - we may be forked from the network and a software upgrade may be needed");
-      LOG_DEBUG_CC(context, "Ignoring due to wrong top version for block " << (hshd.current_height - 1) << ": " << (unsigned)hshd.top_version << ", expected " << (unsigned)version);
-      return false;
+      const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
+      if (version >= 6 && version != hshd.top_version)
+      {
+        if (version < hshd.top_version)
+          MCLOG_RED(el::Level::Warning, "global", context << " peer claims higher version that we think (" <<
+              (unsigned)hshd.top_version << " for " << (hshd.current_height - 1) << "instead of " << (unsigned)version <<
+              ") - we may be forked from the network and a software upgrade may be needed");
+        return false;
+      }
     }
 
     context.m_remote_blockchain_height = hshd.current_height;
@@ -999,6 +1003,11 @@ skip:
           MDEBUG(context << " next span in the queue has blocks " << start_height << "-" << (start_height + blocks.size() - 1)
               << ", we need " << previous_height);
 
+          if (blocks.empty())
+          {
+            MERROR("Next span has no blocks");
+            break;
+          }
 
           block new_block;
           if (!parse_and_validate_block_from_blob(blocks.front().block, new_block))
@@ -1494,6 +1503,7 @@ skip:
 
       NOTIFY_REQUEST_CHAIN::request r = boost::value_initialized<NOTIFY_REQUEST_CHAIN::request>();
       m_core.get_short_chain_history(r.block_ids);
+      CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
 
       if (!start_from_current_chain)
       {
@@ -1578,6 +1588,12 @@ skip:
     if(!arg.m_block_ids.size())
     {
       LOG_ERROR_CCONTEXT("sent empty m_block_ids, dropping connection");
+      drop_connection(context, true, false);
+      return 1;
+    }
+    if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
+    {
+      LOG_ERROR_CCONTEXT("sent invalid start/nblocks/height, dropping connection");
       drop_connection(context, true, false);
       return 1;
     }

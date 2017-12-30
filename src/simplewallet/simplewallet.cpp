@@ -1576,8 +1576,20 @@ simple_wallet::simple_wallet()
                            tr("Change the current log detail (level must be <0-4>)."));
   m_cmd_binder.set_handler("account",
                            boost::bind(&simple_wallet::account, this, _1),
-                           tr("account [new <label text with white spaces allowed> | switch <index> | label <index> <label text with white spaces allowed>]"),
-                           tr("If no arguments are specified, the wallet shows all the existing accounts along with their balances. If the \"new\" argument is specified, the wallet creates a new account with its label initialized by the provided label text (which can be empty). If the \"switch\" argument is specified, the wallet switches to the account specified by <index>. If the \"label\" argument is specified, the wallet sets the label of the account specified by <index> to the provided label text."));
+                           tr("account\n"
+                            "  account new <label text with white spaces allowed>\n"
+                            "  account switch <index> \n"
+                            "  account label <index> <label text with white spaces allowed>\n"
+                            "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
+                            "  account untag <account_index_1> [<account_index_2> ...]\n"
+                            "  account tag_description <tag_name> <description>"),
+                           tr("If no arguments are specified, the wallet shows all the existing accounts along with their balances.\n"
+                              "If the \"new\" argument is specified, the wallet creates a new account with its label initialized by the provided label text (which can be empty).\n"
+                              "If the \"switch\" argument is specified, the wallet switches to the account specified by <index>.\n"
+                              "If the \"label\" argument is specified, the wallet sets the label of the account specified by <index> to the provided label text.\n"
+                              "If the \"tag\" argument is specified, a tag <tag_name> is assigned to the specified accounts <account_index_1>, <account_index_2>, ....\n"
+                              "If the \"untag\" argument is specified, the tags assigned to the specified accounts <account_index_1>, <account_index_2> ..., are removed.\n"
+                              "If the \"tag_description\" argument is specified, the tag <tag_name> is assigned an arbitrary text <description>."));
   m_cmd_binder.set_handler("address",
                            boost::bind(&simple_wallet::print_address, this, _1),
                            tr("address [ new <label text with white spaces allowed> | all | <index_min> [<index_max>] | label <index> <label text with white spaces allowed>]"),
@@ -2639,11 +2651,11 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   success_msg_writer() <<
     "**********************************************************************\n" <<
     tr("Your wallet has been generated!\n"
-    "To start synchronizing with the daemon, use \"refresh\" command.\n"
-    "Use \"help\" command to see the list of available commands.\n"
+    "To start synchronizing with the daemon, use the \"refresh\" command.\n"
+    "Use the \"help\" command to see the list of available commands.\n"
     "Use \"help <command>\" to see a command's documentation.\n"
-    "Always use \"exit\" command when closing monero-wallet-cli to save your\n"
-    "current session's state. Otherwise, you might need to synchronize \n"
+    "Always use the \"exit\" command when closing monero-wallet-cli to save \n"
+    "your current session's state. Otherwise, you might need to synchronize \n"
     "your wallet again (your wallet keys are NOT at risk in any case).\n")
   ;
 
@@ -2800,7 +2812,7 @@ bool simple_wallet::open_wallet(const boost::program_options::variables_map& vm)
   }
   success_msg_writer() <<
     "**********************************************************************\n" <<
-    tr("Use \"help\" command to see the list of available commands.\n") <<
+    tr("Use the \"help\" command to see the list of available commands.\n") <<
     tr("Use \"help <command>\" to see a command's documentation.\n") <<
     "**********************************************************************";
   return true;
@@ -3160,6 +3172,8 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
   if (m_wallet->has_multisig_partial_key_images())
     extra = tr(" (Some owned outputs have partial key images - import_multisig_info needed)");
   success_msg_writer() << tr("Currently selected account: [") << m_current_subaddress_account << tr("] ") << m_wallet->get_subaddress_label({m_current_subaddress_account, 0});
+  const std::string tag = m_wallet->get_account_tags().second[m_current_subaddress_account];
+  success_msg_writer() << tr("Tag: ") << (tag.empty() ? std::string{tr("(No tag assigned)")} : tag);
   success_msg_writer() << tr("Balance: ") << print_money(m_wallet->balance(m_current_subaddress_account)) << ", "
     << tr("unlocked balance: ") << print_money(m_wallet->unlocked_balance(m_current_subaddress_account)) << extra;
   std::map<uint32_t, uint64_t> balance_per_subaddress = m_wallet->balance_per_subaddress(m_current_subaddress_account);
@@ -4362,9 +4376,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
       fail_msg_writer() << tr("Multiple transactions are created, which is not supposed to happen");
       return true;
     }
-    if (ptx_vector[0].selected_transfers.size() > 1)
+    if (ptx_vector[0].selected_transfers.size() != 1)
     {
-      fail_msg_writer() << tr("The transaction uses multiple inputs, which is not supposed to happen");
+      fail_msg_writer() << tr("The transaction uses multiple or no inputs, which is not supposed to happen");
       return true;
     }
 
@@ -4418,90 +4432,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     }
 
   }
-  catch (const tools::error::daemon_busy&)
-  {
-    fail_msg_writer() << tr("daemon is busy. Please try again later.");
-  }
-  catch (const tools::error::no_connection_to_daemon&)
-  {
-    fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
-  }
-  catch (const tools::error::wallet_rpc_error& e)
-  {
-    LOG_ERROR("RPC error: " << e.to_string());
-    fail_msg_writer() << tr("RPC error: ") << e.what();
-  }
-  catch (const tools::error::get_random_outs_error &e)
-  {
-    fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
-  }
-  catch (const tools::error::not_enough_money& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
-      print_money(e.available()) %
-      print_money(e.tx_amount()));
-    fail_msg_writer() << tr("Not enough money in unlocked balance");
-  }
-  catch (const tools::error::tx_not_possible& e)
-  {
-    LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, transaction amount %s = %s + %s (fee)") %
-      print_money(e.available()) %
-      print_money(e.tx_amount() + e.fee())  %
-      print_money(e.tx_amount()) %
-      print_money(e.fee()));
-    fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
-  }
-  catch (const tools::error::not_enough_outs_to_mix& e)
-  {
-    auto writer = fail_msg_writer();
-    writer << tr("not enough outputs for specified mixin_count") << " = " << e.mixin_count() << ":";
-    for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
-    {
-      writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to mix") << " = " << outs_for_amount.second;
-    }
-  }
-  catch (const tools::error::tx_not_constructed&)
-  {
-    fail_msg_writer() << tr("transaction was not constructed");
-  }
-  catch (const tools::error::tx_rejected& e)
-  {
-    fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
-    std::string reason = e.reason();
-    if (!reason.empty())
-      fail_msg_writer() << tr("Reason: ") << reason;
-  }
-  catch (const tools::error::tx_sum_overflow& e)
-  {
-    fail_msg_writer() << e.what();
-  }
-  catch (const tools::error::zero_destination&)
-  {
-    fail_msg_writer() << tr("one of destinations is zero");
-  }
-  catch (const tools::error::tx_too_big& e)
-  {
-    fail_msg_writer() << tr("failed to find a suitable way to split transactions");
-  }
-  catch (const tools::error::transfer_error& e)
-  {
-    LOG_ERROR("unknown transfer error: " << e.to_string());
-    fail_msg_writer() << tr("unknown transfer error: ") << e.what();
-  }
-  catch (const tools::error::multisig_export_needed& e)
-  {
-    LOG_ERROR("Multisig error: " << e.to_string());
-    fail_msg_writer() << tr("Multisig error: ") << e.what();
-  }
-  catch (const tools::error::wallet_internal_error& e)
-  {
-    LOG_ERROR("internal error: " << e.to_string());
-    fail_msg_writer() << tr("internal error: ") << e.what();
-  }
   catch (const std::exception& e)
   {
-    LOG_ERROR("unexpected error: " << e.what());
-    fail_msg_writer() << tr("unexpected error: ") << e.what();
+    handle_transfer_exception(std::current_exception());
   }
   catch (...)
   {
@@ -5216,7 +5149,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     try {
       min_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
-    catch (boost::bad_lexical_cast &) {
+    catch (const boost::bad_lexical_cast &) {
       fail_msg_writer() << tr("bad min_height parameter:") << " " << local_args[0];
       return true;
     }
@@ -5228,7 +5161,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     try {
       max_height = boost::lexical_cast<uint64_t>(local_args[0]);
     }
-    catch (boost::bad_lexical_cast &) {
+    catch (const boost::bad_lexical_cast &) {
       fail_msg_writer() << tr("bad max_height parameter:") << " " << local_args[0];
       return true;
     }
@@ -5391,7 +5324,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
   for (const auto& td : transfers)
   {
     uint64_t amount = td.amount();
-    if (td.m_spent || amount < min_amount || amount > max_amount || td.m_subaddr_index.major != m_current_subaddress_account || subaddr_indices.count(td.m_subaddr_index.minor) == 0)
+    if (td.m_spent || amount < min_amount || amount > max_amount || td.m_subaddr_index.major != m_current_subaddress_account || (subaddr_indices.count(td.m_subaddr_index.minor) == 0 && !subaddr_indices.empty()))
       continue;
     amount_to_tds[amount].push_back(td);
     if (min_height > td.m_block_height) min_height = td.m_block_height;
@@ -5554,6 +5487,9 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
   //   account new <label text with white spaces allowed>
   //   account switch <index>
   //   account label <index> <label text with white spaces allowed>
+  //   account tag <tag_name> <account_index_1> [<account_index_2> ...]
+  //   account untag <account_index_1> [<account_index_2> ...]
+  //   account tag_description <tag_name> <description>
 
   if (args.empty())
   {
@@ -5618,18 +5554,128 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
       fail_msg_writer() << e.what();
     }
   }
+  else if (command == "tag" && local_args.size() >= 2)
+  {
+    const std::string tag = local_args[0];
+    std::set<uint32_t> account_indices;
+    for (size_t i = 1; i < local_args.size(); ++i)
+    {
+      uint32_t account_index;
+      if (!epee::string_tools::get_xtype_from_string(account_index, local_args[i]))
+      {
+        fail_msg_writer() << tr("failed to parse index: ") << local_args[i];
+        return true;
+      }
+      account_indices.insert(account_index);
+    }
+    try
+    {
+      m_wallet->set_account_tag(account_indices, tag);
+      print_accounts(tag);
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
+  else if (command == "untag" && local_args.size() >= 1)
+  {
+    std::set<uint32_t> account_indices;
+    for (size_t i = 0; i < local_args.size(); ++i)
+    {
+      uint32_t account_index;
+      if (!epee::string_tools::get_xtype_from_string(account_index, local_args[i]))
+      {
+        fail_msg_writer() << tr("failed to parse index: ") << local_args[i];
+        return true;
+      }
+      account_indices.insert(account_index);
+    }
+    try
+    {
+      m_wallet->set_account_tag(account_indices, "");
+      print_accounts();
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
+  else if (command == "tag_description" && local_args.size() >= 1)
+  {
+    const std::string tag = local_args[0];
+    std::string description;
+    if (local_args.size() > 1)
+    {
+      local_args.erase(local_args.begin());
+      description = boost::join(local_args, " ");
+    }
+    try
+    {
+      m_wallet->set_account_tag_description(tag, description);
+      print_accounts(tag);
+    }
+    catch (const std::exception& e)
+    {
+      fail_msg_writer() << e.what();
+    }
+  }
   else
   {
-    fail_msg_writer() << tr("usage: account [new <label text with white spaces allowed> | switch <index> | label <index> <label text with white spaces allowed>]");
+    fail_msg_writer() << tr("usage:\n"
+                            "  account\n"
+                            "  account new <label text with white spaces allowed>\n"
+                            "  account switch <index>\n"
+                            "  account label <index> <label text with white spaces allowed>\n"
+                            "  account tag <tag_name> <account_index_1> [<account_index_2> ...]\n"
+                            "  account untag <account_index_1> [<account_index_2> ...]\n"
+                            "  account tag_description <tag_name> <description>");
   }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::print_accounts()
 {
+  const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
+  size_t num_untagged_accounts = m_wallet->get_num_subaddress_accounts();
+  for (const std::pair<std::string, std::string>& p : account_tags.first)
+  {
+    const std::string& tag = p.first;
+    print_accounts(tag);
+    num_untagged_accounts -= std::count(account_tags.second.begin(), account_tags.second.end(), tag);
+    success_msg_writer() << "";
+  }
+
+  if (num_untagged_accounts > 0)
+    print_accounts("");
+
+  if (num_untagged_accounts < m_wallet->get_num_subaddress_accounts())
+    success_msg_writer() << tr("\nGrand total:\n  Balance: ") << print_money(m_wallet->balance_all()) << tr(", unlocked balance: ") << print_money(m_wallet->unlocked_balance_all());
+}
+//----------------------------------------------------------------------------------------------------
+void simple_wallet::print_accounts(const std::string& tag)
+{
+  const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
+  if (tag.empty())
+  {
+    success_msg_writer() << tr("Untagged accounts:");
+  }
+  else
+  {
+    if (account_tags.first.count(tag) == 0)
+    {
+      fail_msg_writer() << boost::format(tr("Tag %s is unregistered.")) % tag;
+      return;
+    }
+    success_msg_writer() << tr("Accounts with tag: ") << tag;
+    success_msg_writer() << tr("Tag's description: ") << account_tags.first.find(tag)->second;
+  }
   success_msg_writer() << boost::format("  %15s %21s %21s %21s") % tr("Account") % tr("Balance") % tr("Unlocked balance") % tr("Label");
+  uint64_t total_balance = 0, total_unlocked_balance = 0;
   for (uint32_t account_index = 0; account_index < m_wallet->get_num_subaddress_accounts(); ++account_index)
   {
+    if (account_tags.second[account_index] != tag)
+      continue;
     success_msg_writer() << boost::format(tr(" %c%8u %6s %21s %21s %21s"))
       % (m_current_subaddress_account == account_index ? '*' : ' ')
       % account_index
@@ -5637,9 +5683,11 @@ void simple_wallet::print_accounts()
       % print_money(m_wallet->balance(account_index))
       % print_money(m_wallet->unlocked_balance(account_index))
       % m_wallet->get_subaddress_label({account_index, 0});
+    total_balance += m_wallet->balance(account_index);
+    total_unlocked_balance += m_wallet->unlocked_balance(account_index);
   }
   success_msg_writer() << tr("----------------------------------------------------------------------------------");
-  success_msg_writer() << boost::format(tr("%15s %21s %21s")) % "Total" % print_money(m_wallet->balance_all()) % print_money(m_wallet->unlocked_balance_all());
+  success_msg_writer() << boost::format(tr("%15s %21s %21s")) % "Total" % print_money(total_balance) % print_money(total_unlocked_balance);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)

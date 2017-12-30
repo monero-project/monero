@@ -62,6 +62,7 @@ void block_queue::add_blocks(uint64_t height, std::list<cryptonote::block_comple
 
 void block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, boost::posix_time::ptime time)
 {
+  CHECK_AND_ASSERT_THROW_MES(nblocks > 0, "Empty span");
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   blocks.insert(span(height, nblocks, connection_id, time));
 }
@@ -384,7 +385,7 @@ float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
       i->second = (i->second + span.rate) / 2;
   }
   float conn_rate = -1, best_rate = 0;
-  for (auto i: speeds)
+  for (const auto &i: speeds)
   {
     if (i.first == connection_id)
       conn_rate = i.second;

@@ -8,7 +8,7 @@ Public domain.
 #include <stdio.h>
 #include <sys/param.h>
 
-#include "chacha8.h"
+#include "chacha.h"
 #include "common/int-util.h"
 #include "warnings.h"
 
@@ -40,7 +40,7 @@ static const char sigma[] = "expand 32-byte k";
 
 DISABLE_GCC_AND_CLANG_WARNING(strict-aliasing)
 
-void chacha8(const void* data, size_t length, const uint8_t* key, const uint8_t* iv, char* cipher) {
+static void chacha(unsigned rounds, const void* data, size_t length, const uint8_t* key, const uint8_t* iv, char* cipher) {
   uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
   uint32_t j0, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15;
   char* ctarget = 0;
@@ -89,7 +89,7 @@ void chacha8(const void* data, size_t length, const uint8_t* key, const uint8_t*
     x13 = j13;
     x14 = j14;
     x15 = j15;
-    for (i = 8;i > 0;i -= 2) {
+    for (i = rounds;i > 0;i -= 2) {
       QUARTERROUND( x0, x4, x8,x12)
       QUARTERROUND( x1, x5, x9,x13)
       QUARTERROUND( x2, x6,x10,x14)
@@ -167,4 +167,14 @@ void chacha8(const void* data, size_t length, const uint8_t* key, const uint8_t*
     cipher += 64;
     data = (uint8_t*)data + 64;
   }
+}
+
+void chacha8(const void* data, size_t length, const uint8_t* key, const uint8_t* iv, char* cipher)
+{
+  chacha(8, data, length, key, iv, cipher);
+}
+
+void chacha20(const void* data, size_t length, const uint8_t* key, const uint8_t* iv, char* cipher)
+{
+  chacha(20, data, length, key, iv, cipher);
 }

@@ -735,7 +735,17 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       boost::asio::placeholders::error));
 
     return true;
-    CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::init_server", false);
+    }
+    catch (const std::exception &e)
+    {
+      MFATAL("Error starting server: " << e.what());
+      return false;
+    }
+    catch (...)
+    {
+      MFATAL("Error starting server");
+      return false;
+    }
   }
   //-----------------------------------------------------------------------------
 PUSH_WARNINGS

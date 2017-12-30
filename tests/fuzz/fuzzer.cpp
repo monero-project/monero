@@ -44,41 +44,11 @@ static int __AFL_LOOP(int)
 }
 #endif
 
-using namespace epee;
-using namespace boost::program_options;
-
 int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
 {
-  TRY_ENTRY();
-  tools::on_startup();
-  string_tools::set_module_name_and_folder(argv[0]);
-
-  //set up logging options
-  mlog_configure(mlog_get_default_log_path("fuzztests.log"), true);
-  mlog_set_log("*:FATAL,logging:none");
-
-  options_description desc_options("Allowed options");
-  command_line::add_arg(desc_options, command_line::arg_help);
-
-  variables_map vm;
-  bool r = command_line::handle_error_helper(desc_options, [&]()
-  {
-    store(parse_command_line(argc, argv, desc_options), vm);
-    notify(vm);
-    return true;
-  });
-  if (!r)
-    return 1;
-
-  if (command_line::get_arg(vm, command_line::arg_help))
-  {
-    std::cout << desc_options << std::endl;
-    return 0;
-  }
-
   if (argc < 2)
   {
-    std::cout << desc_options << std::endl;
+    std::cout << "usage: " << argv[0] << " " << "<filename>" << std::endl;
     return 1;
   }
 
@@ -94,6 +64,5 @@ int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
       return ret;
   }
 
-  CATCH_ENTRY_L0("fuzzer_main", 1);
   return 0;
 }

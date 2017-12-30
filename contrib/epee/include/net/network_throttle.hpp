@@ -121,8 +121,6 @@ class network_throttle_manager {
 		friend class connection_basic; // FRIEND - to directly access global throttle-s. !! REMEMBER TO USE LOCKS!
 		friend class connection_basic_pimpl; // ditto
 
-		static int xxx;
-
 	public:
 		static i_network_throttle & get_global_throttle_in(); ///< singleton ; for friend class ; caller MUST use proper locks! like m_lock_get_global_throttle_in
 		static i_network_throttle & get_global_throttle_inreq(); ///< ditto ; use lock ... use m_lock_get_global_throttle_inreq obviously

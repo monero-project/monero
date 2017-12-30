@@ -60,15 +60,11 @@ As with many development projects, the repository on Github is considered to be 
 
 ## Supporting the project
 
-Monero development can be supported directly through donations.
-
-Both Monero and Bitcoin donations can be made to donate.getmonero.org if using a client that supports the [OpenAlias](https://openalias.org) standard
+Monero is a 100% community-sponsored endeavor. If you want to join our efforts, the easiest thing you can do is support the project financially. Both Monero and Bitcoin donations can be made to **donate.getmonero.org** if using a client that supports the [OpenAlias](https://openalias.org) standard. Alternatively you can send XMR to the Monero donation address via the `donate` command (type `help` in the command-line wallet for details).
 
 The Monero donation address is: `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A` (viewkey: `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`)
 
 The Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
-
-*Note: you can easily donate XMR to the Monero donation address by using the `donate` command. Type `help` in the command-line wallet for details.*
 
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
@@ -129,6 +125,10 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
     xbps-install -S monero
 
+* GuixSD
+
+        guix package -i monero
+
 * OS X via [Homebrew](http://brew.sh)
 
         brew tap sammy007/cryptonight
@@ -136,7 +136,11 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
 * Docker
 
+        # Build using all available cores
         docker build -t monero .
+
+        # or build using a specific number of cores (reduce RAM requirement)
+        docker build --build-arg NPROC=1 -t monero .
      
         # either run in foreground
         docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
@@ -168,6 +172,7 @@ library archives (`.a`).
 | OpenSSL        | basically any | NO       | `libssl-dev`       | `openssl`      | NO       | sha256 sum     |
 | libzmq         | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`       | NO       | ZeroMQ library |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
+| libsodium      | ?             | NO       | `libsodium-dev`    | ?              | NO       | libsodium      |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
 | libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
 | liblzma        | any           | NO       | `liblzma-dev`      | `xz`           | YES      | For libunwind  |
@@ -177,6 +182,7 @@ library archives (`.a`).
 | GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
 | Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | Documentation  |
 | Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | Documentation  |
+
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```

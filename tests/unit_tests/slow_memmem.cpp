@@ -81,7 +81,6 @@ static const struct {
   {1,"x",1,"x",0},
   {2,"x",1,"",1},
   {1,"x",1,"",0},
-  {1,"x",2,"",0},
   {1,"x",2,"x",0},
   {2,"ax",2,"x",0},
   {1,"xx",2,"xx",0},
@@ -103,7 +102,7 @@ static const struct {
   {8,"xxxxxxab",3,"xyz",0},
   {8,"xxxxxxab",6,"abcdef",0},
   {9,"\0xxxxxab",3,"ab",6},
-  {4,"\0\0a",3,"\0a",1},
+  {4,"\0\0a",3,"\0a",1}, //
 };
 
 TEST(slowmem,Success)
@@ -122,7 +121,6 @@ TEST(slowmem,Success)
     free(pat);
     free(buf);
     ASSERT_EQ(res,T[n].res);
-ASSERT_EQ(1,1);
 #ifdef VERBOSE
     if (res!=T[n].res) printf("failed (got %zu, expected %zu)",res,T[n].res); else printf("ok");
     printf("\n");

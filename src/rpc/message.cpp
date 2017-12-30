@@ -111,7 +111,7 @@ FullMessage::FullMessage(Message* message)
 FullMessage::FullMessage(const std::string& json_string, bool request)
 {
   doc.Parse(json_string.c_str());
-  if (doc.HasParseError())
+  if (doc.HasParseError() || !doc.IsObject())
   {
     throw cryptonote::json::PARSE_FAIL();
   }

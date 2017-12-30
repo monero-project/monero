@@ -601,32 +601,11 @@ namespace cryptonote
      const Blockchain& get_blockchain_storage()const{return m_blockchain_storage;}
 
      /**
-      * @copydoc Blockchain::print_blockchain
-      *
-      * @note see Blockchain::print_blockchain
-      */
-     void print_blockchain(uint64_t start_index, uint64_t end_index) const;
-
-     /**
-      * @copydoc Blockchain::print_blockchain_index
-      *
-      * @note see Blockchain::print_blockchain_index
-      */
-     void print_blockchain_index() const;
-
-     /**
       * @copydoc tx_memory_pool::print_pool
       *
       * @note see tx_memory_pool::print_pool
       */
      std::string print_pool(bool short_format) const;
-
-     /**
-      * @copydoc Blockchain::print_blockchain_outs
-      *
-      * @note see Blockchain::print_blockchain_outs
-      */
-     void print_blockchain_outs(const std::string& file);
 
      /**
       * @copydoc miner::on_synchronized

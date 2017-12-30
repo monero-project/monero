@@ -1,0 +1,8 @@
+HTTP/1.1 200 Ok
+Server: Epee-based
+Content-Length: 5
+Content-Type: text/plain
+Last-Modified: Mon, 11 Dec 2017 09:03:03 GMT
+Accept-Ranges: bytes
+
+foo

@@ -680,32 +680,6 @@ namespace cryptonote
     //debug functions
 
     /**
-     * @brief prints data about a snippet of the blockchain
-     *
-     * if start_index is greater than the blockchain height, do nothing
-     *
-     * @param start_index height on chain to start at
-     * @param end_index height on chain to end at
-     */
-    void print_blockchain(uint64_t start_index, uint64_t end_index) const;
-
-    /**
-     * @brief prints every block's hash
-     *
-     * WARNING: This function will absolutely crush a terminal in prints, so
-     * it is recommended to redirect this output to a log file (or null sink
-     * if a log file is already set up, as should be the default)
-     */
-    void print_blockchain_index() const;
-
-    /**
-     * @brief currently does nothing, candidate for removal
-     *
-     * @param file
-     */
-    void print_blockchain_outs(const std::string& file) const;
-
-    /**
      * @brief check the blockchain against a set of checkpoints
      *
      * If a block fails a checkpoint and enforce is enabled, the blockchain

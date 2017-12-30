@@ -33,8 +33,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
 
-#include "common/scoped_message_writer.h"
-
 namespace daemonize
 {
 

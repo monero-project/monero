@@ -538,7 +538,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
       std::cout << std::endl;
     std::cout
       << "height: " << header.height << ", timestamp: " << header.timestamp << ", difficulty: " << header.difficulty
-      << ", size: " << header.block_size << std::endl
+      << ", size: " << header.block_size << ", transactions: " << header.num_txes << std::endl
       << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
       << "block id: " << header.hash << ", previous block id: " << header.prev_hash << std::endl
       << "difficulty: " << header.difficulty << ", nonce " << header.nonce << ", reward " << cryptonote::print_money(header.reward) << std::endl;
@@ -1611,7 +1611,7 @@ bool t_rpc_command_executor::alt_chain_info()
   }
 
   tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
-  for (const auto chain: res.chains)
+  for (const auto &chain: res.chains)
   {
     uint64_t start_height = (chain.height - chain.length + 1);
     tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)

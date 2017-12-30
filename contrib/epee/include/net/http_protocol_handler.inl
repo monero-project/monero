@@ -345,7 +345,12 @@ namespace net_utils
 		{
 			analize_http_method(result, m_query_info.m_http_method, m_query_info.m_http_ver_hi, m_query_info.m_http_ver_hi);
 			m_query_info.m_URI = result[10];
-      parse_uri(m_query_info.m_URI, m_query_info.m_uri_content);
+			if (!parse_uri(m_query_info.m_URI, m_query_info.m_uri_content))
+			{
+				m_state = http_state_error;
+				MERROR("Failed to parse URI: m_query_info.m_URI");
+				return false;
+			}
 			m_query_info.m_http_method_str = result[2];
 			m_query_info.m_full_request_str = result[0];
 

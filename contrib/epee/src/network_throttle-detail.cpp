@@ -231,8 +231,10 @@ network_time_seconds network_throttle::get_sleep_time_after_tick(size_t packet_s
 }
 
 void network_throttle::logger_handle_net(const std::string &filename, double time, size_t size) {
-    boost::mutex mutex;
-    mutex.lock(); {
+    static boost::mutex mutex;
+
+    boost::lock_guard<boost::mutex> lock(mutex);
+    {
         std::fstream file;
         file.open(filename.c_str(), std::ios::app | std::ios::out );
         file.precision(6);
@@ -240,7 +242,7 @@ void network_throttle::logger_handle_net(const std::string &filename, double tim
             _warn("Can't open file " << filename);
         file << static_cast<int>(time) << " " << static_cast<double>(size/1024) << "\n";
         file.close();
-    }  mutex.unlock();
+    }
 }
 
 // fine tune this to decide about sending speed:
