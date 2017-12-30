@@ -172,7 +172,7 @@ library archives (`.a`).
 | OpenSSL        | basically any | NO       | `libssl-dev`       | `openssl`      | NO       | sha256 sum     |
 | libzmq         | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`       | NO       | ZeroMQ library |
 | libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
-| libsodium      | ?             | NO       | `libsodium-dev`    | ?              | NO       | libsodium      |
+| libsodium      | ?             | NO       | `libsodium-dev`    | `libsodium`    | NO       | libsodium      |
 | libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
 | libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
 | liblzma        | any           | NO       | `liblzma-dev`      | `xz`           | YES      | For libunwind  |
