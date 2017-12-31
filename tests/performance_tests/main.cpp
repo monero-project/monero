@@ -53,6 +53,7 @@
 #include "rct_mlsag.h"
 #include "equality.h"
 #include "range_proof.h"
+#include "rct_mlsag.h"
 
 namespace po = boost::program_options;
 
@@ -159,6 +160,15 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, test_range_proof, true);
   TEST_PERFORMANCE1(filter, test_range_proof, false);
+
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, false);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, false);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, false);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, false);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, true);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, true);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, true);
+  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, true);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
