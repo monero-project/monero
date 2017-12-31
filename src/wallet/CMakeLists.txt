@@ -126,6 +126,6 @@ if (BUILD_GUI_DEPS)
     endif()
     install(TARGETS wallet_merged
         ARCHIVE DESTINATION ${lib_folder})
-
-    add_subdirectory(api)
 endif()
+
+add_subdirectory(api)
