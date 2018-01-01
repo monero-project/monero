@@ -34,7 +34,9 @@
 
 namespace daemon_args
 {
-  std::string const WINDOWS_SERVICE_NAME = std::string(CRYPTONOTE_NAME " Daemon";
+  std::string const WINDOWS_SERVICE_NAME = {
+	  std::string(CRYPTONOTE_NAME " Daemon")
+  };
 
   const command_line::arg_descriptor<std::string> arg_config_file = {
     "config-file"
