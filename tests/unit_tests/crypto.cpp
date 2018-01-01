@@ -47,14 +47,6 @@ namespace
     "8b655970153799af2aeadc9ff1add0ea6c7251d54154cfa92c173a0dd39c1f94"
     "6c7251d54154cfa92c173a0dd39c1f948b655970153799af2aeadc9ff1add0ea";
 
-  static std::uint8_t md[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00
-  };
-
   template<typename T>
   bool is_formatted()
   {
@@ -68,22 +60,6 @@ namespace
     std::stringstream out;
     out << "BEGIN" << value << "END";  
     return out.str() == "BEGIN<" + std::string{expected, sizeof(T) * 2} + ">END";
-  }
-
-  bool keccak_harness()
-  {
-    size_t inlen = sizeof(source);
-    int mdlen = (int)sizeof(md);
-    keccak(source, inlen, md, mdlen);
-
-    if (md[0] != 0x00)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
   }
 }
 
