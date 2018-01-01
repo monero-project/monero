@@ -41,6 +41,7 @@ set(performance_tests_headers
   generate_key_image_helper.h
   generate_keypair.h
   is_out_to_acc.h
+  subaddress_expand.h
   multi_tx_test_base.h
   performance_tests.h
   performance_utils.h
@@ -51,6 +52,7 @@ add_executable(performance_tests
   ${performance_tests_headers})
 target_link_libraries(performance_tests
   PRIVATE
+    wallet
     cryptonote_core
     common
     cncrypto
