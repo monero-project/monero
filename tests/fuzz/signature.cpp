@@ -54,16 +54,8 @@ int SignatureFuzzer::init()
 
   try
   {
-    boost::filesystem::remove("/tmp/signature-test.keys");
-    boost::filesystem::remove("/tmp/signature-test.address.txt");
-    boost::filesystem::remove("/tmp/signature-test");
-
     wallet.init("");
-    wallet.generate("/tmp/signature-test", "", spendkey, true, false);
-
-    boost::filesystem::remove("/tmp/signature-test.keys");
-    boost::filesystem::remove("/tmp/signature-test.address.txt");
-    boost::filesystem::remove("/tmp/signature-test");
+    wallet.generate("", "", spendkey, true, false);
 
     cryptonote::address_parse_info info;
     if (!cryptonote::get_account_address_from_str_or_url(info, true, "9uVsvEryzpN8WH2t1WWhFFCG5tS8cBNdmJYNRuckLENFimfauV5pZKeS1P2CbxGkSDTUPHXWwiYE5ZGSXDAGbaZgDxobqDN"))

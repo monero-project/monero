@@ -53,16 +53,8 @@ int ColdOutputsFuzzer::init()
 
   try
   {
-    boost::filesystem::remove("/tmp/cold-outputs-test.keys");
-    boost::filesystem::remove("/tmp/cold-outputs-test.address.txt");
-    boost::filesystem::remove("/tmp/cold-outputs-test");
-
     wallet.init("");
-    wallet.generate("/tmp/cold-outputs-test", "", spendkey, true, false);
-
-    boost::filesystem::remove("/tmp/cold-outputs-test.keys");
-    boost::filesystem::remove("/tmp/cold-outputs-test.address.txt");
-    boost::filesystem::remove("/tmp/cold-outputs-test");
+    wallet.generate("", "", spendkey, true, false);
   }
   catch (const std::exception &e)
   {
