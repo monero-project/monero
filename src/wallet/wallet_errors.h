@@ -60,6 +60,7 @@ namespace tools
     //       file_save_error
     //       invalid_password
     //       invalid_priority
+    //       invalid_multisig_seed
     //       refresh_error *
     //         acc_outs_lookup_error
     //         block_parse_error
@@ -260,6 +261,16 @@ namespace tools
     {
       explicit invalid_priority(std::string&& loc)
         : wallet_logic_error(std::move(loc), "invalid priority")
+      {
+      }
+
+      std::string to_string() const { return wallet_logic_error::to_string(); }
+    };
+
+    struct invalid_multisig_seed : public wallet_logic_error
+    {
+      explicit invalid_multisig_seed(std::string&& loc)
+        : wallet_logic_error(std::move(loc), "invalid multisig seed")
       {
       }
 
