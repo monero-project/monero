@@ -365,6 +365,10 @@ endif()
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
+# Generate header for embedded translations
+add_subdirectory(translations)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+
 add_subdirectory(external)
 
 # Final setup for miniupnpc
