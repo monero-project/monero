@@ -610,6 +610,7 @@ wallet2::wallet2(bool testnet, bool restricted):
   m_min_output_value(0),
   m_merge_destinations(false),
   m_confirm_backlog(true),
+  m_confirm_backlog_threshold(0),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
