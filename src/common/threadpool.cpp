@@ -34,6 +34,8 @@
 #include "cryptonote_config.h"
 #include "common/util.h"
 
+static __thread int depth = 0;
+
 namespace tools
 {
 threadpool::threadpool() : running(true), active(0) {
@@ -60,11 +62,13 @@ threadpool::~threadpool() {
 void threadpool::submit(waiter *obj, std::function<void()> f) {
   entry e = {obj, f};
   boost::unique_lock<boost::mutex> lock(mutex);
-  if (active == max && !queue.empty()) {
+  if ((active == max && !queue.empty()) || depth > 0) {
     // if all available threads are already running
     // and there's work waiting, just run in current thread
     lock.unlock();
+    ++depth;
     f();
+    --depth;
   } else {
     if (obj)
       obj->inc();
@@ -106,7 +110,9 @@ void threadpool::run() {
     e = queue.front();
     queue.pop_front();
     lock.unlock();
+    ++depth;
     e.f();
+    --depth;
 
     if (e.wo)
       e.wo->dec();
