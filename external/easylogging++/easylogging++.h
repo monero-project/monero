@@ -368,8 +368,6 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #   include <sys/stat.h>
 #   include <sys/time.h>
 #elif ELPP_OS_WINDOWS
-#   include <direct.h>
-#   include <windows.h>
 #  if defined(WIN32_LEAN_AND_MEAN)
 #      if defined(ELPP_WINSOCK2)
 #         include <winsock2.h>
@@ -377,7 +375,9 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #         include <winsock.h>
 #      endif // defined(ELPP_WINSOCK2)
 #  endif // defined(WIN32_LEAN_AND_MEAN)
-#endif  // ELPP_OS_UNIX
+#   include <direct.h>
+#   include <windows.h>
+#endif  // ELPP_OS_WINDOWS
 #include <string>
 #include <vector>
 #include <map>

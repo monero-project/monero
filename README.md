@@ -582,7 +582,7 @@ application.
 
 * If you are on a 64-bit system, run:
 
-        make release-static-win64
+        
 
 * If you are on a 32-bit system, run:
 
