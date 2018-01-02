@@ -79,3 +79,5 @@ set_property(TARGET core_tests
 add_test(
   NAME    core_tests
   COMMAND core_tests --generate_and_play_test_data)
+
+monero_cotire(core_tests)
