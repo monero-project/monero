@@ -30,6 +30,7 @@
 
 #include <string>
 #include <stdio.h>
+#include <memory>
 #include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -62,8 +63,8 @@ void set_performance_timer_log_level(el::Level level);
 #define PERF_TIMER_UNIT_L(name, unit, l) tools::PerformanceTimer pt_##name(#name, unit, l)
 #define PERF_TIMER(name) PERF_TIMER_UNIT(name, 1000)
 #define PERF_TIMER_L(name, l) PERF_TIMER_UNIT_L(name, 1000, l)
-#define PERF_TIMER_START_UNIT(name, unit) tools::PerformanceTimer *pt_##name = new tools::PerformanceTimer(#name, unit, el::Level::Info)
+#define PERF_TIMER_START_UNIT(name, unit) std::unique_ptr<tools::PerformanceTimer> pt_##name(new tools::PerformanceTimer(#name, unit, el::Level::Info))
 #define PERF_TIMER_START(name) PERF_TIMER_START_UNIT(name, 1000)
-#define PERF_TIMER_STOP(name) do { delete pt_##name; pt_##name = NULL; } while(0)
+#define PERF_TIMER_STOP(name) do { pt_##name.reset(NULL); } while(0)
 
 }
