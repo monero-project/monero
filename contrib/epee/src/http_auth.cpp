@@ -674,7 +674,7 @@ namespace
         const auto algorithm = boost::range::join(
           Digest::name, (i == 0 ? boost::string_ref{} : sess_algo)
         );
-        add_field(out, u8"algorithm", algorithm);
+        add_field(out, u8"algorithm", quoted(algorithm));
         add_field(out, u8"realm", quoted(auth_realm));
         add_field(out, u8"nonce", quoted(nonce));
         add_field(out, u8"stale", is_stale ? ceref("true") : ceref("false"));
