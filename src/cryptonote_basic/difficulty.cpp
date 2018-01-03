@@ -202,11 +202,21 @@ namespace cryptonote {
     uint64_t low, high;
     // adjust = 0.99 for N=60 ; length = N + 1
     uint64_t target = 99 * (length / 2) * target_seconds / 100;
-    mul(total_work, target, low, high);
-    if (high != 0) {
-      return 0;
+    // dividing first gives negligibly smaller difficulties but gives another few magnitudes of overflow protection.
+    uint64_t whm_work = (total_work / weighted_timespans);
+    if (whm_work == 0) {
+      mul(total_work, target, low, high); // This should be unnecessary when difficulty is smaller than the weighted timespans
+      if (high != 0) {
+        return 0;
+      }
+      return low / weighted_timespans;
+    } else {
+      mul(whm_work, target, low, high);
+      if (high != 0) {
+        return 0;
+      }
+      return low;
     }
-    return low / weighted_timespans;
   }
 
 }
