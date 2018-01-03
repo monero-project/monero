@@ -51,14 +51,16 @@ namespace rct
 {
 
 static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b);
-static rct::keyV vector_powers(rct::key x, size_t n);
+static rct::keyV vector_powers(const rct::key &x, size_t n);
+static rct::keyV vector_dup(const rct::key &x, size_t n);
 static rct::key inner_product(const rct::keyV &a, const rct::keyV &b);
 
 static constexpr size_t maxN = 64;
-static rct::key Hi[maxN], Gi[maxN];
-static ge_dsmp Gprecomp[64], Hprecomp[64];
+static constexpr size_t maxM = 16;
+static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
+static ge_dsmp Gprecomp[maxN*maxM], Hprecomp[maxN*maxM];
 static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-static const rct::keyV oneN = vector_powers(rct::identity(), maxN);
+static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
 static boost::mutex init_mutex;
@@ -77,7 +79,7 @@ static void init_exponents()
   static bool init_done = false;
   if (init_done)
     return;
-  for (size_t i = 0; i < maxN; ++i)
+  for (size_t i = 0; i < maxN*maxM; ++i)
   {
     Hi[i] = get_exponent(rct::H, i * 2);
     rct::precomp(Hprecomp[i], Hi[i]);
@@ -91,7 +93,7 @@ static void init_exponents()
 static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b)
 {
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
-  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN, "Incompatible sizes of a and maxN");
+  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
   rct::key res = rct::identity();
   for (size_t i = 0; i < a.size(); ++i)
   {
@@ -108,7 +110,7 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
   CHECK_AND_ASSERT_THROW_MES(A.size() == B.size(), "Incompatible sizes of A and B");
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() == A.size(), "Incompatible sizes of a and A");
-  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN, "Incompatible sizes of a and maxN");
+  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
   rct::key res = rct::identity();
   for (size_t i = 0; i < a.size(); ++i)
   {
@@ -145,7 +147,7 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
 }
 
 /* Given a scalar, construct a vector of powers */
-static rct::keyV vector_powers(rct::key x, size_t n)
+static rct::keyV vector_powers(const rct::key &x, size_t n)
 {
   rct::keyV res(n);
   if (n == 0)
@@ -232,6 +234,12 @@ static rct::keyV vector_scalar(const rct::keyV &a, const rct::key &x)
   return res;
 }
 
+/* Create a vector from copies of a single value */
+static rct::keyV vector_dup(const rct::key &x, size_t N)
+{
+  return rct::keyV(N, x);
+}
+
 /* Exponentiate a curve vector by a scalar */
 static rct::keyV vector_scalar2(const rct::keyV &a, const rct::key &x)
 {
@@ -239,6 +247,17 @@ static rct::keyV vector_scalar2(const rct::keyV &a, const rct::key &x)
   for (size_t i = 0; i < a.size(); ++i)
   {
     rct::scalarmultKey(res[i], a[i], x);
+  }
+  return res;
+}
+
+/* Get the sum of a vector's elements */
+static rct::key vector_sum(const rct::keyV &a)
+{
+  rct::key res = rct::zero();
+  for (size_t i = 0; i < a.size(); ++i)
+  {
+    sc_add(res.bytes, res.bytes, a[i].bytes);
   }
   return res;
 }
@@ -405,7 +424,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   const auto yN = vector_powers(y, N);
 
-  rct::key ip1y = inner_product(oneN, yN);
+  rct::key ip1y = vector_sum(yN);
   rct::key tmp;
   sc_muladd(t0.bytes, z.bytes, ip1y.bytes, t0.bytes);
 
@@ -437,7 +456,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   PERF_TIMER_START_BP(PROVE_step2);
   const auto HyNsR = hadamard(yN, sR);
-  const auto vpIz = vector_scalar(oneN, z);
+  const auto vpIz = vector_dup(z, N);
   const auto vp2zsq = vector_scalar(twoN, zsq);
   const auto aL_vpIz = vector_subtract(aL, vpIz);
   const auto aR_vpIz = vector_add(aR, vpIz);
@@ -567,23 +586,284 @@ Bulletproof bulletproof_PROVE(uint64_t v, const rct::key &gamma)
   return bulletproof_PROVE(sv, gamma);
 }
 
+/* Given a set of values v (0..2^N-1) and masks gamma, construct a range proof */
+Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
+{
+  CHECK_AND_ASSERT_THROW_MES(sv.size() == gamma.size(), "Incompatible sizes of sv and gamma");
+  CHECK_AND_ASSERT_THROW_MES(!sv.empty(), "sv is empty");
+
+  init_exponents();
+
+  PERF_TIMER_UNIT(PROVE, 1000000);
+
+  constexpr size_t logN = 6; // log2(64)
+  constexpr size_t N = 1<<logN;
+  size_t M, logM;
+  for (logM = 0; (M = 1<<logM) <= maxM && M < sv.size(); ++logM);
+  CHECK_AND_ASSERT_THROW_MES(M <= maxM, "sv/gamma are too large");
+  const size_t logMN = logM + logN;
+  const size_t MN = M * N;
+
+  rct::keyV V(sv.size());
+  rct::keyV aL(MN), aR(MN);
+  rct::key tmp;
+
+  PERF_TIMER_START_BP(PROVE_v);
+  for (size_t i = 0; i < sv.size(); ++i)
+    rct::addKeys2(V[i], gamma[i], sv[i], rct::H);
+  PERF_TIMER_STOP(PROVE_v);
+
+  PERF_TIMER_START_BP(PROVE_aLaR);
+  for (size_t j = 0; j < M; ++j)
+  {
+    for (size_t i = N; i-- > 0; )
+    {
+      if (j >= sv.size())
+      {
+        aL[j*N+i] = rct::zero();
+      }
+      else if (sv[j][i/8] & (((uint64_t)1)<<(i%8)))
+      {
+        aL[j*N+i] = rct::identity();
+      }
+      else
+      {
+        aL[j*N+i] = rct::zero();
+      }
+      sc_sub(aR[j*N+i].bytes, aL[j*N+i].bytes, rct::identity().bytes);
+    }
+  }
+  PERF_TIMER_STOP(PROVE_aLaR);
+
+  rct::key hash_cache = rct::hash_to_scalar(V);
+
+  // DEBUG: Test to ensure this recovers the value
+#ifdef DEBUG_BP
+  for (size_t j = 0; j < M; ++j)
+  {
+    uint64_t test_aL = 0, test_aR = 0;
+    for (size_t i = 0; i < N; ++i)
+    {
+      if (aL[j*N+i] == rct::identity())
+        test_aL += ((uint64_t)1)<<i;
+      if (aR[j*N+i] == rct::zero())
+        test_aR += ((uint64_t)1)<<i;
+    }
+    uint64_t v_test = 0;
+    if (j < sv.size())
+      for (int n = 0; n < 8; ++n) v_test |= (((uint64_t)sv[j][n]) << (8*n));
+    CHECK_AND_ASSERT_THROW_MES(test_aL == v_test, "test_aL failed");
+    CHECK_AND_ASSERT_THROW_MES(test_aR == v_test, "test_aR failed");
+  }
+#endif
+
+  PERF_TIMER_START_BP(PROVE_step1);
+  // PAPER LINES 38-39
+  rct::key alpha = rct::skGen();
+  rct::key ve = vector_exponent(aL, aR);
+  rct::key A;
+  rct::addKeys(A, ve, rct::scalarmultBase(alpha));
+
+  // PAPER LINES 40-42
+  rct::keyV sL = rct::skvGen(MN), sR = rct::skvGen(MN);
+  rct::key rho = rct::skGen();
+  ve = vector_exponent(sL, sR);
+  rct::key S;
+  rct::addKeys(S, ve, rct::scalarmultBase(rho));
+
+  // PAPER LINES 43-45
+  rct::key y = hash_cache_mash(hash_cache, A, S);
+  rct::key z = hash_cache = rct::hash_to_scalar(y);
+
+  // Polynomial construction by coefficients
+  const auto zMN = vector_dup(z, MN);
+  rct::keyV l0 = vector_subtract(aL, zMN);
+  const rct::keyV &l1 = sL;
+
+  // This computes the ugly sum/concatenation from PAPER LINE 65
+  rct::keyV zero_twos(MN);
+  const rct::keyV zpow = vector_powers(z, M+2);
+  for (size_t i = 0; i < MN; ++i)
+  {
+    zero_twos[i] = rct::zero();
+    for (size_t j = 1; j <= M; ++j)
+    {
+      if (i >= (j-1)*N && i < j*N)
+      {
+        CHECK_AND_ASSERT_THROW_MES(1+j < zpow.size(), "invalid zpow index");
+        CHECK_AND_ASSERT_THROW_MES(i-(j-1)*N < twoN.size(), "invalid twoN index");
+        sc_muladd(zero_twos[i].bytes, zpow[1+j].bytes, twoN[i-(j-1)*N].bytes, zero_twos[i].bytes);
+      }
+    }
+  }
+
+  rct::keyV r0 = vector_add(aR, zMN);
+  const auto yMN = vector_powers(y, MN);
+  r0 = hadamard(r0, yMN);
+  r0 = vector_add(r0, zero_twos);
+  rct::keyV r1 = hadamard(yMN, sR);
+
+  // Polynomial construction before PAPER LINE 46
+  rct::key t1_1 = inner_product(l0, r1);
+  rct::key t1_2 = inner_product(l1, r0);
+  rct::key t1;
+  sc_add(t1.bytes, t1_1.bytes, t1_2.bytes);
+  rct::key t2 = inner_product(l1, r1);
+
+  PERF_TIMER_STOP(PROVE_step1);
+
+  PERF_TIMER_START_BP(PROVE_step2);
+  // PAPER LINES 47-48
+  rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
+
+  rct::key T1 = rct::addKeys(rct::scalarmultKey(rct::H, t1), rct::scalarmultBase(tau1));
+  rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
+
+  // PAPER LINES 49-51
+  rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
+
+  // PAPER LINES 52-53
+  rct::key taux;
+  sc_mul(taux.bytes, tau1.bytes, x.bytes);
+  rct::key xsq;
+  sc_mul(xsq.bytes, x.bytes, x.bytes);
+  sc_muladd(taux.bytes, tau2.bytes, xsq.bytes, taux.bytes);
+  for (size_t j = 1; j <= sv.size(); ++j)
+  {
+    CHECK_AND_ASSERT_THROW_MES(j+1 < zpow.size(), "invalid zpow index");
+    sc_muladd(taux.bytes, zpow[j+1].bytes, gamma[j-1].bytes, taux.bytes);
+  }
+  rct::key mu;
+  sc_muladd(mu.bytes, x.bytes, rho.bytes, alpha.bytes);
+
+  // PAPER LINES 54-57
+  rct::keyV l = l0;
+  l = vector_add(l, vector_scalar(l1, x));
+  rct::keyV r = r0;
+  r = vector_add(r, vector_scalar(r1, x));
+  PERF_TIMER_STOP(PROVE_step2);
+
+  PERF_TIMER_START_BP(PROVE_step3);
+  rct::key t = inner_product(l, r);
+
+  // DEBUG: Test if the l and r vectors match the polynomial forms
+#ifdef DEBUG_BP
+  rct::key test_t;
+  const rct::key t0 = inner_product(l0, r0);
+  sc_muladd(test_t.bytes, t1.bytes, x.bytes, t0.bytes);
+  sc_muladd(test_t.bytes, t2.bytes, xsq.bytes, test_t.bytes);
+  CHECK_AND_ASSERT_THROW_MES(test_t == t, "test_t check failed");
+#endif
+
+  // PAPER LINES 32-33
+  rct::key x_ip = hash_cache_mash(hash_cache, x, taux, mu, t);
+
+  // These are used in the inner product rounds
+  size_t nprime = MN;
+  rct::keyV Gprime(MN);
+  rct::keyV Hprime(MN);
+  rct::keyV aprime(MN);
+  rct::keyV bprime(MN);
+  const rct::key yinv = invert(y);
+  rct::key yinvpow = rct::identity();
+  for (size_t i = 0; i < MN; ++i)
+  {
+    Gprime[i] = Gi[i];
+    Hprime[i] = scalarmultKey(Hi[i], yinvpow);
+    sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
+    aprime[i] = l[i];
+    bprime[i] = r[i];
+  }
+  rct::keyV L(logMN);
+  rct::keyV R(logMN);
+  int round = 0;
+  rct::keyV w(logMN); // this is the challenge x in the inner product protocol
+  PERF_TIMER_STOP(PROVE_step3);
+
+  PERF_TIMER_START_BP(PROVE_step4);
+  // PAPER LINE 13
+  while (nprime > 1)
+  {
+    // PAPER LINE 15
+    nprime /= 2;
+
+    // PAPER LINES 16-17
+    rct::key cL = inner_product(slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
+    rct::key cR = inner_product(slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
+
+    // PAPER LINES 18-19
+    L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
+    sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
+    rct::addKeys(L[round], L[round], rct::scalarmultKey(rct::H, tmp));
+    R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
+    sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
+    rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
+
+    // PAPER LINES 21-22
+    w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
+
+    // PAPER LINES 24-25
+    const rct::key winv = invert(w[round]);
+    Gprime = hadamard2(vector_scalar2(slice(Gprime, 0, nprime), winv), vector_scalar2(slice(Gprime, nprime, Gprime.size()), w[round]));
+    Hprime = hadamard2(vector_scalar2(slice(Hprime, 0, nprime), w[round]), vector_scalar2(slice(Hprime, nprime, Hprime.size()), winv));
+
+    // PAPER LINES 28-29
+    aprime = vector_add(vector_scalar(slice(aprime, 0, nprime), w[round]), vector_scalar(slice(aprime, nprime, aprime.size()), winv));
+    bprime = vector_add(vector_scalar(slice(bprime, 0, nprime), winv), vector_scalar(slice(bprime, nprime, bprime.size()), w[round]));
+
+    ++round;
+  }
+  PERF_TIMER_STOP(PROVE_step4);
+
+  // PAPER LINE 58 (with inclusions from PAPER LINE 8 and PAPER LINE 20)
+  return Bulletproof(V, A, S, T1, T2, taux, mu, L, R, aprime[0], bprime[0], t);
+}
+
+Bulletproof bulletproof_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma)
+{
+  CHECK_AND_ASSERT_THROW_MES(v.size() == gamma.size(), "Incompatible sizes of v and gamma");
+
+  // vG + gammaH
+  PERF_TIMER_START_BP(PROVE_v);
+  rct::keyV sv(v.size());
+  for (size_t i = 0; i < v.size(); ++i)
+  {
+    sv[i] = rct::zero();
+    sv[i].bytes[0] = v[i] & 255;
+    sv[i].bytes[1] = (v[i] >> 8) & 255;
+    sv[i].bytes[2] = (v[i] >> 16) & 255;
+    sv[i].bytes[3] = (v[i] >> 24) & 255;
+    sv[i].bytes[4] = (v[i] >> 32) & 255;
+    sv[i].bytes[5] = (v[i] >> 40) & 255;
+    sv[i].bytes[6] = (v[i] >> 48) & 255;
+    sv[i].bytes[7] = (v[i] >> 56) & 255;
+  }
+  PERF_TIMER_STOP(PROVE_v);
+  return bulletproof_PROVE(sv, gamma);
+}
+
 /* Given a range proof, determine if it is valid */
 bool bulletproof_VERIFY(const Bulletproof &proof)
 {
   init_exponents();
 
-  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "V does not have exactly one element");
+  CHECK_AND_ASSERT_MES(proof.V.size() >= 1, false, "V does not have at least one element");
   CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
   CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");
-  CHECK_AND_ASSERT_MES(proof.L.size() == 6, false, "Proof is not for 64 bits");
 
-  const size_t logN = proof.L.size();
+  const size_t logN = 6;
   const size_t N = 1 << logN;
+  rct::key tmp, tmp2;
+
+  size_t M, logM;
+  for (logM = 0; (M = 1<<logM) <= maxM && M < proof.V.size(); ++logM);
+  CHECK_AND_ASSERT_MES(proof.L.size() == 6+logM, false, "Proof is not the expected size");
+  const size_t MN = M*N;
 
   // Reconstruct the challenges
   PERF_TIMER_START_BP(VERIFY);
   PERF_TIMER_START_BP(VERIFY_start);
-  rct::key hash_cache = rct::hash_to_scalar(proof.V[0]);
+  rct::key hash_cache = rct::hash_to_scalar(proof.V);
   rct::key y = hash_cache_mash(hash_cache, proof.A, proof.S);
   rct::key z = hash_cache = rct::hash_to_scalar(y);
   rct::key x = hash_cache_mash(hash_cache, z, proof.T1, proof.T2);
@@ -598,25 +878,27 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   // PAPER LINE 61
   rct::key L61Left = rct::addKeys(rct::scalarmultBase(proof.taux), rct::scalarmultKey(rct::H, proof.t));
 
-  rct::key k = rct::zero();
-  const auto yN = vector_powers(y, N);
-  rct::key ip1y = inner_product(oneN, yN);
-  rct::key zsq;
-  sc_mul(zsq.bytes, z.bytes, z.bytes);
-  rct::key tmp, tmp2;
-  sc_mulsub(k.bytes, zsq.bytes, ip1y.bytes, k.bytes);
-  rct::key zcu;
-  sc_mul(zcu.bytes, zsq.bytes, z.bytes);
-  sc_mulsub(k.bytes, zcu.bytes, ip12.bytes, k.bytes);
+  const rct::keyV zpow = vector_powers(z, M+3);
+
+  rct::key k;
+  const rct::key ip1y = vector_sum(vector_powers(y, MN));
+  sc_mulsub(k.bytes, zpow[2].bytes, ip1y.bytes, rct::zero().bytes);
+  for (size_t j = 1; j <= M; ++j)
+  {
+    CHECK_AND_ASSERT_MES(j+2 < zpow.size(), false, "invalid zpow index");
+    sc_mulsub(k.bytes, zpow[j+2].bytes, ip12.bytes, k.bytes);
+  }
   PERF_TIMER_STOP(VERIFY_line_61);
 
   PERF_TIMER_START_BP(VERIFY_line_61rl);
   sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
   rct::key L61Right = rct::scalarmultKey(rct::H, tmp);
-
-  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "proof.V does not have exactly one element");
-  tmp = rct::scalarmultKey(proof.V[0], zsq);
-  rct::addKeys(L61Right, L61Right, tmp);
+  for (size_t j = 0; j < M; ++j)
+  {
+    CHECK_AND_ASSERT_MES(j+2 < zpow.size(), false, "invalid zpow index");
+    tmp = rct::scalarmultKey(j < proof.V.size() ? proof.V[j] : rct::identity(), zpow[j+2]);
+    rct::addKeys(L61Right, L61Right, tmp);
+  }
 
   tmp = rct::scalarmultKey(proof.T1, x);
   rct::addKeys(L61Right, L61Right, tmp);
@@ -639,7 +921,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   PERF_TIMER_STOP(VERIFY_line_62);
 
   // Compute the number of rounds for the inner product
-  const size_t rounds = proof.L.size();
+  const size_t rounds = logM+logN;
   CHECK_AND_ASSERT_MES(rounds > 0, false, "Zero rounds");
 
   PERF_TIMER_START_BP(VERIFY_line_21_22);
@@ -666,7 +948,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
     winv[i] = invert(w[i]);
   PERF_TIMER_STOP(VERIFY_line_24_25_invert);
 
-  for (size_t i = 0; i < N; ++i)
+  for (size_t i = 0; i < MN; ++i)
   {
     // Convert the index to binary IN REVERSE and construct the scalar exponent
     rct::key g_scalar = proof.a;
@@ -691,7 +973,9 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
     // Adjust the scalars using the exponents from PAPER LINE 62
     sc_add(g_scalar.bytes, g_scalar.bytes, z.bytes);
-    sc_mul(tmp.bytes, zsq.bytes, twoN[i].bytes);
+    CHECK_AND_ASSERT_MES(2+i/N < zpow.size(), false, "invalid zpow index");
+    CHECK_AND_ASSERT_MES(i%N < twoN.size(), false, "invalid twoN index");
+    sc_mul(tmp.bytes, zpow[2+i/N].bytes, twoN[i%N].bytes);
     sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
     sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
 
@@ -700,7 +984,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
     rct::addKeys3(tmp, g_scalar, Gprecomp[i], h_scalar, Hprecomp[i]);
     rct::addKeys(inner_prod, inner_prod, tmp);
 
-    if (i != N-1)
+    if (i != MN-1)
     {
       sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
       sc_mul(ypow.bytes, ypow.bytes, y.bytes);
