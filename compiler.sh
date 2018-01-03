@@ -1,3 +1,4 @@
+#!/bin/bash
 # Ubuntu basic setup file as of January 2018
 # Ubuntu Server 16.04.3 LTS
 # Run as sudo
