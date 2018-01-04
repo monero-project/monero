@@ -10,5 +10,6 @@ apt-get install -y libunbound-dev libsodium-dev libminiupnpc-dev
 apt-get install -y libunwind8-dev liblzma-dev libreadline6-dev
 apt-get install -y libldns-dev libexpat1-dev libgtest-dev 
 apt-get install -y doxygen graphviz
-apt-get dist-upgrade
+apt-get dist-upgrade -y
+
 
