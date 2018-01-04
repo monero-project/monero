@@ -92,7 +92,7 @@ namespace ledger {
         /*                               SUB ADDRESS                               */
         /* ======================================================================= */
         bool  derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index,  crypto::public_key &derived_pub);
-        bool  get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key D);
+        bool  get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key &D);
         bool  get_subaddress(const cryptonote::subaddress_index& index, cryptonote::account_public_address &address);
         bool  get_subaddress_secret_key(const crypto::secret_key& sec, const cryptonote::subaddress_index& index, crypto::secret_key &sub_sec);
   

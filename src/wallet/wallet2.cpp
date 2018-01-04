@@ -98,8 +98,8 @@ using namespace cryptonote;
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
-#define SUBADDRESS_LOOKAHEAD_MAJOR 50
-#define SUBADDRESS_LOOKAHEAD_MINOR 200
+#define SUBADDRESS_LOOKAHEAD_MAJOR 1
+#define SUBADDRESS_LOOKAHEAD_MINOR 1
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 
@@ -762,6 +762,12 @@ cryptonote::account_public_address wallet2::get_subaddress(const cryptonote::sub
   ledger::Device &device = m_account.get_device();
   if (device) {
     device.get_subaddress(index, address);
+    #ifdef DEBUGLEDGER
+    crypto::public_key D = get_subaddress_spend_public_key(index);
+    crypto::public_key C = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(D), rct::sk2rct(keys.m_view_secret_key)));   // could have defined secret_key_mult_public_key() under src/crypto
+    ledger::check32("get_subaddress", "C", C.data, address.m_view_public_key.data);
+    ledger::check32("get_subaddress", "D", D.data, address.m_spend_public_key.data);
+    #endif
   } else {
     crypto::public_key D = get_subaddress_spend_public_key(index);
 
@@ -786,6 +792,13 @@ crypto::public_key wallet2::get_subaddress_spend_public_key(const cryptonote::su
   ledger::Device &device = m_account.get_device();
   if (device) {
     device.get_subaddress_spend_public_key(index, D);
+    #ifdef DEBUGLEDGER
+    crypto::secret_key mx = cryptonote::get_subaddress_secret_key(keys.m_view_secret_key, index);
+    crypto::public_key Mx; crypto::secret_key_to_public_key(mx, Mx);
+    rct::key Dx_rct; rct::addKeys(Dx_rct, rct::pk2rct(keys.m_account_address.m_spend_public_key), rct::pk2rct(Mx)); 
+    crypto::public_key Dx  = rct::rct2pk(Dx_rct);
+    ledger::check32("get_subaddress_spend_public_key", "D", Dx.data, D.data);
+    #endif
   } else {
     // m = Hs(a || index_major || index_minor)
     crypto::secret_key m = cryptonote::get_subaddress_secret_key(keys.m_view_secret_key, index);
@@ -2888,24 +2901,30 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   prepare_file_names(wallet_);
   
   boost::system::error_code ignored_ec;
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-  THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  if (!wallet_.empty()) {
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
   m_key_on_device = true;
   m_account.create_from_device(device_name);
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
+  if (!wallet_.empty()) {
+    bool r = store_keys(m_keys_file, password, false);
+    THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-  bool r = store_keys(m_keys_file, password, false);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
-
-  r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
-  if(!r) MERROR("String with address text not saved");
-
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    if(!r) MERROR("String with address text not saved");
+  }
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
-  store();
+  add_subaddress_account(tr("Primary account"));
+  if (!wallet_.empty()) {
+    store();
+  }
 }
+
 std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<crypto::secret_key> &view_keys,
   const std::vector<crypto::public_key> &spend_keys,
@@ -3392,7 +3411,7 @@ bool wallet2::generate_chacha_key_from_secret_keys(crypto::chacha_key &key) cons
   if (device) { 
     char prekey[200];
     device.get_chacha8_prekey(prekey);
-    crypto::generate_chacha8_key(&prekey[0], sizeof(prekey), key, true);
+    crypto::generate_chacha_key(&prekey[0], sizeof(prekey), key, true);
     memset(prekey, 0, sizeof(prekey));
   } else {
     const account_keys &keys = m_account.get_keys();
@@ -4179,7 +4198,7 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
         MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
         return crypto::null_hash;
       }
-      if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key, device))
+      if (decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key, m_account.get_device()))
       {
         memcpy(payment_id.data, payment_id8.data, 8);
       }
@@ -8016,7 +8035,7 @@ const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& w
   for (auto i = m_account_tags.first.begin(); i != m_account_tags.first.end(); )
   {
     if (std::find(m_account_tags.second.begin(), m_account_tags.second.end(), i->first) == m_account_tags.second.end())
-      i = m_account_tags.first.erase(i);
+       i = m_account_tags.first.erase(i);
     else
       ++i;
   }

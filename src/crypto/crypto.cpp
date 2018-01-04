@@ -136,11 +136,11 @@ namespace crypto {
       device.secret_key_to_public_key(sec, pub);
       #ifdef DEBUGLEDGER
       secret_key secx = sec;
-      ledger.decrypt(secx.data, 32);
+      ledger::decrypt(secx.data, 32);
    
-      public_key pubx
+      public_key pubx;
       secret_key_to_public_key(secx,pubx);
-      ledger::check32("secret_key_to_public_key", "", pubx.data, pub.data)
+      ledger::check32("secret_key_to_public_key", "", pubx.data, pub.data);
       #endif
     } else {
       ge_p3 point;
@@ -158,13 +158,13 @@ namespace crypto {
       device.generate_key_derivation(key1, key2, derivation);
       #ifdef DEBUGLEDGER
       secret_key key2x = key2;
-      ledger.decrypt(key2x.data,32);
+      ledger::decrypt(key2x.data,32);
       key_derivation device_derivation = derivation;
-      ledger.decrypt(device_derivation.data, 32);
+      ledger::decrypt(device_derivation.data, 32);
       
       key_derivation derivationx = derivation;
       generate_key_derivation(key1,key2x,derivationx);
-      ledger::check32("generate_key_derivation", "", derivationx.data, device_derivation.data)
+      ledger::check32("generate_key_derivation", "", derivationx.data, device_derivation.data);
       #endif
     } else {
       ge_p3 point;
@@ -187,13 +187,13 @@ namespace crypto {
       device.derivation_to_scalar(derivation, output_index, res);
       #ifdef DEBUGLEDGER
       key_derivation derivationx = derivation;
-      ledger.decrypt(derivationx.data,32);
+      ledger::decrypt(derivationx.data,32);
       ec_scalar device_res = res;
-      ledger.decrypt(device_res.data, 32)
+      ledger::decrypt(device_res.data, 32);
       
       ec_scalar resx;
       derivation_to_scalar(derivationx,output_index,resx);
-      ledger::check32("generate_key_derivation", "", resx.data, device_res.data)
+      ledger::check32("generate_key_derivation", "", resx.data, device_res.data);
       #endif
     } else {
       struct {
@@ -214,11 +214,11 @@ namespace crypto {
       device.derive_public_key(derivation, output_index, base, derived_key);
       #ifdef DEBUGLEDGER
       key_derivation derivationx = derivation;
-      ledger.decrypt(derivationx.data,32);
+      ledger::decrypt(derivationx.data,32);
       
       public_key     derived_keyx;
-      derive_public_key(derivationx, output_index, public_key, derived_keyx);
-      ledger::check32("derive_public_key", "", derived_keyx.data, derived_key.data)
+      derive_public_key(derivationx, output_index, base, derived_keyx);
+      ledger::check32("derive_public_key", "", derived_keyx.data, derived_key.data);
       #endif
     } else {
       ec_scalar scalar;
@@ -246,15 +246,15 @@ namespace crypto {
       device.derive_secret_key(derivation, output_index, base, derived_key);
       #ifdef DEBUGLEDGER
       key_derivation derivationx = derivation;
-      ledger.decrypt(derivationx.data,32);
+      ledger::decrypt(derivationx.data,32);
       secret_key     basex = base;
-      ledger.decrypt(basex.data,32);
-      secret_key     device_secret_key = derived_key;
-      ledger.decrypt(device_secret_key.data,32);
+      ledger::decrypt(basex.data,32);
+      secret_key     device_derived_key = derived_key;
+      ledger::decrypt(device_derived_key.data,32);
       
       secret_key     derived_keyx;
       derive_secret_key(derivationx, output_index, basex, derived_keyx);
-      ledger::check32("derive_public_key", "", derived_keyx.data, device_derived_key.data)
+      ledger::check32("derive_public_key", "", derived_keyx.data, device_derived_key.data);
       #endif
     } else {
       ec_scalar scalar;
@@ -269,11 +269,11 @@ namespace crypto {
       device.derive_subaddress_public_key(out_key, derivation, output_index, derived_key);
       #ifdef DEBUGLEDGER
       key_derivation derivationx = derivation;
-      ledger.decrypt(derivationx.data,32);
+      ledger::decrypt(derivationx.data,32);
       
       public_key     derived_keyx;
       derive_subaddress_public_key(out_key, derivationx, output_index, derived_keyx);
-      ledger::check32("derive_public_key", "", derived_keyx.data, derived_key.data)
+      ledger::check32("derive_subaddress_public_key", "", derived_keyx.data, derived_key.data);
       #endif
     } else {
       ec_scalar scalar;
@@ -529,7 +529,7 @@ namespace crypto {
       
       key_image  imagex;
       generate_key_image(pub, secx, imagex);
-      ledger::check32("generate_key_image", "", imagex, image);
+      ledger::check32("generate_key_image", "", imagex.data, image.data);
       #endif
     } else {
       ge_p3 point;

@@ -4,7 +4,7 @@
 #include "device.hpp"
 #include "log.hpp"
 
-#define IODUMMYCRYPT 1
+//#define IODUMMYCRYPT 1
 
 namespace ledger { 
 
@@ -158,8 +158,8 @@ namespace ledger {
   #define INS_SECRET_KEY_ADD                  0x3C
   #define INS_SECRET_KEY_SUB                  0x3E
   #define INS_GENERATE_KEYPAIR                0x40
-  #define INS_SECRET_SCAL_MUL                 0x42
-  #define INS_SECRET_SCAL_GEN                 0x44
+  #define INS_SECRET_SCAL_MUL_KEY             0x42
+  #define INS_SECRET_SCAL_MUL_BASE            0x44
 
   #define INS_DERIVE_SUBADDRESS_PUBLIC_KEY    0x46
   #define INS_GET_SUBADDRESS                  0x48
@@ -177,7 +177,7 @@ namespace ledger {
   #define INS_UNBLIND                         0x80
   #define INS_VALIDATE                        0x82
   #define INS_MLSAG                           0x84
-  #define INS_CLOSE_TX                        0x86        
+  #define INS_CLOSE_TX                        0x86       
 
   
   #define INS_GET_RESPONSE                    0xc0
@@ -427,7 +427,6 @@ namespace ledger {
     this->length_send = offset;
     this->exchange();
 
-
     memmove(viewkey.data,  this->buffer_recv,    32); 
     memmove(spendkey.data, this->buffer_recv+32, 32);
    
@@ -514,7 +513,7 @@ namespace ledger {
     return true;
   }
 
-  bool Device::get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key D) {
+  bool Device::get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key &D) {
     int offset;
 
     reset_buffer();
@@ -529,14 +528,8 @@ namespace ledger {
     this->buffer_send[offset] = 0x00;
     offset += 1;
     //index
-    this->buffer_send[offset+0] = index.major>>24;
-    this->buffer_send[offset+1] = index.major>>16;
-    this->buffer_send[offset+2] = index.major>>8;
-    this->buffer_send[offset+3] = index.major>>0;
-    this->buffer_send[offset+0] = index.minor>>24;
-    this->buffer_send[offset+1] = index.minor>>16;
-    this->buffer_send[offset+2] = index.minor>>8;
-    this->buffer_send[offset+3] = index.minor>>0;
+    assert(sizeof(cryptonote::subaddress_index) == 8);
+    memmove(this->buffer_send+offset, &index, sizeof(cryptonote::subaddress_index));
     offset +=8 ;
 
     this->buffer_send[4] = offset-5;
@@ -562,14 +555,8 @@ namespace ledger {
     this->buffer_send[offset] = 0x00;
     offset += 1;
     //index
-    this->buffer_send[offset+0] = index.major>>24;
-    this->buffer_send[offset+1] = index.major>>16;
-    this->buffer_send[offset+2] = index.major>>8;
-    this->buffer_send[offset+3] = index.major>>0;
-    this->buffer_send[offset+0] = index.minor>>24;
-    this->buffer_send[offset+1] = index.minor>>16;
-    this->buffer_send[offset+2] = index.minor>>8;
-    this->buffer_send[offset+3] = index.minor>>0;
+    assert(sizeof(cryptonote::subaddress_index) == 8);
+    memmove(this->buffer_send+offset, &index, sizeof(cryptonote::subaddress_index));
     offset +=8 ;
 
     this->buffer_send[4] = offset-5;
@@ -607,14 +594,8 @@ namespace ledger {
     memmove(this->buffer_send+offset, sec.data, 32);
     offset += 32;
     //index
-    this->buffer_send[offset+0] = index.major>>24;
-    this->buffer_send[offset+1] = index.major>>16;
-    this->buffer_send[offset+2] = index.major>>8;
-    this->buffer_send[offset+3] = index.major>>0;
-    this->buffer_send[offset+0] = index.minor>>24;
-    this->buffer_send[offset+1] = index.minor>>16;
-    this->buffer_send[offset+2] = index.minor>>8;
-    this->buffer_send[offset+3] = index.minor>>0;
+    assert(sizeof(cryptonote::subaddress_index) == 8);
+    memmove(this->buffer_send+offset, &index, sizeof(cryptonote::subaddress_index));
     offset +=8 ;
 
     this->buffer_send[4] = offset-5;
