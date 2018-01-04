@@ -543,8 +543,7 @@ crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx)
 {
   crypto::hash8 payment_id8 = null_hash8;
   std::vector<tx_extra_field> tx_extra_fields;
-  if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
-    return payment_id8;
+  parse_tx_extra(ptx.tx.extra, tx_extra_fields); // ok if partially parsed
   cryptonote::tx_extra_nonce extra_nonce;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
   {
@@ -1459,14 +1458,12 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
     entry.first->second.m_change = received;
 
     std::vector<tx_extra_field> tx_extra_fields;
-    if(parse_tx_extra(tx.extra, tx_extra_fields))
+    parse_tx_extra(tx.extra, tx_extra_fields); // ok if partially parsed
+    tx_extra_nonce extra_nonce;
+    if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
     {
-      tx_extra_nonce extra_nonce;
-      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-      {
-        // we do not care about failure here
-        get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, entry.first->second.m_payment_id);
-      }
+      // we do not care about failure here
+      get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, entry.first->second.m_payment_id);
     }
     entry.first->second.m_subaddr_account = subaddr_account;
     entry.first->second.m_subaddr_indices = subaddr_indices;
@@ -4233,8 +4230,7 @@ std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
 crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 {
   std::vector<tx_extra_field> tx_extra_fields;
-  if(!parse_tx_extra(ptx.tx.extra, tx_extra_fields))
-    return crypto::null_hash;
+  parse_tx_extra(ptx.tx.extra, tx_extra_fields); // ok if partially parsed
   tx_extra_nonce extra_nonce;
   crypto::hash payment_id = null_hash;
   if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
@@ -8607,11 +8603,8 @@ size_t wallet2::import_outputs(const std::vector<tools::wallet2::transfer_detail
 
     // the hot wallet wouldn't have known about key images (except if we already exported them)
     cryptonote::keypair in_ephemeral;
-    std::vector<tx_extra_field> tx_extra_fields;
 
     THROW_WALLET_EXCEPTION_IF(td.m_tx.vout.empty(), error::wallet_internal_error, "tx with no outputs at index " + boost::lexical_cast<std::string>(i));
-    THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(td.m_tx.extra, tx_extra_fields), error::wallet_internal_error,
-        "Transaction extra has unsupported format at index " + boost::lexical_cast<std::string>(i));
     crypto::public_key tx_pub_key = get_tx_pub_key_from_received_outs(td);
     const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
 
