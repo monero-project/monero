@@ -54,6 +54,7 @@
 #include "equality.h"
 #include "range_proof.h"
 #include "rct_mlsag.h"
+#include "bulletproof.h"
 
 namespace po = boost::program_options;
 
@@ -160,6 +161,15 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, test_range_proof, true);
   TEST_PERFORMANCE1(filter, test_range_proof, false);
+
+  TEST_PERFORMANCE2(filter, test_bulletproof, true, 1);
+  TEST_PERFORMANCE2(filter, test_bulletproof, false, 1);
+
+  TEST_PERFORMANCE2(filter, test_bulletproof, true, 2);
+  TEST_PERFORMANCE2(filter, test_bulletproof, false, 2);
+
+  TEST_PERFORMANCE2(filter, test_bulletproof, true, 15);
+  TEST_PERFORMANCE2(filter, test_bulletproof, false, 15);
 
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, false);
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, false);
