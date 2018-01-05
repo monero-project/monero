@@ -79,7 +79,7 @@ RUN git clone https://github.com/zeromq/zeromq4-1.git \
     && CC=clang CXX=clang++ ./configure --host=aarch64-linux-android \
     && make
 
-RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a /opt/android/toolchain-arm/aarch64-linux-android/lib
+RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a ${TOOLCHAIN_DIR}/aarch64-linux-android/lib
 
 RUN git clone https://github.com/monero-project/monero.git \
     && cd monero \

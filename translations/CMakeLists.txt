@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017, The Monero Project
+# Copyright (c) 2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,40 +26,29 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(performance_tests_sources
-  main.cpp)
+cmake_minimum_required(VERSION 2.8.7)
 
-set(performance_tests_headers
-  check_tx_signature.h
-  cn_slow_hash.h
-  construct_tx.h
-  derive_public_key.h
-  derive_secret_key.h
-  ge_frombytes_vartime.h
-  generate_key_derivation.h
-  generate_key_image.h
-  generate_key_image_helper.h
-  generate_keypair.h
-  is_out_to_acc.h
-  subaddress_expand.h
-  multi_tx_test_base.h
-  performance_tests.h
-  performance_utils.h
-  single_tx_test_base.h)
+add_executable(generate_translations_header generate_translations_header.c)
 
-add_executable(performance_tests
-  ${performance_tests_sources}
-  ${performance_tests_headers})
-target_link_libraries(performance_tests
-  PRIVATE
-    wallet
-    cryptonote_core
-    common
-    cncrypto
-    epee
-    ${Boost_CHRONO_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${EXTRA_LIBRARIES})
-set_property(TARGET performance_tests
-  PROPERTY
-    FOLDER "tests")
+find_program(LRELEASE lrelease)
+if(LRELEASE STREQUAL "LRELEASE-NOTFOUND")
+  set(ts_files "")
+  message(WARNING "lrelease program not found, translation files not built")
+else()
+  file(GLOB ts_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" *.ts)
+  foreach(ts_file ${ts_files})
+    string(REPLACE ".ts" ".qm" qm_file "${ts_file}")
+    add_custom_command(TARGET generate_translations_header
+      PRE_BUILD
+      COMMAND ${LRELEASE} "${CMAKE_CURRENT_SOURCE_DIR}/${ts_file}" -qm "${qm_file}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_BIN_DIR}")
+  endforeach()
+endif()
+
+string(REPLACE ".ts" ".qm" qm_files "${ts_files}")
+
+add_custom_command(TARGET generate_translations_header
+  POST_BUILD
+  COMMAND generate_translations_header ${qm_files}
+  WORKING_DIRECTORY "${CMAKE_CURRENT_BIN_DIR}"
+  COMMENT "Generating embedded translations header")
