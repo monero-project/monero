@@ -44,6 +44,7 @@ set(performance_tests_headers
   subaddress_expand.h
   range_proof.h
   bulletproof.h
+  crypto_ops.h
   multi_tx_test_base.h
   performance_tests.h
   performance_utils.h

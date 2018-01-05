@@ -55,6 +55,7 @@
 #include "range_proof.h"
 #include "rct_mlsag.h"
 #include "bulletproof.h"
+#include "crypto_ops.h"
 
 namespace po = boost::program_options;
 
@@ -179,6 +180,21 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, true);
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, true);
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, true);
+
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_add);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_sub);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_mul);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_add_raw);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_add_p3_p3);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_scalarmultBase);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_scalarmultKey);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_base_vartime);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime2);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys2);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3);
+  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3_2);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
