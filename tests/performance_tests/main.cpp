@@ -52,6 +52,7 @@
 #include "cn_fast_hash.h"
 #include "rct_mlsag.h"
 #include "equality.h"
+#include "range_proof.h"
 
 namespace po = boost::program_options;
 
@@ -155,6 +156,9 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, test_equality, memcmp32, false);
   TEST_PERFORMANCE2(filter, test_equality, verify32, false);
   TEST_PERFORMANCE2(filter, test_equality, verify32, false);
+
+  TEST_PERFORMANCE1(filter, test_range_proof, true);
+  TEST_PERFORMANCE1(filter, test_range_proof, false);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
