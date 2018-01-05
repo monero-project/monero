@@ -65,6 +65,33 @@ static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
 static boost::mutex init_mutex;
 
+//addKeys3acc_p3
+//aAbB += a*A + b*B where a, b are scalars, A, B are curve points
+//A and B must be input after applying "precomp"
+static void addKeys3acc_p3(ge_p3 *aAbB, const key &a, const ge_dsmp A, const key &b, const ge_dsmp B)
+{
+    ge_p3 rv;
+    ge_p1p1 p1;
+    ge_p2 p2;
+    ge_double_scalarmult_precomp_vartime2_p3(&rv, a.bytes, A, b.bytes, B);
+    ge_cached cached;
+    ge_p3_to_cached(&cached, aAbB);
+    ge_add(&p1, &rv, &cached);
+    ge_p1p1_to_p3(aAbB, &p1);
+}
+
+static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_scalarmult_p3(&p3, a.bytes, &p3);
+    ge_cached cached;
+    ge_p3_to_cached(&cached, acc_p3);
+    ge_p1p1 p1;
+    ge_add(&p1, &p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
 static rct::key get_exponent(const rct::key &base, size_t idx)
 {
   static const std::string salt("bulletproof");
@@ -94,13 +121,13 @@ static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b)
 {
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
-  rct::key res = rct::identity();
+  ge_p3 res_p3 = ge_p3_identity;
   for (size_t i = 0; i < a.size(); ++i)
   {
-    rct::key term;
-    rct::addKeys3(term, a[i], Gprecomp[i], b[i], Hprecomp[i]);
-    rct::addKeys(res, res, term);
+    rct::addKeys3acc_p3(&res_p3, a[i], Gprecomp[i], b[i], Hprecomp[i]);
   }
+  rct::key res;
+  ge_p3_tobytes(res.bytes, &res_p3);
   return res;
 }
 
@@ -111,11 +138,11 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() == A.size(), "Incompatible sizes of a and A");
   CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
-  rct::key res = rct::identity();
+  ge_p3 res_p3 = ge_p3_identity;
   for (size_t i = 0; i < a.size(); ++i)
   {
-    rct::key term;
 #if 0
+    rct::key term;
     // we happen to know where A and B might fall, so don't bother checking the rest
     ge_dsmp *Acache = NULL, *Bcache = NULL;
     ge_dsmp Acache_custom[1], Bcache_custom[1];
@@ -136,13 +163,16 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
       Bcache = Bcache_custom;
     }
     rct::addKeys3(term, a[i], *Acache, b[i], *Bcache);
+    rct::addKeys(res, res, term);
 #else
     ge_dsmp Acache, Bcache;
     rct::precomp(Bcache, B[i]);
-    rct::addKeys3(term, a[i], A[i], b[i], Bcache);
+    rct::precomp(Acache, A[i]);
+    addKeys3acc_p3(&res_p3, a[i], Acache, b[i], Bcache);
 #endif
-    rct::addKeys(res, res, term);
   }
+  rct::key res;
+  ge_p3_tobytes(res.bytes, &res_p3);
   return res;
 }
 
@@ -159,6 +189,24 @@ static rct::keyV vector_powers(const rct::key &x, size_t n)
   for (size_t i = 2; i < n; ++i)
   {
     sc_mul(res[i].bytes, res[i-1].bytes, x.bytes);
+  }
+  return res;
+}
+
+/* Given a scalar, return the sum of its powers from 0 to n-1 */
+static rct::key vector_power_sum(const rct::key &x, size_t n)
+{
+  if (n == 0)
+    return rct::zero();
+  rct::key res = rct::identity();
+  if (n == 1)
+    return res;
+  rct::key prev = x;
+  for (size_t i = 1; i < n; ++i)
+  {
+    if (i > 1)
+      sc_mul(prev.bytes, prev.bytes, x.bytes);
+    sc_add(res.bytes, res.bytes, prev.bytes);
   }
   return res;
 }
@@ -876,12 +924,13 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
   PERF_TIMER_START_BP(VERIFY_line_61);
   // PAPER LINE 61
-  rct::key L61Left = rct::addKeys(rct::scalarmultBase(proof.taux), rct::scalarmultKey(rct::H, proof.t));
+  rct::key L61Left;
+  rct::addKeys2(L61Left, proof.taux, proof.t, rct::H);
 
   const rct::keyV zpow = vector_powers(z, M+3);
 
   rct::key k;
-  const rct::key ip1y = vector_sum(vector_powers(y, MN));
+  const rct::key ip1y = vector_power_sum(y, MN);
   sc_mulsub(k.bytes, zpow[2].bytes, ip1y.bytes, rct::zero().bytes);
   for (size_t j = 1; j <= M; ++j)
   {
@@ -893,20 +942,32 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   PERF_TIMER_START_BP(VERIFY_line_61rl);
   sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
   rct::key L61Right = rct::scalarmultKey(rct::H, tmp);
-  for (size_t j = 0; j < M; ++j)
+  ge_p3 L61Right_p3;
+  CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&L61Right_p3, L61Right.bytes) == 0, "ge_frombytes_vartime failed");
+  for (size_t j = 0; j+1 < proof.V.size(); j += 2)
+  {
+    CHECK_AND_ASSERT_MES(j+2+1 < zpow.size(), false, "invalid zpow index");
+    ge_dsmp precomp0, precomp1;
+    rct::precomp(precomp0, j < proof.V.size() ? proof.V[j] : rct::identity());
+    rct::precomp(precomp1, j+1 < proof.V.size() ? proof.V[j+1] : rct::identity());
+    rct::addKeys3acc_p3(&L61Right_p3, zpow[j+2], precomp0, zpow[j+2+1], precomp1);
+  }
+  for (size_t j = proof.V.size() & 0xfffffffe; j < M; j++)
   {
     CHECK_AND_ASSERT_MES(j+2 < zpow.size(), false, "invalid zpow index");
-    tmp = rct::scalarmultKey(j < proof.V.size() ? proof.V[j] : rct::identity(), zpow[j+2]);
-    rct::addKeys(L61Right, L61Right, tmp);
+    // faster equivalent to:
+    // tmp = rct::scalarmultKey(j < proof.V.size() ? proof.V[j] : rct::identity(), zpow[j+2]);
+    // rct::addKeys(L61Right, L61Right, tmp);
+    if (j < proof.V.size())
+      addKeys_acc_p3(&L61Right_p3, zpow[j+2], proof.V[j]);
   }
 
-  tmp = rct::scalarmultKey(proof.T1, x);
-  rct::addKeys(L61Right, L61Right, tmp);
+  addKeys_acc_p3(&L61Right_p3, x, proof.T1);
 
   rct::key xsq;
   sc_mul(xsq.bytes, x.bytes, x.bytes);
-  tmp = rct::scalarmultKey(proof.T2, xsq);
-  rct::addKeys(L61Right, L61Right, tmp);
+  addKeys_acc_p3(&L61Right_p3, xsq, proof.T2);
+  ge_p3_tobytes(L61Right.bytes, &L61Right_p3);
   PERF_TIMER_STOP(VERIFY_line_61rl);
 
   if (!(L61Right == L61Left))
@@ -937,7 +998,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   PERF_TIMER_START_BP(VERIFY_line_24_25);
   // Basically PAPER LINES 24-25
   // Compute the curvepoints from G[i] and H[i]
-  rct::key inner_prod = rct::identity();
+  ge_p3 inner_prod_p3 = ge_p3_identity;
   rct::key yinvpow = rct::identity();
   rct::key ypow = rct::identity();
 
@@ -981,8 +1042,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
     // Now compute the basepoint's scalar multiplication
     // Each of these could be written as a multiexp operation instead
-    rct::addKeys3(tmp, g_scalar, Gprecomp[i], h_scalar, Hprecomp[i]);
-    rct::addKeys(inner_prod, inner_prod, tmp);
+    addKeys3acc_p3(&inner_prod_p3, g_scalar, Gprecomp[i], h_scalar, Hprecomp[i]);
 
     if (i != MN-1)
     {
@@ -990,6 +1050,8 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
       sc_mul(ypow.bytes, ypow.bytes, y.bytes);
     }
   }
+  rct::key inner_prod;
+  ge_p3_tobytes(inner_prod.bytes, &inner_prod_p3);
   PERF_TIMER_STOP(VERIFY_line_24_25);
 
   PERF_TIMER_START_BP(VERIFY_line_26);
@@ -997,6 +1059,8 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   rct::key pprime;
   sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
   rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
+  ge_p3 pprime_p3;
+  CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&pprime_p3, pprime.bytes) == 0, false, "ge_frombytes_vartime failed");
 
   for (size_t i = 0; i < rounds; ++i)
   {
@@ -1006,15 +1070,15 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
     ge_dsmp cacheL, cacheR;
     rct::precomp(cacheL, proof.L[i]);
     rct::precomp(cacheR, proof.R[i]);
-    rct::addKeys3(tmp, tmp, cacheL, tmp2, cacheR);
-    rct::addKeys(pprime, pprime, tmp);
+    addKeys3acc_p3(&pprime_p3, tmp, cacheL, tmp2, cacheR);
 #else
     rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.L[i], tmp));
     rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.R[i], tmp2));
 #endif
   }
   sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
-  rct::addKeys(pprime, pprime, rct::scalarmultKey(rct::H, tmp));
+  addKeys_acc_p3(&pprime_p3, tmp, rct::H);
+  ge_p3_tobytes(pprime.bytes, &pprime_p3);
   PERF_TIMER_STOP(VERIFY_line_26);
 
   PERF_TIMER_START_BP(VERIFY_step2_check);
