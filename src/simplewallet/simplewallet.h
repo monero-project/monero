@@ -92,6 +92,8 @@ namespace cryptonote
         bool recover, bool two_random, const std::string &old_language);
     bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
+    bool new_wallet(const boost::program_options::variables_map& vm,
+        const std::string &multisig_keys, const std::string &old_language);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
@@ -306,6 +308,7 @@ namespace cryptonote
 
     crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
     bool m_restore_deterministic_wallet;  // recover flag
+    bool m_restore_multisig_wallet;  // recover flag
     bool m_non_deterministic;  // old 2-random generation
     bool m_trusted_daemon;
     bool m_allow_mismatched_daemon_version;

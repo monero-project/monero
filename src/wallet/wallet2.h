@@ -436,6 +436,15 @@ namespace tools
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
 
     /*!
+     * \brief  Generates a wallet or restores one.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  multisig_data  The multisig restore info and keys
+     */
+    void generate(const std::string& wallet_, const epee::wipeable_string& password,
+      const std::string& multisig_data);
+
+    /*!
      * \brief Generates a wallet or restores one.
      * \param  wallet_        Name of wallet file
      * \param  password       Password of wallet file
@@ -610,6 +619,7 @@ namespace tools
     bool watch_only() const { return m_watch_only; }
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
+    bool get_multisig_seed(std::string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;

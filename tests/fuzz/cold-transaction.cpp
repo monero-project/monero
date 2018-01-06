@@ -54,16 +54,8 @@ int ColdTransactionFuzzer::init()
 
   try
   {
-    boost::filesystem::remove("/tmp/cold-transaction-test.keys");
-    boost::filesystem::remove("/tmp/cold-transaction-test.address.txt");
-    boost::filesystem::remove("/tmp/cold-transaction-test");
-
     wallet.init("");
-    wallet.generate("/tmp/cold-transaction-test", "", spendkey, true, false);
-
-    boost::filesystem::remove("/tmp/cold-transaction-test.keys");
-    boost::filesystem::remove("/tmp/cold-transaction-test.address.txt");
-    boost::filesystem::remove("/tmp/cold-transaction-test");
+    wallet.generate("", "", spendkey, true, false);
   }
   catch (const std::exception &e)
   {
