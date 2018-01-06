@@ -35,7 +35,7 @@
 #include "file_io_utils.h"
 #include "common/util.h"
 #include "common/i18n.h"
-#include "translation_files.h"
+// #include "translation_files.h" TEMPORARILY REMOVED 
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "i18n"
