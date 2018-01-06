@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project, ClockworX
 //
 // All rights reserved.
 //
@@ -1407,7 +1407,7 @@ namespace cryptonote
     if (!tools::check_updates(software, buildtag, version, hash))
       return false;
 
-    if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+    if (tools::vercmp(version.c_str(), CRYPTOCOIN_VERSION) <= 0)
       return true;
 
     std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
