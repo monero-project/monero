@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017, The Monero Project
+# Copyright (c) 2014-2018, The Monero Project, ClockworX LLC
 # 
 # All rights reserved.
 # 
@@ -34,6 +34,7 @@
 # We always compile if we are building statically to reduce static dependency issues...
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
+
 if(NOT IOS)
     find_package(Miniupnpc QUIET)
 endif()

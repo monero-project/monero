@@ -65,7 +65,7 @@
 
 #define NET_MAKE_IP(b1,b2,b3,b4)  ((LPARAM)(((DWORD)(b1)<<24)+((DWORD)(b2)<<16)+((DWORD)(b3)<<8)+((DWORD)(b4))))
 
-#define MIN_WANTED_SEED_NODES 12
+#define MIN_WANTED_SEED_NODES 2 // For testing purposes. This should increase later
 
 namespace nodetool
 {
@@ -386,8 +386,8 @@ namespace nodetool
       full_addrs.insert("SeedNode2.circlex.cx:11021");
       full_addrs.insert("SeedNode3.circlex.cx:11021");
       full_addrs.insert("SeedNode4.circlex.cx:11021");
-      full_addrs.insert("161.67.132.39:11021");
-      full_addrs.insert("198.74.231.92:11021");
+      // full_addrs.insert("161.67.132.39:11021");
+      // full_addrs.insert("198.74.231.92:11021");
       // full_addrs.insert("195.154.123.123:11022");
       // full_addrs.insert("212.83.172.165:11022");
     }

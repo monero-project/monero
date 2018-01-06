@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017, The Monero Project
+# Copyright (c) 2014-2018, The Monero Project, ClockworX
 #
 # All rights reserved.
 #
@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
 endif()
@@ -364,6 +365,10 @@ if(STATIC AND NOT IOS)
 endif()
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
+
+# Generate header for embedded translations
+add_subdirectory(translations)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 add_subdirectory(external)
 
