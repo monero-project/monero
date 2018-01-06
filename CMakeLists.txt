@@ -367,9 +367,12 @@ endif()
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
 # Generate header for embedded translations
-# TEMPORARILY DISABLED 180106
-# add_subdirectory(translations)
-# include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+include(ExternalProject)
+ExternalProject_Add(generate_translations_header
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
+  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
+  INSTALL_COMMAND cmake -E echo "")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 add_subdirectory(external)
 
