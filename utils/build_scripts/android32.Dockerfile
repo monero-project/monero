@@ -19,8 +19,8 @@ ENV ANDROID_SDK_ROOT ${WORKDIR}/android-sdk-linux
 ENV ANDROID_NDK_ROOT ${WORKDIR}/android-ndk-r${ANDROID_NDK_REVISION}
 
 ## INSTALL BOOST
-ENV BOOST_VERSION 1_62_0
-ENV BOOST_VERSION_DOT 1.62.0
+ENV BOOST_VERSION 1_65_0
+ENV BOOST_VERSION_DOT 1.65.0
 RUN curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION_DOT}/boost_${BOOST_VERSION}.tar.bz2/download \
     && tar -xvf boost_${BOOST_VERSION}.tar.bz2 \
     && rm -f /usr/boost_${BOOST_VERSION}.tar.bz2 \
@@ -57,6 +57,7 @@ RUN curl -s -O http://zlib.net/zlib-${ZLIB_VERSION}.tar.gz \
     && mv zlib-${ZLIB_VERSION} zlib \
     && cd zlib && CC=clang CXX=clang++ ./configure --static \
     && make
+	
 # open ssl
 ENV OPENSSL_VERSION 1.0.2j
 RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
@@ -82,8 +83,8 @@ RUN git clone https://github.com/zeromq/zeromq4-1.git \
 
 RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a ${TOOLCHAIN_DIR}/arm-linux-androideabi/lib/armv7-a
 
-RUN git clone https://github.com/monero-project/monero.git \
-    && cd monero \
+RUN git clone https://github.com/radawson/shekyl.git \
+    && cd shekyl \
     && mkdir -p build/release \
     && CC=clang CXX=clang++ \
          BOOST_ROOT=${WORKDIR}/boost_${BOOST_VERSION} BOOST_LIBRARYDIR=${WORKDIR}/boost_${BOOST_VERSION}/android32/lib/ \
