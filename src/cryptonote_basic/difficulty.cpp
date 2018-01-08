@@ -177,17 +177,27 @@ namespace cryptonote {
     }
 
     uint64_t weighted_timespans = 0;
+
+    uint64_t previous_max = timestamps[0];
     for (size_t i = 1; i < length; i++) {
       uint64_t timespan;
-      if (timestamps[i - 1] >= timestamps[i]) {
-        timespan = 1;
+      uint64_t max_timestamp;
+
+      if (timestamps[i] > previous_max) {
+        max_timestamp = timestamps[i];
       } else {
-        timespan = timestamps[i] - timestamps[i - 1];
+        max_timestamp = previous_max;
       }
-      if (timespan > 10 * target_seconds) {
+
+      timespan = max_timestamp - previous_max;
+      if (timespan == 0) {
+        timespan = 1;
+      } else if (timespan > 10 * target_seconds) {
         timespan = 10 * target_seconds;
       }
+
       weighted_timespans += i * timespan;
+      previous_max = max_timestamp;
     }
 
     // N = length - 1
