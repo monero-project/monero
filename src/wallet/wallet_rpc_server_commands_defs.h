@@ -411,6 +411,7 @@ namespace wallet_rpc
       std::string tx_hash;
       std::string tx_key;
       std::list<std::string> amount_keys;
+      uint64_t amount;
       uint64_t fee;
       std::string tx_blob;
       std::string tx_metadata;
@@ -420,6 +421,7 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(tx_key)
         KV_SERIALIZE(amount_keys)
+        KV_SERIALIZE(amount)
         KV_SERIALIZE(fee)
         KV_SERIALIZE(tx_blob)
         KV_SERIALIZE(tx_metadata)
@@ -520,14 +522,16 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
       std::list<std::string> tx_blob_list;
       std::list<std::string> tx_metadata_list;
-      std::list<std::string> multisig_txset;
+      std::string multisig_txset;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
@@ -582,14 +586,16 @@ namespace wallet_rpc
     {
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_key_list;
+      std::list<uint64_t> amount_list;
       std::list<uint64_t> fee_list;
       std::list<std::string> tx_blob_list;
       std::list<std::string> tx_metadata_list;
-      std::list<std::string> multisig_txset;
+      std::string multisig_txset;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_list)
         KV_SERIALIZE(fee_list)
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
@@ -631,6 +637,7 @@ namespace wallet_rpc
     {
       std::string tx_hash;
       std::string tx_key;
+      uint64_t amount;
       uint64_t fee;
       std::string tx_blob;
       std::string tx_metadata;
@@ -639,6 +646,7 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount)
         KV_SERIALIZE(fee)
         KV_SERIALIZE(tx_blob)
         KV_SERIALIZE(tx_metadata)
