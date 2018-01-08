@@ -9,6 +9,7 @@
 namespace ledger { 
 
 
+#define TRACKD MCDEBUG("ledger"," At file " << __FILE__ << ":" << __LINE__) 
 
   /* ===================================================================== */
   /* ===                           Misc                               ==== */
@@ -212,6 +213,7 @@ namespace ledger {
 
     }
   }
+
   void set_apdu_verbose(bool verbose) {
     apdu_verbose = verbose;
   }
@@ -228,7 +230,17 @@ namespace ledger {
 
   Device::Device(const Device &device): Device() {
     this->set_name(device.name);
-    MCDEBUG("ledger", "Device "<<device.id <<" Cloned. Device "<<this->id <<" Created");
+    MCDEBUG("ledger", "Device "<<device.id <<" cloned. Device "<<this->id <<" created");
+  }
+
+  Device& Device::operator=(const Device &device) {
+    this->set_name(device.name);
+    this->id = device_id++;
+    this->hCard   = 0;
+    this->hContext = 0;
+    this->reset_buffer();
+    MCDEBUG("ledger", "Device "<<device.id <<" assigned. Device "<<this->id <<" created");
+    return *this;
   }
 
   Device::~Device() {
@@ -236,6 +248,27 @@ namespace ledger {
     if (this->id) {
       MCDEBUG("ledger", "Device "<<this->id <<" Destroyed");
     }
+  }
+
+  void Device::lock_device()   { 
+    MCDEBUG("ledger", "Ask for LOCKING for device "<<this->id);
+    device_locker.lock(); 
+    MCDEBUG("ledger", "Device "<<this->id << " LOCKed");
+  }
+  void Device::unlock_device() { 
+    MCDEBUG("ledger", "Ask for UNLOCKING for device "<<this->id);
+    device_locker.unlock(); 
+    MCDEBUG("ledger", "Device "<<this->id << " UNLOCKed");
+  }
+  void Device::lock_tx()       { 
+    MCDEBUG("ledger", "Ask for LOCKING for TX "<<this->id);
+    //tx_locker.lock(); 
+    MCDEBUG("ledger", "TX "<<this->id << " LOCKed");
+  }
+  void Device::unlock_tx()     { 
+    MCDEBUG("ledger", "Ask for UNLOCKING for TX "<<this->id);
+    tx_locker.unlock(); 
+    MCDEBUG("ledger", "TX "<<this->id << " UNLOCKed");
   }
 
   bool Device::set_name(const std::string & name) {
@@ -251,7 +284,7 @@ namespace ledger {
   }
 
   bool Device::init(void) {
-   LONG  rv;
+    LONG  rv;
     this->release();
     rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM,0,0, &this->hContext);
     ASSERT_RV(rv);
@@ -359,9 +392,13 @@ namespace ledger {
     memset(this->buffer_recv, 0, BUFFER_SEND_SIZE);    
   }
 
+  /* ======================================================================= */
+  /*                                   MISC                                  */
+  /* ======================================================================= */
   bool Device::reset() {
     int offset;
   
+    lock_device();
     reset_buffer();
     
     this->buffer_send[0] = 0x00;
@@ -376,6 +413,7 @@ namespace ledger {
     this->buffer_send[4] = offset-5;
     this->length_send = offset;
     this->exchange();
+    unlock_device();
     return true;
   }
 
@@ -385,8 +423,9 @@ namespace ledger {
 
   /* Application API */ 
    bool Device::get_public_address(cryptonote::account_public_address &pubkey){
-     int offset;
+    int offset;
 
+    lock_device();
     reset_buffer();
     
     this->buffer_send[0] = 0x00;
@@ -405,12 +444,14 @@ namespace ledger {
 
     memmove(pubkey.m_view_public_key.data, this->buffer_recv, 32); 
     memmove(pubkey.m_spend_public_key.data, this->buffer_recv+32, 32); 
+    unlock_device();
     return true;
   }
 
   bool  Device::get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) {
     int offset;
 
+    lock_device();
     reset_buffer();
     
     this->buffer_send[0] = 0x00;
@@ -430,12 +471,14 @@ namespace ledger {
     memmove(viewkey.data,  this->buffer_recv,    32); 
     memmove(spendkey.data, this->buffer_recv+32, 32);
    
+    unlock_device();
     return true;
   }
 
   bool  Device::get_chacha8_prekey(char  *prekey)  {
     int offset;
 
+    lock_device();
     reset_buffer();
     this->buffer_send[0] = 0x00;
     this->buffer_send[1] = INS_GET_CHACHA8_PREKEY;
@@ -452,6 +495,7 @@ namespace ledger {
     this->exchange();
 
     memmove(prekey, &this->buffer_recv[0], 200);
+    unlock_device();
     return true;
   }
 
@@ -477,7 +521,8 @@ namespace ledger {
   bool Device::derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index, crypto::public_key &derived_pub){
     int offset;
     unsigned char options;
-    
+  
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -510,12 +555,14 @@ namespace ledger {
 
     //pub key
     memmove(derived_pub.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
-  bool Device::get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key &D) {
+  bool Device::get_subaddress_spend_public_key(const cryptonote::subaddress_index &index, crypto::public_key &D) {
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -537,12 +584,14 @@ namespace ledger {
     this->exchange();
 
     memmove(D.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
-  bool Device::get_subaddress(const cryptonote::subaddress_index& index, cryptonote::account_public_address &address) {
+  bool Device::get_subaddress(const cryptonote::subaddress_index &index, cryptonote::account_public_address &address) {
     int offset;
 
+    lock_device();
     reset_buffer();
     
     this->buffer_send[0] = 0x00;
@@ -565,12 +614,14 @@ namespace ledger {
 
     memmove(address.m_view_public_key.data,  &this->buffer_recv[0],  32);
     memmove(address.m_spend_public_key.data, &this->buffer_recv[32], 32);
+    unlock_device();
     return true;
   }
 
-  bool  Device::get_subaddress_secret_key(const crypto::secret_key& sec, const cryptonote::subaddress_index& index, crypto::secret_key &sub_sec) {
+  bool  Device::get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index, crypto::secret_key &sub_sec) {
     int offset,  options;
 
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -603,14 +654,17 @@ namespace ledger {
     this->exchange();
 
     memmove(sub_sec.data,  &this->buffer_recv[0],  32);
+    unlock_device();
     return true;
   }
 
   /* ======================================================================= */
   /*                            DERIVATION & KEY                             */
   /* ======================================================================= */
-  bool  Device::verify_key(const crypto::public_key &view_public_key, const crypto::public_key & spend_public_key, bool with_spend_key)  {
+  bool  Device::verify_key(const crypto::public_key &view_public_key, const crypto::public_key &spend_public_key, bool with_spend_key)  {
     int offset,sw;
+
+    lock_device();
     reset_buffer();
     this->buffer_send[0] = 0x00;
     this->buffer_send[1] = INS_VERIFY_KEY;
@@ -635,17 +689,21 @@ namespace ledger {
     this->length_send = offset;
     sw = this->exchange();
 
+    unlock_device();
     return sw == 0x9000;
   }
 
   bool Device::verify_key(const crypto::public_key &view_public_key) {
+    lock_device();
     crypto::public_key fake;
+    unlock_device();
     return verify_key(view_public_key, fake, false );
   }
 
-  bool Device::scalarmultKey(const rct::key &pub, const rct::key &sec, rct::key mulkey) {
+  bool Device::scalarmultKey(const rct::key &pub, const rct::key &sec, rct::key &mulkey) {
     int offset, options;
 
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -673,12 +731,14 @@ namespace ledger {
 
     //pub key
     memmove(mulkey.bytes, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
  
-  bool Device::scalarmultBase(const rct::key &sec, rct::key mulkey) {
+  bool Device::scalarmultBase(const rct::key &sec, rct::key &mulkey) {
     int offset,options;
 
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -702,6 +762,7 @@ namespace ledger {
 
     //pub key
     memmove(mulkey.bytes, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -709,6 +770,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -735,6 +797,7 @@ namespace ledger {
 
     //pub key
     memmove(r.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -742,6 +805,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -754,6 +818,7 @@ namespace ledger {
     offset = 5;
     //options
     this->buffer_send[offset] = options;
+    offset += 1;
 
     this->buffer_send[4] = offset-5;
     this->length_send = offset;
@@ -762,6 +827,7 @@ namespace ledger {
     //pub key
     memmove(pub.data, &this->buffer_recv[0], 32);
     memmove(sec.data, &this->buffer_recv[32], 32);
+    unlock_device();
     return true;
 
   }
@@ -770,6 +836,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -802,6 +869,7 @@ namespace ledger {
 
     //derivattion data
     memmove(derivation.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -810,6 +878,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -839,6 +908,7 @@ namespace ledger {
 
     //derivattion data
     memmove(res.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -846,6 +916,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -878,6 +949,7 @@ namespace ledger {
 
     //pub key
     memmove(derived_sec.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -885,6 +957,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -917,6 +990,7 @@ namespace ledger {
 
     //pub key
     memmove(derived_pub.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -924,6 +998,7 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
@@ -947,6 +1022,7 @@ namespace ledger {
 
     //pub key
     memmove(pub.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -954,12 +1030,13 @@ namespace ledger {
     int offset;
     unsigned char options;
     
+    lock_device();
     reset_buffer();
 
     options = 0;
 
     this->buffer_send[0] = 0x00;
-    this->buffer_send[1] = INS_DERIVE_SECRET_KEY;
+    this->buffer_send[1] = INS_GEN_KEY_IMAGE;
     this->buffer_send[2] = 0x00;
     this->buffer_send[3] = 0x00;
     this->buffer_send[4] = 0x00;
@@ -980,6 +1057,7 @@ namespace ledger {
 
     //pub key
     memmove(image.data, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
   }
 
@@ -995,6 +1073,8 @@ namespace ledger {
   bool Device::open_tx(cryptonote::keypair &txkey) {
     int offset;
 
+    lock_device();
+    lock_tx();
     reset_buffer();
     key_map.clear();
 
@@ -1020,11 +1100,13 @@ namespace ledger {
 
     memmove(txkey.pub.data, this->buffer_recv, 32); 
     memmove(txkey.sec.data, this->buffer_recv+32, 32);
+    unlock_device();
     return true;
   }
 
-  bool Device::get_sub_tx_public_key(const crypto::public_key &dest_key, crypto::public_key& pub) {
+  bool Device::get_sub_tx_public_key(const crypto::public_key &dest_key, crypto::public_key &pub) {
     int offset;
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1046,11 +1128,13 @@ namespace ledger {
 
     memmove(pub.data, this->buffer_recv, 32); 
    
+    unlock_device();
     return true;
   }
 
   bool  Device::get_additional_key(const bool subaddr, cryptonote::keypair &additional_txkey){
     int offset;
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1068,12 +1152,14 @@ namespace ledger {
 
     memmove(additional_txkey.pub.data, this->buffer_recv,    32); 
     memmove(additional_txkey.sec.data, this->buffer_recv+32, 32);
+    unlock_device();
     return true;
 
   }
 
   bool  Device::set_signature_mode(unsigned int sig_mode) {
     int offset;
+    lock_device();
     reset_buffer();
     
     this->buffer_send[0] = 0x00;
@@ -1092,14 +1178,14 @@ namespace ledger {
     this->buffer_send[4] = offset-5;
     this->length_send = offset;
     this->exchange();
+    unlock_device();
     return true;
-
-
   }
-  bool Device::stealth(crypto::hash8 &payment_id, 
-                      const crypto::public_key &public_key) {
+
+  bool Device::stealth(crypto::hash8 &payment_id, const crypto::public_key &public_key) {
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1123,22 +1209,26 @@ namespace ledger {
     this->exchange();
     memmove(payment_id.data, &this->buffer_recv[0], 8);
 
+    unlock_device();
     return true;
   }
 
 
   bool Device::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,  
-                               const crypto::secret_key &amount_key,  const crypto::public_key &out_eph_public_key)  {
+                                      const crypto::secret_key &amount_key,  const crypto::public_key &out_eph_public_key)  {
 
+    lock_device();
     key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), real_output_index, rct::pk2rct(out_eph_public_key), rct::sk2rct(amount_key)));
+    unlock_device();
     return true;
   }
 
  
 
-  bool  Device::blind(rct::ecdhTuple & unmasked, const rct::key AKout){
+  bool  Device::blind(rct::ecdhTuple &unmasked, const rct::key &AKout){
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1166,12 +1256,14 @@ namespace ledger {
 
     memmove(unmasked.amount.bytes, &this->buffer_recv[0],  32);
     memmove(unmasked.mask.bytes,  &this->buffer_recv[32], 32);
+    unlock_device();
     return true;
   }
 
-  bool  Device::unblind(rct::ecdhTuple & masked, const rct::key AKout){
+  bool  Device::unblind(rct::ecdhTuple &masked, const rct::key &AKout){
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1199,6 +1291,8 @@ namespace ledger {
 
     memmove(masked.amount.bytes, &this->buffer_recv[0],  32);
     memmove(masked.mask.bytes,  &this->buffer_recv[32], 32);
+
+    unlock_device();
     return true;
   }
 
@@ -1207,6 +1301,9 @@ namespace ledger {
                              rct::key &prehash) {
     unsigned int  data_offset, C_offset, kv_offset, i;
     const char *data;
+    
+    lock_device();
+    
     data = blob.data();
   
     if (inputs_size) {
@@ -1214,7 +1311,7 @@ namespace ledger {
     }
 
     this->key_map.log();
-
+    
     // ======  u8 type, varint txnfee ======
     int offset;
     
@@ -1376,16 +1473,16 @@ namespace ledger {
     memmove(prehash.bytes, this->buffer_recv,  32);
 #endif
 
+    unlock_device();
     return true;
   }
 
 
   bool Device::mlsag_prepare(const rct::key &H, const rct::key &xx, 
                             rct::key &a, rct::key &aG, rct::key &aHP, rct::key &II) {
-
-
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1412,12 +1509,14 @@ namespace ledger {
     memmove(aG.bytes,  &this->buffer_recv[32*1], 32);
     memmove(aHP.bytes, &this->buffer_recv[32*2], 32);
     memmove(II.bytes,  &this->buffer_recv[32*3], 32);
+    unlock_device();
     return true;
   }
 
   bool Device::mlsag_prepare(rct::key &a, rct::key &aG) {
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1436,12 +1535,14 @@ namespace ledger {
 
     memmove(a.bytes,   &this->buffer_recv[32*0], 32);
     memmove(aG.bytes,  &this->buffer_recv[32*1], 32);
+    unlock_device();
     return true;
   }
 
   bool Device::mlsag_hash(const rct::keyV &long_message, rct::key &c) {
     int offset;
     int cnt;
+    lock_device();
     cnt = long_message.size();
     for (int i = 0; i<cnt; i++) {
       reset_buffer();
@@ -1466,12 +1567,14 @@ namespace ledger {
     }
 
     memmove(c.bytes, &this->buffer_recv[0], 32);
+    unlock_device();
     return true;
 
   }
 
   bool Device::mlsag_sign(rct::keyV &ss, const rct::keyV &xx, const rct::keyV &alpha, int rows) {
     int offset;
+    lock_device();
     for (int j = 0; j < rows; j++) {
       reset_buffer();
 
@@ -1501,12 +1604,14 @@ namespace ledger {
       //ss
       memmove(ss[j].bytes, &this->buffer_recv[0], 32);
     }
+    unlock_device();
     return true;
-  }
+  } 
 
   bool Device::close_tx() {
     int offset;
 
+    lock_device();
     reset_buffer();
 
     this->buffer_send[0] = 0x00;
@@ -1523,6 +1628,8 @@ namespace ledger {
     this->length_send = offset;
     this->exchange();
 
+    unlock_tx();
+    unlock_device();
     return true;
   }
 

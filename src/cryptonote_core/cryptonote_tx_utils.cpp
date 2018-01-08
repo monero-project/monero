@@ -603,11 +603,15 @@ namespace cryptonote
       #ifdef DEBUGLEDGER
       keypair txkeyx;
       memset(&txkeyx, 0, sizeof(keypair));
-      memcpy(&txkeyx.sec, &txkey.sec, sizeof(secret_key));
+      memcpy(&txkeyx.sec, &txkey.sec, sizeof(txkey.sec));
       ledger::decrypt(txkeyx.sec.data, 32);
-      crypto::secret_key_to_public_key(txkeyx.sec, txkeyx.pub);
-      ledger::log_hexbuffer("construct_tx_and_get_tx_key: tx_priv", txkeyx.sec.data, 32);
-      ledger::check32("construct_tx_and_get_tx_key", "tx_pub", txkeyx.pub.data, txkey.pub.data );
+      if (crypto::secret_key_to_public_key(txkeyx.sec, txkeyx.pub)) {
+        ledger::log_hexbuffer("construct_tx_and_get_tx_key: tx_priv", txkeyx.sec.data, 32);
+        ledger::check32("construct_tx_and_get_tx_key", "tx_priv", txkeyx.sec.data, txkey.sec.data );
+        ledger::check32("construct_tx_and_get_tx_key", "tx_pub", txkeyx.pub.data, txkey.pub.data );
+      } else {
+        ledger::log_message("construct_tx_and_get_tx_key", "invalid sec key");
+      }
       #endif
     } else {
        txkey = keypair::generate();
@@ -633,7 +637,7 @@ namespace cryptonote
         }
       }
     }
-    return construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, bulletproof, msout);
+    return construct_tx_with_tx_key(sender_account_keys, subaddresses, sources, destinations, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, rct, bulletproof, msout, device);
   }
   //---------------------------------------------------------------
   bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)

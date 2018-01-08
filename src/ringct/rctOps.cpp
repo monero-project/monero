@@ -159,9 +159,14 @@ namespace rct {
     //Scalar multiplications of curve points
 
     //does a * G where a is a scalar and G is the curve basepoint
-    void scalarmultBase(key &aG,const key &a, ledger::Device &device) {
+    void scalarmultBase(key &aG, const key &a, ledger::Device &device) {
         if (device) {
             device.scalarmultBase(a,aG);
+            #ifdef DEBUGLEDGER 
+            key aGx;
+            scalarmultBase(aGx,a);
+            ledger::check32("scalarmultBase", "aG", (char*)aGx.bytes, (char*)aG.bytes);
+            #endif
         } else {
           ge_p3 point;
           sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand!
@@ -175,6 +180,11 @@ namespace rct {
         key aG;
         if (device){
             device.scalarmultBase(a,aG);
+            #ifdef DEBUGLEDGER 
+            key aGx;
+            scalarmultBase(aGx,a);
+            ledger::check32("scalarmultBase", "aG", (char*)aGx.bytes, (char*)aG.bytes);
+            #endif
         } else {
             ge_p3 point;
             sc_reduce32copy(aG.bytes, a.bytes); //do this beforehand
@@ -188,6 +198,11 @@ namespace rct {
     void scalarmultKey(key & aP, const key &P, const key &a, ledger::Device &device) {
       if (device){
             device.scalarmultKey(P,a,aP);
+            #ifdef DEBUGLEDGER 
+            key aPx;
+            scalarmultKey(aPx,P,a);
+            ledger::check32("scalarmultKey", "aP", (char*)aPx.bytes, (char*)aP.bytes);
+            #endif
         } else {
           ge_p3 A;
           ge_p2 R;
@@ -202,6 +217,11 @@ namespace rct {
         key aP;
         if (device){
             device.scalarmultKey(P,a,aP);
+            #ifdef DEBUGLEDGER 
+            key aPx;
+            scalarmultKey(aPx,P,a);
+            ledger::check32("scalarmultKey", "aP", (char*)aPx.bytes, (char*)aP.bytes);
+            #endif
         } else {
            ge_p3 A;
            ge_p2 R;
@@ -464,6 +484,12 @@ namespace rct {
     void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, ledger::Device &device) {
         if (device) {
             device.blind(unmasked,sharedSec);
+            #ifdef DEBUGLEDGER 
+            ecdhTuple unmaskedx= unmasked;
+            ecdhEncode(unmaskedx,sharedSec);
+            ledger::check32("ecdhEncode", "mask", (char*)unmaskedx.mask.bytes, (char*)unmasked.mask.bytes);
+            ledger::check32("ecdhEncode", "amount", (char*)unmaskedx.amount.bytes, (char*)unmasked.amount.bytes);
+            #endif
         } else {
             key sharedSec1 = hash_to_scalar(sharedSec);
             key sharedSec2 = hash_to_scalar(sharedSec1);
@@ -475,6 +501,12 @@ namespace rct {
     void ecdhDecode(ecdhTuple & masked, const key & sharedSec, ledger::Device &device) {
         if (device) {
             device.unblind(masked,sharedSec);
+            #ifdef DEBUGLEDGER 
+            ecdhTuple maskedx = masked;
+            ecdhDecode(maskedx,sharedSec);
+            ledger::check32("ecdhDecode", "mask", (char*)maskedx.mask.bytes, (char*)masked.mask.bytes);
+            ledger::check32("ecdhDecode", "amount", (char*)maskedx.amount.bytes, (char*)masked.amount.bytes);
+            #endif
         } else {
             key sharedSec1 = hash_to_scalar(sharedSec);
             key sharedSec2 = hash_to_scalar(sharedSec1);

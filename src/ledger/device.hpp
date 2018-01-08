@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <string>
+#include <mutex>
 
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
@@ -45,18 +46,26 @@ namespace ledger {
 
     class Device {
     private:
+        mutable std::mutex   device_locker;
+        mutable std::mutex   tx_locker;
+        void lock_device() ;
+        void unlock_device() ;
+        void lock_tx() ;
+        void unlock_tx() ;
+
         std::string  name;
         std::string  full_name;
-        SCARDCONTEXT hContext;
-        SCARDHANDLE  hCard;
-        DWORD        length_send;
-        BYTE         buffer_send[BUFFER_SEND_SIZE];
-        DWORD        length_recv;
-        BYTE         buffer_recv[BUFFER_SEND_SIZE];
+        mutable SCARDCONTEXT hContext;
+        mutable SCARDHANDLE  hCard;
+        mutable DWORD        length_send;
+        mutable BYTE         buffer_send[BUFFER_SEND_SIZE];
+        mutable DWORD        length_recv;
+        mutable BYTE         buffer_recv[BUFFER_SEND_SIZE];
         unsigned int id;
 
         Keymap key_map;
         
+
         void logCMD(void);
         void logRESP(void);
         int  exchange(void);
@@ -66,7 +75,7 @@ namespace ledger {
         Device();
         Device(const Device &device);
         ~Device();
-
+        Device& operator=(const Device &device);
         explicit operator bool() const {return this->hContext != 0;}
 
         static const int SIGNATURE_REAL = 0;
@@ -93,14 +102,14 @@ namespace ledger {
         /* ======================================================================= */
         bool  derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index,  crypto::public_key &derived_pub);
         bool  get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key &D);
-        bool  get_subaddress(const cryptonote::subaddress_index& index, cryptonote::account_public_address &address);
-        bool  get_subaddress_secret_key(const crypto::secret_key& sec, const cryptonote::subaddress_index& index, crypto::secret_key &sub_sec);
+        bool  get_subaddress(const cryptonote::subaddress_index &index, cryptonote::account_public_address &address);
+        bool  get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index, crypto::secret_key &sub_sec);
   
         /* ======================================================================= */
         /*                            DERIVATION & KEY                             */
         /* ======================================================================= */
-        bool  scalarmultKey(const rct::key &pub, const rct::key &sec, rct::key mulkey);
-        bool  scalarmultBase(const rct::key &sec, rct::key mulkey);
+        bool  scalarmultKey(const rct::key &pub, const rct::key &sec, rct::key &mulkey);
+        bool  scalarmultBase(const rct::key &sec, rct::key &mulkey);
         bool  sc_add(const crypto::secret_key &a, const crypto::secret_key &b, crypto::secret_key &r);
         bool  generate_keypair(crypto::public_key &pub, crypto::secret_key &sec);
         bool  generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation);
@@ -108,9 +117,9 @@ namespace ledger {
         bool  derive_secret_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::secret_key &sec,  crypto::secret_key &derived_sec);
         bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub);
         bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub);
-        bool  generate_key_image(const crypto::public_key &, const crypto::secret_key &sec, crypto::key_image &image);      
+        bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image);      
         bool  verify_key(const crypto::public_key &view_public_key);
-        bool  verify_key(const crypto::public_key &view_public_key, const crypto::public_key & spend_public_key, bool with_spend_key=true) ;
+        bool  verify_key(const crypto::public_key &view_public_key, const crypto::public_key &spend_public_key, bool with_spend_key=true) ;
 
         /* ======================================================================= */
         /*                               TRANSACTION                               */
@@ -121,15 +130,15 @@ namespace ledger {
         bool  open_tx(cryptonote::keypair &txkey);
 
         bool  get_additional_key(const bool subaddr, cryptonote::keypair &additional_txkey);
-        bool  get_sub_tx_public_key(const crypto::public_key &dest_key, crypto::public_key& pub);
+        bool  get_sub_tx_public_key(const crypto::public_key &dest_key, crypto::public_key &pub);
         bool  set_signature_mode(unsigned int sig_mode);
         
         bool  stealth(crypto::hash8 &payment_id, const crypto::public_key &public_key);
         
-        bool  blind(rct::ecdhTuple & unmasked, const rct::key AKout);
-        bool  unblind(rct::ecdhTuple & masked, const rct::key AKout);
+        bool  blind(rct::ecdhTuple &unmasked, const rct::key &AKout);
+        bool  unblind(rct::ecdhTuple &masked, const rct::key &AKout);
 
-        bool  mlsag_prehash(const std::string & blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash);
+        bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash);
         bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII);
         bool  mlsag_prepare(rct::key &a, rct::key &aG);
         bool  mlsag_hash(const rct::keyV &long_message, rct::key &c);
