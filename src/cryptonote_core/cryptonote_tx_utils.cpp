@@ -402,7 +402,7 @@ namespace cryptonote
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
 
       if (device) {
-        //device.add_output_key_mapping(dst_entr.addr.m_viewpublic_key, dst_entr.addr.m_spend_public_key, output_index, amount_keys.back(), out_eph_public_key);
+        device.add_output_key_mapping(dst_entr.addr.m_view_public_key, dst_entr.addr.m_spend_public_key, output_index, amount_keys.back(), out_eph_public_key);
       }
       tx_out out;
       out.amount = dst_entr.amount;
@@ -607,7 +607,6 @@ namespace cryptonote
       ledger::decrypt(txkeyx.sec.data, 32);
       if (crypto::secret_key_to_public_key(txkeyx.sec, txkeyx.pub)) {
         ledger::log_hexbuffer("construct_tx_and_get_tx_key: tx_priv", txkeyx.sec.data, 32);
-        ledger::check32("construct_tx_and_get_tx_key", "tx_priv", txkeyx.sec.data, txkey.sec.data );
         ledger::check32("construct_tx_and_get_tx_key", "tx_pub", txkeyx.pub.data, txkey.pub.data );
       } else {
         ledger::log_message("construct_tx_and_get_tx_key", "invalid sec key");

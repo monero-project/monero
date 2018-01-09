@@ -4,6 +4,7 @@
 
 #pragma once
 #define DEBUGLEDGER
+#define IODUMMYCRYPT 1
 
 namespace ledger {
     namespace {

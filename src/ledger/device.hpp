@@ -124,8 +124,9 @@ namespace ledger {
         /* ======================================================================= */
         /*                               TRANSACTION                               */
         /* ======================================================================= */
-        bool add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,  
-                               const crypto::secret_key &amount_key,  const crypto::public_key &out_eph_public_key) ;
+
+      bool add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,  
+                               const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) ;
 
         bool  open_tx(cryptonote::keypair &txkey);
 

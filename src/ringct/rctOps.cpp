@@ -163,8 +163,10 @@ namespace rct {
         if (device) {
             device.scalarmultBase(a,aG);
             #ifdef DEBUGLEDGER 
+            key ax = a;
+            ledger::decrypt((char*)ax.bytes, 32);
             key aGx;
-            scalarmultBase(aGx,a);
+            scalarmultBase(aGx,ax);
             ledger::check32("scalarmultBase", "aG", (char*)aGx.bytes, (char*)aG.bytes);
             #endif
         } else {
@@ -181,8 +183,10 @@ namespace rct {
         if (device){
             device.scalarmultBase(a,aG);
             #ifdef DEBUGLEDGER 
+            key ax = a;
+            ledger::decrypt((char*)ax.bytes, 32);
             key aGx;
-            scalarmultBase(aGx,a);
+            scalarmultBase(aGx,ax);
             ledger::check32("scalarmultBase", "aG", (char*)aGx.bytes, (char*)aG.bytes);
             #endif
         } else {
@@ -199,8 +203,10 @@ namespace rct {
       if (device){
             device.scalarmultKey(P,a,aP);
             #ifdef DEBUGLEDGER 
+            key ax = a;
+            ledger::decrypt((char*)ax.bytes, 32);
             key aPx;
-            scalarmultKey(aPx,P,a);
+            scalarmultKey(aPx,P,ax);
             ledger::check32("scalarmultKey", "aP", (char*)aPx.bytes, (char*)aP.bytes);
             #endif
         } else {
@@ -218,8 +224,10 @@ namespace rct {
         if (device){
             device.scalarmultKey(P,a,aP);
             #ifdef DEBUGLEDGER 
+            key ax = a;
+            ledger::decrypt((char*)ax.bytes, 32);
             key aPx;
-            scalarmultKey(aPx,P,a);
+            scalarmultKey(aPx,P,ax);
             ledger::check32("scalarmultKey", "aP", (char*)aPx.bytes, (char*)aP.bytes);
             #endif
         } else {
@@ -483,10 +491,14 @@ namespace rct {
     // where C= aG + bH
     void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, ledger::Device &device) {
         if (device) {
-            device.blind(unmasked,sharedSec);
             #ifdef DEBUGLEDGER 
             ecdhTuple unmaskedx= unmasked;
-            ecdhEncode(unmaskedx,sharedSec);
+            key sharedSecx = sharedSec;
+            ledger::decrypt((char*)sharedSecx.bytes,32);
+            #endif
+            device.blind(unmasked,sharedSec);
+            #ifdef DEBUGLEDGER 
+            ecdhEncode(unmaskedx,sharedSecx);
             ledger::check32("ecdhEncode", "mask", (char*)unmaskedx.mask.bytes, (char*)unmasked.mask.bytes);
             ledger::check32("ecdhEncode", "amount", (char*)unmaskedx.amount.bytes, (char*)unmasked.amount.bytes);
             #endif
@@ -500,10 +512,14 @@ namespace rct {
     }
     void ecdhDecode(ecdhTuple & masked, const key & sharedSec, ledger::Device &device) {
         if (device) {
-            device.unblind(masked,sharedSec);
             #ifdef DEBUGLEDGER 
             ecdhTuple maskedx = masked;
-            ecdhDecode(maskedx,sharedSec);
+            key sharedSecx = sharedSec;
+            ledger::decrypt((char*)sharedSecx.bytes,32);
+            #endif
+            device.unblind(masked,sharedSec);
+            #ifdef DEBUGLEDGER 
+            ecdhDecode(maskedx,sharedSecx);
             ledger::check32("ecdhDecode", "mask", (char*)maskedx.mask.bytes, (char*)masked.mask.bytes);
             ledger::check32("ecdhDecode", "amount", (char*)maskedx.amount.bytes, (char*)masked.amount.bytes);
             #endif

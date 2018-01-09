@@ -478,7 +478,7 @@ namespace tools
     /*!
      *
      */
-    void generate(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name);
+    void restore(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name);
 
     /*!
      * \brief Creates a multisig wallet

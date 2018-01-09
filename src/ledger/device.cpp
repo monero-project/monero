@@ -4,7 +4,6 @@
 #include "device.hpp"
 #include "log.hpp"
 
-//#define IODUMMYCRYPT 1
 
 namespace ledger { 
 
@@ -267,7 +266,7 @@ namespace ledger {
   }
   void Device::unlock_tx()     { 
     MCDEBUG("ledger", "Ask for UNLOCKING for TX "<<this->id);
-    tx_locker.unlock(); 
+    //tx_locker.unlock(); 
     MCDEBUG("ledger", "TX "<<this->id << " UNLOCKed");
   }
 
@@ -502,14 +501,14 @@ namespace ledger {
   /* ======================================================================= */
   /*                               SUB ADDRESS                               */
   /* ======================================================================= */
-
+  //view is 00..00
   static bool is_key_view_secret_key(const crypto::secret_key &sec) {
     for (int i =0; i <32; i++) {
       if (sec.data[i] != 0x00) return false;
     }
     return true;
   }
-
+  //spend is FF..FF
   static bool is_key_spend_secret_key(const crypto::secret_key &sec) {
     for (int i =0; i <32; i++) {
       if (sec.data[i] != (char)0xff) return false;
@@ -1215,10 +1214,10 @@ namespace ledger {
 
 
   bool Device::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,  
-                                      const crypto::secret_key &amount_key,  const crypto::public_key &out_eph_public_key)  {
+                                      const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
 
     lock_device();
-    key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), real_output_index, rct::pk2rct(out_eph_public_key), rct::sk2rct(amount_key)));
+    key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), real_output_index, rct::pk2rct(out_eph_public_key), amount_key));
     unlock_device();
     return true;
   }
@@ -1350,7 +1349,7 @@ namespace ledger {
     for ( i = 0; i < inputs_size; i++) {
       reset_buffer();
       this->buffer_send[0] = 0x00;
-      this->buffer_send[1] = 0x5A;
+      this->buffer_send[1] = INS_VALIDATE;
       this->buffer_send[2] = 0x01;
       this->buffer_send[3] = i+2;
       this->buffer_send[4] = 0x00;

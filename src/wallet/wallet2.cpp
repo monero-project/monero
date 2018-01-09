@@ -98,8 +98,8 @@ using namespace cryptonote;
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
-#define SUBADDRESS_LOOKAHEAD_MAJOR 1
-#define SUBADDRESS_LOOKAHEAD_MINOR 1
+#define SUBADDRESS_LOOKAHEAD_MAJOR 5
+#define SUBADDRESS_LOOKAHEAD_MINOR 5
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 
@@ -3051,7 +3051,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 * \param  password       Password of wallet file
 * \param  device_name    device string address 
 */
-void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name)
+void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name)
 {
   clear();
   prepare_file_names(wallet_);

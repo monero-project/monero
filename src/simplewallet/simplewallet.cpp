@@ -2777,7 +2777,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
 
   try
   {
-    m_wallet->generate(m_wallet_file, std::move(rc.second).password(), device_name);
+    m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_name);
     message_writer(console_color_white, true) << tr("Generated new on device wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
   }

@@ -203,7 +203,7 @@ namespace cryptonote
     boost::optional<subaddress_receive_info> subaddr_recv_info = is_out_to_acc_precomp(subaddresses, out_key, recv_derivation, additional_recv_derivations, real_output_index,device);
     CHECK_AND_ASSERT_MES(subaddr_recv_info, false, "key image helper: given output pubkey doesn't seem to belong to this address");
 
-    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki);
+    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki, device);
   }
   //---------------------------------------------------------------
   bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, ledger::Device& device)
@@ -531,13 +531,15 @@ namespace cryptonote
   {
     if (device) {
       #ifdef DEBUGLEDGER
+      
+      #if  0
       crypto::hash8 payment_idx;
       crypto::key_derivation derivation;
       crypto::hash hash;
       char data[33]; 
 
       crypto::secret_key secret_key_dec;
-      memmove(&secret_key_dec, &secret_key, sizeof(crypto::secret_key));
+      memmove(&secret_key_dec, &secret_key, sizeof(cry               pto::secret_key));
       ledger::decrypt(secret_key_dec.data,32);
 
       generate_key_derivation(public_key, secret_key_dec, derivation);
@@ -546,6 +548,12 @@ namespace cryptonote
       cn_fast_hash(data, 33, hash);
       for (size_t b = 0; b < 8; ++b)
         payment_idx.data[b] = payment_id.data[b]^hash.data[b];
+      #else
+      crypto::hash8      payment_idx = payment_id;
+      crypto::secret_key secret_keyx = secret_key;
+      ledger::decrypt(secret_keyx.data, 32);
+      encrypt_payment_id(payment_idx, public_key, secret_key);
+      #endif
       #endif
 
       device.stealth(payment_id, public_key);
