@@ -17,7 +17,7 @@
 
 
 namespace ledger {
-    
+
 
     class ABPkeys {
     public:
@@ -55,21 +55,24 @@ namespace ledger {
 
         std::string  name;
         std::string  full_name;
-        mutable SCARDCONTEXT hContext;
-        mutable SCARDHANDLE  hCard;
-        mutable DWORD        length_send;
-        mutable BYTE         buffer_send[BUFFER_SEND_SIZE];
-        mutable DWORD        length_recv;
-        mutable BYTE         buffer_recv[BUFFER_SEND_SIZE];
+        SCARDCONTEXT hContext;
+        SCARDHANDLE  hCard;
+        DWORD        length_send;
+        BYTE         buffer_send[BUFFER_SEND_SIZE];
+        DWORD        length_recv;
+        BYTE         buffer_recv[BUFFER_SEND_SIZE];
         unsigned int id;
 
         Keymap key_map;
-        
+
 
         void logCMD(void);
         void logRESP(void);
         int  exchange(void);
         void reset_buffer(void);
+
+
+
 
     public:
         Device();
@@ -94,7 +97,9 @@ namespace ledger {
         /*                             WALLET & ADDRESS                            */
         /* ======================================================================= */
         bool  get_public_address(cryptonote::account_public_address &pubkey);
+        #ifdef DEBUGLEDGER
         bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey);
+        #endif
         bool  get_chacha8_prekey(char  *prekey);
 
         /* ======================================================================= */
@@ -104,7 +109,7 @@ namespace ledger {
         bool  get_subaddress_spend_public_key(const cryptonote::subaddress_index& index, crypto::public_key &D);
         bool  get_subaddress(const cryptonote::subaddress_index &index, cryptonote::account_public_address &address);
         bool  get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index, crypto::secret_key &sub_sec);
-  
+
         /* ======================================================================= */
         /*                            DERIVATION & KEY                             */
         /* ======================================================================= */
@@ -117,7 +122,7 @@ namespace ledger {
         bool  derive_secret_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::secret_key &sec,  crypto::secret_key &derived_sec);
         bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub);
         bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub);
-        bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image);      
+        bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image);
         bool  verify_key(const crypto::public_key &view_public_key);
         bool  verify_key(const crypto::public_key &view_public_key, const crypto::public_key &spend_public_key, bool with_spend_key=true) ;
 
@@ -125,7 +130,7 @@ namespace ledger {
         /*                               TRANSACTION                               */
         /* ======================================================================= */
 
-      bool add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,  
+      bool add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,
                                const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) ;
 
         bool  open_tx(cryptonote::keypair &txkey);
@@ -133,9 +138,9 @@ namespace ledger {
         bool  get_additional_key(const bool subaddr, cryptonote::keypair &additional_txkey);
         bool  get_sub_tx_public_key(const crypto::public_key &dest_key, crypto::public_key &pub);
         bool  set_signature_mode(unsigned int sig_mode);
-        
+
         bool  stealth(crypto::hash8 &payment_id, const crypto::public_key &public_key);
-        
+
         bool  blind(rct::ecdhTuple &unmasked, const rct::key &AKout);
         bool  unblind(rct::ecdhTuple &masked, const rct::key &AKout);
 
@@ -145,8 +150,13 @@ namespace ledger {
         bool  mlsag_hash(const rct::keyV &long_message, rct::key &c);
         bool  mlsag_sign(rct::keyV &ss, const rct::keyV &xx, const rct::keyV &alpha, int rows);
 
-        bool  close_tx();        
+        bool  close_tx();
     };
 
     extern Device no_device;
+
+    #ifdef DEBUGLEDGER
+    extern crypto::secret_key viewkey;
+    extern crypto::secret_key spendkey;
+    #endif
 }
