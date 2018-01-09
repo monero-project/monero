@@ -2417,8 +2417,8 @@ Sorties par * : </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="122"/>
-        <source>Create non-deterministic view and spend keys</source>
-        <translation>Créer des clés d&apos;audit et de dépense non déterministes</translation>
+        <source>Generate non-deterministic view and spend keys</source>
+        <translation>Générer des clés d&apos;audit et de dépense non déterministes</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="123"/>
@@ -2632,8 +2632,8 @@ Sorties par * : </translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="356"/>
-        <source>Cannot create deprecated wallets from JSON</source>
-        <translation>Impossible de créer un portefeuille obsolète à partir de JSON</translation>
+        <source>Cannot generate deprecated wallets from JSON</source>
+        <translation>Impossible de générer un portefeuille obsolète à partir de JSON</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="403"/>
