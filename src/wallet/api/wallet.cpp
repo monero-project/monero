@@ -611,7 +611,7 @@ bool WalletImpl::close(bool store)
             if (status() != Status_Critical)
                 m_wallet->store();
             else
-                LOG_ERROR("Status_Critical - not storing wallet");
+                LOG_ERROR("Status_Critical - not saving wallet");
             LOG_PRINT_L1("wallet::store done");
         }
         LOG_PRINT_L1("Calling wallet::stop...");
@@ -717,7 +717,7 @@ bool WalletImpl::store(const std::string &path)
             m_wallet->store_to(path, m_password);
         }
     } catch (const std::exception &e) {
-        LOG_ERROR("Error storing wallet: " << e.what());
+        LOG_ERROR("Error saving wallet: " << e.what());
         m_status = Status_Error;
         m_errorString = e.what();
     }

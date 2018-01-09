@@ -414,7 +414,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="38"/>
-        <source>Specify ip to bind rpc server</source>
+        <source>Specify IP to bind RPC server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -527,7 +527,7 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="710"/>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
+        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Send all unlocked outputs below the threshold to an address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -851,7 +851,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2921"/>
-        <source>missing amount threshold</source>
+        <source>missing threshold amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -896,7 +896,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3137"/>
-        <source>daemon is busy. Please try later</source>
+        <source>daemon is busy. Please try again later</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -931,12 +931,12 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="525"/>
-        <source>priority must be 0, 1, 2, 3,or 4</source>
+        <source>priority must be 0, 1, 2, 3, or 4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="540"/>
-        <source>priority must be 0, 1, 2 3,or 4</source>
+        <source>priority must be 0, 1, 2, 3, or 4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -961,7 +961,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="709"/>
-        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
+        <source>sweep_all [mixin] address [<payment_id>] - Send all unlocked balance to an address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1124,7 +1124,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1887"/>
-        <source>expected at least one payment_id</source>
+        <source>expected at least one payment ID</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1340,7 +1340,7 @@ Warning: Some input keys being spent are from </source>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="706"/>
-        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
+        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1612,7 +1612,7 @@ Warning: Some input keys being spent are from </source>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1306"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1311"/>
-        <source>invalid language choice passed. Please try again.
+        <source>invalid language choice entered. Please try again.
 </source>
         <translation type="unfinished"></translation>
     </message>
@@ -2493,7 +2493,7 @@ Outputs per *: </source>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="460"/>
-        <source>Enter new wallet password</source>
+        <source>Enter new password for the wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2651,13 +2651,13 @@ Outputs per *: </source>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1789"/>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1814"/>
-        <source>Storing wallet...</source>
+        <source>Saving wallet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1791"/>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1816"/>
-        <source>Stored ok</source>
+        <source>Saved ok</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2672,22 +2672,22 @@ Outputs per *: </source>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1805"/>
-        <source>Failed to initialize wallet rpc server</source>
+        <source>Failed to initialize wallet RPC server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1809"/>
-        <source>Starting wallet rpc server</source>
+        <source>Starting wallet RPC server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1811"/>
-        <source>Stopped wallet rpc server</source>
+        <source>Stopped wallet RPC server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1820"/>
-        <source>Failed to store wallet: </source>
+        <source>Failed to save wallet: </source>
         <translation type="unfinished"></translation>
     </message>
 </context>

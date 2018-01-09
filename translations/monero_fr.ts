@@ -414,7 +414,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="38"/>
-        <source>Specify ip to bind rpc server</source>
+        <source>Specify IP to bind RPC server</source>
         <translation>Spécifier l&apos;IP à laquelle lier le serveur RPC</translation>
     </message>
     <message>
@@ -527,8 +527,8 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="710"/>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
-        <translation>sweep_below &lt;montant_seuil&gt; [mixin] adresse [ID_paiement] - Envoyer toutes les sorties débloquées sous le seuil vers une adresse</translation>
+        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Send all unlocked outputs below the threshold to an address</source>
+        <translation>sweep_below &lt;montant_seuil&gt; [mixin] adresse [<ID_paiement>] - Envoyer toutes les sorties débloquées sous le seuil vers une adresse</translation>
     </message>
     <message>
         <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value - merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
@@ -872,7 +872,7 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2921"/>
-        <source>missing amount threshold</source>
+        <source>missing threshold amount</source>
         <translation>montant seuil manquant</translation>
     </message>
     <message>
@@ -917,7 +917,7 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3137"/>
-        <source>daemon is busy. Please try later</source>
+        <source>daemon is busy. Please try again later</source>
         <translation>le démon est occupé. Veuillez réessayer plus tard</translation>
     </message>
     <message>
@@ -952,12 +952,12 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="525"/>
-        <source>priority must be 0, 1, 2, 3,or 4</source>
+        <source>priority must be 0, 1, 2, 3, or 4</source>
         <translation>la priorité doit être 0, 1, 2, 3 ou 4</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="540"/>
-        <source>priority must be 0, 1, 2 3,or 4</source>
+        <source>priority must be 0, 1, 2, 3, or 4</source>
         <translation>la priorité doit être 0, 1, 2, 3 ou 4</translation>
     </message>
     <message>
@@ -982,8 +982,8 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="709"/>
-        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
-        <translation>sweep_all [mixin] adresse [ID_paiement] - Envoyer tout le solde débloqué à une adresse</translation>
+        <source>sweep_all [mixin] address [<payment_id>] - Send all unlocked balance to an address</source>
+        <translation>sweep_all [mixin] adresse [<ID_paiement>] - Envoyer tout le solde débloqué à une adresse</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="711"/>
@@ -1149,7 +1149,7 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1887"/>
-        <source>expected at least one payment_id</source>
+        <source>expected at least one payment ID</source>
         <translation>au moins un ID de paiement attendu</translation>
     </message>
     <message>
@@ -1371,7 +1371,7 @@ Attention : Certaines clés d&apos;entrées étant dépensées sont issues de <
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="706"/>
-        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
+        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
         <translation>transfer [&lt;priorité&gt;] [&lt;mixin&gt;] &lt;adresse&gt; &lt;montant&gt; [&lt;ID_paiement&gt;] - Transférer &lt;montant&gt; à &lt;adresse&gt;. &lt;priorité&gt; est la priorité de la transaction. Plus la priorité est élevée, plues les frais de transaction seront élévés. Les valeurs de priorité valies sont dans l&apos;ordre (de la plus basse à la plus élevée) : unimportant, normal, elevated, priority. Si ce paramètre est omis, la valeur par défaut (voir la commande &quot;set priority&quot;) est utilisée. &lt;mixin&gt; est le nombre d&apos;entrées supplémentaires à inclure pour l&apos;intraçabilité. De multiples paiements peuvent être effectués d&apos;un coup en ajoutant &lt;adresse_2&gt; &lt;montant_2&gt; et cetera (avant l&apos;ID de paiement, s&apos;il est inclus)</translation>
     </message>
     <message>
@@ -1643,7 +1643,7 @@ Attention : Certaines clés d&apos;entrées étant dépensées sont issues de <
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1306"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1311"/>
-        <source>invalid language choice passed. Please try again.
+        <source>invalid language choice entered. Please try again.
 </source>
         <translation>choix de langue passé invalide. Veuillez réessayer.
 </translation>
@@ -2543,7 +2543,7 @@ Sorties par * : </translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="460"/>
-        <source>Enter new wallet password</source>
+        <source>Enter new password for the wallet</source>
         <translation>Entrez le mot de passe du portefeuille</translation>
     </message>
     <message>
@@ -2701,14 +2701,14 @@ Sorties par * : </translation>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1789"/>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1814"/>
-        <source>Storing wallet...</source>
+        <source>Saving wallet...</source>
         <translation>Sauvegarde du portefeuille...</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1791"/>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1816"/>
-        <source>Stored ok</source>
-        <translation>Sauvegarde OK</translation>
+        <source>Saved ok</source>
+        <translation>Sauvegarde réussie</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1794"/>
@@ -2722,22 +2722,22 @@ Sorties par * : </translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1805"/>
-        <source>Failed to initialize wallet rpc server</source>
+        <source>Failed to initialize wallet RPC server</source>
         <translation>Échec de l&apos;initialisation du serveur RPC du portefeuille</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1809"/>
-        <source>Starting wallet rpc server</source>
+        <source>Starting wallet RPC server</source>
         <translation>Démarrage du serveur RPC du portefeuille</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1811"/>
-        <source>Stopped wallet rpc server</source>
+        <source>Stopped wallet RPC server</source>
         <translation>Arrêt du serveur RPC du portefeuille</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="1820"/>
-        <source>Failed to store wallet: </source>
+        <source>Failed to save wallet: </source>
         <translation>Échec de la sauvegarde du portefeuille : </translation>
     </message>
 </context>
