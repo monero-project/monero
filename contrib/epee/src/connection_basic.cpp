@@ -78,7 +78,6 @@
 
 // TODO:
 #include "net/network_throttle-detail.hpp"
-#include "cryptonote_core/cryptonote_core.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
