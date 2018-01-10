@@ -6159,7 +6159,8 @@ void wallet2::light_wallet_get_unspent_outs()
     add_tx_pub_key_to_extra(td.m_tx, tx_pub_key);
     
     td.m_key_image = unspent_key_image;
-    td.m_key_image_known = !m_watch_only;
+    td.m_key_image_known = !m_watch_only && !m_multisig;
+    td.m_key_image_partial = m_multisig;
     td.m_amount = o.amount;
     td.m_pk_index = 0;
     td.m_internal_output_index = o.index;
