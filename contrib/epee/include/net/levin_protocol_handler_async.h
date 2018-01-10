@@ -752,7 +752,7 @@ void async_protocol_handler_config<t_connection_context>::del_out_connections(si
 	{
 		try
 		{
-			auto i = out_connections.begin();
+			auto i = out_connections.end() - 1;
 			async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
 			del_connection(conn);
 			close(*i);
