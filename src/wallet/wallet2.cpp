@@ -2036,6 +2036,11 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() <= 3)
       return;
+    if (blocks_start_height < m_blockchain.offset())
+    {
+      MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
+      return;
+    }
     if (hashes.size() + current_index < stop_height) {
       drop_from_short_history(short_chain_history, 3);
       std::list<crypto::hash>::iterator right = hashes.end();
