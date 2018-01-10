@@ -4528,6 +4528,12 @@ bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::donate(const std::vector<std::string> &args_)
 {
+  if(m_wallet->testnet())
+  {
+    fail_msg_writer() << tr("donations are not enabled on the testnet");
+    return true;
+  }
+
   std::vector<std::string> local_args = args_;
   if(local_args.empty() || local_args.size() > 5)
   {
