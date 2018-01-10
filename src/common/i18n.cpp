@@ -35,7 +35,7 @@
 #include "file_io_utils.h"
 #include "common/util.h"
 #include "common/i18n.h"
-// #include "translation_files.h" 
+#include "translation_files.h" 
 
 #undef SHEKYL_DEFAULT_LOG_CATEGORY
 #define SHEKYL_DEFAULT_LOG_CATEGORY "i18n"
