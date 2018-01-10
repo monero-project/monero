@@ -37,14 +37,21 @@ if(LRELEASE STREQUAL "LRELEASE-NOTFOUND")
   set(ts_files "")
   message(WARNING "lrelease program not found, translation files not built")
 else()
-  file(GLOB ts_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" *.ts)
-  foreach(ts_file ${ts_files})
-    string(REPLACE ".ts" ".qm" qm_file "${ts_file}")
-    add_custom_command(TARGET generate_translations_header
-      PRE_BUILD
-      COMMAND ${LRELEASE} "${CMAKE_CURRENT_SOURCE_DIR}/${ts_file}" -qm "${qm_file}"
-      WORKING_DIRECTORY "${CMAKE_CURRENT_BIN_DIR}")
-  endforeach()
+  execute_process(COMMAND ${LRELEASE} -version
+    RESULT_VARIABLE lrelease_ret)
+  if(NOT lrelease_ret EQUAL "0")
+    set(ts_files "")
+    message(WARNING "lrelease program not working, translation files not built")
+  else()
+    file(GLOB ts_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" *.ts)
+    foreach(ts_file ${ts_files})
+      string(REPLACE ".ts" ".qm" qm_file "${ts_file}")
+      add_custom_command(TARGET generate_translations_header
+        PRE_BUILD
+        COMMAND ${LRELEASE} "${CMAKE_CURRENT_SOURCE_DIR}/${ts_file}" -qm "${qm_file}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BIN_DIR}")
+    endforeach()
+  endif()
 endif()
 
 string(REPLACE ".ts" ".qm" qm_files "${ts_files}")
