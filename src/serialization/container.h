@@ -30,36 +30,84 @@
 
 #pragma once
 
-#include <vector>
 #include "serialization.h"
-
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::vector<T> &v);
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::vector<T> &v);
 
 namespace serialization
 {
   namespace detail
   {
-    template <typename T>
-    void do_reserve(std::vector<T> &c, size_t N)
+    template <typename Archive, class T>
+    bool serialize_container_element(Archive& ar, T& e)
     {
-      c.reserve(N);
+      return ::do_serialize(ar, e);
     }
 
-    template <typename T>
-    void do_add(std::vector<T> &c, T &&e)
+    template <typename Archive>
+    bool serialize_container_element(Archive& ar, uint32_t& e)
     {
-      c.emplace_back(std::move(e));
+      ar.serialize_varint(e);
+      return true;
     }
+
+    template <typename Archive>
+    bool serialize_container_element(Archive& ar, uint64_t& e)
+    {
+      ar.serialize_varint(e);
+      return true;
+    }
+
+    template <typename C>
+    void do_reserve(C &c, size_t N) {}
   }
 }
 
-#include "container.h"
+template <template <bool> class Archive, typename C>
+bool do_serialize_container(Archive<false> &ar, C &v)
+{
+  size_t cnt;
+  ar.begin_array(cnt);
+  if (!ar.stream().good())
+    return false;
+  v.clear();
 
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::vector<T> &v) { return do_serialize_container(ar, v); }
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::vector<T> &v) { return do_serialize_container(ar, v); }
+  // very basic sanity check
+  if (ar.remaining_bytes() < cnt) {
+    ar.stream().setstate(std::ios::failbit);
+    return false;
+  }
 
+  ::serialization::detail::do_reserve(v, cnt);
+
+  for (size_t i = 0; i < cnt; i++) {
+    if (i > 0)
+      ar.delimit_array();
+    typename C::value_type e;
+    if (!::serialization::detail::serialize_container_element(ar, e))
+      return false;
+    ::serialization::detail::do_add(v, std::move(e));
+    if (!ar.stream().good())
+      return false;
+  }
+  ar.end_array();
+  return true;
+}
+
+template <template <bool> class Archive, typename C>
+bool do_serialize_container(Archive<true> &ar, C &v)
+{
+  size_t cnt = v.size();
+  ar.begin_array(cnt);
+  for (auto i = v.begin(); i != v.end(); ++i)
+  {
+    if (!ar.stream().good())
+      return false;
+    if (i != v.begin())
+      ar.delimit_array();
+    if(!::serialization::detail::serialize_container_element(ar, const_cast<typename C::value_type&>(*i)))
+      return false;
+    if (!ar.stream().good())
+      return false;
+  }
+  ar.end_array();
+  return true;
+}
