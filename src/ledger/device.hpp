@@ -68,7 +68,7 @@ namespace ledger {
 
         void logCMD(void);
         void logRESP(void);
-        int  exchange(void);
+        unsigned int  exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
         void reset_buffer(void);
 
 

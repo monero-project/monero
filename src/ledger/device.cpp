@@ -15,7 +15,8 @@ namespace ledger {
   /* ===================================================================== */
 
 
-#define ASSERT_RV(rv)   CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
+#define ASSERT_RV(rv)        CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
+#define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), "Wrong Device Status : (SW=" << std::hex << (rv) << ", EXPECT=" << std::hex << (ok) << ", MASK=" << std::hex << (mask) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
 
 #ifdef DEBUGLEDGER
 
@@ -391,8 +392,9 @@ namespace ledger {
     return true;
   }
 
-  int Device::exchange() {
+  unsigned int Device::exchange(unsigned int ok, unsigned int mask) {
     LONG rv;
+    int sw;
 
     logCMD();
 
@@ -403,7 +405,9 @@ namespace ledger {
     ASSERT_RV(rv);
 
     logRESP();
-    return  (this->buffer_recv[this->length_recv-2]<<8) | this->buffer_recv[this->length_recv-1];
+    sw = (this->buffer_recv[this->length_recv-2]<<8) | this->buffer_recv[this->length_recv-1];
+    ASSERT_SW(sw,ok,msk);
+    return sw;
   }
 
   void Device::reset_buffer() {

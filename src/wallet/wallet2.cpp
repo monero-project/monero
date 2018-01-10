@@ -98,8 +98,8 @@ using namespace cryptonote;
 
 #define SECOND_OUTPUT_RELATEDNESS_THRESHOLD 0.0f
 
-#define SUBADDRESS_LOOKAHEAD_MAJOR 50
-#define SUBADDRESS_LOOKAHEAD_MINOR 200
+#define SUBADDRESS_LOOKAHEAD_MAJOR 5
+#define SUBADDRESS_LOOKAHEAD_MINOR 5
 
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 
@@ -6834,10 +6834,11 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   std::vector<size_t>* unused_transfers_indices = &unused_transfers_indices_per_subaddr[0].second;
   std::vector<size_t>* unused_dust_indices      = &unused_dust_indices_per_subaddr[0].second;
   ledger::Device &device = m_account.get_device();
+  if (device)  {
+    device.set_signature_mode(device.SIGNATURE_FAKE);
+  }
   while ((!dsts.empty() && dsts[0].amount > 0) || adding_fee || !preferred_inputs.empty() || should_pick_a_second_output(use_rct, txes.back().selected_transfers.size(), *unused_transfers_indices, *unused_dust_indices)) {
-    if (device)  {
-      device.set_signature_mode(device.SIGNATURE_FAKE);
-    }
+
     TX &tx = txes.back();
 
     LOG_PRINT_L2("Start of loop with " << unused_transfers_indices->size() << " " << unused_dust_indices->size());
@@ -7026,7 +7027,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
                                   needed_fee,                 /* CONST uint64_t fee, */
                                   extra,                      /* const std::vector<uint8_t>& extra, */
                                   test_tx,                    /* OUT   cryptonote::transaction& tx, */
-                                  test_ptx,                  /* OUT   cryptonote::transaction& tx, */
+                                  test_ptx,                   /* OUT   cryptonote::transaction& tx, */
                                   bulletproof);
           } else {
             transfer_selected(tx.dsts,
@@ -7041,6 +7042,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
                               test_tx,
                               test_ptx);
           }
+          device.set_signature_mode(device.SIGNATURE_FAKE);
         }
 
         tx.tx = test_tx;
