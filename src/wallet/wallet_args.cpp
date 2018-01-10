@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project, ClockworX
+// Copyright (c) 2014-2018, The Monero Project, CircleX
 //
 // All rights reserved.
 //
@@ -40,8 +40,8 @@
 #include <crtdbg.h>
 #endif
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
+#undef SHEKYL_DEFAULT_LOG_CATEGORY
+#define SHEKYL_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
 // workaround for a suspected bug in pthread/kernel on MacOS X
 #ifdef __APPLE__
@@ -122,7 +122,7 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_max_concurrency);
     command_line::add_arg(desc_params, arg_config_file);
 
-    i18n_set_language("translations", "monero", lang);
+    i18n_set_language("translations", "shekyl", lang);
 
     po::options_description desc_all;
     desc_all.add(desc_general).add(desc_params);
@@ -134,8 +134,8 @@ namespace wallet_args
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {
-        Print(print) << "Monero '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")" << ENDL;
-        Print(print) << wallet_args::tr("This is the command line monero wallet. It needs to connect to a monero\n"
+        Print(print) << "shekyl '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")" << ENDL;
+        Print(print) << wallet_args::tr("This is the command line shekyl wallet. It needs to connect to a shekyl\n"
 												  "daemon to work correctly.") << ENDL;
         Print(print) << wallet_args::tr("Usage:") << ENDL << "  " << usage;
         Print(print) << desc_all;
@@ -143,7 +143,7 @@ namespace wallet_args
       }
       else if (command_line::get_arg(vm, command_line::arg_version))
       {
-        Print(print) << "Monero '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")";
+        Print(print) << "shekyl '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")";
         return false;
       }
 
@@ -186,12 +186,12 @@ namespace wallet_args
     if (!command_line::is_arg_defaulted(vm, arg_max_concurrency))
       tools::set_max_concurrency(command_line::get_arg(vm, arg_max_concurrency));
 
-    Print(print) << "Monero '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")";
+    Print(print) << "shekyl '" << CRYPTOCOIN_RELEASE_NAME << "' (v" << CRYPTOCOIN_VERSION_FULL << ")";
 
     if (!command_line::is_arg_defaulted(vm, arg_log_level))
       MINFO("Setting log level = " << command_line::get_arg(vm, arg_log_level));
     else
-      MINFO("Setting log levels = " << getenv("MONERO_LOGS"));
+      MINFO("Setting log levels = " << getenv("SHEKYL_LOGS"));
     MINFO(wallet_args::tr("Logging to: ") << log_path);
 
     Print(print) << boost::format(wallet_args::tr("Logging to %s")) % log_path;

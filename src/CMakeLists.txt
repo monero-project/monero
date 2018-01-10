@@ -39,13 +39,13 @@ if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
   add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
 endif()
 
-function (monero_private_headers group)
+function (shekyl_private_headers group)
   source_group("${group}\\Private"
     FILES
       ${ARGN})
 endfunction ()
 
-function (monero_install_headers subdir)
+function (shekyl_install_headers subdir)
   install(
     FILES       ${ARGN}
     DESTINATION "include/${subdir}"
@@ -63,7 +63,7 @@ function (enable_stack_trace target)
   endif()
 endfunction()
 
-function (monero_add_executable name)
+function (shekyl_add_executable name)
   source_group("${name}"
     FILES
       ${ARGN})
@@ -82,31 +82,31 @@ function (monero_add_executable name)
   enable_stack_trace("${name}")
 endfunction ()
 
-function (monero_add_library name)
-    monero_add_library_with_deps(NAME "${name}" SOURCES ${ARGN})
+function (shekyl_add_library name)
+    shekyl_add_library_with_deps(NAME "${name}" SOURCES ${ARGN})
 endfunction()
 
-function (monero_add_library_with_deps)
-  cmake_parse_arguments(MONERO_ADD_LIBRARY "" "NAME" "DEPENDS;SOURCES" ${ARGN})
-  source_group("${MONERO_ADD_LIBRARY_NAME}" FILES ${MONERO_ADD_LIBRARY_SOURCES})
+function (shekyl_add_library_with_deps)
+  cmake_parse_arguments(SHEKYL_ADD_LIBRARY "" "NAME" "DEPENDS;SOURCES" ${ARGN})
+  source_group("${SHEKYL_ADD_LIBRARY_NAME}" FILES ${SHEKYL_ADD_LIBRARY_SOURCES})
 
   # Define a ("virtual") object library and an actual library that links those
   # objects together. The virtual libraries can be arbitrarily combined to link
   # any subset of objects into one library archive. This is used for releasing
   # libwallet, which combines multiple components.
-  set(objlib obj_${MONERO_ADD_LIBRARY_NAME})
-  add_library(${objlib} OBJECT ${MONERO_ADD_LIBRARY_SOURCES})
-  add_library("${MONERO_ADD_LIBRARY_NAME}" $<TARGET_OBJECTS:${objlib}>)
-  if (MONERO_ADD_LIBRARY_DEPENDS)
-    add_dependencies(${objlib} ${MONERO_ADD_LIBRARY_DEPENDS})
+  set(objlib obj_${SHEKYL_ADD_LIBRARY_NAME})
+  add_library(${objlib} OBJECT ${SHEKYL_ADD_LIBRARY_SOURCES})
+  add_library("${SHEKYL_ADD_LIBRARY_NAME}" $<TARGET_OBJECTS:${objlib}>)
+  if (SHEKYL_ADD_LIBRARY_DEPENDS)
+    add_dependencies(${objlib} ${SHEKYL_ADD_LIBRARY_DEPENDS})
   endif()
-  set_property(TARGET "${MONERO_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
+  set_property(TARGET "${SHEKYL_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
   target_compile_definitions(${objlib}
-    PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
+    PRIVATE $<TARGET_PROPERTY:${SHEKYL_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
 endfunction ()
 
 include(Version)
-monero_add_library(version SOURCES ${CMAKE_BINARY_DIR}/version.cpp DEPENDS genversion)
+shekyl_add_library(version SOURCES ${CMAKE_BINARY_DIR}/version.cpp DEPENDS genversion)
 
 add_subdirectory(common)
 add_subdirectory(crypto)

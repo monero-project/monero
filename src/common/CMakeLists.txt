@@ -71,9 +71,9 @@ set(common_private_headers
   threadpool.h
   updates.h)
 
-monero_private_headers(common
+shekyl_private_headers(common
   ${common_private_headers})
-monero_add_library(common
+shekyl_add_library(common
   ${common_sources}
   ${common_headers}
   ${common_private_headers})
@@ -96,5 +96,5 @@ if(HAVE_C11)
 SET_PROPERTY(SOURCE memwipe.c PROPERTY COMPILE_FLAGS -std=c11)
 endif()
 
-#monero_install_headers(common
+#shekyl_install_headers(common
 #  ${common_headers})

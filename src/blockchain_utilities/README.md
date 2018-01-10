@@ -14,13 +14,13 @@ See also each utility's "--help" option.
 
 `$ monero-blockchain-export`
 
-This loads the existing blockchain and exports it to `$MONERO_DATA_DIR/export/blockchain.raw`
+This loads the existing blockchain and exports it to `$SHEKYL_DATA_DIR/export/blockchain.raw`
 
 ### Import the exported file
 
 `$ monero-blockchain-import`
 
-This imports blocks from `$MONERO_DATA_DIR/export/blockchain.raw` (exported using the
+This imports blocks from `$SHEKYL_DATA_DIR/export/blockchain.raw` (exported using the
 `monero-blockchain-export` tool as described above) into the current database.
 
 Defaults: `--batch on`, `--batch size 20000`, `--verify on`

@@ -57,9 +57,9 @@ set(wallet_api_private_headers
   subaddress_account.h
   unsigned_transaction.h)
 
-monero_private_headers(wallet_api
+shekyl_private_headers(wallet_api
   ${wallet_api_private_headers})
-monero_add_library(wallet_api
+shekyl_add_library(wallet_api
   ${wallet_api_sources}
   ${wallet_api_headers}
   ${wallet_api_private_headers})

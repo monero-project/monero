@@ -19,11 +19,11 @@ To update ts files after changing source code:
 
 To add a new language, eg Spanish (ISO code es):
 
-    cp translations/monero.ts translations/monero_es.ts
+    cp translations/monero.ts translations/shekyl_es.ts
 
 To edit translations for Spanish:
 
-    linguist translations/monero_es.ts
+    linguist translations/shekyl_es.ts
 
 To build translations after modifying them:
 

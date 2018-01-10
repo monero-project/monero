@@ -39,8 +39,8 @@
 using namespace epee;
 namespace bf = boost::filesystem;
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
+#undef SHEKYL_DEFAULT_LOG_CATEGORY
+#define SHEKYL_DEFAULT_LOG_CATEGORY "net.dns"
 
 #define DEFAULT_DNS_PUBLIC_ADDR "8.8.4.4"
 

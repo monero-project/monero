@@ -33,8 +33,8 @@
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.http"
+#undef SHEKYL_DEFAULT_LOG_CATEGORY
+#define SHEKYL_DEFAULT_LOG_CATEGORY "net.http"
 
 #define HTTP_MAX_URI_LEN		 9000 
 #define HTTP_MAX_HEADER_LEN		 100000
