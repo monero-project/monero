@@ -5839,7 +5839,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   if (m_multisig)
   {
     crypto::public_key ignore = m_multisig_threshold == m_multisig_signers.size() ? crypto::null_pkey : multisig_signers.front();
-    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, {}, msout});
+    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, std::unordered_set<crypto::public_key>(), msout});
 
     if (m_multisig_threshold < m_multisig_signers.size())
     {
@@ -5866,7 +5866,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
         THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
         THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_prefix_hash(ms_tx) != prefix_hash, error::wallet_internal_error, "Multisig txes do not share prefix");
-        multisig_sigs.push_back({ms_tx.rct_signatures, multisig_signers[signer_index], new_used_L, {}, msout});
+        multisig_sigs.push_back({ms_tx.rct_signatures, multisig_signers[signer_index], new_used_L, std::unordered_set<crypto::public_key>(), msout});
 
         ms_tx.rct_signatures = tx.rct_signatures;
         THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_hash(ms_tx) != cryptonote::get_transaction_hash(tx), error::wallet_internal_error, "Multisig txes differ by more than the signatures");
