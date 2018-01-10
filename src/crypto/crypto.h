@@ -47,6 +47,11 @@
 #include "span.h"
 #include "hash.h"
 
+namespace ledger { 
+ class Device ;
+ extern Device no_device;
+}
+
 namespace crypto {
 
   extern "C" {
@@ -113,22 +118,22 @@ namespace crypto {
     void operator=(const crypto_ops &);
     ~crypto_ops();
 
-    static secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false);
-    friend secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover);
+    static secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false, ledger::Device &device = ledger::no_device);
+    friend secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover, ledger::Device &device = ledger::no_device);
     static bool check_key(const public_key &);
     friend bool check_key(const public_key &);
-    static bool secret_key_to_public_key(const secret_key &, public_key &);
-    friend bool secret_key_to_public_key(const secret_key &, public_key &);
-    static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
-    friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &);
-    static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
-    friend void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res);
-    static bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
-    friend bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &);
-    static void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
-    friend void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &);
-    static bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
-    friend bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &);
+    static bool secret_key_to_public_key(const secret_key &, public_key &, ledger::Device &device = ledger::no_device);
+    friend bool secret_key_to_public_key(const secret_key &, public_key &,  ledger::Device &device = ledger::no_device);
+    static bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &, ledger::Device &device = ledger::no_device);
+    friend bool generate_key_derivation(const public_key &, const secret_key &, key_derivation &, ledger::Device &device = ledger::no_device);
+    static void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res, ledger::Device &device = ledger::no_device);
+    friend void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res, ledger::Device &device = ledger::no_device);
+    static bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &, ledger::Device &device = ledger::no_device);
+    friend bool derive_public_key(const key_derivation &, std::size_t, const public_key &, public_key &, ledger::Device &device = ledger::no_device);
+    static void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &, ledger::Device &device = ledger::no_device);
+    friend void derive_secret_key(const key_derivation &, std::size_t, const secret_key &, secret_key &, ledger::Device &device = ledger::no_device);
+    static bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &, ledger::Device &device = ledger::no_device);
+    friend bool derive_subaddress_public_key(const public_key &, const key_derivation &, std::size_t, public_key &, ledger::Device &device = ledger::no_device);
     static void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     friend void generate_signature(const hash &, const public_key &, const secret_key &, signature &);
     static bool check_signature(const hash &, const public_key &, const signature &);
@@ -137,8 +142,8 @@ namespace crypto {
     friend void generate_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
     static bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &);
     friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &);
-    static void generate_key_image(const public_key &, const secret_key &, key_image &);
-    friend void generate_key_image(const public_key &, const secret_key &, key_image &);
+    static void generate_key_image(const public_key &, const secret_key &, key_image &, ledger::Device &device = ledger::no_device);
+    friend void generate_key_image(const public_key &, const secret_key &, key_image &, ledger::Device &device = ledger::no_device);
     static void generate_ring_signature(const hash &, const key_image &,
       const public_key *const *, std::size_t, const secret_key &, std::size_t, signature *);
     friend void generate_ring_signature(const hash &, const key_image &,
@@ -168,8 +173,8 @@ namespace crypto {
 
   /* Generate a new key pair
    */
-  inline secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false) {
-    return crypto_ops::generate_keys(pub, sec, recovery_key, recover);
+  inline secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false, ledger::Device &device) {
+    return crypto_ops::generate_keys(pub, sec, recovery_key, recover, device);
   }
 
   /* Check a public key. Returns true if it is valid, false otherwise.
@@ -180,8 +185,8 @@ namespace crypto {
 
   /* Checks a private key and computes the corresponding public key.
    */
-  inline bool secret_key_to_public_key(const secret_key &sec, public_key &pub) {
-    return crypto_ops::secret_key_to_public_key(sec, pub);
+  inline bool secret_key_to_public_key(const secret_key &sec, public_key &pub, ledger::Device &device) {
+    return crypto_ops::secret_key_to_public_key(sec, pub, device);
   }
 
   /* To generate an ephemeral key used to send money to:
@@ -190,22 +195,22 @@ namespace crypto {
    * * The sender uses key derivation and the receivers' "spend" key to derive an ephemeral public key.
    * * The receiver can either derive the public key (to check that the transaction is addressed to him) or the private key (to spend the money).
    */
-  inline bool generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation) {
-    return crypto_ops::generate_key_derivation(key1, key2, derivation);
+  inline bool generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation, ledger::Device &device) {
+    return crypto_ops::generate_key_derivation(key1, key2, derivation, device);
   }
   inline bool derive_public_key(const key_derivation &derivation, std::size_t output_index,
-    const public_key &base, public_key &derived_key) {
-    return crypto_ops::derive_public_key(derivation, output_index, base, derived_key);
+    const public_key &base, public_key &derived_key, ledger::Device &device) {
+    return crypto_ops::derive_public_key(derivation, output_index, base, derived_key, device);
   }
-  inline void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
-    return crypto_ops::derivation_to_scalar(derivation, output_index, res);
+  inline void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res, ledger::Device &device) {
+    return crypto_ops::derivation_to_scalar(derivation, output_index, res, device);
   }
   inline void derive_secret_key(const key_derivation &derivation, std::size_t output_index,
-    const secret_key &base, secret_key &derived_key) {
-    crypto_ops::derive_secret_key(derivation, output_index, base, derived_key);
+    const secret_key &base, secret_key &derived_key, ledger::Device &device) {
+    crypto_ops::derive_secret_key(derivation, output_index, base, derived_key, device);
   }
-  inline bool derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &result) {
-    return crypto_ops::derive_subaddress_public_key(out_key, derivation, output_index, result);
+  inline bool derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &result, ledger::Device &device) {
+    return crypto_ops::derive_subaddress_public_key(out_key, derivation, output_index, result, device);
   }
 
   /* Generation and checking of a standard signature.
@@ -234,8 +239,8 @@ namespace crypto {
    * * Then he selects a bunch of outputs, including the one he spends, and uses them to generate a ring signature.
    * To check the signature, it is necessary to collect all the keys that were used to generate it. To detect double spends, it is necessary to check that each key image is used at most once.
    */
-  inline void generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {
-    crypto_ops::generate_key_image(pub, sec, image);
+  inline void generate_key_image(const public_key &pub, const secret_key &sec, key_image &image, ledger::Device &device) {
+    crypto_ops::generate_key_image(pub, sec, image, device);
   }
   inline void generate_ring_signature(const hash &prefix_hash, const key_image &image,
     const public_key *const *pubs, std::size_t pubs_count,
@@ -278,7 +283,7 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
-
+  
   const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
   const static crypto::secret_key null_skey = boost::value_initialized<crypto::secret_key>();
 }

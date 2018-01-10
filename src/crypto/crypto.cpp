@@ -42,6 +42,8 @@
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
+#include "ledger/log.hpp"
+#include "ledger/device.hpp"
 
 namespace crypto {
 
@@ -97,25 +99,30 @@ namespace crypto {
    * TODO: allow specifiying random value (for wallet recovery)
    * 
    */
-  secret_key crypto_ops::generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover) {
-    ge_p3 point;
-
+  secret_key crypto_ops::generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover, ledger::Device &device) {
     secret_key rng;
+    if (device) {
+      if (recover) throw std::runtime_error("device generate key does not support recover");
+      device.generate_keypair(pub, sec);
+      rng = sec;
+    } else {
+      ge_p3 point;
 
-    if (recover)
-    {
-      rng = recovery_key;
+      if (recover)
+      {
+        rng = recovery_key;
+      }
+      else
+      {
+        random_scalar(rng);
+      }
+      sec = rng;
+      sc_reduce32(&sec);  // reduce in case second round of keys (sendkeys)
+
+      ge_scalarmult_base(&point, &sec);
+      ge_p3_tobytes(&pub, &point);
+
     }
-    else
-    {
-      random_scalar(rng);
-    }
-    sec = rng;
-    sc_reduce32(&sec);  // reduce in case second round of keys (sendkeys)
-
-    ge_scalarmult_base(&point, &sec);
-    ge_p3_tobytes(&pub, &point);
-
     return rng;
   }
 
@@ -124,87 +131,161 @@ namespace crypto {
     return ge_frombytes_vartime(&point, &key) == 0;
   }
 
-  bool crypto_ops::secret_key_to_public_key(const secret_key &sec, public_key &pub) {
-    ge_p3 point;
-    if (sc_check(&sec) != 0) {
-      return false;
+  bool crypto_ops::secret_key_to_public_key(const secret_key &sec, public_key &pub, ledger::Device &device) {
+    if (device) {
+      device.secret_key_to_public_key(sec, pub);
+      #ifdef DEBUGLEDGER
+      secret_key secx = sec;
+      ledger::decrypt(secx.data, 32);
+      public_key pubx;
+      secret_key_to_public_key(secx,pubx);
+      ledger::check32("secret_key_to_public_key", "", pubx.data, pub.data);
+      #endif
+    } else {
+      ge_p3 point;
+      if (sc_check(&sec) != 0) {
+        return false;
+      }
+      ge_scalarmult_base(&point, &sec);
+      ge_p3_tobytes(&pub, &point);
     }
-    ge_scalarmult_base(&point, &sec);
-    ge_p3_tobytes(&pub, &point);
     return true;
   }
 
-  bool crypto_ops::generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation) {
-    ge_p3 point;
-    ge_p2 point2;
-    ge_p1p1 point3;
-    assert(sc_check(&key2) == 0);
-    if (ge_frombytes_vartime(&point, &key1) != 0) {
-      return false;
+  bool crypto_ops::generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation, ledger::Device &device) {
+    if (device) {
+      device.generate_key_derivation(key1, key2, derivation);
+      #ifdef DEBUGLEDGER
+      key_derivation device_derivation = derivation;
+      ledger::decrypt(device_derivation.data, 32);
+      secret_key key2x = key2;
+      ledger::decrypt(key2x.data,32);
+      key_derivation derivationx;
+      generate_key_derivation(key1,key2x,derivationx);
+      ledger::check32("generate_key_derivation", "", derivationx.data, device_derivation.data);
+      #endif
+    } else {
+      ge_p3 point;
+      ge_p2 point2;
+      ge_p1p1 point3;
+      assert(sc_check(&key2) == 0);
+      if (ge_frombytes_vartime(&point, &key1) != 0) {
+        return false;
+      }
+      ge_scalarmult(&point2, &key2, &point);
+      ge_mul8(&point3, &point2);
+      ge_p1p1_to_p2(&point2, &point3);
+      ge_tobytes(&derivation, &point2);
     }
-    ge_scalarmult(&point2, &key2, &point);
-    ge_mul8(&point3, &point2);
-    ge_p1p1_to_p2(&point2, &point3);
-    ge_tobytes(&derivation, &point2);
     return true;
   }
 
-  void crypto_ops::derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res) {
-    struct {
-      key_derivation derivation;
-      char output_index[(sizeof(size_t) * 8 + 6) / 7];
-    } buf;
-    char *end = buf.output_index;
-    buf.derivation = derivation;
-    tools::write_varint(end, output_index);
-    assert(end <= buf.output_index + sizeof buf.output_index);
-    hash_to_scalar(&buf, end - reinterpret_cast<char *>(&buf), res);
+  void crypto_ops::derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res, ledger::Device &device) {
+    if (device) {
+      device.derivation_to_scalar(derivation, output_index, res);
+      #ifdef DEBUGLEDGER
+      ec_scalar device_res = res;
+      ledger::decrypt(device_res.data, 32);
+      key_derivation derivationx = derivation;
+      ledger::decrypt(derivationx.data,32);       
+      ec_scalar resx;
+      derivation_to_scalar(derivationx,output_index,resx);
+      ledger::check32("derivation_to_scalar", "", resx.data, device_res.data);
+      #endif
+    } else {
+      struct {
+        key_derivation derivation;
+        char output_index[(sizeof(size_t) * 8 + 6) / 7];
+      } buf;
+      char *end = buf.output_index;
+      buf.derivation = derivation;
+      tools::write_varint(end, output_index);
+      assert(end <= buf.output_index + sizeof buf.output_index);
+      hash_to_scalar(&buf, end - reinterpret_cast<char *>(&buf), res);
+    }
   }
 
   bool crypto_ops::derive_public_key(const key_derivation &derivation, size_t output_index,
-    const public_key &base, public_key &derived_key) {
-    ec_scalar scalar;
-    ge_p3 point1;
-    ge_p3 point2;
-    ge_cached point3;
-    ge_p1p1 point4;
-    ge_p2 point5;
-    if (ge_frombytes_vartime(&point1, &base) != 0) {
-      return false;
+                                     const public_key &base, public_key &derived_key, ledger::Device &device) {
+    if (device) {
+      device.derive_public_key(derivation, output_index, base, derived_key);
+      #ifdef DEBUGLEDGER
+      key_derivation derivationx = derivation;
+      ledger::decrypt(derivationx.data,32);
+      public_key     derived_keyx;
+      derive_public_key(derivationx, output_index, base, derived_keyx);
+      ledger::check32("derive_public_key", "", derived_keyx.data, derived_key.data);
+      #endif
+    } else {
+      ec_scalar scalar;
+      ge_p3 point1;
+      ge_p3 point2;
+      ge_cached point3;
+      ge_p1p1 point4;
+      ge_p2 point5;
+      if (ge_frombytes_vartime(&point1, &base) != 0) {
+        return false;
+      }
+      derivation_to_scalar(derivation, output_index, scalar);
+      ge_scalarmult_base(&point2, &scalar);
+      ge_p3_to_cached(&point3, &point2);
+      ge_add(&point4, &point1, &point3);
+      ge_p1p1_to_p2(&point5, &point4);
+      ge_tobytes(&derived_key, &point5);
     }
-    derivation_to_scalar(derivation, output_index, scalar);
-    ge_scalarmult_base(&point2, &scalar);
-    ge_p3_to_cached(&point3, &point2);
-    ge_add(&point4, &point1, &point3);
-    ge_p1p1_to_p2(&point5, &point4);
-    ge_tobytes(&derived_key, &point5);
     return true;
   }
 
   void crypto_ops::derive_secret_key(const key_derivation &derivation, size_t output_index,
-    const secret_key &base, secret_key &derived_key) {
-    ec_scalar scalar;
-    assert(sc_check(&base) == 0);
-    derivation_to_scalar(derivation, output_index, scalar);
-    sc_add(&derived_key, &base, &scalar);
+                                     const secret_key &base, secret_key &derived_key, ledger::Device &device) {
+    if(device) {
+      device.derive_secret_key(derivation, output_index, base, derived_key);
+      #ifdef DEBUGLEDGER
+      secret_key     device_derived_key = derived_key;
+      ledger::decrypt(device_derived_key.data,32);
+      key_derivation derivationx = derivation;
+      ledger::decrypt(derivationx.data,32);
+      secret_key     basex = base;
+      ledger::decrypt(basex.data,32);            
+      secret_key     derived_keyx;
+      derive_secret_key(derivationx, output_index, basex, derived_keyx);
+      ledger::check32("derive_secret_key", "", derived_keyx.data, device_derived_key.data);
+      #endif
+    } else {
+      ec_scalar scalar;
+      assert(sc_check(&base) == 0);
+      derivation_to_scalar(derivation, output_index, scalar);
+      sc_add(&derived_key, &base, &scalar);
+    }
   }
 
-  bool crypto_ops::derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key) {
-    ec_scalar scalar;
-    ge_p3 point1;
-    ge_p3 point2;
-    ge_cached point3;
-    ge_p1p1 point4;
-    ge_p2 point5;
-    if (ge_frombytes_vartime(&point1, &out_key) != 0) {
-      return false;
+  bool crypto_ops::derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key, ledger::Device &device) {
+    if (device) {
+      device.derive_subaddress_public_key(out_key, derivation, output_index, derived_key);
+      #ifdef DEBUGLEDGER
+      key_derivation derivationx = derivation;
+      ledger::decrypt(derivationx.data,32);
+      public_key     derived_keyx;
+      derive_subaddress_public_key(out_key, derivationx, output_index, derived_keyx);
+      ledger::check32("derive_subaddress_public_key", "", derived_keyx.data, derived_key.data);
+      #endif
+    } else {
+      ec_scalar scalar;
+      ge_p3 point1;
+      ge_p3 point2;
+      ge_cached point3;
+      ge_p1p1 point4;
+      ge_p2 point5;
+      if (ge_frombytes_vartime(&point1, &out_key) != 0) {
+        return false;
+      }
+      derivation_to_scalar(derivation, output_index, scalar);
+      ge_scalarmult_base(&point2, &scalar);
+      ge_p3_to_cached(&point3, &point2);
+      ge_sub(&point4, &point1, &point3);
+      ge_p1p1_to_p2(&point5, &point4);
+      ge_tobytes(&derived_key, &point5);
     }
-    derivation_to_scalar(derivation, output_index, scalar);
-    ge_scalarmult_base(&point2, &scalar);
-    ge_p3_to_cached(&point3, &point2);
-    ge_sub(&point4, &point1, &point3);
-    ge_p1p1_to_p2(&point5, &point4);
-    ge_tobytes(&derived_key, &point5);
     return true;
   }
 
@@ -433,13 +514,24 @@ namespace crypto {
     ge_p1p1_to_p3(&res, &point2);
   }
 
-  void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {
-    ge_p3 point;
-    ge_p2 point2;
-    assert(sc_check(&sec) == 0);
-    hash_to_ec(pub, point);
-    ge_scalarmult(&point2, &sec, &point);
-    ge_tobytes(&image, &point2);
+  void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image, ledger::Device &device) {
+    if (device) {
+      device.generate_key_image(pub,sec,image);
+      #ifdef DEBUGLEDGER
+      secret_key secx = sec;
+      ledger::decrypt(secx.data, 32);
+      key_image  imagex;
+      generate_key_image(pub, secx, imagex);
+      ledger::check32("generate_key_image", "", imagex.data, image.data);
+      #endif
+    } else {
+      ge_p3 point;
+      ge_p2 point2;
+      assert(sc_check(&sec) == 0);
+      hash_to_ec(pub, point);
+      ge_scalarmult(&point2, &sec, &point);
+      ge_tobytes(&image, &point2);
+    }
   }
 
 PUSH_WARNINGS
