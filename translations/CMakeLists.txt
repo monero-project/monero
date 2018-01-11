@@ -28,6 +28,9 @@
 
 cmake_minimum_required(VERSION 2.8.7)
 
+unset(ENV{CC})
+unset(ENV{CXX})
+
 project(translations)
 
 add_executable(generate_translations_header generate_translations_header.c)
