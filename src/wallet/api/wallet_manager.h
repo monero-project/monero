@@ -40,7 +40,22 @@ public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, bool testnet);
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight);
+    virtual Wallet * recoveryWallet(const std::string &path,
+                                       const std::string &password,
+                                       const std::string &mnemonic,
+                                       bool testnet,
+                                       uint64_t restoreHeight);
+    virtual Wallet * createWalletFromKeys(const std::string &path,
+                                             const std::string &password,
+                                             const std::string &language,
+                                             bool testnet,
+                                             uint64_t restoreHeight,
+                                             const std::string &addressString,
+                                             const std::string &viewKeyString,
+                                             const std::string &spendKeyString = "");
+    // next two methods are deprecated - use the above version which allow setting of a password
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, bool testnet, uint64_t restoreHeight);
+    // deprecated: use createWalletFromKeys(..., password, ...) instead
     virtual Wallet * createWalletFromKeys(const std::string &path, 
                                                     const std::string &language,
                                                     bool testnet, 

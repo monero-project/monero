@@ -59,7 +59,18 @@ public:
     bool createWatchOnly(const std::string &path, const std::string &password,
                             const std::string &language) const;
     bool open(const std::string &path, const std::string &password);
+    bool recover(const std::string &path,const std::string &password,
+                            const std::string &seed);
+    bool recoverFromKeysWithPassword(const std::string &path,
+                            const std::string &password,
+                            const std::string &language,
+                            const std::string &address_string,
+                            const std::string &viewkey_string,
+                            const std::string &spendkey_string = "");
+    // following two methods are deprecated since they create passwordless wallets
+    // use the two equivalent methods above
     bool recover(const std::string &path, const std::string &seed);
+    // deprecated: use recoverFromKeysWithPassword() instead
     bool recoverFromKeys(const std::string &path,
                             const std::string &language,
                             const std::string &address_string, 
