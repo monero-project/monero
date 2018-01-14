@@ -1315,6 +1315,10 @@ namespace tools
       {
           res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
       }
+      else if(req.key_type.compare("spend_key") == 0)
+      {
+          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key);
+      }
       else
       {
           er.message = "key_type " + req.key_type + " not found";
