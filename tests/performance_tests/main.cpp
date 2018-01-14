@@ -56,6 +56,7 @@
 #include "rct_mlsag.h"
 #include "bulletproof.h"
 #include "crypto_ops.h"
+#include "multiexp.h"
 
 namespace po = boost::program_options;
 
@@ -195,6 +196,20 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys2);
   TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3);
   TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3_2);
+
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 8);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 16);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 256);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 1024);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 4096);
+
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 8);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 16);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 256);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 1024);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 4096);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 

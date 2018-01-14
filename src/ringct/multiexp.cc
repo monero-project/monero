@@ -38,7 +38,7 @@ extern "C"
 #include "multiexp.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "multiexp.boscoster"
+#define MONERO_DEFAULT_LOG_CATEGORY "multiexp"
 
 //#define MULTIEXP_PERF(x) x
 #define MULTIEXP_PERF(x)
@@ -71,7 +71,15 @@ static inline rct::key div2(const rct::key &k)
   return res;
 }
 
-rct::key bos_coster_heap_conv(std::vector<MultiexpData> &data)
+static inline rct::key pow2(size_t n)
+{
+  CHECK_AND_ASSERT_THROW_MES(n < 256, "Invalid pow2 argument");
+  rct::key res = rct::zero();
+  res[n >> 3] |= 1<<(n&7);
+  return res;
+}
+
+rct::key bos_coster_heap_conv(std::vector<MultiexpData> data)
 {
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(bos_coster, 1000000));
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
@@ -142,15 +150,20 @@ rct::key bos_coster_heap_conv(std::vector<MultiexpData> &data)
   return res;
 }
 
-rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> &data)
+rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
 {
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(bos_coster, 1000000));
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
   size_t points = data.size();
   CHECK_AND_ASSERT_THROW_MES(points > 1, "Not enough points");
-  std::vector<size_t> heap(points);
+  std::vector<size_t> heap;
+  heap.reserve(points);
   for (size_t n = 0; n < points; ++n)
-    heap[n] = n;
+  {
+    if (!(data[n].scalar == rct::zero()) && memcmp(&data[n].point, &ge_p3_identity, sizeof(ge_p3)))
+      heap.push_back(n);
+  }
+  points = heap.size();
 
   auto Comp = [&](size_t e0, size_t e1) { return data[e0].scalar < data[e1].scalar; };
   std::make_heap(heap.begin(), heap.end(), Comp);
@@ -233,6 +246,120 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> &data)
   ge_scalarmult(&p2, data[index1].scalar.bytes, &data[index1].point);
   rct::key res;
   ge_tobytes(res.bytes, &p2);
+  return res;
+}
+
+rct::key straus(const std::vector<MultiexpData> &data, bool HiGi)
+{
+  MULTIEXP_PERF(PERF_TIMER_UNIT(straus, 1000000));
+
+  MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
+  static constexpr unsigned int c = 4;
+  static constexpr unsigned int mask = (1<<c)-1;
+  static std::vector<std::vector<ge_cached>> HiGi_multiples;
+  std::vector<std::vector<ge_cached>> local_multiples, &multiples = HiGi ? HiGi_multiples : local_multiples;
+  ge_cached cached;
+  ge_p1p1 p1;
+  ge_p3 p3;
+
+  std::vector<uint8_t> skip(data.size());
+  for (size_t i = 0; i < data.size(); ++i)
+    skip[i] = data[i].scalar == rct::zero() || !memcmp(&data[i].point, &ge_p3_identity, sizeof(ge_p3));
+
+  MULTIEXP_PERF(PERF_TIMER_START_UNIT(multiples, 1000000));
+  multiples.resize(1<<c);
+  size_t offset = multiples[1].size();
+  multiples[1].resize(std::max(offset, data.size()));
+  for (size_t i = offset; i < data.size(); ++i)
+    ge_p3_to_cached(&multiples[1][i], &data[i].point);
+  for (size_t i=2;i<1<<c;++i)
+    multiples[i].resize(std::max(offset, data.size()));
+  for (size_t j=offset;j<data.size();++j)
+  {
+    for (size_t i=2;i<1<<c;++i)
+    {
+      ge_add(&p1, &data[j].point, &multiples[i-1][j]);
+      ge_p1p1_to_p3(&p3, &p1);
+      ge_p3_to_cached(&multiples[i][j], &p3);
+    }
+  }
+  MULTIEXP_PERF(PERF_TIMER_STOP(multiples));
+
+  MULTIEXP_PERF(PERF_TIMER_START_UNIT(digits, 1000000));
+  std::vector<std::vector<uint8_t>> digits;
+  digits.resize(data.size());
+  for (size_t j = 0; j < data.size(); ++j)
+  {
+    digits[j].resize(256);
+    unsigned char bytes33[33];
+    memcpy(bytes33,  data[j].scalar.bytes, 32);
+    bytes33[32] = 0;
+#if 1
+    static_assert(c == 4, "optimized version needs c == 4");
+    const unsigned char *bytes = bytes33;
+    unsigned int i;
+    for (i = 0; i < 256; i += 8, bytes++)
+    {
+      digits[j][i] = bytes[0] & 0xf;
+      digits[j][i+1] = (bytes[0] >> 1) & 0xf;
+      digits[j][i+2] = (bytes[0] >> 2) & 0xf;
+      digits[j][i+3] = (bytes[0] >> 3) & 0xf;
+      digits[j][i+4] = ((bytes[0] >> 4) | (bytes[1]<<4)) & 0xf;
+      digits[j][i+5] = ((bytes[0] >> 5) | (bytes[1]<<3)) & 0xf;
+      digits[j][i+6] = ((bytes[0] >> 6) | (bytes[1]<<2)) & 0xf;
+      digits[j][i+7] = ((bytes[0] >> 7) | (bytes[1]<<1)) & 0xf;
+    }
+#elif 1
+    for (size_t i = 0; i < 256; ++i)
+      digits[j][i] = ((bytes[i>>3] | (bytes[(i>>3)+1]<<8)) >> (i&7)) & mask;
+#else
+    rct::key shifted = data[j].scalar;
+    for (size_t i = 0; i < 256; ++i)
+    {
+      digits[j][i] = shifted.bytes[0] & 0xf;
+      shifted = div2(shifted, (256-i)>>3);
+    }
+#endif
+  }
+  MULTIEXP_PERF(PERF_TIMER_STOP(digits));
+
+  rct::key maxscalar = rct::zero();
+  for (size_t i = 0; i < data.size(); ++i)
+    if (maxscalar < data[i].scalar)
+      maxscalar = data[i].scalar;
+  size_t i = 0;
+  while (i < 256 && !(maxscalar < pow2(i)))
+    i += c;
+  MULTIEXP_PERF(PERF_TIMER_STOP(setup));
+
+  ge_p3 res_p3 = ge_p3_identity;
+  if (!(i < c))
+    goto skipfirst;
+  while (!(i < c))
+  {
+    for (size_t j = 0; j < c; ++j)
+    {
+      ge_p3_to_cached(&cached, &res_p3);
+      ge_add(&p1, &res_p3, &cached);
+      ge_p1p1_to_p3(&res_p3, &p1);
+    }
+skipfirst:
+    i -= c;
+    for (size_t j = 0; j < data.size(); ++j)
+    {
+      if (skip[j])
+        continue;
+      int digit = digits[j][i];
+      if (digit)
+      {
+        ge_add(&p1, &res_p3, &multiples[digit][j]);
+        ge_p1p1_to_p3(&res_p3, &p1);
+      }
+    }
+  }
+
+  rct::key res;
+  ge_p3_tobytes(res.bytes, &res_p3);
   return res;
 }
 

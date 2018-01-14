@@ -1,4 +1,4 @@
-// Copyright (c) 2017, The Monero Project
+// Copyright (c) 2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,37 +25,57 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Adapted from Python code by Sarang Noether
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-#ifndef MULTIEXP_H
-#define MULTIEXP_H
-
 #include <vector>
-#include "crypto/crypto.h"
-#include "rctTypes.h"
+#include "ringct/rctOps.h"
+#include "ringct/multiexp.h"
 
-namespace rct
+enum test_multiexp_algorithm
 {
-
-struct MultiexpData {
-  rct::key scalar;
-  ge_p3 point;
-
-  MultiexpData() {}
-  MultiexpData(const rct::key &s, const ge_p3 &p): scalar(s), point(p) {}
-  MultiexpData(const rct::key &s, const rct::key &p): scalar(s)
-  {
-    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&point, p.bytes) == 0, "ge_frombytes_vartime failed");
-  }
+  multiexp_bos_coster,
+  multiexp_straus,
 };
 
-rct::key bos_coster_heap_conv(std::vector<MultiexpData> data);
-rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data);
-rct::key straus(const std::vector<MultiexpData> &data, bool HiGi = false);
+template<test_multiexp_algorithm algorithm, size_t npoints>
+class test_multiexp
+{
+public:
+  static const size_t loop_count = npoints >= 1024 ? 10 : npoints < 256 ? 1000 : 100;
 
-}
+  bool init()
+  {
+    data.resize(npoints);
+    res = rct::identity();
+    for (size_t n = 0; n < npoints; ++n)
+    {
+      data[n].scalar = rct::skGen();
+      rct::key point = rct::scalarmultBase(rct::skGen());
+      if (ge_frombytes_vartime(&data[n].point, point.bytes))
+        return false;
+      rct::key kn = rct::scalarmultKey(point, data[n].scalar);
+      res = rct::addKeys(res, kn);
+    }
+    return true;
+  }
 
-#endif
+  bool test()
+  {
+    switch (algorithm)
+    {
+      case multiexp_bos_coster:
+        return res == bos_coster_heap_conv_robust(data);
+      case multiexp_straus:
+        return res == straus(data, false);
+      default:
+        return false;
+    }
+  }
+
+private:
+  std::vector<rct::MultiexpData> data;
+  rct::key res;
+};
