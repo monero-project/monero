@@ -8351,8 +8351,9 @@ uint64_t wallet2::get_approximate_blockchain_height() const
   // Calculated blockchain height
   uint64_t approx_blockchain_height = fork_block + (time(NULL) - fork_time)/seconds_per_block;
   // testnet got some huge rollbacks, so the estimation is way off
-  if (m_testnet && approx_blockchain_height > 105000)
-    approx_blockchain_height -= 105000;
+  static const uint64_t approximate_testnet_rolled_back_blocks = 148540;
+  if (m_testnet && approx_blockchain_height > approximate_testnet_rolled_back_blocks)
+    approx_blockchain_height -= approximate_testnet_rolled_back_blocks;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
