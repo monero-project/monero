@@ -67,6 +67,14 @@ static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
 static boost::mutex init_mutex;
 
+static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
+{
+  if (HiGi || data.size() < 1000)
+    return straus(data, HiGi);
+  else
+    return bos_coster_heap_conv_robust(data);
+}
+
 //addKeys3acc_p3
 //aAbB += a*A + b*B where a, b are scalars, A, B are curve points
 //A and B must be input after applying "precomp"
@@ -126,35 +134,15 @@ static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b)
 {
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
-#if 1
+
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(a.size()*2);
   for (size_t i = 0; i < a.size(); ++i)
   {
-    if (!(a[i] == rct::zero()))
-    {
-      multiexp_data.resize(multiexp_data.size() + 1);
-      multiexp_data.back().scalar = a[i];
-      multiexp_data.back().point = Gi_p3[i];
-    }
-    if (!(b[i] == rct::zero()))
-    {
-      multiexp_data.resize(multiexp_data.size() + 1);
-      multiexp_data.back().scalar = b[i];
-      multiexp_data.back().point = Hi_p3[i];
-    }
+    multiexp_data.emplace_back(a[i], Gi_p3[i]);
+    multiexp_data.emplace_back(b[i], Hi_p3[i]);
   }
-  return bos_coster_heap_conv_robust(multiexp_data);
-#else
-  ge_p3 res_p3 = ge_p3_identity;
-  for (size_t i = 0; i < a.size(); ++i)
-  {
-    rct::addKeys3acc_p3(&res_p3, a[i], Gprecomp[i], b[i], Hprecomp[i]);
-  }
-  rct::key res;
-  ge_p3_tobytes(res.bytes, &res_p3);
-  return res;
-#endif
+  return multiexp(multiexp_data, true);
 }
 
 /* Compute a custom vector-scalar commitment */
@@ -164,63 +152,19 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() == A.size(), "Incompatible sizes of a and A");
   CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
-#if 1
+
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(a.size()*2);
   for (size_t i = 0; i < a.size(); ++i)
   {
-    if (!(a[i] == rct::zero()))
-    {
-      multiexp_data.resize(multiexp_data.size() + 1);
-      multiexp_data.back().scalar = a[i];
-      CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, A[i].bytes) == 0, "ge_frombytes_vartime failed");
-    }
-    if (!(b[i] == rct::zero()))
-    {
-      multiexp_data.resize(multiexp_data.size() + 1);
-      multiexp_data.back().scalar = b[i];
-      CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, B[i].bytes) == 0, "ge_frombytes_vartime failed");
-    }
+    multiexp_data.resize(multiexp_data.size() + 1);
+    multiexp_data.back().scalar = a[i];
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, A[i].bytes) == 0, "ge_frombytes_vartime failed");
+    multiexp_data.resize(multiexp_data.size() + 1);
+    multiexp_data.back().scalar = b[i];
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, B[i].bytes) == 0, "ge_frombytes_vartime failed");
   }
-  return bos_coster_heap_conv_robust(multiexp_data);
-#else
-  ge_p3 res_p3 = ge_p3_identity;
-  for (size_t i = 0; i < a.size(); ++i)
-  {
-#if 0
-    rct::key term;
-    // we happen to know where A and B might fall, so don't bother checking the rest
-    ge_dsmp *Acache = NULL, *Bcache = NULL;
-    ge_dsmp Acache_custom[1], Bcache_custom[1];
-    if (Gi[i] == A[i])
-      Acache = Gprecomp + i;
-    else if (i<32 && Gi[i+32] == A[i])
-      Acache = Gprecomp + i + 32;
-    else
-    {
-      rct::precomp(Acache_custom[0], A[i]);
-      Acache = Acache_custom;
-    }
-    if (i == 0 && B[i] == Hi[0])
-      Bcache = Hprecomp;
-    else
-    {
-      rct::precomp(Bcache_custom[0], B[i]);
-      Bcache = Bcache_custom;
-    }
-    rct::addKeys3(term, a[i], *Acache, b[i], *Bcache);
-    rct::addKeys(res, res, term);
-#else
-    ge_dsmp Acache, Bcache;
-    rct::precomp(Bcache, B[i]);
-    rct::precomp(Acache, A[i]);
-    addKeys3acc_p3(&res_p3, a[i], Acache, b[i], Bcache);
-#endif
-  }
-  rct::key res;
-  ge_p3_tobytes(res.bytes, &res_p3);
-  return res;
-#endif
+  return multiexp(multiexp_data, false);
 }
 
 /* Given a scalar, construct a vector of powers */
@@ -986,26 +930,23 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   }
   PERF_TIMER_STOP(VERIFY_line_61);
 
-  // multiexp is slower for small numbers of calcs
-  if (M >= 16)
+  // bos coster is slower for small numbers of calcs, straus seems not
+  if (1)
   {
     PERF_TIMER_START_BP(VERIFY_line_61rl_new);
     sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
     std::vector<MultiexpData> multiexp_data;
-    multiexp_data.reserve(3+M);
-    multiexp_data.push_back({tmp, rct::H});
-    for (size_t j = 0; j < M; j++)
+    multiexp_data.reserve(3+proof.V.size());
+    multiexp_data.emplace_back(tmp, rct::H);
+    for (size_t j = 0; j < proof.V.size(); j++)
     {
-      if (!(zpow[j+2] == rct::zero()))
-        multiexp_data.push_back({zpow[j+2], j < proof.V.size() ? proof.V[j] : rct::identity()});
+      multiexp_data.emplace_back(zpow[j+2], proof.V[j]);
     }
-    if (!(x == rct::zero()))
-      multiexp_data.push_back({x, proof.T1});
+    multiexp_data.emplace_back(x, proof.T1);
     rct::key xsq;
     sc_mul(xsq.bytes, x.bytes, x.bytes);
-    if (!(xsq == rct::zero()))
-      multiexp_data.push_back({xsq, proof.T2});
-    L61Right = bos_coster_heap_conv_robust(multiexp_data);
+    multiexp_data.emplace_back(xsq, proof.T2);
+    L61Right = multiexp(multiexp_data, false);
     PERF_TIMER_STOP(VERIFY_line_61rl_new);
   }
   else
@@ -1114,10 +1055,8 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
     sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
     sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
 
-    if (!(g_scalar == rct::zero()))
-      multiexp_data.push_back({g_scalar, Gi_p3[i]});
-    if (!(h_scalar == rct::zero()))
-      multiexp_data.push_back({h_scalar, Hi_p3[i]});
+    multiexp_data.emplace_back(g_scalar, Gi_p3[i]);
+    multiexp_data.emplace_back(h_scalar, Hi_p3[i]);
 
     if (i != MN-1)
     {
@@ -1126,63 +1065,28 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
     }
   }
 
-  rct::key inner_prod = bos_coster_heap_conv_robust(multiexp_data);
+  rct::key inner_prod = multiexp(multiexp_data, true);
   PERF_TIMER_STOP(VERIFY_line_24_25);
 
+  // PAPER LINE 26
   rct::key pprime;
-  // multiexp does not seem to give any speedup here
-  if(0)
+  PERF_TIMER_START_BP(VERIFY_line_26_new);
+  multiexp_data.clear();
+  multiexp_data.reserve(1+2*rounds);
+
+  sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
+  rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
+  for (size_t i = 0; i < rounds; ++i)
   {
-    PERF_TIMER_START_BP(VERIFY_line_26_new);
-    // PAPER LINE 26
-    std::vector<MultiexpData> multiexp_data;
-    multiexp_data.reserve(1+2*rounds);
-
-    sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
-    rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
-    for (size_t i = 0; i < rounds; ++i)
-    {
-      sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
-      sc_mul(tmp2.bytes, winv[i].bytes, winv[i].bytes);
-      if (!(tmp == rct::zero()))
-        multiexp_data.push_back({tmp, proof.L[i]});
-      if (!(tmp2 == rct::zero()))
-        multiexp_data.push_back({tmp2, proof.R[i]});
-    }
-    sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
-    if (!(tmp == rct::zero()))
-      multiexp_data.push_back({tmp, rct::H});
-    addKeys(pprime, pprime, bos_coster_heap_conv_robust(multiexp_data));
-    PERF_TIMER_STOP(VERIFY_line_26_new);
+    sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
+    sc_mul(tmp2.bytes, winv[i].bytes, winv[i].bytes);
+    multiexp_data.emplace_back(tmp, proof.L[i]);
+    multiexp_data.emplace_back(tmp2, proof.R[i]);
   }
-
-  {
-    PERF_TIMER_START_BP(VERIFY_line_26_old);
-    // PAPER LINE 26
-    sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
-    rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
-    ge_p3 pprime_p3;
-    CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&pprime_p3, pprime.bytes) == 0, false, "ge_frombytes_vartime failed");
-
-    for (size_t i = 0; i < rounds; ++i)
-    {
-      sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
-      sc_mul(tmp2.bytes, winv[i].bytes, winv[i].bytes);
-#if 1
-      ge_dsmp cacheL, cacheR;
-      rct::precomp(cacheL, proof.L[i]);
-      rct::precomp(cacheR, proof.R[i]);
-      addKeys3acc_p3(&pprime_p3, tmp, cacheL, tmp2, cacheR);
-#else
-      rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.L[i], tmp));
-      rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.R[i], tmp2));
-#endif
-    }
-    sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
-    addKeys_acc_p3(&pprime_p3, tmp, rct::H);
-    ge_p3_tobytes(pprime.bytes, &pprime_p3);
-    PERF_TIMER_STOP(VERIFY_line_26_old);
-  }
+  sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
+  multiexp_data.emplace_back(tmp, rct::H);
+  addKeys(pprime, pprime, multiexp(multiexp_data, false));
+  PERF_TIMER_STOP(VERIFY_line_26_new);
 
   PERF_TIMER_START_BP(VERIFY_step2_check);
   sc_mul(tmp.bytes, proof.a.bytes, proof.b.bytes);
