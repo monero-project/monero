@@ -71,7 +71,9 @@ int main(int argc, char** argv)
 
   po::options_description desc_options("Command line options");
   const command_line::arg_descriptor<std::string> arg_filter = { "filter", "Regular expression filter for which tests to run" };
-  command_line::add_arg(desc_options, arg_filter);
+  const command_line::arg_descriptor<bool> arg_verbose = { "verbose", "Verbose output", false };
+  command_line::add_arg(desc_options, arg_filter, "");
+  command_line::add_arg(desc_options, arg_verbose, "");
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -84,118 +86,119 @@ int main(int argc, char** argv)
     return 1;
 
   const std::string filter = tools::glob_to_regex(command_line::get_arg(vm, arg_filter));
+  bool verbose = command_line::get_arg(vm, arg_verbose);
 
   performance_timer timer;
   timer.start();
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 1, 1, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 1, 2, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 1, 10, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 1, 100, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 1, 1000, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 1, 1, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 1, 2, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 1, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 1, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 1, 1000, false);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 1, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 2, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 10, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 1, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 2, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 100, false);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 1, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 2, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 10, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 1, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 2, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 100, false);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 1, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 2, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 10, false);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 1, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 2, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 100, false);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 1, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 2, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 2, 10, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 1, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 2, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 2, 10, true);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 1, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 2, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 10, 10, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 1, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 2, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 10, 10, true);
 
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 1, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 2, true);
-  TEST_PERFORMANCE3(filter, test_construct_tx, 100, 10, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 1, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 2, true);
+  TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 10, true);
 
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 1, false);
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 2, false);
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 10, false);
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 100, false);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 1, false);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 2, false);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 10, false);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 100, false);
 
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 2, true);
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 10, true);
-  TEST_PERFORMANCE2(filter, test_check_tx_signature, 100, true);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 2, true);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 10, true);
+  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 100, true);
 
-  TEST_PERFORMANCE0(filter, test_is_out_to_acc);
-  TEST_PERFORMANCE0(filter, test_is_out_to_acc_precomp);
-  TEST_PERFORMANCE0(filter, test_generate_key_image_helper);
-  TEST_PERFORMANCE0(filter, test_generate_key_derivation);
-  TEST_PERFORMANCE0(filter, test_generate_key_image);
-  TEST_PERFORMANCE0(filter, test_derive_public_key);
-  TEST_PERFORMANCE0(filter, test_derive_secret_key);
-  TEST_PERFORMANCE0(filter, test_ge_frombytes_vartime);
-  TEST_PERFORMANCE0(filter, test_generate_keypair);
-  TEST_PERFORMANCE0(filter, test_sc_reduce32);
+  TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc);
+  TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc_precomp);
+  TEST_PERFORMANCE0(filter, verbose, test_generate_key_image_helper);
+  TEST_PERFORMANCE0(filter, verbose, test_generate_key_derivation);
+  TEST_PERFORMANCE0(filter, verbose, test_generate_key_image);
+  TEST_PERFORMANCE0(filter, verbose, test_derive_public_key);
+  TEST_PERFORMANCE0(filter, verbose, test_derive_secret_key);
+  TEST_PERFORMANCE0(filter, verbose, test_ge_frombytes_vartime);
+  TEST_PERFORMANCE0(filter, verbose, test_generate_keypair);
+  TEST_PERFORMANCE0(filter, verbose, test_sc_reduce32);
 
-  TEST_PERFORMANCE2(filter, test_wallet2_expand_subaddresses, 50, 200);
+  TEST_PERFORMANCE2(filter, verbose, test_wallet2_expand_subaddresses, 50, 200);
 
-  TEST_PERFORMANCE0(filter, test_cn_slow_hash);
-  TEST_PERFORMANCE1(filter, test_cn_fast_hash, 32);
-  TEST_PERFORMANCE1(filter, test_cn_fast_hash, 16384);
+  TEST_PERFORMANCE0(filter, verbose, test_cn_slow_hash);
+  TEST_PERFORMANCE1(filter, verbose, test_cn_fast_hash, 32);
+  TEST_PERFORMANCE1(filter, verbose, test_cn_fast_hash, 16384);
 
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 10, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 100, true);
 
-  TEST_PERFORMANCE2(filter, test_equality, memcmp32, true);
-  TEST_PERFORMANCE2(filter, test_equality, memcmp32, false);
-  TEST_PERFORMANCE2(filter, test_equality, verify32, false);
-  TEST_PERFORMANCE2(filter, test_equality, verify32, false);
+  TEST_PERFORMANCE2(filter, verbose, test_equality, memcmp32, true);
+  TEST_PERFORMANCE2(filter, verbose, test_equality, memcmp32, false);
+  TEST_PERFORMANCE2(filter, verbose, test_equality, verify32, false);
+  TEST_PERFORMANCE2(filter, verbose, test_equality, verify32, false);
 
-  TEST_PERFORMANCE1(filter, test_range_proof, true);
-  TEST_PERFORMANCE1(filter, test_range_proof, false);
+  TEST_PERFORMANCE1(filter, verbose, test_range_proof, true);
+  TEST_PERFORMANCE1(filter, verbose, test_range_proof, false);
 
-  TEST_PERFORMANCE2(filter, test_bulletproof, true, 1);
-  TEST_PERFORMANCE2(filter, test_bulletproof, false, 1);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 1);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 1);
 
-  TEST_PERFORMANCE2(filter, test_bulletproof, true, 2);
-  TEST_PERFORMANCE2(filter, test_bulletproof, false, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 2);
 
-  TEST_PERFORMANCE2(filter, test_bulletproof, true, 15);
-  TEST_PERFORMANCE2(filter, test_bulletproof, false, 15);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 15);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 15);
 
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, false);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 3, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, true);
-  TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 10, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 100, false);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 10, true);
+  TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 100, true);
 
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_add);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_sub);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_sc_mul);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_add_raw);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_add_p3_p3);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_scalarmultBase);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_scalarmultKey);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_base_vartime);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime2);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys2);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3);
-  TEST_PERFORMANCE1(filter, test_crypto_ops, op_addKeys3_2);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_sc_add);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_sc_sub);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_sc_mul);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_ge_add_raw);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_ge_add_p3_p3);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_addKeys);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_scalarmultBase);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_scalarmultKey);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_ge_double_scalarmult_base_vartime);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_ge_double_scalarmult_precomp_vartime2);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_addKeys2);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_addKeys3);
+  TEST_PERFORMANCE1(filter, verbose, test_crypto_ops, op_addKeys3_2);
 
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 2);
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_bos_coster, 8);
