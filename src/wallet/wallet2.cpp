@@ -1331,6 +1331,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     }
   }
 
+  uint64_t fee = miner_tx ? 0 : tx.version == 1 ? tx_money_spent_in_ins - get_outs_money_amount(tx) : tx.rct_signatures.txnFee;
+
   if (tx_money_spent_in_ins > 0 && !pool)
   {
     uint64_t self_received = std::accumulate<decltype(tx_money_got_in_outs.begin()), uint64_t>(tx_money_got_in_outs.begin(), tx_money_got_in_outs.end(), 0,
@@ -1340,7 +1342,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       });
     process_outgoing(txid, tx, height, ts, tx_money_spent_in_ins, self_received, *subaddr_account, subaddr_indices);
     // if sending to yourself at the same subaddress account, set the outgoing payment amount to 0 so that it's less confusing
-    uint64_t fee = tx.version == 1 ? tx_money_spent_in_ins - get_outs_money_amount(tx) : tx.rct_signatures.txnFee;
     if (tx_money_spent_in_ins == self_received + fee)
     {
       auto i = m_confirmed_txs.find(txid);
@@ -1405,6 +1406,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     {
       payment_details payment;
       payment.m_tx_hash      = txid;
+      payment.m_fee          = fee;
       payment.m_amount       = i.second;
       payment.m_block_height = height;
       payment.m_unlock_time  = tx.unlock_time;
@@ -6309,6 +6311,7 @@ void wallet2::light_wallet_get_address_txs()
     address_tx.m_tx_hash = tx_hash;
     address_tx.m_incoming = incoming;
     address_tx.m_amount  =  incoming ? total_received - total_sent : total_sent - total_received;
+    address_tx.m_fee = 0;                 // TODO
     address_tx.m_block_height = t.height;
     address_tx.m_unlock_time  = t.unlock_time;
     address_tx.m_timestamp = t.timestamp;
@@ -6322,6 +6325,7 @@ void wallet2::light_wallet_get_address_txs()
       payment_details payment;
       payment.m_tx_hash = tx_hash;
       payment.m_amount       = total_received - total_sent;
+      payment.m_fee          = 0;         // TODO
       payment.m_block_height = t.height;
       payment.m_unlock_time  = t.unlock_time;
       payment.m_timestamp = t.timestamp;

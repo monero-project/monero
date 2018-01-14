@@ -252,6 +252,7 @@ namespace tools
     {
       crypto::hash m_tx_hash;
       uint64_t m_amount;
+      uint64_t m_fee;
       uint64_t m_block_height;
       uint64_t m_unlock_time;
       uint64_t m_timestamp;
@@ -1144,7 +1145,7 @@ BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::payment_details, 2)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 5)
@@ -1409,6 +1410,12 @@ namespace boost
         return;
       }
       a & x.m_subaddr_index;
+      if (ver < 3)
+      {
+        x.m_fee = 0;
+        return;
+      }
+      a & x.m_fee;
     }
 
     template <class Archive>
