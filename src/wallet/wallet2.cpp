@@ -611,6 +611,7 @@ wallet2::wallet2(bool testnet, bool restricted):
   m_merge_destinations(false),
   m_confirm_backlog(true),
   m_confirm_backlog_threshold(0),
+  m_confirm_export_overwrite(true),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
@@ -2441,6 +2442,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(m_confirm_backlog_threshold);
   json.AddMember("confirm_backlog_threshold", value2, json.GetAllocator());
 
+  value2.SetInt(m_confirm_export_overwrite ? 1 :0);
+  json.AddMember("confirm_export_overwrite", value2, json.GetAllocator());
+
   value2.SetInt(m_testnet ? 1 :0);
   json.AddMember("testnet", value2, json.GetAllocator());
 
@@ -2522,6 +2526,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_merge_destinations = false;
     m_confirm_backlog = true;
     m_confirm_backlog_threshold = 0;
+    m_confirm_export_overwrite = true;
   }
   else if(json.IsObject())
   {
@@ -2621,6 +2626,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_backlog = field_confirm_backlog;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_backlog_threshold, uint32_t, Uint, false, 0);
     m_confirm_backlog_threshold = field_confirm_backlog_threshold;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_export_overwrite, int, Int, false, true);
+    m_confirm_export_overwrite = field_confirm_export_overwrite;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
     // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
     THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
