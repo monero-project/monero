@@ -124,14 +124,21 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 2, true);
   TEST_PERFORMANCE3(filter, verbose, test_construct_tx, 100, 10, true);
 
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 1, false);
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 2, false);
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 10, false);
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 100, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 1, 2, false, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 2, false, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 10, 2, false, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 100, 2, false, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 10, false, false);
 
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 2, true);
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 10, true);
-  TEST_PERFORMANCE2(filter, verbose, test_check_tx_signature, 100, true);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 2, true, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 10, 2, true, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 100, 2, true, false);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 10, true, false);
+
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 2, true, true);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 10, 2, true, true);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 100, 2, true, true);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 10, true, true);
 
   TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc_precomp);
