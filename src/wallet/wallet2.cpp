@@ -53,6 +53,7 @@ using namespace epee;
 #include "profile_tools.h"
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
+#include "serialization/string.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "mnemonics/electrum-words.h"
 #include "common/i18n.h"
@@ -62,7 +63,7 @@ using namespace epee;
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "common/json_util.h"
-#include "common/memwipe.h"
+#include "memwipe.h"
 #include "common/base58.h"
 #include "ringct/rctSigs.h"
 
@@ -2071,6 +2072,11 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() <= 3)
       return;
+    if (blocks_start_height < m_blockchain.offset())
+    {
+      MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
+      return;
+    }
     if (hashes.size() + current_index < stop_height) {
       drop_from_short_history(short_chain_history, 3);
       std::list<crypto::hash>::iterator right = hashes.end();
@@ -5947,7 +5953,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   if (m_multisig)
   {
     crypto::public_key ignore = m_multisig_threshold == m_multisig_signers.size() ? crypto::null_pkey : multisig_signers.front();
-    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, {}, msout});
+    multisig_sigs.push_back({tx.rct_signatures, ignore, used_L, std::unordered_set<crypto::public_key>(), msout});
 
     if (m_multisig_threshold < m_multisig_signers.size())
     {
@@ -5974,7 +5980,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
         THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
         THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_prefix_hash(ms_tx) != prefix_hash, error::wallet_internal_error, "Multisig txes do not share prefix");
-        multisig_sigs.push_back({ms_tx.rct_signatures, multisig_signers[signer_index], new_used_L, {}, msout});
+        multisig_sigs.push_back({ms_tx.rct_signatures, multisig_signers[signer_index], new_used_L, std::unordered_set<crypto::public_key>(), msout});
 
         ms_tx.rct_signatures = tx.rct_signatures;
         THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_hash(ms_tx) != cryptonote::get_transaction_hash(tx), error::wallet_internal_error, "Multisig txes differ by more than the signatures");
@@ -6273,7 +6279,8 @@ void wallet2::light_wallet_get_unspent_outs()
     add_tx_pub_key_to_extra(td.m_tx, tx_pub_key);
 
     td.m_key_image = unspent_key_image;
-    td.m_key_image_known = !m_watch_only;
+    td.m_key_image_known = !m_watch_only && !m_multisig;
+    td.m_key_image_partial = m_multisig;
     td.m_amount = o.amount;
     td.m_pk_index = 0;
     td.m_internal_output_index = o.index;
@@ -6952,6 +6959,17 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       const size_t estimated_tx_size = estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size(), extra.size(), bulletproof);
       needed_fee = calculate_fee(fee_per_kb, estimated_tx_size, fee_multiplier);
 
+      uint64_t inputs = 0, outputs = needed_fee;
+      for (size_t idx: tx.selected_transfers) inputs += m_transfers[idx].amount();
+      for (const auto &o: tx.dsts) outputs += o.amount;
+
+      if (inputs < outputs)
+      {
+        LOG_PRINT_L2("We don't have enough for the basic fee, switching to adding_fee");
+        adding_fee = true;
+        goto skip_tx;
+      }
+
       LOG_PRINT_L2("Trying to create a tx now, with " << tx.dsts.size() << " outputs and " <<
         tx.selected_transfers.size() << " inputs");
       if (use_rct)
@@ -7060,6 +7078,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       }
     }
 
+
+skip_tx:
     // if unused_*_indices is empty while unused_*_indices_per_subaddr has multiple elements, and if we still have something to pay,
     // pop front of unused_*_indices_per_subaddr and have unused_*_indices point to the front of unused_*_indices_per_subaddr
     if ((!dsts.empty() && dsts[0].amount > 0) || adding_fee)
@@ -7114,37 +7134,48 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
 
   THROW_WALLET_EXCEPTION_IF(unlocked_balance(subaddr_account) == 0, error::wallet_internal_error, "No unlocked balance in the entire wallet");
 
-  std::map<uint32_t, uint64_t> balance_per_subaddr = unlocked_balance_per_subaddress(subaddr_account);
+  std::map<uint32_t, std::pair<std::vector<size_t>, std::vector<size_t>>> unused_transfer_dust_indices_per_subaddr;
+
+  // gather all dust and non-dust outputs of specified subaddress (if any) and below specified threshold (if any)
+  bool fund_found = false;
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details& td = m_transfers[i];
+    if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && (subaddr_indices.empty() || subaddr_indices.count(td.m_subaddr_index.minor) == 1))
+    {
+      fund_found = true;
+      if (below == 0 || td.amount() < below)
+      {
+        if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
+          unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].first.push_back(i);
+        else
+          unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].second.push_back(i);
+      }
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(!fund_found, error::wallet_internal_error, "No unlocked balance in the specified subaddress(es)");
+  THROW_WALLET_EXCEPTION_IF(unused_transfer_dust_indices_per_subaddr.empty(), error::wallet_internal_error, "The smallest amount found is not below the specified threshold");
 
   if (subaddr_indices.empty())
   {
     // in case subaddress index wasn't specified, choose non-empty subaddress randomly (with index=0 being chosen last)
-    if (balance_per_subaddr.count(0) == 1 && balance_per_subaddr.size() > 1)
-      balance_per_subaddr.erase(0);
-    auto i = balance_per_subaddr.begin();
-    std::advance(i, crypto::rand<size_t>() % balance_per_subaddr.size());
-    subaddr_indices.insert(i->first);
+    if (unused_transfer_dust_indices_per_subaddr.count(0) == 1 && unused_transfer_dust_indices_per_subaddr.size() > 1)
+      unused_transfer_dust_indices_per_subaddr.erase(0);
+    auto i = unused_transfer_dust_indices_per_subaddr.begin();
+    std::advance(i, crypto::rand<size_t>() % unused_transfer_dust_indices_per_subaddr.size());
+    unused_transfers_indices = i->second.first;
+    unused_dust_indices = i->second.second;
+    LOG_PRINT_L2("Spending from subaddress index " << i->first);
   }
-  for (uint32_t i : subaddr_indices)
-    LOG_PRINT_L2("Spending from subaddress index " << i);
-
-  // gather all dust and non-dust outputs of specified subaddress
-  for (size_t i = 0; i < m_transfers.size(); ++i)
+  else
   {
-    const transfer_details& td = m_transfers[i];
-    if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
+    for (const auto& p : unused_transfer_dust_indices_per_subaddr)
     {
-      if (below == 0 || td.amount() < below)
-      {
-        if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
-          unused_transfers_indices.push_back(i);
-        else
-          unused_dust_indices.push_back(i);
-      }
+      unused_transfers_indices.insert(unused_transfers_indices.end(), p.second.first.begin(), p.second.first.end());
+      unused_dust_indices.insert(unused_dust_indices.end(), p.second.second.begin(), p.second.second.end());
+      LOG_PRINT_L2("Spending from subaddress index " << p.first);
     }
   }
-
-  THROW_WALLET_EXCEPTION_IF(unused_transfers_indices.empty() && unused_dust_indices.empty(), error::not_enough_money, 0, 0, 0); // not sure if a new error class (something like 'cant_sweep_empty'?) should be introduced
 
   return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
 }

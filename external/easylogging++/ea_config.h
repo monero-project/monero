@@ -8,5 +8,7 @@
 #define ELPP_NO_DEBUG_MACROS
 
 #ifdef EASYLOGGING_CC
+#if !(!defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__)
 #define ELPP_FEATURE_CRASH_LOG
+#endif
 #endif

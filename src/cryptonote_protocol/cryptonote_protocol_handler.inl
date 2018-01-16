@@ -1059,6 +1059,11 @@ skip:
             num_txs += block_entry.txs.size();
             std::vector<tx_verification_context> tvc;
             m_core.handle_incoming_txs(block_entry.txs, tvc, true, true, false);
+            if (tvc.size() != block_entry.txs.size())
+            {
+              LOG_ERROR_CCONTEXT("Internal error: tvc.size() != block_entry.txs.size()");
+              return true;
+            }
             std::list<blobdata>::const_iterator it = block_entry.txs.begin();
             for (size_t i = 0; i < tvc.size(); ++i, ++it)
             {
