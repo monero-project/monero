@@ -825,8 +825,6 @@ namespace tools
     void confirm_missing_payment_id(bool always) { m_confirm_missing_payment_id = always; }
     bool ask_password() const { return m_ask_password; }
     void ask_password(bool always) { m_ask_password = always; }
-    void set_default_decimal_point(unsigned int decimal_point);
-    unsigned int get_default_decimal_point() const;
     void set_min_output_count(uint32_t count) { m_min_output_count = count; }
     uint32_t get_min_output_count() const { return m_min_output_count; }
     void set_min_output_value(uint64_t value) { m_min_output_value = value; }

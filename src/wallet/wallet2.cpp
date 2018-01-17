@@ -3410,16 +3410,6 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
   return false;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::set_default_decimal_point(unsigned int decimal_point)
-{
-  cryptonote::set_default_decimal_point(decimal_point);
-}
-//----------------------------------------------------------------------------------------------------
-unsigned int wallet2::get_default_decimal_point() const
-{
-  return cryptonote::get_default_decimal_point();
-}
-//----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
 {
   do_prepare_file_names(file_path, m_keys_file, m_wallet_file);
