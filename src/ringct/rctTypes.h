@@ -213,6 +213,8 @@ namespace rct {
       END_SERIALIZE()
     };
 
+    size_t n_bulletproof_amounts(const std::vector<Bulletproof> &proofs);
+
     //A container to hold all signatures necessary for RingCT
     // rangeSigs holds all the rangeproof data of a transaction
     // MG holds the MLSAG signature of a transaction
@@ -227,6 +229,7 @@ namespace rct {
       RCTTypeFullBulletproof = 3,
       RCTTypeSimpleBulletproof = 4,
     };
+    enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof };
     struct rctSigBase {
         uint8_t type;
         key message;
@@ -310,15 +313,19 @@ namespace rct {
           {
             ar.tag("bp");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, bulletproofs);
-            if (bulletproofs.size() != outputs)
+            uint32_t nbp = bulletproofs.size();
+            FIELD(nbp)
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs);
+            if (bulletproofs.size() > outputs)
               return false;
-            for (size_t i = 0; i < outputs; ++i)
+            for (size_t i = 0; i < nbp; ++i)
             {
               FIELDS(bulletproofs[i])
-              if (outputs - i > 1)
+              if (nbp - i > 1)
                 ar.delimit_array();
             }
+            if (n_bulletproof_amounts(bulletproofs) != outputs)
+              return false;
             ar.end_array();
           }
           else
@@ -518,6 +525,9 @@ namespace rct {
     void b2h(key  & amountdh, bits amountb2);
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
+
+    bool is_rct_simple(int type);
+    bool is_rct_bulletproof(int type);
 
     static inline const rct::key &pk2rct(const crypto::public_key &pk) { return (const rct::key&)pk; }
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }

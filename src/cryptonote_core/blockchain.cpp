@@ -3059,6 +3059,22 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       MERROR_VER("Unsupported rct type: " << rv.type);
       return false;
     }
+
+    // for bulletproofs, check they're only multi-output after v8
+    if (rv.type == rct::RCTTypeFullBulletproof || rv.type == rct::RCTTypeSimpleBulletproof)
+    {
+      if (hf_version < 8)
+      {
+        for (const rct::Bulletproof &proof: rv.p.bulletproofs)
+        {
+          if (proof.V.size() > 1)
+          {
+            MERROR_VER("Multi output bulletproofs are invalid before v8");
+            return false;
+          }
+        }
+      }
+    }
   }
   return true;
 }
