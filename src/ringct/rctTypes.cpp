@@ -209,4 +209,36 @@ namespace rct {
         return vali;
     }
 
+    bool is_rct_simple(int type)
+    {
+        switch (type)
+        {
+            case RCTTypeSimple:
+            case RCTTypeSimpleBulletproof:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool is_rct_bulletproof(int type)
+    {
+        switch (type)
+        {
+            case RCTTypeSimpleBulletproof:
+            case RCTTypeFullBulletproof:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    size_t n_bulletproof_amounts(const std::vector<Bulletproof> &proofs)
+    {
+        size_t n = 0;
+        for (const Bulletproof &proof: proofs)
+            n += proof.V.size();
+        return n;
+    }
+
 }
