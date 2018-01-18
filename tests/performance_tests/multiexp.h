@@ -38,6 +38,7 @@ enum test_multiexp_algorithm
 {
   multiexp_bos_coster,
   multiexp_straus,
+  multiexp_straus_cached,
 };
 
 template<test_multiexp_algorithm algorithm, size_t npoints>
@@ -59,6 +60,7 @@ public:
       rct::key kn = rct::scalarmultKey(point, data[n].scalar);
       res = rct::addKeys(res, kn);
     }
+    cache = rct::straus_init_cache(data);
     return true;
   }
 
@@ -69,7 +71,9 @@ public:
       case multiexp_bos_coster:
         return res == bos_coster_heap_conv_robust(data);
       case multiexp_straus:
-        return res == straus(data, false);
+        return res == straus(data);
+      case multiexp_straus_cached:
+        return res == straus(data, cache);
       default:
         return false;
     }
@@ -77,5 +81,6 @@ public:
 
 private:
   std::vector<rct::MultiexpData> data;
+  std::shared_ptr<rct::straus_cached_data> cache;
   rct::key res;
 };

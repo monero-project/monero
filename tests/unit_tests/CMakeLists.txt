@@ -61,6 +61,7 @@ set(unit_tests_sources
   mnemonics.cpp
   mul_div.cpp
   int-util.cpp
+  multiexp.cpp
   multisig.cpp
   notify.cpp
   parse_amount.cpp

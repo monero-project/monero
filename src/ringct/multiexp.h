@@ -36,6 +36,7 @@
 #include <vector>
 #include "crypto/crypto.h"
 #include "rctTypes.h"
+#include "misc_log_ex.h"
 
 namespace rct
 {
@@ -52,9 +53,13 @@ struct MultiexpData {
   }
 };
 
+struct straus_cached_data;
+
 rct::key bos_coster_heap_conv(std::vector<MultiexpData> data);
 rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data);
-rct::key straus(const std::vector<MultiexpData> &data, bool HiGi = false);
+std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<MultiexpData> &data);
+size_t straus_get_cache_size(const std::shared_ptr<straus_cached_data> &cache);
+rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<straus_cached_data> &cache = NULL);
 
 }
 
