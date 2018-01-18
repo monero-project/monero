@@ -61,6 +61,7 @@ static constexpr size_t maxM = 16;
 static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
 static ge_p3 Hi_p3[maxN*maxM], Gi_p3[maxN*maxM];
 static ge_dsmp Gprecomp[maxN*maxM], Hprecomp[maxN*maxM];
+static std::shared_ptr<straus_cached_data> HiGi_cache;
 static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
 static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
@@ -70,7 +71,7 @@ static boost::mutex init_mutex;
 static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
 {
   if (HiGi || data.size() < 1000)
-    return straus(data, HiGi);
+    return straus(data, HiGi ? HiGi_cache: NULL);
   else
     return bos_coster_heap_conv_robust(data);
 }
@@ -116,6 +117,7 @@ static void init_exponents()
   static bool init_done = false;
   if (init_done)
     return;
+  std::vector<MultiexpData> data;
   for (size_t i = 0; i < maxN*maxM; ++i)
   {
     Hi[i] = get_exponent(rct::H, i * 2);
@@ -124,8 +126,13 @@ static void init_exponents()
     Gi[i] = get_exponent(rct::H, i * 2 + 1);
     rct::precomp(Gprecomp[i], Gi[i]);
     CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi[i].bytes) == 0, "ge_frombytes_vartime failed");
+
+    data.push_back({rct::zero(), Gi[i]});
+    data.push_back({rct::zero(), Hi[i]});
   }
-  MINFO("cache size: " << (sizeof(Hi)+sizeof(Hprecomp)+sizeof(Hi_p3))*2/1024 << " kB");
+  HiGi_cache = straus_init_cache(data);
+  size_t cache_size = (sizeof(Hi)+sizeof(Hprecomp)+sizeof(Hi_p3))*2 + straus_get_cache_size(HiGi_cache);
+  MINFO("cache size: " << cache_size/1024 << " kB");
   init_done = true;
 }
 

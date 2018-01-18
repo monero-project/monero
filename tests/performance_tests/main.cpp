@@ -221,6 +221,13 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 1024);
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 4096);
 
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 8);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 16);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 256);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 1024);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 4096);
+
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
   return 0;
