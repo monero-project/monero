@@ -868,5 +868,9 @@ option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source 
 
 CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
 
+include(CheckLibraryExists)
+include(CheckFunctionExists)
+
 check_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
 check_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
+check_function_exists(strptime HAVE_STRPTIME)
