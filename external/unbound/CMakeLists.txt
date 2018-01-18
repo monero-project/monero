@@ -50,6 +50,7 @@ else()
 add_definitions(-D_GNU_SOURCE)
 endif()
 add_definitions(-std=c99)
+add_definitions(-fPIC)
 
 option(USE_ECDSA "Use ECDSA algorithms" ON)
 option(USE_SHA2 "Enable SHA2 support" ON)
