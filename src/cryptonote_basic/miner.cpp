@@ -602,7 +602,7 @@ namespace cryptonote
         // this should take care of the case where mining is started with bg-enabled, 
         // and then the user decides to un-check background mining, and just do
         // regular full-speed mining. I might just be over-doing it and thinking up 
-        // non-existant use-cases, so if the concensus is to simplify, we can remove all this fluff.
+        // non-existant use-cases, so if the consensus is to simplify, we can remove all this fluff.
         /*
         while( !m_is_background_mining_enabled )
         {

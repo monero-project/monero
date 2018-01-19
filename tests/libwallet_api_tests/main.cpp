@@ -841,7 +841,7 @@ struct MyWalletListener : public Monero::WalletListener
     {
         std::cout << "wallet: " << wallet->mainAddress() << "**** just received unconfirmed money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
-        // Don't trigger recieve until tx is mined
+        // Don't trigger receive until tx is mined
         // total_rx += amount;
         // receive_triggered = true;
         // cv_receive.notify_one();

@@ -2589,7 +2589,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           try
           {
             year  = boost::lexical_cast<uint16_t>(heightstr.substr(0,4));
-            // lexical_cast<uint8_t> won't work becasue uint8_t is treated as character type
+            // lexical_cast<uint8_t> won't work because uint8_t is treated as character type
             month = boost::lexical_cast<uint16_t>(heightstr.substr(5,2));
             day   = boost::lexical_cast<uint16_t>(heightstr.substr(8,2));
             m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);

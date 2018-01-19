@@ -1746,7 +1746,7 @@ void WalletImpl::doRefresh()
                 m_synchronized = true;
             }
             // assuming if we have empty history, it wasn't initialized yet
-            // for futher history changes client need to update history in
+            // for further history changes client need to update history in
             // "on_money_received" and "on_money_sent" callbacks
             if (m_history->count() == 0) {
                 m_history->refresh();

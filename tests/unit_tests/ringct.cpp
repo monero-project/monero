@@ -132,7 +132,7 @@ TEST(ringct, MG_sigs)
             }
             sk[j] = xx[ind][j];
         }
-        sk[2] = skGen();//asume we don't know one of the private keys..
+        sk[2] = skGen();//assume we don't know one of the private keys..
         IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, hw::get_device("default"));
         ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, R));
 }
