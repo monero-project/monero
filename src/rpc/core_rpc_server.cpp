@@ -42,6 +42,7 @@ using namespace epee;
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "misc_language.h"
+#include "storages/http_abstract_invoke.h"
 #include "crypto/hash.h"
 #include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
@@ -75,6 +76,8 @@ namespace cryptonote
     command_line::add_arg(desc, arg_testnet_rpc_bind_port);
     command_line::add_arg(desc, arg_testnet_rpc_restricted_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
+    command_line::add_arg(desc, arg_bootstrap_daemon_address);
+    command_line::add_arg(desc, arg_bootstrap_daemon_login);
     cryptonote::rpc_args::init_options(desc);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -101,6 +104,30 @@ namespace cryptonote
     if (!rpc_config)
       return false;
 
+    m_bootstrap_daemon_address = command_line::get_arg(vm, arg_bootstrap_daemon_address);
+    if (!m_bootstrap_daemon_address.empty())
+    {
+      const std::string &bootstrap_daemon_login = command_line::get_arg(vm, arg_bootstrap_daemon_login);
+      const auto loc = bootstrap_daemon_login.find(':');
+      if (!bootstrap_daemon_login.empty() && loc != std::string::npos)
+      {
+        epee::net_utils::http::login login;
+        login.username = bootstrap_daemon_login.substr(0, loc);
+        login.password = bootstrap_daemon_login.substr(loc + 1);
+        m_http_client.set_server(m_bootstrap_daemon_address, login, false);
+      }
+      else
+      {
+        m_http_client.set_server(m_bootstrap_daemon_address, boost::none, false);
+      }
+      m_should_use_bootstrap_daemon = true;
+    }
+    else
+    {
+      m_should_use_bootstrap_daemon = false;
+    }
+    m_was_bootstrap_ever_used = false;
+
     boost::optional<epee::net_utils::http::login> http_login{};
 
     if (rpc_config->login)
@@ -126,6 +153,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res)
   {
     PERF_TIMER(on_get_height);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_HEIGHT>(invoke_http_mode::JON, "/getheight", req, res, r))
+      return r;
+
     res.height = m_core.get_current_blockchain_height();
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -134,6 +165,17 @@ namespace cryptonote
   bool core_rpc_server::on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res)
   {
     PERF_TIMER(on_get_info);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_INFO>(invoke_http_mode::JON, "/getinfo", req, res, r))
+    {
+      res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+      crypto::hash top_hash;
+      m_core.get_blockchain_top(res.height_without_bootstrap, top_hash);
+      ++res.height_without_bootstrap; // turn top block height into blockchain height
+      res.was_bootstrap_ever_used = true;
+      return r;
+    }
+
     crypto::hash top_hash;
     m_core.get_blockchain_top(res.height, top_hash);
     ++res.height; // turn top block height into blockchain height
@@ -158,6 +200,12 @@ namespace cryptonote
     res.start_time = (uint64_t)m_core.get_start_time();
     res.free_space = m_restricted ? std::numeric_limits<uint64_t>::max() : m_core.get_free_space();
     res.offline = m_core.offline();
+    res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+    res.height_without_bootstrap = res.height;
+    {
+      boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -181,6 +229,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     PERF_TIMER(on_get_blocks);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCKS_FAST>(invoke_http_mode::BIN, "/getblocks.bin", req, res, r))
+      return r;
+
     std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > > bs;
 
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
@@ -240,6 +292,10 @@ namespace cryptonote
     bool core_rpc_server::on_get_alt_blocks_hashes(const COMMAND_RPC_GET_ALT_BLOCKS_HASHES::request& req, COMMAND_RPC_GET_ALT_BLOCKS_HASHES::response& res)
     {
       PERF_TIMER(on_get_alt_blocks_hashes);
+      bool r;
+      if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_ALT_BLOCKS_HASHES>(invoke_http_mode::JON, "/get_alt_blocks_hashes", req, res, r))
+        return r;
+
       std::list<block> blks;
 
       if(!m_core.get_alternative_blocks(blks))
@@ -263,6 +319,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_blocks_by_height(const COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response& res)
   {
     PERF_TIMER(on_get_blocks_by_height);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCKS_BY_HEIGHT>(invoke_http_mode::BIN, "/getblocks_by_height.bin", req, res, r))
+      return r;
+
     res.status = "Failed";
     res.blocks.clear();
     res.blocks.reserve(req.heights.size());
@@ -293,6 +353,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_hashes(const COMMAND_RPC_GET_HASHES_FAST::request& req, COMMAND_RPC_GET_HASHES_FAST::response& res)
   {
     PERF_TIMER(on_get_hashes);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_HASHES_FAST>(invoke_http_mode::BIN, "/gethashes.bin", req, res, r))
+      return r;
+
     NOTIFY_RESPONSE_CHAIN_ENTRY::request resp;
 
     resp.start_height = req.start_height;
@@ -312,6 +376,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res)
   {
     PERF_TIMER(on_get_random_outs);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS>(invoke_http_mode::BIN, "/getrandom_outs.bin", req, res, r))
+      return r;
+
     res.status = "Failed";
 
     if (m_restricted)
@@ -351,6 +419,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_outs_bin(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res)
   {
     PERF_TIMER(on_get_outs_bin);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUTS_BIN>(invoke_http_mode::BIN, "/get_outs.bin", req, res, r))
+      return r;
+
     res.status = "Failed";
 
     if (m_restricted)
@@ -374,6 +446,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res)
   {
     PERF_TIMER(on_get_outs);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUTS>(invoke_http_mode::JON, "/get_outs", req, res, r))
+      return r;
+
     res.status = "Failed";
 
     if (m_restricted)
@@ -412,6 +488,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res)
   {
     PERF_TIMER(on_get_random_rct_outs);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS>(invoke_http_mode::BIN, "/getrandom_rctouts.bin", req, res, r))
+      return r;
+
     res.status = "Failed";
     if(!m_core.get_random_rct_outs(req, res))
     {
@@ -436,6 +516,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_indexes(const COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request& req, COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response& res)
   {
     PERF_TIMER(on_get_indexes);
+    bool ok;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES>(invoke_http_mode::BIN, "/get_o_indexes.bin", req, res, ok))
+      return ok;
+
     bool r = m_core.get_tx_outputs_gindexs(req.txid, res.o_indexes);
     if(!r)
     {
@@ -450,6 +534,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_transactions(const COMMAND_RPC_GET_TRANSACTIONS::request& req, COMMAND_RPC_GET_TRANSACTIONS::response& res)
   {
     PERF_TIMER(on_get_transactions);
+    bool ok;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTIONS>(invoke_http_mode::JON, "/gettransactions", req, res, ok))
+      return ok;
+
     std::vector<crypto::hash> vh;
     for(const auto& tx_hex_str: req.txs_hashes)
     {
@@ -600,6 +688,10 @@ namespace cryptonote
   bool core_rpc_server::on_is_key_image_spent(const COMMAND_RPC_IS_KEY_IMAGE_SPENT::request& req, COMMAND_RPC_IS_KEY_IMAGE_SPENT::response& res, bool request_has_rpc_origin)
   {
     PERF_TIMER(on_is_key_image_spent);
+    bool ok;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_IS_KEY_IMAGE_SPENT>(invoke_http_mode::JON, "/is_key_image_spent", req, res, ok))
+      return ok;
+
     std::vector<crypto::key_image> key_images;
     for(const auto& ki_hex_str: req.key_images)
     {
@@ -663,6 +755,10 @@ namespace cryptonote
   bool core_rpc_server::on_send_raw_tx(const COMMAND_RPC_SEND_RAW_TX::request& req, COMMAND_RPC_SEND_RAW_TX::response& res)
   {
     PERF_TIMER(on_send_raw_tx);
+    bool ok;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_SEND_RAW_TX>(invoke_http_mode::JON, "/sendrawtransaction", req, res, ok))
+      return ok;
+
     CHECK_CORE_READY();
 
     std::string tx_blob;
@@ -886,6 +982,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_transaction_pool(const COMMAND_RPC_GET_TRANSACTION_POOL::request& req, COMMAND_RPC_GET_TRANSACTION_POOL::response& res, bool request_has_rpc_origin)
   {
     PERF_TIMER(on_get_transaction_pool);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTION_POOL>(invoke_http_mode::JON, "/get_transaction_pool", req, res, r))
+      return r;
+
     m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, !request_has_rpc_origin || !m_restricted);
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -894,6 +994,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_transaction_pool_hashes(const COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::request& req, COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::response& res, bool request_has_rpc_origin)
   {
     PERF_TIMER(on_get_transaction_pool_hashes);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTION_POOL_HASHES>(invoke_http_mode::JON, "/get_transaction_pool_hashes.bin", req, res, r))
+      return r;
+
     m_core.get_pool_transaction_hashes(res.tx_hashes, !request_has_rpc_origin || !m_restricted);
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -902,6 +1006,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_transaction_pool_stats(const COMMAND_RPC_GET_TRANSACTION_POOL_STATS::request& req, COMMAND_RPC_GET_TRANSACTION_POOL_STATS::response& res, bool request_has_rpc_origin)
   {
     PERF_TIMER(on_get_transaction_pool_stats);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTION_POOL_STATS>(invoke_http_mode::JON, "/get_transaction_pool_stats", req, res, r))
+      return r;
+
     m_core.get_pool_transaction_stats(res.pool_stats, !request_has_rpc_origin || !m_restricted);
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -920,6 +1028,14 @@ namespace cryptonote
   bool core_rpc_server::on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res)
   {
     PERF_TIMER(on_getblockcount);
+    {
+      boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      if (m_should_use_bootstrap_daemon)
+      {
+        res.status = "This command is unsupported for bootstrap daemon";
+        return false;
+      }
+    }
     res.count = m_core.get_current_blockchain_height();
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -928,6 +1044,14 @@ namespace cryptonote
   bool core_rpc_server::on_getblockhash(const COMMAND_RPC_GETBLOCKHASH::request& req, COMMAND_RPC_GETBLOCKHASH::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_getblockhash);
+    {
+      boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      if (m_should_use_bootstrap_daemon)
+      {
+        res = "This command is unsupported for bootstrap daemon";
+        return false;
+      }
+    }
     if(req.size() != 1)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
@@ -964,6 +1088,10 @@ namespace cryptonote
   bool core_rpc_server::on_getblocktemplate(const COMMAND_RPC_GETBLOCKTEMPLATE::request& req, COMMAND_RPC_GETBLOCKTEMPLATE::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_getblocktemplate);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GETBLOCKTEMPLATE>(invoke_http_mode::JON_RPC, "getblocktemplate", req, res, r))
+      return r;
+
     if(!check_core_ready())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
@@ -1039,6 +1167,14 @@ namespace cryptonote
   bool core_rpc_server::on_submitblock(const COMMAND_RPC_SUBMITBLOCK::request& req, COMMAND_RPC_SUBMITBLOCK::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_submitblock);
+    {
+      boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      if (m_should_use_bootstrap_daemon)
+      {
+        res.status = "This command is unsupported for bootstrap daemon";
+        return false;
+      }
+    }
     CHECK_CORE_READY();
     if(req.size()!=1)
     {
@@ -1112,9 +1248,80 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  template <typename COMMAND_TYPE>
+  bool core_rpc_server::use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r)
+  {
+    res.untrusted = false;
+    if (m_bootstrap_daemon_address.empty())
+      return false;
+
+    boost::unique_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+    if (!m_should_use_bootstrap_daemon)
+    {
+      MINFO("The local daemon is fully synced. Not switching back to the bootstrap daemon");
+      return false;
+    }
+
+    auto current_time = std::chrono::system_clock::now();
+    if (current_time - m_bootstrap_height_check_time > std::chrono::seconds(30))  // update every 30s
+    {
+      m_bootstrap_height_check_time = current_time;
+
+      uint64_t top_height;
+      crypto::hash top_hash;
+      m_core.get_blockchain_top(top_height, top_hash);
+      ++top_height; // turn top block height into blockchain height
+
+      // query bootstrap daemon's height
+      cryptonote::COMMAND_RPC_GET_HEIGHT::request getheight_req;
+      cryptonote::COMMAND_RPC_GET_HEIGHT::response getheight_res;
+      bool ok = epee::net_utils::invoke_http_json("/getheight", getheight_req, getheight_res, m_http_client);
+      ok = ok && getheight_res.status == CORE_RPC_STATUS_OK;
+
+      m_should_use_bootstrap_daemon = ok && top_height + 10 < getheight_res.height;
+      MINFO((m_should_use_bootstrap_daemon ? "Using" : "Not using") << " the bootstrap daemon (our height: " << top_height << ", bootstrap daemon's height: " << getheight_res.height << ")");
+    }
+    if (!m_should_use_bootstrap_daemon)
+      return false;
+
+    if (mode == invoke_http_mode::JON)
+    {
+      r = epee::net_utils::invoke_http_json(command_name, req, res, m_http_client);
+    }
+    else if (mode == invoke_http_mode::BIN)
+    {
+      r = epee::net_utils::invoke_http_bin(command_name, req, res, m_http_client);
+    }
+    else if (mode == invoke_http_mode::JON_RPC)
+    {
+      epee::json_rpc::request<typename COMMAND_TYPE::request> json_req = AUTO_VAL_INIT(json_req);
+      epee::json_rpc::response<typename COMMAND_TYPE::response, std::string> json_resp = AUTO_VAL_INIT(json_resp);
+      json_req.jsonrpc = "2.0";
+      json_req.id = epee::serialization::storage_entry(0);
+      json_req.method = command_name;
+      json_req.params = req;
+      r = net_utils::invoke_http_json("/json_rpc", json_req, json_resp, m_http_client);
+      if (r)
+        res = json_resp.result;
+    }
+    else
+    {
+      MERROR("Unknown invoke_http_mode: " << mode);
+      return false;
+    }
+    m_was_bootstrap_ever_used = true;
+    r = r && res.status == CORE_RPC_STATUS_OK;
+    res.untrusted = true;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_last_block_header(const COMMAND_RPC_GET_LAST_BLOCK_HEADER::request& req, COMMAND_RPC_GET_LAST_BLOCK_HEADER::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_last_block_header);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_LAST_BLOCK_HEADER>(invoke_http_mode::JON_RPC, "getlastblockheader", req, res, r))
+      return r;
+
     CHECK_CORE_READY();
     uint64_t last_block_height;
     crypto::hash last_block_hash;
@@ -1140,6 +1347,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_block_header_by_hash(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH::response& res, epee::json_rpc::error& error_resp){
     PERF_TIMER(on_get_block_header_by_hash);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH>(invoke_http_mode::JON_RPC, "getblockheaderbyhash", req, res, r))
+      return r;
+
     crypto::hash block_hash;
     bool hash_parsed = parse_hash256(req.hash, block_hash);
     if(!hash_parsed)
@@ -1177,6 +1388,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_block_headers_range(const COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request& req, COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response& res, epee::json_rpc::error& error_resp){
     PERF_TIMER(on_get_block_headers_range);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADERS_RANGE>(invoke_http_mode::JON_RPC, "getblockheadersrange", req, res, r))
+      return r;
+
     const uint64_t bc_height = m_core.get_current_blockchain_height();
     if (req.start_height >= bc_height || req.end_height >= bc_height || req.start_height > req.end_height)
     {
@@ -1223,6 +1438,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_block_header_by_height(const COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request& req, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response& res, epee::json_rpc::error& error_resp){
     PERF_TIMER(on_get_block_header_by_height);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT>(invoke_http_mode::JON_RPC, "getblockheaderbyheight", req, res, r))
+      return r;
+
     if(m_core.get_current_blockchain_height() <= req.height)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
@@ -1251,6 +1470,10 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_block(const COMMAND_RPC_GET_BLOCK::request& req, COMMAND_RPC_GET_BLOCK::response& res, epee::json_rpc::error& error_resp){
     PERF_TIMER(on_get_block);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK>(invoke_http_mode::JON_RPC, "getblock", req, res, r))
+      return r;
+
     crypto::hash block_hash;
     if (!req.hash.empty())
     {
@@ -1320,6 +1543,16 @@ namespace cryptonote
   bool core_rpc_server::on_get_info_json(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_info_json);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_INFO>(invoke_http_mode::JON_RPC, "get_info", req, res, r))
+    {
+      res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+      crypto::hash top_hash;
+      m_core.get_blockchain_top(res.height_without_bootstrap, top_hash);
+      ++res.height_without_bootstrap; // turn top block height into blockchain height
+      res.was_bootstrap_ever_used = true;
+      return r;
+    }
 
     crypto::hash top_hash;
     m_core.get_blockchain_top(res.height, top_hash);
@@ -1345,12 +1578,21 @@ namespace cryptonote
     res.start_time = (uint64_t)m_core.get_start_time();
     res.free_space = m_restricted ? std::numeric_limits<uint64_t>::max() : m_core.get_free_space();
     res.offline = m_core.offline();
+    res.bootstrap_daemon_address = m_bootstrap_daemon_address;
+    res.height_without_bootstrap = res.height;
+    {
+      boost::shared_lock<boost::shared_mutex> lock(m_bootstrap_daemon_mutex);
+      res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_hard_fork_info(const COMMAND_RPC_HARD_FORK_INFO::request& req, COMMAND_RPC_HARD_FORK_INFO::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_hard_fork_info);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_HARD_FORK_INFO>(invoke_http_mode::JON_RPC, "hard_fork_info", req, res, r))
+      return r;
 
     const Blockchain &blockchain = m_core.get_blockchain_storage();
     uint8_t version = req.version > 0 ? req.version : blockchain.get_next_hard_fork_version();
@@ -1473,6 +1715,9 @@ namespace cryptonote
   bool core_rpc_server::on_get_output_histogram(const COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request& req, COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_output_histogram);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_OUTPUT_HISTOGRAM>(invoke_http_mode::JON_RPC, "get_output_histogram", req, res, r))
+      return r;
 
     std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> histogram;
     try
@@ -1500,6 +1745,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_version(const COMMAND_RPC_GET_VERSION::request& req, COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_version);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_VERSION>(invoke_http_mode::JON_RPC, "get_version", req, res, r))
+      return r;
+
     res.version = CORE_RPC_VERSION;
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -1518,6 +1767,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_per_kb_fee_estimate(const COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request& req, COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_per_kb_fee_estimate);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE>(invoke_http_mode::JON_RPC, "get_fee_estimate", req, res, r))
+      return r;
+
     res.fee = m_core.get_blockchain_storage().get_dynamic_per_kb_fee_estimate(req.grace_blocks);
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -1545,6 +1798,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_limit(const COMMAND_RPC_GET_LIMIT::request& req, COMMAND_RPC_GET_LIMIT::response& res)
   {
     PERF_TIMER(on_get_limit);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_LIMIT>(invoke_http_mode::JON, "/get_limit", req, res, r))
+      return r;
+
     res.limit_down = epee::net_utils::connection_basic::get_rate_down_limit();
     res.limit_up = epee::net_utils::connection_basic::get_rate_up_limit();
     res.status = CORE_RPC_STATUS_OK;
@@ -1790,6 +2047,9 @@ namespace cryptonote
   bool core_rpc_server::on_get_txpool_backlog(const COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request& req, COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_txpool_backlog);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG>(invoke_http_mode::JON_RPC, "get_txpool_backlog", req, res, r))
+      return r;
 
     if (!m_core.get_txpool_backlog(res.backlog))
     {
@@ -1831,5 +2091,17 @@ namespace cryptonote
       "restricted-rpc"
     , "Restrict RPC to view only commands and do not return privacy sensitive data in RPC calls"
     , false
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_address = {
+      "bootstrap-daemon-address"
+    , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced"
+    , ""
+    };
+
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_login = {
+      "bootstrap-daemon-login"
+    , "Specify username:password for the bootstrap daemon login"
+    , ""
     };
 }  // namespace cryptonote

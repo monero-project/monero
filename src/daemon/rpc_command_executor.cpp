@@ -353,14 +353,17 @@ static std::string get_fork_extra_info(uint64_t t, uint64_t now, uint64_t block_
   return "";
 }
 
-static float get_sync_percentage(const cryptonote::COMMAND_RPC_GET_INFO::response &ires)
+static float get_sync_percentage(uint64_t height, uint64_t target_height)
 {
-  uint64_t height = ires.height;
-  uint64_t target_height = ires.target_height ? ires.target_height < ires.height ? ires.height : ires.target_height : ires.height;
+  target_height = target_height ? target_height < height ? height : target_height : height;
   float pc = 100.0f * height / target_height;
   if (height < target_height && pc > 99.9f)
     return 99.9f; // to avoid 100% when not fully synced
   return pc;
+}
+static float get_sync_percentage(const cryptonote::COMMAND_RPC_GET_INFO::response &ires)
+{
+  return get_sync_percentage(ires.height, ires.target_height);
 }
 
 bool t_rpc_command_executor::show_status() {
@@ -421,12 +424,26 @@ bool t_rpc_command_executor::show_status() {
 
   std::time_t uptime = std::time(nullptr) - ires.start_time;
   uint64_t net_height = ires.target_height > ires.height ? ires.target_height : ires.height;
+  std::string bootstrap_msg;
+  if (ires.was_bootstrap_ever_used)
+  {
+    bootstrap_msg = ", bootstrapping from " + ires.bootstrap_daemon_address;
+    if (ires.untrusted)
+    {
+      bootstrap_msg += (boost::format(", local height: %llu (%.1f%%)") % ires.height_without_bootstrap % get_sync_percentage(ires.height_without_bootstrap, net_height)).str();
+    }
+    else
+    {
+      bootstrap_msg += " was used before";
+    }
+  }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
+  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
     % (unsigned long long)ires.height
     % (unsigned long long)net_height
     % get_sync_percentage(ires)
     % (ires.testnet ? "testnet" : "mainnet")
+    % bootstrap_msg
     % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed) ) : "not mining")
     % get_mining_speed(ires.difficulty / ires.target)
     % (unsigned)hfres.version
