@@ -1598,7 +1598,7 @@ namespace cryptonote
     size_t n_delete = (n_connections > req.out_peers) ? n_connections - req.out_peers : 0;
     m_p2p.m_config.m_net_config.max_out_connection_count = req.out_peers;
     if (n_delete)
-      m_p2p.delete_connections(n_delete);
+      m_p2p.delete_out_connections(n_delete);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

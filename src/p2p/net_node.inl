@@ -1787,7 +1787,7 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::delete_connections(size_t count)
+  void node_server<t_payload_net_handler>::delete_out_connections(size_t count)
   {
     m_net_server.get_config_object().del_out_connections(count);
   }
