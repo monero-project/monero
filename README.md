@@ -251,7 +251,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.11.0.0
+	git checkout tags/v0.11.1.0
 ```
 * Build:
 ```
