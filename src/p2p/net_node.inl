@@ -871,11 +871,11 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, PeerType peer_type, uint64_t first_seen_stamp)
   {
-    if (m_current_number_of_out_peers == m_config.m_net_config.connections_count) // out peers limit
+    if (m_current_number_of_out_peers == m_config.m_net_config.max_out_connection_count) // out peers limit
     {
       return false;
     }
-    else if (m_current_number_of_out_peers > m_config.m_net_config.connections_count)
+    else if (m_current_number_of_out_peers > m_config.m_net_config.max_out_connection_count)
     {
       m_net_server.get_config_object().del_out_connections(1);
       m_current_number_of_out_peers --; // atomic variable, update time = 1s
@@ -1164,10 +1164,10 @@ namespace nodetool
 
     if (!connect_to_peerlist(m_priority_peers)) return false;
 
-    size_t expected_white_connections = (m_config.m_net_config.connections_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
+    size_t expected_white_connections = (m_config.m_net_config.max_out_connection_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
 
     size_t conn_count = get_outgoing_connections_count();
-    if(conn_count < m_config.m_net_config.connections_count)
+    if(conn_count < m_config.m_net_config.max_out_connection_count)
     {
       if(conn_count < expected_white_connections)
       {
@@ -1178,20 +1178,20 @@ namespace nodetool
         if(!make_expected_connections_count(white, expected_white_connections))
           return false;
         //then do grey list
-        if(!make_expected_connections_count(gray, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(gray, m_config.m_net_config.max_out_connection_count))
           return false;
       }else
       {
         //start from grey list
-        if(!make_expected_connections_count(gray, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(gray, m_config.m_net_config.max_out_connection_count))
           return false;
         //and then do white list
-        if(!make_expected_connections_count(white, m_config.m_net_config.connections_count))
+        if(!make_expected_connections_count(white, m_config.m_net_config.max_out_connection_count))
           return false;
       }
     }
 
-    if (start_conn_count == get_outgoing_connections_count() && start_conn_count < m_config.m_net_config.connections_count)
+    if (start_conn_count == get_outgoing_connections_count() && start_conn_count < m_config.m_net_config.max_out_connection_count)
     {
       MINFO("Failed to connect to any, trying seeds");
       if (!connect_to_seed())
@@ -1779,10 +1779,10 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max)
   {
     if(max == -1) {
-      m_config.m_net_config.connections_count = P2P_DEFAULT_CONNECTIONS_COUNT;
+      m_config.m_net_config.max_out_connection_count = P2P_DEFAULT_CONNECTIONS_COUNT;
       return true;
     }
-    m_config.m_net_config.connections_count = max;
+    m_config.m_net_config.max_out_connection_count = max;
     return true;
   }
 

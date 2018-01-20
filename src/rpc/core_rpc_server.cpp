@@ -1596,7 +1596,7 @@ namespace cryptonote
     PERF_TIMER(on_out_peers);
     size_t n_connections = m_p2p.get_outgoing_connections_count();
     size_t n_delete = (n_connections > req.out_peers) ? n_connections - req.out_peers : 0;
-    m_p2p.m_config.m_net_config.connections_count = req.out_peers;
+    m_p2p.m_config.m_net_config.max_out_connection_count = req.out_peers;
     if (n_delete)
       m_p2p.delete_connections(n_delete);
     res.status = CORE_RPC_STATUS_OK;
