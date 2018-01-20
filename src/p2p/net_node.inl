@@ -85,6 +85,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_out_peers);
+    command_line::add_arg(desc, arg_in_peers);
     command_line::add_arg(desc, arg_tos_flag);
     command_line::add_arg(desc, arg_limit_rate_up);
     command_line::add_arg(desc, arg_limit_rate_down);
@@ -313,6 +314,9 @@ namespace nodetool
       m_hide_my_port = true;
 
     if ( !set_max_out_peers(vm, command_line::get_arg(vm, arg_out_peers) ) )
+      return false;
+
+    if ( !set_max_in_peers(vm, command_line::get_arg(vm, arg_in_peers) ) )
       return false;
 
     if ( !set_tos_flag(vm, command_line::get_arg(vm, arg_tos_flag) ) )
@@ -565,14 +569,23 @@ namespace nodetool
       while (!is_closing && !m_net_server.is_stop_signal_sent())
       { // main loop of thread
         //number_of_peers = m_net_server.get_config_object().get_connections_count();
-        unsigned int number_of_peers = 0;
+        unsigned int number_of_in_peers = 0;
+        unsigned int number_of_out_peers = 0;
         m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          if (!cntxt.m_is_income) ++number_of_peers;
+          if (cntxt.m_is_income)
+          {
+            ++number_of_in_peers;
+          }
+          else
+          {
+            ++number_of_out_peers;
+          }
           return true;
         }); // lambda
 
-        m_current_number_of_out_peers = number_of_peers;
+        m_current_number_of_in_peers = number_of_in_peers;
+        m_current_number_of_out_peers = number_of_out_peers;
 
         boost::this_thread::sleep_for(boost::chrono::seconds(1));
       } // main loop of thread
@@ -1253,6 +1266,20 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  size_t node_server<t_payload_net_handler>::get_incoming_connections_count()
+  {
+    size_t count = 0;
+    m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+    {
+      if(cntxt.m_is_income)
+        ++count;
+      return true;
+    });
+
+    return count;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
@@ -1618,6 +1645,13 @@ namespace nodetool
       return 1;
     }
 
+   if (m_current_number_of_in_peers >= m_config.m_net_config.max_in_connection_count) // in peers limit
+    {
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but already have max incoming connections, so dropping this one.");
+      drop_connection(context);
+      return 1;
+    }
+
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, true))
     {
       LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
@@ -1787,9 +1821,26 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_max_in_peers(const boost::program_options::variables_map& vm, int64_t max)
+  {
+    if(max == -1) {
+      m_config.m_net_config.max_in_connection_count = -1;
+      return true;
+    }
+    m_config.m_net_config.max_in_connection_count = max;
+    return true;
+  }
+
+  template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::delete_out_connections(size_t count)
   {
     m_net_server.get_config_object().del_out_connections(count);
+  }
+
+  template<class t_payload_net_handler>
+  void node_server<t_payload_net_handler>::delete_in_connections(size_t count)
+  {
+    m_net_server.get_config_object().del_in_connections(count);
   }
 
   template<class t_payload_net_handler>

@@ -77,6 +77,8 @@ class async_protocol_handler_config
   levin_commands_handler<t_connection_context>* m_pcommands_handler;
   void (*m_pcommands_handler_destroy)(levin_commands_handler<t_connection_context>*);
 
+  void delete_connections (size_t count, bool incoming);
+
 public:
   typedef t_connection_context connection_context;
   uint64_t m_max_packet_size; 
@@ -101,6 +103,7 @@ public:
   {}
   ~async_protocol_handler_config() { set_handler(NULL, NULL); }
   void del_out_connections(size_t count);
+  void del_in_connections(size_t count);
 };
 
 
@@ -731,41 +734,50 @@ void async_protocol_handler_config<t_connection_context>::del_connection(async_p
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
+void async_protocol_handler_config<t_connection_context>::delete_connections(size_t count, bool incoming)
+{
+  std::vector <boost::uuids::uuid> connections;
+  CRITICAL_REGION_BEGIN(m_connects_lock);
+  for (auto& c: m_connects)
+  {
+    if (c.second->m_connection_context.m_is_income == incoming)
+      connections.push_back(c.first);
+  }
+
+  // close random connections from  the provided set
+  // TODO or better just keep removing random elements (performance)
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  shuffle(connections.begin(), connections.end(), std::default_random_engine(seed));
+  while (count > 0 && connections.size() > 0)
+  {
+    try
+    {
+      auto i = connections.end() - 1;
+      async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
+      del_connection(conn);
+      close(*i);
+      connections.erase(i);
+    }
+    catch (const std::out_of_range &e)
+    {
+      MWARNING("Connection not found in m_connects, continuing");
+    }
+    --count;
+  }
+
+  CRITICAL_REGION_END();
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
 void async_protocol_handler_config<t_connection_context>::del_out_connections(size_t count)
 {
-	std::vector <boost::uuids::uuid> out_connections;
-	CRITICAL_REGION_BEGIN(m_connects_lock);
-	for (auto& c: m_connects)
-	{
-		if (!c.second->m_connection_context.m_is_income)
-			out_connections.push_back(c.first);
-	}
-	
-	if (out_connections.size() == 0)
-		return;
-
-	// close random out connections
-	// TODO or better just keep removing random elements (performance)
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
-	while (count > 0 && out_connections.size() > 0)
-	{
-		try
-		{
-			auto i = out_connections.end() - 1;
-			async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
-			del_connection(conn);
-			close(*i);
-			out_connections.erase(i);
-		}
-		catch (const std::out_of_range &e)
-		{
-			MWARNING("Connection not found in m_connects, continuing");
-		}
-		--count;
-	}
-	
-	CRITICAL_REGION_END();
+  delete_connections(count, false);
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
+void async_protocol_handler_config<t_connection_context>::del_in_connections(size_t count)
+{
+  delete_connections(count, true);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>

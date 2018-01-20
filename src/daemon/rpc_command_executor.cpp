@@ -1281,6 +1281,38 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 	return true;
 }
 
+bool t_rpc_command_executor::in_peers(uint64_t limit)
+{
+	cryptonote::COMMAND_RPC_IN_PEERS::request req;
+	cryptonote::COMMAND_RPC_IN_PEERS::response res;
+
+	epee::json_rpc::error error_resp;
+
+	req.in_peers = limit;
+
+	std::string fail_message = "Unsuccessful";
+
+	if (m_is_rpc)
+	{
+		if (!m_rpc_client->json_rpc_request(req, res, "in_peers", fail_message.c_str()))
+		{
+			return true;
+		}
+	}
+	else
+	{
+		if (!m_rpc_server->on_in_peers(req, res) || res.status != CORE_RPC_STATUS_OK)
+		{
+			tools::fail_msg_writer() << make_error(fail_message, res.status);
+			return true;
+		}
+	}
+
+	std::cout << "Max number of in peers set to " << limit << std::endl;
+
+	return true;
+}
+
 bool t_rpc_command_executor::start_save_graph()
 {
 	cryptonote::COMMAND_RPC_START_SAVE_GRAPH::request req;

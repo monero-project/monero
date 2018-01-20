@@ -1603,6 +1603,18 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_in_peers(const COMMAND_RPC_IN_PEERS::request& req, COMMAND_RPC_IN_PEERS::response& res)
+  {
+    PERF_TIMER(on_in_peers);
+    size_t n_connections = m_p2p.get_incoming_connections_count();
+    size_t n_delete = (n_connections > req.in_peers) ? n_connections - req.in_peers : 0;
+    m_p2p.m_config.m_net_config.max_in_connection_count = req.in_peers;
+    if (n_delete)
+      m_p2p.delete_in_connections(n_delete);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_start_save_graph(const COMMAND_RPC_START_SAVE_GRAPH::request& req, COMMAND_RPC_START_SAVE_GRAPH::response& res)
   {
 	  PERF_TIMER(on_start_save_graph);
