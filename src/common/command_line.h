@@ -46,7 +46,7 @@ namespace command_line
   //! \return True if `str` is `is_iequal("n" || "no" || `tr("no"))`.
   bool is_no(const std::string& str);
 
-  template<typename T, bool required = false>
+  template<typename T, bool required = false, bool dependent = false>
   struct arg_descriptor;
 
   template<typename T>
@@ -81,6 +81,22 @@ namespace command_line
   };
 
   template<typename T>
+  struct arg_descriptor<T, false, true>
+  {
+    typedef T value_type;
+
+    const char* name;
+    const char* description;
+
+    const arg_descriptor<bool, false>& ref;
+
+    T true_default_value;
+    T false_default_value;
+
+    bool not_use_default;
+  };
+
+  template<typename T>
   boost::program_options::typed_value<T, char>* make_semantic(const arg_descriptor<T, true>& /*arg*/)
   {
     return boost::program_options::value<T>()->required();
@@ -92,6 +108,23 @@ namespace command_line
     auto semantic = boost::program_options::value<T>();
     if (!arg.not_use_default)
       semantic->default_value(arg.default_value);
+    return semantic;
+  }
+
+  template<typename T>
+  boost::program_options::typed_value<T, char>* make_semantic(const arg_descriptor<T, false, true>& arg)
+  {
+    auto semantic = boost::program_options::value<T>();
+    if (!arg.not_use_default) {
+      if (arg.ref.default_value)
+      {
+        semantic->default_value(arg.true_default_value);
+      }
+      else
+      {
+        semantic->default_value(arg.false_default_value);
+      }
+    }
     return semantic;
   }
 
@@ -112,8 +145,8 @@ namespace command_line
     return semantic;
   }
 
-  template<typename T, bool required>
-  void add_arg(boost::program_options::options_description& description, const arg_descriptor<T, required>& arg, bool unique = true)
+  template<typename T, bool required, bool dependent>
+  void add_arg(boost::program_options::options_description& description, const arg_descriptor<T, required, dependent>& arg, bool unique = true)
   {
     if (0 != description.find_nothrow(arg.name, false))
     {
@@ -189,12 +222,19 @@ namespace command_line
     return !value.empty();
   }
 
-  template<typename T, bool required>
-  bool is_arg_defaulted(const boost::program_options::variables_map& vm, const arg_descriptor<T, required>& arg)
+  template<typename T, bool required, bool dependent>
+  bool is_arg_defaulted(const boost::program_options::variables_map& vm, const arg_descriptor<T, required, dependent>& arg)
   {
     return vm[arg.name].defaulted();
   }
 
+  template<typename T, bool required>
+  T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required, true>& arg)
+  {
+    if (is_arg_defaulted(vm, arg) && !is_arg_defaulted(vm, arg.ref))
+      return get_arg(vm, arg.ref) ? arg.true_default_value : arg.false_default_value;
+    return vm[arg.name].template as<T>();
+  }
 
   template<typename T, bool required>
   T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required>& arg)
