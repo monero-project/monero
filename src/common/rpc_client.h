@@ -72,10 +72,10 @@ namespace tools
         fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
-      ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
+      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
-        fail_msg_writer() << "Daemon request failed";
+        fail_msg_writer() << "basic_json_rpc_request: Daemon request failed";
         return false;
       }
       else
@@ -95,15 +95,15 @@ namespace tools
       t_http_connection connection(&m_http_client);
 
       bool ok = connection.is_open();
-      ok = ok && epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
-      else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
+      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
+      if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
       {
-        fail_msg_writer() << fail_msg << " -- " << res.status;
+        fail_msg_writer() << fail_msg << " -- json_rpc_request: " << res.status;
         return false;
       }
       else
@@ -123,15 +123,15 @@ namespace tools
       t_http_connection connection(&m_http_client);
 
       bool ok = connection.is_open();
-      ok = ok && epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
       if (!ok)
       {
         fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
         return false;
       }
-      else if (res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
+      ok = epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
+      if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
       {
-        fail_msg_writer() << fail_msg << " -- " << res.status;
+        fail_msg_writer() << fail_msg << "-- rpc_request: " << res.status;
         return false;
       }
       else
