@@ -53,10 +53,8 @@ namespace cryptonote
   {
   public:
 
-    static const command_line::arg_descriptor<std::string> arg_rpc_bind_port;
+    static const command_line::arg_descriptor<std::string, false, true> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_rpc_restricted_bind_port;
-    static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
-    static const command_line::arg_descriptor<std::string> arg_testnet_rpc_restricted_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
     static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_address;
     static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_login;

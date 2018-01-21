@@ -59,7 +59,6 @@ int main(int argc, char* argv[])
   tools::on_startup();
 
   boost::filesystem::path default_data_path {tools::get_default_data_dir()};
-  boost::filesystem::path default_testnet_data_path {default_data_path / "testnet"};
   boost::filesystem::path output_file_path;
 
   po::options_description desc_cmd_only("Command line options");
@@ -73,8 +72,7 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<bool> arg_blocks_dat = {"blocksdat", "Output in blocks.dat format", blocks_dat};
 
 
-  command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir, default_data_path.string());
-  command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_data_dir, default_testnet_data_path.string());
+  command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, arg_output_file);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
@@ -118,8 +116,7 @@ int main(int argc, char* argv[])
 
   std::string m_config_folder;
 
-  auto data_dir_arg = opt_testnet ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
-  m_config_folder = command_line::get_arg(vm, data_dir_arg);
+  m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
   if (!cryptonote::blockchain_valid_db_type(db_type))

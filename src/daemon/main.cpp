@@ -92,7 +92,6 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_ip);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_port);
-      command_line::add_arg(core_settings, daemon_args::arg_zmq_testnet_rpc_bind_port);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -154,10 +153,6 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    bool testnet_mode = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-
-    auto data_dir_arg = testnet_mode ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
-
     // data_dir
     //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
     //   if data-dir argument given:
@@ -166,7 +161,7 @@ int main(int argc, char const * argv[])
 
     // Create data dir if it doesn't exist
     boost::filesystem::path data_dir = boost::filesystem::absolute(
-        command_line::get_arg(vm, data_dir_arg));
+        command_line::get_arg(vm, cryptonote::arg_data_dir));
 
     // FIXME: not sure on windows implementation default, needs further review
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
@@ -226,10 +221,6 @@ int main(int argc, char const * argv[])
         const cryptonote::rpc_args::descriptors arg{};
         auto rpc_ip_str = command_line::get_arg(vm, arg.rpc_bind_ip);
         auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
-        if (testnet_mode)
-        {
-          rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_testnet_rpc_bind_port);
-        }
 
         uint32_t rpc_ip;
         uint16_t rpc_port;

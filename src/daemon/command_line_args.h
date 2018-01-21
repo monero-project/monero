@@ -76,16 +76,12 @@ namespace daemon_args
       , "127.0.0.1"
   };
 
-  const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_port = {
+  const command_line::arg_descriptor<std::string, false, true> arg_zmq_rpc_bind_port = {
     "zmq-rpc-bind-port"
-      , "Port for ZMQ RPC server to listen on"
-      , std::to_string(config::ZMQ_RPC_DEFAULT_PORT)
-  };
-
-  const command_line::arg_descriptor<std::string> arg_zmq_testnet_rpc_bind_port = {
-    "zmq-testnet-rpc-bind-port"
-      , "Port for testnet ZMQ RPC server to listen on"
-      , std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT)
+  , "Port for ZMQ RPC server to listen on"
+  , cryptonote::arg_testnet_on
+  , std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT)
+  , std::to_string(config::ZMQ_RPC_DEFAULT_PORT)
   };
 
 }  // namespace daemon_args

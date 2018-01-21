@@ -671,8 +671,7 @@ int main(int argc, char* argv[])
   }
 
   opt_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-  auto data_dir_arg = opt_testnet ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
-  m_config_folder = command_line::get_arg(vm, data_dir_arg);
+  m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
   mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);

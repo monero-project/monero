@@ -73,8 +73,6 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_rpc_restricted_bind_port);
-    command_line::add_arg(desc, arg_testnet_rpc_bind_port);
-    command_line::add_arg(desc, arg_testnet_rpc_restricted_bind_port);
     command_line::add_arg(desc, arg_restricted_rpc);
     command_line::add_arg(desc, arg_bootstrap_daemon_address);
     command_line::add_arg(desc, arg_bootstrap_daemon_login);
@@ -2075,27 +2073,17 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------------
 
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_bind_port = {
+  const command_line::arg_descriptor<std::string, false, true> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"
+    , cryptonote::arg_testnet_on
+    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
     , std::to_string(config::RPC_DEFAULT_PORT)
     };
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_restricted_bind_port = {
       "rpc-restricted-bind-port"
     , "Port for restricted RPC server"
-    , ""
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_testnet_rpc_bind_port = {
-      "testnet-rpc-bind-port"
-    , "Port for testnet RPC server"
-    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_testnet_rpc_restricted_bind_port = {
-      "testnet-rpc-restricted-bind-port"
-    , "Port for testnet restricted RPC server"
     , ""
     };
 
