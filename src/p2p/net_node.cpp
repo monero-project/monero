@@ -37,9 +37,13 @@ namespace nodetool
     const command_line::arg_descriptor<std::string, false, true> arg_p2p_bind_port = {
         "p2p-bind-port"
       , "Port for p2p network protocol"
-      , cryptonote::arg_testnet_on
-      , std::to_string(config::testnet::P2P_DEFAULT_PORT)
       , std::to_string(config::P2P_DEFAULT_PORT)
+      , cryptonote::arg_testnet_on
+      , [](bool testnet, bool defaulted, std::string val) {
+          if (testnet && defaulted)
+            return std::to_string(config::testnet::P2P_DEFAULT_PORT);
+          return val;
+        }
       };
     const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port  = {"p2p-external-port", "External port for p2p network protocol (if port forwarding used with NAT)", 0};
     const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip = {"allow-local-ip", "Allow local ip add to peer list, mostly in debug purposes"};

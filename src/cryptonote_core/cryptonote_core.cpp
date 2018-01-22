@@ -74,9 +74,13 @@ namespace cryptonote
   const command_line::arg_descriptor<std::string, false, true> arg_data_dir = {
     "data-dir"
   , "Specify data directory"
-  , arg_testnet_on
-  , (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string()
   , tools::get_default_data_dir()
+  , arg_testnet_on
+  , [](bool testnet, bool defaulted, std::string val) {
+      if (testnet)
+        return (boost::filesystem::path(val) / "testnet").string();
+      return val;
+    }
   };
   const command_line::arg_descriptor<bool> arg_offline = {
     "offline"

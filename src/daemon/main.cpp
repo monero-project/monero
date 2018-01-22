@@ -73,20 +73,15 @@ int main(int argc, char const * argv[])
     po::options_description core_settings("Settings");
     po::positional_options_description positional_options;
     {
-      bf::path default_data_dir = daemonizer::get_default_data_dir();
-      bf::path default_testnet_data_dir = {default_data_dir / "testnet"};
-
       // Misc Options
 
       command_line::add_arg(visible_options, command_line::arg_help);
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
-      bf::path default_conf = default_data_dir / std::string(CRYPTONOTE_NAME ".conf");
-      command_line::add_arg(visible_options, daemon_args::arg_config_file, default_conf.string());
+      command_line::add_arg(visible_options, daemon_args::arg_config_file);
 
       // Settings
-      bf::path default_log = default_data_dir / std::string(CRYPTONOTE_NAME ".log");
-      command_line::add_arg(core_settings, daemon_args::arg_log_file, default_log.string());
+      command_line::add_arg(core_settings, daemon_args::arg_log_file);
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
       command_line::add_arg(core_settings, daemon_args::arg_max_log_file_size);
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);

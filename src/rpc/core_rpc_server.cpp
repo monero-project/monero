@@ -2076,9 +2076,13 @@ namespace cryptonote
   const command_line::arg_descriptor<std::string, false, true> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"
-    , cryptonote::arg_testnet_on
-    , std::to_string(config::testnet::RPC_DEFAULT_PORT)
     , std::to_string(config::RPC_DEFAULT_PORT)
+    , cryptonote::arg_testnet_on
+    , [](bool testnet, bool defaulted, std::string val) {
+        if (testnet && defaulted)
+          return std::to_string(config::testnet::RPC_DEFAULT_PORT);
+        return val;
+      }
     };
 
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_restricted_bind_port = {
