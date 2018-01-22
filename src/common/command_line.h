@@ -30,7 +30,9 @@
 
 #pragma once
 
+#include <functional>
 #include <iostream>
+#include <sstream>
 #include <type_traits>
 
 #include <boost/program_options/parsers.hpp>
@@ -88,10 +90,10 @@ namespace command_line
     const char* name;
     const char* description;
 
-    const arg_descriptor<bool, false>& ref;
+    T default_value;
 
-    T true_default_value;
-    T false_default_value;
+    const arg_descriptor<bool, false>& ref;
+    std::function<T(bool, bool, T)> depf;
 
     bool not_use_default;
   };
@@ -116,14 +118,11 @@ namespace command_line
   {
     auto semantic = boost::program_options::value<T>();
     if (!arg.not_use_default) {
-      if (arg.ref.default_value)
-      {
-        semantic->default_value(arg.true_default_value);
-      }
-      else
-      {
-        semantic->default_value(arg.false_default_value);
-      }
+      std::ostringstream format;
+      format << arg.depf(false, true, arg.default_value) << ", "
+             << arg.depf(true, true, arg.default_value) << " if '"
+             << arg.ref.name << "'";
+      semantic->default_value(arg.depf(arg.ref.default_value, true, arg.default_value), format.str());
     }
     return semantic;
   }
@@ -231,9 +230,7 @@ namespace command_line
   template<typename T, bool required>
   T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required, true>& arg)
   {
-    if (is_arg_defaulted(vm, arg) && !is_arg_defaulted(vm, arg.ref))
-      return get_arg(vm, arg.ref) ? arg.true_default_value : arg.false_default_value;
-    return vm[arg.name].template as<T>();
+    return arg.depf(get_arg(vm, arg.ref), is_arg_defaulted(vm, arg), vm[arg.name].template as<T>());
   }
 
   template<typename T, bool required>
