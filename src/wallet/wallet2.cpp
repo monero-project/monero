@@ -361,6 +361,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
 
     wallet.reset(make_basic(vm, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
+    wallet->explicit_refresh_from_block_height(field_scan_from_height_found);
 
     try
     {
@@ -605,6 +606,7 @@ wallet2::wallet2(bool testnet, bool restricted):
   m_refresh_type(RefreshOptimizeCoinbase),
   m_auto_refresh(true),
   m_refresh_from_block_height(0),
+  m_explicit_refresh_from_block_height(true),
   m_confirm_missing_payment_id(true),
   m_ask_password(true),
   m_min_output_count(0),

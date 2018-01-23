@@ -550,6 +550,9 @@ namespace tools
     void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height;}
     uint64_t get_refresh_from_block_height() const {return m_refresh_from_block_height;}
 
+    void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
+    bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
+
     // upper_transaction_size_limit as defined below is set to 
     // approximately 125% of the fixed minimum allowable penalty
     // free block size. TODO: fix this so that it actually takes
@@ -1082,6 +1085,9 @@ namespace tools
     RefreshType m_refresh_type;
     bool m_auto_refresh;
     uint64_t m_refresh_from_block_height;
+    // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
+    // m_refresh_from_block_height was defaulted to zero.*/
+    bool m_explicit_refresh_from_block_height;
     bool m_confirm_missing_payment_id;
     bool m_ask_password;
     uint32_t m_min_output_count;
