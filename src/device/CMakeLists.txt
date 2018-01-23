@@ -26,14 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(ledger_sources
-  device.cpp)
+set(device_sources
+  device_default.cpp
+  device_ledger.cpp
+  )
 
-set(ledger_headers
-  device.hpp)
+set(device_headers
+  device_declare.hpp
+  device.hpp
+  device_default.hpp
+  device_ledger.hpp
+ )
 
-set(ledger_private_headers)
-  
+set(device_private_headers)
+
 
 if(PER_BLOCK_CHECKPOINT)
   set(Blocks "blocks")
@@ -41,18 +47,18 @@ else()
   set(Blocks "")
 endif()
 
-monero_private_headers(ledger
-  ${ledger_private_headers})
+monero_private_headers(device
+  ${device_private_headers})
 
-monero_add_library(ledger
-  ${ledger_sources}
-  ${ledger_headers}
-  ${ledger_private_headers})
-  
-target_link_libraries(ledger
+monero_add_library(device
+  ${device_sources}
+  ${device_headers}
+  ${device_private_headers})
+
+target_link_libraries(device
   PUBLIC
     pcsclite
-    
+
   PRIVATE
     ${Blocks}
     ${EXTRA_LIBRARIES})

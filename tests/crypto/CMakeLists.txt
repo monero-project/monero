@@ -48,7 +48,7 @@ target_link_libraries(cncrypto-tests
     blockchain_db
     p2p
     epee
-    ledger
+    device
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
 set_property(TARGET cncrypto-tests

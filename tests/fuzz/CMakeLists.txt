@@ -57,7 +57,7 @@ target_link_libraries(signature_fuzz_tests
     cryptonote_core
     p2p
     epee
-    ledger
+    device
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET signature_fuzz_tests
@@ -71,7 +71,7 @@ target_link_libraries(cold-outputs_fuzz_tests
     cryptonote_core
     p2p
     epee
-    ledger
+    device
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET cold-outputs_fuzz_tests
@@ -85,7 +85,7 @@ target_link_libraries(cold-transaction_fuzz_tests
     cryptonote_core
     p2p
     epee
-    ledger
+    device
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET cold-transaction_fuzz_tests

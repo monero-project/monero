@@ -41,7 +41,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
-
+#include "device/device.hpp"
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
 
@@ -104,6 +104,16 @@ namespace cryptonote
       ge_p1p1_to_p3(&A2, &tmp3);
       ge_p3_tobytes(&AB, &A2);
   }
+
+  // a copy of rct::scalarmultKey, since we can't link to libringct to avoid circular dependencies
+  static void secret_key_mult_public_key(crypto::public_key & aP, const crypto::public_key &P, const crypto::secret_key &a) {
+      ge_p3 A;
+      ge_p2 R;
+      //CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+      ge_frombytes_vartime(&A, (const unsigned char*)P.data);
+      ge_scalarmult(&R, (const unsigned char*)a.data, &A);
+      ge_tobytes((unsigned char*)aP.data, &R);
+    }
 }
 
 namespace cryptonote
@@ -160,30 +170,21 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::secret_key get_subaddress_secret_key(const crypto::secret_key& a, const subaddress_index& index, ledger::Device &device)
+  crypto::secret_key get_subaddress_secret_key(const crypto::secret_key& a, const subaddress_index& index)
+  {
+    const char prefix[] = "SubAddr";
+    char data[sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(subaddress_index)];
+    memcpy(data, prefix, sizeof(prefix));
+    memcpy(data + sizeof(prefix), &a, sizeof(crypto::secret_key));
+    memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &index, sizeof(subaddress_index));
+    crypto::secret_key m;
+    crypto::hash_to_scalar(data, sizeof(data), m);
+    return m;
+  }
+  crypto::secret_key get_subaddress_secret_key(const crypto::secret_key& a, const subaddress_index& index, hw::Device &device)
   {
     crypto::secret_key m;
-
-    if (device) {
-      device.get_subaddress_secret_key(a, index, m);
-      #ifdef DEBUGLEDGER
-      crypto::secret_key  device_m = m;
-      ledger::decrypt(device_m.data, 32);
-      crypto::secret_key ax =a;
-      ledger::decrypt((char*)ax.data, 32);
-      ledger::log_hexbuffer("get_subaddress_secret_key/a ", a.data,32);
-      ledger::log_hexbuffer("get_subaddress_secret_key/ax", ax.data,32);
-      crypto::secret_key mx = get_subaddress_secret_key(ax,index);
-      ledger::check32("get_subaddress_secret_key", "", mx.data, device_m.data);
-      #endif
-    } else {
-      const char prefix[] = "SubAddr";
-      char data[sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(subaddress_index)];
-      memcpy(data, prefix, sizeof(prefix));
-      memcpy(data + sizeof(prefix), &a, sizeof(crypto::secret_key));
-      memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &index, sizeof(subaddress_index));
-      crypto::hash_to_scalar(data, sizeof(data), m);
-    }
+    device.get_subaddress_secret_key(a, index, m);
     return m;
   }
   //---------------------------------------------------------------
@@ -195,7 +196,7 @@ namespace cryptonote
                                  size_t                                                          real_output_index,
                                  keypair&                                                        in_ephemeral,
                                  crypto::key_image&                                              ki,
-                                 ledger::Device&                                                 device)
+                                 hw::Device&                                                 device)
   {
     crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
 
@@ -217,7 +218,7 @@ namespace cryptonote
     return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki, device);
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, ledger::Device& device)
+  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, hw::Device& device)
  {
     if (ack.m_spend_secret_key == crypto::null_skey)
     {
@@ -240,23 +241,8 @@ namespace cryptonote
       }
       else
       {
-        subaddr_sk = get_subaddress_secret_key(ack.m_view_secret_key, received_index, device);
-        if (device) {
-          device.sc_add(scalar_step1,subaddr_sk, scalar_step2);
-          #ifdef DEBUGLEDGER
-          crypto::secret_key device_scalar_step2x = scalar_step2;
-          ledger::decrypt(device_scalar_step2x.data,32);
-          crypto::secret_key scalar_step1x = scalar_step1;
-          ledger::decrypt(scalar_step1x.data,32);
-          crypto::secret_key subaddr_skx = subaddr_sk;
-          ledger::decrypt(subaddr_skx.data,32);
-          crypto::secret_key scalar_step2x;
-          sc_add((unsigned char*)&scalar_step2x, (unsigned char*)&scalar_step1x, (unsigned char*)&subaddr_skx);
-          ledger::check32("generate_key_image_helper_precomp", "sc_add", scalar_step2x.data, device_scalar_step2x.data);
-          #endif
-        } else {
-          sc_add((unsigned char*)&scalar_step2, (unsigned char*)&scalar_step1, (unsigned char*)&subaddr_sk);
-        }
+        device.get_subaddress_secret_key(ack.m_view_secret_key, received_index, subaddr_sk);
+        device.sc_secret_add(scalar_step1,subaddr_sk, scalar_step2);
       }
 
       in_ephemeral.sec = scalar_step2;
@@ -547,60 +533,32 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key,
-                          const crypto::secret_key &secret_key,
-                          ledger::Device &device)
+  bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
   {
-    if (device) {
-      #ifdef DEBUGLEDGER
+    crypto::key_derivation derivation;
+    crypto::hash hash;
+    char data[33]; /* A hash, and an extra byte */
 
-      #if  0
-      crypto::hash8 payment_idx;
-      crypto::key_derivation derivation;
-      crypto::hash hash;
-      char data[33];
+    if (!generate_key_derivation(public_key, secret_key, derivation))
+      return false;
 
-      crypto::secret_key secret_key_dec;
-      memmove(&secret_key_dec, &secret_key, sizeof(cry               pto::secret_key));
-      ledger::decrypt(secret_key_dec.data,32);
+    memcpy(data, &derivation, 32);
+    data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
+    cn_fast_hash(data, 33, hash);
 
-      generate_key_derivation(public_key, secret_key_dec, derivation);
-      memcpy(data, &derivation, 32);
-      data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
-      cn_fast_hash(data, 33, hash);
-      for (size_t b = 0; b < 8; ++b)
-        payment_idx.data[b] = payment_id.data[b]^hash.data[b];
-      #else
-      crypto::hash8      payment_idx = payment_id;
-      crypto::secret_key secret_keyx = secret_key;
-      ledger::decrypt(secret_keyx.data, 32);
-      encrypt_payment_id(payment_idx, public_key, secret_key);
-      #endif
-      #endif
+    for (size_t b = 0; b < 8; ++b)
+      payment_id.data[b] ^= hash.data[b];
 
-      device.stealth(payment_id, public_key);
-
-      #ifdef DEBUGLEDGER
-      ledger::check8("encrypt_payment_id", "paymentID", payment_idx.data, payment_id.data);
-      #endif
-    } else {
-      crypto::key_derivation derivation;
-      crypto::hash hash;
-      char data[33]; /* A hash, and an extra byte */
-
-      if (!generate_key_derivation(public_key, secret_key, derivation))
-        return false;
-
-      memcpy(data, &derivation, 32);
-      data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
-      cn_fast_hash(data, 33, hash);
-
-      for (size_t b = 0; b < 8; ++b)
-        payment_id.data[b] ^= hash.data[b];
-    }
     return true;
   }
-  bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key, ledger::Device &device)
+
+  bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key,
+                          const crypto::secret_key &secret_key,
+                          hw::Device &device)
+  {
+    return device.stealth(public_key, secret_key, payment_id);
+  }
+  bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key, hw::Device &device)
   {
     // Encryption and decryption are the same operation (xor with a key)
     return encrypt_payment_id(payment_id, public_key, secret_key, device);
@@ -705,10 +663,10 @@ namespace cryptonote
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
   {
     crypto::key_derivation derivation;
-    bool r = generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation, acc.m_device);
+    bool r = generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation, *acc.m_device);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
     crypto::public_key pk;
-    r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk, acc.m_device);
+    r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk, *acc.m_device);
     CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
     if (pk == out_key.key)
       return true;
@@ -716,16 +674,16 @@ namespace cryptonote
     if (!additional_tx_pub_keys.empty())
     {
       CHECK_AND_ASSERT_MES(output_index < additional_tx_pub_keys.size(), false, "wrong number of additional tx pubkeys");
-      r = generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation,acc.m_device);
+      r = generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation,*acc.m_device);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
-      r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk,acc.m_device);
+      r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk, *acc.m_device);
       CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
       return pk == out_key.key;
     }
     return false;
   }
   //---------------------------------------------------------------
-  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, ledger::Device& device)
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::Device& device)
   {
     // try the shared tx pubkey
     crypto::public_key subaddress_spendkey;
@@ -1137,4 +1095,60 @@ namespace cryptonote
     return key;
   }
 
+
+#define CHACHA8_KEY_TAIL 0x8c
+bool generate_chacha_key_from_secret_keys(const account_keys &keys, crypto::chacha_key &key)
+  {
+    const crypto::secret_key &view_key = keys.m_view_secret_key;
+    const crypto::secret_key &spend_key = keys.m_spend_secret_key;
+    tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1> data;
+    memcpy(data.data(), &view_key, sizeof(view_key));
+    memcpy(data.data() + sizeof(view_key), &spend_key, sizeof(spend_key));
+    data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
+    crypto::generate_chacha_key(data.data(), sizeof(data), key);
+    return true;
+  }
+
+  crypto::public_key get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index)
+  {
+    if (index.is_zero())
+      return keys.m_account_address.m_spend_public_key;
+
+    // m = Hs(a || index_major || index_minor)
+    crypto::secret_key m = cryptonote::get_subaddress_secret_key(keys.m_view_secret_key, index);
+
+    // M = m*G
+    crypto::public_key M;
+    crypto::secret_key_to_public_key(m, M);
+
+    // D = B + M
+    crypto::public_key D;
+    add_public_key(D, keys.m_account_address.m_spend_public_key, M);  // could have defined add_public_key() under src/crypto
+    return D;
+  }
+
+  cryptonote::account_public_address get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index)
+  {
+    if (index.is_zero())
+      return keys.m_account_address;
+
+    crypto::public_key D = get_subaddress_spend_public_key(keys, index);
+
+    // C = a*D
+    crypto::public_key C;
+    secret_key_mult_public_key(C, D, keys.m_view_secret_key);   // could have defined secret_key_mult_public_key() under src/crypto
+
+    // result: (C, D)
+    cryptonote::account_public_address address;
+    address.m_view_public_key  = C;
+    address.m_spend_public_key = D;
+    return address;
+  }
+
+  bool verify_keys(const crypto::secret_key& sec, const crypto::public_key& expected_pub)
+  {
+    crypto::public_key pub;
+    bool r = crypto::secret_key_to_public_key(sec, pub);
+    return r && expected_pub == pub;
+  }
 }

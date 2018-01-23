@@ -138,7 +138,7 @@ endif()
 
 #set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 #set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
-set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -g -O0")
+set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG  -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -g -O0")
 
 # set this to 0 if per-block checkpoint needs to be disabled
@@ -679,7 +679,7 @@ else()
   endif(ARM)
 
   if(ANDROID AND NOT BUILD_GUI_DEPS STREQUAL "ON" OR IOS)
-    #From Android 5: "only position independent executables (PIE) are supported" 
+    #From Android 5: "only position independent executables (PIE) are supported"
     message(STATUS "Enabling PIE executable")
     set(PIC_FLAG "")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")

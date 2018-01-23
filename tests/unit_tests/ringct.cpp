@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2017, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "gtest/gtest.h"
@@ -37,6 +37,7 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
+#include "device/device.hpp"
 
 using namespace std;
 using namespace crypto;
@@ -111,7 +112,7 @@ TEST(ringct, MG_sigs)
             sk[j] = xm[ind][j];
         }
         key message = identity();
-        mgSig IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, ledger::no_device);
+        mgSig IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, hw::get_default_device());
         ASSERT_TRUE(MLSAG_Ver(message, P, IIccss, R));
 
         //#MG sig: false one
@@ -132,7 +133,7 @@ TEST(ringct, MG_sigs)
             sk[j] = xx[ind][j];
         }
         sk[2] = skGen();//asume we don't know one of the private keys..
-        IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, ledger::no_device);
+        IIccss = MLSAG_Gen(message, P, sk, NULL, NULL, ind, R, hw::get_default_device());
         ASSERT_FALSE(MLSAG_Ver(message, P, IIccss, R));
 }
 
@@ -171,13 +172,13 @@ TEST(ringct, range_proofs)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, ledger::no_device);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_default_device());
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask,ledger::no_device));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, hw::get_default_device()));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -188,13 +189,13 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, ledger::no_device);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_default_device());
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, ledger::no_device));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, hw::get_default_device()));
 }
 
 TEST(ringct, range_proofs_with_fee)
@@ -235,13 +236,13 @@ TEST(ringct, range_proofs_with_fee)
         destinations.push_back(Pk);
 
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, ledger::no_device);
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_default_device());
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, ledger::no_device));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, hw::get_default_device()));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -252,13 +253,13 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, ledger::no_device);
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_default_device());
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, ledger::no_device));
+        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask, hw::get_default_device()));
 }
 
 TEST(ringct, simple)
@@ -310,13 +311,13 @@ TEST(ringct, simple)
         //compute sig with mixin 2
         xmr_amount txnfee = 1;
 
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, ledger::no_device);
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, hw::get_default_device());
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount corresponding to output pubkey index 1
-        ASSERT_TRUE(decodeRctSimple(s, amount_keys[1], 1, mask, ledger::no_device));
+        ASSERT_TRUE(decodeRctSimple(s, amount_keys[1], 1, mask, hw::get_default_device()));
 }
 
 static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
@@ -344,7 +345,7 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
         }
     }
 
-    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, ledger::no_device);;
+    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_default_device());;
 }
 
 static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], uint64_t fee)
@@ -370,7 +371,7 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
         destinations.push_back(Pk);
     }
 
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, ledger::no_device);;
+    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, hw::get_default_device());;
 }
 
 static bool range_proof_test(bool expected_valid,

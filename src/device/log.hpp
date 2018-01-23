@@ -3,15 +3,11 @@
 #include <string>
 
 #pragma once
-#define DEBUGLEDGER
-#define IODUMMYCRYPT 1
-//#define IONOCRYPT 1
+
+#include "device_declare.hpp"
 
 namespace ledger {
-    namespace {
-        bool apdu_verbose =true;
-    }
-    void set_apdu_verbose(bool verbose);
+
 #define TRACK printf("file %s:%d\n",__FILE__, __LINE__)
 //#define TRACK MCDEBUG("ledger"," At file " << __FILE__ << ":" << __LINE__)
 //#define TRACK while(0);
