@@ -64,5 +64,5 @@ if (USE_READLINE AND GNU_READLINE_FOUND)
     PUBLIC
       easylogging
     PRIVATE
-      ${Readline_LIBRARY})
+    ${GNU_READLINE_LIBRARY})
 endif()
