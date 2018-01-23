@@ -133,9 +133,9 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       crypto::secret_key amount_key;
       crypto::derivation_to_scalar(derivation, o, amount_key);
       if (rct_txes[n].rct_signatures.type == rct::RCTTypeSimple || rct_txes[n].rct_signatures.type == rct::RCTTypeSimpleBulletproof)
-        rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4], ledger::no_device);
+        rct::decodeRctSimple(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4]);
       else
-        rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4], ledger::no_device);
+        rct::decodeRct(rct_txes[n].rct_signatures, rct::sk2rct(amount_key), o, rct_tx_masks[o+n*4]);
     }
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,

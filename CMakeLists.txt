@@ -104,10 +104,8 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
-#set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
-#set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
-set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -g -O0")
+set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
 # set this to 0 if per-block checkpoint needs to be disabled
 set(PER_BLOCK_CHECKPOINT 1)
@@ -365,8 +363,6 @@ if(STATIC AND NOT IOS)
   endif()
 endif()
 
-find_package(PCSC)
-
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
 # Generate header for embedded translations
@@ -402,10 +398,6 @@ endif()
 # Final setup for libunwind
 include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
-
-# Final setup for libpcsc
-include_directories(${LIBPCSC_INCLUDE})
-link_directories(${LIBPCSC_LIBRARY_DIRS})
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")

@@ -111,11 +111,11 @@ namespace rct {
     //Scalar multiplications of curve points        
 
     //does a * G where a is a scalar and G is the curve basepoint
-    void scalarmultBase(key & aG, const key &a, ledger::Device &device = ledger::no_device);
-    key scalarmultBase(const key & a, ledger::Device &device = ledger::no_device);
+    void scalarmultBase(key & aG, const key &a);
+    key scalarmultBase(const key & a);
     //does a * P where a is a scalar and P is an arbitrary point
-    void scalarmultKey(key &aP, const key &P, const key &a, ledger::Device &device = ledger::no_device);
-    key scalarmultKey(const key &P, const key &a, ledger::Device &device = ledger::no_device);
+    void scalarmultKey(key &aP, const key &P, const key &a);
+    key scalarmultKey(const key &P, const key &a);
     //Computes aH where H= toPoint(cn_fast_hash(G)), G the basepoint
     key scalarmultH(const key & a);
 
@@ -173,7 +173,7 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
-    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, ledger::Device &device=ledger::no_device);
-    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, ledger::Device &device=ledger::no_device);
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec);
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec);
 }
 #endif  /* RCTOPS_H */

@@ -48,8 +48,7 @@ else()
 endif()
 
 monero_private_headers(cryptonote_core
-  ${cryptonote_core_private_headers}
-  ${crypto_private_headers})
+  ${cryptonote_core_private_headers})
 monero_add_library(cryptonote_core
   ${cryptonote_core_sources}
   ${cryptonote_core_headers}
@@ -62,7 +61,6 @@ target_link_libraries(cryptonote_core
     blockchain_db
     multisig
     ringct
-    ledger
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}

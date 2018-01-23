@@ -143,5 +143,3 @@ endif()
 if(PER_BLOCK_CHECKPOINT)
   add_subdirectory(blocks)
 endif()
-
-add_subdirectory(ledger)

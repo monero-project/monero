@@ -33,7 +33,7 @@
 #include "crypto-tests.h"
 
 bool check_scalar(const crypto::ec_scalar &scalar) {
-  return sc_check(crypto::operator &(scalar)) == 0;
+  return crypto::sc_check(crypto::operator &(scalar)) == 0;
 }
 
 void random_scalar(crypto::ec_scalar &res) {
@@ -45,13 +45,13 @@ void hash_to_scalar(const void *data, std::size_t length, crypto::ec_scalar &res
 }
 
 void hash_to_point(const crypto::hash &h, crypto::ec_point &res) {
-  ge_p2 point;
-  ge_fromfe_frombytes_vartime(&point, reinterpret_cast<const unsigned char *>(&h));
-  ge_tobytes(crypto::operator &(res), &point);
+  crypto::ge_p2 point;
+  crypto::ge_fromfe_frombytes_vartime(&point, reinterpret_cast<const unsigned char *>(&h));
+  crypto::ge_tobytes(crypto::operator &(res), &point);
 }
 
 void hash_to_ec(const crypto::public_key &key, crypto::ec_point &res) {
-  ge_p3 tmp;
+  crypto::ge_p3 tmp;
   crypto::hash_to_ec(key, tmp);
-  ge_p3_tobytes(crypto::operator &(res), &tmp);
+  crypto::ge_p3_tobytes(crypto::operator &(res), &tmp);
 }
