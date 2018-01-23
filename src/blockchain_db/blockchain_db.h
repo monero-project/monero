@@ -1333,10 +1333,11 @@ public:
    * @brief get a txpool transaction's metadata
    *
    * @param txid the transaction id of the transation to lookup
+   * @param meta the metadata to return
    *
-   * @return the metadata associated with that transaction
+   * @return true if the tx meta was found, false otherwise
    */
-  virtual txpool_tx_meta_t get_txpool_tx_meta(const crypto::hash& txid) const = 0;
+  virtual bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const = 0;
 
   /**
    * @brief get a txpool transaction's blob

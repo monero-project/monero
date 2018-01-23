@@ -30,7 +30,7 @@
 
 #include <stdint.h>
 #include "misc_log_ex.h"
-#include "common/memwipe.h"
+#include "memwipe.h"
 
 // Probably won't catch the optimized out case, but at least we test
 // it works in the normal case

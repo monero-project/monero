@@ -76,6 +76,7 @@ monero_add_library(cncrypto
   ${crypto_private_headers})
 target_link_libraries(cncrypto
   PUBLIC
+    epee
     ${Boost_SYSTEM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

@@ -30,98 +30,29 @@
 
 #pragma once
 
-#include "serialization.h"
+#include <set>
 
 template <template <bool> class Archive, class T>
 bool do_serialize(Archive<false> &ar, std::set<T> &v);
 template <template <bool> class Archive, class T>
 bool do_serialize(Archive<true> &ar, std::set<T> &v);
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::unordered_set<T> &v);
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::unordered_set<T> &v);
 
 namespace serialization
 {
   namespace detail
   {
-    template <typename Archive, class T>
-    bool serialize_set_element(Archive& ar, T& e)
+    template <typename T>
+    void do_add(std::set<T> &c, T &&e)
     {
-      return ::do_serialize(ar, e);
-    }
-
-    template <typename Archive>
-    bool serialize_set_element(Archive& ar, uint32_t& e)
-    {
-      ar.serialize_varint(e);
-      return true;
-    }
-
-    template <typename Archive>
-    bool serialize_set_element(Archive& ar, uint64_t& e)
-    {
-      ar.serialize_varint(e);
-      return true;
+      c.insert(std::move(e));
     }
   }
 }
 
-template <template <bool> class Archive, class T>
-bool do_serialize_set(Archive<false> &ar, T &v)
-{
-  size_t cnt;
-  ar.begin_array(cnt);
-  if (!ar.stream().good())
-    return false;
-  v.clear();
-
-  // very basic sanity check
-  if (ar.remaining_bytes() < cnt) {
-    ar.stream().setstate(std::ios::failbit);
-    return false;
-  }
-
-  for (size_t i = 0; i < cnt; i++) {
-    if (i > 0)
-      ar.delimit_array();
-    typename T::key_type k;
-    if (!::serialization::detail::serialize_set_element(ar, k))
-      return false;
-    v.insert(std::move(k));
-    if (!ar.stream().good())
-      return false;
-  }
-  ar.end_array();
-  return true;
-}
+#include "serialization.h"
 
 template <template <bool> class Archive, class T>
-bool do_serialize_set(Archive<true> &ar, T &v)
-{
-  size_t cnt = v.size();
-  ar.begin_array(cnt);
-  bool first = true;
-  for (const typename T::key_type &k: v) {
-    if (!ar.stream().good())
-      return false;
-    if (!first)
-      ar.delimit_array();
-    if(!::serialization::detail::serialize_set_element(ar, const_cast<typename T::key_type&>(k)))
-      return false;
-    if (!ar.stream().good())
-      return false;
-    first = false;
-  }
-  ar.end_array();
-  return true;
-}
+bool do_serialize(Archive<false> &ar, std::set<T> &v) { return do_serialize_container(ar, v); }
+template <template <bool> class Archive, class T>
+bool do_serialize(Archive<true> &ar, std::set<T> &v) { return do_serialize_container(ar, v); }
 
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::set<T> &v) { return do_serialize_set(ar, v); }
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::set<T> &v) { return do_serialize_set(ar, v); }
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<false> &ar, std::unordered_set<T> &v) { return do_serialize_set(ar, v); }
-template <template <bool> class Archive, class T>
-bool do_serialize(Archive<true> &ar, std::unordered_set<T> &v) { return do_serialize_set(ar, v); }

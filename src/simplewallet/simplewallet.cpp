@@ -3307,6 +3307,13 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   {
     if (!parse_subaddress_indices(local_args[0], subaddr_indices))
       return true;
+    local_args.erase(local_args.begin());
+  }
+
+  if (local_args.size() > 0)
+  {
+    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N>]");
+    return true;
   }
 
   tools::wallet2::transfer_container transfers;
@@ -4528,6 +4535,12 @@ bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::donate(const std::vector<std::string> &args_)
 {
+  if(m_wallet->testnet())
+  {
+    fail_msg_writer() << tr("donations are not enabled on the testnet");
+    return true;
+  }
+
   std::vector<std::string> local_args = args_;
   if(local_args.empty() || local_args.size() > 5)
   {
@@ -6195,6 +6208,7 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
 
   try
   {
+    LOCK_IDLE_SCOPE();
     if (!m_wallet->export_key_images(filename))
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
@@ -6227,6 +6241,7 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   }
   std::string filename = args[0];
 
+  LOCK_IDLE_SCOPE();
   try
   {
     uint64_t spent = 0, unspent = 0;
@@ -6258,6 +6273,7 @@ bool simple_wallet::export_outputs(const std::vector<std::string> &args)
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   std::string filename = args[0];
 
+  LOCK_IDLE_SCOPE();
   try
   {
     std::vector<tools::wallet2::transfer_details> outs = m_wallet->export_outputs();
@@ -6356,6 +6372,7 @@ bool simple_wallet::import_outputs(const std::vector<std::string> &args)
       boost::archive::binary_iarchive ar(iss);
       ar >> outputs;
     }
+    LOCK_IDLE_SCOPE();
     size_t n_outputs = m_wallet->import_outputs(outputs);
     success_msg_writer() << boost::lexical_cast<std::string>(n_outputs) << " outputs imported";
   }

@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <time.h>
 #include <boost/regex.hpp>
 
 #include "misc_language.h"
@@ -149,9 +150,14 @@ POP_WARNINGS
         else if (boost::regex_match (from, boost::regex("\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ")))
         {
           // Convert to unix timestamp
+#ifdef HAVE_STRPTIME
+          struct tm tm;
+          if (strptime(from.c_str(), "%Y-%m-%dT%H:%M:%S", &tm))
+#else
           std::tm tm = {};
           std::istringstream ss(from);
           if (ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S"))
+#endif
             to = std::mktime(&tm);
         } else
           ASSERT_AND_THROW_WRONG_CONVERSION();

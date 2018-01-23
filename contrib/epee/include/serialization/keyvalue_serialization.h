@@ -31,7 +31,6 @@
 #include "misc_log_ex.h"
 #include "enableable.h"
 #include "keyvalue_serialization_overloads.h"
-#include "serialization/serialization.h"
 
 namespace epee
 {

@@ -101,6 +101,7 @@ target_link_libraries(rpc_base
     epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
 
@@ -125,6 +126,7 @@ target_link_libraries(daemon_messages
 
 target_link_libraries(daemon_rpc_server
   LINK_PRIVATE
+    rpc
     cryptonote_core
     cryptonote_protocol
     daemon_messages

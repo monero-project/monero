@@ -63,15 +63,17 @@ struct is_blob_type { typedef boost::false_type type; };
 template <class T>
 struct has_free_serializer { typedef boost::true_type type; };
 
-/*! \struct is_pair_type 
+/*! \struct is_basic_type
  *
  * \brief a descriptor for dispatching serialize
  */
 template <class T>
-struct is_pair_type { typedef boost::false_type type; };
+struct is_basic_type { typedef boost::false_type type; };
 
 template<typename F, typename S>
-struct is_pair_type<std::pair<F,S>> { typedef boost::true_type type; };
+struct is_basic_type<std::pair<F,S>> { typedef boost::true_type type; };
+template<>
+struct is_basic_type<std::string> { typedef boost::true_type type; };
 
 /*! \struct serializer
  *
@@ -89,7 +91,7 @@ struct is_pair_type<std::pair<F,S>> { typedef boost::true_type type; };
 template <class Archive, class T>
 struct serializer{
   static bool serialize(Archive &ar, T &v) {
-    return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type(), typename is_pair_type<T>::type());
+    return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type(), typename is_basic_type<T>::type());
   }
   template<typename A>
   static bool serialize(Archive &ar, T &v, boost::false_type, boost::true_type, A a) {
@@ -361,9 +363,3 @@ namespace serialization {
     return r && check_stream_state(ar);
   }
 }
-
-#include "string.h"
-#include "vector.h"
-#include "list.h"
-#include "pair.h"
-#include "set.h"

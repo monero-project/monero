@@ -39,7 +39,7 @@
 #if defined(__cplusplus)
 #include <memory.h>
 
-#include "common/memwipe.h"
+#include "memwipe.h"
 #include "hash.h"
 
 namespace crypto {
