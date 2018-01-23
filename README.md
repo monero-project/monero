@@ -185,7 +185,7 @@ library archives (`.a`).
 
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
-build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . -DBUILD_SHARED_LIBS=OFF && sudo make && sudo mv libg* /usr/lib/ ```
 
 ### Build instructions
 
