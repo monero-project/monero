@@ -68,7 +68,7 @@ public:
       boost::program_options::variables_map const & vm
     )
     : core{vm}
-    , protocol{vm, core}
+    , protocol{vm, core, command_line::get_arg(vm, cryptonote::arg_offline)}
     , p2p{vm, protocol}
   {
     // Handle circular dependencies
