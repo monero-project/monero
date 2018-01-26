@@ -26,45 +26,39 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(libwallet_api_tests_sources
-  main.cpp
-)
-
-set(libwallet_api_tests_headers
+set(device_sources
+  device_default.cpp
+  device_ledger.cpp
   )
 
-add_executable(libwallet_api_tests
-  ${libwallet_api_tests_sources}
-  ${libwallet_api_tests_headers})
+set(device_headers
+  device_declare.hpp
+  device.hpp
+  device_default.hpp
+  device_ledger.hpp
+ )
 
-target_link_libraries(libwallet_api_tests
+set(device_private_headers)
+
+
+if(PER_BLOCK_CHECKPOINT)
+  set(Blocks "blocks")
+else()
+  set(Blocks "")
+endif()
+
+monero_private_headers(device
+  ${device_private_headers})
+
+monero_add_library(device
+  ${device_sources}
+  ${device_headers}
+  ${device_private_headers})
+
+target_link_libraries(device
   PUBLIC
-  device
+    pcsclite
+
   PRIVATE
-    wallet_api
-    wallet
-    version
-    epee
-    ${Boost_CHRONO_LIBRARY}
-    ${Boost_SERIALIZATION_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${GTEST_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
+    ${Blocks}
     ${EXTRA_LIBRARIES})
-
-set_property(TARGET libwallet_api_tests
-  PROPERTY
-    FOLDER "tests")
-
-if (NOT MSVC)
-  set_property(TARGET libwallet_api_tests
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif ()
-
-add_test(
-  NAME    libwallet_api_tests
-  COMMAND libwallet_api_tests)

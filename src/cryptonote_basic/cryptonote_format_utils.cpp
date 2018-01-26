@@ -1,21 +1,21 @@
 // Copyright (c) 2014-2017, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,7 +25,7 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "include_base_utils.h"
@@ -41,7 +41,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
-
+#include "device/device.hpp"
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
 
@@ -104,6 +104,16 @@ namespace cryptonote
       ge_p1p1_to_p3(&A2, &tmp3);
       ge_p3_tobytes(&AB, &A2);
   }
+
+  // a copy of rct::scalarmultKey, since we can't link to libringct to avoid circular dependencies
+  static void secret_key_mult_public_key(crypto::public_key & aP, const crypto::public_key &P, const crypto::secret_key &a) {
+      ge_p3 A;
+      ge_p2 R;
+      //CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, P.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+      ge_frombytes_vartime(&A, (const unsigned char*)P.data);
+      ge_scalarmult(&R, (const unsigned char*)a.data, &A);
+      ge_tobytes((unsigned char*)aP.data, &R);
+    }
 }
 
 namespace cryptonote
@@ -171,30 +181,45 @@ namespace cryptonote
     crypto::hash_to_scalar(data, sizeof(data), m);
     return m;
   }
+  crypto::secret_key get_subaddress_secret_key(const crypto::secret_key& a, const subaddress_index& index, hw::Device &device)
+  {
+    crypto::secret_key m;
+    device.get_subaddress_secret_key(a, index, m);
+    return m;
+  }
   //---------------------------------------------------------------
-  bool generate_key_image_helper(const account_keys& ack, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki)
+  bool generate_key_image_helper(const account_keys&                                             ack,
+                                 const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses,
+                                 const crypto::public_key&                                       out_key,
+                                 const crypto::public_key&                                       tx_public_key,
+                                 const std::vector<crypto::public_key>&                          additional_tx_public_keys,
+                                 size_t                                                          real_output_index,
+                                 keypair&                                                        in_ephemeral,
+                                 crypto::key_image&                                              ki,
+                                 hw::Device&                                                 device)
   {
     crypto::key_derivation recv_derivation = AUTO_VAL_INIT(recv_derivation);
-    bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
+
+    bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation, device);
     CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
 
     std::vector<crypto::key_derivation> additional_recv_derivations;
     for (size_t i = 0; i < additional_tx_public_keys.size(); ++i)
     {
       crypto::key_derivation additional_recv_derivation = AUTO_VAL_INIT(additional_recv_derivation);
-      r = crypto::generate_key_derivation(additional_tx_public_keys[i], ack.m_view_secret_key, additional_recv_derivation);
+      bool r = crypto::generate_key_derivation(additional_tx_public_keys[i], ack.m_view_secret_key, additional_recv_derivation, device);
       CHECK_AND_ASSERT_MES(r, false, "key image helper: failed to generate_key_derivation(" << additional_tx_public_keys[i] << ", " << ack.m_view_secret_key << ")");
       additional_recv_derivations.push_back(additional_recv_derivation);
     }
 
-    boost::optional<subaddress_receive_info> subaddr_recv_info = is_out_to_acc_precomp(subaddresses, out_key, recv_derivation, additional_recv_derivations, real_output_index);
+    boost::optional<subaddress_receive_info> subaddr_recv_info = is_out_to_acc_precomp(subaddresses, out_key, recv_derivation, additional_recv_derivations, real_output_index,device);
     CHECK_AND_ASSERT_MES(subaddr_recv_info, false, "key image helper: given output pubkey doesn't seem to belong to this address");
 
-    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki);
+    return generate_key_image_helper_precomp(ack, out_key, subaddr_recv_info->derivation, real_output_index, subaddr_recv_info->index, in_ephemeral, ki, device);
   }
   //---------------------------------------------------------------
-  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki)
-  {
+  bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, hw::Device& device)
+ {
     if (ack.m_spend_secret_key == crypto::null_skey)
     {
       // for watch-only wallet, simply copy the known output pubkey
@@ -205,7 +230,7 @@ namespace cryptonote
     {
       // derive secret key with subaddress - step 1: original CN derivation
       crypto::secret_key scalar_step1;
-      crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, scalar_step1); // computes Hs(a*R || idx) + b
+      crypto::derive_secret_key(recv_derivation, real_output_index, ack.m_spend_secret_key, scalar_step1, device); // computes Hs(a*R || idx) + b
 
       // step 2: add Hs(a || index_major || index_minor)
       crypto::secret_key subaddr_sk;
@@ -216,8 +241,8 @@ namespace cryptonote
       }
       else
       {
-        subaddr_sk = get_subaddress_secret_key(ack.m_view_secret_key, received_index);
-        sc_add((unsigned char*)&scalar_step2, (unsigned char*)&scalar_step1, (unsigned char*)&subaddr_sk);
+        device.get_subaddress_secret_key(ack.m_view_secret_key, received_index, subaddr_sk);
+        device.sc_secret_add(scalar_step1,subaddr_sk, scalar_step2);
       }
 
       in_ephemeral.sec = scalar_step2;
@@ -225,17 +250,17 @@ namespace cryptonote
       if (ack.m_multisig_keys.empty())
       {
         // when not in multisig, we know the full spend secret key, so the output pubkey can be obtained by scalarmultBase
-        CHECK_AND_ASSERT_MES(crypto::secret_key_to_public_key(in_ephemeral.sec, in_ephemeral.pub), false, "Failed to derive public key");
+        CHECK_AND_ASSERT_MES(crypto::secret_key_to_public_key(in_ephemeral.sec, in_ephemeral.pub, device), false, "Failed to derive public key");
       }
       else
       {
         // when in multisig, we only know the partial spend secret key. but we do know the full spend public key, so the output pubkey can be obtained by using the standard CN key derivation
-        CHECK_AND_ASSERT_MES(crypto::derive_public_key(recv_derivation, real_output_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub), false, "Failed to derive public key");
+        CHECK_AND_ASSERT_MES(crypto::derive_public_key(recv_derivation, real_output_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub, device), false, "Failed to derive public key");
         // and don't forget to add the contribution from the subaddress part
         if (!received_index.is_zero())
         {
           crypto::public_key subaddr_pk;
-          CHECK_AND_ASSERT_MES(crypto::secret_key_to_public_key(subaddr_sk, subaddr_pk), false, "Failed to derive public key");
+          CHECK_AND_ASSERT_MES(crypto::secret_key_to_public_key(subaddr_sk, subaddr_pk, device), false, "Failed to derive public key");
           add_public_key(in_ephemeral.pub, in_ephemeral.pub, subaddr_pk);
         }
       }
@@ -244,7 +269,7 @@ namespace cryptonote
            false, "key image helper precomp: given output pubkey doesn't match the derived one");
     }
 
-    crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
+    crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki, device);
     return true;
   }
   //---------------------------------------------------------------
@@ -526,10 +551,17 @@ namespace cryptonote
 
     return true;
   }
-  bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+
+  bool encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key,
+                          const crypto::secret_key &secret_key,
+                          hw::Device &device)
+  {
+    return device.stealth(public_key, secret_key, payment_id);
+  }
+  bool decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key, hw::Device &device)
   {
     // Encryption and decryption are the same operation (xor with a key)
-    return encrypt_payment_id(payment_id, public_key, secret_key);
+    return encrypt_payment_id(payment_id, public_key, secret_key, device);
   }
   //---------------------------------------------------------------
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money)
@@ -631,10 +663,10 @@ namespace cryptonote
   bool is_out_to_acc(const account_keys& acc, const txout_to_key& out_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_pub_keys, size_t output_index)
   {
     crypto::key_derivation derivation;
-    bool r = generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation);
+    bool r = generate_key_derivation(tx_pub_key, acc.m_view_secret_key, derivation, *acc.m_device);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
     crypto::public_key pk;
-    r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
+    r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk, *acc.m_device);
     CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
     if (pk == out_key.key)
       return true;
@@ -642,20 +674,20 @@ namespace cryptonote
     if (!additional_tx_pub_keys.empty())
     {
       CHECK_AND_ASSERT_MES(output_index < additional_tx_pub_keys.size(), false, "wrong number of additional tx pubkeys");
-      r = generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation);
+      r = generate_key_derivation(additional_tx_pub_keys[output_index], acc.m_view_secret_key, derivation,*acc.m_device);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
-      r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk);
+      r = derive_public_key(derivation, output_index, acc.m_account_address.m_spend_public_key, pk, *acc.m_device);
       CHECK_AND_ASSERT_MES(r, false, "Failed to derive public key");
       return pk == out_key.key;
     }
     return false;
   }
   //---------------------------------------------------------------
-  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index)
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::Device& device)
   {
     // try the shared tx pubkey
     crypto::public_key subaddress_spendkey;
-    derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey);
+    derive_subaddress_public_key(out_key, derivation, output_index, subaddress_spendkey,device);
     auto found = subaddresses.find(subaddress_spendkey);
     if (found != subaddresses.end())
       return subaddress_receive_info{ found->second, derivation };
@@ -663,7 +695,7 @@ namespace cryptonote
     if (!additional_derivations.empty())
     {
       CHECK_AND_ASSERT_MES(output_index < additional_derivations.size(), boost::none, "wrong number of additional derivations");
-      derive_subaddress_public_key(out_key, additional_derivations[output_index], output_index, subaddress_spendkey);
+      derive_subaddress_public_key(out_key, additional_derivations[output_index], output_index, subaddress_spendkey, device);
       found = subaddresses.find(subaddress_spendkey);
       if (found != subaddresses.end())
         return subaddress_receive_info{ found->second, additional_derivations[output_index] };
@@ -1063,4 +1095,60 @@ namespace cryptonote
     return key;
   }
 
+
+#define CHACHA8_KEY_TAIL 0x8c
+bool generate_chacha_key_from_secret_keys(const account_keys &keys, crypto::chacha_key &key)
+  {
+    const crypto::secret_key &view_key = keys.m_view_secret_key;
+    const crypto::secret_key &spend_key = keys.m_spend_secret_key;
+    tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1> data;
+    memcpy(data.data(), &view_key, sizeof(view_key));
+    memcpy(data.data() + sizeof(view_key), &spend_key, sizeof(spend_key));
+    data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
+    crypto::generate_chacha_key(data.data(), sizeof(data), key);
+    return true;
+  }
+
+  crypto::public_key get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index)
+  {
+    if (index.is_zero())
+      return keys.m_account_address.m_spend_public_key;
+
+    // m = Hs(a || index_major || index_minor)
+    crypto::secret_key m = cryptonote::get_subaddress_secret_key(keys.m_view_secret_key, index);
+
+    // M = m*G
+    crypto::public_key M;
+    crypto::secret_key_to_public_key(m, M);
+
+    // D = B + M
+    crypto::public_key D;
+    add_public_key(D, keys.m_account_address.m_spend_public_key, M);  // could have defined add_public_key() under src/crypto
+    return D;
+  }
+
+  cryptonote::account_public_address get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index)
+  {
+    if (index.is_zero())
+      return keys.m_account_address;
+
+    crypto::public_key D = get_subaddress_spend_public_key(keys, index);
+
+    // C = a*D
+    crypto::public_key C;
+    secret_key_mult_public_key(C, D, keys.m_view_secret_key);   // could have defined secret_key_mult_public_key() under src/crypto
+
+    // result: (C, D)
+    cryptonote::account_public_address address;
+    address.m_view_public_key  = C;
+    address.m_spend_public_key = D;
+    return address;
+  }
+
+  bool verify_keys(const crypto::secret_key& sec, const crypto::public_key& expected_pub)
+  {
+    crypto::public_key pub;
+    bool r = crypto::secret_key_to_public_key(sec, pub);
+    return r && expected_pub == pub;
+  }
 }
