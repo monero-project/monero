@@ -47,6 +47,7 @@
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
 #include "cn_fast_hash.h"
+#include "rct_mlsag.h"
 
 int main(int argc, char** argv)
 {
@@ -118,6 +119,15 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(test_cn_slow_hash);
   TEST_PERFORMANCE1(test_cn_fast_hash, 32);
   TEST_PERFORMANCE1(test_cn_fast_hash, 16384);
+
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 3, false);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 5, false);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 10, false);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 100, false);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 3, true);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 5, true);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 10, true);
+  TEST_PERFORMANCE3(test_ringct_mlsag, 1, 100, true);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
