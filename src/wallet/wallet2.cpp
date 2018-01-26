@@ -357,7 +357,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     const bool deprecated_wallet = restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
       crypto::ElectrumWords::get_is_old_style_seed(field_seed));
     THROW_WALLET_EXCEPTION_IF(deprecated_wallet, tools::error::wallet_internal_error,
-      tools::wallet2::tr("Cannot create deprecated wallets from JSON"));
+      tools::wallet2::tr("Cannot generate deprecated wallets from JSON"));
 
     wallet.reset(make_basic(vm, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
