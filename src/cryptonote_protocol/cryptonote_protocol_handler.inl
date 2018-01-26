@@ -876,6 +876,8 @@ namespace cryptonote
     }
 
     context.m_remote_blockchain_height = arg.current_blockchain_height;
+    if (context.m_remote_blockchain_height > m_core.get_target_blockchain_height())
+      m_core.set_target_blockchain_height(context.m_remote_blockchain_height);
 
     std::vector<crypto::hash> block_hashes;
     block_hashes.reserve(arg.blocks.size());
