@@ -34,6 +34,7 @@
 #include <stdint.h>
 
 #include <boost/chrono.hpp>
+#include <boost/regex.hpp>
 
 class performance_timer
 {
@@ -122,8 +123,12 @@ private:
 };
 
 template <typename T>
-void run_test(const char* test_name)
+void run_test(const std::string &filter, const char* test_name)
 {
+  boost::smatch match;
+  if (!filter.empty() && !boost::regex_match(std::string(test_name), match, boost::regex(filter)))
+    return;
+
   test_runner<T> runner;
   if (runner.run())
   {
@@ -149,7 +154,7 @@ void run_test(const char* test_name)
 }
 
 #define QUOTEME(x) #x
-#define TEST_PERFORMANCE0(test_class)         run_test< test_class >(QUOTEME(test_class))
-#define TEST_PERFORMANCE1(test_class, a0)     run_test< test_class<a0> >(QUOTEME(test_class<a0>))
-#define TEST_PERFORMANCE2(test_class, a0, a1) run_test< test_class<a0, a1> >(QUOTEME(test_class) "<" QUOTEME(a0) ", " QUOTEME(a1) ">")
-#define TEST_PERFORMANCE3(test_class, a0, a1, a2) run_test< test_class<a0, a1, a2> >(QUOTEME(test_class) "<" QUOTEME(a0) ", " QUOTEME(a1) ", " QUOTEME(a2) ">")
+#define TEST_PERFORMANCE0(filter, test_class)         run_test< test_class >(filter, QUOTEME(test_class))
+#define TEST_PERFORMANCE1(filter, test_class, a0)     run_test< test_class<a0> >(filter, QUOTEME(test_class<a0>))
+#define TEST_PERFORMANCE2(filter, test_class, a0, a1) run_test< test_class<a0, a1> >(filter, QUOTEME(test_class) "<" QUOTEME(a0) ", " QUOTEME(a1) ">")
+#define TEST_PERFORMANCE3(filter, test_class, a0, a1, a2) run_test< test_class<a0, a1, a2> >(filter, QUOTEME(test_class) "<" QUOTEME(a0) ", " QUOTEME(a1) ", " QUOTEME(a2) ">")
