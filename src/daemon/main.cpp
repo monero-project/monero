@@ -269,7 +269,7 @@ int main(int argc, char const * argv[])
         }
         else
         {
-          std::cerr << "Unknown command" << std::endl;
+          std::cerr << "Unknown command: " << command.front() << std::endl;
           return 1;
         }
       }
