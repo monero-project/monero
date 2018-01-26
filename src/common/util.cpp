@@ -453,8 +453,7 @@ std::string get_nix_version_display_string()
     // namespace fs = boost::filesystem;
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\CRYPTONOTE_NAME
     // Windows >= Vista: C:\Users\Username\AppData\Roaming\CRYPTONOTE_NAME
-    // Mac: ~/Library/Application Support/CRYPTONOTE_NAME
-    // Unix: ~/.CRYPTONOTE_NAME
+    // Unix & Mac: ~/.CRYPTONOTE_NAME
     std::string config_folder;
 
 #ifdef WIN32
@@ -466,14 +465,7 @@ std::string get_nix_version_display_string()
       pathRet = "/";
     else
       pathRet = pszHome;
-#ifdef MAC_OSX
-    // Mac
-    pathRet /= "Library/Application Support";
-    config_folder =  (pathRet + "/" + CRYPTONOTE_NAME);
-#else
-    // Unix
     config_folder = (pathRet + "/." + CRYPTONOTE_NAME);
-#endif
 #endif
 
     return config_folder;
