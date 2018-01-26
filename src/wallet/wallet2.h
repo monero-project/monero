@@ -433,6 +433,16 @@ namespace tools
       bool m_is_subaddress;
     };
 
+    struct reserve_proof_entry
+    {
+      crypto::hash txid;
+      uint64_t index_in_tx;
+      crypto::public_key shared_secret;
+      crypto::key_image key_image;
+      crypto::signature shared_secret_sig;
+      crypto::signature key_image_sig;
+    };
+
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
 
     /*!
@@ -836,6 +846,26 @@ namespace tools
 
     std::string get_spend_proof(const crypto::hash &txid, const std::string &message);
     bool check_spend_proof(const crypto::hash &txid, const std::string &message, const std::string &sig_str);
+
+    /*!
+     * \brief  Generates a proof that proves the reserve of unspent funds
+     * \param  account_minreserve       When specified, collect outputs only belonging to the given account and prove the smallest reserve above the given amount
+     *                                  When unspecified, proves for all unspent outputs across all accounts
+     * \param  message                  Arbitrary challenge message to be signed together
+     * \return                          Signature string
+     */
+    std::string get_reserve_proof(const boost::optional<std::pair<uint32_t, uint64_t>> &account_minreserve, const std::string &message);
+    /*!
+     * \brief  Verifies a proof of reserve
+     * \param  address                  The signer's address
+     * \param  message                  Challenge message used for signing
+     * \param  sig_str                  Signature string
+     * \param  total                    [OUT] the sum of funds included in the signature
+     * \param  spent                    [OUT] the sum of spent funds included in the signature
+     * \return                          true if the signature verifies correctly
+     */
+    bool check_reserve_proof(const cryptonote::account_public_address &address, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent);
+
    /*!
     * \brief GUI Address book get/store
     */
@@ -1119,6 +1149,7 @@ BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
+BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 2)
@@ -1399,6 +1430,17 @@ namespace boost
         return;
       }
       a & x.m_is_subaddress;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive& a, tools::wallet2::reserve_proof_entry& x, const boost::serialization::version_type ver)
+    {
+      a & x.txid;
+      a & x.index_in_tx;
+      a & x.shared_secret;
+      a & x.key_image;
+      a & x.shared_secret_sig;
+      a & x.key_image_sig;
     }
 
     template <class Archive>
