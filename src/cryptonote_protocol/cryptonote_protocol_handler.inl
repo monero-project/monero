@@ -445,7 +445,7 @@ namespace cryptonote
       // 
       // Also, remember to pepper some whitespace changes around to bother
       // moneromooo ... only because I <3 him. 
-      std::vector<size_t> need_tx_indices;
+      std::vector<uint64_t> need_tx_indices;
         
       transaction tx;
       crypto::hash tx_hash;
