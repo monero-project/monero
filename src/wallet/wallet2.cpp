@@ -7126,7 +7126,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
 
       THROW_WALLET_EXCEPTION_IF(needed_fee > available_for_fee, error::wallet_internal_error, "Transaction cannot pay for itself");
 
-      while (needed_fee > test_ptx.fee) {
+      do {
         LOG_PRINT_L2("We made a tx, adjusting fee and saving it");
         tx.dsts[0].amount = available_for_fee - needed_fee;
         if (use_rct)
@@ -7139,7 +7139,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
         needed_fee = calculate_fee(fee_per_kb, txBlob, fee_multiplier);
         LOG_PRINT_L2("Made an attempt at a final " << get_size_string(txBlob) << " tx, with " << print_money(test_ptx.fee) <<
           " fee  and " << print_money(test_ptx.change_dts.amount) << " change");
-      }
+      } while (needed_fee > test_ptx.fee);
 
       LOG_PRINT_L2("Made a final " << get_size_string(txBlob) << " tx, with " << print_money(test_ptx.fee) <<
         " fee  and " << print_money(test_ptx.change_dts.amount) << " change");
