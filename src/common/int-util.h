@@ -209,7 +209,7 @@ static inline void memcpy_swap64(void *dst, const void *src, size_t n) {
   }
 }
 
-#if _MSC_VER
+#ifdef _MSC_VER
 # define LITTLE_ENDIAN	1234
 # define BIG_ENDIAN	4321
 # define BYTE_ORDER	LITTLE_ENDIAN
