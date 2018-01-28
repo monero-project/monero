@@ -612,6 +612,7 @@ wallet2::wallet2(bool testnet, bool restricted):
   m_confirm_backlog(true),
   m_confirm_backlog_threshold(0),
   m_confirm_export_overwrite(true),
+  m_auto_low_priority(true),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
@@ -2447,6 +2448,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_confirm_export_overwrite ? 1 :0);
   json.AddMember("confirm_export_overwrite", value2, json.GetAllocator());
 
+  value2.SetInt(m_auto_low_priority ? 1 : 0);
+  json.AddMember("auto_low_priority", value2, json.GetAllocator());
+
   value2.SetInt(m_testnet ? 1 :0);
   json.AddMember("testnet", value2, json.GetAllocator());
 
@@ -2529,6 +2533,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_backlog = true;
     m_confirm_backlog_threshold = 0;
     m_confirm_export_overwrite = true;
+    m_auto_low_priority = true;
   }
   else if(json.IsObject())
   {
@@ -2630,6 +2635,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_backlog_threshold = field_confirm_backlog_threshold;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, confirm_export_overwrite, int, Int, false, true);
     m_confirm_export_overwrite = field_confirm_export_overwrite;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, m_auto_low_priority, int, Int, false, true);
+    m_auto_low_priority = field_m_auto_low_priority;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
     // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
     THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
@@ -5031,6 +5038,90 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin) const
     mixin = 2;
   }
   return mixin;
+}
+//----------------------------------------------------------------------------------------------------
+uint32_t wallet2::adjust_priority(uint32_t priority)
+{
+  if (priority == 0 && get_default_priority() != 1 && auto_low_priority())
+  {
+    try
+    {
+      // check if there's a backlog in the tx pool
+      const double fee_level = get_fee_multiplier(1) * get_per_kb_fee() * (12/(double)13) / (double)1024;
+      const std::vector<std::pair<uint64_t, uint64_t>> blocks = estimate_backlog({std::make_pair(fee_level, fee_level)});
+      if (blocks.size() != 1)
+      {
+        MERROR("Bad estimated backlog array size");
+        return priority;
+      }
+      else if (blocks[0].first > 0)
+      {
+        MINFO("We don't use the low priority because there's a backlog in the tx pool.");
+        return priority;
+      }
+
+      // get the current full reward zone
+      epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> getinfo_req = AUTO_VAL_INIT(getinfo_req);
+      epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> getinfo_res = AUTO_VAL_INIT(getinfo_res);
+      m_daemon_rpc_mutex.lock();
+      getinfo_req.jsonrpc = "2.0";
+      getinfo_req.id = epee::serialization::storage_entry(0);
+      getinfo_req.method = "get_info";
+      bool r = net_utils::invoke_http_json("/json_rpc", getinfo_req, getinfo_res, m_http_client);
+      m_daemon_rpc_mutex.unlock();
+      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
+      THROW_WALLET_EXCEPTION_IF(getinfo_res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
+      THROW_WALLET_EXCEPTION_IF(getinfo_res.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+      const uint64_t full_reward_zone = getinfo_res.result.block_size_limit / 2;
+
+      // get the last N block headers and sum the block sizes
+      const size_t N = 10;
+      if (m_blockchain.size() < N)
+      {
+        MERROR("The blockchain is too short");
+        return priority;
+      }
+      epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request> getbh_req = AUTO_VAL_INIT(getbh_req);
+      epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response, std::string> getbh_res = AUTO_VAL_INIT(getbh_res);
+      m_daemon_rpc_mutex.lock();
+      getbh_req.jsonrpc = "2.0";
+      getbh_req.id = epee::serialization::storage_entry(0);
+      getbh_req.method = "getblockheadersrange";
+      getbh_req.params.start_height = m_blockchain.size() - N;
+      getbh_req.params.end_height = m_blockchain.size() - 1;
+      r = net_utils::invoke_http_json("/json_rpc", getbh_req, getbh_res, m_http_client, rpc_timeout);
+      m_daemon_rpc_mutex.unlock();
+      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
+      THROW_WALLET_EXCEPTION_IF(getbh_res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
+      THROW_WALLET_EXCEPTION_IF(getbh_res.result.status != CORE_RPC_STATUS_OK, error::get_blocks_error, getbh_res.result.status);
+      if (getbh_res.result.headers.size() != N)
+      {
+        MERROR("Bad blockheaders size");
+        return priority;
+      }
+      size_t block_size_sum = 0;
+      for (const cryptonote::block_header_response &i : getbh_res.result.headers)
+      {
+        block_size_sum += i.block_size;
+      }
+
+      // estimate how 'full' the last N blocks are
+      const size_t P = 100 * block_size_sum / (N * full_reward_zone);
+      MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % P).str());
+      if (P > 80)
+      {
+        MINFO("We don't use the low priority because recent blocks are quite full.");
+        return priority;
+      }
+      MINFO("We'll use the low priority because probably it's safe to do so.");
+      return 1;
+    }
+    catch (const std::exception &e)
+    {
+      MERROR(e.what());
+    }
+  }
+  return priority;
 }
 //----------------------------------------------------------------------------------------------------
 // separated the call(s) to wallet2::transfer into their own function
@@ -9473,13 +9564,12 @@ bool wallet2::is_synced() const
   return get_blockchain_current_height() >= height;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t min_blob_size, uint64_t max_blob_size, const std::vector<uint64_t> &fees)
+std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels)
 {
-  THROW_WALLET_EXCEPTION_IF(min_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
-  THROW_WALLET_EXCEPTION_IF(max_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
-  for (uint64_t fee: fees)
+  for (const auto &fee_level: fee_levels)
   {
-    THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
+    THROW_WALLET_EXCEPTION_IF(fee_level.first == 0.0, error::wallet_internal_error, "Invalid 0 fee");
+    THROW_WALLET_EXCEPTION_IF(fee_level.second == 0.0, error::wallet_internal_error, "Invalid 0 fee");
   }
 
   // get txpool backlog
@@ -9509,9 +9599,10 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
   uint64_t full_reward_zone = resp_t.result.block_size_limit / 2;
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
-  for (uint64_t fee: fees)
+  for (const auto &fee_level: fee_levels)
   {
-    double our_fee_byte_min = fee / (double)min_blob_size, our_fee_byte_max = fee / (double)max_blob_size;
+    const double our_fee_byte_min = fee_level.first;
+    const double our_fee_byte_max = fee_level.second;
     uint64_t priority_size_min = 0, priority_size_max = 0;
     for (const auto &i: res.result.backlog)
     {
@@ -9529,12 +9620,29 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
 
     uint64_t nblocks_min = priority_size_min / full_reward_zone;
     uint64_t nblocks_max = priority_size_max / full_reward_zone;
-    MDEBUG("estimate_backlog: priority_size " << priority_size_min << " - " << priority_size_max << " for " << fee
-        << " (" << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee), "
+    MDEBUG("estimate_backlog: priority_size " << priority_size_min << " - " << priority_size_max << " for "
+        << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee, "
         << nblocks_min << " - " << nblocks_max << " blocks at block size " << full_reward_zone);
     blocks.push_back(std::make_pair(nblocks_min, nblocks_max));
   }
   return blocks;
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t min_blob_size, uint64_t max_blob_size, const std::vector<uint64_t> &fees)
+{
+  THROW_WALLET_EXCEPTION_IF(min_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
+  THROW_WALLET_EXCEPTION_IF(max_blob_size == 0, error::wallet_internal_error, "Invalid 0 fee");
+  for (uint64_t fee: fees)
+  {
+    THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
+  }
+  std::vector<std::pair<double, double>> fee_levels;
+  for (uint64_t fee: fees)
+  {
+    double our_fee_byte_min = fee / (double)min_blob_size, our_fee_byte_max = fee / (double)max_blob_size;
+    fee_levels.emplace_back(our_fee_byte_min, our_fee_byte_max);
+  }
+  return estimate_backlog(fee_levels);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
