@@ -88,4 +88,4 @@ else()
 endif()
 
 install(FILES ${wallet_api_headers}
-    DESTINATION include/wallet)
+    DESTINATION include/wallet/api)
