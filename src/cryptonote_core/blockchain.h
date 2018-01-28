@@ -637,6 +637,13 @@ namespace cryptonote
     uint64_t get_current_cumulative_blocksize_limit() const;
 
     /**
+     * @brief gets the blocksize median based on recent blocks (same window as for the limit)
+     *
+     * @return the median
+     */
+    uint64_t get_current_cumulative_blocksize_median() const;
+
+    /**
      * @brief gets the difficulty of the block with a given height
      *
      * @param i the height
@@ -962,6 +969,7 @@ namespace cryptonote
     // main chain
     transactions_container m_transactions;
     size_t m_current_block_cumul_sz_limit;
+    size_t m_current_block_cumul_sz_median;
 
     // metadata containers
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
