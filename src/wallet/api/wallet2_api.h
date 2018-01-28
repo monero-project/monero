@@ -105,13 +105,6 @@ struct UnsignedTransaction
         Status_Critical
     };
 
-    enum Priority {
-        Priority_Low = 1,
-        Priority_Medium = 2,
-        Priority_High = 3,
-        Priority_Last
-    };
-
     virtual ~UnsignedTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
