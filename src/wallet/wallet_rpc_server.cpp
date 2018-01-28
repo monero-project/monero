@@ -2412,6 +2412,11 @@ namespace tools
       er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
       er.message = e.what();
     }
+    catch (const tools::error::not_enough_unlocked_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_UNLOCKED_MONEY;
+      er.message = e.what();
+    }
     catch (const tools::error::tx_not_possible& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
