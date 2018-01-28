@@ -8840,7 +8840,7 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   m_blockchain.clear();
   if (std::get<0>(bc))
   {
-    for (size_t n = std::get<0>(bc); n > 0; ++n)
+    for (size_t n = std::get<0>(bc); n > 0; --n)
       m_blockchain.push_back(std::get<1>(bc));
     m_blockchain.trim(std::get<0>(bc));
   }
