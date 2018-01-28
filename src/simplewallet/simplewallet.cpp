@@ -1674,9 +1674,9 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::check_tx_key, this, _1),
                            tr("check_tx_key <txid> <txkey> <address>"),
                            tr("Check the amount going to <address> in <txid>."));
-  m_cmd_binder.set_handler("get_tx_proof_out",
+  m_cmd_binder.set_handler("get_tx_proof",
                            boost::bind(&simple_wallet::get_tx_proof, this, _1),
-                           tr("get_tx_proof_out <txid> <address> [<message>]"),
+                           tr("get_tx_proof <txid> <address> [<message>]"),
                            tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key."));
   m_cmd_binder.set_handler("check_tx_proof",
                            boost::bind(&simple_wallet::check_tx_proof, this, _1),
@@ -4858,7 +4858,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 {
   if (args.size() != 2 && args.size() != 3)
   {
-    fail_msg_writer() << tr("usage: get_tx_proof_out <txid> <address> [<message>]");
+    fail_msg_writer() << tr("usage: get_tx_proof <txid> <address> [<message>]");
     return true;
   }
 
