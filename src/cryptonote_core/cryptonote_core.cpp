@@ -83,6 +83,10 @@ namespace cryptonote
     "offline"
   , "Do not listen for peers, nor connect to any"
   };
+  const command_line::arg_descriptor<bool> arg_disable_dns_checkpoints = {
+    "disable-dns-checkpoints"
+  , "Do not retrieve checkpoints from DNS"
+  };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
@@ -236,6 +240,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
+    command_line::add_arg(desc, arg_disable_dns_checkpoints);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -270,6 +275,7 @@ namespace cryptonote
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_fluffy_blocks_enabled = m_testnet || get_arg(vm, arg_fluffy_blocks);
     m_offline = get_arg(vm, arg_offline);
+    m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
 
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
