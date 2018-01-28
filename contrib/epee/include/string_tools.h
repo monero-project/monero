@@ -45,6 +45,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include "hex.h"
+#include "memwipe.h"
 #include "span.h"
 #include "warnings.h"
 
@@ -330,7 +331,7 @@ POP_WARNINGS
   template<class t_pod_type>
   std::string pod_to_hex(const t_pod_type& s)
   {
-    static_assert(std::is_pod<t_pod_type>::value, "expected pod type");
+    static_assert(std::is_standard_layout<t_pod_type>(), "expected standard layout type");
     return to_hex::string(as_byte_span(s));
   }
   //----------------------------------------------------------------------------
@@ -349,6 +350,12 @@ POP_WARNINGS
 
     s = *(t_pod_type*)bin_buff.data();
     return true;
+  }
+  //----------------------------------------------------------------------------
+  template<class t_pod_type>
+  bool hex_to_pod(const std::string& hex_str, tools::scrubbed<t_pod_type>& s)
+  {
+    return hex_to_pod(hex_str, unwrap(s));
   }
   //----------------------------------------------------------------------------
   bool validate_hex(uint64_t length, const std::string& str);
