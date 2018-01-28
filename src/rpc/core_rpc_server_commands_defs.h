@@ -836,7 +836,7 @@ namespace cryptonote
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
-        KV_SERIALIZE(do_not_relay)
+        KV_SERIALIZE_OPT(do_not_relay, false)
       END_KV_SERIALIZE_MAP()
     };
 
