@@ -76,17 +76,39 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
     return wallet;
 }
 
-Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &memo, bool testnet, uint64_t restoreHeight)
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &mnemonic, bool testnet, uint64_t restoreHeight)
+{
+    return recoveryWallet(path, "", mnemonic, testnet, restoreHeight);
+}
+
+Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
+                                                const std::string &language,
+                                                bool testnet,
+                                                uint64_t restoreHeight,
+                                                const std::string &addressString,
+                                                const std::string &viewKeyString,
+                                                const std::string &spendKeyString)
+{
+    return createWalletFromKeys(path, "", language, testnet, restoreHeight,
+                                addressString, viewKeyString, spendKeyString);
+}
+
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
+                                                const std::string &password,
+                                                const std::string &mnemonic,
+                                                bool testnet,
+                                                uint64_t restoreHeight)
 {
     WalletImpl * wallet = new WalletImpl(testnet);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recover(path, memo);
+    wallet->recover(path, password, mnemonic);
     return wallet;
 }
 
-Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path, 
+Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
+                                                const std::string &password,
                                                 const std::string &language,
                                                 bool testnet, 
                                                 uint64_t restoreHeight,
@@ -98,7 +120,7 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recoverFromKeys(path, language, addressString, viewKeyString, spendKeyString);
+    wallet->recoverFromKeysWithPassword(path, password, language, addressString, viewKeyString, spendKeyString);
     return wallet;
 }
 
