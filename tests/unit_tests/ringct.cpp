@@ -177,7 +177,7 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
+        decodeRct(s, amount_keys[1], 1, mask);
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -194,7 +194,7 @@ TEST(ringct, range_proofs)
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
+        decodeRct(s, amount_keys[1], 1, mask);
 }
 
 TEST(ringct, range_proofs_with_fee)
@@ -241,7 +241,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_TRUE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
+        decodeRct(s, amount_keys[1], 1, mask);
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -258,7 +258,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_FALSE(verRct(s));
 
         //decode received amount
-        ASSERT_TRUE(decodeRct(s, amount_keys[1], 1, mask));
+        decodeRct(s, amount_keys[1], 1, mask);
 }
 
 TEST(ringct, simple)
@@ -316,7 +316,7 @@ TEST(ringct, simple)
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount corresponding to output pubkey index 1
-        ASSERT_TRUE(decodeRctSimple(s, amount_keys[1], 1, mask));
+        decodeRctSimple(s, amount_keys[1], 1, mask);
 }
 
 static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
