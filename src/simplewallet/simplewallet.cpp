@@ -1611,6 +1611,9 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::sweep_single, this, _1),
                            tr("sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]"),
                            tr("Send a single output of the given key image to an address without change."));
+  m_cmd_binder.set_handler("churn", boost::bind(&simple_wallet::churn, this, _1),
+                           tr("churn [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] [<payment_id>]"),
+                           tr("Send all unlocked balance to oneself. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet churns outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used."));
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::donate, this, _1),
                            tr("donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>]"),
@@ -4587,6 +4590,33 @@ bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
     return true;
   }
   return sweep_main(below, std::vector<std::string>(++args_.begin(), args_.end()));
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::churn(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+
+  if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
+    local_args.erase(local_args.begin());
+  uint32_t priority = 0;
+  if (local_args.size() > 0 && parse_priority(local_args[0], priority))
+    local_args.erase(local_args.begin());
+  size_t ring_size;
+  if(local_args.size() > 0 && epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
+    local_args.erase(local_args.begin());
+  if (local_args.size() > 1) {
+    fail_msg_writer() << tr("usage: churn [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] [<payment_id>]");
+    return true;
+  }
+  else if (local_args.size() > 0) {
+	local_args = args_;
+	local_args.insert(local_args.end()-1, m_wallet->get_account().get_public_address_str(m_wallet->testnet()));
+  }
+  else {
+	local_args = args_;
+	local_args.push_back(m_wallet->get_account().get_public_address_str(m_wallet->testnet()));
+  }
+  return sweep_all(local_args);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::donate(const std::vector<std::string> &args_)
