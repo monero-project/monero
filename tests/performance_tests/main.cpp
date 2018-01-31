@@ -75,6 +75,7 @@ std::string glob_to_regex(const std::string &val)
 
 int main(int argc, char** argv)
 {
+  TRY_ENTRY();
   tools::on_startup();
   set_process_affinity(1);
   set_thread_high_priority();
@@ -172,4 +173,5 @@ int main(int argc, char** argv)
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
   return 0;
+  CATCH_ENTRY_L0("main", 1);
 }
