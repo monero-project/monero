@@ -2250,14 +2250,6 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
     m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
   }
 
-  if(m_refresh_from_block_height == 0 && !recover){
-    // Wallets created offline don't know blockchain height.
-    // Set blockchain height calculated from current date/time
-    uint64_t approx_blockchain_height = get_approximate_blockchain_height();
-    if(approx_blockchain_height > 0) {
-      m_refresh_from_block_height = approx_blockchain_height >= blocks_per_month ? approx_blockchain_height - blocks_per_month : 0;
-    }
-  }
   bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
