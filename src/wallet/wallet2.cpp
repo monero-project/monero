@@ -2250,6 +2250,14 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const std::stri
     m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
   }
 
+  if(m_refresh_from_block_height == 0 && !recover){
+    // Wallets created offline don't know blockchain height.
+    // Set blockchain height calculated from current date/time
+    uint64_t approx_blockchain_height = get_approximate_blockchain_height();
+    if(approx_blockchain_height > 0) {
+      m_refresh_from_block_height = approx_blockchain_height >= blocks_per_month ? approx_blockchain_height - blocks_per_month : 0;
+    }
+  }
   bool r = store_keys(m_keys_file, password, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
@@ -4171,7 +4179,7 @@ static size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs)
   size += (2*64*32+32+64*32) * n_outputs;
 
   // MGs
-  size += n_inputs * (32 * (mixin+1) + 32);
+  size += n_inputs * (64 * (mixin+1) + 32);
 
   // mixRing - not serialized, can be reconstructed
   /* size += 2 * 32 * (mixin+1) * n_inputs; */
