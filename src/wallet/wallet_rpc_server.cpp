@@ -854,7 +854,7 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_sweep_dust(const wallet_rpc::COMMAND_RPC_SWEEP_DUST::request& req, wallet_rpc::COMMAND_RPC_SWEEP_DUST::response& res, epee::json_rpc::error& er)
+  bool wallet_rpc_server::on_sweep_unmixable(const wallet_rpc::COMMAND_RPC_SWEEP_UNMIXABLE::request& req, wallet_rpc::COMMAND_RPC_SWEEP_UNMIXABLE::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
     if (m_wallet->restricted())
@@ -877,6 +877,14 @@ namespace tools
       return false;
     }
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  // TODO: Deprecated
+  bool wallet_rpc_server::on_sweep_dust(const wallet_rpc::COMMAND_RPC_SWEEP_DUST::request& req, wallet_rpc::COMMAND_RPC_SWEEP_DUST::response& res, epee::json_rpc::error& er)
+  {
+    bool ok = this->on_sweep_unmixable(req, res, er);
+    res.deprecation_notice = "This RPC command is deprecated and will be removed soon. Please use 'sweep_unmixable' instead.";
+    return ok;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_sweep_all(const wallet_rpc::COMMAND_RPC_SWEEP_ALL::request& req, wallet_rpc::COMMAND_RPC_SWEEP_ALL::response& res, epee::json_rpc::error& er)
