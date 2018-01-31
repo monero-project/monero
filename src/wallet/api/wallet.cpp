@@ -1198,6 +1198,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             for (const std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs()) {
                 writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
             }
+            writer << "\n" << tr("Please sweep unmixable outputs.");
             m_errorString = writer.str();
             m_status = Status_Error;
         } catch (const tools::error::tx_not_constructed&) {
