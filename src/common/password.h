@@ -31,6 +31,7 @@
 #pragma once
 
 #include <string>
+#include <atomic>
 #include <boost/optional/optional.hpp>
 #include "wipeable_string.h"
 
@@ -49,6 +50,7 @@ namespace tools
 
     //! \return A password from stdin TTY prompt or `std::cin` pipe.
     static boost::optional<password_container> prompt(bool verify, const char *mesage = "Password");
+    static std::atomic<bool> is_prompting;
 
     password_container(const password_container&) = delete;
     password_container(password_container&& rhs) = default;
