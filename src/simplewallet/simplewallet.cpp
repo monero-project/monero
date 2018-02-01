@@ -130,10 +130,25 @@ namespace
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
+#ifdef HAVE_READLINE
+  class simplewallet_suspend_readline: public rdln::suspend_readline
+  {
+  public:
+    simplewallet_suspend_readline(): rdln::suspend_readline() { boost::lock_guard<boost::mutex> lock(mutex); in_password = true; }
+    virtual ~simplewallet_suspend_readline() { boost::lock_guard<boost::mutex> lock(mutex); in_password = false; }
+    static bool is_in_password() { boost::lock_guard<boost::mutex> lock(mutex); return in_password; }
+  private:
+    static boost::mutex mutex;
+    static bool in_password;
+  };
+  boost::mutex simplewallet_suspend_readline::mutex;
+  bool simplewallet_suspend_readline::in_password = false;
+#endif
+
   std::string input_line(const std::string& prompt)
   {
 #ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
+    simplewallet_suspend_readline pause_readline;
 #endif
     std::cout << prompt;
 
@@ -146,7 +161,7 @@ namespace
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
 #ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
+    simplewallet_suspend_readline pause_readline;
 #endif
     auto pwd_container = tools::password_container::prompt(verify, prompt);
     if (!pwd_container)
@@ -561,7 +576,7 @@ bool simple_wallet::print_seed(bool encrypted)
   if (encrypted)
   {
 #ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
+    simplewallet_suspend_readline pause_readline;
 #endif
     auto pwd_container = tools::password_container::prompt(true, tr("Enter optional seed encryption passphrase, empty to see raw seed"));
     if (std::cin.eof() || !pwd_container)
@@ -2139,7 +2154,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
 
 #ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
+    simplewallet_suspend_readline pause_readline;
 #endif
       auto pwd_container = tools::password_container::prompt(false, tr("Enter seed encryption passphrase, empty if none"));
       if (std::cin.eof() || !pwd_container)
@@ -3208,7 +3223,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init
     m_wallet->rescan_blockchain(false);
 
 #ifdef HAVE_READLINE
-  rdln::suspend_readline pause_readline;
+  simplewallet_suspend_readline pause_readline;
 #endif
 
   message_writer() << tr("Starting refresh...");
@@ -6806,6 +6821,13 @@ int main(int argc, char* argv[])
   else
   {
     tools::signal_handler::install([&w](int type) {
+#ifdef HAVE_READLINE
+      if (simplewallet_suspend_readline::is_in_password())
+      {
+        MDEBUG("in_password, not exiting");
+        return;
+      }
+#endif
 #ifdef WIN32
       if (type == CTRL_C_EVENT)
 #else

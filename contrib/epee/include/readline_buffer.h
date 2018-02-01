@@ -34,7 +34,7 @@ namespace rdln
   {
   public:
     suspend_readline();
-    ~suspend_readline();
+    virtual ~suspend_readline();
   private:
     readline_buffer* m_buffer;
     bool m_restart;
