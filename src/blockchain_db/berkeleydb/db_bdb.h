@@ -422,10 +422,6 @@ private:
 
   virtual bool is_read_only() const;
 
-  //
-  // fix up anything that may be wrong due to past bugs
-  virtual void fixup();
-
   bool m_run_checkpoint;
   std::unique_ptr<boost::thread> m_checkpoint_thread;
   typedef bdb_safe_buffer<void *> bdb_safe_buffer_t;
