@@ -3140,8 +3140,12 @@ void BlockchainLMDB::drop_hard_fork_info()
 
   TXN_PREFIX(0);
 
-  mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
-  mdb_drop(*txn_ptr, m_hf_versions, 1);
+  auto result = mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
+  if (result)
+    throw1(DB_ERROR(lmdb_error("Error dropping hard fork starting heights db: ", result).c_str()));
+  result = mdb_drop(*txn_ptr, m_hf_versions, 1);
+  if (result)
+    throw1(DB_ERROR(lmdb_error("Error dropping hard fork versions db: ", result).c_str()));
 
   TXN_POSTFIX_SUCCESS();
 }
