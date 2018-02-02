@@ -99,7 +99,7 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
     }
     
     // last block and padding
-    if (inlen >= sizeof(temp) || inlen > rsiz || rsiz - inlen + inlen + 1 >= sizeof(temp) || rsiz == 0 || rsiz - 1 >= sizeof(temp) || rsizw * 8 > sizeof(temp))
+    if (inlen + 1 >= sizeof(temp) || inlen > rsiz || rsiz - inlen + inlen + 1 >= sizeof(temp) || rsiz == 0 || rsiz - 1 >= sizeof(temp) || rsizw * 8 > sizeof(temp))
     {
       fprintf(stderr, "Bad keccak use");
       abort();
