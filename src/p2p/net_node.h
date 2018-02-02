@@ -214,7 +214,7 @@ namespace nodetool
     void add_upnp_port_mapping(uint32_t port);
     void delete_upnp_port_mapping(uint32_t port);
     template<class t_callback>
-    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
+    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(PeerType peer_type, size_t expected_connections);
     void cache_connect_fail_info(const epee::net_utils::network_address& addr);
