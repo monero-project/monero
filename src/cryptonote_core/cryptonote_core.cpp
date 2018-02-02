@@ -896,6 +896,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
   {
+    if (keeped_by_block)
+      get_blockchain_storage().on_new_tx_from_block(tx);
+
     if(m_mempool.have_tx(tx_hash))
     {
       LOG_PRINT_L2("tx " << tx_hash << "already have transaction in tx_pool");
@@ -1023,7 +1026,15 @@ namespace cryptonote
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     m_miner.pause();
     std::list<block_complete_entry> blocks;
-    blocks.push_back(get_block_complete_entry(b, m_mempool));
+    try
+    {
+      blocks.push_back(get_block_complete_entry(b, m_mempool));
+    }
+    catch (const std::exception &e)
+    {
+      m_miner.resume();
+      return false;
+    }
     prepare_handle_incoming_blocks(blocks);
     m_blockchain_storage.add_new_block(b, bvc);
     cleanup_handle_incoming_blocks(true);
@@ -1291,11 +1302,12 @@ namespace cryptonote
   bool core::check_updates()
   {
     static const char software[] = "monero";
-    static const char subdir[] = "cli"; // because it can never be simple
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
+    static const char subdir[] = "cli"; // because it can never be simple
 #else
     static const char buildtag[] = "source";
+    static const char subdir[] = "source"; // because it can never be simple
 #endif
 
     if (check_updates_level == UPDATES_DISABLED)
