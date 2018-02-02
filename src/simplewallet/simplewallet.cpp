@@ -816,7 +816,11 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
   }
 
   uint32_t total;
-  m_wallet->multisig(NULL, &threshold, &total);
+  if (!m_wallet->multisig(NULL, &threshold, &total))
+  {
+    fail_msg_writer() << tr("Error creating multisig: new wallet is not multisig");
+    return true;
+  }
   success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
 
