@@ -792,7 +792,7 @@
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2336"/>
         <source>A total of %s from dust change will be sent to dust address</source>
-        <translation>Ett total belopp på %s från växeldamm kommer att skickas till damm-adressen</translation>
+        <translation>Ett totalt belopp på %s från växeldamm kommer att skickas till damm-adressen</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2341"/>
@@ -1079,7 +1079,7 @@ Denna transaktion kommer att låsas upp vid block %llu, om ungefär %s dagar (f�
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1770"/>
         <source>refresh failed: </source>
-        <translation>det gick inte att att uppdatera: </translation>
+        <translation>det gick inte att uppdatera: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1770"/>
@@ -1810,7 +1810,7 @@ din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som 
         <location filename="../src/simplewallet/simplewallet.cpp" line="3555"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3560"/>
         <source>Signature decoding error</source>
-        <translation>nFel vid avkodning av signatur</translation>
+        <translation>Fel vid avkodning av signatur</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3602"/>
@@ -2397,8 +2397,8 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="122"/>
-        <source>Create non-deterministic view and spend keys</source>
-        <translation>Skapa non-deterministic visnings- och spendernyckel</translation>
+        <source>Generate non-deterministic view and spend keys</source>
+        <translation>Skapa icke-deterministisk visnings- och spendernyckel</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="123"/>
@@ -2612,7 +2612,7 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="356"/>
-        <source>Cannot create deprecated wallets from JSON</source>
+        <source>Cannot generate deprecated wallets from JSON</source>
         <translation>Det går inte att skapa inaktuella plånböcker från JSON</translation>
     </message>
     <message>
