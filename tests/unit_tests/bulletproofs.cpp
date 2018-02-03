@@ -135,6 +135,25 @@ TEST(bulletproofs, multi_splitting)
   }
 }
 
+TEST(bulletproofs, valid_aggregated)
+{
+  static const size_t N_PROOFS = 8;
+  std::vector<rct::Bulletproof> proofs(N_PROOFS);
+  for (size_t n = 0; n < N_PROOFS; ++n)
+  {
+    size_t outputs = 2 + n;
+    std::vector<uint64_t> amounts;
+    rct::keyV gamma;
+    for (size_t i = 0; i < outputs; ++i)
+    {
+      amounts.push_back(crypto::rand<uint64_t>());
+      gamma.push_back(rct::skGen());
+    }
+    proofs[n] = bulletproof_PROVE(amounts, gamma);
+  }
+  ASSERT_TRUE(rct::bulletproof_VERIFY(proofs));
+}
+
 
 TEST(bulletproofs, invalid_8)
 {

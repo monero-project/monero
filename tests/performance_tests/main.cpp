@@ -183,6 +183,17 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 15);
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 15);
 
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 64);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 64);
+
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, false);
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, false);
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 10, false);

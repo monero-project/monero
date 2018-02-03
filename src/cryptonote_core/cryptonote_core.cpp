@@ -896,7 +896,7 @@ namespace cryptonote
           return false;
         case rct::RCTTypeSimple:
         case rct::RCTTypeSimpleBulletproof:
-          if (!rct::verRctSimple(rv, true))
+          if (!rct::verRctSemanticsSimple(rv))
           {
             MERROR_VER("rct signature semantics check failed");
             return false;
