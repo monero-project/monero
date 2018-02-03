@@ -60,3 +60,41 @@ public:
 private:
   rct::Bulletproof proof;
 };
+
+template<bool batch, size_t start, size_t repeat, size_t mul, size_t add, size_t N>
+class test_aggregated_bulletproof
+{
+public:
+  static const size_t loop_count = 500 / (N * repeat);
+
+  bool init()
+  {
+    size_t o = start;
+    for (size_t n = 0; n < N; ++n)
+    {
+      //printf("adding %zu times %zu\n", repeat, o);
+      for (size_t i = 0; i < repeat; ++i)
+        proofs.push_back(rct::bulletproof_PROVE(std::vector<uint64_t>(o, 749327532984), rct::skvGen(o)));
+      o = o * mul + add;
+    }
+    return true;
+  }
+
+  bool test()
+  {
+    if (batch)
+    {
+      return rct::bulletproof_VERIFY(proofs);
+    }
+    else
+    {
+      for (const rct::Bulletproof &proof: proofs)
+        if (!rct::bulletproof_VERIFY(proof))
+          return false;
+      return true;
+    }
+  }
+
+private:
+  std::vector<rct::Bulletproof> proofs;
+};
