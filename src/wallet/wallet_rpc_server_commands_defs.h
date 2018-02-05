@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+#include "cryptonote_config.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/subaddress_index.h"
@@ -1262,7 +1263,7 @@ namespace wallet_rpc
         KV_SERIALIZE(pool);
         KV_SERIALIZE(filter_by_height);
         KV_SERIALIZE(min_height);
-        KV_SERIALIZE(max_height);
+        KV_SERIALIZE_OPT(max_height, (uint64_t)CRYPTONOTE_MAX_BLOCK_NUMBER);
         KV_SERIALIZE(account_index);
         KV_SERIALIZE(subaddr_indices);
       END_KV_SERIALIZE_MAP()
