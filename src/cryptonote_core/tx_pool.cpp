@@ -82,7 +82,7 @@ namespace cryptonote
 
     uint64_t get_transaction_size_limit(uint8_t version)
     {
-      return get_min_block_size(version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+      return get_min_block_size(version) * 125 / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     }
 
     // This class is meant to create a batch when none currently exists.
@@ -290,7 +290,7 @@ namespace cryptonote
       }
       tvc.m_added_to_pool = true;
 
-      if(meta.fee > 0 && !do_not_relay)
+      if(meta.fee >= DEFAULT_FEE && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
