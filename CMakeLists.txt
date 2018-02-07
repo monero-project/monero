@@ -108,7 +108,7 @@ set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 
 # set this to 0 if per-block checkpoint needs to be disabled
-set(PER_BLOCK_CHECKPOINT 1)
+set(PER_BLOCK_CHECKPOINT 0)
 
 if(PER_BLOCK_CHECKPOINT)
   add_definitions("-DPER_BLOCK_CHECKPOINT")
