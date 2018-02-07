@@ -46,7 +46,7 @@ target_link_libraries(cn_deserialize
 
 set_property(TARGET cn_deserialize
 	PROPERTY
-	OUTPUT_NAME "monero-utils-deserialize")
+	OUTPUT_NAME "aeon-utils-deserialize")
 
 
 set(object_sizes_sources
@@ -67,5 +67,5 @@ target_link_libraries(object_sizes
 
 set_property(TARGET object_sizes
 	PROPERTY
-	OUTPUT_NAME "monero-utils-object-sizes")
+	OUTPUT_NAME "aeon-utils-object-sizes")
 
