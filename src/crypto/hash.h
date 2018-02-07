@@ -71,8 +71,16 @@ namespace crypto {
     return h;
   }
 
-  inline void cn_slow_hash(const void *data, std::size_t length, hash &hash) {
-    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash));
+  inline void cn_slow_hash(const void *data, std::size_t length, hash &hash, int light) {
+    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), light);
+  }
+
+  inline void cn_slow_hash_1m(const void *data, std::size_t length, hash &hash) {
+    cn_slow_hash(data, length, hash, 1);
+  }
+
+  inline void cn_slow_hash_2m(const void *data, std::size_t length, hash &hash) {
+    cn_slow_hash(data, length, hash, 0);
   }
 
   inline void tree_hash(const hash *hashes, std::size_t count, hash &root_hash) {
