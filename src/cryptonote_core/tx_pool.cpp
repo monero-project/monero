@@ -1078,6 +1078,7 @@ namespace cryptonote
     uint64_t best_coinbase = 0, coinbase = 0;
     total_size = 0;
     fee = 0;
+    size_t n = 0;
     
     //baseline empty block
     get_block_reward(median_size, total_size, already_generated_coins, best_coinbase, version, height);
@@ -1151,6 +1152,17 @@ namespace cryptonote
         continue;
       }
 
+      if (tx.vin.size() > 0)
+      {
+        CHECKED_GET_SPECIFIC_VARIANT(tx.vin[0], const txin_to_key, itk, false);
+        // discourage < 3-way-mix transactions by mining them only as the first tx in an empty block
+        if (n > 0 && itk.key_offsets.size() < 3)
+        {
+          sorted_it++;
+          continue;
+        }
+      }
+
       // Skip transactions that are not ready to be
       // included into the blockchain or that are
       // missing key images
@@ -1187,6 +1199,7 @@ namespace cryptonote
       best_coinbase = coinbase;
       append_key_images(k_images, tx);
       sorted_it++;
+      n++;
       LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
     }
 
