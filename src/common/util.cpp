@@ -177,8 +177,7 @@ namespace tools
   {
     try
     {
-      boost::system::error_code ec{};
-      boost::filesystem::remove(filename(), ec);
+      epee::file_io_utils::wipe_file(filename());
     }
     catch (...) {}
   }

@@ -23,12 +23,13 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
+// Parts copyright (c) 2018 The Monero Project
 
 
 #ifndef _FILE_IO_UTILS_H_
 #define _FILE_IO_UTILS_H_
 
-#include <iostream>
+#include <istream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 
@@ -152,6 +153,8 @@ namespace file_io_utils
 			return false;
 		}
 	}
+
+	void wipe_file(const std::string &path_to_file);
 
 }
 }
