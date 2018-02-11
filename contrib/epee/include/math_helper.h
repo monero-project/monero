@@ -259,6 +259,11 @@ namespace math_helper
         m_last_worked_time = get_time();
 		}
 
+    void trigger()
+    {
+      m_last_worked_time = 0;
+    }
+
 		template<class functor_t>
 		bool do_call(functor_t functr)
 		{

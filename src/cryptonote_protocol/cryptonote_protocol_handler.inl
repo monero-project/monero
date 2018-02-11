@@ -246,6 +246,7 @@ namespace cryptonote
         cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv4_network_address>().port());
       }
       cnx.rpc_port = cntxt.m_rpc_port;
+      cnx.rpc_credits_per_hash = cntxt.m_rpc_credits_per_hash;
 
       std::stringstream peer_id_str;
       peer_id_str << std::hex << std::setw(16) << peer_id;

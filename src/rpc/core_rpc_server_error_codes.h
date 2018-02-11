@@ -43,5 +43,34 @@
 #define CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC       -11
 #define CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS  -12
 #define CORE_RPC_ERROR_CODE_REGTEST_REQUIRED      -13
+#define CORE_RPC_ERROR_CODE_PAYMENT_REQUIRED      -14
+#define CORE_RPC_ERROR_CODE_INVALID_CLIENT        -15
+#define CORE_RPC_ERROR_CODE_PAYMENT_TOO_LOW       -16
+#define CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT     -17
+#define CORE_RPC_ERROR_CODE_STALE_PAYMENT         -18
 
+static inline const char *get_rpc_server_error_message(int64_t code)
+{
+  switch (code)
+  {
+    case CORE_RPC_ERROR_CODE_WRONG_PARAM: return "Invalid parameter";
+    case CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT: return "Height is too large";
+    case CORE_RPC_ERROR_CODE_TOO_BIG_RESERVE_SIZE: return "Reserve size is too large";
+    case CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS: return "Wrong wallet address";
+    case CORE_RPC_ERROR_CODE_INTERNAL_ERROR: return "Internal error";
+    case CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB: return "Wrong block blob";
+    case CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED: return "Block not accepted";
+    case CORE_RPC_ERROR_CODE_CORE_BUSY: return "Core is busy";
+    case CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB_SIZE: return "Wrong block blob size";
+    case CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC: return "Unsupported RPC";
+    case CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS: return "Mining to subaddress is not supported";
+    case CORE_RPC_ERROR_CODE_REGTEST_REQUIRED: return "Regtest mode required";
+    case CORE_RPC_ERROR_CODE_PAYMENT_REQUIRED: return "Payment required";
+    case CORE_RPC_ERROR_CODE_INVALID_CLIENT: return "Invalid client";
+    case CORE_RPC_ERROR_CODE_PAYMENT_TOO_LOW: return "Payment too low";
+    case CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT: return "Duplicate payment";
+    case CORE_RPC_ERROR_CODE_STALE_PAYMENT: return "Stale payment";
+    default: MERROR("Unknown error: " << code); return "Unknown error";
+  }
+}
 

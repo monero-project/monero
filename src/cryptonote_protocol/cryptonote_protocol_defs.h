@@ -56,6 +56,7 @@ namespace cryptonote
     std::string ip;
     std::string port;
     uint16_t rpc_port;
+    uint32_t rpc_credits_per_hash;
 
     std::string peer_id;
 
@@ -94,6 +95,7 @@ namespace cryptonote
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
       KV_SERIALIZE(rpc_port)
+      KV_SERIALIZE(rpc_credits_per_hash)
       KV_SERIALIZE(peer_id)
       KV_SERIALIZE(recv_count)
       KV_SERIALIZE(recv_idle_time)
