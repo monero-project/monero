@@ -362,8 +362,22 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCKS_FAST>(invoke_http_mode::BIN, "/getblocks.bin", req, res, r))
       return r;
 
-    std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
+    // quick check for noop
+    if (!req.block_ids.empty())
+    {
+      uint64_t last_block_height;
+      crypto::hash last_block_hash;
+      m_core.get_blockchain_top(last_block_height, last_block_hash);
+      if (last_block_hash == req.block_ids.front())
+      {
+        res.start_height = 0;
+        res.current_height = m_core.get_current_blockchain_height();
+        res.status = CORE_RPC_STATUS_OK;
+        return true;
+      }
+    }
 
+    std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       res.status = "Failed";
