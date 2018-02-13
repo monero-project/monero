@@ -780,7 +780,8 @@ namespace tools
       if (ver < 20)
         return;
       a & m_subaddresses;
-      a & m_subaddresses_inv;
+      std::unordered_map<cryptonote::subaddress_index, crypto::public_key> dummy_subaddresses_inv;
+      a & dummy_subaddresses_inv;
       a & m_subaddress_labels;
       a & m_additional_tx_keys;
       if(ver < 21)
@@ -1087,7 +1088,6 @@ namespace tools
     std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
-    std::unordered_map<cryptonote::subaddress_index, crypto::public_key> m_subaddresses_inv;
     std::vector<std::vector<std::string>> m_subaddress_labels;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     std::unordered_map<std::string, std::string> m_attributes;

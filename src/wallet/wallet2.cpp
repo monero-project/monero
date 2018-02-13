@@ -895,7 +895,6 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
       {
          const crypto::public_key &D = pkeys[index2.minor];
          m_subaddresses[D] = index2;
-         m_subaddresses_inv[index2] = D;
       }
     }
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
@@ -912,7 +911,6 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     {
        const crypto::public_key &D = pkeys[index2.minor - begin];
        m_subaddresses[D] = index2;
-       m_subaddresses_inv[index2] = D;
     }
     m_subaddress_labels[index.major].resize(index.minor + 1);
   }
@@ -2342,7 +2340,6 @@ bool wallet2::clear()
   m_address_book.clear();
   m_local_bc_height = 1;
   m_subaddresses.clear();
-  m_subaddresses_inv.clear();
   m_subaddress_labels.clear();
   return true;
 }
@@ -3184,7 +3181,6 @@ bool wallet2::finalize_multisig(const epee::wipeable_string &password, std::unor
   }
 
   m_subaddresses.clear();
-  m_subaddresses_inv.clear();
   m_subaddress_labels.clear();
   add_subaddress_account(tr("Primary account"));
 
