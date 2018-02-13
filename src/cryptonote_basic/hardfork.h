@@ -79,7 +79,6 @@ namespace cryptonote
      * returns true if no error, false otherwise
      *
      * @param version the major block version for the fork
-     * @param voting_version the minor block version for the fork, used for voting
      * @param height The height the hardfork takes effect
      * @param time Approximate time of the hardfork (seconds since epoch)
      */
