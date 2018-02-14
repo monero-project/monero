@@ -297,6 +297,39 @@ static rct::keyV slice(const rct::keyV &a, size_t start, size_t stop)
   return res;
 }
 
+static rct::key hash_cache_mash(rct::key &hash_cache, const rct::key &mash0, const rct::key &mash1)
+{
+  rct::keyV data;
+  data.reserve(3);
+  data.push_back(hash_cache);
+  data.push_back(mash0);
+  data.push_back(mash1);
+  return hash_cache = rct::hash_to_scalar(data);
+}
+
+static rct::key hash_cache_mash(rct::key &hash_cache, const rct::key &mash0, const rct::key &mash1, const rct::key &mash2)
+{
+  rct::keyV data;
+  data.reserve(4);
+  data.push_back(hash_cache);
+  data.push_back(mash0);
+  data.push_back(mash1);
+  data.push_back(mash2);
+  return hash_cache = rct::hash_to_scalar(data);
+}
+
+static rct::key hash_cache_mash(rct::key &hash_cache, const rct::key &mash0, const rct::key &mash1, const rct::key &mash2, const rct::key &mash3)
+{
+  rct::keyV data;
+  data.reserve(5);
+  data.push_back(hash_cache);
+  data.push_back(mash0);
+  data.push_back(mash1);
+  data.push_back(mash2);
+  data.push_back(mash3);
+  return hash_cache = rct::hash_to_scalar(data);
+}
+
 /* Given a value v (0..2^N-1) and a mask gamma, construct a range proof */
 Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 {
@@ -329,6 +362,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   }
   PERF_TIMER_STOP(PROVE_aLaR);
 
+  rct::key hash_cache = rct::hash_to_scalar(V);
 
   // DEBUG: Test to ensure this recovers the value
 #ifdef DEBUG_BP
@@ -361,11 +395,8 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   rct::addKeys(S, ve, rct::scalarmultBase(rho));
 
   // PAPER LINES 43-45
-  rct::keyV hashed;
-  hashed.push_back(A);
-  hashed.push_back(S);
-  rct::key y = rct::hash_to_scalar(hashed);
-  rct::key z = rct::hash_to_scalar(y);
+  rct::key y = hash_cache_mash(hash_cache, A, S);
+  rct::key z = hash_cache = rct::hash_to_scalar(y);
 
   // Polynomial construction before PAPER LINE 46
   rct::key t0 = rct::zero();
@@ -427,11 +458,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
 
   // PAPER LINES 49-51
-  hashed.clear();
-  hashed.push_back(z);
-  hashed.push_back(T1);
-  hashed.push_back(T2);
-  rct::key x = rct::hash_to_scalar(hashed);
+  rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
 
   // PAPER LINES 52-53
   rct::key taux = rct::zero();
@@ -460,12 +487,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 #endif
 
   // PAPER LINES 32-33
-  hashed.clear();
-  hashed.push_back(x);
-  hashed.push_back(taux);
-  hashed.push_back(mu);
-  hashed.push_back(t);
-  rct::key x_ip = rct::hash_to_scalar(hashed);
+  rct::key x_ip = hash_cache_mash(hash_cache, x, taux, mu, t);
 
   // These are used in the inner product rounds
   size_t nprime = N;
@@ -509,20 +531,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
     rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
 
     // PAPER LINES 21-22
-    hashed.clear();
-    if (round == 0)
-    {
-      hashed.push_back(L[0]);
-      hashed.push_back(R[0]);
-      w[0] = rct::hash_to_scalar(hashed);
-    }
-    else
-    {
-      hashed.push_back(w[round - 1]);
-      hashed.push_back(L[round]);
-      hashed.push_back(R[round]);
-      w[round] = rct::hash_to_scalar(hashed);
-    }
+    w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
 
     // PAPER LINES 24-25
     const rct::key winv = invert(w[round]);
@@ -563,6 +572,7 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 {
   init_exponents();
 
+  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "V does not have exactly one element");
   CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
   CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");
   CHECK_AND_ASSERT_MES(proof.L.size() == 6, false, "Proof is not for 64 bits");
@@ -573,26 +583,15 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   // Reconstruct the challenges
   PERF_TIMER_START_BP(VERIFY);
   PERF_TIMER_START_BP(VERIFY_start);
-  rct::keyV hashed;
-  hashed.push_back(proof.A);
-  hashed.push_back(proof.S);
-  rct::key y = rct::hash_to_scalar(hashed);
-  rct::key z = rct::hash_to_scalar(y);
-  hashed.clear();
-  hashed.push_back(z);
-  hashed.push_back(proof.T1);
-  hashed.push_back(proof.T2);
-  rct::key x = rct::hash_to_scalar(hashed);
+  rct::key hash_cache = rct::hash_to_scalar(proof.V[0]);
+  rct::key y = hash_cache_mash(hash_cache, proof.A, proof.S);
+  rct::key z = hash_cache = rct::hash_to_scalar(y);
+  rct::key x = hash_cache_mash(hash_cache, z, proof.T1, proof.T2);
   PERF_TIMER_STOP(VERIFY_start);
 
   PERF_TIMER_START_BP(VERIFY_line_60);
   // Reconstruct the challenges
-  hashed.clear();
-  hashed.push_back(x);
-  hashed.push_back(proof.taux);
-  hashed.push_back(proof.mu);
-  hashed.push_back(proof.t);
-  rct::key x_ip = hash_to_scalar(hashed);
+  rct::key x_ip = hash_cache_mash(hash_cache, x, proof.taux, proof.mu, proof.t);
   PERF_TIMER_STOP(VERIFY_line_60);
 
   PERF_TIMER_START_BP(VERIFY_line_61);
@@ -647,17 +646,9 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
   // PAPER LINES 21-22
   // The inner product challenges are computed per round
   rct::keyV w(rounds);
-  hashed.clear();
-  hashed.push_back(proof.L[0]);
-  hashed.push_back(proof.R[0]);
-  w[0] = rct::hash_to_scalar(hashed);
-  for (size_t i = 1; i < rounds; ++i)
+  for (size_t i = 0; i < rounds; ++i)
   {
-    hashed.clear();
-    hashed.push_back(w[i-1]);
-    hashed.push_back(proof.L[i]);
-    hashed.push_back(proof.R[i]);
-    w[i] = rct::hash_to_scalar(hashed);
+    w[i] = hash_cache_mash(hash_cache, proof.L[i], proof.R[i]);
   }
   PERF_TIMER_STOP(VERIFY_line_21_22);
 
