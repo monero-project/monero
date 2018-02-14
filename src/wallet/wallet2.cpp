@@ -532,12 +532,9 @@ size_t estimate_tx_size(bool use_rct, int n_inputs, int mixin, int n_outputs, si
     return n_inputs * (mixin+1) * APPROXIMATE_INPUT_BYTES + extra_size;
 }
 
-uint8_t get_bulletproof_fork(bool testnet)
+uint8_t get_bulletproof_fork()
 {
-  if (testnet)
-    return 7;
-  else
-    return 255; // TODO
+  return 8;
 }
 
 crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx)
@@ -6642,7 +6639,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
   const bool use_rct = use_fork_rules(4, 0);
-  const bool bulletproof = use_fork_rules(get_bulletproof_fork(m_testnet), 0);
+  const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
 
   const uint64_t fee_per_kb  = get_per_kb_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
@@ -7151,7 +7148,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   std::vector<std::vector<get_outs_entry>> outs;
 
   const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
-  const bool bulletproof = use_fork_rules(get_bulletproof_fork(m_testnet), 0);
+  const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const uint64_t fee_per_kb  = get_per_kb_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
 
@@ -8354,8 +8351,9 @@ uint64_t wallet2::get_approximate_blockchain_height() const
   // Calculated blockchain height
   uint64_t approx_blockchain_height = fork_block + (time(NULL) - fork_time)/seconds_per_block;
   // testnet got some huge rollbacks, so the estimation is way off
-  if (m_testnet && approx_blockchain_height > 105000)
-    approx_blockchain_height -= 105000;
+  static const uint64_t approximate_testnet_rolled_back_blocks = 148540;
+  if (m_testnet && approx_blockchain_height > approximate_testnet_rolled_back_blocks)
+    approx_blockchain_height -= approximate_testnet_rolled_back_blocks;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
