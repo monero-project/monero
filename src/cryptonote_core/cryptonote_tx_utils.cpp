@@ -628,17 +628,8 @@ namespace cryptonote
     //genesis block
     bl = boost::value_initialized<block>();
 
-
-    account_public_address ac = boost::value_initialized<account_public_address>();
-    std::vector<size_t> sz;
-    construct_miner_tx(0, 0, 0, 0, 0, ac, bl.miner_tx); // zero fee in genesis
-    blobdata txb = tx_to_blob(bl.miner_tx);
-    std::string hex_tx_represent = string_tools::buff_to_hex_nodelimer(txb);
-
-    std::string genesis_coinbase_tx_hex = config::GENESIS_TX;
-
     blobdata tx_bl;
-    bool r = string_tools::parse_hexstr_to_binbuff(genesis_coinbase_tx_hex, tx_bl);
+    bool r = string_tools::parse_hexstr_to_binbuff(genesis_tx, tx_bl);
     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
     r = parse_and_validate_tx_from_blob(tx_bl, bl.miner_tx);
     CHECK_AND_ASSERT_MES(r, false, "failed to parse coinbase tx from hard coded blob");
