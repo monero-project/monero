@@ -246,7 +246,7 @@ namespace rct {
           // inputs/outputs not saved, only here for serialization help
           // FIELD(message) - not serialized, it can be reconstructed
           // FIELD(mixRing) - not serialized, it can be reconstructed
-          if (type == RCTTypeSimple || type == RCTTypeSimpleBulletproof)
+          if (type == RCTTypeSimple) // moved to prunable with bulletproofs
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
@@ -294,6 +294,7 @@ namespace rct {
         std::vector<rangeSig> rangeSigs;
         std::vector<Bulletproof> bulletproofs;
         std::vector<mgSig> MGs; // simple rct has N, full has 1
+        keyV pseudoOuts; //C - for simple rct
 
         template<bool W, template <bool> class Archive>
         bool serialize_rctsig_prunable(Archive<W> &ar, uint8_t type, size_t inputs, size_t outputs, size_t mixin)
@@ -381,6 +382,21 @@ namespace rct {
                ar.delimit_array();
           }
           ar.end_array();
+          if (type == RCTTypeSimpleBulletproof)
+          {
+            ar.tag("pseudoOuts");
+            ar.begin_array();
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts);
+            if (pseudoOuts.size() != inputs)
+              return false;
+            for (size_t i = 0; i < inputs; ++i)
+            {
+              FIELDS(pseudoOuts[i])
+              if (inputs - i > 1)
+                ar.delimit_array();
+            }
+            ar.end_array();
+          }
           return true;
         }
 

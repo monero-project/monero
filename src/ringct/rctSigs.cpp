@@ -43,6 +43,30 @@ using namespace std;
 #define MONERO_DEFAULT_LOG_CATEGORY "ringct"
 
 namespace rct {
+    bool is_simple(int type)
+    {
+        switch (type)
+        {
+            case RCTTypeSimple:
+            case RCTTypeSimpleBulletproof:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool is_bulletproof(int type)
+    {
+        switch (type)
+        {
+            case RCTTypeSimpleBulletproof:
+            case RCTTypeFullBulletproof:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
     {
         mask = rct::skGen();
@@ -357,7 +381,8 @@ namespace rct {
 
       std::stringstream ss;
       binary_archive<true> ba(ss);
-      const size_t inputs = rv.pseudoOuts.size();
+      CHECK_AND_ASSERT_THROW_MES(!rv.mixRing.empty(), "Empty mixRing");
+      const size_t inputs = is_simple(rv.type) ? rv.mixRing.size() : rv.mixRing[0].size();
       const size_t outputs = rv.ecdhInfo.size();
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
           "Failed to serialize rctSigBase");
@@ -750,25 +775,26 @@ namespace rct {
 //        TODO: unused ??
 //        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
         rv.mixRing = mixRing;
-        rv.pseudoOuts.resize(inamounts.size());
+        keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
+        pseudoOuts.resize(inamounts.size());
         rv.p.MGs.resize(inamounts.size());
         key sumpouts = zero(); //sum pseudoOut masks
         keyV a(inamounts.size());
         for (i = 0 ; i < inamounts.size() - 1; i++) {
             skGen(a[i]);
             sc_add(sumpouts.bytes, a[i].bytes, sumpouts.bytes);
-            genC(rv.pseudoOuts[i], a[i], inamounts[i]);
+            genC(pseudoOuts[i], a[i], inamounts[i]);
         }
         rv.mixRing = mixRing;
         sc_sub(a[i].bytes, sumout.bytes, sumpouts.bytes);
-        genC(rv.pseudoOuts[i], a[i], inamounts[i]);
-        DP(rv.pseudoOuts[i]);
+        genC(pseudoOuts[i], a[i], inamounts[i]);
+        DP(pseudoOuts[i]);
 
         key full_message = get_pre_mlsag_hash(rv);
         if (msout)
           msout->c.resize(inamounts.size());
         for (i = 0 ; i < inamounts.size(); i++) {
-            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], rv.pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i]);
+            rv.p.MGs[i] = proveRctMGSimple(full_message, rv.mixRing[i], inSk[i], a[i], pseudoOuts[i], kLRki ? &(*kLRki)[i]: NULL, msout ? &msout->c[i] : NULL, index[i]);
         }
         return rv;
     }
@@ -876,16 +902,26 @@ namespace rct {
         if (semantics)
         {
           if (rv.type == RCTTypeSimpleBulletproof)
+          {
             CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.bulletproofs.size(), false, "Mismatched sizes of outPk and rv.p.bulletproofs");
+            CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.MGs");
+            CHECK_AND_ASSERT_MES(rv.pseudoOuts.empty(), false, "rv.pseudoOuts is not empty");
+          }
           else
+          {
             CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.p.rangeSigs.size(), false, "Mismatched sizes of outPk and rv.p.rangeSigs");
+            CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
+            CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.empty(), false, "rv.p.pseudoOuts is not empty");
+          }
           CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
-          CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.p.MGs.size(), false, "Mismatched sizes of rv.pseudoOuts and rv.p.MGs");
         }
         else
         {
           // semantics check is early, and mixRing/MGs aren't resolved yet
-          CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
+          if (rv.type == RCTTypeSimpleBulletproof)
+            CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.p.pseudoOuts and mixRing");
+          else
+            CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
         }
 
         const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
@@ -893,6 +929,8 @@ namespace rct {
         std::deque<bool> results(threads);
         tools::threadpool& tpool = tools::threadpool::getInstance();
         tools::threadpool::waiter waiter;
+
+        const keyV &pseudoOuts = is_bulletproof(rv.type) ? rv.p.pseudoOuts : rv.pseudoOuts;
 
         if (semantics) {
           key sumOutpks = identity();
@@ -904,8 +942,8 @@ namespace rct {
           addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
           key sumPseudoOuts = identity();
-          for (size_t i = 0 ; i < rv.pseudoOuts.size() ; i++) {
-              addKeys(sumPseudoOuts, sumPseudoOuts, rv.pseudoOuts[i]);
+          for (size_t i = 0 ; i < pseudoOuts.size() ; i++) {
+              addKeys(sumPseudoOuts, sumPseudoOuts, pseudoOuts[i]);
           }
           DP(sumPseudoOuts);
 
@@ -941,7 +979,7 @@ namespace rct {
           results.resize(rv.mixRing.size());
           for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
             tpool.submit(&waiter, [&, i] {
-                results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], rv.pseudoOuts[i]);
+                results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
             });
           }
           waiter.wait();
