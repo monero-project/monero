@@ -120,10 +120,6 @@
         <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu. %s</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %s</source>
-        <translation type="vanished">Caricato %lu transazioni, per %s, commissione %s, %s, %s, %s, con mixin %lu. %s</translation>
-    </message>
 </context>
 <context>
     <name>Monero::WalletImpl</name>
@@ -286,18 +282,10 @@
         <translation>non hai abbastanza fondi da trasferire, disponibili solo %s, ammontare transazione %s = %s + %s (commissione)</translation>
     </message>
     <message>
-        <source>not enough outputs for specified mixin_count</source>
-        <translation type="vanished">outputs insufficienti per il numero di mixaggi specificato </translation>
-    </message>
-    <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1199"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1302"/>
         <source>output amount</source>
         <translation>ammontare output</translation>
-    </message>
-    <message>
-        <source>found outputs to mix</source>
-        <translation type="vanished">trovati outputs da mixare</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1204"/>
@@ -385,57 +373,6 @@
         <location filename="../src/wallet/api/wallet.cpp" line="1848"/>
         <source>Rescan spent can only be used with a trusted daemon</source>
         <translation>&quot;Riscannerizza spesi&quot; può essere utilizzato solo da un daemon fidato</translation>
-    </message>
-</context>
-<context>
-    <name>Monero::WalletManagerImpl</name>
-    <message>
-        <source>failed to parse txid</source>
-        <translation type="vanished">analisi txid fallita</translation>
-    </message>
-    <message>
-        <source>failed to parse tx key</source>
-        <translation type="vanished">parsing chiave tx fallito</translation>
-    </message>
-    <message>
-        <source>failed to parse address</source>
-        <translation type="vanished">parsing indirizzo fallito</translation>
-    </message>
-    <message>
-        <source>failed to get transaction from daemon</source>
-        <translation type="vanished">impossibile recuperare la transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to parse transaction from daemon</source>
-        <translation type="vanished">impossibile fare il parsing della transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to validate transaction from daemon</source>
-        <translation type="vanished">convalida transazione dal daemon fallita</translation>
-    </message>
-    <message>
-        <source>failed to get the right transaction from daemon</source>
-        <translation type="vanished">impossibile recuperare la giusta transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to generate key derivation from supplied parameters</source>
-        <translation type="vanished">impossibile generare derivazione chiave dai parametri forniti</translation>
-    </message>
-    <message>
-        <source>error: </source>
-        <translation type="vanished">errore: </translation>
-    </message>
-    <message>
-        <source>received</source>
-        <translation type="vanished">ricevuto</translation>
-    </message>
-    <message>
-        <source>in txid</source>
-        <translation type="vanished">in txid</translation>
-    </message>
-    <message>
-        <source>received nothing in txid</source>
-        <translation type="vanished">nulla ricevuto in txid</translation>
     </message>
 </context>
 <context>
@@ -541,34 +478,6 @@
         <translation>password non valida</translation>
     </message>
     <message>
-        <source>start_mining [&lt;number_of_threads&gt;] - Start mining in daemon</source>
-        <translation type="vanished">start_mining [&lt;number_of_threads&gt;] - Avvia mining nel daemon</translation>
-    </message>
-    <message>
-        <source>Stop mining in daemon</source>
-        <translation type="vanished">Interrompi mining nel daemon</translation>
-    </message>
-    <message>
-        <source>Save current blockchain data</source>
-        <translation type="vanished">Salva dati correnti blockchain</translation>
-    </message>
-    <message>
-        <source>Show current wallet balance</source>
-        <translation type="vanished">Mostra bilancio portafoglio attuale</translation>
-    </message>
-    <message>
-        <source>Show blockchain height</source>
-        <translation type="vanished">Mostra &quot;altezza&quot; blockchain</translation>
-    </message>
-    <message>
-        <source>Show current wallet public address</source>
-        <translation type="vanished">Mostra indirizzo pubblico del portafoglio corrente</translation>
-    </message>
-    <message>
-        <source>Show this help</source>
-        <translation type="vanished">Mostra questo aiuto</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1900"/>
         <source>set seed: needs an argument. available options: language</source>
         <translation>imposta seed: richiede una definizione. opzioni disponibili: lingua</translation>
@@ -594,22 +503,6 @@
         <translation>uso: payment_id</translation>
     </message>
     <message>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
-        <translation type="vanished">sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Invia tutti gli outputs sbloccati sotto la soglia specificata a un indirizzo</translation>
-    </message>
-    <message>
-        <source>Generate a signature to prove payment to &lt;address&gt; in &lt;txid&gt; using the transaction secret key (r) without revealing it</source>
-        <translation type="vanished">Genera una firma per provare un pagamento a &lt;address&gt; in &lt;txid&gt; usando la chiave di transazione (r) senza rivelarla</translation>
-    </message>
-    <message>
-        <source>Check tx proof for payment going to &lt;address&gt; in &lt;txid&gt;</source>
-        <translation type="vanished">Verifica prova tx per pagamento inviato a &lt;indirizzo&gt; in &lt;txid&gt;</translation>
-    </message>
-    <message>
-        <source>Generate a new random full size payment id - these will be unencrypted on the blockchain, see integrated_address for encrypted short payment ids</source>
-        <translation type="vanished">Genera un nuovo id pagamento casuale di dimensione completa - queste non saranno criptate nel blockchain, considera integrated_address per payment ids corti crittati</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1886"/>
         <source>needs an argument</source>
         <translation>ha bisogno di un argomento</translation>
@@ -627,10 +520,6 @@
         <location filename="../src/simplewallet/simplewallet.cpp" line="1926"/>
         <source>0 or 1</source>
         <translation>0 o 1</translation>
-    </message>
-    <message>
-        <source>integer &gt;= 2</source>
-        <translation type="vanished">integrale &gt;= 2</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1915"/>
@@ -769,10 +658,6 @@
         <translation>transazione </translation>
     </message>
     <message>
-        <source>received </source>
-        <translation type="vanished">ricevuto/i </translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3180"/>
         <source>spent </source>
         <translation>speso/i </translation>
@@ -892,22 +777,6 @@ Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s gi
         <translation>Transazioni/e non firmata/e scritte/a con successo su file: </translation>
     </message>
     <message>
-        <source>Not enough money in unlocked balance</source>
-        <translation type="vanished">Non hai abbastanza fondi nel bilancio sbloccato</translation>
-    </message>
-    <message>
-        <source>Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees</source>
-        <translation type="vanished">Impossibile creare transazioni. Questo succede di solito perchè l&apos;ammontare di polvere è così piccolo da non poter pagare le proprie commissioni, oppure stai provando a mandare più fondi di quelli che possiedi nel bilancio sbloccato, o non hai aggiunto abbastanza commissioni</translation>
-    </message>
-    <message>
-        <source>Reason: </source>
-        <translation type="vanished">Motivo: </translation>
-    </message>
-    <message>
-        <source>failed to find a suitable way to split transactions</source>
-        <translation type="vanished">impossibile trovare un modo adatto per dividere le transazioni</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4061"/>
         <source>No unmixable outputs found</source>
         <translation>Nessun output non-mixabile trovato</translation>
@@ -978,10 +847,6 @@ Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s gi
         <translation>Caricamento transazione da file fallito</translation>
     </message>
     <message>
-        <source>daemon is busy. Please try later</source>
-        <translation type="vanished">il daemon è occupato. Prova più tardi</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3243"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3546"/>
         <source>RPC error: </source>
@@ -1034,38 +899,6 @@ Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s gi
         <location filename="../src/simplewallet/simplewallet.cpp" line="1435"/>
         <source>invalid value</source>
         <translation>valore invalido</translation>
-    </message>
-    <message>
-        <source>Same as transfer, but using an older transaction building algorithm</source>
-        <translation type="vanished">Lo stesso di transfer, ma usando un vecchio algoritmo per costruire la transazione</translation>
-    </message>
-    <message>
-        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
-        <translation type="vanished">sweep_all [mixin] address [payment_id] - Manda tutto il bilancio sbloccato ad un indirizzo</translation>
-    </message>
-    <message>
-        <source>donate [&lt;mixin_count&gt;] &lt;amount&gt; [payment_id] - Donate &lt;amount&gt; to the development team (donate.getmonero.org)</source>
-        <translation type="vanished">donate [&lt;mixin_count&gt;] &lt;amount&gt; [payment_id] - Dona &lt;amount&gt; al team di sviluppo (donate.getmonero.org)</translation>
-    </message>
-    <message>
-        <source>set_log &lt;level&gt;|&lt;categories&gt; - Change current log detail (level must be &lt;0-4&gt;)</source>
-        <translation type="vanished">set_log &lt;level&gt;|&lt;categories&gt; - Cambia livello dettaglio log (il livello deve essere &lt;0-4&gt;)</translation>
-    </message>
-    <message>
-        <source>address_book [(add (&lt;address&gt; [pid &lt;long or short payment id&gt;])|&lt;integrated address&gt; [&lt;description possibly with whitespaces&gt;])|(delete &lt;index&gt;)] - Print all entries in the address book, optionally adding/deleting an entry to/from it</source>
-        <translation type="vanished">address_book [(add (&lt;address&gt; [pid &lt;long or short payment id&gt;])|&lt;integrated address&gt; [&lt;description possibly with whitespaces&gt;])|(delete &lt;index&gt;)] - Mostra tutte le voci nella rubrica, hai l&apos;opzione di aggiungere/eliminare delle voci</translation>
-    </message>
-    <message>
-        <source>show_transfers [in|out|pending|failed|pool] [&lt;min_height&gt; [&lt;max_height&gt;]] - Show incoming/outgoing transfers within an optional height range</source>
-        <translation type="vanished">show_transfers [in|out|pending|failed|pool] [&lt;min_height&gt; [&lt;max_height&gt;]] - Mostra trasferimenti in entrata/uscita entro un altezza del blocco opzionale</translation>
-    </message>
-    <message>
-        <source>Show information about a transfer to/from this address</source>
-        <translation type="vanished">Mostra informazioni riguardo un trasferimento da/per questo indirizzo</translation>
-    </message>
-    <message>
-        <source>Change wallet password</source>
-        <translation type="vanished">Cambia password portafoglio</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1937"/>
@@ -2532,10 +2365,6 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>failed to get random outputs to mix: </source>
-        <translation type="vanished">impossibile recuperare output casuali da mixare: </translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4076"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4309"/>
         <source>Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): </source>
@@ -2552,10 +2381,6 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4625"/>
         <source>Donating </source>
         <translation>Donando </translation>
-    </message>
-    <message>
-        <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No): </source>
-        <translation type="vanished">Caricate %lu transazioni, per %s, commissioni %s, %s, %s, con mixaggio %lu. %sQuesto è corretto? (S/Sì/N/No): </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4787"/>
@@ -2606,133 +2431,9 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <translation>il portafoglio è solo-vista e non può eseguire trasferimenti</translation>
     </message>
     <message>
-        <source>mixin must be an integer &gt;= 2</source>
-        <translation type="vanished">mixin deve essere un integrale &gt;= 2</translation>
-    </message>
-    <message>
-        <source>could not change default mixin</source>
-        <translation type="vanished">impossibile cambiare mixin standard</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1316"/>
         <source>could not change default priority</source>
         <translation>impossibile cambiare priorità standard</translation>
-    </message>
-    <message>
-        <source>Synchronize transactions and balance</source>
-        <translation type="vanished">Sincronizzare transazioni e bilancio</translation>
-    </message>
-    <message>
-        <source>incoming_transfers [available|unavailable] - Show incoming transfers, all or filtered by availability</source>
-        <translation type="vanished">incoming_transfers [available|unavailable] - Mostra trasferimenti in entrata, tutti o filtrati per disponibilità</translation>
-    </message>
-    <message>
-        <source>payments &lt;PID_1&gt; [&lt;PID_2&gt; ... &lt;PID_N&gt;] - Show payments for given payment ID[s]</source>
-        <translation type="vanished">payments &lt;PID_1&gt; [&lt;PID_2&gt; ... &lt;PID_N&gt;] - Mostra pagamenti per gli/l&apos; ID fornito/i</translation>
-    </message>
-    <message>
-        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
-        <translation type="vanished">transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; è la priorità della transazione. Maggiore è la priorità, maggiori saranno le tasse per la transazione. Valori validi in ordini di priorità (dal più basso al più alto) sono:unimportant, normal, elevated, priority. se omesso, verrà usato il valore standard (vedi il comando &quot;set priority&quot;). &lt;mixin_count&gt; è il numero di inputs extra da inludere per intracciabilità. Puoi eseguire pagamenti multipli in una volta aggiungendo &lt;address_2&gt; &lt;amount_2&gt; etcetera (prima dell&apos; ID pagamento, se incluso)</translation>
-    </message>
-    <message>
-        <source>locked_transfer [&lt;mixin_count&gt;] &lt;addr&gt; &lt;amount&gt; &lt;lockblocks&gt;(Number of blocks to lock the transaction for, max 1000000) [&lt;payment_id&gt;]</source>
-        <translation type="vanished">locked_transfer [&lt;mixin_count&gt;] &lt;addr&gt; &lt;amount&gt; &lt;lockblocks&gt;(Numero di blocchi durante i quali bloccare la transazione, max 1000000) [&lt;payment_id&gt;]</translation>
-    </message>
-    <message>
-        <source>Send all unmixable outputs to yourself with mixin 0</source>
-        <translation type="vanished">Manda tutti gli outputs non spendibili a te stesso con mixaggio 0</translation>
-    </message>
-    <message>
-        <source>Sign a transaction from a file</source>
-        <translation type="vanished">Firma una transazione da file</translation>
-    </message>
-    <message>
-        <source>Submit a signed transaction from a file</source>
-        <translation type="vanished">Invia una transazione firmata da file</translation>
-    </message>
-    <message>
-        <source>integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID</source>
-        <translation type="vanished">integrated_address [PID] - Codifica un ID pagamento in un indirizzo integrato per l&apos;indirizzo pubblico del portafoglio corrente (nessun parametro usa un payment ID casuale), oppure decodifica un indirizzo integrato in indirizzo standard e payment ID</translation>
-    </message>
-    <message>
-        <source>Save wallet data</source>
-        <translation type="vanished">Salva i dati del portafoglio</translation>
-    </message>
-    <message>
-        <source>Save a watch-only keys file</source>
-        <translation type="vanished">Salva una chiave solo-vista</translation>
-    </message>
-    <message>
-        <source>Display private view key</source>
-        <translation type="vanished">Visualizza chiave di visualizzazione privata</translation>
-    </message>
-    <message>
-        <source>Display private spend key</source>
-        <translation type="vanished">Visualizza chiave di spesa privata</translation>
-    </message>
-    <message>
-        <source>Display Electrum-style mnemonic seed</source>
-        <translation type="vanished">Visualizza il seed mnemonico in stile Electrum</translation>
-    </message>
-    <message>
-        <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
-        <translation type="vanished">Opzioni disponibili: seed language - seleziona lingua del seed per il portafoglio; always-confirm-transfers &lt;1|0&gt; - se confermare unsplit txes; print-ring-members &lt;1|0&gt; - se mostrare informazioni dettagliate sui ring members durante le conferme; store-tx-info &lt;1|0&gt; - se salvare le informazioni tx in uscita (indirizzo di destinazione, payment ID, chiave tx segreta) per riferimento futuro; default-mixin &lt;n&gt; - imposta default mixin (default è 4); auto-refresh &lt;1|0&gt; - se sincronizzare automaticamente i nuovi blocchi dal daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - imposta modalità wallet refresh; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - imposta default monero (sub-)unit; min-outputs-count [n] - cerca di mantenere come minimo tanti outputs quanti il valore di min-outputs-value; min-outputs-value [n] - cerca di mantenere i min-outputs-count outputs come minimo a questo valore; merge-destinations &lt;1|0&gt; - se fondere pagamenti multipli allo stessp indirizzo di destinazione</translation>
-    </message>
-    <message>
-        <source>Rescan blockchain for spent outputs</source>
-        <translation type="vanished">Riscannerizza blockchain in cerca di outputs spesi</translation>
-    </message>
-    <message>
-        <source>Get transaction key (r) for a given &lt;txid&gt;</source>
-        <translation type="vanished">Ricevi una chiave transazione (r) per ogni &lt;txid&gt;</translation>
-    </message>
-    <message>
-        <source>Check amount going to &lt;address&gt; in &lt;txid&gt;</source>
-        <translation type="vanished">Controlla l&apos;ammontare che va da &lt;address&gt; a &lt;txid&gt;</translation>
-    </message>
-    <message>
-        <source>unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;] - Show unspent outputs within an optional amount range</source>
-        <translation type="vanished">unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;] - Mostra gli outputs non spesi entro un intervallo di valori opzionale</translation>
-    </message>
-    <message>
-        <source>Rescan blockchain from scratch</source>
-        <translation type="vanished">Avvia scansione blockchain dal principio</translation>
-    </message>
-    <message>
-        <source>Set an arbitrary string note for a txid</source>
-        <translation type="vanished">Imposta una stringa arbitraria per un txid</translation>
-    </message>
-    <message>
-        <source>Get a string note for a txid</source>
-        <translation type="vanished">Ricevi una stringa di annotazione per un txid</translation>
-    </message>
-    <message>
-        <source>Show wallet status information</source>
-        <translation type="vanished">Visualizza informazioni sulla stato del portafoglio</translation>
-    </message>
-    <message>
-        <source>Sign the contents of a file</source>
-        <translation type="vanished">Firma il contenuto di un file</translation>
-    </message>
-    <message>
-        <source>Verify a signature on the contents of a file</source>
-        <translation type="vanished">Verifica firma sul contesto del file</translation>
-    </message>
-    <message>
-        <source>Export a signed set of key images</source>
-        <translation type="vanished">Esporta un set di chiavi firmate</translation>
-    </message>
-    <message>
-        <source>Import signed key images list and verify their spent status</source>
-        <translation type="vanished">Importa immagine firmata della lista chiavi e verifica lo status degli spesi</translation>
-    </message>
-    <message>
-        <source>Export a set of outputs owned by this wallet</source>
-        <translation type="vanished">Esporta un set di outputs posseduti da questo portafoglio</translation>
-    </message>
-    <message>
-        <source>Import set of outputs owned by this wallet</source>
-        <translation type="vanished">Importa un set di outputs posseduti da questo portafoglio</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1914"/>
@@ -2768,14 +2469,6 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2018"/>
         <source>Generating new wallet...</source>
         <translation>Sto generando un nuovo portafoglio...</translation>
-    </message>
-    <message>
-        <source>can&apos;t specify more than one of --generate-new-wallet=&quot;wallet_name&quot;, --wallet-file=&quot;wallet_name&quot;, --generate-from-view-key=&quot;wallet_name&quot;, --generate-from-json=&quot;jsonfilename&quot; and --generate-from-keys=&quot;wallet_name&quot;</source>
-        <translation type="vanished">non puoi specificare più di un --generate-new-wallet=&quot;wallet_name&quot;, --wallet-file=&quot;wallet_name&quot;, --generate-from-view-key=&quot;wallet_name&quot;, --generate-from-json=&quot;jsonfilename&quot; e --generate-from-keys=&quot;wallet_name&quot;</translation>
-    </message>
-    <message>
-        <source>can&apos;t specify both --restore-deterministic-wallet and --non-deterministic</source>
-        <translation type="vanished">impossibile specificare sia --restore-deterministic-wallet che --non-deterministic</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2087"/>
@@ -2884,10 +2577,6 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <translation>il portafoglio è nullo</translation>
     </message>
     <message>
-        <source>Daemon either is not started or wrong port was passed. Please make sure daemon is running or restart the wallet with the correct daemon address.</source>
-        <translation type="vanished">Il daemon non è partito o è settato con la porta sbagliata. Assicurati che il daemon stia funzionando o fai ripartire il wallet con l&apos;indirizzo corretto del daemon</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2675"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2680"/>
         <source>invalid language choice passed. Please try again.
@@ -2898,21 +2587,6 @@ Avviso: alcune chiavi di input spese vengono da </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2748"/>
         <source>View key: </source>
         <translation>Chiave di visualizzazione: </translation>
-    </message>
-    <message>
-        <source>Your wallet has been generated!
-To start synchronizing with the daemon, use the &quot;refresh&quot; command.
-Use the &quot;help&quot; command to see the list of available commands.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
-your wallet again (your wallet keys are NOT at risk in any case).
-</source>
-        <translation type="vanished">Il tuo portafoglio è stato generato!
-Per iniziare a sincronizzarlo con il daemon, usa il comando &quot;refresh&quot;.
-Usa il comando &quot;help&quot; per vedere la lista dei comandi disponibili.
-Usa sempre il comando &quot;exit&quot; quando chiudi monero-wallet-cli per salvare
-lo stato della tua sessione &apos;s corrente. Altrimenti potresti dover sincronizzare 
-di nuovo il tuo portafoglio (le chiavi del tuo portafoglio NON sono a rischio in sessun caso).</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2930"/>
@@ -3122,42 +2796,6 @@ Transaction </source>
         <translation>Il cambiamento va a più di un indirizzo</translation>
     </message>
     <message>
-        <source>usage: get_tx_proof &lt;txid&gt; &lt;dest_address&gt; [&lt;tx_key&gt;]</source>
-        <translation type="vanished">uso: get_tx_proof &lt;txid&gt; &lt;dest_address&gt; [&lt;tx_key&gt;]</translation>
-    </message>
-    <message>
-        <source>failed to parse tx_key</source>
-        <translation type="vanished">impossibile fare il parsing del tx_key</translation>
-    </message>
-    <message>
-        <source>Tx secret key was found for the given txid, but you&apos;ve also provided another tx secret key which doesn&apos;t match the found one.</source>
-        <translation type="vanished">Una chiave tx segreta è stata trovata per il txid fornito, ma hai anche fornito un&apos;altra chiave segreta tx che non corrsisponde a quella trovata.</translation>
-    </message>
-    <message>
-        <source>Tx secret key wasn&apos;t found in the wallet file. Provide it as the optional third parameter if you have it elsewhere.</source>
-        <translation type="vanished">Chiave segreta tx non trovata nel file del portafoglio. Forniscila come terzo parametro opzionale se la conservi da qualche altra parte.</translation>
-    </message>
-    <message>
-        <source>Signature: </source>
-        <translation type="vanished">Firma: </translation>
-    </message>
-    <message>
-        <source>usage: check_tx_proof &lt;txid&gt; &lt;address&gt; &lt;signature&gt;</source>
-        <translation type="vanished">uso: check_tx_proof &lt;txid&gt; &lt;address&gt; &lt;signature&gt;</translation>
-    </message>
-    <message>
-        <source>Signature header check error</source>
-        <translation type="vanished">Errore controllo firma intestazione</translation>
-    </message>
-    <message>
-        <source>Signature decoding error</source>
-        <translation type="vanished">Errore decodificazione firma</translation>
-    </message>
-    <message>
-        <source>Tx pubkey was not found</source>
-        <translation type="vanished">Chiave pubblica tx non trovata</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5072"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5183"/>
         <source>Good signature</source>
@@ -3171,17 +2809,9 @@ Transaction </source>
         <translation>Firma invalida</translation>
     </message>
     <message>
-        <source>failed to generate key derivation</source>
-        <translation type="vanished">generazione derivazione chiave fallita</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6041"/>
         <source>usage: integrated_address [payment ID]</source>
         <translation>uso: integrated_address [ID pagamento]</translation>
-    </message>
-    <message>
-        <source>Integrated address: account %s, payment ID %s</source>
-        <translation type="vanished">Indirizzo integrato: account %s, ID pagamento %s</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6077"/>
@@ -3607,53 +3237,9 @@ Grand total:
         <translation>deve essere un numero da 0 a </translation>
     </message>
     <message>
-        <source>Money successfully sent, transaction </source>
-        <translation type="vanished">Fondi inviati con successo, transazione </translation>
-    </message>
-    <message>
-        <source>no connection to daemon. Please, make sure daemon is running.</source>
-        <translation type="vanished">nessuna connessione con il daemon, assicurati che stia funzionando.</translation>
-    </message>
-    <message>
-        <source>not enough outputs for specified mixin_count</source>
-        <translation type="vanished">non ci sono abbastanza output per lo specificato mixin_count</translation>
-    </message>
-    <message>
-        <source>output amount</source>
-        <translation type="vanished">ammontare output</translation>
-    </message>
-    <message>
-        <source>found outputs to mix</source>
-        <translation type="vanished">trovati outputs da mixare</translation>
-    </message>
-    <message>
-        <source>transaction was not constructed</source>
-        <translation type="vanished">la transazione non è stata costruita</translation>
-    </message>
-    <message>
-        <source>transaction %s was rejected by daemon with status: </source>
-        <translation type="vanished">la transazione %s è stata respinta dal daemon con status: </translation>
-    </message>
-    <message>
-        <source>one of destinations is zero</source>
-        <translation type="vanished">una delle destinazioni è zero</translation>
-    </message>
-    <message>
-        <source>Failed to find a suitable way to split transactions</source>
-        <translation type="vanished">Impossibile trovare un modo corretto per dividere le transazioni</translation>
-    </message>
-    <message>
-        <source>unknown transfer error: </source>
-        <translation type="vanished">errore trasferimento sconosciuto: </translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4074"/>
         <source>Sweeping </source>
         <translation>Eseguendo lo sweeping </translation>
-    </message>
-    <message>
-        <source>Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)</source>
-        <translation type="vanished">Eseguendo lo sweeping di %s per un totale commissioni di %s. Va bene? (S/Sì/N/No)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4554"/>
@@ -3736,26 +3322,6 @@ Grand total:
         <translation>impossibile fare il parsing della chiave tx</translation>
     </message>
     <message>
-        <source>failed to get transaction from daemon</source>
-        <translation type="vanished">impossibile recuperare transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to parse transaction from daemon</source>
-        <translation type="vanished">impossibile fare il parsing della transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to validate transaction from daemon</source>
-        <translation type="vanished">convalida transazione dal daemon fallita</translation>
-    </message>
-    <message>
-        <source>failed to get the right transaction from daemon</source>
-        <translation type="vanished">impossibile recuperare la corretta transazione dal daemon</translation>
-    </message>
-    <message>
-        <source>failed to generate key derivation from supplied parameters</source>
-        <translation type="vanished">impossibile generare chiave derivazione dai parametri forniti</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4938"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5026"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5104"/>
@@ -3799,10 +3365,6 @@ Grand total:
         <translation>AVVISO: impossibile determinare il numero di conferme!</translation>
     </message>
     <message>
-        <source>usage: show_transfers [in|out|all|pending|failed] [&lt;min_height&gt; [&lt;max_height&gt;]]</source>
-        <translation type="vanished">uso: show_transfers [in|out|all|pending|failed] [&lt;min_height&gt; [&lt;max_height&gt;]]</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5396"/>
         <source>bad min_height parameter:</source>
         <translation>parametro min_height non corretto:</translation>
@@ -3832,10 +3394,6 @@ Grand total:
         <location filename="../src/simplewallet/simplewallet.cpp" line="5509"/>
         <source>pending</source>
         <translation>in attesa</translation>
-    </message>
-    <message>
-        <source>usage: unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;]</source>
-        <translation type="vanished">uso: unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;]</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5555"/>
@@ -4148,33 +3706,6 @@ daemon to work correctly.</source>
     </message>
 </context>
 <context>
-    <name>tools::dns_utils</name>
-    <message>
-        <source>DNSSEC validation passed</source>
-        <translation type="vanished">Convalida DNSSEC passata</translation>
-    </message>
-    <message>
-        <source>WARNING: DNSSEC validation was unsuccessful, this address may not be correct!</source>
-        <translation type="vanished">AVVISO: convalida DNSSEC fallita, questo indirizzo potrebbe non essere corretto!</translation>
-    </message>
-    <message>
-        <source>For URL: </source>
-        <translation type="vanished">Per URL: </translation>
-    </message>
-    <message>
-        <source> Monero Address = </source>
-        <translation type="vanished"> Indirizzo Monero = </translation>
-    </message>
-    <message>
-        <source>Is this OK? (Y/n) </source>
-        <translation type="vanished">Va bene? (S/n) </translation>
-    </message>
-    <message>
-        <source>you have cancelled the transfer request</source>
-        <translation type="vanished">hai cancellato la richiesta di transferimento</translation>
-    </message>
-</context>
-<context>
     <name>tools::wallet2</name>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="113"/>
@@ -4185,10 +3716,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="114"/>
         <source>Use daemon instance at host &lt;arg&gt; instead of localhost</source>
         <translation>Usa istanza daemon all&apos;host &lt;arg&gt; invece che localhost</translation>
-    </message>
-    <message>
-        <source>Wallet password</source>
-        <translation type="vanished">Password portafoglio</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="116"/>
@@ -4226,14 +3753,6 @@ daemon to work correctly.</source>
         <translation>il file password specificato non può essere letto</translation>
     </message>
     <message>
-        <source>Enter new wallet password</source>
-        <translation type="vanished">Inserisci una nuova password per il portafoglio</translation>
-    </message>
-    <message>
-        <source>failed to read wallet password</source>
-        <translation type="vanished">impossibile leggere password portafoglio</translation>
-    </message>
-    <message>
         <location filename="../src/wallet/wallet2.cpp" line="240"/>
         <source>Failed to load file </source>
         <translation>Impossibile caricare file </translation>
@@ -4247,11 +3766,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="118"/>
         <source>Specify username[:password] for daemon RPC client</source>
         <translation>Specificare username[:password] per client del daemon RPC</translation>
-    </message>
-    <message>
-        <location filename="../src/wallet/wallet2.cpp" line="224"/>
-        <source>no password specified; use --prompt-for-password to prompt for a password</source>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="246"/>
@@ -4296,10 +3810,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="319"/>
         <source>At least one of Electrum-style word list and private view key and private spend key must be specified</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>At least one of Electrum-style word list and private view key must be specified</source>
-        <translation type="vanished">Almeno una parola della lista stile-Electrum e una chiave privata di visualizzazione devono essere specificate</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="323"/>

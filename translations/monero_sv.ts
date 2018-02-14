@@ -120,10 +120,6 @@
         <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu. %s</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %s</source>
-        <translation type="vanished">Läste in %lu transaktioner, för %s, avgift %s, %s, %s, med minsta mixin %lu. %s</translation>
-    </message>
 </context>
 <context>
     <name>Monero::WalletImpl</name>
@@ -286,18 +282,10 @@
         <translation>ej tillräckligt med pengar för överföring, endast tillgängligt %s, transaktionsbelopp %s = %s + %s (avgift)</translation>
     </message>
     <message>
-        <source>not enough outputs for specified mixin_count</source>
-        <translation type="vanished">inte tillräckligt många utgångar för angiven mixin_count</translation>
-    </message>
-    <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1199"/>
         <location filename="../src/wallet/api/wallet.cpp" line="1302"/>
         <source>output amount</source>
         <translation>utgångens belopp</translation>
-    </message>
-    <message>
-        <source>found outputs to mix</source>
-        <translation type="vanished">hittade utgångar att mixa</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1204"/>
@@ -385,57 +373,6 @@
         <location filename="../src/wallet/api/wallet.cpp" line="1848"/>
         <source>Rescan spent can only be used with a trusted daemon</source>
         <translation>Genomsök efter spenderade kan endast användas med en betrodd daemon</translation>
-    </message>
-</context>
-<context>
-    <name>Monero::WalletManagerImpl</name>
-    <message>
-        <source>failed to parse txid</source>
-        <translation type="vanished">det gick inte att parsa transaktions-id</translation>
-    </message>
-    <message>
-        <source>failed to parse tx key</source>
-        <translation type="vanished">det gick inte att parsa transaktionsnyckeln</translation>
-    </message>
-    <message>
-        <source>failed to parse address</source>
-        <translation type="vanished">det gick inte att parsa adressen</translation>
-    </message>
-    <message>
-        <source>failed to get transaction from daemon</source>
-        <translation type="vanished">det gick inte att hämta transaktion från daemon</translation>
-    </message>
-    <message>
-        <source>failed to parse transaction from daemon</source>
-        <translation type="vanished">det gick inte att parsa transaktion från daemonen</translation>
-    </message>
-    <message>
-        <source>failed to validate transaction from daemon</source>
-        <translation type="vanished">det gick inte att validera transaktion från daemon</translation>
-    </message>
-    <message>
-        <source>failed to get the right transaction from daemon</source>
-        <translation type="vanished">det gick inte att hämta rätt transaktion från daemonen</translation>
-    </message>
-    <message>
-        <source>failed to generate key derivation from supplied parameters</source>
-        <translation type="vanished">det gick inte att skapa nyckelhärledning från angivna parametrar</translation>
-    </message>
-    <message>
-        <source>error: </source>
-        <translation type="vanished">fel: </translation>
-    </message>
-    <message>
-        <source>received</source>
-        <translation type="vanished">mottaget</translation>
-    </message>
-    <message>
-        <source>in txid</source>
-        <translation type="vanished">i transaktions-id</translation>
-    </message>
-    <message>
-        <source>received nothing in txid</source>
-        <translation type="vanished">tog emot ingenting i transaktions-id</translation>
     </message>
 </context>
 <context>
@@ -541,34 +478,6 @@
         <translation>ogiltigt lösenord</translation>
     </message>
     <message>
-        <source>start_mining [&lt;number_of_threads&gt;] - Start mining in daemon</source>
-        <translation type="vanished">start_mining [&lt;antal_trådar&gt;] - Starta brytning i daemonen</translation>
-    </message>
-    <message>
-        <source>Stop mining in daemon</source>
-        <translation type="vanished">Avbryt brytning i daemonen</translation>
-    </message>
-    <message>
-        <source>Save current blockchain data</source>
-        <translation type="vanished">Spara aktuella blockkedje-data</translation>
-    </message>
-    <message>
-        <source>Show current wallet balance</source>
-        <translation type="vanished">Visa aktuellt saldo för plånboken</translation>
-    </message>
-    <message>
-        <source>Show blockchain height</source>
-        <translation type="vanished">Visa blockkedjans höjd</translation>
-    </message>
-    <message>
-        <source>Show current wallet public address</source>
-        <translation type="vanished">Visa plånbokens aktuella öppna adress</translation>
-    </message>
-    <message>
-        <source>Show this help</source>
-        <translation type="vanished">Visa denna hjälp</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1900"/>
         <source>set seed: needs an argument. available options: language</source>
         <translation>set seed: behöver ett argument. tillgängliga alternativ: språk</translation>
@@ -594,14 +503,6 @@
         <translation>användning: payment_id</translation>
     </message>
     <message>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
-        <translation type="vanished">sweep_below &lt;tröskelbelopp&gt; [mixin] &lt;adress&gt; [&lt;betalnings_ID&gt;] - Skicka alla upplåsta utgångar under tröskelbeloppet till en adress</translation>
-    </message>
-    <message>
-        <source>Generate a new random full size payment id - these will be unencrypted on the blockchain, see integrated_address for encrypted short payment ids</source>
-        <translation type="vanished">Skapa ett nytt slumpmässigt betalnings-ID av full storlek - dessa kommer att vara okrypterade på blockkedjan, se integrated_address för krypterade korta betalnings-ID</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1886"/>
         <source>needs an argument</source>
         <translation>kräver ett argument</translation>
@@ -619,10 +520,6 @@
         <location filename="../src/simplewallet/simplewallet.cpp" line="1926"/>
         <source>0 or 1</source>
         <translation>0 eller 1</translation>
-    </message>
-    <message>
-        <source>integer &gt;= 2</source>
-        <translation type="vanished">heltal &gt;= 2</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1915"/>
@@ -774,10 +671,6 @@
         <location filename="../src/simplewallet/simplewallet.cpp" line="3192"/>
         <source>transaction </source>
         <translation>transaktion </translation>
-    </message>
-    <message>
-        <source>received </source>
-        <translation type="vanished">mottaget </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3180"/>
@@ -936,22 +829,6 @@ Denna transaktion kommer att låsas upp vid block %llu, om ungefär %s dagar (f�
         <translation>Osignerade transaktioner skrevs till fil: </translation>
     </message>
     <message>
-        <source>Not enough money in unlocked balance</source>
-        <translation type="vanished">Inte tillräckligt med pengar i upplåst saldo</translation>
-    </message>
-    <message>
-        <source>Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees</source>
-        <translation type="vanished">Det gick inte att hitta något sätt att skapa transaktioner. Detta beror vanligtvis på damm som är så litet att det inte kan betala för sig självt i avgifter, eller ett försök att skicka mer pengar än upplåst saldo, eller att inte lämna tillräckligt för att täcka avgifterna</translation>
-    </message>
-    <message>
-        <source>Reason: </source>
-        <translation type="vanished">Orsak: </translation>
-    </message>
-    <message>
-        <source>failed to find a suitable way to split transactions</source>
-        <translation type="vanished">det gick inte att hitta ett lämpligt sätt att dela upp transaktioner</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4061"/>
         <source>No unmixable outputs found</source>
         <translation>Inga omixbara utgångar kunde hittas</translation>
@@ -1072,10 +949,6 @@ Denna transaktion kommer att låsas upp vid block %llu, om ungefär %s dagar (f�
         <translation>Det gick inte att läsa in transaktion från fil</translation>
     </message>
     <message>
-        <source>daemon is busy. Please try later</source>
-        <translation type="vanished">daemonen är upptagen. Försök senare</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3243"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3546"/>
         <source>RPC error: </source>
@@ -1128,38 +1001,6 @@ Denna transaktion kommer att låsas upp vid block %llu, om ungefär %s dagar (f�
         <location filename="../src/simplewallet/simplewallet.cpp" line="1435"/>
         <source>invalid value</source>
         <translation>ogiltigt värde</translation>
-    </message>
-    <message>
-        <source>Same as transfer, but using an older transaction building algorithm</source>
-        <translation type="vanished">Samma som transfer, men använder en äldre algoritm för att bygga transaktionen</translation>
-    </message>
-    <message>
-        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
-        <translation type="vanished">sweep_all [mixin] adress [betalnings_id] - Skicka allt upplåst saldo till en adress</translation>
-    </message>
-    <message>
-        <source>donate [&lt;mixin_count&gt;] &lt;amount&gt; [payment_id] - Donate &lt;amount&gt; to the development team (donate.getmonero.org)</source>
-        <translation type="vanished">donate [&lt;mixin_antal&gt;] &lt;belopp&gt; [&lt;betalnings_id&gt;] - Donera &lt;belopp&gt; till utvecklingsteamet (donate.getmonero.org)</translation>
-    </message>
-    <message>
-        <source>set_log &lt;level&gt;|&lt;categories&gt; - Change current log detail (level must be &lt;0-4&gt;)</source>
-        <translation type="vanished">set_log &lt;nivå&gt;|&lt;kategorier&gt; - Ändra detaljnivån för aktuell logg (nivå måste vara 0-4)</translation>
-    </message>
-    <message>
-        <source>address_book [(add (&lt;address&gt; [pid &lt;long or short payment id&gt;])|&lt;integrated address&gt; [&lt;description possibly with whitespaces&gt;])|(delete &lt;index&gt;)] - Print all entries in the address book, optionally adding/deleting an entry to/from it</source>
-        <translation type="vanished">address_book [(add (&lt;adress&gt; [pid &lt;långt eller kort betalnings-ID&gt;])|&lt;integrerad adress&gt; [&lt;beskrivning eventuellt med blanktecken&gt;])|(delete &lt;index&gt;)] - Skriv ut alla poster i adressboken, eventuellt lägg till/ta bort en post till/från den</translation>
-    </message>
-    <message>
-        <source>show_transfers [in|out|pending|failed|pool] [&lt;min_height&gt; [&lt;max_height&gt;]] - Show incoming/outgoing transfers within an optional height range</source>
-        <translation type="vanished">show_transfers [in|out|pending|failed|pool] [&lt;min_höjd&gt; [&lt;max_höjd&gt;]] - Visa inkommande/utgående överföringar inom ett valfritt höjdintervall</translation>
-    </message>
-    <message>
-        <source>Show information about a transfer to/from this address</source>
-        <translation type="vanished">Visa information om en överföring till/från denna adress</translation>
-    </message>
-    <message>
-        <source>Change wallet password</source>
-        <translation type="vanished">Ändra lösenord för plånbok</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1937"/>
@@ -2627,10 +2468,6 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>failed to get random outputs to mix: </source>
-        <translation type="vanished">det gick inte att hitta slumpmässiga utgångar att mixa: </translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4076"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4309"/>
         <source>Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): </source>
@@ -2647,10 +2484,6 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4625"/>
         <source>Donating </source>
         <translation>Donerar </translation>
-    </message>
-    <message>
-        <source>Loaded %lu transactions, for %s, fee %s, %s, %s, with min mixin %lu. %sIs this okay? (Y/Yes/N/No): </source>
-        <translation type="vanished">Läste in %lu transaktioner, för %s, avgift %s, %s, %s, med minsta mixin %lu. %sÄr detta okej? (J/Ja/N/Nej): </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4787"/>
@@ -2701,141 +2534,9 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <translation>plånboken är enbart för granskning och kan inte göra överföringar</translation>
     </message>
     <message>
-        <source>mixin must be an integer &gt;= 2</source>
-        <translation type="vanished">mixin måste vara ett heltal &gt;= 2</translation>
-    </message>
-    <message>
-        <source>could not change default mixin</source>
-        <translation type="vanished">det gick inte att ändra standardinställning för mixin</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1316"/>
         <source>could not change default priority</source>
         <translation>Det gick inte att ändra standardinställning för prioritet</translation>
-    </message>
-    <message>
-        <source>Synchronize transactions and balance</source>
-        <translation type="vanished">Synkronisera transaktioner och saldo</translation>
-    </message>
-    <message>
-        <source>incoming_transfers [available|unavailable] - Show incoming transfers, all or filtered by availability</source>
-        <translation type="vanished">incoming_transfers [available|unavailable] - Visa inkommande överföringar, alla eller filtrerade efter tillgänglighet</translation>
-    </message>
-    <message>
-        <source>payments &lt;PID_1&gt; [&lt;PID_2&gt; ... &lt;PID_N&gt;] - Show payments for given payment ID[s]</source>
-        <translation type="vanished">payments &lt;B_ID_1&gt; [&lt;B_ID_2&gt; … &lt;B_ID_N&gt;] - Visa betalningar för angivna betalnings-ID</translation>
-    </message>
-    <message>
-        <source>transfer [&lt;priority&gt;] [&lt;mixin_count&gt;] &lt;address&gt; &lt;amount&gt; [&lt;payment_id&gt;] - Transfer &lt;amount&gt; to &lt;address&gt;. &lt;priority&gt; is the priority of the transaction. The higher the priority, the higher the fee of the transaction. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command &quot;set priority&quot;) is used. &lt;mixin_count&gt; is the number of extra inputs to include for untraceability. Multiple payments can be made at once by adding &lt;address_2&gt; &lt;amount_2&gt; etcetera (before the payment ID, if it&apos;s included)</source>
-        <translation type="vanished">transfer [&lt;prioritet&gt;] [&lt;mixin_antal&gt;] &lt;adress&gt; &lt;belopp&gt; [&lt;betalnings_id&gt;] - Överför &lt;belopp&gt; till &lt;adress&gt;. &lt;prioritet&gt; är transaktionens prioritet. Ju högre prioritet, desto högre transaktionsavgift. Giltiga värden i prioritetsordning (från lägsta till högsta) är: unimportant, normal, elevated, priority. Om det utelämnas kommer standardvärdet (se kommandot &quot;set priority&quot;) att användas. &lt;mixin_antal&gt; är det antal extra ingångar som ska inkluderas för att uppnå ospårbarhet. Flera betalningar kan göras på en gång genom att lägga till &lt;adress_2&gt; &lt;belopp_2&gt; etcetera (före betalnings-ID, om det inkluderas)</translation>
-    </message>
-    <message>
-        <source>locked_transfer [&lt;mixin_count&gt;] &lt;addr&gt; &lt;amount&gt; &lt;lockblocks&gt;(Number of blocks to lock the transaction for, max 1000000) [&lt;payment_id&gt;]</source>
-        <translation type="vanished">locked_transfer [&lt;mixin_antal&gt;] &lt;adress&gt; &lt;belopp&gt; &lt;låsblock&gt;(Antal block som transaktionen ska låsas för, max 1000000) [&lt;betalnings_id&gt;]</translation>
-    </message>
-    <message>
-        <source>Send all unmixable outputs to yourself with mixin 0</source>
-        <translation type="vanished">Skicka alla omixbara utgångar till dig själv med mixin 0</translation>
-    </message>
-    <message>
-        <source>Sign a transaction from a file</source>
-        <translation type="vanished">Signera en transaktion från en fil</translation>
-    </message>
-    <message>
-        <source>Submit a signed transaction from a file</source>
-        <translation type="vanished">Skicka en signerad transaktion från en fil</translation>
-    </message>
-    <message>
-        <source>integrated_address [PID] - Encode a payment ID into an integrated address for the current wallet public address (no argument uses a random payment ID), or decode an integrated address to standard address and payment ID</source>
-        <translation type="vanished">integrated_address [PID] - Koda ett betalnings-ID till en integrerad adress för den aktuella plånbokens öppna adress (utan argument används ett slumpmässigt betalnings-ID), eller avkoda en integrerad adress till standardadress och betalnings-ID</translation>
-    </message>
-    <message>
-        <source>Save wallet data</source>
-        <translation type="vanished">Spara plånboksdata</translation>
-    </message>
-    <message>
-        <source>Save a watch-only keys file</source>
-        <translation type="vanished">Spara en fil med granskningsnycklar</translation>
-    </message>
-    <message>
-        <source>Display private view key</source>
-        <translation type="vanished">Visa privat visningsnyckel</translation>
-    </message>
-    <message>
-        <source>Display private spend key</source>
-        <translation type="vanished">Visa privat spendernyckel</translation>
-    </message>
-    <message>
-        <source>Display Electrum-style mnemonic seed</source>
-        <translation type="vanished">Visa minnesfrö (Electrum-typ)</translation>
-    </message>
-    <message>
-        <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value; merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
-        <translation type="vanished">Tillgängliga alternativ: seed language - ange språk för plånbokens frö; always-confirm-transfers &lt;1|0&gt; - huruvida ej delade transaktioner ska bekräftas; print-ring-members &lt;1|0&gt; - huruvida detaljerad information om ringmedlemmar ska skrivas ut vid bekräftelse; store-tx-info &lt;1|0&gt; - huruvida info om utgående transaktioner ska sparas (måladress, betalnings-ID, hemlig transaktionsnyckel) för framtida referens; default-mixin &lt;n&gt; - ange standardvärde för mixin (standard är 4); auto-refresh &lt;1|0&gt; - huruvida nya block från daemonen ska synkas automatiskt; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - ange uppdateringsbeteende för plånbok; priority [0|1|2|3|4] - standard/oviktigt/normal/förhöjd/prioritetsavgift; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - ange standardvärde för monero-(under-)enhet; min-outputs-count [n] - försök behålla åtminstone så många utgångar med ett värde på åtminstone min-outputs-value; min-outputs-value [n] - försök behålla åtminstone min-outputs-count utgångar av åtminstone detta värde; merge-destinations &lt;1|0&gt; - huruvida flera betalningar till samma måladress ska slås samman</translation>
-    </message>
-    <message>
-        <source>Rescan blockchain for spent outputs</source>
-        <translation type="vanished">Genomsök blockkedjan igen för spenderade utgångar</translation>
-    </message>
-    <message>
-        <source>Get transaction key (r) for a given &lt;txid&gt;</source>
-        <translation type="vanished">Hämta transaktionsnyckel (r) för ett givet &lt;transaktions-ID&gt;</translation>
-    </message>
-    <message>
-        <source>Check amount going to &lt;address&gt; in &lt;txid&gt;</source>
-        <translation type="vanished">Kontrollera belopp som går till &lt;adress&gt; i &lt;transaktions-ID&gt;</translation>
-    </message>
-    <message>
-        <source>Generate a signature to prove payment to &lt;address&gt; in &lt;txid&gt; using the transaction secret key (r) without revealing it</source>
-        <translation type="vanished">Skapa en signatur för att bevisa betalning till &lt;adress&gt; i &lt;transaktions-ID&gt; genom att använda hemlig nyckel för transaktion (r) utan att avslöja den</translation>
-    </message>
-    <message>
-        <source>Check tx proof for payment going to &lt;address&gt; in &lt;txid&gt;</source>
-        <translation type="vanished">Kontrollera transaktionsbevis för betalning som går till &lt;adress&gt; i &lt;transaktions-ID&gt;</translation>
-    </message>
-    <message>
-        <source>unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;] - Show unspent outputs within an optional amount range</source>
-        <translation type="vanished">unspent_outputs [&lt;min_belopp&gt; &lt;max_belopp&gt;] - Visa ej spenderade utgångar inom ett valfritt beloppsintervall</translation>
-    </message>
-    <message>
-        <source>Rescan blockchain from scratch</source>
-        <translation type="vanished">Genomsök blockkedjan från början</translation>
-    </message>
-    <message>
-        <source>Set an arbitrary string note for a txid</source>
-        <translation type="vanished">Ange en godtycklig sträng som anteckning för ett transaktions-ID</translation>
-    </message>
-    <message>
-        <source>Get a string note for a txid</source>
-        <translation type="vanished">Hämta en stränganteckning för ett transaktions-ID</translation>
-    </message>
-    <message>
-        <source>Show wallet status information</source>
-        <translation type="vanished">Visa statusinformation för plånbok</translation>
-    </message>
-    <message>
-        <source>Sign the contents of a file</source>
-        <translation type="vanished">Signera innehållet i en fil</translation>
-    </message>
-    <message>
-        <source>Verify a signature on the contents of a file</source>
-        <translation type="vanished">Verifera signaturen för innehållet i en fil</translation>
-    </message>
-    <message>
-        <source>Export a signed set of key images</source>
-        <translation type="vanished">Exportera en signerad uppsättning nyckelavbildningar</translation>
-    </message>
-    <message>
-        <source>Import signed key images list and verify their spent status</source>
-        <translation type="vanished">Importera lista med signerade nyckelavbildningar och verifera deras spenderingsstatus</translation>
-    </message>
-    <message>
-        <source>Export a set of outputs owned by this wallet</source>
-        <translation type="vanished">Exportera en uppsättning utgångar som ägs av denna plånbok</translation>
-    </message>
-    <message>
-        <source>Import set of outputs owned by this wallet</source>
-        <translation type="vanished">Importera en uppsättning utgångar som ägs av denna plånbok</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1914"/>
@@ -2871,14 +2572,6 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2018"/>
         <source>Generating new wallet...</source>
         <translation>Skapar ny plånbok …</translation>
-    </message>
-    <message>
-        <source>can&apos;t specify more than one of --generate-new-wallet=&quot;wallet_name&quot;, --wallet-file=&quot;wallet_name&quot;, --generate-from-view-key=&quot;wallet_name&quot;, --generate-from-json=&quot;jsonfilename&quot; and --generate-from-keys=&quot;wallet_name&quot;</source>
-        <translation type="vanished">det går inte att ange mer än en av --generate-new-wallet=&quot;plånboksnamn&quot;, --wallet-file=&quot;plånboksnamn&quot;, --generate-from-view-key=&quot;plånboksnamn&quot;, --generate-from-json=&quot;json-filnamn&quot; och --generate-from-keys=&quot;plånboksnamn&quot;</translation>
-    </message>
-    <message>
-        <source>can&apos;t specify both --restore-deterministic-wallet and --non-deterministic</source>
-        <translation type="vanished">det går inte att ange både --restore-deterministic-wallet och --non-deterministic</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2136"/>
@@ -2977,10 +2670,6 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <translation>plånbok är null</translation>
     </message>
     <message>
-        <source>Daemon either is not started or wrong port was passed. Please make sure daemon is running or restart the wallet with the correct daemon address.</source>
-        <translation type="vanished">Antingen har daemonen inte startat eller så angavs fel port. Se till att daemonen kör eller starta om plånboken med korrekt daemonadress.</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2675"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2680"/>
         <source>invalid language choice passed. Please try again.
@@ -2992,21 +2681,6 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2748"/>
         <source>View key: </source>
         <translation>Visningsnyckel: </translation>
-    </message>
-    <message>
-        <source>Your wallet has been generated!
-To start synchronizing with the daemon, use the &quot;refresh&quot; command.
-Use the &quot;help&quot; command to see the list of available commands.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
-your current session&apos;s state. Otherwise, you might need to synchronize 
-your wallet again (your wallet keys are NOT at risk in any case).
-</source>
-        <translation type="vanished">Din plånbok har skapats!
-För att starta synkronisering med daemonen, använd kommandot &quot;refresh&quot;.
-Använd kommandot &quot;help&quot; för att se en lista över tillgängliga kommandon.
-Använd alltid kommandot &quot;exit&quot; när du stänger monero-wallet-cli så att ditt aktuella sessionstillstånd sparas. Annars kan du bli tvungen att synkronisera
-din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som helst).
-</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2930"/>
@@ -3124,42 +2798,6 @@ din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som 
         <translation>Låsta block för högt, max 1000000 (˜~4 år)</translation>
     </message>
     <message>
-        <source>usage: get_tx_proof &lt;txid&gt; &lt;dest_address&gt; [&lt;tx_key&gt;]</source>
-        <translation type="vanished">användning: get_tx_proof &lt;txid&gt; &lt;måladress&gt; [&lt;tx_key&gt;]</translation>
-    </message>
-    <message>
-        <source>failed to parse tx_key</source>
-        <translation type="vanished">det gick inte att parsa tx_nyckel</translation>
-    </message>
-    <message>
-        <source>Tx secret key was found for the given txid, but you&apos;ve also provided another tx secret key which doesn&apos;t match the found one.</source>
-        <translation type="vanished">Hemlig transaktionsnyckel hittades för det givna txid, men du har också angivit en annan hemlig transaktionsnyckel som inte matchar den hittade nyckeln.</translation>
-    </message>
-    <message>
-        <source>Tx secret key wasn&apos;t found in the wallet file. Provide it as the optional third parameter if you have it elsewhere.</source>
-        <translation type="vanished">Den hemliga transaktionsnyckeln kunde inte hittas i plånboksfilen. Ange den som den valfria tredje parametern om du har den någon annanstans.</translation>
-    </message>
-    <message>
-        <source>Signature: </source>
-        <translation type="vanished">Signatur: </translation>
-    </message>
-    <message>
-        <source>usage: check_tx_proof &lt;txid&gt; &lt;address&gt; &lt;signature&gt;</source>
-        <translation type="vanished">användning: check_tx_proof &lt;txid&gt; &lt;adress&gt; &lt;signatur&gt;</translation>
-    </message>
-    <message>
-        <source>Signature header check error</source>
-        <translation type="vanished">Fel vid kontroll av signaturhuvud</translation>
-    </message>
-    <message>
-        <source>Signature decoding error</source>
-        <translation type="vanished">nFel vid avkodning av signatur</translation>
-    </message>
-    <message>
-        <source>Tx pubkey was not found</source>
-        <translation type="vanished">Transaktionens öppna nyckel kunde inte hittas</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5072"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5183"/>
         <source>Good signature</source>
@@ -3173,17 +2811,9 @@ din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som 
         <translation>Dålig signatur</translation>
     </message>
     <message>
-        <source>failed to generate key derivation</source>
-        <translation type="vanished">det gick inte att skapa nyckelhärledning</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6041"/>
         <source>usage: integrated_address [payment ID]</source>
         <translation>användning: integrated_address [betalnings-ID]</translation>
-    </message>
-    <message>
-        <source>Integrated address: account %s, payment ID %s</source>
-        <translation type="vanished">Integrerad adress: konto %s, betalnings-ID %s</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6077"/>
@@ -3609,53 +3239,9 @@ Grand total:
         <translation>förväntades: ett tal från 0 till </translation>
     </message>
     <message>
-        <source>Money successfully sent, transaction </source>
-        <translation type="vanished">Pengar skickades, transaktion </translation>
-    </message>
-    <message>
-        <source>no connection to daemon. Please, make sure daemon is running.</source>
-        <translation type="vanished">ingen anslutning till daemonen. Se till att daemonen körs.</translation>
-    </message>
-    <message>
-        <source>not enough outputs for specified mixin_count</source>
-        <translation type="vanished">inte tillräckligt många utgångar för angiven mixin_count</translation>
-    </message>
-    <message>
-        <source>output amount</source>
-        <translation type="vanished">utgångens belopp</translation>
-    </message>
-    <message>
-        <source>found outputs to mix</source>
-        <translation type="vanished">hittade utgångar att mixa</translation>
-    </message>
-    <message>
-        <source>transaction was not constructed</source>
-        <translation type="vanished">transaktionen konstruerades inte</translation>
-    </message>
-    <message>
-        <source>transaction %s was rejected by daemon with status: </source>
-        <translation type="vanished">transaktionen %s avvisades av daemonen med status: </translation>
-    </message>
-    <message>
-        <source>one of destinations is zero</source>
-        <translation type="vanished">ett av målen är noll</translation>
-    </message>
-    <message>
-        <source>Failed to find a suitable way to split transactions</source>
-        <translation type="vanished">Det gick inte att hitta ett passande sätt att dela upp transaktioner</translation>
-    </message>
-    <message>
-        <source>unknown transfer error: </source>
-        <translation type="vanished">okänt överföringsfel: </translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4074"/>
         <source>Sweeping </source>
         <translation>Sveper upp </translation>
-    </message>
-    <message>
-        <source>Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No)</source>
-        <translation type="vanished">Sveper upp %s för en total avgift på %s.  Är detta okej?  (J/Ja/N/Nej)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4554"/>
@@ -3743,26 +3329,6 @@ Grand total:
         <translation>det gick inte att parsa transaktionsnyckeln</translation>
     </message>
     <message>
-        <source>failed to get transaction from daemon</source>
-        <translation type="vanished">det gick inte att hämta transaktion från daemon</translation>
-    </message>
-    <message>
-        <source>failed to parse transaction from daemon</source>
-        <translation type="vanished">det gick inte att parsa transaktion från daemonen</translation>
-    </message>
-    <message>
-        <source>failed to validate transaction from daemon</source>
-        <translation type="vanished">det gick inte att validera transaktion från daemon</translation>
-    </message>
-    <message>
-        <source>failed to get the right transaction from daemon</source>
-        <translation type="vanished">det gick inte att hämta rätt transaktion från daemonen</translation>
-    </message>
-    <message>
-        <source>failed to generate key derivation from supplied parameters</source>
-        <translation type="vanished">det gick inte att skapa nyckelhärledning från angivna parametrar</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4938"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5026"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5104"/>
@@ -3806,10 +3372,6 @@ Grand total:
         <translation>VARNING: det gick inte att avgöra antal bekräftelser!</translation>
     </message>
     <message>
-        <source>usage: show_transfers [in|out|all|pending|failed] [&lt;min_height&gt; [&lt;max_height&gt;]]</source>
-        <translation type="vanished">användning: show_transfers [in|out|all|pending|failed] [&lt;min_höjd&gt; [&lt;max_höjd&gt;]]</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5396"/>
         <source>bad min_height parameter:</source>
         <translation>dålig parameter för min_height:</translation>
@@ -3839,10 +3401,6 @@ Grand total:
         <location filename="../src/simplewallet/simplewallet.cpp" line="5509"/>
         <source>pending</source>
         <translation>väntar</translation>
-    </message>
-    <message>
-        <source>usage: unspent_outputs [&lt;min_amount&gt; &lt;max_amount&gt;]</source>
-        <translation type="vanished">användning: unspent_outputs [&lt;min_belopp&gt; &lt;max_belopp&gt;]</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="5555"/>
@@ -4112,10 +3670,6 @@ Utgångar per *: </translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Create non-deterministic view and spend keys</source>
-        <translation type="vanished">Skapa non-deterministic visnings- och spendernyckel</translation>
-    </message>
-    <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="126"/>
         <source>Enable commands which rely on a trusted daemon</source>
         <translation>Aktivera kommandon som kräver en betrodd daemon</translation>
@@ -4163,33 +3717,6 @@ daemon to work correctly.</source>
     </message>
 </context>
 <context>
-    <name>tools::dns_utils</name>
-    <message>
-        <source>DNSSEC validation passed</source>
-        <translation type="vanished">DNSSEC-validering godkänd</translation>
-    </message>
-    <message>
-        <source>WARNING: DNSSEC validation was unsuccessful, this address may not be correct!</source>
-        <translation type="vanished">VARNING: DNSSEC-verifiering misslyckades, denna adress kanske inte är korrekt!</translation>
-    </message>
-    <message>
-        <source>For URL: </source>
-        <translation type="vanished">För URL: </translation>
-    </message>
-    <message>
-        <source> Monero Address = </source>
-        <translation type="vanished"> Monero-adress = </translation>
-    </message>
-    <message>
-        <source>Is this OK? (Y/n) </source>
-        <translation type="vanished">är det OK? (J/n) </translation>
-    </message>
-    <message>
-        <source>you have cancelled the transfer request</source>
-        <translation type="vanished">du har avbrutit överföringsbegäran</translation>
-    </message>
-</context>
-<context>
     <name>tools::wallet2</name>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="113"/>
@@ -4200,10 +3727,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="114"/>
         <source>Use daemon instance at host &lt;arg&gt; instead of localhost</source>
         <translation>Använd daemon-instansen på värddator &lt;arg&gt; istället för localhost</translation>
-    </message>
-    <message>
-        <source>Wallet password</source>
-        <translation type="vanished">Lösenord för plånboken</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="116"/>
@@ -4239,14 +3762,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="217"/>
         <source>the password file specified could not be read</source>
         <translation>det gick inte att läsa angiven lösenordsfil</translation>
-    </message>
-    <message>
-        <source>Enter new wallet password</source>
-        <translation type="vanished">Ange nytt lösenord för plånboken</translation>
-    </message>
-    <message>
-        <source>failed to read wallet password</source>
-        <translation type="vanished">det gick inte att läsa lösenord för plånboken</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="240"/>
@@ -4328,10 +3843,6 @@ daemon to work correctly.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>At least one of Electrum-style word list and private view key must be specified</source>
-        <translation type="vanished">Åtminstone en av ordlista av Electrum-typ och privat visningsnyckel måste anges</translation>
-    </message>
-    <message>
         <location filename="../src/wallet/wallet2.cpp" line="323"/>
         <source>Both Electrum-style word list and private key(s) specified</source>
         <translation>Både ordlista av Electrum-typ och privat nyckel har angivits</translation>
@@ -4350,10 +3861,6 @@ daemon to work correctly.</source>
         <location filename="../src/wallet/wallet2.cpp" line="352"/>
         <source>spend key does not match standard address</source>
         <translation>spendernyckel matchar inte standardadress</translation>
-    </message>
-    <message>
-        <source>Cannot create deprecated wallets from JSON</source>
-        <translation type="vanished">Det går inte att skapa inaktuella plånböcker från JSON</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="412"/>
