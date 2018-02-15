@@ -111,7 +111,7 @@ Approximately three months prior to a scheduled mandatory software upgrade, a br
 
 Packages are available for
 
-* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
+* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build. This package does not include monerod.
 
     snap install monero --beta
 
