@@ -2683,7 +2683,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (!m_trusted_daemon)
     message_writer() << (boost::format(tr("Warning: using an untrusted daemon at %s, privacy will be lessened")) % m_wallet->get_daemon_address()).str();
 
-  m_http_client.set_server(m_wallet->get_daemon_address(), m_wallet->get_daemon_login());
   m_wallet->callback(this);
 
   return true;
@@ -3216,7 +3215,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   }
 
   COMMAND_RPC_START_MINING::response res;
-  bool r = net_utils::invoke_http_json("/start_mining", req, res, m_http_client);
+  bool r = m_wallet->invoke_http_json("/start_mining", req, res);
   std::string err = interpret_rpc_response(r, res.status);
   if (err.empty())
     success_msg_writer() << tr("Mining started in daemon");
@@ -3238,7 +3237,7 @@ bool simple_wallet::stop_mining(const std::vector<std::string>& args)
 
   COMMAND_RPC_STOP_MINING::request req;
   COMMAND_RPC_STOP_MINING::response res;
-  bool r = net_utils::invoke_http_json("/stop_mining", req, res, m_http_client);
+  bool r = m_wallet->invoke_http_json("/stop_mining", req, res);
   std::string err = interpret_rpc_response(r, res.status);
   if (err.empty())
     success_msg_writer() << tr("Mining stopped in daemon");
@@ -3295,7 +3294,7 @@ bool simple_wallet::save_bc(const std::vector<std::string>& args)
   }
   COMMAND_RPC_SAVE_BC::request req;
   COMMAND_RPC_SAVE_BC::response res;
-  bool r = net_utils::invoke_http_json("/save_bc", req, res, m_http_client);
+  bool r = m_wallet->invoke_http_json("/save_bc", req, res);
   std::string err = interpret_rpc_response(r, res.status);
   if (err.empty())
     success_msg_writer() << tr("Blockchain saved");
@@ -3641,7 +3640,7 @@ uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
 
   COMMAND_RPC_GET_HEIGHT::request req;
   COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  bool r = net_utils::invoke_http_json("/getheight", req, res, m_http_client);
+  bool r = m_wallet->invoke_http_json("/getheight", req, res);
   err = interpret_rpc_response(r, res.status);
   return res.height;
 }
@@ -3763,7 +3762,7 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
         req.outputs[j].index = absolute_offsets[j];
       }
       COMMAND_RPC_GET_OUTPUTS_BIN::response res = AUTO_VAL_INIT(res);
-      bool r = net_utils::invoke_http_bin("/get_outs.bin", req, res, m_http_client);
+      bool r = m_wallet->invoke_http_bin("/get_outs.bin", req, res);
       err = interpret_rpc_response(r, res.status);
       if (!err.empty())
       {

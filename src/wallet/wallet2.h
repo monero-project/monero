@@ -1027,6 +1027,25 @@ namespace tools
     crypto::public_key get_multisig_signing_public_key(size_t idx) const;
     crypto::public_key get_multisig_signing_public_key(const crypto::secret_key &skey) const;
 
+    template<class t_request, class t_response>
+    inline bool invoke_http_json(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET")
+    {
+      boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
+      return epee::net_utils::invoke_http_json(uri, req, res, m_http_client, timeout, http_method);
+    }
+    template<class t_request, class t_response>
+    inline bool invoke_http_bin(const boost::string_ref uri, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET")
+    {
+      boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
+      return epee::net_utils::invoke_http_bin(uri, req, res, m_http_client, timeout, http_method);
+    }
+    template<class t_request, class t_response>
+    inline bool invoke_http_json_rpc(const boost::string_ref uri, const std::string& method_name, const t_request& req, t_response& res, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "GET", const std::string& req_id = "0")
+    {
+      boost::lock_guard<boost::mutex> lock(m_daemon_rpc_mutex);
+      return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, m_http_client, timeout, http_method, req_id);
+    }
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.

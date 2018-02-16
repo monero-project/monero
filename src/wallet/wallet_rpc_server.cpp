@@ -229,8 +229,6 @@ namespace tools
       assert(bool(http_login));
     } // end auth enabled
 
-    m_http_client.set_server(walvars->get_daemon_address(), walvars->get_daemon_login());
-
     m_net_server.set_threads_prefix("RPC");
     auto rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
@@ -2257,7 +2255,7 @@ namespace tools
     daemon_req.ignore_battery       = req.ignore_battery;
 
     cryptonote::COMMAND_RPC_START_MINING::response daemon_res;
-    bool r = net_utils::invoke_http_json("/start_mining", daemon_req, daemon_res, m_http_client);
+    bool r = m_wallet->invoke_http_json("/start_mining", daemon_req, daemon_res);
     if (!r || daemon_res.status != CORE_RPC_STATUS_OK)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -2271,7 +2269,7 @@ namespace tools
   {
     cryptonote::COMMAND_RPC_STOP_MINING::request daemon_req;
     cryptonote::COMMAND_RPC_STOP_MINING::response daemon_res;
-    bool r = net_utils::invoke_http_json("/stop_mining", daemon_req, daemon_res, m_http_client);
+    bool r = m_wallet->invoke_http_json("/stop_mining", daemon_req, daemon_res);
     if (!r || daemon_res.status != CORE_RPC_STATUS_OK)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -2351,7 +2349,7 @@ namespace tools
     cryptonote::COMMAND_RPC_GET_HEIGHT::request hreq;
     cryptonote::COMMAND_RPC_GET_HEIGHT::response hres;
     hres.height = 0;
-    bool r = net_utils::invoke_http_json("/getheight", hreq, hres, m_http_client);
+    bool r = wal->invoke_http_json("/getheight", hreq, hres);
     wal->set_refresh_from_block_height(hres.height);
     crypto::secret_key dummy_key;
     try {
