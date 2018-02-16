@@ -1291,9 +1291,11 @@ namespace wallet_rpc
     struct request
     {
       std::string txid;
+      uint32_t account_index;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txid);
+        KV_SERIALIZE_OPT(account_index, (uint32_t)0)
       END_KV_SERIALIZE_MAP()
     };
 
