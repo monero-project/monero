@@ -552,8 +552,6 @@ std::string get_nix_version_display_string()
   }
   bool on_startup()
   {
-    wipeable_string::set_wipe(&memwipe);
-
     mlog_configure("", true);
 
     sanitize_locale();

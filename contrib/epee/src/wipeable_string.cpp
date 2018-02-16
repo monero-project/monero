@@ -27,13 +27,12 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
+#include "memwipe.h"
 #include "misc_log_ex.h"
 #include "wipeable_string.h"
 
 namespace epee
 {
-
-void *(*wipeable_string::wipefunc)(void*, size_t) = NULL;
 
 wipeable_string::wipeable_string(const wipeable_string &other):
   buffer(other.buffer)
@@ -55,12 +54,11 @@ wipeable_string::wipeable_string(const std::string &other)
 
 wipeable_string::wipeable_string(std::string &&other)
 {
-  CHECK_AND_ASSERT_THROW_MES(wipefunc, "wipefunc is not set");
   grow(other.size());
   memcpy(buffer.data(), other.c_str(), size());
   if (!other.empty())
   {
-    wipefunc(&other[0], other.size()); // we're kinda left with this again aren't we
+    memwipe(&other[0], other.size()); // we're kinda left with this again aren't we
     other = std::string();
   }
 }
@@ -78,30 +76,28 @@ wipeable_string::~wipeable_string()
 
 void wipeable_string::wipe()
 {
-  CHECK_AND_ASSERT_THROW_MES(wipefunc, "wipefunc is not set");
-  wipefunc(buffer.data(), buffer.size() * sizeof(char));
+  memwipe(buffer.data(), buffer.size() * sizeof(char));
 }
 
 void wipeable_string::grow(size_t sz, size_t reserved)
 {
-  CHECK_AND_ASSERT_THROW_MES(wipefunc, "wipefunc is not set");
   if (reserved < sz)
     reserved = sz;
   if (reserved <= buffer.capacity())
   {
     if (sz < buffer.size())
-      wipefunc(buffer.data() + sz, buffer.size() - sz);
+      memwipe(buffer.data() + sz, buffer.size() - sz);
     buffer.resize(sz);
     return;
   }
   size_t old_sz = buffer.size();
   std::unique_ptr<char[]> tmp{new char[old_sz]};
   memcpy(tmp.get(), buffer.data(), old_sz * sizeof(char));
-  wipefunc(buffer.data(), old_sz * sizeof(char));
+  memwipe(buffer.data(), old_sz * sizeof(char));
   buffer.reserve(reserved);
   buffer.resize(sz);
   memcpy(buffer.data(), tmp.get(), old_sz * sizeof(char));
-  wipefunc(tmp.get(), old_sz * sizeof(char));
+  memwipe(tmp.get(), old_sz * sizeof(char));
 }
 
 void wipeable_string::push_back(char c)

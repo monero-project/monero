@@ -58,13 +58,10 @@ namespace epee
     wipeable_string &operator=(wipeable_string &&other);
     wipeable_string &operator=(const wipeable_string &other);
 
-    static void set_wipe(void *(*f)(void*, size_t)) { wipefunc = f; }
-
   private:
     void grow(size_t sz, size_t reserved = 0);
 
   private:
     std::vector<char> buffer;
-    static void *(*wipefunc)(void*, size_t);
   };
 }
