@@ -527,7 +527,7 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="710"/>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Send all unlocked outputs below the threshold to an address</source>
+        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -961,7 +961,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="709"/>
-        <source>sweep_all [mixin] address [<payment_id>] - Send all unlocked balance to an address</source>
+        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

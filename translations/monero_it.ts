@@ -527,8 +527,8 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="710"/>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Send all unlocked outputs below the threshold to an address</source>
-        <translation>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Invia tutti gli outputs sbloccati sotto la soglia specificata a un indirizzo</translation>
+        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
+        <translation>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Invia tutti gli outputs sbloccati sotto la soglia specificata a un indirizzo</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="727"/>
@@ -952,8 +952,8 @@ Questa transazione verrà sbloccata al blocco %llu, in approssimativamente %s gi
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="709"/>
-        <source>sweep_all [mixin] address [<payment_id>] - Send all unlocked balance to an address</source>
-        <translation>sweep_all [mixin] address [<payment_id>] - Manda tutto il bilancio sbloccato ad un indirizzo</translation>
+        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
+        <translation>sweep_all [mixin] address [payment_id] - Manda tutto il bilancio sbloccato ad un indirizzo</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="711"/>

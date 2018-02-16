@@ -527,8 +527,8 @@
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="710"/>
-        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [<payment_id>] - Send all unlocked outputs below the threshold to an address</source>
-        <translation>sweep_below &lt;montant_seuil&gt; [mixin] adresse [<ID_paiement>] - Envoyer toutes les sorties débloquées sous le seuil vers une adresse</translation>
+        <source>sweep_below &lt;amount_threshold&gt; [mixin] address [payment_id] - Send all unlocked outputs below the threshold to an address</source>
+        <translation>sweep_below &lt;montant_seuil&gt; [mixin] adresse [ID_paiement] - Envoyer toutes les sorties débloquées sous le seuil vers une adresse</translation>
     </message>
     <message>
         <source>Available options: seed language - set wallet seed language; always-confirm-transfers &lt;1|0&gt; - whether to confirm unsplit txes; print-ring-members &lt;1|0&gt; - whether to print detailed information about ring members during confirmation; store-tx-info &lt;1|0&gt; - whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference; default-mixin &lt;n&gt; - set default mixin (default is 4); auto-refresh &lt;1|0&gt; - whether to automatically sync new blocks from the daemon; refresh-type &lt;full|optimize-coinbase|no-coinbase|default&gt; - set wallet refresh behaviour; priority [0|1|2|3|4] - default/unimportant/normal/elevated/priority fee; confirm-missing-payment-id &lt;1|0&gt;; ask-password &lt;1|0&gt;; unit &lt;monero|millinero|micronero|nanonero|piconero&gt; - set default monero (sub-)unit; min-outputs-count [n] - try to keep at least that many outputs of value at least min-outputs-value; min-outputs-value [n] - try to keep at least min-outputs-count outputs of at least that value - merge-destinations &lt;1|0&gt; - whether to merge multiple payments to the same destination address</source>
@@ -982,8 +982,8 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="709"/>
-        <source>sweep_all [mixin] address [<payment_id>] - Send all unlocked balance to an address</source>
-        <translation>sweep_all [mixin] adresse [<ID_paiement>] - Envoyer tout le solde débloqué à une adresse</translation>
+        <source>sweep_all [mixin] address [payment_id] - Send all unlocked balance to an address</source>
+        <translation>sweep_all [mixin] adresse [ID_paiement] - Envoyer tout le solde débloqué à une adresse</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="711"/>
