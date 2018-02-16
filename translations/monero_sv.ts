@@ -2397,7 +2397,7 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="122"/>
-        <source>Create non-deterministic view and spend keys</source>
+        <source>Generate non-deterministic view and spend keys</source>
         <translation>Skapa non-deterministic visnings- och spendernyckel</translation>
     </message>
     <message>
@@ -2612,7 +2612,7 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="356"/>
-        <source>Cannot create deprecated wallets from JSON</source>
+        <source>Cannot generate deprecated wallets from JSON</source>
         <translation>Det går inte att skapa inaktuella plånböcker från JSON</translation>
     </message>
     <message>
