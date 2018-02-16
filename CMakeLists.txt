@@ -33,6 +33,7 @@ include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
 include(CheckLibraryExists)
+include(CheckFunctionExists)
 
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
@@ -77,6 +78,22 @@ function (add_linker_flag_if_supported flag var)
   check_linker_flag(${flag} ${supported})
   if(${${supported}})
     set(${var} "${${var}} ${flag}" PARENT_SCOPE)
+  endif()
+endfunction()
+
+function (add_definition_if_function_found function var)
+  string(REPLACE "-" "_" supported ${function}_function)
+  check_function_exists(${function} ${supported})
+  if(${${supported}})
+    add_definitions("-D${var}")
+  endif()
+endfunction()
+
+function (add_definition_if_library_exists library function header var)
+  string(REPLACE "-" "_" supported ${function}_library)
+  check_library_exists(${library} ${function} ${header} ${supported})
+  if(${${supported}})
+    add_definitions("-D${var}")
   endif()
 endfunction()
 
@@ -394,6 +411,10 @@ if(STATIC AND NOT IOS)
     set(OPENSSL_LIBRARIES "${OPENSSL_LIBRARIES};${CMAKE_DL_LIBS};${CMAKE_THREAD_LIBS_INIT}")
   endif()
 endif()
+
+add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
+add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
+add_definition_if_function_found(strptime HAVE_STRPTIME)
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
@@ -867,10 +888,3 @@ option(INSTALL_VENDORED_LIBUNBOUND "Install libunbound binary built from source 
 
 
 CHECK_C_COMPILER_FLAG(-std=c11 HAVE_C11)
-
-include(CheckLibraryExists)
-include(CheckFunctionExists)
-
-check_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
-check_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
-check_function_exists(strptime HAVE_STRPTIME)
