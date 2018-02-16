@@ -263,6 +263,8 @@ namespace nodetool
       const boost::program_options::variables_map& vm
     )
   {
+    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
+
     auto p2p_bind_arg = m_testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
 
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
@@ -271,7 +273,6 @@ namespace nodetool
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
-    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {
