@@ -86,16 +86,16 @@ public:
 
   int invoke(int command, const std::string& in_buff, std::string& buff_out, boost::uuids::uuid connection_id);
   template<class callback_t>
-  int invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, callback_t cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
+  int invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
   int notify(int command, const std::string& in_buff, boost::uuids::uuid connection_id);
   bool close(boost::uuids::uuid connection_id);
   bool update_connection_context(const t_connection_context& contxt);
   bool request_callback(boost::uuids::uuid connection_id);
   template<class callback_t>
-  bool foreach_connection(callback_t cb);
+  bool foreach_connection(const callback_t &cb);
   template<class callback_t>
-  bool for_connection(const boost::uuids::uuid &connection_id, callback_t cb);
+  bool for_connection(const boost::uuids::uuid &connection_id, const callback_t &cb);
   size_t get_connections_count();
   void set_handler(levin_commands_handler<t_connection_context>* handler, void (*destroy)(levin_commands_handler<t_connection_context>*) = NULL);
 
@@ -248,7 +248,7 @@ public:
   std::list<boost::shared_ptr<invoke_response_handler_base> > m_invoke_response_handlers;
   
   template<class callback_t>
-  bool add_invoke_response_handler(callback_t cb, uint64_t timeout,  async_protocol_handler& con, int command)
+  bool add_invoke_response_handler(const callback_t &cb, uint64_t timeout,  async_protocol_handler& con, int command)
   {
     CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
     boost::shared_ptr<invoke_response_handler_base> handler(boost::make_shared<anvoke_handler<callback_t>>(cb, timeout, con, command));
@@ -532,7 +532,7 @@ public:
   }
 
   template<class callback_t>
-  bool async_invoke(int command, const std::string& in_buff, callback_t cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+  bool async_invoke(int command, const std::string& in_buff, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {
     misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
       boost::bind(&async_protocol_handler::finish_outer_call, this));
@@ -817,7 +817,7 @@ int async_protocol_handler_config<t_connection_context>::invoke(int command, con
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-int async_protocol_handler_config<t_connection_context>::invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, callback_t cb, size_t timeout)
+int async_protocol_handler_config<t_connection_context>::invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout)
 {
   async_protocol_handler<t_connection_context>* aph;
   int r = find_and_lock_connection(connection_id, aph);
@@ -825,7 +825,7 @@ int async_protocol_handler_config<t_connection_context>::invoke_async(int comman
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-bool async_protocol_handler_config<t_connection_context>::foreach_connection(callback_t cb)
+bool async_protocol_handler_config<t_connection_context>::foreach_connection(const callback_t &cb)
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   for(auto& c: m_connects)
@@ -838,7 +838,7 @@ bool async_protocol_handler_config<t_connection_context>::foreach_connection(cal
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-bool async_protocol_handler_config<t_connection_context>::for_connection(const boost::uuids::uuid &connection_id, callback_t cb)
+bool async_protocol_handler_config<t_connection_context>::for_connection(const boost::uuids::uuid &connection_id, const callback_t &cb)
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   async_protocol_handler<t_connection_context>* aph = find_connection(connection_id);

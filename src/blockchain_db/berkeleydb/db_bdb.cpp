@@ -770,13 +770,13 @@ BlockchainBDB::~BlockchainBDB()
 }
 
 BlockchainBDB::BlockchainBDB(bool batch_transactions) :
+        BlockchainDB(),
         m_buffer(DB_BUFFER_COUNT, DB_BUFFER_LENGTH)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     // initialize folder to something "safe" just in case
     // someone accidentally misuses this class...
     m_folder = "thishsouldnotexistbecauseitisgibberish";
-    m_open = false;
     m_run_checkpoint = 0;
     m_batch_transactions = batch_transactions;
     m_write_txn = nullptr;

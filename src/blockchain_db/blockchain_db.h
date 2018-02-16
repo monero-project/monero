@@ -538,6 +538,11 @@ protected:
 public:
 
   /**
+   * @brief An empty constructor.
+   */
+  BlockchainDB(): m_open(false) { }
+
+  /**
    * @brief An empty destructor.
    */
   virtual ~BlockchainDB() { };

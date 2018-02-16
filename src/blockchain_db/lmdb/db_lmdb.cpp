@@ -1080,13 +1080,12 @@ BlockchainLMDB::~BlockchainLMDB()
     close();
 }
 
-BlockchainLMDB::BlockchainLMDB(bool batch_transactions)
+BlockchainLMDB::BlockchainLMDB(bool batch_transactions): BlockchainDB()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   // initialize folder to something "safe" just in case
   // someone accidentally misuses this class...
   m_folder = "thishsouldnotexistbecauseitisgibberish";
-  m_open = false;
 
   m_batch_transactions = batch_transactions;
   m_write_txn = nullptr;
@@ -3147,8 +3146,12 @@ void BlockchainLMDB::drop_hard_fork_info()
 
   TXN_PREFIX(0);
 
-  mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
-  mdb_drop(*txn_ptr, m_hf_versions, 1);
+  auto result = mdb_drop(*txn_ptr, m_hf_starting_heights, 1);
+  if (result)
+    throw1(DB_ERROR(lmdb_error("Error dropping hard fork starting heights db: ", result).c_str()));
+  result = mdb_drop(*txn_ptr, m_hf_versions, 1);
+  if (result)
+    throw1(DB_ERROR(lmdb_error("Error dropping hard fork versions db: ", result).c_str()));
 
   TXN_POSTFIX_SUCCESS();
 }
