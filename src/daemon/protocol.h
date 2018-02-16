@@ -46,9 +46,9 @@ private:
 public:
   t_protocol(
       boost::program_options::variables_map const & vm
-    , t_core & core
+    , t_core & core, bool offline = false
     )
-    : m_protocol{core.get(), nullptr}
+    : m_protocol{core.get(), nullptr, offline}
   {
     MGINFO("Initializing cryptonote protocol...");
     if (!m_protocol.init(vm))
