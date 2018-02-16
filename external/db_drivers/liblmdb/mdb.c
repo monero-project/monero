@@ -1635,7 +1635,11 @@ mdb_assert_fail(MDB_env *env, const char *expr_txt,
 	if (env->me_assert_func)
 		env->me_assert_func(env, buf);
 	fprintf(stderr, "%s\n", buf);
+#ifdef NDEBUG
+	_exit();
+#else
 	abort();
+#endif
 }
 #else
 # define mdb_assert0(env, expr, expr_txt) ((void) 0)

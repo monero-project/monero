@@ -4,8 +4,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "hash-ops.h"
 #include "keccak.h"
+
+static void local_abort(const char *msg)
+{
+  fprintf(stderr, "%s\n", msg);
+#ifdef NDEBUG
+  _exit(1);
+#else
+  abort();
+#endif
+}
 
 const uint64_t keccakf_rndc[24] = 
 {
@@ -83,8 +94,7 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 
     if (mdlen <= 0 || mdlen > 200 || sizeof(st) != 200)
     {
-      fprintf(stderr, "Bad keccak use");
-      abort();
+      local_abort("Bad keccak use");
     }
 
     rsiz = sizeof(state_t) == mdlen ? HASH_DATA_AREA : 200 - 2 * mdlen;
@@ -101,8 +111,7 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
     // last block and padding
     if (inlen >= sizeof(temp) || inlen > rsiz || rsiz - inlen + inlen + 1 >= sizeof(temp) || rsiz == 0 || rsiz - 1 >= sizeof(temp) || rsizw * 8 > sizeof(temp))
     {
-      fprintf(stderr, "Bad keccak use");
-      abort();
+      local_abort("Bad keccak use");
     }
 
     memcpy(temp, in, inlen);

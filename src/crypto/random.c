@@ -45,7 +45,11 @@ static void generate_system_random_bytes(size_t n, void *result);
 
 static void generate_system_random_bytes(size_t n, void *result) {
   HCRYPTPROV prov;
+#ifdef NDEBUG
+#define must_succeed(x) do if (!(x)) { fprintf(stderr, "Failed: " #x); _exit(1); } while (0)
+#else
 #define must_succeed(x) do if (!(x)) abort(); while (0)
+#endif
   must_succeed(CryptAcquireContext(&prov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT));
   must_succeed(CryptGenRandom(prov, (DWORD)n, result));
   must_succeed(CryptReleaseContext(prov, 0));
