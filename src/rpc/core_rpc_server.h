@@ -34,6 +34,7 @@
 #include <boost/program_options/variables_map.hpp>
 
 #include "net/http_server_impl_base.h"
+#include "net/http_client.h"
 #include "core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "p2p/net_node.h"
@@ -57,6 +58,8 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_testnet_rpc_restricted_bind_port;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
+    static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_address;
+    static const command_line::arg_descriptor<std::string> arg_bootstrap_daemon_login;
 
     typedef epee::net_utils::connection_context_base connection_context;
 
@@ -171,7 +174,7 @@ namespace cryptonote
     bool on_get_outs_bin(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res);        
     bool on_get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res);        
     bool on_get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res);
-    bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res);        
+    bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res);
     bool on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res);
     bool on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res);
     bool on_set_log_hash_rate(const COMMAND_RPC_SET_LOG_HASH_RATE::request& req, COMMAND_RPC_SET_LOG_HASH_RATE::response& res);
@@ -222,9 +225,18 @@ private:
     //utils
     uint64_t get_block_reward(const block& blk);
     bool fill_block_header_response(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_response& response);
+    enum invoke_http_mode { JON, BIN, JON_RPC };
+    template <typename COMMAND_TYPE>
+    bool use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r);
     
     core& m_core;
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
+    std::string m_bootstrap_daemon_address;
+    epee::net_utils::http::http_simple_client m_http_client;
+    boost::shared_mutex m_bootstrap_daemon_mutex;
+    bool m_should_use_bootstrap_daemon;
+    std::chrono::system_clock::time_point m_bootstrap_height_check_time;
+    bool m_was_bootstrap_ever_used;
     bool m_testnet;
     bool m_restricted;
   };
