@@ -79,6 +79,10 @@ namespace crypto {
     tree_hash(reinterpret_cast<const char (*)[HASH_SIZE]>(hashes), count, reinterpret_cast<char *>(&root_hash));
   }
 
+  inline void cn_pad_by_fast_hash(const uint8_t *indata, std::size_t inlen, uint8_t *outdata, std::size_t outlen) {
+    cn_pad_by_fast_hash__C(indata, inlen, outdata, (int)outlen);
+  }
+
   inline std::ostream &operator <<(std::ostream &o, const crypto::hash &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }

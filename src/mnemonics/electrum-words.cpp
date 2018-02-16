@@ -339,6 +339,17 @@ namespace crypto
       return true;
     }
 
+    bool words_to_bytes(std::string words, legacy16B_secret_key& dst, std::string &language_name)
+    {
+      std::string s;
+      if (!words_to_bytes(words, s, sizeof(dst), true, language_name))
+        return false;
+      if (s.size() != sizeof(dst))
+        return false;
+      dst = *(const legacy16B_secret_key*)s.data();
+      return true;
+    }
+
     /*!
      * \brief Converts bytes (secret key) to seed words.
      * \param  src           Secret key
@@ -445,6 +456,11 @@ namespace crypto
       return bytes_to_words(src.data, sizeof(src), words, language_name);
     }
 
+    bool bytes_to_words(const legacy16B_secret_key& src, std::string& words, 
+      const std::string &language_name)
+    {
+      return bytes_to_words(src.data, sizeof(src), words, language_name);
+    }
     /*!
      * \brief Gets a list of seed languages that are supported.
      * \param languages The vector is set to the list of languages.
