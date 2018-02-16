@@ -42,6 +42,7 @@ static void generate_system_random_bytes(size_t n, void *result);
 
 #include <windows.h>
 #include <wincrypt.h>
+#include <stdio.h>
 
 static void generate_system_random_bytes(size_t n, void *result) {
   HCRYPTPROV prov;
