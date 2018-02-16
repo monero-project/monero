@@ -2846,16 +2846,9 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
 
-  // -1 month for fluctuations in block time and machine date/time setup.
-  // avg seconds per block
-  const int seconds_per_block = DIFFICULTY_TARGET_V2;
-  // ~num blocks per month
-  const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
-
-  // try asking the daemon first
+  // calculate a starting refresh height
   if(m_refresh_from_block_height == 0 && !recover){
-    uint64_t height = estimate_blockchain_height();
-    m_refresh_from_block_height = height >= blocks_per_month ? height - blocks_per_month : 0;
+    m_refresh_from_block_height = estimate_blockchain_height();
   }
 
   if (!wallet_.empty())
@@ -2890,20 +2883,30 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
    std::string err;
    uint64_t height = 0;
 
-   // we get the max of approximated height and known height
+   // we get the max of approximated height and local height.
    // approximated height is the least of daemon target height
    // (the max of what the other daemons are claiming is their
    // height) and the theoretical height based on the local
    // clock. This will be wrong only if both the local clock
    // is bad *and* a peer daemon claims a highest height than
    // the real chain.
-   // known height is the height the local daemon is currently
+   // local height is the height the local daemon is currently
    // synced to, it will be lower than the real chain height if
    // the daemon is currently syncing.
+   // If we use the approximate height we subtract one month as
+   // a safety margin.
    height = get_approximate_blockchain_height();
    uint64_t target_height = get_daemon_blockchain_target_height(err);
-   if (err.empty() && target_height < height)
-     height = target_height;
+   if (err.empty()) {
+     if (target_height < height)
+       height = target_height;
+   } else {
+     // if we couldn't talk to the daemon, check safety margin.
+     if (height > blocks_per_month)
+       height -= blocks_per_month;
+     else
+       height = 0;
+   }
    uint64_t local_height = get_daemon_blockchain_height(err);
    if (err.empty() && local_height > height)
      height = local_height;
