@@ -338,6 +338,12 @@ mdb_txn_safe::~mdb_txn_safe()
   num_active_txns--;
 }
 
+void mdb_txn_safe::uncheck()
+{
+  num_active_txns--;
+  m_check = false;
+}
+
 void mdb_txn_safe::commit(std::string message)
 {
   if (message.size() == 0)
@@ -1439,9 +1445,10 @@ void BlockchainLMDB::unlock()
 #define TXN_PREFIX_RDONLY() \
   MDB_txn *m_txn; \
   mdb_txn_cursors *m_cursors; \
+  mdb_txn_safe auto_txn; \
   bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors); \
-  mdb_txn_safe auto_txn(my_rtxn); \
-  if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get()
+  if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get(); \
+  else auto_txn.uncheck()
 #define TXN_POSTFIX_RDONLY()
 
 #define TXN_POSTFIX_SUCCESS() \
