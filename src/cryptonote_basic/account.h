@@ -59,7 +59,7 @@ namespace cryptonote
   {
   public:
     account_base();
-    crypto::secret_key generate(const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false);
+    crypto::secret_key generate(const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false, bool two_random = false, bool from_legacy16B_lw_seed = false);
     void create_from_keys(const cryptonote::account_public_address& address, const crypto::secret_key& spendkey, const crypto::secret_key& viewkey);
     void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
     bool make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys);

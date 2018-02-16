@@ -462,11 +462,12 @@ namespace tools
      * \param  recovery_param If it is a restore, the recovery key
      * \param  recover        Whether it is a restore
      * \param  two_random     Whether it is a non-deterministic wallet
+     * \param  from_legacy16B_lw_seed Whether it's a 13 word / 16 byte legacy lightweight wallet seed
      * \return                The secret key of the generated wallet
      */
     crypto::secret_key generate(const std::string& wallet, const epee::wipeable_string& password,
       const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
-      bool two_random = false);
+      bool two_random = false, bool from_legacy16B_lw_seed = false);
     /*!
      * \brief Creates a wallet from a public address and a spend/view secret key pair.
      * \param  wallet_        Name of wallet file
