@@ -137,6 +137,11 @@ namespace cryptonote
   , "Relay blocks as fluffy blocks where possible (automatic on testnet)"
   , false
   };
+  static const command_line::arg_descriptor<size_t> arg_max_txpool_size  = {
+    "max-txpool-size"
+  , "Set maximum txpool size in bytes."
+  , DEFAULT_TXPOOL_MAX_SIZE
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -241,6 +246,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
+    command_line::add_arg(desc, arg_max_txpool_size);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -359,6 +365,7 @@ namespace cryptonote
     bool fast_sync = command_line::get_arg(vm, arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
+    size_t max_txpool_size = command_line::get_arg(vm, arg_max_txpool_size);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
@@ -477,7 +484,7 @@ namespace cryptonote
 
     r = m_blockchain_storage.init(db.release(), m_testnet, m_offline, test_options);
 
-    r = m_mempool.init();
+    r = m_mempool.init(max_txpool_size);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
     // now that we have a valid m_blockchain_storage, we can clean out any

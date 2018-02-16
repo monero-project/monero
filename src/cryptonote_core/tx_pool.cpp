@@ -102,7 +102,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
-  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs)
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_txpool_max_size(DEFAULT_TXPOOL_MAX_SIZE), m_txpool_size(0)
   {
 
   }
@@ -295,8 +295,12 @@ namespace cryptonote
     }
 
     tvc.m_verifivation_failed = false;
+    m_txpool_size += blob_size;
 
     MINFO("Transaction added to pool: txid " << id << " bytes: " << blob_size << " fee/byte: " << (fee / (double)blob_size));
+
+    prune(m_txpool_max_size);
+
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -307,6 +311,72 @@ namespace cryptonote
     if (!get_transaction_hash(tx, h, blob_size) || blob_size == 0)
       return false;
     return add_tx(tx, h, blob_size, tvc, keeped_by_block, relayed, do_not_relay, version);
+  }
+  //---------------------------------------------------------------------------------
+  size_t tx_memory_pool::get_txpool_size() const
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    return m_txpool_size;
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::set_txpool_max_size(size_t bytes)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    m_txpool_max_size = bytes;
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::prune(size_t bytes)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    if (bytes == 0)
+      bytes = m_txpool_max_size;
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+    LockedTXN lock(m_blockchain);
+
+    // this will never remove the first one, but we don't care
+    auto it = --m_txs_by_fee_and_receive_time.end();
+    while (it != m_txs_by_fee_and_receive_time.begin())
+    {
+      if (m_txpool_size <= bytes)
+        break;
+      try
+      {
+        const crypto::hash &txid = it->second;
+        txpool_tx_meta_t meta;
+        if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+        {
+          MERROR("Failed to find tx in txpool");
+          return;
+        }
+        // don't prune the kept_by_block ones, they're likely added because we're adding a block with those
+        if (meta.kept_by_block)
+        {
+          --it;
+          continue;
+        }
+        cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
+        cryptonote::transaction tx;
+        if (!parse_and_validate_tx_from_blob(txblob, tx))
+        {
+          MERROR("Failed to parse tx from txpool");
+          return;
+        }
+        // remove first, in case this throws, so key images aren't removed
+        MINFO("Pruning tx " << txid << " from txpool: size: " << it->first.second << ", fee/byte: " << it->first.first);
+        m_blockchain.remove_txpool_tx(txid);
+        m_txpool_size -= txblob.size();
+        remove_transaction_keyimages(tx);
+        MINFO("Pruned tx " << txid << " from txpool: size: " << it->first.second << ", fee/byte: " << it->first.first);
+        m_txs_by_fee_and_receive_time.erase(it--);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Error while pruning txpool: " << e.what());
+        return;
+      }
+    }
+    if (m_txpool_size > bytes)
+      MINFO("Pool size after pruning is larger than limit: " << m_txpool_size << "/" << bytes);
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::insert_key_images(const transaction &tx, bool kept_by_block)
@@ -391,6 +461,7 @@ namespace cryptonote
 
       // remove first, in case this throws, so key images aren't removed
       m_blockchain.remove_txpool_tx(id);
+      m_txpool_size -= blob_size;
       remove_transaction_keyimages(tx);
     }
     catch (const std::exception &e)
@@ -463,6 +534,7 @@ namespace cryptonote
           {
             // remove first, so we only remove key images if the tx removal succeeds
             m_blockchain.remove_txpool_tx(txid);
+            m_txpool_size -= bd.size();
             remove_transaction_keyimages(tx);
           }
         }
@@ -1125,7 +1197,9 @@ namespace cryptonote
     size_t tx_size_limit = get_transaction_size_limit(version);
     std::unordered_set<crypto::hash> remove;
 
+    m_txpool_size = 0;
     m_blockchain.for_all_txpool_txes([this, &remove, tx_size_limit](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata*) {
+      m_txpool_size += meta.blob_size;
       if (meta.blob_size >= tx_size_limit) {
         LOG_PRINT_L1("Transaction " << txid << " is too big (" << meta.blob_size << " bytes), removing it from pool");
         remove.insert(txid);
@@ -1154,6 +1228,7 @@ namespace cryptonote
           }
           // remove tx from db first
           m_blockchain.remove_txpool_tx(txid);
+          m_txpool_size -= txblob.size();
           remove_transaction_keyimages(tx);
           auto sorted_it = find_tx_in_sorted_container(txid);
           if (sorted_it == m_txs_by_fee_and_receive_time.end())
@@ -1176,13 +1251,15 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::init()
+  bool tx_memory_pool::init(size_t max_txpool_size)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
+    m_txpool_max_size = max_txpool_size ? max_txpool_size : DEFAULT_TXPOOL_MAX_SIZE;
     m_txs_by_fee_and_receive_time.clear();
     m_spent_key_images.clear();
+    m_txpool_size = 0;
     std::vector<crypto::hash> remove;
     bool r = m_blockchain.for_all_txpool_txes([this, &remove](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
       cryptonote::transaction tx;
@@ -1197,6 +1274,7 @@ namespace cryptonote
         return false;
       }
       m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.blob_size, meta.receive_time), txid);
+      m_txpool_size += meta.blob_size;
       return true;
     }, true);
     if (!r)
