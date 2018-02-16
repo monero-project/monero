@@ -172,20 +172,24 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const account_keys &sender_keys)
+  crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr)
   {
-    if (destinations.empty())
-      return null_pkey;
-    for (size_t n = 1; n < destinations.size(); ++n)
+    account_public_address addr = {null_pkey, null_pkey};
+    size_t count = 0;
+    for (const auto &i : destinations)
     {
-      if (!memcmp(&destinations[n].addr, &sender_keys.m_account_address, sizeof(destinations[0].addr)))
+      if (i.amount == 0)
         continue;
-      if (destinations[n].amount == 0)
+      if (change_addr && i.addr == *change_addr)
         continue;
-      if (memcmp(&destinations[n].addr, &destinations[0].addr, sizeof(destinations[0].addr)))
+      if (i.addr == addr)
+        continue;
+      if (count > 0)
         return null_pkey;
+      addr = i.addr;
+      ++count;
     }
-    return destinations[0].addr.m_view_public_key;
+    return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
   bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, bool bulletproof, rct::multisig_out *msout)
@@ -221,7 +225,7 @@ namespace cryptonote
         if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
           LOG_PRINT_L2("Encrypting payment id " << payment_id);
-          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, sender_account_keys);
+          crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
           if (view_key_pub == null_pkey)
           {
             LOG_ERROR("Destinations have to have exactly one output to support encrypted payment ids");
