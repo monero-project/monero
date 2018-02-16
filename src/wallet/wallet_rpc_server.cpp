@@ -2442,7 +2442,7 @@ namespace tools
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
-      er.message = e.what();
+      er.message = e.what() + std::string(" Please use sweep_dust.");
     }
     catch (const error::file_exists& e)
     {
