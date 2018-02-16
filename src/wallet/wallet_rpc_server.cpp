@@ -2397,6 +2397,11 @@ namespace tools
     {
       std::rethrow_exception(e);
     }
+    catch (const tools::error::no_connection_to_daemon& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = e.what();
+    }
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
@@ -2410,6 +2415,11 @@ namespace tools
     catch (const tools::error::not_enough_money& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
+      er.message = e.what();
+    }
+    catch (const tools::error::not_enough_unlocked_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_UNLOCKED_MONEY;
       er.message = e.what();
     }
     catch (const tools::error::tx_not_possible& e)
