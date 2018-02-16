@@ -52,10 +52,10 @@ extern int aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *exp
 #define VARIANT1_1(p) \
   do if (variant > 0) \
   { \
-    uint8_t tmp = ((const uint8_t*)p)[11]; \
-    uint8_t tmp1 = (tmp>>4)&1, tmp2 = (tmp>>5)&1, tmp3 = tmp1^tmp2; \
-    uint8_t tmp0 = (((const uint8_t*)p)[11] & 1) ? tmp3 : ((((tmp2<<1)|tmp1) + 1)&3); \
-    ((uint8_t*)p)[11] = (((const uint8_t*)p)[11] & 1) ? ((tmp & 0xef) | (tmp0<<4)):((tmp & 0xcf) | (tmp0<<4)); \
+    const uint8_t tmp = ((const uint8_t*)(p))[11]; \
+    static const uint32_t table = 0x75310; \
+    const uint8_t index = (((tmp >> 3) & 6) | (tmp & 1)) << 1; \
+    ((uint8_t*)(p))[11] = tmp ^ ((table >> index) & 0x30); \
   } while(0)
 
 #define VARIANT1_2(p) \
