@@ -1333,6 +1333,15 @@ skip:
           break;
         }
 
+        // this one triggers if all threads are in standby, which should not happen,
+        // but happened at least once, so we unblock at least one thread if so
+        const boost::unique_lock<boost::mutex> sync{m_sync_lock, boost::try_to_lock};
+        if (sync.owns_lock())
+        {
+          LOG_DEBUG_CC(context, "No other thread is adding blocks, resuming");
+          break;
+        }
+
         if (should_download_next_span(context))
         {
           MDEBUG(context << " we should try for that next span too, we think we could get it faster, resuming");
