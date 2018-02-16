@@ -60,28 +60,28 @@ public:
     )
     : m_server{core.get(), p2p.get()}, m_description{description}
   {
-    MGINFO("Initializing " << m_description << " rpc server...");
+    MGINFO("Initializing " << m_description << " RPC server...");
 
     if (!m_server.init(vm, restricted, testnet, port))
     {
-      throw std::runtime_error("Failed to initialize " + m_description + " rpc server.");
+      throw std::runtime_error("Failed to initialize " + m_description + " RPC server.");
     }
-    MGINFO(m_description << " rpc server initialized OK on port: " << m_server.get_binded_port());
+    MGINFO(m_description << " RPC server initialized OK on port: " << m_server.get_binded_port());
   }
 
   void run()
   {
-    MGINFO("Starting " << m_description << " rpc server...");
+    MGINFO("Starting " << m_description << " RPC server...");
     if (!m_server.run(2, false))
     {
-      throw std::runtime_error("Failed to start " + m_description + " rpc server.");
+      throw std::runtime_error("Failed to start " + m_description + " RPC server.");
     }
-    MGINFO(m_description << " rpc server started ok");
+    MGINFO(m_description << " RPC server started ok");
   }
 
   void stop()
   {
-    MGINFO("Stopping " << m_description << " rpc server...");
+    MGINFO("Stopping " << m_description << " RPC server...");
     m_server.send_stop_signal();
     m_server.timed_wait_server_stop(5000);
   }
@@ -93,11 +93,11 @@ public:
 
   ~t_rpc()
   {
-    MGINFO("Deinitializing " << m_description << " rpc server...");
+    MGINFO("Deinitializing " << m_description << " RPC server...");
     try {
       m_server.deinit();
     } catch (...) {
-      MERROR("Failed to deinitialize " << m_description << " rpc server...");
+      MERROR("Failed to deinitialize " << m_description << " RPC server...");
     }
   }
 };

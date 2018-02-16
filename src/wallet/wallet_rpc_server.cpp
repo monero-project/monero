@@ -2922,12 +2922,12 @@ int main(int argc, char** argv) {
     // if we ^C during potentially length load/refresh, there's no server loop yet
     if (quit)
     {
-      MINFO(tools::wallet_rpc_server::tr("Storing wallet..."));
+      MINFO(tools::wallet_rpc_server::tr("Saving wallet..."));
       wal->store();
-      MINFO(tools::wallet_rpc_server::tr("Stored ok"));
+      MINFO(tools::wallet_rpc_server::tr("Successfully saved"));
       return 1;
     }
-    MINFO(tools::wallet_rpc_server::tr("Loaded ok"));
+    MINFO(tools::wallet_rpc_server::tr("Successfully loaded"));
   }
   catch (const std::exception& e)
   {
@@ -2938,11 +2938,11 @@ just_dir:
   tools::wallet_rpc_server wrpc;
   if (wal) wrpc.set_wallet(wal.release());
   bool r = wrpc.init(&(vm.get()));
-  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet rpc server"));
+  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
   tools::signal_handler::install([&wrpc](int) {
     wrpc.send_stop_signal();
   });
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet rpc server"));
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
   try
   {
     wrpc.run();
@@ -2952,16 +2952,16 @@ just_dir:
     LOG_ERROR(tools::wallet_rpc_server::tr("Failed to run wallet: ") << e.what());
     return 1;
   }
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet rpc server"));
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet RPC server"));
   try
   {
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Storing wallet..."));
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Saving wallet..."));
     wrpc.stop();
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stored ok"));
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Successfully saved"));
   }
   catch (const std::exception& e)
   {
-    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to store wallet: ") << e.what());
+    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to save wallet: ") << e.what());
     return 1;
   }
   return 0;
