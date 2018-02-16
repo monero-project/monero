@@ -34,7 +34,9 @@
 
 #include "hash-ops.h"
 
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
+#ifdef _MSC_VER
+#include <malloc.h>
+#elif !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
  #include <alloca.h>
 #else
  #include <stdlib.h>
