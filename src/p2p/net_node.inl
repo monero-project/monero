@@ -1164,6 +1164,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::connections_maker()
   {
+    if (m_offline) return true;
     if (!connect_to_peerlist(m_exclusive_peers)) return false;
 
     if (!m_exclusive_peers.empty()) return true;
@@ -1935,6 +1936,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
   {
+    if (m_offline) return true;
     if (!m_exclusive_peers.empty()) return true;
 
     peerlist_entry pe = AUTO_VAL_INIT(pe);
