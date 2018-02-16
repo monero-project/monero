@@ -236,13 +236,13 @@ bool Wallet::paymentIdValid(const string &paiment_id)
 bool Wallet::addressValid(const std::string &str, bool testnet)
 {
   cryptonote::address_parse_info info;
-  return get_account_address_from_str(info, testnet, str);
+  return get_account_address_from_str(info, testnet ? TESTNET : MAINNET, str);
 }
 
 bool Wallet::keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)
 {
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, testnet, address_string)) {
+  if(!get_account_address_from_str(info, testnet ? TESTNET : MAINNET, address_string)) {
       error = tr("Failed to parse address");
       return false;
   }
@@ -278,7 +278,7 @@ bool Wallet::keyValid(const std::string &secret_key_string, const std::string &a
 std::string Wallet::paymentIdFromAddress(const std::string &str, bool testnet)
 {
   cryptonote::address_parse_info info;
-  if (!get_account_address_from_str(info, testnet, str))
+  if (!get_account_address_from_str(info, testnet ? TESTNET : MAINNET, str))
     return "";
   if (!info.has_payment_id)
     return "";
@@ -310,7 +310,7 @@ WalletImpl::WalletImpl(bool testnet)
     , m_rebuildWalletCache(false)
     , m_is_connected(false)
 {
-    m_wallet = new tools::wallet2(testnet);
+    m_wallet = new tools::wallet2(testnet ? TESTNET : MAINNET);
     m_history = new TransactionHistoryImpl(this);
     m_wallet2Callback = new Wallet2CallbackImpl(this);
     m_wallet->callback(m_wallet2Callback);
@@ -388,7 +388,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 bool WalletImpl::createWatchOnly(const std::string &path, const std::string &password, const std::string &language) const
 {
     clearStatus();
-    std::unique_ptr<tools::wallet2> view_wallet(new tools::wallet2(m_wallet->testnet()));
+    std::unique_ptr<tools::wallet2> view_wallet(new tools::wallet2(m_wallet->nettype()));
 
     // Store same refresh height as original wallet
     view_wallet->set_refresh_from_block_height(m_wallet->get_refresh_from_block_height());
@@ -469,7 +469,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
                                  const std::string &spendkey_string)
 {
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_wallet->testnet(), address_string))
+    if(!get_account_address_from_str(info, m_wallet->nettype(), address_string))
     {
         m_errorString = tr("failed to parse address");
         m_status = Status_Error;
@@ -1079,7 +1079,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
-        if(!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), dst_addr)) {
+        if(!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), dst_addr)) {
             // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
             m_status = Status_Error;
             m_errorString = "Invalid destination address";
@@ -1464,7 +1464,7 @@ bool WalletImpl::checkTxKey(const std::string &txid_str, std::string tx_key_str,
     }
 
     cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address_str))
     {
         m_status = Status_Error;
         m_errorString = tr("Failed to parse address");
@@ -1496,7 +1496,7 @@ std::string WalletImpl::getTxProof(const std::string &txid_str, const std::strin
     }
 
     cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address_str))
     {
         m_status = Status_Error;
         m_errorString = tr("Failed to parse address");
@@ -1527,7 +1527,7 @@ bool WalletImpl::checkTxProof(const std::string &txid_str, const std::string &ad
     }
 
     cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address_str))
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address_str))
     {
         m_status = Status_Error;
         m_errorString = tr("Failed to parse address");
@@ -1615,7 +1615,7 @@ std::string WalletImpl::getReserveProof(bool all, uint32_t account_index, uint64
 
 bool WalletImpl::checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const {
     cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address))
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address))
     {
         m_status = Status_Error;
         m_errorString = tr("Failed to parse address");
@@ -1652,7 +1652,7 @@ bool WalletImpl::verifySignedMessage(const std::string &message, const std::stri
 {
   cryptonote::address_parse_info info;
 
-  if (!cryptonote::get_account_address_from_str(info, m_wallet->testnet(), address))
+  if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address))
     return false;
 
   return m_wallet->verify(message, info.address, signature);

@@ -115,7 +115,7 @@ public:
     void setRecoveringFromSeed(bool recoveringFromSeed);
     bool watchOnly() const;
     bool rescanSpent();
-    bool testnet() const {return m_wallet->testnet();}
+    bool testnet() const {return m_wallet->nettype() == cryptonote::TESTNET;}
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     bool useForkRules(uint8_t version, int64_t early_blocks) const;
 

@@ -34,14 +34,16 @@
 namespace nodetool
 {
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol", "0.0.0.0"};
-    const command_line::arg_descriptor<std::string, false, true> arg_p2p_bind_port = {
+    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port = {
         "p2p-bind-port"
       , "Port for p2p network protocol"
       , std::to_string(config::P2P_DEFAULT_PORT)
-      , cryptonote::arg_testnet_on
-      , [](bool testnet, bool defaulted, std::string val) {
-          if (testnet && defaulted)
+      , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
+      , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+          if (testnet_stagenet[0] && defaulted)
             return std::to_string(config::testnet::P2P_DEFAULT_PORT);
+          else if (testnet_stagenet[1] && defaulted)
+            return std::to_string(config::stagenet::P2P_DEFAULT_PORT);
           return val;
         }
       };

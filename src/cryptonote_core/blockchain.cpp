@@ -132,6 +132,16 @@ static const struct {
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
 
+static const struct {
+  uint8_t version;
+  uint64_t height;
+  uint8_t threshold;
+  time_t time;
+} stagenet_hard_forks[] = {
+  // version 1 from the start of the blockchain
+  { 1, 1, 0, 1341378000 },
+};
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
@@ -306,13 +316,11 @@ uint64_t Blockchain::get_current_blockchain_height() const
 //------------------------------------------------------------------
 //FIXME: possibly move this into the constructor, to avoid accidentally
 //       dereferencing a null BlockchainDB pointer
-bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const cryptonote::test_options *test_options)
+bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline, const cryptonote::test_options *test_options)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
-
-  bool fakechain = test_options != NULL;
 
   if (db == nullptr)
   {
@@ -328,26 +336,31 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
 
   m_db = db;
 
-  m_testnet = testnet;
+  m_nettype = test_options != NULL ? FAKECHAIN : nettype;
   m_offline = offline;
   if (m_hardfork == nullptr)
   {
-    if (fakechain)
+    if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
       m_hardfork = new HardFork(*db, 1, 0);
-    else if (m_testnet)
+    else if (m_nettype == TESTNET)
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
     else
       m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
   }
-  if (fakechain)
+  if (m_nettype == FAKECHAIN)
   {
     for (size_t n = 0; test_options->hard_forks[n].first; ++n)
       m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
   }
-  else if (m_testnet)
+  else if (m_nettype == TESTNET)
   {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
       m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+  }
+  else if (m_nettype == STAGENET)
+  {
+    for (size_t n = 0; n < sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]); ++n)
+      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
   }
   else
   {
@@ -367,9 +380,13 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
     MINFO("Blockchain not loaded, generating genesis block.");
     block bl = boost::value_initialized<block>();
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
-    if (m_testnet)
+    if (m_nettype == TESTNET)
     {
       generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+    }
+    else if (m_nettype == STAGENET)
+    {
+      generate_genesis_block(bl, config::stagenet::GENESIS_TX, config::stagenet::GENESIS_NONCE);
     }
     else
     {
@@ -384,7 +401,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
   {
   }
 
-  if (!fakechain)
+  if (m_nettype != FAKECHAIN)
   {
     // ensure we fixup anything we found and fix in the future
     m_db->fixup();
@@ -406,7 +423,7 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
   m_async_pool.create_thread(boost::bind(&boost::asio::io_service::run, &m_async_service));
 
 #if defined(PER_BLOCK_CHECKPOINT)
-  if (!fakechain)
+  if (m_nettype != FAKECHAIN)
     load_compiled_in_block_hashes();
 #endif
 
@@ -417,11 +434,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const bool testnet, bool offline)
+bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const network_type nettype, bool offline)
 {
   if (hf != nullptr)
     m_hardfork = hf;
-  bool res = init(db, testnet, offline, NULL);
+  bool res = init(db, nettype, offline, NULL);
   if (hf == nullptr)
     hf = m_hardfork;
   return res;
@@ -4316,15 +4333,17 @@ void Blockchain::cancel()
 static const char expected_block_hashes_hash[] = "4b553162ee4e7af3c53666506591489c68560b9175e6e941dc96c89f96f0e35c";
 void Blockchain::load_compiled_in_block_hashes()
 {
-  if (m_fast_sync && get_blocks_dat_start(m_testnet) != nullptr && get_blocks_dat_size(m_testnet) > 0)
+  const bool testnet = m_nettype == TESTNET;
+  const bool stagenet = m_nettype == STAGENET;
+  if (m_fast_sync && get_blocks_dat_start(testnet, stagenet) != nullptr && get_blocks_dat_size(testnet, stagenet) > 0)
   {
-    MINFO("Loading precomputed blocks (" << get_blocks_dat_size(m_testnet) << " bytes)");
+    MINFO("Loading precomputed blocks (" << get_blocks_dat_size(testnet, stagenet) << " bytes)");
 
-    if (!m_testnet)
+    if (m_nettype == MAINNET)
     {
       // first check hash
       crypto::hash hash;
-      if (!tools::sha256sum(get_blocks_dat_start(m_testnet), get_blocks_dat_size(m_testnet), hash))
+      if (!tools::sha256sum(get_blocks_dat_start(testnet, stagenet), get_blocks_dat_size(testnet, stagenet), hash))
       {
         MERROR("Failed to hash precomputed blocks data");
         return;
@@ -4344,9 +4363,9 @@ void Blockchain::load_compiled_in_block_hashes()
       }
     }
 
-    if (get_blocks_dat_size(m_testnet) > 4)
+    if (get_blocks_dat_size(testnet, stagenet) > 4)
     {
-      const unsigned char *p = get_blocks_dat_start(m_testnet);
+      const unsigned char *p = get_blocks_dat_start(testnet, stagenet);
       const uint32_t nblocks = *p | ((*(p+1))<<8) | ((*(p+2))<<16) | ((*(p+3))<<24);
       if (nblocks > (std::numeric_limits<uint32_t>::max() - 4) / sizeof(hash))
       {
@@ -4354,7 +4373,7 @@ void Blockchain::load_compiled_in_block_hashes()
         return;
       }
       const size_t size_needed = 4 + nblocks * sizeof(crypto::hash);
-      if(nblocks > 0 && nblocks > (m_db->height() + HASH_OF_HASHES_STEP - 1) / HASH_OF_HASHES_STEP && get_blocks_dat_size(m_testnet) >= size_needed)
+      if(nblocks > 0 && nblocks > (m_db->height() + HASH_OF_HASHES_STEP - 1) / HASH_OF_HASHES_STEP && get_blocks_dat_size(testnet, stagenet) >= size_needed)
       {
         p += sizeof(uint32_t);
         m_blocks_hash_of_hashes.reserve(nblocks);

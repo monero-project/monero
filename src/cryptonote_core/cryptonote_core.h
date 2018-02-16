@@ -58,8 +58,9 @@ namespace cryptonote
      const std::pair<uint8_t, uint64_t> *hard_forks;
    };
 
-  extern const command_line::arg_descriptor<std::string, false, true> arg_data_dir;
+  extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
+  extern const command_line::arg_descriptor<bool, false> arg_stagenet_on;
   extern const command_line::arg_descriptor<bool> arg_offline;
 
   /************************************************************************/
@@ -725,11 +726,11 @@ namespace cryptonote
      std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
      
      /**
-      * @brief get whether we're on testnet or not
+      * @brief get the network type we're on
       *
-      * @return are we on testnet?
+      * @return which network are we on?
       */     
-     bool get_testnet() const { return m_testnet; };
+     network_type get_nettype() const { return m_nettype; };
 
      /**
       * @brief get whether fluffy blocks are enabled
@@ -954,9 +955,7 @@ namespace cryptonote
 
      uint64_t m_target_blockchain_height; //!< blockchain height target
 
-     bool m_testnet; //!< are we on testnet?
-
-     bool m_fakechain; //!< are we using a fake chain (for testing purposes)?
+     network_type m_nettype; //!< which network are we on?
 
      std::string m_checkpoints_path; //!< path to json checkpoints file
      time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated

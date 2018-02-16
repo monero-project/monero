@@ -37,7 +37,7 @@
   std::string address, payment_id, recipient_name, description, error; \
   uint64_t amount; \
   std::vector<std::string> unknown_parameters; \
-  tools::wallet2 w(true); \
+  tools::wallet2 w(cryptonote::TESTNET); \
   bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
   ASSERT_EQ(ret, expected);
 

@@ -37,7 +37,7 @@
 class SignatureFuzzer: public Fuzzer
 {
 public:
-  SignatureFuzzer(): Fuzzer(), wallet(true) {}
+  SignatureFuzzer(): Fuzzer(), wallet(cryptonote::TESTNET) {}
   virtual int init();
   virtual int run(const std::string &filename);
 
@@ -58,7 +58,7 @@ int SignatureFuzzer::init()
     wallet.generate("", "", spendkey, true, false);
 
     cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str_or_url(info, true, "9uVsvEryzpN8WH2t1WWhFFCG5tS8cBNdmJYNRuckLENFimfauV5pZKeS1P2CbxGkSDTUPHXWwiYE5ZGSXDAGbaZgDxobqDN"))
+    if (!cryptonote::get_account_address_from_str_or_url(info, cryptonote::TESTNET, "9uVsvEryzpN8WH2t1WWhFFCG5tS8cBNdmJYNRuckLENFimfauV5pZKeS1P2CbxGkSDTUPHXWwiYE5ZGSXDAGbaZgDxobqDN"))
     {
       std::cerr << "failed to parse address" << std::endl;
       return 1;

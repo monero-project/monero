@@ -159,12 +159,18 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::init_default_checkpoints(bool testnet)
+  bool checkpoints::init_default_checkpoints(network_type nettype)
   {
-    if (testnet)
+    if (nettype == TESTNET)
     {
       ADD_CHECKPOINT(0,     "48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b");
       ADD_CHECKPOINT(1000000, "46b690b710a07ea051bc4a6b6842ac37be691089c0f7758cfeec4d5fc0b4a258");
+      return true;
+    }
+    if (nettype == STAGENET)
+    {
+      ADD_CHECKPOINT(0,       "76ee3cc98646292206cd3e86f74d88b4dcc1d937088645e9b0cbca84b7ce74eb");
+      ADD_CHECKPOINT(10000,   "1f8b0ce313f8b9ba9a46108bfd285c45ad7c2176871fd41c3a690d4830ce2fd5");
       return true;
     }
     ADD_CHECKPOINT(1,     "771fbcd656ec1464d3a02ead5e18644030007a0fc664c0a964d30922821a8148");
@@ -240,7 +246,7 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::load_checkpoints_from_dns(bool testnet)
+  bool checkpoints::load_checkpoints_from_dns(network_type nettype)
   {
     std::vector<std::string> records;
 
@@ -257,7 +263,13 @@ namespace cryptonote
 							     , "testpoints.moneropulse.co"
     };
 
-    if (!tools::dns_utils::load_txt_records_from_dns(records, testnet ? testnet_dns_urls : dns_urls))
+    static const std::vector<std::string> stagenet_dns_urls = { "stagenetpoints.moneropulse.se"
+                   , "stagenetpoints.moneropulse.org"
+                   , "stagenetpoints.moneropulse.net"
+                   , "stagenetpoints.moneropulse.co"
+    };
+
+    if (!tools::dns_utils::load_txt_records_from_dns(records, nettype == TESTNET ? testnet_dns_urls : nettype == STAGENET ? stagenet_dns_urls : dns_urls))
       return true; // why true ?
 
     for (const auto& record : records)
@@ -290,14 +302,14 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, bool testnet, bool dns)
+  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype, bool dns)
   {
     bool result;
 
     result = load_checkpoints_from_json(json_hashfile_fullpath);
     if (dns)
     {
-      result &= load_checkpoints_from_dns(testnet);
+      result &= load_checkpoints_from_dns(nettype);
     }
 
     return result;

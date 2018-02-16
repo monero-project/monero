@@ -64,7 +64,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
     wallet.init("");
     wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
-    ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(true));
+    ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(cryptonote::TESTNET));
   }
   catch (const std::exception &e)
   {
@@ -93,7 +93,7 @@ static void make_M_2_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, un
   wallet0.make_multisig("", sk0, pk0, M);
   wallet1.make_multisig("", sk1, pk1, M);
 
-  ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet1.get_account().get_public_address_str(true));
+  ASSERT_TRUE(wallet0.get_account().get_public_address_str(cryptonote::TESTNET) == wallet1.get_account().get_public_address_str(cryptonote::TESTNET));
 
   bool ready;
   uint32_t threshold, total;
@@ -150,8 +150,8 @@ static void make_M_3_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, to
     ASSERT_TRUE(wallet2.finalize_multisig("", pkeys, signers));
   }
 
-  ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet1.get_account().get_public_address_str(true));
-  ASSERT_TRUE(wallet0.get_account().get_public_address_str(true) == wallet2.get_account().get_public_address_str(true));
+  ASSERT_TRUE(wallet0.get_account().get_public_address_str(cryptonote::TESTNET) == wallet1.get_account().get_public_address_str(cryptonote::TESTNET));
+  ASSERT_TRUE(wallet0.get_account().get_public_address_str(cryptonote::TESTNET) == wallet2.get_account().get_public_address_str(cryptonote::TESTNET));
 
   bool ready;
   uint32_t threshold, total;
