@@ -153,8 +153,12 @@ namespace tools
       }
       return r;
 #else
+      static struct sigaction sa;
+      memset(&sa, 0, sizeof(struct sigaction));
+      sa.sa_handler = posix_handler;
+      sa.sa_flags = 0;
       /* Only blocks SIGINT, SIGTERM and SIGPIPE */
-      signal(SIGINT, posix_handler);
+      sigaction(SIGINT, &sa, NULL);
       signal(SIGTERM, posix_handler);
       signal(SIGPIPE, SIG_IGN);
       m_handler = t;

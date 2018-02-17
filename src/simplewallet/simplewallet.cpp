@@ -639,6 +639,8 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
 
   // prompts for a new password, pass true to verify the password
   const auto pwd_container = default_password_prompter(true);
+  if(!pwd_container)
+    return true;
 
   try
   {
@@ -6811,6 +6813,11 @@ int main(int argc, char* argv[])
   else
   {
     tools::signal_handler::install([&w](int type) {
+      if (tools::password_container::is_prompting.load())
+      {
+        // must be prompting for password so return and let the signal stop prompt
+        return;
+      }
 #ifdef WIN32
       if (type == CTRL_C_EVENT)
 #else
