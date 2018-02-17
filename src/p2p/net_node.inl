@@ -75,7 +75,6 @@ namespace nodetool
   {
     command_line::add_arg(desc, arg_p2p_bind_ip);
     command_line::add_arg(desc, arg_p2p_bind_port, false);
-    command_line::add_arg(desc, arg_testnet_p2p_bind_port, false);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -263,12 +262,8 @@ namespace nodetool
       const boost::program_options::variables_map& vm
     )
   {
-    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-
-    auto p2p_bind_arg = m_testnet ? arg_testnet_p2p_bind_port : arg_p2p_bind_port;
-
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
-    m_port = command_line::get_arg(vm, p2p_bind_arg);
+    m_port = command_line::get_arg(vm, arg_p2p_bind_port);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
@@ -504,8 +499,7 @@ namespace nodetool
     }
     MDEBUG("Number of seed nodes: " << m_seed_nodes.size());
 
-    auto config_arg = m_testnet ? cryptonote::arg_testnet_data_dir : cryptonote::arg_data_dir;
-    m_config_folder = command_line::get_arg(vm, config_arg);
+    m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
 
     if ((!m_testnet && m_port != std::to_string(::config::P2P_DEFAULT_PORT))
         || (m_testnet && m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))) {

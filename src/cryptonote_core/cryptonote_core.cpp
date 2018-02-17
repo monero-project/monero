@@ -66,18 +66,21 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace cryptonote
 {
-  const command_line::arg_descriptor<std::string> arg_data_dir = {
-    "data-dir"
-  , "Specify data directory"
-  };
-  const command_line::arg_descriptor<std::string> arg_testnet_data_dir = {
-    "testnet-data-dir"
-  , "Specify testnet data directory"
-  };
   const command_line::arg_descriptor<bool, false> arg_testnet_on  = {
     "testnet"
   , "Run on testnet. The wallet must be launched with --testnet flag."
   , false
+  };
+  const command_line::arg_descriptor<std::string, false, true> arg_data_dir = {
+    "data-dir"
+  , "Specify data directory"
+  , tools::get_default_data_dir()
+  , arg_testnet_on
+  , [](bool testnet, bool defaulted, std::string val) {
+      if (testnet)
+        return (boost::filesystem::path(val) / "testnet").string();
+      return val;
+    }
   };
   const command_line::arg_descriptor<bool> arg_offline = {
     "offline"
@@ -234,8 +237,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, arg_data_dir, tools::get_default_data_dir());
-    command_line::add_arg(desc, arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
+    command_line::add_arg(desc, arg_data_dir);
 
     command_line::add_arg(desc, arg_test_drop_download);
     command_line::add_arg(desc, arg_test_drop_download_height);
@@ -262,8 +264,7 @@ namespace cryptonote
   {
     m_testnet = command_line::get_arg(vm, arg_testnet_on);
 
-    auto data_dir_arg = m_testnet ? arg_testnet_data_dir : arg_data_dir;
-    m_config_folder = command_line::get_arg(vm, data_dir_arg);
+    m_config_folder = command_line::get_arg(vm, arg_data_dir);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
