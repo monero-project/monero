@@ -181,7 +181,7 @@ namespace cryptonote
     }
 
     size_t tx_size_limit = get_transaction_size_limit(version);
-    if (!kept_by_block && blob_size >= tx_size_limit)
+    if (!kept_by_block && blob_size > tx_size_limit)
     {
       LOG_PRINT_L1("transaction is too big: " << blob_size << " bytes, maximum size: " << tx_size_limit);
       tvc.m_verifivation_failed = true;
@@ -1207,7 +1207,7 @@ namespace cryptonote
     m_txpool_size = 0;
     m_blockchain.for_all_txpool_txes([this, &remove, tx_size_limit](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata*) {
       m_txpool_size += meta.blob_size;
-      if (meta.blob_size >= tx_size_limit) {
+      if (meta.blob_size > tx_size_limit) {
         LOG_PRINT_L1("Transaction " << txid << " is too big (" << meta.blob_size << " bytes), removing it from pool");
         remove.insert(txid);
       }
