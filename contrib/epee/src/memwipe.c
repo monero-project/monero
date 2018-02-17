@@ -31,6 +31,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #ifdef HAVE_EXPLICIT_BZERO
 #include <strings.h>
