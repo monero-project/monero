@@ -1294,6 +1294,58 @@ bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::print_ring(const std::vector<std::string> &args)
+{
+  crypto::key_image key_image;
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: print_ring <key_image>");
+    return true;
+  }
+
+  if (!epee::string_tools::hex_to_pod(args[0], key_image))
+  {
+    fail_msg_writer() << tr("Invalid key image");
+    return true;
+  }
+
+  std::vector<uint64_t> ring;
+  try
+  {
+    if (m_wallet->get_ring(m_wallet->get_ring_database(), key_image, ring))
+    {
+      std::stringstream str;
+      for (const auto &x: ring)
+        str << x << " ";
+      success_msg_writer() << tr("Ring size ") << std::to_string(ring.size()) << ": " << str.str();
+    }
+    else
+    {
+      fail_msg_writer() << tr("Key image either not spent, or spent with mixin 0");
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to get key image ring: ") << e.what();
+  }
+
+  return true;
+}
+
+bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
+{
+  try
+  {
+    LOCK_IDLE_SCOPE();
+    m_wallet->find_and_save_rings(m_wallet->get_ring_database());
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to save known rings: ") << e.what();
+  }
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -1951,6 +2003,14 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::export_raw_multisig, this, _1),
                            tr("export_raw_multisig_tx <filename>"),
                            tr("Export a signed multisig transaction to a file"));
+  m_cmd_binder.set_handler("print_ring",
+                           boost::bind(&simple_wallet::print_ring, this, _1),
+                           tr("print_ring <key_image>"),
+                           tr("Print the ring used to spend a given key image (if the ring size is > 1)"));
+  m_cmd_binder.set_handler("save_known_rings",
+                           boost::bind(&simple_wallet::save_known_rings, this, _1),
+                           tr("save_known_rings"),
+                           tr("Save known rings to the shared rings database"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),

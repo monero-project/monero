@@ -66,6 +66,7 @@ using namespace epee;
 #include "memwipe.h"
 #include "common/base58.h"
 #include "ringct/rctSigs.h"
+#include "ringdb.h"
 
 extern "C"
 {
@@ -108,6 +109,18 @@ using namespace cryptonote;
 
 namespace
 {
+  std::string get_default_ringdb_path()
+  {
+    boost::filesystem::path dir = tools::get_default_data_dir();
+    // remove .bitmonero, replace with .shared-ringdb
+    dir = dir.remove_filename();
+    dir /= ".shared-ringdb";
+    return dir.string();
+  }
+}
+
+namespace
+{
 // Create on-demand to prevent static initialization order fiasco issues.
 struct options {
   const command_line::arg_descriptor<std::string> daemon_address = {"daemon-address", tools::wallet2::tr("Use daemon instance at <host>:<port>"), ""};
@@ -119,6 +132,16 @@ struct options {
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
   const command_line::arg_descriptor<bool> restricted = {"restricted-rpc", tools::wallet2::tr("Restricts to view-only commands"), false};
+  const command_line::arg_descriptor<std::string, false, true> shared_ringdb_dir = {
+    "shared-ringdb-dir", tools::wallet2::tr("Set shared ring database path"),
+    get_default_ringdb_path(),
+    testnet,
+    [](bool testnet, bool defaulted, std::string val) {
+      if (testnet)
+        return (boost::filesystem::path(val) / "testnet").string();
+      return val;
+    }
+  };
 };
 
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
@@ -196,6 +219,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet ? TESTNET : stagenet ? STAGENET : MAINNET, restricted));
   wallet->init(std::move(daemon_address), std::move(login));
+  boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
+  wallet->set_ring_database(ringdb_path.string());
   return wallet;
 }
 
@@ -639,7 +664,8 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_light_wallet_connected(false),
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
-  m_key_on_device(false)
+  m_key_on_device(false),
+  m_ring_history_saved(false)
 {
 }
 
@@ -665,6 +691,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
   command_line::add_arg(desc_params, opts.restricted);
+  command_line::add_arg(desc_params, opts.shared_ringdb_dir);
 }
 
 std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -1482,6 +1509,8 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
   entry.first->second.m_block_height = height;
   entry.first->second.m_timestamp = ts;
   entry.first->second.m_unlock_time = tx.unlock_time;
+
+  add_rings(get_ring_database(), tx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices)
@@ -1852,6 +1881,7 @@ void wallet2::update_pool_state(bool refreshed)
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
 
         // the inputs aren't spent anymore, since the tx failed
+        remove_rings(m_ring_database, pit->second.m_tx);
         for (size_t vini = 0; vini < pit->second.m_tx.vin.size(); ++vini)
         {
           if (pit->second.m_tx.vin[vini].type() == typeid(txin_to_key))
@@ -3742,6 +3772,15 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
     add_subaddress_account(tr("Primary account"));
 
   m_local_bc_height = m_blockchain.size();
+
+  try
+  {
+    find_and_save_rings(get_ring_database(), false);
+  }
+  catch (const std::exception &e)
+  {
+    MERROR("Failed to save rings, will try again next time");
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::trim_hashchain()
@@ -4482,6 +4521,8 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
     m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
   }
+
+  add_rings(m_ring_database, ptx.tx);
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
 
@@ -5385,6 +5426,102 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   }
 }
 
+void wallet2::set_ring_database(const std::string &filename)
+{
+  m_ring_database = filename;
+  MINFO("ringdb path set to " << filename);
+}
+
+bool wallet2::add_rings(const std::string &filename, const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
+{
+  return ringdb::add_rings(filename, key, tx);
+}
+
+bool wallet2::add_rings(const std::string &filename, const cryptonote::transaction_prefix &tx)
+{
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+  return add_rings(filename, key, tx);
+}
+
+bool wallet2::remove_rings(const std::string &filename, const cryptonote::transaction_prefix &tx)
+{
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+  return ringdb::remove_rings(filename, key, tx);
+}
+
+bool wallet2::get_ring(const std::string &filename, const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+{
+  return ringdb::get_ring(filename, key, key_image, outs);
+}
+
+bool wallet2::get_ring(const std::string &filename, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+{
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  return get_ring(filename, key, key_image, outs);
+}
+
+bool wallet2::find_and_save_rings(const std::string &filename, bool force)
+{
+  if (!force && m_ring_history_saved)
+    return true;
+
+  COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
+  COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
+
+  MDEBUG("Finding and saving rings...");
+
+  // get payments we made
+  std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> payments;
+  get_payments_out(payments, 0, std::numeric_limits<uint64_t>::max(), boost::none, std::set<uint32_t>());
+  for (const std::pair<crypto::hash,wallet2::confirmed_transfer_details> &entry: payments)
+  {
+    const crypto::hash &txid = entry.first;
+    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  }
+
+  MDEBUG("Found " << std::to_string(req.txs_hashes.size()) << " transactions");
+
+  // get those transactions from the daemon
+  req.decode_as_json = false;
+  bool r;
+  {
+    const boost::lock_guard<boost::mutex> lock{m_daemon_rpc_mutex};
+    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
+  }
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.txs.size() != req.txs_hashes.size(), error::wallet_internal_error,
+    "daemon returned wrong response for gettransactions, wrong txs count = " +
+    std::to_string(res.txs.size()) + ", expected " + std::to_string(req.txs_hashes.size()));
+
+  MDEBUG("Scanning " << res.txs.size() << " transactions");
+
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  auto it = req.txs_hashes.begin();
+  for (size_t i = 0; i < res.txs.size(); ++i, ++it)
+  {
+    const auto &tx_info = res.txs[i];
+    THROW_WALLET_EXCEPTION_IF(tx_info.tx_hash != *it, error::wallet_internal_error, "Wrong txid received");
+    cryptonote::blobdata bd;
+    THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(tx_info.as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
+    cryptonote::transaction tx;
+    crypto::hash tx_hash, tx_prefix_hash;
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
+    THROW_WALLET_EXCEPTION_IF(epee::string_tools::pod_to_hex(tx_hash) != tx_info.tx_hash, error::wallet_internal_error, "txid mismatch");
+    THROW_WALLET_EXCEPTION_IF(!add_rings(filename, key, tx), error::wallet_internal_error, "Failed to save ring");
+  }
+
+  MINFO("Found and saved rings for " << res.txs.size() << " transactions");
+  m_ring_history_saved = true;
+  return true;
+}
 
 bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
 {
@@ -5514,6 +5651,9 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     return;
   }
 
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
   if (fake_outputs_count > 0)
   {
     // get histogram for the amounts we need
@@ -5582,7 +5722,48 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         --recent_outputs_count; // if the real out is recent, pick one less recent fake out
       LOG_PRINT_L1("Using " << recent_outputs_count << " recent outputs");
 
-      if (num_outs <= requested_outputs_count)
+      uint64_t num_found = 0;
+
+      // if we have a known ring, use it
+      bool existing_ring_found = false;
+      if (td.m_key_image_known && !td.m_key_image_partial)
+      {
+        std::vector<uint64_t> ring;
+        if (get_ring(get_ring_database(), key, td.m_key_image, ring))
+        {
+          MINFO("This output has a known ring, reusing (size " << ring.size() << ")");
+          THROW_WALLET_EXCEPTION_IF(ring.size() > fake_outputs_count + 1, error::wallet_internal_error,
+              "An output in this transaction was previously spent on another chain with ring size " +
+              std::to_string(ring.size()) + ", it cannot be spent now with ring size " +
+              std::to_string(fake_outputs_count + 1) + " as it is smaller: use a higher ring size");
+          bool own_found = false;
+          existing_ring_found = true;
+          for (const auto &out: ring)
+          {
+            MINFO("Ring has output " << out);
+            if (out < num_outs)
+            {
+              MINFO("Using it");
+              req.outputs.push_back({amount, out});
+              ++num_found;
+              seen_indices.emplace(out);
+              if (out == td.m_global_output_index)
+              {
+                MINFO("This is the real output");
+                own_found = true;
+              }
+            }
+            else
+            {
+              MINFO("Ignoring output " << out << ", too recent");
+            }
+          }
+          THROW_WALLET_EXCEPTION_IF(!own_found, error::wallet_internal_error,
+              "Known ring does not include the spent output: " + std::to_string(td.m_global_output_index));
+        }
+      }
+
+      if (num_outs <= requested_outputs_count && !existing_ring_found)
       {
         for (uint64_t i = 0; i < num_outs; i++)
           req.outputs.push_back({amount, i});
@@ -5595,10 +5776,13 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       else
       {
         // start with real one
-        uint64_t num_found = 1;
-        seen_indices.emplace(td.m_global_output_index);
-        req.outputs.push_back({amount, td.m_global_output_index});
-        LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
+        if (num_found == 0)
+        {
+          num_found = 1;
+          seen_indices.emplace(td.m_global_output_index);
+          req.outputs.push_back({amount, td.m_global_output_index});
+          LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
+        }
 
         // while we still need more mixins
         while (num_found < requested_outputs_count)
@@ -5674,6 +5858,17 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       outs.back().reserve(fake_outputs_count + 1);
       const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
 
+      uint64_t num_outs = 0;
+      const uint64_t amount = td.is_rct() ? 0 : td.amount();
+      for (const auto &he: resp_t.histogram)
+      {
+        if (he.amount == amount)
+        {
+          num_outs = he.unlocked_instances;
+          break;
+        }
+      }
+
       // make sure the real outputs we asked for are really included, along
       // with the correct key and mask: this guards against an active attack
       // where the node sends dummy data for all outputs, and we then send
@@ -5693,6 +5888,38 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
       // pick real out first (it will be sorted when done)
       outs.back().push_back(std::make_tuple(td.m_global_output_index, boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key, mask));
+
+      // then pick outs from an existing ring, if any
+      bool existing_ring_found = false;
+      if (td.m_key_image_known && !td.m_key_image_partial)
+      {
+        std::vector<uint64_t> ring;
+        if (get_ring(get_ring_database(), key, td.m_key_image, ring))
+        {
+          for (uint64_t out: ring)
+          {
+            if (out < num_outs)
+            {
+              if (out != td.m_global_output_index)
+              {
+                bool found = false;
+                for (size_t o = 0; o < requested_outputs_count; ++o)
+                {
+                  size_t i = base + o;
+                  if (req.outputs[i].index == out)
+                  {
+                    LOG_PRINT_L2("Index " << i << "/" << requested_outputs_count << ": idx " << req.outputs[i].index << " (real " << td.m_global_output_index << "), unlocked " << daemon_resp.outs[i].unlocked << ", key " << daemon_resp.outs[i].key << " (from existing ring)");
+                    tx_add_fake_output(outs, req.outputs[i].index, daemon_resp.outs[i].key, daemon_resp.outs[i].mask, td.m_global_output_index, daemon_resp.outs[i].unlocked);
+                    found = true;
+                    break;
+                  }
+                }
+                THROW_WALLET_EXCEPTION_IF(!found, error::wallet_internal_error, "Falied to find existing ring output in daemon out data");
+              }
+            }
+          }
+        }
+      }
 
       // then pick others in random order till we reach the required number
       // since we use an equiprobable pick here, we don't upset the triangular distribution
