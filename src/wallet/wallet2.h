@@ -862,6 +862,10 @@ namespace tools
     void confirm_export_overwrite(bool always) { m_confirm_export_overwrite = always; }
     bool auto_low_priority() const { return m_auto_low_priority; }
     void auto_low_priority(bool value) { m_auto_low_priority = value; }
+    bool segregate_pre_fork_outputs() const { return m_segregate_pre_fork_outputs; }
+    void segregate_pre_fork_outputs(bool value) { m_segregate_pre_fork_outputs = value; }
+    bool key_reuse_mitigation2() const { return m_key_reuse_mitigation2; }
+    void key_reuse_mitigation2(bool value) { m_key_reuse_mitigation2 = value; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
@@ -1181,6 +1185,8 @@ namespace tools
     uint32_t m_confirm_backlog_threshold;
     bool m_confirm_export_overwrite;
     bool m_auto_low_priority;
+    bool m_segregate_pre_fork_outputs;
+    bool m_key_reuse_mitigation2;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
