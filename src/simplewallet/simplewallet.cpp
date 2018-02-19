@@ -2407,7 +2407,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         // get N secret spend keys from user
         for(unsigned int i=0; i<multisig_n; ++i)
         {
-          spendkey_string = input_line(tr((boost::format(tr("Secret spend key (%u of %u):")) % (i+i) % multisig_m).str().c_str()));
+          spendkey_string = input_line(tr((boost::format(tr("Secret spend key (%u of %u):")) % (i+1) % multisig_m).str().c_str()));
           if (std::cin.eof())
             return false;
           if (spendkey_string.empty())
