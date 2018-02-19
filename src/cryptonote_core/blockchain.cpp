@@ -1903,6 +1903,45 @@ void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint
   unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first));
 }
 //------------------------------------------------------------------
+bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
+{
+  // rct outputs don't exist before v3
+  if (amount == 0)
+  {
+    switch (m_nettype)
+    {
+      case STAGENET: start_height = stagenet_hard_forks[2].height; break;
+      case TESTNET: start_height = testnet_hard_forks[2].height; break;
+      case MAINNET: start_height = mainnet_hard_forks[2].height; break;
+      default: return false;
+    }
+  }
+  else
+    start_height = 0;
+  base = 0;
+
+  const uint64_t real_start_height = start_height;
+  if (from_height > start_height)
+    start_height = from_height;
+
+  distribution.clear();
+  uint64_t db_height = m_db->height();
+  if (start_height >= db_height)
+    return false;
+  distribution.resize(db_height - start_height, 0);
+  bool r = for_all_outputs(amount, [&](uint64_t height) {
+    CHECK_AND_ASSERT_MES(height >= real_start_height && height <= db_height, false, "Height not in expected range");
+    if (height >= start_height)
+      distribution[height - start_height]++;
+    else
+      base++;
+    return true;
+  });
+  if (!r)
+    return false;
+  return true;
+}
+//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.
@@ -4441,9 +4480,14 @@ bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, co
   return m_db->for_all_transactions(f);
 }
 
-bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)> f) const
+bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const
 {
   return m_db->for_all_outputs(f);;
+}
+
+bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)> f) const
+{
+  return m_db->for_all_outputs(amount, f);;
 }
 
 namespace cryptonote {

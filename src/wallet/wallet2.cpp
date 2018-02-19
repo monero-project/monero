@@ -2266,6 +2266,71 @@ bool wallet2::refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok)
   return ok;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution)
+{
+  uint32_t rpc_version;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_version(rpc_version);
+  // no error
+  if (!!result)
+  {
+    // empty string -> not connection
+    THROW_WALLET_EXCEPTION_IF(result->empty(), tools::error::no_connection_to_daemon, "getversion");
+    THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
+    if (*result != CORE_RPC_STATUS_OK)
+    {
+      MDEBUG("Cannot determine daemon RPC version, not requesting rct distribution");
+      return false;
+    }
+  }
+  else
+  {
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 19))
+    {
+      MDEBUG("Daemon is recent enough, requesting rct distribution");
+    }
+    else
+    {
+      MDEBUG("Daemon is too old, not requesting rct distribution");
+      return false;
+    }
+  }
+
+  cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response res = AUTO_VAL_INIT(res);
+  req.amounts.push_back(0);
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+  if (!r)
+  {
+    MWARNING("Failed to request output distribution: no connection to daemon");
+    return false;
+  }
+  if (res.status == CORE_RPC_STATUS_BUSY)
+  {
+    MWARNING("Failed to request output distribution: daemon is busy");
+    return false;
+  }
+  if (res.status != CORE_RPC_STATUS_OK)
+  {
+    MWARNING("Failed to request output distribution: " << res.status);
+    return false;
+  }
+  if (res.distributions.size() != 1)
+  {
+    MWARNING("Failed to request output distribution: not the expected single result");
+    return false;
+  }
+  if (res.distributions[0].amount != 0)
+  {
+    MWARNING("Failed to request output distribution: results are not for amount 0");
+    return false;
+  }
+  start_height = res.distributions[0].start_height;
+  distribution = std::move(res.distributions[0].distribution);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::detach_blockchain(uint64_t height)
 {
   LOG_PRINT_L0("Detaching blockchain on height " << height);

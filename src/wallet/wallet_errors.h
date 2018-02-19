@@ -85,6 +85,7 @@ namespace tools
     //         no_connection_to_daemon
     //         is_key_image_spent_error
     //         get_histogram_error
+    //         get_output_distribution
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -753,6 +754,14 @@ namespace tools
     {
       explicit get_histogram_error(std::string&& loc, const std::string& request)
         : wallet_rpc_error(std::move(loc), "failed to get output histogram", request)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct get_output_distribution : public wallet_rpc_error
+    {
+      explicit get_output_distribution(std::string&& loc, const std::string& request)
+        : wallet_rpc_error(std::move(loc), "failed to get output distribution", request)
       {
       }
     };
