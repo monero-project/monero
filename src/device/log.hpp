@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2017-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,63 +25,45 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+//
 
 #pragma once
 
-#include "ringct/rctSigs.h"
-#include "cryptonote_basic/cryptonote_basic.h"
+#include <cstddef>
+#include <string>
 
-#include "single_tx_test_base.h"
+#include "ringct/rctOps.h"
+#include "crypto/crypto.h"
+#include "cryptonote_basic/account.h"
 
-template<size_t inputs, size_t ring_size, bool ver>
-class test_ringct_mlsag : public single_tx_test_base
-{
-public:
-  static const size_t cols = ring_size;
-  static const size_t rows = inputs;
-  static const size_t loop_count = 100;
+#include "device.hpp"
 
-  bool init()
-  {
-    if (!single_tx_test_base::init())
-      return false;
+namespace hw {
 
-    rct::keyV xtmp = rct::skvGen(rows);
-    rct::keyM xm = rct::keyMInit(rows, cols);// = [[None]*N] #just used to generate test public keys
-    sk = rct::skvGen(rows);
-    P  = rct::keyMInit(rows, cols);// = keyM[[None]*N] #stores the public keys;
-    ind = 2;
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        for (size_t i = 0 ; i < cols ; i++)
-        {
-            xm[i][j] = rct::skGen();
-            P[i][j] = rct::scalarmultBase(xm[i][j]);
-        }
+    #ifdef WITH_DEVICE_LEDGER    
+    namespace ledger {
+
+        void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) ;
+        void log_hexbuffer(std::string msg,  const char* buff, size_t len);
+        void log_message(std::string msg,  std::string info );
+        #ifdef DEBUG_HWDEVICE
+        #define TRACK printf("file %s:%d\n",__FILE__, __LINE__)
+        //#define TRACK MCDEBUG("ledger"," At file " << __FILE__ << ":" << __LINE__)
+        //#define TRACK while(0);
+
+        void decrypt(char* buf, size_t len) ;
+        crypto::key_derivation decrypt(const crypto::key_derivation &derivation) ;
+        cryptonote::account_keys decrypt(const cryptonote::account_keys& keys) ;
+        crypto::secret_key decrypt(const crypto::secret_key &sec) ;
+        rct::key  decrypt(const rct::key &sec);
+        crypto::ec_scalar decrypt(const crypto::ec_scalar &res);
+        rct::keyV decrypt(const rct::keyV &keys);
+
+        void check32(std::string msg, std::string info, const char *h, const char *d, bool crypted=false);
+        void check8(std::string msg, std::string info, const char *h, const char *d,  bool crypted=false);
+
+        void set_check_verbose(bool verbose);
+        #endif
     }
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        sk[j] = xm[ind][j];
-    }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
-
-    return true;
-  }
-
-  bool test()
-  {
-    if (ver)
-      MLSAG_Ver(rct::identity(), P, IIccss, rows);
-    else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
-    return true;
-  }
-
-private:
-  rct::keyV sk;
-  rct::keyM P;
-  size_t ind;
-  rct::mgSig IIccss;
-};
+    #endif
+}
