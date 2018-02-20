@@ -561,10 +561,7 @@ bool simple_wallet::print_seed(bool encrypted)
   epee::wipeable_string seed_pass;
   if (encrypted)
   {
-#ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
-#endif
-    auto pwd_container = tools::password_container::prompt(true, tr("Enter optional seed encryption passphrase, empty to see raw seed"));
+    auto pwd_container = password_prompter(tr("Enter optional seed encryption passphrase, empty to see raw seed"), true);
     if (std::cin.eof() || !pwd_container)
       return true;
     seed_pass = pwd_container->password();
@@ -2145,10 +2142,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
       }
 
-#ifdef HAVE_READLINE
-    rdln::suspend_readline pause_readline;
-#endif
-      auto pwd_container = tools::password_container::prompt(false, tr("Enter seed encryption passphrase, empty if none"));
+      auto pwd_container = password_prompter(tr("Enter seed encryption passphrase, empty if none"), false);
       if (std::cin.eof() || !pwd_container)
         return false;
       epee::wipeable_string seed_pass = pwd_container->password();
@@ -3003,7 +2997,7 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
     return true;
   }
 
-  const auto pwd_container = tools::password_container::prompt(true, tr("Password for new watch-only wallet"));
+  const auto pwd_container = password_prompter(tr("Password for new watch-only wallet"), true);
 
   if (!pwd_container)
   {
