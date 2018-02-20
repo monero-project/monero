@@ -250,6 +250,7 @@ namespace cryptonote
 
   bool checkpoints::load_checkpoints_from_dns(network_type nettype)
   {
+    return true; // TODO: setup DNS checkpoints for Aeon
     std::vector<std::string> records;
 
     // All four MoneroPulse domains have DNSSEC on and valid
