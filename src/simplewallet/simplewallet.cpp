@@ -3194,14 +3194,6 @@ void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, co
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx)
 {
-  message_writer(console_color_red, true) << "\r" <<
-    tr("Height ") << height << ", " <<
-    tr("transaction ") << txid << ", " <<
-    tr("unsupported transaction format");
-  if (m_auto_refresh_refreshing)
-    m_cmd_binder.print_prompt();
-  else
-    m_refresh_progress_reporter.update(height, true);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init)
