@@ -624,20 +624,14 @@ namespace cryptonote
         continue; // if interrupted because stop called, loop should end ..
       }
 
-      boost::tribool battery_powered(on_battery_power());
-      bool on_ac_power = false;
-      if(indeterminate( battery_powered ))
+      bool on_ac_power = m_ignore_battery;
+      if(!m_ignore_battery)
       {
-        // name could be better, only ignores battery requirement if we failed
-        // to get the status of the system
-        if( m_ignore_battery )
+        boost::tribool battery_powered(on_battery_power());
+        if(!indeterminate( battery_powered ))
         {
-          on_ac_power = true;
+          on_ac_power = !battery_powered;
         }
-      }
-      else
-      {
-        on_ac_power = !battery_powered;
       }
 
       if( m_is_background_mining_started )
