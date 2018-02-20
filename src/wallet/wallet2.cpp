@@ -1218,7 +1218,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_rct = false;
             }
 	    set_unspent(m_transfers.size()-1);
-            if (!m_multisig)
+            if (!m_multisig && !m_watch_only)
 	      m_key_images[td.m_key_image] = m_transfers.size()-1;
 	    m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
             if (m_multisig)
@@ -1312,11 +1312,21 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       uint64_t amount = boost::get<cryptonote::txin_to_key>(in).amount;
       if (amount > 0)
       {
-        THROW_WALLET_EXCEPTION_IF(amount != td.amount(), error::wallet_internal_error,
-            std::string("Inconsistent amount in tx input: got ") + print_money(amount) +
-            std::string(", expected ") + print_money(td.amount()));
+        if(amount != td.amount())
+        {
+          MERROR("Inconsistent amount in tx input: got " << print_money(amount) <<
+            ", expected " << print_money(td.amount()));
+          // this means:
+          //   1) the same output pub key was used as destination multiple times,
+          //   2) the wallet set the highest amount among them to transfer_details::m_amount, and
+          //   3) the wallet somehow spent that output with an amount smaller than the above amount, causing inconsistency
+          td.m_amount = amount;
+        }
       }
-      amount = td.amount();
+      else
+      {
+        amount = td.amount();
+      }
       tx_money_spent_in_ins += amount;
       if (subaddr_account && *subaddr_account != td.m_subaddr_index.major)
         LOG_ERROR("spent funds are from different subaddress accounts; count of incoming/outgoing payments will be incorrect");
