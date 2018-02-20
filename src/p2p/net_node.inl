@@ -262,6 +262,7 @@ namespace nodetool
       const boost::program_options::variables_map& vm
     )
   {
+    m_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
     m_port = command_line::get_arg(vm, arg_p2p_bind_port);
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
