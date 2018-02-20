@@ -47,29 +47,35 @@
  * the full size. These APIs are defined in <wdm.h> and <ntifs.h>
  * but those headers are meant for driver-level development and
  * conflict with the regular user-level headers, so we explicitly
- * declare them here. Using these APIs also means we must link to
- * ntdll.dll, which is not linked by default in user code.
+ * declare them here. We get pointers to these functions from
+ * NTDLL.DLL at runtime, to avoid buildtime dependencies on any
+ * NTDLL import libraries.
  */
-NTSTATUS WINAPI
-NtCreateSection(OUT PHANDLE sh, IN ACCESS_MASK acc,
+typedef NTSTATUS WINAPI (NtCreateSectionFunc)
+  (OUT PHANDLE sh, IN ACCESS_MASK acc,
   IN void * oa OPTIONAL,
   IN PLARGE_INTEGER ms OPTIONAL,
   IN ULONG pp, IN ULONG aa, IN HANDLE fh OPTIONAL);
+
+static NtCreateSectionFunc *NtCreateSection;
 
 typedef enum _SECTION_INHERIT {
 	ViewShare = 1,
 	ViewUnmap = 2
 } SECTION_INHERIT;
 
-NTSTATUS WINAPI
-NtMapViewOfSection(IN PHANDLE sh, IN HANDLE ph,
+typedef NTSTATUS WINAPI (NtMapViewOfSectionFunc)
+  (IN PHANDLE sh, IN HANDLE ph,
   IN OUT PVOID *addr, IN ULONG_PTR zbits,
   IN SIZE_T cs, IN OUT PLARGE_INTEGER off OPTIONAL,
   IN OUT PSIZE_T vs, IN SECTION_INHERIT ih,
   IN ULONG at, IN ULONG pp);
 
-NTSTATUS WINAPI
-NtClose(HANDLE h);
+static NtMapViewOfSectionFunc *NtMapViewOfSection;
+
+typedef NTSTATUS WINAPI (NtCloseFunc)(HANDLE h);
+
+static NtCloseFunc *NtClose;
 
 /** getpid() returns int; MinGW defines pid_t but MinGW64 typedefs it
  *  as int64 which is wrong. MSVC doesn't define it at all, so just
@@ -4397,6 +4403,21 @@ mdb_env_open2(MDB_env *env, int prev)
 		env->me_pidquery = MDB_PROCESS_QUERY_LIMITED_INFORMATION;
 	else
 		env->me_pidquery = PROCESS_QUERY_INFORMATION;
+	/* Grab functions we need from NTDLL */
+	if (!NtCreateSection) {
+		HMODULE h = GetModuleHandle("NTDLL.DLL");
+		if (!h)
+			return MDB_PANIC;
+		NtClose = (NtCloseFunc *)GetProcAddress(h, "NtClose");
+		if (!NtClose)
+			return MDB_PANIC;
+		NtMapViewOfSection = (NtMapViewOfSectionFunc *)GetProcAddress(h, "NtMapViewOfSection");
+		if (!NtMapViewOfSection)
+			return MDB_PANIC;
+		NtCreateSection = (NtCreateSectionFunc *)GetProcAddress(h, "NtCreateSection");
+		if (!NtCreateSection)
+			return MDB_PANIC;
+	}
 #endif /* _WIN32 */
 
 #ifdef BROKEN_FDATASYNC
