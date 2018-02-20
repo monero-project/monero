@@ -713,9 +713,9 @@ TEST(Serialization, portability_wallet)
     epee::string_tools::hex_to_pod("c5680d3735b90871ca5e3d90cd82d6483eed1151b9ab75c2c8c3a7d89e00a5a8", ki[0]);
     epee::string_tools::hex_to_pod("d54cbd435a8d636ad9b01b8d4f3eb13bd0cf1ce98eddf53ab1617f9b763e66c0", ki[1]);
     epee::string_tools::hex_to_pod("6c3cd6af97c4070a7aef9b1344e7463e29c7cd245076fdb65da447a34da3ca76", ki[2]);
-    ASSERT_TRUE(w.m_key_images.find(ki[0])->second == 0);
-    ASSERT_TRUE(w.m_key_images.find(ki[1])->second == 1);
-    ASSERT_TRUE(w.m_key_images.find(ki[2])->second == 2);
+    ASSERT_EQ_MAP(0, w.m_key_images, ki[0]);
+    ASSERT_EQ_MAP(1, w.m_key_images, ki[1]);
+    ASSERT_EQ_MAP(2, w.m_key_images, ki[2]);
   }
   // unconfirmed txs
   ASSERT_TRUE(w.m_unconfirmed_txs.size() == 0);
@@ -743,15 +743,19 @@ TEST(Serialization, portability_wallet)
   // tx keys
   ASSERT_TRUE(w.m_tx_keys.size() == 2);
   {
-    auto tx_key0 = w.m_tx_keys.begin();
-    auto tx_key1 = tx_key0;
-    ++tx_key1;
-    if (epee::string_tools::pod_to_hex(tx_key0->first) == "6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba")
-      swap(tx_key0, tx_key1);
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key0->first) == "b9aac8c020ab33859e0c0b6331f46a8780d349e7ac17b067116e2d87bf48daad");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key1->first) == "6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key0->second) == "bf3614c6de1d06c09add5d92a5265d8c76af706f7bc6ac830d6b0d109aa87701");
-    ASSERT_TRUE(epee::string_tools::pod_to_hex(tx_key1->second) == "e556884246df5a787def6732c6ea38f1e092fa13e5ea98f732b99c07a6332003");
+    const std::vector<std::pair<std::string, std::string>> txid_txkey =
+    {
+      {"b9aac8c020ab33859e0c0b6331f46a8780d349e7ac17b067116e2d87bf48daad", "bf3614c6de1d06c09add5d92a5265d8c76af706f7bc6ac830d6b0d109aa87701"},
+      {"6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba", "e556884246df5a787def6732c6ea38f1e092fa13e5ea98f732b99c07a6332003"},
+    };
+    for (size_t i = 0; i < txid_txkey.size(); ++i)
+    {
+      crypto::hash txid;
+      crypto::secret_key txkey;
+      epee::string_tools::hex_to_pod(txid_txkey[i].first, txid);
+      epee::string_tools::hex_to_pod(txid_txkey[i].second, txkey);
+      ASSERT_EQ_MAP(txkey, w.m_tx_keys, txid);
+    }
   }
   // confirmed txs
   ASSERT_TRUE(w.m_confirmed_txs.size() == 1);
@@ -761,8 +765,8 @@ TEST(Serialization, portability_wallet)
     crypto::hash h[2];
     epee::string_tools::hex_to_pod("15024343b38e77a1a9860dfed29921fa17e833fec837191a6b04fa7cb9605b8e", h[0]);
     epee::string_tools::hex_to_pod("6e7013684d35820f66c6679197ded9329bfe0e495effa47e7b25258799858dba", h[1]);
-    ASSERT_TRUE(w.m_tx_notes.find(h[0])->second == "sample note");
-    ASSERT_TRUE(w.m_tx_notes.find(h[1])->second == "sample note 2");
+    ASSERT_EQ_MAP("sample note", w.m_tx_notes, h[0]);
+    ASSERT_EQ_MAP("sample note 2", w.m_tx_notes, h[1]);
   }
   // unconfirmed payments
   ASSERT_TRUE(w.m_unconfirmed_payments.size() == 0);
@@ -773,9 +777,9 @@ TEST(Serialization, portability_wallet)
     epee::string_tools::hex_to_pod("33f75f264574cb3a9ea5b24220a5312e183d36dc321c9091dfbb720922a4f7b0", pubkey[0]);
     epee::string_tools::hex_to_pod("5066ff2ce9861b1d131cf16eeaa01264933a49f28242b97b153e922ec7b4b3cb", pubkey[1]);
     epee::string_tools::hex_to_pod("0d8467e16e73d16510452b78823e082e05ee3a63788d40de577cf31eb555f0c8", pubkey[2]);
-    ASSERT_TRUE(w.m_pub_keys.find(pubkey[0])->second == 0);
-    ASSERT_TRUE(w.m_pub_keys.find(pubkey[1])->second == 1);
-    ASSERT_TRUE(w.m_pub_keys.find(pubkey[2])->second == 2);
+    ASSERT_EQ_MAP(0, w.m_pub_keys, pubkey[0]);
+    ASSERT_EQ_MAP(1, w.m_pub_keys, pubkey[1]);
+    ASSERT_EQ_MAP(2, w.m_pub_keys, pubkey[2]);
   }
   // address book
   ASSERT_TRUE(w.m_address_book.size() == 1);
