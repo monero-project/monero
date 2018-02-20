@@ -39,6 +39,7 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "multisig/multisig.h"
@@ -1803,11 +1804,11 @@ namespace tools
       return false;
     }
 
-    uint64_t min_height = 0, max_height = (uint64_t)-1;
+    uint64_t min_height = 0, max_height = CRYPTONOTE_MAX_BLOCK_NUMBER;
     if (req.filter_by_height)
     {
       min_height = req.min_height;
-      max_height = req.max_height;
+      max_height = req.max_height <= max_height ? req.max_height : max_height;
     }
 
     if (req.in)
