@@ -76,7 +76,8 @@ wipeable_string::~wipeable_string()
 
 void wipeable_string::wipe()
 {
-  memwipe(buffer.data(), buffer.size() * sizeof(char));
+  if (!buffer.empty())
+    memwipe(buffer.data(), buffer.size() * sizeof(char));
 }
 
 void wipeable_string::grow(size_t sz, size_t reserved)
@@ -93,11 +94,13 @@ void wipeable_string::grow(size_t sz, size_t reserved)
   size_t old_sz = buffer.size();
   std::unique_ptr<char[]> tmp{new char[old_sz]};
   memcpy(tmp.get(), buffer.data(), old_sz * sizeof(char));
-  memwipe(buffer.data(), old_sz * sizeof(char));
+  if (old_sz > 0)
+    memwipe(buffer.data(), old_sz * sizeof(char));
   buffer.reserve(reserved);
   buffer.resize(sz);
   memcpy(buffer.data(), tmp.get(), old_sz * sizeof(char));
-  memwipe(tmp.get(), old_sz * sizeof(char));
+  if (old_sz > 0)
+    memwipe(tmp.get(), old_sz * sizeof(char));
 }
 
 void wipeable_string::push_back(char c)
