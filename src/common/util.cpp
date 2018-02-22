@@ -435,15 +435,17 @@ std::string get_nix_version_display_string()
 #ifdef WIN32
   std::string get_special_folder_path(int nfolder, bool iscreate)
   {
-    namespace fs = boost::filesystem;
-    char psz_path[MAX_PATH] = "";
+    WCHAR psz_path[MAX_PATH] = L"";
 
-    if(SHGetSpecialFolderPathA(NULL, psz_path, nfolder, iscreate))
+    if (SHGetSpecialFolderPathW(NULL, psz_path, nfolder, iscreate))
     {
-      return psz_path;
+      int size_needed = WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), NULL, 0, NULL, NULL);
+      std::string folder_name(size_needed, 0);
+      WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), &folder_name[0], size_needed, NULL, NULL);
+      return folder_name;
     }
 
-    LOG_ERROR("SHGetSpecialFolderPathA() failed, could not obtain requested path.");
+    LOG_ERROR("SHGetSpecialFolderPathW() failed, could not obtain requested path.");
     return "";
   }
 #endif
@@ -501,13 +503,18 @@ std::string get_nix_version_display_string()
     int code;
 #if defined(WIN32)
     // Maximizing chances for success
-    DWORD attributes = ::GetFileAttributes(replaced_name.c_str());
+    WCHAR wide_replacement_name[1000];
+    MultiByteToWideChar(CP_UTF8, 0, replacement_name.c_str(), replacement_name.size() + 1, wide_replacement_name, 1000);
+    WCHAR wide_replaced_name[1000];
+    MultiByteToWideChar(CP_UTF8, 0, replaced_name.c_str(), replaced_name.size() + 1, wide_replaced_name, 1000);
+
+    DWORD attributes = ::GetFileAttributesW(wide_replaced_name);
     if (INVALID_FILE_ATTRIBUTES != attributes)
     {
-      ::SetFileAttributes(replaced_name.c_str(), attributes & (~FILE_ATTRIBUTE_READONLY));
+      ::SetFileAttributesW(wide_replaced_name, attributes & (~FILE_ATTRIBUTE_READONLY));
     }
 
-    bool ok = 0 != ::MoveFileEx(replacement_name.c_str(), replaced_name.c_str(), MOVEFILE_REPLACE_EXISTING);
+    bool ok = 0 != ::MoveFileExW(wide_replacement_name, wide_replaced_name, MOVEFILE_REPLACE_EXISTING);
     code = ok ? 0 : static_cast<int>(::GetLastError());
 #else
     bool ok = 0 == std::rename(replacement_name.c_str(), replaced_name.c_str());

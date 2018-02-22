@@ -3737,12 +3737,24 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     }
   } else {
     // save to new file
+#ifdef WIN32
+    // On Windows avoid using std::ofstream which does not work with UTF-8 filenames
+    // The price to pay is temporary higher memory consumption for string stream + binary archive
+    std::ostringstream oss;
+    binary_archive<true> oar(oss);
+    bool success = ::serialization::serialize(oar, cache_file_data);
+    if (success) {
+        success = epee::file_io_utils::save_string_to_file(new_file, oss.str());
+    }
+    THROW_WALLET_EXCEPTION_IF(!success, error::file_save_error, new_file);
+#else
     std::ofstream ostr;
     ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
     binary_archive<true> oar(ostr);
     bool success = ::serialization::serialize(oar, cache_file_data);
     ostr.close();
     THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
+#endif
 
     // here we have "*.new" file, we need to rename it to be without ".new"
     std::error_code e = tools::replace_file(new_file, m_wallet_file);

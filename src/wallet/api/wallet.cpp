@@ -44,6 +44,11 @@
 #include <sstream>
 #include <unordered_map>
 
+#ifdef WIN32
+#include <boost/locale.hpp>
+#include <boost/filesystem.hpp>
+#endif
+
 using namespace std;
 using namespace cryptonote;
 
@@ -291,6 +296,11 @@ uint64_t Wallet::maximumAllowedAmount()
 }
 
 void Wallet::init(const char *argv0, const char *default_log_base_name) {
+#ifdef WIN32
+    // Activate UTF-8 support for Boost filesystem classes on Windows
+    std::locale::global(boost::locale::generator().generate(""));
+    boost::filesystem::path::imbue(std::locale());
+#endif
     epee::string_tools::set_module_name_and_folder(argv0);
     mlog_configure(mlog_get_default_log_path(default_log_base_name), true);
 }
