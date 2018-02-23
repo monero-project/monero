@@ -451,7 +451,8 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
     boost::filesystem::space_info si = boost::filesystem::space(path);
     if(si.available < add_size)
     {
-      MERROR("!! WARNING: Insufficient free space to extend database !!: " << si.available / 1LL << 20L);
+      MERROR("!! WARNING: Insufficient free space to extend database !!: " <<
+          (si.available >> 20L) << " MB available, " << (add_size >> 20L) << " MB needed");
       return;
     }
   }
