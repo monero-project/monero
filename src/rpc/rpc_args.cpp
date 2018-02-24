@@ -102,7 +102,7 @@ namespace cryptonote
     {
       if (!config.login)
       {
-        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RFC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
+        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RPC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
         return boost::none;
       }
 
