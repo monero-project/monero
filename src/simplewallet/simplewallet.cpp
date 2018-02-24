@@ -121,6 +121,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
+  const command_line::arg_descriptor<bool> arg_mymonero_style = {"mymonero-style", sw::tr("When restoring wallet with --restore-deterministic-wallet, use MyMonero-style 13-word seed"), false};
   const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Generate non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", sw::tr("Enable commands which rely on a trusted daemon"), false};
@@ -2042,13 +2043,13 @@ void simple_wallet::print_seed(std::string seed)
   std::cout << seed << std::endl;
 }
 //----------------------------------------------------------------------------------------------------
-static bool might_be_partial_seed(std::string words)
+static bool might_be_partial_seed(std::string words, bool mymonero_style)
 {
   std::vector<std::string> seed;
 
   boost::algorithm::trim(words);
   boost::split(seed, words, boost::is_any_of(" "), boost::token_compress_on);
-  return seed.size() < 24;
+  return seed.size() < (mymonero_style ? 12 : 24);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
@@ -2066,6 +2067,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_spend_key.empty() && m_generate_from_keys.empty() && m_generate_from_multisig_keys.empty() && m_generate_from_json.empty())
   {
     if(!ask_wallet_create_if_needed()) return false;
+  }
+
+  const bool mymonero_style = command_line::get_arg(vm, arg_mymonero_style);
+  if (mymonero_style && !m_restore_deterministic_wallet)
+  {
+    fail_msg_writer() << tr("can't specify --mymonero-style without specifying --restore-deterministic-wallet");
+    return false;
   }
 
   if (!m_generate_new.empty() || m_restoring)
@@ -2117,7 +2125,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
               return false;
             }
             m_electrum_seed += electrum_seed + " ";
-          } while (might_be_partial_seed(m_electrum_seed));
+          } while (might_be_partial_seed(m_electrum_seed, mymonero_style));
         }
       }
 
@@ -2131,7 +2139,18 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       else
       {
-        if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
+        bool r;
+        if (mymonero_style)
+        {
+          crypto::legacy16B_secret_key mymonero_seed;
+          r = crypto::ElectrumWords::words_to_bytes(m_electrum_seed, mymonero_seed, old_language);
+          crypto::coerce_valid_sec_key_from(mymonero_seed, m_recovery_key);
+        }
+        else
+        {
+          r = crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language);
+        }
+        if (!r)
         {
           fail_msg_writer() << tr("Electrum-style word list failed verification");
           return false;
@@ -2141,10 +2160,14 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
-      auto pwd_container = tools::password_container::prompt(false, tr("Enter seed encryption passphrase, empty if none"));
-      if (std::cin.eof() || !pwd_container)
-        return false;
-      epee::wipeable_string seed_pass = pwd_container->password();
+      epee::wipeable_string seed_pass;
+      if (!mymonero_style)
+      {
+        auto pwd_container = tools::password_container::prompt(false, tr("Enter seed encryption passphrase, empty if none"));
+        if (std::cin.eof() || !pwd_container)
+          return false;
+        seed_pass = pwd_container->password();
+      }
       if (!seed_pass.empty())
       {
         if (m_restore_multisig_wallet)
@@ -2229,7 +2252,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("failed to parse spend key secret key");
         return false;
       }
-      bool r = new_wallet(vm, m_recovery_key, true, false, "");
+      bool r = new_wallet(vm, m_recovery_key, true, false, "", false);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
     else if (!m_generate_from_keys.empty())
@@ -2471,7 +2494,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       if (m_restore_multisig_wallet)
         r = new_wallet(vm, multisig_keys, old_language);
       else
-        r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
+        r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language, mymonero_style);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
     if (!m_restore_height && m_restoring)
@@ -2698,7 +2721,7 @@ boost::optional<tools::password_container> simple_wallet::get_and_verify_passwor
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
-  const crypto::secret_key& recovery_key, bool recover, bool two_random, const std::string &old_language)
+  const crypto::secret_key& recovery_key, bool recover, bool two_random, const std::string &old_language, bool mymonero_style)
 {
   auto rc = tools::wallet2::make_new(vm, password_prompter);
   m_wallet = std::move(rc.first);
@@ -2742,7 +2765,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   crypto::secret_key recovery_val;
   try
   {
-    recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random);
+    recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random, mymonero_style);
     message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->testnet());
     std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
@@ -6765,6 +6788,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_command);
 
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
+  command_line::add_arg(desc_params, arg_mymonero_style );
   command_line::add_arg(desc_params, arg_restore_multisig_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
   command_line::add_arg(desc_params, arg_electrum_seed );

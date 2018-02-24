@@ -92,7 +92,7 @@ namespace cryptonote
     boost::optional<tools::password_container> get_and_verify_password() const;
 
     bool new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
-        bool recover, bool two_random, const std::string &old_language);
+        bool recover, bool two_random, const std::string &old_language, bool mymonero_style);
     bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
     bool new_wallet(const boost::program_options::variables_map& vm,
