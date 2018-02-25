@@ -335,7 +335,7 @@ namespace crypto
         return false;
       if (s.size() != sizeof(dst))
         return false;
-      dst = *(const crypto::secret_key*)s.data();
+      memcpy(dst.data, s.data(), sizeof(dst.data));
       return true;
     }
 
@@ -346,7 +346,7 @@ namespace crypto
         return false;
       if (s.size() != sizeof(dst))
         return false;
-      dst = *(const legacy16B_secret_key*)s.data();
+      memcpy(dst.data, s.data(), sizeof(dst.data));
       return true;
     }
 
