@@ -1332,6 +1332,135 @@ bool simple_wallet::print_ring(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::blackball(const std::vector<std::string> &args)
+{
+  crypto::public_key output;
+  if (args.size() == 0)
+  {
+    fail_msg_writer() << tr("usage: blackball <output_public_key> | <filename> [add]");
+    return true;
+  }
+
+  try
+  {
+    if (epee::string_tools::hex_to_pod(args[0], output))
+    {
+      m_wallet->blackball_output(output);
+    }
+    else if (epee::file_io_utils::is_file_exist(args[0]))
+    {
+      std::vector<crypto::public_key> outputs;
+      char str[65];
+
+      std::unique_ptr<FILE, tools::close_file> f(fopen(args[0].c_str(), "r"));
+      if (f)
+      {
+        while (!feof(f.get()))
+        {
+          if (!fgets(str, sizeof(str), f.get()))
+            break;
+          const size_t len = strlen(str);
+          if (len > 0 && str[len - 1] == '\n')
+            str[len - 1] = 0;
+          if (!str[0])
+            continue;
+          outputs.push_back(crypto::public_key());
+          if (!epee::string_tools::hex_to_pod(str, outputs.back()))
+          {
+            fail_msg_writer() << tr("Invalid public key: ") << str;
+            return true;
+          }
+        }
+        f.reset();
+        bool add = false;
+        if (args.size() > 1)
+        {
+          if (args[1] != "add")
+          {
+            fail_msg_writer() << tr("Bad argument: ") + args[1] + ": " + tr("should be \"add\"");
+            return true;
+          }
+          add = true;
+        }
+        m_wallet->set_blackballed_outputs(outputs, add);
+      }
+      else
+      {
+        fail_msg_writer() << tr("Failed to open file");
+        return true;
+      }
+    }
+    else
+    {
+      fail_msg_writer() << tr("Invalid public key, and file doesn't exist");
+      return true;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to blackball output: ") << e.what();
+  }
+
+  return true;
+}
+
+bool simple_wallet::unblackball(const std::vector<std::string> &args)
+{
+  crypto::public_key output;
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: unblackball <output_public_key>");
+    return true;
+  }
+
+  if (!epee::string_tools::hex_to_pod(args[0], output))
+  {
+    fail_msg_writer() << tr("Invalid public key");
+    return true;
+  }
+
+  try
+  {
+    m_wallet->unblackball_output(output);
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to unblackball output: ") << e.what();
+  }
+
+  return true;
+}
+
+bool simple_wallet::blackballed(const std::vector<std::string> &args)
+{
+  crypto::public_key output;
+  if (args.size() != 1)
+  {
+    fail_msg_writer() << tr("usage: blackballed <output_public_key>");
+    return true;
+  }
+
+  if (!epee::string_tools::hex_to_pod(args[0], output))
+  {
+    fail_msg_writer() << tr("Invalid public key");
+    return true;
+  }
+
+  try
+  {
+    if (m_wallet->is_output_blackballed(output))
+      message_writer() << tr("Blackballed: ") << output;
+    else
+      message_writer() << tr("not blackballed: ") << output;
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to unblackball output: ") << e.what();
+  }
+
+  return true;
+}
+
 bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
 {
   try
@@ -2041,6 +2170,18 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::save_known_rings, this, _1),
                            tr("save_known_rings"),
                            tr("Save known rings to the shared rings database"));
+  m_cmd_binder.set_handler("blackball",
+                           boost::bind(&simple_wallet::blackball, this, _1),
+                           tr("blackball <output public key> | <filename> [add]"),
+                           tr("Blackball output(s) so they never get selected as fake outputs in a ring"));
+  m_cmd_binder.set_handler("unblackball",
+                           boost::bind(&simple_wallet::unblackball, this, _1),
+                           tr("unblackball <output public key>"),
+                           tr("Unblackballs an output so it may get selected as a fake output in a ring"));
+  m_cmd_binder.set_handler("blackballed",
+                           boost::bind(&simple_wallet::blackballed, this, _1),
+                           tr("blackballed <output public key>"),
+                           tr("Checks whether an output is blackballed"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),

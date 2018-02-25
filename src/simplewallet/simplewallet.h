@@ -212,6 +212,9 @@ namespace cryptonote
     bool export_raw_multisig(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
+    bool blackball(const std::vector<std::string>& args);
+    bool unblackball(const std::vector<std::string>& args);
+    bool blackballed(const std::vector<std::string>& args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);

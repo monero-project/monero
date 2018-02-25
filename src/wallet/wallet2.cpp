@@ -5541,15 +5541,42 @@ bool wallet2::find_and_save_rings(const std::string &filename, bool force)
   return true;
 }
 
-bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
+bool wallet2::blackball_output(const crypto::public_key &output)
+{
+  return ringdb::blackball(get_ring_database(), output);
+}
+
+bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
+{
+  bool ret = true;
+  if (!add)
+    ret &= ringdb::clear_blackballs(get_ring_database());
+  for (const auto &output: outputs)
+    ret &= ringdb::blackball(get_ring_database(), output);
+  return ret;
+}
+
+bool wallet2::unblackball_output(const crypto::public_key &output)
+{
+  return ringdb::unblackball(get_ring_database(), output);
+}
+
+bool wallet2::is_output_blackballed(const crypto::public_key &output) const
+{
+  return ringdb::blackballed(get_ring_database(), output);
+}
+
+bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
 {
   if (!unlocked) // don't add locked outs
     return false;
   if (global_index == real_index) // don't re-add real one
     return false;
-  auto item = std::make_tuple(global_index, tx_public_key, mask);
+  auto item = std::make_tuple(global_index, output_public_key, mask);
   CHECK_AND_ASSERT_MES(!outs.empty(), false, "internal error: outs is empty");
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
+    return false;
+  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
     return false;
   outs.back().push_back(item);
   return true;

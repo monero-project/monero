@@ -41,5 +41,10 @@ namespace tools
     bool add_rings(const std::string &filename, const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
     bool remove_rings(const std::string &filename, const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
     bool get_ring(const std::string &filename, const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+
+    bool blackball(const std::string &filename, const crypto::public_key &output);
+    bool unblackball(const std::string &filename, const crypto::public_key &output);
+    bool blackballed(const std::string &filename, const crypto::public_key &output);
+    bool clear_blackballs(const std::string &filename);
   }
 }

@@ -38,6 +38,9 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.ringdb"
 
+static const char zerokey[8] = {0};
+static const MDB_val zerokeyval = { sizeof(zerokey), (void *)zerokey };
+
 static int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
   uint32_t *va = (uint32_t*) a->mv_data;
@@ -123,11 +126,13 @@ static std::string decrypt(const std::string &ciphertext, const crypto::key_imag
   return plaintext;
 }
 
-static int resize_env(MDB_env *env, const char *db_path, size_t n_entries)
+static int resize_env(MDB_env *env, const char *db_path, size_t needed)
 {
   MDB_envinfo mei;
   MDB_stat mst;
   int ret;
+
+  needed = std::max(needed, (size_t)(2ul * 1024 * 1024)); // at least 2 MB
 
   ret = mdb_env_info(env, &mei);
   if (ret)
@@ -136,7 +141,6 @@ static int resize_env(MDB_env *env, const char *db_path, size_t n_entries)
   if (ret)
     return ret;
   uint64_t size_used = mst.ms_psize * mei.me_last_pgno;
-  const size_t needed = n_entries * (32 + 1024); // highball 1kB for the ring data to make sure
   uint64_t mapsize = mei.me_mapsize;
   if (size_used + needed > mei.me_mapsize)
   {
@@ -161,6 +165,90 @@ static int resize_env(MDB_env *env, const char *db_path, size_t n_entries)
   return mdb_env_set_mapsize(env, mapsize);
 }
 
+static size_t get_ring_data_size(size_t n_entries)
+{
+  return n_entries * (32 + 1024); // highball 1kB for the ring data to make sure
+}
+
+enum { BLACKBALL_BLACKBALL, BLACKBALL_UNBLACKBALL, BLACKBALL_QUERY, BLACKBALL_CLEAR};
+
+static bool blackball_worker(const std::string &filename, const crypto::public_key &output, int op)
+{
+  MDB_env *env;
+  MDB_dbi dbi;
+  MDB_txn *txn;
+  MDB_cursor *cursor;
+  int dbr;
+  bool tx_active = false;
+  bool ret = true;
+
+  if (filename.empty())
+    return true;
+  tools::create_directories_if_necessary(filename);
+
+  dbr = mdb_env_create(&env);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_env_set_maxdbs(env, 1);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_env_open(env, get_rings_filename(filename).c_str(), 0, 0664);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open rings database file: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller env_dtor = epee::misc_utils::create_scope_leave_handler([&](){mdb_env_close(env);});
+  dbr = resize_env(env, filename.c_str(), 32 * 2); // a pubkey, and some slack
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_txn_begin(env, NULL, 0, &txn);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
+  tx_active = true;
+  dbr = mdb_dbi_open(txn, "blackballs", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller dbi_dtor = epee::misc_utils::create_scope_leave_handler([&](){mdb_dbi_close(env, dbi);});
+  mdb_set_dupsort(txn, dbi, compare_hash32);
+
+  MDB_val key = zerokeyval;
+  MDB_val data;
+  data.mv_data = (void*)&output;
+  data.mv_size = sizeof(output);
+
+  switch (op)
+  {
+    case BLACKBALL_BLACKBALL:
+      MDEBUG("Blackballing output " << output);
+      dbr = mdb_put(txn, dbi, &key, &data, MDB_NODUPDATA);
+      if (dbr == MDB_KEYEXIST)
+        dbr = 0;
+      break;
+    case BLACKBALL_UNBLACKBALL:
+      MDEBUG("Unblackballing output " << output);
+      dbr = mdb_del(txn, dbi, &key, &data);
+      if (dbr == MDB_NOTFOUND)
+        dbr = 0;
+      break;
+    case BLACKBALL_QUERY:
+      MDEBUG("Querying blackball status for output " << output);
+      dbr = mdb_cursor_open(txn, dbi, &cursor);
+      THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create cursor for blackballs table: " + std::string(mdb_strerror(dbr)));
+      dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
+      MDEBUG("Querying blackball status for output " << output << ": " << std::string(mdb_strerror(dbr)));
+      THROW_WALLET_EXCEPTION_IF(dbr && dbr != MDB_NOTFOUND, tools::error::wallet_internal_error, "Failed to lookup in blackballs table: " + std::string(mdb_strerror(dbr)));
+      ret = dbr != MDB_NOTFOUND;
+      if (dbr == MDB_NOTFOUND)
+        dbr = 0;
+      mdb_cursor_close(cursor);
+      break;
+    case BLACKBALL_CLEAR:
+      dbr = mdb_drop(txn, dbi, 0);
+      break;
+    default:
+      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, "Invalid blackball op");
+  }
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to query blackballs table: " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_txn_commit(txn);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn blackballing output to database: " + std::string(mdb_strerror(dbr)));
+  tx_active = false;
+  return ret;
+}
+
 namespace tools { namespace ringdb
 {
 
@@ -183,8 +271,8 @@ bool add_rings(const std::string &filename, const crypto::chacha_key &chacha_key
   dbr = mdb_env_open(env, get_rings_filename(filename).c_str(), 0, 0664);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open rings database file: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller env_dtor = epee::misc_utils::create_scope_leave_handler([&](){mdb_env_close(env);});
-  dbr = resize_env(env, filename.c_str(), tx.vin.size());
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
+  dbr = resize_env(env, filename.c_str(), get_ring_data_size(tx.vin.size()));
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size");
   dbr = mdb_txn_begin(env, NULL, 0, &txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
@@ -242,8 +330,8 @@ bool remove_rings(const std::string &filename, const crypto::chacha_key &chacha_
   dbr = mdb_env_open(env, get_rings_filename(filename).c_str(), 0, 0664);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open rings database file: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller env_dtor = epee::misc_utils::create_scope_leave_handler([&](){mdb_env_close(env);});
-  dbr = resize_env(env, filename.c_str(), tx.vin.size());
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
+  dbr = resize_env(env, filename.c_str(), 0);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size");
   dbr = mdb_txn_begin(env, NULL, 0, &txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
@@ -335,6 +423,26 @@ bool get_ring(const std::string &filename, const crypto::chacha_key &chacha_key,
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn getting ring from database: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   return true;
+}
+
+bool blackball(const std::string &filename, const crypto::public_key &output)
+{
+  return blackball_worker(filename, output, BLACKBALL_BLACKBALL);
+}
+
+bool unblackball(const std::string &filename, const crypto::public_key &output)
+{
+  return blackball_worker(filename, output, BLACKBALL_UNBLACKBALL);
+}
+
+bool blackballed(const std::string &filename, const crypto::public_key &output)
+{
+  return blackball_worker(filename, output, BLACKBALL_QUERY);
+}
+
+bool clear_blackballs(const std::string &filename)
+{
+  return blackball_worker(filename, crypto::public_key(), BLACKBALL_CLEAR);
 }
 
 }}
