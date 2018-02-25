@@ -2731,7 +2731,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   // a seed language is not already specified AND
   // (it is not a wallet restore OR if it was a deprecated wallet
   // that was earlier used before this restore)
-  if ((!two_random) && (mnemonic_language.empty()) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
+  if ((!two_random) && (mnemonic_language.empty() || mnemonic_language == crypto::ElectrumWords::old_language_name) && (!m_restore_deterministic_wallet || was_deprecated_wallet))
   {
     if (was_deprecated_wallet)
     {
