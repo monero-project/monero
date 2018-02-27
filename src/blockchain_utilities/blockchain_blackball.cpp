@@ -310,6 +310,7 @@ int main(int argc, char* argv[])
   std::unordered_map<crypto::key_image, std::vector<uint64_t>> relative_rings;
   std::unordered_map<output_data, std::unordered_set<crypto::key_image>> outputs;
   std::unordered_set<output_data> spent, newly_spent;
+  tools::ringdb ringdb(output_file_path.string());
 
   for (size_t n = 0; n < inputs.size(); ++n)
   {
@@ -335,7 +336,7 @@ int main(int argc, char* argv[])
         {
           const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, txin.key_offsets[0]);
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
-          tools::ringdb::blackball(output_file_path.string(), pkey);
+          ringdb.blackball(pkey);
           newly_spent.insert(output_data(txin.amount, txin.key_offsets[0]));
           spent.insert(output_data(txin.amount, txin.key_offsets[0]));
         }
@@ -363,7 +364,7 @@ int main(int argc, char* argv[])
             {
               const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, common[0]);
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
-              tools::ringdb::blackball(output_file_path.string(), pkey);
+              ringdb.blackball(pkey);
               newly_spent.insert(output_data(txin.amount, common[0]));
               spent.insert(output_data(txin.amount, common[0]));
             }
@@ -407,8 +408,9 @@ int main(int argc, char* argv[])
         if (known == absolute.size() - 1)
         {
           const crypto::public_key pkey = core_storage[0]->get_output_key(od.amount, last_unknown);
-          MINFO("Blackballing output " << pkey << ", due to being used in rings where all other outputs are known to be spent");
-          tools::ringdb::blackball(output_file_path.string(), pkey);
+          MINFO("Blackballing output " << pkey << ", due to being used in a " <<
+              absolute.size() << "-ring where all other outputs are known to be spent");
+          ringdb.blackball(pkey);
           newly_spent.insert(output_data(od.amount, last_unknown));
           spent.insert(output_data(od.amount, last_unknown));
         }

@@ -30,21 +30,35 @@
 
 #include <string>
 #include <vector>
+#include <lmdb.h>
 #include "wipeable_string.h"
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 
 namespace tools
 {
-  namespace ringdb
+  class ringdb
   {
-    bool add_rings(const std::string &filename, const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
-    bool remove_rings(const std::string &filename, const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
-    bool get_ring(const std::string &filename, const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+  public:
+    ringdb(std::string filename);
+    ~ringdb();
 
-    bool blackball(const std::string &filename, const crypto::public_key &output);
-    bool unblackball(const std::string &filename, const crypto::public_key &output);
-    bool blackballed(const std::string &filename, const crypto::public_key &output);
-    bool clear_blackballs(const std::string &filename);
-  }
+    bool add_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
+    bool remove_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);
+    bool get_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+
+    bool blackball(const crypto::public_key &output);
+    bool unblackball(const crypto::public_key &output);
+    bool blackballed(const crypto::public_key &output);
+    bool clear_blackballs();
+
+  private:
+    bool blackball_worker(const crypto::public_key &output, int op);
+
+  private:
+    std::string filename;
+    MDB_env *env;
+    MDB_dbi dbi_rings;
+    MDB_dbi dbi_blackballs;
+  };
 }

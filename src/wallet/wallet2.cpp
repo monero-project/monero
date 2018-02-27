@@ -675,7 +675,12 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
   m_key_on_device(false),
-  m_ring_history_saved(false)
+  m_ring_history_saved(false),
+  m_ringdb()
+{
+}
+
+wallet2::~wallet2()
 {
 }
 
@@ -1520,7 +1525,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
   entry.first->second.m_timestamp = ts;
   entry.first->second.m_unlock_time = tx.unlock_time;
 
-  add_rings(get_ring_database(), tx);
+  add_rings(tx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices)
@@ -1891,7 +1896,7 @@ void wallet2::update_pool_state(bool refreshed)
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
 
         // the inputs aren't spent anymore, since the tx failed
-        remove_rings(m_ring_database, pit->second.m_tx);
+        remove_rings(pit->second.m_tx);
         for (size_t vini = 0; vini < pit->second.m_tx.vin.size(); ++vini)
         {
           if (pit->second.m_tx.vin[vini].type() == typeid(txin_to_key))
@@ -3793,7 +3798,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
 
   try
   {
-    find_and_save_rings(get_ring_database(), false);
+    find_and_save_rings(false);
   }
   catch (const std::exception &e)
   {
@@ -4540,7 +4545,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
   }
 
-  add_rings(m_ring_database, ptx.tx);
+  add_rings(ptx.tx);
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
 
@@ -5448,43 +5453,54 @@ void wallet2::set_ring_database(const std::string &filename)
 {
   m_ring_database = filename;
   MINFO("ringdb path set to " << filename);
+  m_ringdb.reset();
+  if (!m_ring_database.empty())
+    m_ringdb.reset(new tools::ringdb(m_ring_database));
 }
 
-bool wallet2::add_rings(const std::string &filename, const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
+bool wallet2::add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
 {
-  return ringdb::add_rings(filename, key, tx);
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->add_rings(key, tx);
 }
 
-bool wallet2::add_rings(const std::string &filename, const cryptonote::transaction_prefix &tx)
-{
-  crypto::chacha_key key;
-  generate_chacha_key_from_secret_keys(key);
-  return add_rings(filename, key, tx);
-}
-
-bool wallet2::remove_rings(const std::string &filename, const cryptonote::transaction_prefix &tx)
+bool wallet2::add_rings(const cryptonote::transaction_prefix &tx)
 {
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
-  return ringdb::remove_rings(filename, key, tx);
+  return add_rings(key, tx);
 }
 
-bool wallet2::get_ring(const std::string &filename, const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
 {
-  return ringdb::get_ring(filename, key, key_image, outs);
+  if (!m_ringdb)
+    return true;
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+  return m_ringdb->remove_rings(key, tx);
 }
 
-bool wallet2::get_ring(const std::string &filename, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+bool wallet2::get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->get_ring(key, key_image, outs);
+}
+
+bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs)
 {
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
 
-  return get_ring(filename, key, key_image, outs);
+  return get_ring(key, key_image, outs);
 }
 
-bool wallet2::find_and_save_rings(const std::string &filename, bool force)
+bool wallet2::find_and_save_rings(bool force)
 {
   if (!force && m_ring_history_saved)
+    return true;
+  if (!m_ringdb)
     return true;
 
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
@@ -5533,7 +5549,7 @@ bool wallet2::find_and_save_rings(const std::string &filename, bool force)
     crypto::hash tx_hash, tx_prefix_hash;
     THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
     THROW_WALLET_EXCEPTION_IF(epee::string_tools::pod_to_hex(tx_hash) != tx_info.tx_hash, error::wallet_internal_error, "txid mismatch");
-    THROW_WALLET_EXCEPTION_IF(!add_rings(filename, key, tx), error::wallet_internal_error, "Failed to save ring");
+    THROW_WALLET_EXCEPTION_IF(!add_rings(key, tx), error::wallet_internal_error, "Failed to save ring");
   }
 
   MINFO("Found and saved rings for " << res.txs.size() << " transactions");
@@ -5543,27 +5559,35 @@ bool wallet2::find_and_save_rings(const std::string &filename, bool force)
 
 bool wallet2::blackball_output(const crypto::public_key &output)
 {
-  return ringdb::blackball(get_ring_database(), output);
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->blackball(output);
 }
 
 bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
 {
+  if (!m_ringdb)
+    return true;
   bool ret = true;
   if (!add)
-    ret &= ringdb::clear_blackballs(get_ring_database());
+    ret &= m_ringdb->clear_blackballs();
   for (const auto &output: outputs)
-    ret &= ringdb::blackball(get_ring_database(), output);
+    ret &= m_ringdb->blackball(output);
   return ret;
 }
 
 bool wallet2::unblackball_output(const crypto::public_key &output)
 {
-  return ringdb::unblackball(get_ring_database(), output);
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->unblackball(output);
 }
 
 bool wallet2::is_output_blackballed(const crypto::public_key &output) const
 {
-  return ringdb::blackballed(get_ring_database(), output);
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->blackballed(output);
 }
 
 bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
@@ -5880,7 +5904,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (td.m_key_image_known && !td.m_key_image_partial)
       {
         std::vector<uint64_t> ring;
-        if (get_ring(get_ring_database(), key, td.m_key_image, ring))
+        if (get_ring(key, td.m_key_image, ring))
         {
           MINFO("This output has a known ring, reusing (size " << ring.size() << ")");
           THROW_WALLET_EXCEPTION_IF(ring.size() > fake_outputs_count + 1, error::wallet_internal_error,
@@ -6072,7 +6096,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (td.m_key_image_known && !td.m_key_image_partial)
       {
         std::vector<uint64_t> ring;
-        if (get_ring(get_ring_database(), key, td.m_key_image, ring))
+        if (get_ring(key, td.m_key_image, ring))
         {
           for (uint64_t out: ring)
           {

@@ -1312,7 +1312,7 @@ bool simple_wallet::print_ring(const std::vector<std::string> &args)
   std::vector<uint64_t> ring;
   try
   {
-    if (m_wallet->get_ring(m_wallet->get_ring_database(), key_image, ring))
+    if (m_wallet->get_ring(key_image, ring))
     {
       std::stringstream str;
       for (const auto &x: ring)
@@ -1466,7 +1466,7 @@ bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
   try
   {
     LOCK_IDLE_SCOPE();
-    m_wallet->find_and_save_rings(m_wallet->get_ring_database());
+    m_wallet->find_and_save_rings();
   }
   catch (const std::exception &e)
   {

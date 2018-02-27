@@ -66,6 +66,8 @@ class Serialization_portability_wallet_Test;
 
 namespace tools
 {
+  class ringdb;
+
   class i_wallet2_callback
   {
   public:
@@ -166,6 +168,7 @@ namespace tools
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev);
 
     wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, bool restricted = false);
+    ~wallet2();
 
     struct multisig_info
     {
@@ -1055,8 +1058,8 @@ namespace tools
 
     void set_ring_database(const std::string &filename);
     const std::string get_ring_database() const { return m_ring_database; }
-    bool get_ring(const std::string &filename, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
-    bool find_and_save_rings(const std::string &filename, bool force = true);
+    bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+    bool find_and_save_rings(bool force = true);
 
     bool blackball_output(const crypto::public_key &output);
     bool set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add = false);
@@ -1119,10 +1122,10 @@ namespace tools
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     rct::key get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const;
     void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
-    bool add_rings(const std::string &filename, const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
-    bool add_rings(const std::string &filename, const cryptonote::transaction_prefix &tx);
-    bool remove_rings(const std::string &filename, const cryptonote::transaction_prefix &tx);
-    bool get_ring(const std::string &filename, const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+    bool add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
+    bool add_rings(const cryptonote::transaction_prefix &tx);
+    bool remove_rings(const cryptonote::transaction_prefix &tx);
+    bool get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
 
     bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
@@ -1213,6 +1216,7 @@ namespace tools
 
     std::string m_ring_database;
     bool m_ring_history_saved;
+    std::unique_ptr<ringdb> m_ringdb;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 24)
