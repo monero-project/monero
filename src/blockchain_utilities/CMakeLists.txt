@@ -80,6 +80,16 @@ set(blockchain_blackball_private_headers
 monero_private_headers(blockchain_blackball
 	  ${blockchain_blackball_private_headers})
 
+set(blockchain_usage_sources
+  blockchain_usage.cpp
+  )
+
+set(blockchain_usage_private_headers)
+
+monero_private_headers(blockchain_usage
+	  ${blockchain_usage_private_headers})
+
+
 
 monero_add_executable(blockchain_import
   ${blockchain_import_sources}
@@ -153,4 +163,27 @@ set_property(TARGET blockchain_blackball
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-blackball")
 install(TARGETS blockchain_blackball DESTINATION bin)
+
+
+monero_add_executable(blockchain_usage
+  ${blockchain_usage_sources}
+  ${blockchain_usage_private_headers})
+
+target_link_libraries(blockchain_usage
+  PRIVATE
+    cryptonote_core
+    blockchain_db
+    p2p
+    version
+    epee
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+set_property(TARGET blockchain_usage
+	PROPERTY
+	OUTPUT_NAME "monero-blockchain-usage")
+install(TARGETS blockchain_usage DESTINATION bin)
 
