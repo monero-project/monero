@@ -1,20 +1,17 @@
-# Monero
+# Loki
 
-Copyright (c) 2014-2018 The Monero Project.   
+Copyright (c) 2018 The Loki Project.
+Portions Copyright (c) 2014-2018 The Monero Project.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
 
-- Web: [getmonero.org](https://getmonero.org)
-- Forum: [forum.getmonero.org](https://forum.getmonero.org)
-- Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
-- GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
-- IRC: [#monero-dev on Freenode](http://webchat.freenode.net/?randomnick=1&channels=%23monero-dev&prompt=1&uio=d4)
+- Web: [loki.network](https://loki.network)
+- Forum: Coming Soon
+- Mail: [team@loki.network](mailto:team@loki.network)
+- GitHub: [https://github.com/loki-project/loki](https://github.com/loki-project/loki)
+- IRC: Coming soon
 
-## Vulnerability response
-
-- Our [Vulnerability Response Process](https://github.com/monero-project/meta/blob/master/VULNERABILITY_RESPONSE_PROCESS.md) encourages responsible disclosure
-- We are also available via [HackerOne](https://hackerone.com/monero)
 
 ## Build
 
