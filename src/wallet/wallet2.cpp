@@ -9653,11 +9653,11 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
 void wallet2::generate_genesis(cryptonote::block& b) const {
   if (m_testnet)
   {
-    cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+    cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE, m_testnet);
   }
   else
   {
-    cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
+    cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE, m_testnet);
   }
 }
 }
