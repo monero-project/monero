@@ -1059,6 +1059,7 @@ namespace tools
     void set_ring_database(const std::string &filename);
     const std::string get_ring_database() const { return m_ring_database; }
     bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+    bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
     bool find_and_save_rings(bool force = true);
 
     bool blackball_output(const crypto::public_key &output);

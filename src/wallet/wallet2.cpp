@@ -5496,6 +5496,17 @@ bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t>
   return get_ring(key, key_image, outs);
 }
 
+bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
+{
+  if (!m_ringdb)
+    return true;
+
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  return m_ringdb->set_ring(key, key_image, outs, relative);
+}
+
 bool wallet2::find_and_save_rings(bool force)
 {
   if (!force && m_ring_history_saved)

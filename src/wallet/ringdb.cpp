@@ -340,6 +340,36 @@ bool ringdb::get_ring(const crypto::chacha_key &chacha_key, const crypto::key_im
   return true;
 }
 
+bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
+{
+  MDB_txn *txn;
+  int dbr;
+  bool tx_active = false;
+
+  dbr = resize_env(env, filename.c_str(), outs.size() * 64);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_txn_begin(env, NULL, 0, &txn);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
+  tx_active = true;
+
+  MDB_val key, data;
+  std::string key_ciphertext = encrypt(key_image, chacha_key);
+  key.mv_data = (void*)key_ciphertext.data();
+  key.mv_size = key_ciphertext.size();
+  std::string compressed_ring = compress_ring(relative ? outs : cryptonote::absolute_output_offsets_to_relative(outs));
+  std::string data_ciphertext = encrypt(compressed_ring, key_image, chacha_key);
+  data.mv_size = data_ciphertext.size();
+  data.mv_data = (void*)data_ciphertext.c_str();
+  dbr = mdb_put(txn, dbi_rings, &key, &data, 0);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set ring for key image in LMDB table: " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_txn_commit(txn);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn setting ring to database: " + std::string(mdb_strerror(dbr)));
+  tx_active = false;
+  return true;
+}
+
 bool ringdb::blackball_worker(const crypto::public_key &output, int op)
 {
   MDB_txn *txn;
