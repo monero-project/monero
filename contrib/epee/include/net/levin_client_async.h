@@ -150,7 +150,7 @@ namespace levin
 			{
 				if( !reconnect() )
 				{
-					LOG_ERROR("Reconnect Failed. Failed to invoke() becouse not connected!");
+					LOG_ERROR("Reconnect Failed. Failed to invoke() because not connected!");
 					return false;
 				}
 			}
