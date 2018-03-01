@@ -261,7 +261,7 @@ namespace tests
     boost::thread th1( boost::bind(&test_levin_server::run, &srv1));
     boost::thread th2( boost::bind(&test_levin_server::run, &srv2));
 
-    LOG_PRINT_L0("Initalized servers, waiting for worker threads started...");
+    LOG_PRINT_L0("Initialized servers, waiting for worker threads started...");
     misc_utils::sleep_no_w(1000);  
 
 

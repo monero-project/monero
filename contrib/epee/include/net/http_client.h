@@ -946,7 +946,7 @@ namespace net_utils
 				}else
 				{   //Apparently there are no signs of the form of transfer, will receive data until the connection is closed
 					m_state = reciev_machine_state_error;
-					MERROR("Undefinded transfer type, consider http_body_transfer_connection_close method. header: " << m_header_cache);
+					MERROR("Undefined transfer type, consider http_body_transfer_connection_close method. header: " << m_header_cache);
 					return false;
 				} 
 				return false;
