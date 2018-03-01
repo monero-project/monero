@@ -3583,14 +3583,25 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
     const tools::wallet2::tx_construction_data& construction_data = ptx_vector[n].construction_data;
     ostr << boost::format(tr("\nTransaction %llu/%llu: txid=%s")) % (n + 1) % ptx_vector.size() % cryptonote::get_transaction_hash(tx);
     // for each input
-    std::vector<int>          spent_key_height(tx.vin.size());
+    std::vector<uint64_t>     spent_key_height(tx.vin.size());
     std::vector<crypto::hash> spent_key_txid  (tx.vin.size());
     for (size_t i = 0; i < tx.vin.size(); ++i)
     {
       if (tx.vin[i].type() != typeid(cryptonote::txin_to_key))
         continue;
       const cryptonote::txin_to_key& in_key = boost::get<cryptonote::txin_to_key>(tx.vin[i]);
-      const cryptonote::tx_source_entry& source = construction_data.sources[i];
+      const tools::wallet2::transfer_details &td = m_wallet->get_transfer_details(construction_data.selected_transfers[i]);
+      const cryptonote::tx_source_entry *sptr = NULL;
+      for (const auto &src: construction_data.sources)
+        if (src.outputs[src.real_output].second.dest == td.get_public_key())
+          sptr = &src;
+      if (!sptr)
+      {
+        fail_msg_writer() << tr("failed to find construction data for tx input");
+        return false;
+      }
+      const cryptonote::tx_source_entry& source = *sptr;
+
       ostr << boost::format(tr("\nInput %llu/%llu: amount=%s")) % (i + 1) % tx.vin.size() % print_money(source.amount);
       // convert relative offsets of ring member keys into absolute offsets (indices) associated with the amount
       std::vector<uint64_t> absolute_offsets = cryptonote::relative_output_offsets_to_absolute(in_key.key_offsets);
@@ -3644,7 +3655,7 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
       {
         if (spent_key_txid[i] == spent_key_txid[j])
           are_keys_from_same_tx = true;
-        if (std::abs(spent_key_height[i] - spent_key_height[j]) < 5)
+        if (std::abs((int64_t)(spent_key_height[i] - spent_key_height[j])) < (int64_t)5)
           are_keys_from_close_height = true;
       }
     }
