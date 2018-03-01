@@ -1580,7 +1580,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
     THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
     if (*result != CORE_RPC_STATUS_OK)
     {
-      MDEBUG("Cannot determined daemon RPC version, not asking for pruned blocks");
+      MDEBUG("Cannot determine daemon RPC version, not asking for pruned blocks");
       req.prune = false; // old daemon
     }
   }
@@ -2644,9 +2644,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_auto_low_priority = field_auto_low_priority;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
     // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
-    THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
+    THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet cannot be opened as testnet wallet");
     // Wallet is being opened without testnet flag but is saved as a testnet wallet.
-    THROW_WALLET_EXCEPTION_IF(!m_testnet && field_testnet, error::wallet_internal_error, "Testnet wallet can not be opened as mainnet wallet");
+    THROW_WALLET_EXCEPTION_IF(!m_testnet && field_testnet, error::wallet_internal_error, "Testnet wallet cannot be opened as mainnet wallet");
   }
   else
   {
@@ -5275,7 +5275,7 @@ void wallet2::light_wallet_get_outs(std::vector<std::vector<tools::wallet2::get_
   bool r = epee::net_utils::invoke_http_json("/get_random_outs", oreq, ores, m_http_client, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_random_outs");
-  THROW_WALLET_EXCEPTION_IF(ores.amount_outs.empty() , error::wallet_internal_error, "No outputs recieved from light wallet node. Error: " + ores.Error);
+  THROW_WALLET_EXCEPTION_IF(ores.amount_outs.empty() , error::wallet_internal_error, "No outputs received from light wallet node. Error: " + ores.Error);
   
   // Check if we got enough outputs for each amount
   for(auto& out: ores.amount_outs) {
@@ -6788,7 +6788,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     {
       string s;
       for (auto i: preferred_inputs) s += boost::lexical_cast<std::string>(i) + " (" + print_money(m_transfers[i].amount()) + ") ";
-      LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
+      LOG_PRINT_L1("Found preferred rct inputs for rct tx: " << s);
 
       // bring the list of available outputs stored by the same subaddress index to the front of the list
       uint32_t index_minor = m_transfers[preferred_inputs[0]].m_subaddr_index.minor;

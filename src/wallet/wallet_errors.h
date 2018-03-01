@@ -389,7 +389,7 @@ namespace tools
     struct get_tx_pool_error : public refresh_error
     {
       explicit get_tx_pool_error(std::string&& loc)
-        : refresh_error(std::move(loc), "error getting tranaction pool")
+        : refresh_error(std::move(loc), "error getting transaction pool")
       {
       }
 
