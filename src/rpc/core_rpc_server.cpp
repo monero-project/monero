@@ -905,7 +905,7 @@ namespace cryptonote
     PERF_TIMER(on_save_bc);
     if( !m_core.get_blockchain_storage().store_blockchain() )
     {
-      res.status = "Error while storing blockhain";
+      res.status = "Error while storing blockchain";
       return true;
     }
     res.status = CORE_RPC_STATUS_OK;
@@ -1102,7 +1102,7 @@ namespace cryptonote
     if(req.reserve_size > 255)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_RESERVE_SIZE;
-      error_resp.message = "To big reserved size, maximum 255";
+      error_resp.message = "Too big reserved size, maximum 255";
       return false;
     }
 

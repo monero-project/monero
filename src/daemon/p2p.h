@@ -65,7 +65,7 @@ public:
     {
       throw std::runtime_error("Failed to initialize p2p server.");
     }
-    MGINFO("P2p server initialized OK");
+    MGINFO("p2p server initialized OK");
   }
 
   t_node_server & get()
