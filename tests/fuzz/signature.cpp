@@ -55,6 +55,7 @@ int SignatureFuzzer::init()
   try
   {
     wallet.init("");
+    wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
 
     cryptonote::address_parse_info info;
