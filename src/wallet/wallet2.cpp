@@ -582,6 +582,14 @@ tools::wallet2::tx_construction_data get_construction_data_with_decrypted_short_
   return construction_data;
 }
 
+uint32_t get_subaddress_clamped_sum(uint32_t idx, uint32_t extra)
+{
+  static constexpr uint32_t uint32_max = std::numeric_limits<uint32_t>::max();
+  if (idx > uint32_max - extra)
+    return uint32_max;
+  return idx + extra;
+}
+
   //-----------------------------------------------------------------
 } //namespace
 
@@ -876,9 +884,10 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
   {
     // add new accounts
     cryptonote::subaddress_index index2;
-    for (index2.major = m_subaddress_labels.size(); index2.major < index.major + m_subaddress_lookahead_major; ++index2.major)
+    const uint32_t major_end = get_subaddress_clamped_sum(index.major, m_subaddress_lookahead_major);
+    for (index2.major = m_subaddress_labels.size(); index2.major < major_end; ++index2.major)
     {
-      const uint32_t end = (index2.major == index.major ? index.minor : 0) + m_subaddress_lookahead_minor;
+      const uint32_t end = get_subaddress_clamped_sum((index2.major == index.major ? index.minor : 0), m_subaddress_lookahead_minor);
       const std::vector<crypto::public_key> pkeys = cryptonote::get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, 0, end, hwdev);
       for (index2.minor = 0; index2.minor < end; ++index2.minor)
       {
@@ -892,7 +901,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
   else if (m_subaddress_labels[index.major].size() <= index.minor)
   {
     // add new subaddresses
-    const uint32_t end = index.minor + m_subaddress_lookahead_minor;
+    const uint32_t end = get_subaddress_clamped_sum(index.minor, m_subaddress_lookahead_minor);
     const uint32_t begin = m_subaddress_labels[index.major].size();
     cryptonote::subaddress_index index2 = {index.major, begin};
     const std::vector<crypto::public_key> pkeys = cryptonote::get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, index2.minor, end, hwdev);
@@ -924,6 +933,8 @@ void wallet2::set_subaddress_label(const cryptonote::subaddress_index& index, co
 //----------------------------------------------------------------------------------------------------
 void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
 {
+  THROW_WALLET_EXCEPTION_IF(major > 0xffffffff, error::wallet_internal_error, "Subaddress major lookahead is too large");
+  THROW_WALLET_EXCEPTION_IF(minor > 0xffffffff, error::wallet_internal_error, "Subaddress minor lookahead is too large");
   m_subaddress_lookahead_major = major;
   m_subaddress_lookahead_minor = minor;
 }
