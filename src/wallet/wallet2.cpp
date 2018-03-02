@@ -5014,9 +5014,6 @@ uint64_t wallet2::get_per_kb_fee() const
 {
   if(m_light_wallet)
     return m_light_wallet_per_kb_fee;
-  bool use_dyn_fee = use_fork_rules(HF_VERSION_DYNAMIC_FEE, -720 * 1);
-  if (!use_dyn_fee)
-    return FEE_PER_KB;
 
   return get_dynamic_per_kb_fee_estimate();
 }
@@ -7292,6 +7289,10 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks) const
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 
   bool close_enough = height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
+  if (early_blocks > 0 && (earliest_height - early_blocks) > earliest_height)
+  {
+    close_enough = true;
+  }
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
