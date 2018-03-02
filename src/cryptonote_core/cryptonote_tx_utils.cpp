@@ -678,7 +678,7 @@ namespace cryptonote
     blobdata txb = tx_to_blob(bl.miner_tx);
     std::string hex_tx_represent = string_tools::buff_to_hex_nodelimer(txb);
 
-    std::string genesis_coinbase_tx_hex = config::GENESIS_TX;
+    std::string genesis_coinbase_tx_hex = testnet ? config::testnet::GENESIS_TX : config::GENESIS_TX;
 
     blobdata tx_bl;
     bool r = string_tools::parse_hexstr_to_binbuff(genesis_coinbase_tx_hex, tx_bl);
