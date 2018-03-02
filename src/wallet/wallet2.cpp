@@ -5035,7 +5035,7 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin) const
 {
   if (mixin < 9 && use_fork_rules(6, 10)) {
     MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 6, using 11");
-    mixin = 9
+    mixin = 9;
   }
   else if (mixin < 2 && use_fork_rules(2, 10)) {
     MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 2, using 3");
