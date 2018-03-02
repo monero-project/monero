@@ -342,11 +342,11 @@ bool Blockchain::init(BlockchainDB* db, const bool testnet, bool offline, const 
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     if (m_testnet)
     {
-      generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+      generate_genesis_block(bl, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE, m_testnet);
     }
     else
     {
-      generate_genesis_block(bl, config::GENESIS_TX, config::GENESIS_NONCE);
+      generate_genesis_block(bl, config::GENESIS_TX, config::GENESIS_NONCE, m_testnet);
     }
     add_new_block(bl, bvc);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
