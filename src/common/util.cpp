@@ -34,6 +34,17 @@
 #include <gnu/libc-version.h>
 #endif
 
+#ifdef __GLIBC__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <ustat.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+#include <ctype.h>
+#include <string>
+#endif
+
 #include "unbound.h"
 
 #include "include_base_utils.h"
@@ -629,6 +640,65 @@ std::string get_nix_version_display_string()
 #else
     mode_t mode = strict ? 077 : 0;
     umask(mode);
+#endif
+  }
+
+  bool is_hdd(const char *path)
+  {
+#ifdef __GLIBC__
+    std::string device = "";
+    struct stat st, dst;
+    if (stat(path, &st) < 0)
+      return 0;
+
+    DIR *dir = opendir("/dev/block");
+    if (!dir)
+      return 0;
+    struct dirent *de;
+    while ((de = readdir(dir)))
+    {
+      if (strcmp(de->d_name, ".") && strcmp(de->d_name, ".."))
+      {
+        std::string dev_path = std::string("/dev/block/") + de->d_name;
+        char resolved[PATH_MAX];
+        if (realpath(dev_path.c_str(), resolved) && !strncmp(resolved, "/dev/", 5))
+        {
+          if (stat(resolved, &dst) == 0)
+          {
+            if (dst.st_rdev == st.st_dev)
+            {
+              // take out trailing digits (eg, sda1 -> sda)
+              char *ptr = resolved;
+              while (*ptr)
+                ++ptr;
+              while (ptr > resolved && isdigit(*--ptr))
+                *ptr = 0;
+              device = resolved + 5;
+              break;
+            }
+          }
+        }
+      }
+    }
+    closedir(dir);
+
+    if (device.empty())
+      return 0;
+
+    std::string sys_path = "/sys/block/" + device + "/queue/rotational";
+    FILE *f = fopen(sys_path.c_str(), "r");
+    if (!f)
+      return false;
+    char s[8];
+    char *ptr = fgets(s, sizeof(s), f);
+    fclose(f);
+    if (!ptr)
+      return 0;
+    s[sizeof(s) - 1] = 0;
+    int n = atoi(s); // returns 0 on parse error
+    return n == 1;
+#else
+    return 0;
 #endif
   }
 
