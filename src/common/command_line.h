@@ -227,8 +227,8 @@ namespace command_line
     return vm[arg.name].defaulted();
   }
 
-  template<typename T, bool required>
-  T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required, true>& arg)
+  template<typename T>
+  T get_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, false, true>& arg)
   {
     return arg.depf(get_arg(vm, arg.ref), is_arg_defaulted(vm, arg), vm[arg.name].template as<T>());
   }
@@ -242,7 +242,7 @@ namespace command_line
   template<bool dependent>
   inline bool has_arg(const boost::program_options::variables_map& vm, const arg_descriptor<bool, false, dependent>& arg)
   {
-    return get_arg<bool, false>(vm, arg);
+    return get_arg(vm, arg);
   }
 
 
