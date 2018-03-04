@@ -310,7 +310,9 @@ int main(int argc, char* argv[])
   std::unordered_map<crypto::key_image, std::vector<uint64_t>> relative_rings;
   std::unordered_map<output_data, std::unordered_set<crypto::key_image>> outputs;
   std::unordered_set<output_data> spent, newly_spent;
-  tools::ringdb ringdb(output_file_path.string());
+
+  cryptonote::block b = core_storage[0]->get_db().get_block_from_height(0);
+  tools::ringdb ringdb(output_file_path.string(), epee::string_tools::pod_to_hex(get_block_hash(b)));
 
   for (size_t n = 0; n < inputs.size(); ++n)
   {

@@ -40,7 +40,7 @@ namespace tools
   class ringdb
   {
   public:
-    ringdb(std::string filename);
+    ringdb(std::string filename, const std::string &genesis);
     ~ringdb();
 
     bool add_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);

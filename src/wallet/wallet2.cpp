@@ -5454,8 +5454,10 @@ void wallet2::set_ring_database(const std::string &filename)
   m_ring_database = filename;
   MINFO("ringdb path set to " << filename);
   m_ringdb.reset();
+  cryptonote::block b;
+  generate_genesis(b);
   if (!m_ring_database.empty())
-    m_ringdb.reset(new tools::ringdb(m_ring_database));
+    m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
 }
 
 bool wallet2::add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)

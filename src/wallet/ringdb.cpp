@@ -175,7 +175,7 @@ enum { BLACKBALL_BLACKBALL, BLACKBALL_UNBLACKBALL, BLACKBALL_QUERY, BLACKBALL_CL
 namespace tools
 {
 
-ringdb::ringdb(std::string filename):
+ringdb::ringdb(std::string filename, const std::string &genesis):
   filename(filename)
 {
   MDB_txn *txn;
@@ -198,11 +198,11 @@ ringdb::ringdb(std::string filename):
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
-  dbr = mdb_dbi_open(txn, "rings", MDB_CREATE, &dbi_rings);
+  dbr = mdb_dbi_open(txn, ("rings-" + genesis).c_str(), MDB_CREATE, &dbi_rings);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
   mdb_set_compare(txn, dbi_rings, compare_hash32);
 
-  dbr = mdb_dbi_open(txn, "blackballs", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_blackballs);
+  dbr = mdb_dbi_open(txn, ("blackballs-" + genesis).c_str(), MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_blackballs);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
   mdb_set_dupsort(txn, dbi_blackballs, compare_hash32);
 
