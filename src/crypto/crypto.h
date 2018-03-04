@@ -46,6 +46,10 @@
 #include "hex.h"
 #include "span.h"
 #include "hash.h"
+#include "device/device_declare.hpp"
+extern "C" {
+  #include "crypto-ops.h"
+}
 
 namespace crypto {
 
@@ -113,6 +117,9 @@ namespace crypto {
     void operator=(const crypto_ops &);
     ~crypto_ops();
 
+    static void hash_to_ec(const public_key &key, ge_p3 &res) ;
+    friend void hash_to_ec(const public_key &key, ge_p3 &res) ;
+
     static secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false);
     friend secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover);
     static bool check_key(const public_key &);
@@ -149,6 +156,17 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
   };
 
+  secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover, hw::device &hwdev);
+  secret_key generate_keys(public_key &pub, secret_key &sec, hw::device &hwdev);
+  bool secret_key_to_public_key(const secret_key &sec, public_key &pub, hw::device &hwdev);
+  bool generate_key_derivation(const public_key &key1, const secret_key &key2, key_derivation &derivation, hw::device &hwdev);
+  void derivation_to_scalar(const key_derivation &derivation, size_t output_index, ec_scalar &res, hw::device &hwdev) ;
+  bool derive_public_key(const key_derivation &derivation, size_t output_index, const public_key &base, public_key &derived_key, hw::device &hwdev);
+  void derive_secret_key(const key_derivation &derivation, size_t output_index, const secret_key &base, secret_key &derived_key, hw::device &hwdev);
+  bool derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key, hw::device &hwdev);
+  void generate_key_image(const public_key &pub, const secret_key &sec, key_image &image, hw::device &hwdev);
+
+
   /* Generate N random bytes
    */
   inline void rand(size_t N, uint8_t *bytes) {
@@ -166,6 +184,9 @@ namespace crypto {
     return res;
   }
 
+  inline void hash_to_ec(const public_key &key, ge_p3 &res) {
+    crypto_ops::hash_to_ec(key,res);
+  }
   /* Generate a new key pair
    */
   inline secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key = secret_key(), bool recover = false) {

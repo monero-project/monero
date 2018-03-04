@@ -162,7 +162,7 @@ namespace tools
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
-    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev);
 
     wallet2(bool testnet = false, bool restricted = false);
 
@@ -487,6 +487,14 @@ namespace tools
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& viewkey = crypto::secret_key());
     /*!
+     * \brief Restore a wallet hold by an HW.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  device_name    name of HW to use
+     */
+    void restore(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name);
+
+    /*!
      * \brief Creates a multisig wallet
      * \return empty if done, non empty if we need to send another string
      * to other participants
@@ -635,6 +643,7 @@ namespace tools
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
     bool get_multisig_seed(std::string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;
+    bool key_on_device() const { return m_key_on_device; }
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;
@@ -1105,6 +1114,7 @@ namespace tools
     boost::mutex m_daemon_rpc_mutex;
 
     i_wallet2_callback* m_callback;
+    bool m_key_on_device;
     bool m_testnet;
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */

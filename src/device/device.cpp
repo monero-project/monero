@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2017-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,63 +25,47 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+//
 
-#pragma once
+#include "device.hpp"
+#include "device_default.hpp"
+#ifdef HAVE_PCSC
+#include "device_ledger.hpp"
+#endif
+#include "common/scoped_message_writer.h"
 
-#include "ringct/rctSigs.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 
-#include "single_tx_test_base.h"
+namespace hw {
+    
+    /* ======================================================================= */
+    /*  SETUP                                                                  */
+    /* ======================================================================= */   
+    device& get_device(const std::string device_descriptor) {
+        
+        struct s_devices {
+            std::map<std::string, std::unique_ptr<device>> registry;
+            s_devices() : registry() {
+                hw::core::register_all(registry);
+                #ifdef HAVE_PCSC
+                hw::ledger::register_all(registry); 
+                #endif
+           };
+        };
+        
+        static const s_devices devices;
 
-template<size_t inputs, size_t ring_size, bool ver>
-class test_ringct_mlsag : public single_tx_test_base
-{
-public:
-  static const size_t cols = ring_size;
-  static const size_t rows = inputs;
-  static const size_t loop_count = 100;
-
-  bool init()
-  {
-    if (!single_tx_test_base::init())
-      return false;
-
-    rct::keyV xtmp = rct::skvGen(rows);
-    rct::keyM xm = rct::keyMInit(rows, cols);// = [[None]*N] #just used to generate test public keys
-    sk = rct::skvGen(rows);
-    P  = rct::keyMInit(rows, cols);// = keyM[[None]*N] #stores the public keys;
-    ind = 2;
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        for (size_t i = 0 ; i < cols ; i++)
-        {
-            xm[i][j] = rct::skGen();
-            P[i][j] = rct::scalarmultBase(xm[i][j]);
+        auto device = devices.registry.find(device_descriptor);
+        if (device == devices.registry.end()) {
+            auto logger = tools::fail_msg_writer();
+            logger << "device not found in registry '"<<device_descriptor<<"'\n" <<
+                      "known devices:"<<device_descriptor<<"'";
+            
+            for( const auto& sm_pair : devices.registry ) {
+             logger<< " - " << sm_pair.first ;
+            }
+            throw std::runtime_error("device not found: "+ device_descriptor);
         }
+        return *device->second;
     }
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        sk[j] = xm[ind][j];
-    }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
 
-    return true;
-  }
-
-  bool test()
-  {
-    if (ver)
-      MLSAG_Ver(rct::identity(), P, IIccss, rows);
-    else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
-    return true;
-  }
-
-private:
-  rct::keyV sk;
-  rct::keyM P;
-  size_t ind;
-  rct::mgSig IIccss;
-};
+}
