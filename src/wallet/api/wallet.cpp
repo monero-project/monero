@@ -68,6 +68,15 @@ namespace {
     static const int    DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // Connection timeout 30 sec
     static const int    DEFAULT_CONNECTION_TIMEOUT_MILLIS = 1000 * 30;
+
+    std::string get_default_ringdb_path()
+    {
+      boost::filesystem::path dir = tools::get_default_data_dir();
+      // remove .bitmonero, replace with .shared-ringdb
+      dir = dir.remove_filename();
+      dir /= ".shared-ringdb";
+      return dir.string();
+    }
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -590,6 +599,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
         }
+        m_wallet->set_ring_database(get_default_ringdb_path());
         m_wallet->load(path, password);
 
         m_password = password;
@@ -1777,6 +1787,7 @@ void WalletImpl::doRefresh()
             if (m_history->count() == 0) {
                 m_history->refresh();
             }
+            m_wallet->find_and_save_rings(false);
         } else {
            LOG_PRINT_L3(__FUNCTION__ << ": skipping refresh - daemon is not synced");
         }
@@ -1895,6 +1906,50 @@ void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
 bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const 
 {
     return m_wallet->use_fork_rules(version,early_blocks);
+}
+
+bool WalletImpl::blackballOutputs(const std::vector<std::string> &pubkeys, bool add)
+{
+    std::vector<crypto::public_key> raw_pubkeys;
+    raw_pubkeys.reserve(pubkeys.size());
+    for (const std::string &str: pubkeys)
+    {
+        crypto::public_key pkey;
+        if (!epee::string_tools::hex_to_pod(str, pkey))
+        {
+            m_status = Status_Error;
+            m_errorString = tr("Failed to parse output public key");
+            return false;
+        }
+        raw_pubkeys.push_back(pkey);
+    }
+    bool ret = m_wallet->set_blackballed_outputs(raw_pubkeys, add);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to set blackballed outputs");
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::unblackballOutput(const std::string &pubkey)
+{
+    crypto::public_key raw_pubkey;
+    if (!epee::string_tools::hex_to_pod(pubkey, raw_pubkey))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse output public key");
+        return false;
+    }
+    bool ret = m_wallet->unblackball_output(raw_pubkey);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to unblackball output");
+        return false;
+    }
+    return true;
 }
 
 } // namespace

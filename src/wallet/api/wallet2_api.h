@@ -33,6 +33,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <set>
 #include <ctime>
 #include <iostream>
@@ -756,6 +757,12 @@ struct Wallet
     */
     virtual bool rescanSpent() = 0;
     
+    //! blackballs a set of outputs
+    virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) = 0;
+
+    //! unblackballs an output
+    virtual bool unblackballOutput(const std::string &pubkey) = 0;
+
     //! Light wallet authenticate and login
     virtual bool lightWalletLogin(bool &isNewWallet) const = 0;
     

@@ -163,6 +163,8 @@ public:
     virtual std::string getDefaultDataDir() const;
     virtual bool lightWalletLogin(bool &isNewWallet) const;
     virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status);
+    virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add);
+    virtual bool unblackballOutput(const std::string &pubkey);
 
 private:
     void clearStatus() const;
