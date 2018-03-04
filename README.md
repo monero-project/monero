@@ -7,14 +7,16 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 ## Development resources
 
 - Web: [loki.network](https://loki.network)
-- Forum: Coming Soon
+- Telegram: [t.me/LokiCommunity](https://t.me/LokiCommunity)
 - Mail: [team@loki.network](mailto:team@loki.network)
 - GitHub: [https://github.com/loki-project/loki](https://github.com/loki-project/loki)
-- IRC: Coming soon
+- Discord: [https://discord.gg/67GXfD6](https://discord.gg/67GXfD6)
 
 ## Information
 
-Loki is a private cryptocurrency based on Monero. Over the course of the coming months, the Loki project aims to offer an incenvised full node layer with a secondary p2p netowrk that offers a private communications layer based on the Signal protocol.
+# Please note, only the testnet is currently operational. To connect to the testnet, run lokid with the --testnet flag
+
+Loki is a private cryptocurrency based on Monero. Over the course of the coming months, the Loki project aims to offer an incenvised full node layer with a secondary p2p network that offers a private communications layer based on the Signal protocol.
 
 More information on the project can be found on the website and in the whitepaper.
 
