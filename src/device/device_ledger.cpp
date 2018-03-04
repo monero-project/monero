@@ -2054,7 +2054,7 @@ namespace hw {
         legder_device = new device_ledger();
         legder_device->set_name("Ledger");
       }
-      registry.insert(std::make_pair("Ledger", legder_device));
+      registry.insert(std::make_pair("Ledger", std::unique_ptr<device>(legder_device)));
     }
   
   #else //WITH_DEVICE_LEDGER
