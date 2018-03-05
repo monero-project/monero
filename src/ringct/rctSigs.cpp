@@ -130,29 +130,12 @@ namespace rct {
         return equalKeys(eeComputed, bb.ee);
     }
 
-    //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
-    //These are aka MG signatutes in earlier drafts of the ring ct paper
-    // c.f. http://eprint.iacr.org/2015/1098 section 2. 
-    // keyImageV just does I[i] = xx[i] * Hash(xx[i] * G) for each i
-    // Gen creates a signature which proves that for some column in the keymatrix "pk"
-    //   the signer knows a secret key for each row in that column
-    // Ver verifies that the MG sig was created correctly
-    keyV keyImageV(const keyV &xx) {
-        keyV II(xx.size());
-        size_t i = 0;
-        for (i = 0; i < xx.size(); i++) {
-            II[i] = scalarmultKey(hashToPoint(scalarmultBase(xx[i])), xx[i]);
-        }
-        return II;
-    }
-    
     
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //This is a just slghtly more efficient version than the ones described below
     //(will be explained in more detail in Ring Multisig paper
     //These are aka MG signatutes in earlier drafts of the ring ct paper
     // c.f. http://eprint.iacr.org/2015/1098 section 2. 
-    // keyImageV just does I[i] = xx[i] * Hash(xx[i] * G) for each i
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
@@ -250,7 +233,6 @@ namespace rct {
     //(will be explained in more detail in Ring Multisig paper
     //These are aka MG signatutes in earlier drafts of the ring ct paper
     // c.f. http://eprint.iacr.org/2015/1098 section 2. 
-    // keyImageV just does I[i] = xx[i] * Hash(xx[i] * G) for each i
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
