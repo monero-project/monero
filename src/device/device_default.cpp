@@ -254,7 +254,7 @@ namespace hw {
                 default_core_device->set_name("default_core_device");
 
             }
-            registry.insert(std::make_pair("default",default_core_device));
+            registry.insert(std::make_pair("default", std::unique_ptr<device>(default_core_device)));
         }
 
 
