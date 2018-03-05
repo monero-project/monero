@@ -513,10 +513,10 @@ namespace hw {
 
         char prekey[200];
         memmove(prekey, &this->buffer_recv[0], 200);
-        crypto::generate_chacha_key(&prekey[0], sizeof(prekey), key, 0, true);
+        crypto::generate_chacha_key_prehashed(&prekey[0], sizeof(prekey), key);
 
         #ifdef DEBUG_HWDEVICE
-        hw::ledger::check32("generate_chacha_key", "key", (char*)key_x.data(), (char*)key.data());
+        hw::ledger::check32("generate_chacha_key_prehashed", "key", (char*)key_x.data(), (char*)key.data());
         #endif
 
         unlock_device();
