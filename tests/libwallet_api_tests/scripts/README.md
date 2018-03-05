@@ -3,7 +3,7 @@
 ## Environment for the tests
 * Running monero node, linked to private/public testnet. 
   By default, tests expect daemon running at ```localhost:38081```,
-  can we overriden with enviroment variable ```TESTNET_DAEMON_ADDRESS=<your_daemon_address>```
+  can we overriden with environment variable ```TESTNET_DAEMON_ADDRESS=<your_daemon_address>```
   [Manual](https://github.com/moneroexamples/private-testnet) explaining how to run private testnet.
 
 * Directory with pre-generated wallets

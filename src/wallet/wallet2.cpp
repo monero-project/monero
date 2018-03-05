@@ -383,7 +383,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
 
         if (field_spendkey.empty())
         {
-          // if we have an addres but no spend key, we can deduce the spend public key
+          // if we have an address but no spend key, we can deduce the spend public key
           // from the address
           if (field_address_found)
           {
@@ -5305,7 +5305,7 @@ void wallet2::light_wallet_get_outs(std::vector<std::vector<tools::wallet2::get_
   bool r = epee::net_utils::invoke_http_json("/get_random_outs", oreq, ores, m_http_client, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_random_outs");
-  THROW_WALLET_EXCEPTION_IF(ores.amount_outs.empty() , error::wallet_internal_error, "No outputs recieved from light wallet node. Error: " + ores.Error);
+  THROW_WALLET_EXCEPTION_IF(ores.amount_outs.empty() , error::wallet_internal_error, "No outputs received from light wallet node. Error: " + ores.Error);
   
   // Check if we got enough outputs for each amount
   for(auto& out: ores.amount_outs) {
@@ -5529,7 +5529,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         }
       }
 
-      // sort the subsection, to ensure the daemon doesn't know wich output is ours
+      // sort the subsection, to ensure the daemon doesn't know which output is ours
       std::sort(req.outputs.begin() + start, req.outputs.end(),
           [](const get_outputs_out &a, const get_outputs_out &b) { return a.index < b.index; });
     }
@@ -6156,7 +6156,7 @@ bool wallet2::light_wallet_login(bool &new_address)
   cryptonote::COMMAND_RPC_LOGIN::response response;
   request.address = get_account().get_public_address_str(m_testnet);
   request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
-  // Always create account if it doesnt exist.
+  // Always create account if it doesn't exist.
   request.create_account = true;
   m_daemon_rpc_mutex.lock();
   bool connected = epee::net_utils::invoke_http_json("/login", request, response, m_http_client, rpc_timeout, "POST");
@@ -6169,7 +6169,7 @@ bool wallet2::light_wallet_login(bool &new_address)
   MDEBUG("New wallet: " << response.new_address);
   if(m_light_wallet_connected)
   {
-    // Clear old data on successfull login.
+    // Clear old data on successful login.
     // m_transfers.clear();
     // m_payments.clear();
     // m_unconfirmed_payments.clear();
@@ -6541,7 +6541,7 @@ void wallet2::light_wallet_get_address_txs()
 
   // Calculate wallet balance
   m_light_wallet_balance = ires.total_received-wallet_total_sent;
-  // MyMonero doesnt send unlocked balance
+  // MyMonero doesn't send unlocked balance
   if(ires.total_received_unlocked > 0)
     m_light_wallet_unlocked_balance = ires.total_received_unlocked-wallet_total_sent;
   else
@@ -6818,7 +6818,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     {
       string s;
       for (auto i: preferred_inputs) s += boost::lexical_cast<std::string>(i) + " (" + print_money(m_transfers[i].amount()) + ") ";
-      LOG_PRINT_L1("Found prefered rct inputs for rct tx: " << s);
+      LOG_PRINT_L1("Found preferred rct inputs for rct tx: " << s);
 
       // bring the list of available outputs stored by the same subaddress index to the front of the list
       uint32_t index_minor = m_transfers[preferred_inputs[0]].m_subaddr_index.minor;

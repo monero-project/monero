@@ -2739,7 +2739,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     case rct::RCTTypeSimple:
     case rct::RCTTypeSimpleBulletproof:
     {
-      // check all this, either recontructed (so should really pass), or not
+      // check all this, either reconstructed (so should really pass), or not
       {
         if (pubkeys.size() != rv.mixRing.size())
         {
@@ -2797,7 +2797,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     case rct::RCTTypeFull:
     case rct::RCTTypeFullBulletproof:
     {
-      // check all this, either recontructed (so should really pass), or not
+      // check all this, either reconstructed (so should really pass), or not
       {
         bool size_matches = true;
         for (size_t i = 0; i < pubkeys.size(); ++i)
