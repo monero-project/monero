@@ -214,8 +214,8 @@ namespace command_line
     }
   }
 
-  template<typename T, bool required>
-  bool has_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required>& arg)
+  template<typename T, bool required, bool dependent>
+  typename std::enable_if<!std::is_same<T, bool>::value, bool>::type has_arg(const boost::program_options::variables_map& vm, const arg_descriptor<T, required, dependent>& arg)
   {
     auto value = vm[arg.name];
     return !value.empty();
@@ -239,8 +239,8 @@ namespace command_line
     return vm[arg.name].template as<T>();
   }
  
-  template<>
-  inline bool has_arg<bool, false>(const boost::program_options::variables_map& vm, const arg_descriptor<bool, false>& arg)
+  template<bool dependent>
+  inline bool has_arg(const boost::program_options::variables_map& vm, const arg_descriptor<bool, false, dependent>& arg)
   {
     return get_arg<bool, false>(vm, arg);
   }
