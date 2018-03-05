@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2017-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,63 +25,42 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+//
 
-#pragma once
+#include "misc_log_ex.h"
+#include "rctOps.h"
+#include "device/device.hpp"
+using namespace crypto;
+using namespace std;
 
-#include "ringct/rctSigs.h"
-#include "cryptonote_basic/cryptonote_basic.h"
 
-#include "single_tx_test_base.h"
-
-template<size_t inputs, size_t ring_size, bool ver>
-class test_ringct_mlsag : public single_tx_test_base
+namespace rct
 {
-public:
-  static const size_t cols = ring_size;
-  static const size_t rows = inputs;
-  static const size_t loop_count = 100;
-
-  bool init()
-  {
-    if (!single_tx_test_base::init())
-      return false;
-
-    rct::keyV xtmp = rct::skvGen(rows);
-    rct::keyM xm = rct::keyMInit(rows, cols);// = [[None]*N] #just used to generate test public keys
-    sk = rct::skvGen(rows);
-    P  = rct::keyMInit(rows, cols);// = keyM[[None]*N] #stores the public keys;
-    ind = 2;
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        for (size_t i = 0 ; i < cols ; i++)
-        {
-            xm[i][j] = rct::skGen();
-            P[i][j] = rct::scalarmultBase(xm[i][j]);
-        }
+    void scalarmultKey(key & aP, const key &P, const key &a, hw::device &hwdev) {
+        hwdev.scalarmultKey(aP, P, a);
     }
-    for (size_t j = 0 ; j < rows ; j++)
-    {
-        sk[j] = xm[ind][j];
+
+    key scalarmultKey(const key & P, const key & a, hw::device &hwdev) {
+        key aP;
+        hwdev.scalarmultKey(aP, P, a);
+        return aP;
     }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
 
-    return true;
-  }
+    void scalarmultBase(key &aG, const key &a, hw::device &hwdev) {
+        hwdev.scalarmultBase(aG, a);
+    }
 
-  bool test()
-  {
-    if (ver)
-      MLSAG_Ver(rct::identity(), P, IIccss, rows);
-    else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
-    return true;
-  }
+    key scalarmultBase(const key & a, hw::device &hwdev) {
+        key aG;
+        hwdev.scalarmultBase(aG, a);
+        return aG;
+    }
 
-private:
-  rct::keyV sk;
-  rct::keyM P;
-  size_t ind;
-  rct::mgSig IIccss;
-};
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, hw::device &hwdev) {
+        hwdev.ecdhDecode(masked, sharedSec);
+    }
+
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, hw::device &hwdev) {
+        hwdev.ecdhEncode(unmasked, sharedSec);
+    }
+}

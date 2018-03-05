@@ -70,6 +70,7 @@ target_link_libraries(core_tests
     p2p
     version
     epee
+    device
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET core_tests

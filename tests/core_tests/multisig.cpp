@@ -34,7 +34,7 @@
 #include "common/apply_permutation.h"
 #include "chaingen.h"
 #include "multisig.h"
-
+#include "device/device.hpp"
 using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
@@ -367,7 +367,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   for (size_t n = 0; n < tx.vout.size(); ++n)
   {
     CHECK_AND_ASSERT_MES(typeid(txout_to_key) == tx.vout[n].target.type(), false, "Unexpected tx out type");
-    if (is_out_to_acc_precomp(subaddresses, boost::get<txout_to_key>(tx.vout[n].target).key, derivation, additional_derivations, n))
+    if (is_out_to_acc_precomp(subaddresses, boost::get<txout_to_key>(tx.vout[n].target).key, derivation, additional_derivations, n, hw::get_device(("default"))))
     {
       ++n_outs;
       CHECK_AND_ASSERT_MES(tx.vout[n].amount == 0, false, "Destination amount is not zero");

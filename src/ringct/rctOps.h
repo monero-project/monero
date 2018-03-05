@@ -112,10 +112,14 @@ namespace rct {
 
     //does a * G where a is a scalar and G is the curve basepoint
     void scalarmultBase(key & aG, const key &a);
+    void scalarmultBase(key & aG, const key &a, hw::device &hwdev);
     key scalarmultBase(const key & a);
+    key scalarmultBase(const key & a, hw::device &hwdev);
     //does a * P where a is a scalar and P is an arbitrary point
     void scalarmultKey(key &aP, const key &P, const key &a);
+    void scalarmultKey(key &aP, const key &P, const key &a, hw::device &hwdev);
     key scalarmultKey(const key &P, const key &a);
+    key scalarmultKey(const key &P, const key &a, hw::device &hwdev);
     //Computes aH where H= toPoint(cn_fast_hash(G)), G the basepoint
     key scalarmultH(const key & a);
 
@@ -174,6 +178,8 @@ namespace rct {
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
     void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec);
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, hw::device &hwdev);
     void ecdhDecode(ecdhTuple & masked, const key & sharedSec);
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, hw::device &hwdev);
 }
 #endif  /* RCTOPS_H */

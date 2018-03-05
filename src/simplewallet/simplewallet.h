@@ -97,6 +97,7 @@ namespace cryptonote
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
     bool new_wallet(const boost::program_options::variables_map& vm,
         const std::string &multisig_keys, const std::string &old_language);
+    bool new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
@@ -303,6 +304,7 @@ namespace cryptonote
   private:
     std::string m_wallet_file;
     std::string m_generate_new;
+    std::string m_generate_from_device;
     std::string m_generate_from_view_key;
     std::string m_generate_from_spend_key;
     std::string m_generate_from_keys;

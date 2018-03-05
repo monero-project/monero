@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2018, The Monero Project
+# Copyright (c) 2014-2017, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,34 +26,52 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(ringct_sources
-  rctOps.cpp
-  rctOps_device.cpp
-  rctSigs.cpp
-  rctTypes.cpp
-  rctCryptoOps.c
-  bulletproofs.cc)
+set(device_sources
+  device.cpp
+  device_default.cpp
+  log.cpp
+  )
 
-set(ringct_headers)
+if(PCSC_FOUND)
+  set(device_sources ${device_sources} device_ledger.cpp)
+endif()
 
-set(ringct_private_headers
-  rctOps.h
-  rctSigs.h
-  rctTypes.h
-  bulletproofs.h)
+set(device_headers
+  device_declare.hpp
+  device.hpp
+  device_default.hpp
+  log.hpp
+ )
 
-monero_private_headers(ringct
-  ${crypto_private_headers})
-monero_add_library(ringct
-  ${ringct_sources}
-  ${ringct_headers}
-  ${ringct_private_headers})
-target_link_libraries(ringct
+if(PCSC_FOUND)
+  set(device_headers ${device_headers} device_ledger.hpp)
+endif()
+
+set(device_private_headers)
+
+
+if(PER_BLOCK_CHECKPOINT)
+  set(Blocks "blocks")
+else()
+  set(Blocks "")
+endif()
+
+monero_private_headers(device
+  ${device_private_headers})
+
+monero_add_library(device
+  ${device_sources}
+  ${device_headers}
+  ${device_private_headers})
+
+target_link_libraries(device
   PUBLIC
-    common
+    ${PCSC_LIBRARIES}
     cncrypto
-    cryptonote_basic
-    device
+    ringct
+    ${OPENSSL_CRYPTO_LIBRARIES}
+    ${GNU_READLINE_LIBRARY}
+    ${EPEE_READLINE}
   PRIVATE
-    ${OPENSSL_LIBRARIES}
+    ${Blocks}
     ${EXTRA_LIBRARIES})
