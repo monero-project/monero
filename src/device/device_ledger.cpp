@@ -593,7 +593,8 @@ namespace hw {
       return true;
     }
 
-    bool device_ledger::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index, crypto::public_key &D) {
+    crypto::public_key device_ledger::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+      crypto::public_key D;
       lock_device();
       try {
         int offset =0;
@@ -646,21 +647,23 @@ namespace hw {
         unlock_device();
         throw;
       }
-      return true;
+      return D;
     }
 
-    bool  device_ledger::get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end, std::vector<crypto::public_key> &pkeys) {
+    std::vector<crypto::public_key>  device_ledger::get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end) {
+     std::vector<crypto::public_key> pkeys;
      cryptonote::subaddress_index index = {account, begin};
      crypto::public_key D;
      for (uint32_t idx = begin; idx < end; ++idx) {
         index.minor = idx;
-        this->get_subaddress_spend_public_key(keys, index, D);
+        D = this->get_subaddress_spend_public_key(keys, index);
         pkeys.push_back(D);
       }
-      return true;
+      return pkeys;
     }
 
-    bool device_ledger::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index, cryptonote::account_public_address &address) {
+    cryptonote::account_public_address device_ledger::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+      cryptonote::account_public_address address;
       lock_device();
       try {
         int offset =0;
@@ -717,10 +720,11 @@ namespace hw {
         unlock_device();
         throw;
       }
-      return true;
+      return address;
     }
 
-    bool  device_ledger::get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index, crypto::secret_key &sub_sec) {
+    crypto::secret_key  device_ledger::get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index) {
+      crypto::secret_key sub_sec;
       lock_device();
       try {
         int offset =0;
@@ -771,7 +775,7 @@ namespace hw {
         unlock_device();
         throw;
       }
-      return true;
+      return sub_sec;
     }
 
     /* ======================================================================= */
@@ -979,7 +983,7 @@ namespace hw {
       return true;
     }
 
-    bool  device_ledger::generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key, bool recover, crypto::secret_key &rng) {
+    crypto::secret_key  device_ledger::generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key, bool recover) {
       if (recover) {
         throw std::runtime_error("device generate key does not support recover");
       }
@@ -1030,7 +1034,7 @@ namespace hw {
         unlock_device();
         throw;
       }
-      return true;
+      return sec;
 
     }
 
@@ -1457,7 +1461,7 @@ namespace hw {
       return true;
     }
 
-    bool device_ledger::encrypt_payment_id(const crypto::public_key &public_key, const crypto::secret_key &secret_key, crypto::hash8 &payment_id) {
+    bool device_ledger::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
       lock_device();
       try {
         int offset =0;

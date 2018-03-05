@@ -99,24 +99,20 @@ namespace hw {
             return crypto::derive_subaddress_public_key(out_key, derivation, output_index,derived_key);
         }
 
-        bool device_default::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index, crypto::public_key &D) {
-            D = cryptonote::get_subaddress_spend_public_key(keys,index);
-            return true;
+        crypto::public_key device_default::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+            return cryptonote::get_subaddress_spend_public_key(keys,index);
         }
 
-        bool  device_default::get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end, std::vector<crypto::public_key> &pkeys) {
-            pkeys = cryptonote::get_subaddress_spend_public_keys(keys, account, begin, end);
-            return true;
+        std::vector<crypto::public_key>  device_default::get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end) {
+            return cryptonote::get_subaddress_spend_public_keys(keys, account, begin, end);
         }
 
-        bool device_default::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index, cryptonote::account_public_address &address) {
-            address = cryptonote::get_subaddress(keys,index);
-            return true;
+        cryptonote::account_public_address device_default::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+            return cryptonote::get_subaddress(keys,index);
         }
 
-        bool  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index, crypto::secret_key &m) {
-            m = cryptonote::get_subaddress_secret_key(a,index);
-            return true;
+        crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
+            return cryptonote::get_subaddress_secret_key(a,index);
         }
 
         /* ======================================================================= */
@@ -142,9 +138,8 @@ namespace hw {
             return true;
         }
 
-        bool  device_default::generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key, bool recover, crypto::secret_key &rng) {
-            rng = crypto::generate_keys(pub, sec, recovery_key, recover);
-            return true;
+        crypto::secret_key  device_default::generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key, bool recover) {
+            return crypto::generate_keys(pub, sec, recovery_key, recover);
         }
 
         bool device_default::generate_key_derivation(const crypto::public_key &key1, const crypto::secret_key &key2, crypto::key_derivation &derivation) {
@@ -194,7 +189,7 @@ namespace hw {
             return true;
         }
 
-        bool  device_default::encrypt_payment_id(const crypto::public_key &public_key, const crypto::secret_key &secret_key, crypto::hash8 &payment_id ) {
+        bool  device_default::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
             return cryptonote::encrypt_payment_id(payment_id, public_key, secret_key);
         }
 

@@ -185,9 +185,7 @@ namespace cryptonote
   }
   crypto::secret_key get_subaddress_secret_key(const crypto::secret_key& a, const subaddress_index& index, hw::device &hwdev)
   {
-    crypto::secret_key m;
-    hwdev.get_subaddress_secret_key(a, index, m);
-    return m;
+    return hwdev.get_subaddress_secret_key(a, index);
   }
 
   //---------------------------------------------------------------
@@ -232,9 +230,7 @@ namespace cryptonote
 
   std::vector<crypto::public_key> get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end,  hw::device &hwdev)
   {
-    std::vector<crypto::public_key> pkeys;
-    hwdev.get_subaddress_spend_public_keys(keys, account, begin, end, pkeys);
-    return pkeys;
+    return hwdev.get_subaddress_spend_public_keys(keys, account, begin, end);
   }
 
   //---------------------------------------------------------------
@@ -282,7 +278,7 @@ namespace cryptonote
       }
       else
       {
-        hwdev.get_subaddress_secret_key(ack.m_view_secret_key, received_index, subaddr_sk);
+        subaddr_sk = hwdev.get_subaddress_secret_key(ack.m_view_secret_key, received_index);
         hwdev.sc_secret_add(scalar_step2, scalar_step1,subaddr_sk);
       }
 

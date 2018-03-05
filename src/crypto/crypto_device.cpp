@@ -35,15 +35,11 @@
 namespace crypto {
 
     secret_key generate_keys(public_key &pub, secret_key &sec, const secret_key& recovery_key, bool recover, hw::device &hwdev) {
-        secret_key rng;
-        hwdev.generate_keys(pub, sec, recovery_key, recover, rng);
-        return rng;
+        return hwdev.generate_keys(pub, sec, recovery_key, recover);
     }
 
     secret_key generate_keys(public_key &pub, secret_key &sec, hw::device &hwdev) {
-        secret_key rng;
-        hwdev.generate_keys(pub, sec,  secret_key(), false, rng);
-        return rng;
+        return hwdev.generate_keys(pub, sec,  secret_key(), false);
     }
 
 

@@ -840,18 +840,14 @@ void wallet2::set_seed_language(const std::string &language)
 //----------------------------------------------------------------------------------------------------
 cryptonote::account_public_address wallet2::get_subaddress(const cryptonote::subaddress_index& index) const
 {
-  cryptonote::account_public_address address;
   hw::device &hwdev = m_account.get_device();
-  hwdev.get_subaddress(m_account.get_keys(), index,address);
-  return address;
+  return hwdev.get_subaddress(m_account.get_keys(), index);
 }
 //----------------------------------------------------------------------------------------------------
 crypto::public_key wallet2::get_subaddress_spend_public_key(const cryptonote::subaddress_index& index) const
 {
-  crypto::public_key D ;
   hw::device &hwdev = m_account.get_device();
-  hwdev.get_subaddress_spend_public_key(m_account.get_keys(), index, D);
-  return D;
+  return hwdev.get_subaddress_spend_public_key(m_account.get_keys(), index);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_subaddress_as_str(const cryptonote::subaddress_index& index) const
