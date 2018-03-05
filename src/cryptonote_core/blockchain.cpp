@@ -3564,6 +3564,7 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
     m_db->block_txn_stop();
+    m_blocks_txs_check.clear();
     return false;
   }
 
@@ -3573,7 +3574,9 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
     m_db->block_txn_stop();
-    return handle_alternative_block(bl, id, bvc);
+    bool r = handle_alternative_block(bl, id, bvc);
+    m_blocks_txs_check.clear();
+    return r;
     //never relay alternative blocks
   }
 
