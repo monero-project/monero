@@ -48,3 +48,8 @@ void cn_fast_hash(const void *data, size_t length, char *hash) {
   hash_process(&state, data, length);
   memcpy(hash, &state, HASH_SIZE);
 }
+
+void cn_pad_by_fast_hash__C(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
+{
+  keccak(in, inlen, md, mdlen);
+}

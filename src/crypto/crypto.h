@@ -72,7 +72,13 @@ namespace crypto {
     friend class crypto_ops;
   };
 
+  POD_CLASS ec_nonscalar_16Byte {
+    // extension to support old deprecated 16B/13-word seeds
+    char data[16];
+  };
+
   using secret_key = tools::scrubbed<ec_scalar>;
+  using legacy16B_secret_key = tools::scrubbed<ec_nonscalar_16Byte>;
 
   POD_CLASS public_keyV {
     std::vector<public_key> keys;
@@ -106,8 +112,16 @@ namespace crypto {
 
   void hash_to_scalar(const void *data, size_t length, ec_scalar &res);
 
+  /* Normalizes a 16-byte, 13-word seed to a crypto::secret_key
+   */
+  void coerce_valid_sec_key_from(
+    const legacy16B_secret_key &legacy16B_mymonero_sec_seed,
+    secret_key &dst__sec_seed
+  );
+
   static_assert(sizeof(ec_point) == 32 && sizeof(ec_scalar) == 32 &&
     sizeof(public_key) == 32 && sizeof(secret_key) == 32 &&
+    sizeof(legacy16B_secret_key) == 16 &&
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
     sizeof(signature) == 64, "Invalid structure size");
 
@@ -299,12 +313,20 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::legacy16B_secret_key &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
 
   const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
   const static crypto::secret_key null_skey = boost::value_initialized<crypto::secret_key>();
+  const static crypto::legacy16B_secret_key null_legacy16B_skey = boost::value_initialized<crypto::legacy16B_secret_key>();
+
+  const static unsigned long sec_seed_hex_string_length = sizeof(secret_key) * 2;
+  const static unsigned long legacy16B__sec_seed_hex_string_length = sizeof(legacy16B_secret_key) * 2;
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE(secret_key)
+CRYPTO_MAKE_HASHABLE(legacy16B_secret_key)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)

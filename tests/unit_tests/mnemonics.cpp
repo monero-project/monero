@@ -71,12 +71,14 @@ namespace
    * \brief Tests the given language mnemonics.
    * \param language A Language instance to test
    */
+  template <bool mymonero_style>
   void test_language(const Language::Base &language)
   {
+    using key_t = typename std::conditional<mymonero_style, crypto::legacy16B_secret_key, crypto::secret_key>::type;
     const std::vector<std::string> &word_list = language.get_word_list();
     std::string seed = "", return_seed = "";
     // Generate a random seed without checksum
-    crypto::secret_key randkey;
+    key_t randkey;
     for (size_t ii = 0; ii < sizeof(randkey); ++ii)
     {
       randkey.data[ii] = rand();
@@ -87,10 +89,10 @@ namespace
     ASSERT_TRUE(space != NULL);
     seed = std::string(seed.c_str(), space-seed.c_str());
 
-    std::cout << "Test seed without checksum:\n";
+    std::cout << "Test seed without checksum" << (mymonero_style ? " (MyMonero-style)" : "") << ":\n";
     std::cout << seed << std::endl;
 
-    crypto::secret_key key;
+    key_t key;
     std::string language_name;
     bool res;
     std::vector<std::string> seed_vector, return_seed_vector;
@@ -175,7 +177,8 @@ TEST(mnemonics, all_languages)
   for (std::vector<Language::Base*>::iterator it = languages.begin(); it != languages.end(); it++)
   {
     try {
-      test_language(*(*it));
+      test_language<false>(*(*it));
+      test_language<true>(*(*it));
     }
     catch (const std::exception &e) {
       std::cout << "Error testing " << (*it)->get_language_name() << " language: " << e.what() << std::endl;
@@ -200,5 +203,22 @@ TEST(mnemonics, language_detection_with_bad_checksum)
 
     res = crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name);
     ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "Português");
+}
+
+TEST(mnemonics, language_detection_with_bad_checksum_mymonero)
+{
+    crypto::legacy16B_secret_key key;
+    std::string language_name;
+    bool res;
+
+    // This Portuguese (4-prefix) seed has all its words with 3-prefix that's also present in English
+    const std::string base_seed = "cinzento luxuriante leonardo gnostico digressao cupula fifa broxar iniquo louvor ovario dorsal";
+    const std::string real_checksum = "cupula";
+
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(base_seed, key, language_name));
+    ASSERT_STREQ(language_name.c_str(), "Português");
+
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name));
     ASSERT_STREQ(language_name.c_str(), "Português");
 }

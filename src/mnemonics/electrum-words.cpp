@@ -194,7 +194,7 @@ namespace
     }
     boost::crc_32_type result;
     result.process_bytes(trimmed_words.data(), trimmed_words.length());
-    return result.checksum() % crypto::ElectrumWords::seed_length;
+    return result.checksum() % word_list.size();
   }
 
   /*!
@@ -335,7 +335,18 @@ namespace crypto
         return false;
       if (s.size() != sizeof(dst))
         return false;
-      dst = *(const crypto::secret_key*)s.data();
+      memcpy(dst.data, s.data(), sizeof(dst.data));
+      return true;
+    }
+
+    bool words_to_bytes(std::string words, legacy16B_secret_key& dst, std::string &language_name)
+    {
+      std::string s;
+      if (!words_to_bytes(words, s, sizeof(dst), true, language_name))
+        return false;
+      if (s.size() != sizeof(dst))
+        return false;
+      memcpy(dst.data, s.data(), sizeof(dst.data));
       return true;
     }
 
@@ -445,6 +456,11 @@ namespace crypto
       return bytes_to_words(src.data, sizeof(src), words, language_name);
     }
 
+    bool bytes_to_words(const legacy16B_secret_key& src, std::string& words, 
+      const std::string &language_name)
+    {
+      return bytes_to_words(src.data, sizeof(src), words, language_name);
+    }
     /*!
      * \brief Gets a list of seed languages that are supported.
      * \param languages The vector is set to the list of languages.
