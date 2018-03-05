@@ -233,16 +233,16 @@ bool Wallet::paymentIdValid(const string &paiment_id)
     return false;
 }
 
-bool Wallet::addressValid(const std::string &str, bool testnet)
+bool Wallet::addressValid(const std::string &str, NetworkType nettype)
 {
   cryptonote::address_parse_info info;
-  return get_account_address_from_str(info, testnet ? TESTNET : MAINNET, str);
+  return get_account_address_from_str(info, static_cast<cryptonote::network_type>(nettype), str);
 }
 
-bool Wallet::keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)
+bool Wallet::keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, NetworkType nettype, std::string &error)
 {
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, testnet ? TESTNET : MAINNET, address_string)) {
+  if(!get_account_address_from_str(info, static_cast<cryptonote::network_type>(nettype), address_string)) {
       error = tr("Failed to parse address");
       return false;
   }
@@ -275,10 +275,10 @@ bool Wallet::keyValid(const std::string &secret_key_string, const std::string &a
   return true;
 }
 
-std::string Wallet::paymentIdFromAddress(const std::string &str, bool testnet)
+std::string Wallet::paymentIdFromAddress(const std::string &str, NetworkType nettype)
 {
   cryptonote::address_parse_info info;
-  if (!get_account_address_from_str(info, testnet ? TESTNET : MAINNET, str))
+  if (!get_account_address_from_str(info, static_cast<cryptonote::network_type>(nettype), str))
     return "";
   if (!info.has_payment_id)
     return "";
@@ -300,7 +300,7 @@ void Wallet::debug(const std::string &str) {
 }
 
 ///////////////////////// WalletImpl implementation ////////////////////////
-WalletImpl::WalletImpl(bool testnet)
+WalletImpl::WalletImpl(NetworkType nettype)
     :m_wallet(nullptr)
     , m_status(Wallet::Status_Ok)
     , m_trustedDaemon(false)
@@ -310,7 +310,7 @@ WalletImpl::WalletImpl(bool testnet)
     , m_rebuildWalletCache(false)
     , m_is_connected(false)
 {
-    m_wallet = new tools::wallet2(testnet ? TESTNET : MAINNET);
+    m_wallet = new tools::wallet2(static_cast<cryptonote::network_type>(nettype));
     m_history = new TransactionHistoryImpl(this);
     m_wallet2Callback = new Wallet2CallbackImpl(this);
     m_wallet->callback(m_wallet2Callback);
