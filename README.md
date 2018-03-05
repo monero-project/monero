@@ -166,7 +166,7 @@ library archives (`.a`).
 | Dep          | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg     | Fedora            | Optional | Purpose        |
 | ------------ | ------------- | -------- | ------------------ | ------------ | ----------------- | -------- | -------------- |
 | GCC          | 4.7.3         | NO       | `build-essential`  | `base-devel` | `gcc`             | NO       |                |
-| CMake        | 3.0.0         | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
+| CMake        | 3.2.0         | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
 | pkg-config   | any           | NO       | `pkg-config`       | `base-devel` | `pkgconf`         | NO       |                |
 | Boost        | 1.58          | NO       | `libboost-all-dev` | `boost`      | `boost-devel`     | NO       | C++ libraries  |
 | OpenSSL      | basically any | NO       | `libssl-dev`       | `openssl`    | `openssl-devel`   | NO       | sha256 sum     |
@@ -251,7 +251,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.11.0.0
+	git checkout tags/v0.11.1.0
 ```
 * Build:
 ```

@@ -162,7 +162,7 @@ namespace tools
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
-    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev);
 
     wallet2(bool testnet = false, bool restricted = false);
 
@@ -488,6 +488,14 @@ namespace tools
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& viewkey = crypto::secret_key());
     /*!
+     * \brief Restore a wallet hold by an HW.
+     * \param  wallet_        Name of wallet file
+     * \param  password       Password of wallet file
+     * \param  device_name    name of HW to use
+     */
+    void restore(const std::string& wallet_, const epee::wipeable_string& password, const std::string &device_name);
+
+    /*!
      * \brief Creates a multisig wallet
      * \return empty if done, non empty if we need to send another string
      * to other participants
@@ -562,6 +570,9 @@ namespace tools
     void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height;}
     uint64_t get_refresh_from_block_height() const {return m_refresh_from_block_height;}
 
+    void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
+    bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
+
     // upper_transaction_size_limit as defined below is set to 
     // approximately 125% of the fixed minimum allowable penalty
     // free block size. TODO: fix this so that it actually takes
@@ -603,6 +614,7 @@ namespace tools
     cryptonote::account_public_address get_subaddress(const cryptonote::subaddress_index& index) const;
     cryptonote::account_public_address get_address() const { return get_subaddress({0,0}); }
     crypto::public_key get_subaddress_spend_public_key(const cryptonote::subaddress_index& index) const;
+    std::vector<crypto::public_key> get_subaddress_spend_public_keys(uint32_t account, uint32_t begin, uint32_t end) const;
     std::string get_subaddress_as_str(const cryptonote::subaddress_index& index) const;
     std::string get_address_as_str() const { return get_subaddress_as_str({0, 0}); }
     std::string get_integrated_address_as_str(const crypto::hash8& payment_id) const;
@@ -632,6 +644,7 @@ namespace tools
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
     bool get_multisig_seed(std::string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;
+    bool key_on_device() const { return m_key_on_device; }
 
     // locked & unlocked balance of given or current subaddress account
     uint64_t balance(uint32_t subaddr_index_major) const;
@@ -780,7 +793,8 @@ namespace tools
       if (ver < 20)
         return;
       a & m_subaddresses;
-      a & m_subaddresses_inv;
+      std::unordered_map<cryptonote::subaddress_index, crypto::public_key> dummy_subaddresses_inv;
+      a & dummy_subaddresses_inv;
       a & m_subaddress_labels;
       a & m_additional_tx_keys;
       if(ver < 21)
@@ -1087,7 +1101,6 @@ namespace tools
     std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
-    std::unordered_map<cryptonote::subaddress_index, crypto::public_key> m_subaddresses_inv;
     std::vector<std::vector<std::string>> m_subaddress_labels;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     std::unordered_map<std::string, std::string> m_attributes;
@@ -1102,6 +1115,7 @@ namespace tools
     boost::mutex m_daemon_rpc_mutex;
 
     i_wallet2_callback* m_callback;
+    bool m_key_on_device;
     bool m_testnet;
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
@@ -1118,6 +1132,9 @@ namespace tools
     RefreshType m_refresh_type;
     bool m_auto_refresh;
     uint64_t m_refresh_from_block_height;
+    // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
+    // m_refresh_from_block_height was defaulted to zero.*/
+    bool m_explicit_refresh_from_block_height;
     bool m_confirm_missing_payment_id;
     bool m_ask_password;
     uint32_t m_min_output_count;

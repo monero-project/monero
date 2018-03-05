@@ -81,6 +81,7 @@ namespace nodetool
     node_server(t_payload_net_handler& payload_handler)
       :m_payload_handler(payload_handler),
     m_current_number_of_out_peers(0),
+    m_current_number_of_in_peers(0),
     m_allow_local_ip(false),
     m_hide_my_port(false),
     m_no_igd(false),
@@ -117,8 +118,10 @@ namespace nodetool
     bool log_connections();
     virtual uint64_t get_connections_count();
     size_t get_outgoing_connections_count();
+    size_t get_incoming_connections_count();
     peerlist_manager& get_peerlist_manager(){return m_peerlist;}
-    void delete_connections(size_t count);
+    void delete_out_connections(size_t count);
+    void delete_in_connections(size_t count);
     virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
@@ -214,7 +217,7 @@ namespace nodetool
     void add_upnp_port_mapping(uint32_t port);
     void delete_upnp_port_mapping(uint32_t port);
     template<class t_callback>
-    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback cb);
+    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(PeerType peer_type, size_t expected_connections);
     void cache_connect_fail_info(const epee::net_utils::network_address& addr);
@@ -230,6 +233,7 @@ namespace nodetool
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
     bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool set_max_in_peers(const boost::program_options::variables_map& vm, int64_t max);
     bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
 
     bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
@@ -271,6 +275,7 @@ namespace nodetool
   public:
     config m_config; // TODO was private, add getters?
     std::atomic<unsigned int> m_current_number_of_out_peers;
+    std::atomic<unsigned int> m_current_number_of_in_peers;
 
     void set_save_graph(bool save_graph)
     {
@@ -332,8 +337,7 @@ namespace nodetool
     const int64_t default_limit_up = 2048;
     const int64_t default_limit_down = 8192;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
-    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port;
-    extern const command_line::arg_descriptor<std::string> arg_testnet_p2p_bind_port;
+    extern const command_line::arg_descriptor<std::string, false, true> arg_p2p_bind_port;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
     extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer;
@@ -345,6 +349,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<bool>        arg_no_igd;
     extern const command_line::arg_descriptor<bool>        arg_offline;
     extern const command_line::arg_descriptor<int64_t>     arg_out_peers;
+    extern const command_line::arg_descriptor<int64_t>     arg_in_peers;
     extern const command_line::arg_descriptor<int> arg_tos_flag;
 
     extern const command_line::arg_descriptor<int64_t> arg_limit_rate_up;

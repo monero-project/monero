@@ -38,7 +38,7 @@ namespace
 {
   bool lift_up_difficulty(std::vector<test_event_entry>& events, std::vector<uint64_t>& timestamps,
                           std::vector<difficulty_type>& cummulative_difficulties, test_generator& generator,
-                          size_t new_block_count, const block blk_last, const account_base& miner_account)
+                          size_t new_block_count, const block &blk_last, const account_base& miner_account)
   {
     difficulty_type commulative_diffic = cummulative_difficulties.empty() ? 0 : cummulative_difficulties.back();
     block blk_prev = blk_last;

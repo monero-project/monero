@@ -34,6 +34,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 
 namespace tools
 {
@@ -57,7 +58,7 @@ public:
     void dec();
     void wait();  //! Wait for a set of tasks to finish.
     waiter() : num(0){}
-    ~waiter() { wait(); }
+    ~waiter();
   };
 
   // Submit a task to the pool. The waiter pointer may be

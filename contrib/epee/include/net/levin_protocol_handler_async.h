@@ -77,6 +77,8 @@ class async_protocol_handler_config
   levin_commands_handler<t_connection_context>* m_pcommands_handler;
   void (*m_pcommands_handler_destroy)(levin_commands_handler<t_connection_context>*);
 
+  void delete_connections (size_t count, bool incoming);
+
 public:
   typedef t_connection_context connection_context;
   uint64_t m_max_packet_size; 
@@ -84,16 +86,16 @@ public:
 
   int invoke(int command, const std::string& in_buff, std::string& buff_out, boost::uuids::uuid connection_id);
   template<class callback_t>
-  int invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, callback_t cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
+  int invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
   int notify(int command, const std::string& in_buff, boost::uuids::uuid connection_id);
   bool close(boost::uuids::uuid connection_id);
   bool update_connection_context(const t_connection_context& contxt);
   bool request_callback(boost::uuids::uuid connection_id);
   template<class callback_t>
-  bool foreach_connection(callback_t cb);
+  bool foreach_connection(const callback_t &cb);
   template<class callback_t>
-  bool for_connection(const boost::uuids::uuid &connection_id, callback_t cb);
+  bool for_connection(const boost::uuids::uuid &connection_id, const callback_t &cb);
   size_t get_connections_count();
   void set_handler(levin_commands_handler<t_connection_context>* handler, void (*destroy)(levin_commands_handler<t_connection_context>*) = NULL);
 
@@ -101,6 +103,7 @@ public:
   {}
   ~async_protocol_handler_config() { set_handler(NULL, NULL); }
   void del_out_connections(size_t count);
+  void del_in_connections(size_t count);
 };
 
 
@@ -245,7 +248,7 @@ public:
   std::list<boost::shared_ptr<invoke_response_handler_base> > m_invoke_response_handlers;
   
   template<class callback_t>
-  bool add_invoke_response_handler(callback_t cb, uint64_t timeout,  async_protocol_handler& con, int command)
+  bool add_invoke_response_handler(const callback_t &cb, uint64_t timeout,  async_protocol_handler& con, int command)
   {
     CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
     boost::shared_ptr<invoke_response_handler_base> handler(boost::make_shared<anvoke_handler<callback_t>>(cb, timeout, con, command));
@@ -529,7 +532,7 @@ public:
   }
 
   template<class callback_t>
-  bool async_invoke(int command, const std::string& in_buff, callback_t cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+  bool async_invoke(int command, const std::string& in_buff, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {
     misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
       boost::bind(&async_protocol_handler::finish_outer_call, this));
@@ -731,41 +734,50 @@ void async_protocol_handler_config<t_connection_context>::del_connection(async_p
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
+void async_protocol_handler_config<t_connection_context>::delete_connections(size_t count, bool incoming)
+{
+  std::vector <boost::uuids::uuid> connections;
+  CRITICAL_REGION_BEGIN(m_connects_lock);
+  for (auto& c: m_connects)
+  {
+    if (c.second->m_connection_context.m_is_income == incoming)
+      connections.push_back(c.first);
+  }
+
+  // close random connections from  the provided set
+  // TODO or better just keep removing random elements (performance)
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  shuffle(connections.begin(), connections.end(), std::default_random_engine(seed));
+  while (count > 0 && connections.size() > 0)
+  {
+    try
+    {
+      auto i = connections.end() - 1;
+      async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
+      del_connection(conn);
+      close(*i);
+      connections.erase(i);
+    }
+    catch (const std::out_of_range &e)
+    {
+      MWARNING("Connection not found in m_connects, continuing");
+    }
+    --count;
+  }
+
+  CRITICAL_REGION_END();
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
 void async_protocol_handler_config<t_connection_context>::del_out_connections(size_t count)
 {
-	std::vector <boost::uuids::uuid> out_connections;
-	CRITICAL_REGION_BEGIN(m_connects_lock);
-	for (auto& c: m_connects)
-	{
-		if (!c.second->m_connection_context.m_is_income)
-			out_connections.push_back(c.first);
-	}
-	
-	if (out_connections.size() == 0)
-		return;
-
-	// close random out connections
-	// TODO or better just keep removing random elements (performance)
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-	shuffle(out_connections.begin(), out_connections.end(), std::default_random_engine(seed));
-	while (count > 0 && out_connections.size() > 0)
-	{
-		try
-		{
-			auto i = out_connections.end() - 1;
-			async_protocol_handler<t_connection_context> *conn = m_connects.at(*i);
-			del_connection(conn);
-			close(*i);
-			out_connections.erase(i);
-		}
-		catch (const std::out_of_range &e)
-		{
-			MWARNING("Connection not found in m_connects, continuing");
-		}
-		--count;
-	}
-	
-	CRITICAL_REGION_END();
+  delete_connections(count, false);
+}
+//------------------------------------------------------------------------------------------
+template<class t_connection_context>
+void async_protocol_handler_config<t_connection_context>::del_in_connections(size_t count)
+{
+  delete_connections(count, true);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
@@ -805,7 +817,7 @@ int async_protocol_handler_config<t_connection_context>::invoke(int command, con
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-int async_protocol_handler_config<t_connection_context>::invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, callback_t cb, size_t timeout)
+int async_protocol_handler_config<t_connection_context>::invoke_async(int command, const std::string& in_buff, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout)
 {
   async_protocol_handler<t_connection_context>* aph;
   int r = find_and_lock_connection(connection_id, aph);
@@ -813,7 +825,7 @@ int async_protocol_handler_config<t_connection_context>::invoke_async(int comman
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-bool async_protocol_handler_config<t_connection_context>::foreach_connection(callback_t cb)
+bool async_protocol_handler_config<t_connection_context>::foreach_connection(const callback_t &cb)
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   for(auto& c: m_connects)
@@ -826,7 +838,7 @@ bool async_protocol_handler_config<t_connection_context>::foreach_connection(cal
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-bool async_protocol_handler_config<t_connection_context>::for_connection(const boost::uuids::uuid &connection_id, callback_t cb)
+bool async_protocol_handler_config<t_connection_context>::for_connection(const boost::uuids::uuid &connection_id, const callback_t &cb)
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   async_protocol_handler<t_connection_context>* aph = find_connection(connection_id);

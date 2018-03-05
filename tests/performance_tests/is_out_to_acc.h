@@ -66,7 +66,7 @@ public:
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[m_bob.get_keys().m_account_address.m_spend_public_key] = {0,0};
     std::vector<crypto::key_derivation> additional_derivations;
-    boost::optional<cryptonote::subaddress_receive_info> info = cryptonote::is_out_to_acc_precomp(subaddresses, tx_out.key, m_derivation, additional_derivations, 0);
+    boost::optional<cryptonote::subaddress_receive_info> info = cryptonote::is_out_to_acc_precomp(subaddresses, tx_out.key, m_derivation, additional_derivations, 0, hw::get_device("default"));
     return (bool)info;
   }
 

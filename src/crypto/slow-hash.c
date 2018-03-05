@@ -515,8 +515,11 @@ void slow_hash_free_state(void)
  * @param length the length in bytes of the data
  * @param hash a pointer to a buffer in which the final 256 bit hash will be stored
  */
+void cn_slow_hash(const void *data, size_t length, char *hash) {
+    cn_slow_hash_pre(data,length,hash,false);
+}
 
-void cn_slow_hash(const void *data, size_t length, char *hash)
+void cn_slow_hash_pre(const void *data, size_t length, char *hash, bool prehashed)
 {
     RDATA_ALIGN16 uint8_t expandedKey[240];  /* These buffers are aligned to use later with SSE functions */
 
@@ -543,8 +546,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash)
         slow_hash_allocate_state();
 
     /* CryptoNight Step 1:  Use Keccak1600 to initialize the 'state' (and 'text') buffers from the data. */
-
-    hash_process(&state.hs, data, length);
+    if (prehashed) {
+        memcpy(&state.hs, data, length);
+    } else {
+        hash_process(&state.hs, data, length);
+    }
     memcpy(text, state.init, INIT_SIZE_BYTE);
 
     /* CryptoNight Step 2:  Iteratively encrypt the results from Keccak to fill

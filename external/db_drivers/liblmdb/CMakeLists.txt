@@ -46,10 +46,6 @@ add_library(lmdb
 target_link_libraries(lmdb
   PRIVATE
     ${CMAKE_THREAD_LIBS_INIT})
-if(WIN32)
-  target_link_libraries(lmdb
-    -lntdll)
-endif()
 if(${ARCH_WIDTH} EQUAL 32)
   target_compile_definitions(lmdb
     PUBLIC -DMDB_VL32)

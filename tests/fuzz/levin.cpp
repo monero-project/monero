@@ -299,7 +299,7 @@ int LevinFuzzer::run(const std::string &filename)
 {
   std::string s;
 
-//
+#if 0
   epee::levin::bucket_head2 req_head;
   req_head.m_signature = LEVIN_SIGNATURE;
   req_head.m_cb = 0;
@@ -307,10 +307,11 @@ int LevinFuzzer::run(const std::string &filename)
   req_head.m_command = 2000;
   req_head.m_flags = LEVIN_PACKET_REQUEST;
   req_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+  req_head.m_return_code = 0;
   FILE *f=fopen("/tmp/out.levin", "w");
   fwrite(&req_head,sizeof(req_head),1, f);
   fclose(f);
-//
+#endif
   if (!epee::file_io_utils::load_file_to_string(filename, s))
   {
     std::cout << "Error: failed to load file " << filename << std::endl;

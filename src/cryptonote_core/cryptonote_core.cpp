@@ -66,18 +66,21 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace cryptonote
 {
-  const command_line::arg_descriptor<std::string> arg_data_dir = {
-    "data-dir"
-  , "Specify data directory"
-  };
-  const command_line::arg_descriptor<std::string> arg_testnet_data_dir = {
-    "testnet-data-dir"
-  , "Specify testnet data directory"
-  };
   const command_line::arg_descriptor<bool, false> arg_testnet_on  = {
     "testnet"
   , "Run on testnet. The wallet must be launched with --testnet flag."
   , false
+  };
+  const command_line::arg_descriptor<std::string, false, true> arg_data_dir = {
+    "data-dir"
+  , "Specify data directory"
+  , tools::get_default_data_dir()
+  , arg_testnet_on
+  , [](bool testnet, bool defaulted, std::string val) {
+      if (testnet)
+        return (boost::filesystem::path(val) / "testnet").string();
+      return val;
+    }
   };
   const command_line::arg_descriptor<bool> arg_offline = {
     "offline"
@@ -134,8 +137,18 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<bool> arg_fluffy_blocks  = {
     "fluffy-blocks"
-  , "Relay blocks as fluffy blocks where possible (automatic on testnet)"
+  , "Relay blocks as fluffy blocks (obsolete, now default)"
+  , true
+  };
+  static const command_line::arg_descriptor<bool> arg_no_fluffy_blocks  = {
+    "no-fluffy-blocks"
+  , "Relay blocks as normal blocks"
   , false
+  };
+  static const command_line::arg_descriptor<size_t> arg_max_txpool_size  = {
+    "max-txpool-size"
+  , "Set maximum txpool size in bytes."
+  , DEFAULT_TXPOOL_MAX_SIZE
   };
 
   //-----------------------------------------------------------------------------------------------
@@ -224,8 +237,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------
   void core::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, arg_data_dir, tools::get_default_data_dir());
-    command_line::add_arg(desc, arg_testnet_data_dir, (boost::filesystem::path(tools::get_default_data_dir()) / "testnet").string());
+    command_line::add_arg(desc, arg_data_dir);
 
     command_line::add_arg(desc, arg_test_drop_download);
     command_line::add_arg(desc, arg_test_drop_download_height);
@@ -238,9 +250,11 @@ namespace cryptonote
     command_line::add_arg(desc, arg_block_sync_size);
     command_line::add_arg(desc, arg_check_updates);
     command_line::add_arg(desc, arg_fluffy_blocks);
+    command_line::add_arg(desc, arg_no_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
+    command_line::add_arg(desc, arg_max_txpool_size);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -250,8 +264,7 @@ namespace cryptonote
   {
     m_testnet = command_line::get_arg(vm, arg_testnet_on);
 
-    auto data_dir_arg = m_testnet ? arg_testnet_data_dir : arg_data_dir;
-    m_config_folder = command_line::get_arg(vm, data_dir_arg);
+    m_config_folder = command_line::get_arg(vm, arg_data_dir);
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
@@ -273,9 +286,11 @@ namespace cryptonote
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
-    m_fluffy_blocks_enabled = m_testnet || get_arg(vm, arg_fluffy_blocks);
+    m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
     m_offline = get_arg(vm, arg_offline);
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
+    if (!command_line::is_arg_defaulted(vm, arg_fluffy_blocks))
+      MWARNING(arg_fluffy_blocks.name << " is obsolete, it is now default");
 
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
@@ -359,6 +374,7 @@ namespace cryptonote
     bool fast_sync = command_line::get_arg(vm, arg_fast_block_sync) != 0;
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
+    size_t max_txpool_size = command_line::get_arg(vm, arg_max_txpool_size);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_fakechain)
@@ -477,7 +493,7 @@ namespace cryptonote
 
     r = m_blockchain_storage.init(db.release(), m_testnet, m_offline, test_options);
 
-    r = m_mempool.init();
+    r = m_mempool.init(max_txpool_size);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
     // now that we have a valid m_blockchain_storage, we can clean out any
@@ -1372,7 +1388,7 @@ namespace cryptonote
         break;
       case HardFork::UpdateNeeded:
         MCLOG_RED(level, "global", "**********************************************************************");
-        MCLOG_RED(level, "global", "Last scheduled hard fork time shows a daemon update is needed now.");
+        MCLOG_RED(level, "global", "Last scheduled hard fork time shows a daemon update is needed soon.");
         MCLOG_RED(level, "global", "**********************************************************************");
         break;
       default:

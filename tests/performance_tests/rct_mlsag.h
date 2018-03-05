@@ -65,7 +65,7 @@ public:
     {
         sk[j] = xm[ind][j];
     }
-    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows);
+    IIccss = MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
 
     return true;
   }
@@ -75,7 +75,7 @@ public:
     if (ver)
       MLSAG_Ver(rct::identity(), P, IIccss, rows);
     else
-      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows);
+      MLSAG_Gen(rct::identity(), P, sk, NULL, NULL, ind, rows, hw::get_device("default"));
     return true;
   }
 

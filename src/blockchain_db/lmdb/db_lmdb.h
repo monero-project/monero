@@ -112,6 +112,7 @@ struct mdb_txn_safe
   // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
   // to properly abort, since mdb_env_close would have been called earlier.
   void abort();
+  void uncheck();
 
   operator MDB_txn*()
   {

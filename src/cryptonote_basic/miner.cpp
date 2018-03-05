@@ -198,7 +198,8 @@ namespace cryptonote
       {
         uint64_t total_hr = std::accumulate(m_last_hash_rates.begin(), m_last_hash_rates.end(), 0);
         float hr = static_cast<float>(total_hr)/static_cast<float>(m_last_hash_rates.size());
-        std::cout << "hashrate: " << std::setprecision(4) << std::fixed << hr << ENDL;
+        const auto precision = std::cout.precision();
+        std::cout << "hashrate: " << std::setprecision(4) << std::fixed << hr << precision << ENDL;
       }
     }
     m_last_hr_merge_time = misc_utils::get_tick_count();
@@ -623,20 +624,14 @@ namespace cryptonote
         continue; // if interrupted because stop called, loop should end ..
       }
 
-      boost::tribool battery_powered(on_battery_power());
-      bool on_ac_power = false;
-      if(indeterminate( battery_powered ))
+      bool on_ac_power = m_ignore_battery;
+      if(!m_ignore_battery)
       {
-        // name could be better, only ignores battery requirement if we failed
-        // to get the status of the system
-        if( m_ignore_battery )
+        boost::tribool battery_powered(on_battery_power());
+        if(!indeterminate( battery_powered ))
         {
-          on_ac_power = true;
+          on_ac_power = !battery_powered;
         }
-      }
-      else
-      {
-        on_ac_power = !battery_powered;
       }
 
       if( m_is_background_mining_started )

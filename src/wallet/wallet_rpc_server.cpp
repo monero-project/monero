@@ -39,6 +39,7 @@ using namespace epee;
 #include "wallet/wallet_args.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
+#include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/account.h"
 #include "multisig/multisig.h"
@@ -1803,11 +1804,11 @@ namespace tools
       return false;
     }
 
-    uint64_t min_height = 0, max_height = (uint64_t)-1;
+    uint64_t min_height = 0, max_height = CRYPTONOTE_MAX_BLOCK_NUMBER;
     if (req.filter_by_height)
     {
       min_height = req.min_height;
-      max_height = req.max_height;
+      max_height = req.max_height <= max_height ? req.max_height : max_height;
     }
 
     if (req.in)
@@ -1889,8 +1890,15 @@ namespace tools
       return false;
     }
 
+    if (req.account_index >= m_wallet->get_num_subaddress_accounts())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_ACCOUNT_INDEX_OUT_OF_BOUNDS;
+      er.message = "Account index is out of bound";
+      return false;
+    }
+
     std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
-    m_wallet->get_payments(payments, 0);
+    m_wallet->get_payments(payments, 0, (uint64_t)-1, req.account_index);
     for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       if (i->second.m_tx_hash == txid)
       {
@@ -1900,7 +1908,7 @@ namespace tools
     }
 
     std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments_out;
-    m_wallet->get_payments_out(payments_out, 0);
+    m_wallet->get_payments_out(payments_out, 0, (uint64_t)-1, req.account_index);
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments_out.begin(); i != payments_out.end(); ++i) {
       if (i->first == txid)
       {
@@ -1910,7 +1918,7 @@ namespace tools
     }
 
     std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> upayments;
-    m_wallet->get_unconfirmed_payments_out(upayments);
+    m_wallet->get_unconfirmed_payments_out(upayments, req.account_index);
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       if (i->first == txid)
       {
@@ -1922,7 +1930,7 @@ namespace tools
     m_wallet->update_pool_state();
 
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pool_payments;
-    m_wallet->get_unconfirmed_payments(pool_payments);
+    m_wallet->get_unconfirmed_payments(pool_payments, req.account_index);
     for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
       if (i->second.m_pd.m_tx_hash == txid)
       {
@@ -2397,6 +2405,11 @@ namespace tools
     {
       std::rethrow_exception(e);
     }
+    catch (const tools::error::no_connection_to_daemon& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = e.what();
+    }
     catch (const tools::error::daemon_busy& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_DAEMON_IS_BUSY;
@@ -2412,6 +2425,11 @@ namespace tools
       er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_MONEY;
       er.message = e.what();
     }
+    catch (const tools::error::not_enough_unlocked_money& e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_UNLOCKED_MONEY;
+      er.message = e.what();
+    }
     catch (const tools::error::tx_not_possible& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
@@ -2425,7 +2443,7 @@ namespace tools
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
       er.code = WALLET_RPC_ERROR_CODE_NOT_ENOUGH_OUTS_TO_MIX;
-      er.message = e.what();
+      er.message = e.what() + std::string(" Please use sweep_dust.");
     }
     catch (const error::file_exists& e)
     {
@@ -2439,12 +2457,12 @@ namespace tools
     }
     catch (const error::account_index_outofbound& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_ACCOUNT_INDEX_OUTOFBOUND;
+      er.code = WALLET_RPC_ERROR_CODE_ACCOUNT_INDEX_OUT_OF_BOUNDS;
       er.message = e.what();
     }
     catch (const error::address_index_outofbound& e)
     {
-      er.code = WALLET_RPC_ERROR_CODE_ADDRESS_INDEX_OUTOFBOUND;
+      er.code = WALLET_RPC_ERROR_CODE_ADDRESS_INDEX_OUT_OF_BOUNDS;
       er.message = e.what();
     }
     catch (const std::exception& e)
@@ -2922,12 +2940,12 @@ int main(int argc, char** argv) {
     // if we ^C during potentially length load/refresh, there's no server loop yet
     if (quit)
     {
-      MINFO(tools::wallet_rpc_server::tr("Storing wallet..."));
+      MINFO(tools::wallet_rpc_server::tr("Saving wallet..."));
       wal->store();
-      MINFO(tools::wallet_rpc_server::tr("Stored ok"));
+      MINFO(tools::wallet_rpc_server::tr("Successfully saved"));
       return 1;
     }
-    MINFO(tools::wallet_rpc_server::tr("Loaded ok"));
+    MINFO(tools::wallet_rpc_server::tr("Successfully loaded"));
   }
   catch (const std::exception& e)
   {
@@ -2938,11 +2956,11 @@ just_dir:
   tools::wallet_rpc_server wrpc;
   if (wal) wrpc.set_wallet(wal.release());
   bool r = wrpc.init(&(vm.get()));
-  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet rpc server"));
+  CHECK_AND_ASSERT_MES(r, 1, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
   tools::signal_handler::install([&wrpc](int) {
     wrpc.send_stop_signal();
   });
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet rpc server"));
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
   try
   {
     wrpc.run();
@@ -2952,16 +2970,16 @@ just_dir:
     LOG_ERROR(tools::wallet_rpc_server::tr("Failed to run wallet: ") << e.what());
     return 1;
   }
-  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet rpc server"));
+  LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stopped wallet RPC server"));
   try
   {
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Storing wallet..."));
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Saving wallet..."));
     wrpc.stop();
-    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Stored ok"));
+    LOG_PRINT_L0(tools::wallet_rpc_server::tr("Successfully saved"));
   }
   catch (const std::exception& e)
   {
-    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to store wallet: ") << e.what());
+    LOG_ERROR(tools::wallet_rpc_server::tr("Failed to save wallet: ") << e.what());
     return 1;
   }
   return 0;

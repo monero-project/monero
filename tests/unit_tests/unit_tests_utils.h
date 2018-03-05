@@ -65,3 +65,10 @@ namespace unit_test
     std::atomic<size_t> m_counter;
   };
 }
+
+# define ASSERT_EQ_MAP(val, map, key) \
+  do { \
+    auto found = map.find(key); \
+    ASSERT_TRUE(found != map.end()); \
+    ASSERT_EQ(val, found->second); \
+  } while (false)

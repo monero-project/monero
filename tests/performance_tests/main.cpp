@@ -75,6 +75,7 @@ std::string glob_to_regex(const std::string &val)
 
 int main(int argc, char** argv)
 {
+  TRY_ENTRY();
   tools::on_startup();
   set_process_affinity(1);
   set_thread_high_priority();
@@ -84,7 +85,7 @@ int main(int argc, char** argv)
 
   po::options_description desc_options("Command line options");
   const command_line::arg_descriptor<std::string> arg_filter = { "filter", "Regular expression filter for which tests to run" };
-  command_line::add_arg(desc_options, arg_filter, "");
+  command_line::add_arg(desc_options, arg_filter);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -172,4 +173,5 @@ int main(int argc, char** argv)
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
   return 0;
+  CATCH_ENTRY_L0("main", 1);
 }

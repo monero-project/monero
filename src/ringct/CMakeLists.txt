@@ -28,6 +28,7 @@
 
 set(ringct_sources
   rctOps.cpp
+  rctOps_device.cpp
   rctSigs.cpp
   rctTypes.cpp
   rctCryptoOps.c
@@ -52,6 +53,7 @@ target_link_libraries(ringct
     common
     cncrypto
     cryptonote_basic
+    device
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})

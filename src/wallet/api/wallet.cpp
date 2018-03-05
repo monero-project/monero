@@ -626,7 +626,7 @@ bool WalletImpl::close(bool store)
             if (status() != Status_Critical)
                 m_wallet->store();
             else
-                LOG_ERROR("Status_Critical - not storing wallet");
+                LOG_ERROR("Status_Critical - not saving wallet");
             LOG_PRINT_L1("wallet::store done");
         }
         LOG_PRINT_L1("Calling wallet::stop...");
@@ -732,7 +732,7 @@ bool WalletImpl::store(const std::string &path)
             m_wallet->store_to(path, m_password);
         }
     } catch (const std::exception &e) {
-        LOG_ERROR("Error storing wallet: " << e.what());
+        LOG_ERROR("Error saving wallet: " << e.what());
         m_status = Status_Error;
         m_errorString = e.what();
     }
@@ -1198,6 +1198,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             for (const std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs()) {
                 writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
             }
+            writer << "\n" << tr("Please sweep unmixable outputs.");
             m_errorString = writer.str();
             m_status = Status_Error;
         } catch (const tools::error::tx_not_constructed&) {

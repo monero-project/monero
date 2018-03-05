@@ -36,13 +36,21 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/algorithm/string/join.hpp>
 using namespace epee;
 namespace bf = boost::filesystem;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
 
-#define DEFAULT_DNS_PUBLIC_ADDR "8.8.4.4"
+static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
+{
+  "194.150.168.168",    // CCC (Germany)
+  "81.3.27.54",         // Lightning Wire Labs (Germany)
+  "31.3.135.232",       // OpenNIC (Switzerland)
+  "80.67.169.40",       // FDN (France)
+  "209.58.179.186",     // Cyberghost (Singapore)
+};
 
 static boost::mutex instance_lock;
 
@@ -201,13 +209,13 @@ public:
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
-  std::string dns_public_addr = DEFAULT_DNS_PUBLIC_ADDR;
+  std::vector<std::string> dns_public_addr;
   if (auto res = getenv("DNS_PUBLIC"))
   {
     dns_public_addr = tools::dns_utils::parse_dns_public(res);
     if (!dns_public_addr.empty())
     {
-      MGINFO("Using public DNS server: " << dns_public_addr << " (TCP)");
+      MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
       use_dns_public = 1;
     }
     else
@@ -221,7 +229,8 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    ub_ctx_set_fwd(m_data->m_ub_context, dns_public_addr.c_str());
+    for (const auto &ip: dns_public_addr)
+      ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str());
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
   }
@@ -526,15 +535,16 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   return true;
 }
 
-std::string parse_dns_public(const char *s)
+std::vector<std::string> parse_dns_public(const char *s)
 {
   unsigned ip0, ip1, ip2, ip3;
   char c;
-  std::string dns_public_addr;
+  std::vector<std::string> dns_public_addr;
   if (!strcmp(s, "tcp"))
   {
-    dns_public_addr = DEFAULT_DNS_PUBLIC_ADDR;
-    LOG_PRINT_L0("Using default public DNS server: " << dns_public_addr << " (TCP)");
+    for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
+      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
+    LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
   }
   else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
   {
@@ -544,7 +554,7 @@ std::string parse_dns_public(const char *s)
     }
     else
     {
-      dns_public_addr = std::string(s + strlen("tcp://"));
+      dns_public_addr.push_back(std::string(s + strlen("tcp://")));
     }
   }
   else
