@@ -140,9 +140,7 @@ DISABLE_VS_WARNINGS(4244 4345)
     hwdev.init();
     hwdev.connect();
     hwdev.get_public_address(m_keys.m_account_address);
-    #ifdef DEBUG_HWDEVICE
     hwdev.get_secret_keys(m_keys.m_view_secret_key, m_keys.m_spend_secret_key);
-    #endif
     struct tm timestamp = {0};
     timestamp.tm_year = 2014 - 1900;  // year 2014
     timestamp.tm_mon = 4 - 1;  // month april
