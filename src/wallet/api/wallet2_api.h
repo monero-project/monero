@@ -763,6 +763,12 @@ struct Wallet
     //! unblackballs an output
     virtual bool unblackballOutput(const std::string &pubkey) = 0;
 
+    //! gets the ring used for a key image, if any
+    virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const = 0;
+
+    //! sets the ring used for a key image
+    virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative) = 0;
+
     //! Light wallet authenticate and login
     virtual bool lightWalletLogin(bool &isNewWallet) const = 0;
     

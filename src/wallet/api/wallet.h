@@ -165,6 +165,8 @@ public:
     virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status);
     virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add);
     virtual bool unblackballOutput(const std::string &pubkey);
+    virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const;
+    virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative);
 
 private:
     void clearStatus() const;

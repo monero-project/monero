@@ -1952,6 +1952,44 @@ bool WalletImpl::unblackballOutput(const std::string &pubkey)
     return true;
 }
 
+bool WalletImpl::getRing(const std::string &key_image, std::vector<uint64_t> &ring) const
+{
+    crypto::key_image raw_key_image;
+    if (!epee::string_tools::hex_to_pod(key_image, raw_key_image))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse key image");
+        return false;
+    }
+    bool ret = m_wallet->get_ring(raw_key_image, ring);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to get ring");
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative)
+{
+    crypto::key_image raw_key_image;
+    if (!epee::string_tools::hex_to_pod(key_image, raw_key_image))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse key image");
+        return false;
+    }
+    bool ret = m_wallet->set_ring(raw_key_image, ring, relative);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to set ring");
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 namespace Bitmonero = Monero;
