@@ -506,11 +506,12 @@ namespace rct {
         keyV sk(rows + 1);
         size_t i;
         keyM M(cols, tmp);
+
+        sk[0] = copy(inSk.dest);
+        sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);
         for (i = 0; i < cols; i++) {
             M[i][0] = pubs[i].dest;
             subKeys(M[i][1], pubs[i].mask, Cout);
-            sk[0] = copy(inSk.dest);
-            sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);  
         }
         return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
     }
