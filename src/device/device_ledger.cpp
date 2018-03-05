@@ -30,6 +30,8 @@
 #include "device_ledger.hpp"
 #include "log.hpp"
 #include "ringct/rctOps.h"
+#include "cryptonote_basic/account.h"
+#include "cryptonote_basic/subaddress_index.h"
 
 
 

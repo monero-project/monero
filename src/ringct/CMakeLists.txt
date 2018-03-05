@@ -26,21 +26,39 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(ringct_sources
+set(ringct_basic_sources
   rctOps.cpp
-  rctOps_device.cpp
-  rctSigs.cpp
   rctTypes.cpp
   rctCryptoOps.c
   bulletproofs.cc)
 
+set(ringct_basic_private_headers
+  rctOps.h
+  rctTypes.h
+  bulletproofs.h)
+
+monero_private_headers(ringct_basic
+  ${crypto_private_headers})
+monero_add_library(ringct_basic
+  ${ringct_basic_sources}
+  ${ringct_basic_private_headers})
+target_link_libraries(ringct_basic
+  PUBLIC
+    common
+    cncrypto
+  PRIVATE
+    ${OPENSSL_LIBRARIES}
+    ${EXTRA_LIBRARIES})
+
+set(ringct_sources
+  rctSigs.cpp
+)
+
 set(ringct_headers)
 
 set(ringct_private_headers
-  rctOps.h
   rctSigs.h
-  rctTypes.h
-  bulletproofs.h)
+)
 
 monero_private_headers(ringct
   ${crypto_private_headers})

@@ -33,7 +33,6 @@ set(crypto_sources
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
-  crypto_device.cpp
   groestl.c
   hash-extra-blake.c
   hash-extra-groestl.c
@@ -78,7 +77,6 @@ monero_add_library(cncrypto
 target_link_libraries(cncrypto
   PUBLIC
     epee
-    device
     ${Boost_SYSTEM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

@@ -44,9 +44,9 @@
 
 #pragma once
 
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/account.h"
-#include "cryptonote_basic/subaddress_index.h"
+#include "crypto/crypto.h"
+#include "crypto/chacha.h"
+#include "ringct/rctTypes.h"
 
 #ifndef USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 1
@@ -60,6 +60,14 @@
 #if USE_DEVICE_LEDGER
 #define WITH_DEVICE_LEDGER
 #endif
+
+// forward declaration needed because this header is included by headers in libcryptonote_basic which depends on libdevice
+namespace cryptonote
+{
+    struct account_public_address;
+    struct account_keys;
+    struct subaddress_index;
+}
 
 namespace hw {
     namespace {

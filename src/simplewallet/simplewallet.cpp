@@ -62,7 +62,6 @@
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
-#include "device/device.hpp"
 #include <stdexcept>
 
 #ifdef WIN32
