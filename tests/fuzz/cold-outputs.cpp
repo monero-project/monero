@@ -37,7 +37,7 @@
 class ColdOutputsFuzzer: public Fuzzer
 {
 public:
-  ColdOutputsFuzzer(): wallet(true) {}
+  ColdOutputsFuzzer(): wallet(cryptonote::TESTNET) {}
   virtual int init();
   virtual int run(const std::string &filename);
 

@@ -280,7 +280,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = get_account_address_as_str(m_wallet->testnet(), d.is_subaddress, d.addr);
+      td.address = get_account_address_as_str(m_wallet->nettype(), d.is_subaddress, d.addr);
     }
 
     entry.type = "out";
@@ -584,7 +584,7 @@ namespace tools
       cryptonote::address_parse_info info;
       cryptonote::tx_destination_entry de;
       er.message = "";
-      if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), it->address,
+      if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), it->address,
         [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
           if (!dnssec_valid)
           {
@@ -1075,7 +1075,7 @@ namespace tools
     {
       cryptonote::address_parse_info info;
 
-      if(!get_account_address_from_str(info, m_wallet->testnet(), req.integrated_address))
+      if(!get_account_address_from_str(info, m_wallet->nettype(), req.integrated_address))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
         er.message = "Invalid address";
@@ -1087,7 +1087,7 @@ namespace tools
         er.message = "Address is not an integrated address";
         return false;
       }
-      res.standard_address = get_account_address_as_str(m_wallet->testnet(), info.is_subaddress, info.address);
+      res.standard_address = get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address);
       res.payment_id = epee::string_tools::pod_to_hex(info.payment_id);
       return true;
     }
@@ -1385,7 +1385,7 @@ namespace tools
 
     cryptonote::address_parse_info info;
     er.message = "";
-    if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), req.address,
+    if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address,
       [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
         if (!dnssec_valid)
         {
@@ -1595,7 +1595,7 @@ namespace tools
     }
 
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_wallet->testnet(), req.address))
+    if(!get_account_address_from_str(info, m_wallet->nettype(), req.address))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "Invalid address";
@@ -1628,7 +1628,7 @@ namespace tools
     }
 
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_wallet->testnet(), req.address))
+    if(!get_account_address_from_str(info, m_wallet->nettype(), req.address))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "Invalid address";
@@ -1661,7 +1661,7 @@ namespace tools
     }
 
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_wallet->testnet(), req.address))
+    if(!get_account_address_from_str(info, m_wallet->nettype(), req.address))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "Invalid address";
@@ -1768,7 +1768,7 @@ namespace tools
     if (!m_wallet) return not_open(er);
 
     cryptonote::address_parse_info info;
-    if (!get_account_address_from_str(info, m_wallet->testnet(), req.address))
+    if (!get_account_address_from_str(info, m_wallet->nettype(), req.address))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
       er.message = "Invalid address";
@@ -2058,7 +2058,7 @@ namespace tools
     {
       uint64_t idx = 0;
       for (const auto &entry: ab)
-        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx++, get_account_address_as_str(m_wallet->testnet(), entry.m_is_subaddress, entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
+        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx++, get_account_address_as_str(m_wallet->nettype(), entry.m_is_subaddress, entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
     }
     else
     {
@@ -2071,7 +2071,7 @@ namespace tools
           return false;
         }
         const auto &entry = ab[idx];
-        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx, get_account_address_as_str(m_wallet->testnet(), entry.m_is_subaddress, entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
+        res.entries.push_back(wallet_rpc::COMMAND_RPC_GET_ADDRESS_BOOK_ENTRY::entry{idx, get_account_address_as_str(m_wallet->nettype(), entry.m_is_subaddress, entry.m_address), epee::string_tools::pod_to_hex(entry.m_payment_id), entry.m_description});
       }
     }
     return true;
@@ -2090,7 +2090,7 @@ namespace tools
     cryptonote::address_parse_info info;
     crypto::hash payment_id = crypto::null_hash;
     er.message = "";
-    if(!get_account_address_from_str_or_url(info, m_wallet->testnet(), req.address,
+    if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address,
       [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
         if (!dnssec_valid)
         {
@@ -2219,7 +2219,7 @@ namespace tools
     }
 
     cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req); 
-    daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     daemon_req.threads_count        = req.threads_count;
     daemon_req.do_background_mining = req.do_background_mining;
     daemon_req.ignore_battery       = req.ignore_battery;
@@ -2535,7 +2535,7 @@ namespace tools
     try
     {
       res.multisig_info = m_wallet->make_multisig(req.password, req.multisig_info, req.threshold);
-      res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+      res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     }
     catch (const std::exception &e)
     {
@@ -2706,7 +2706,7 @@ namespace tools
       er.message = std::string("Error calling finalize_multisig: ") + e.what();
       return false;
     }
-    res.address = m_wallet->get_account().get_public_address_str(m_wallet->testnet());
+    res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
     return true;
   }
@@ -2883,6 +2883,14 @@ int main(int argc, char** argv) {
   std::unique_ptr<tools::wallet2> wal;
   try
   {
+    const bool testnet = tools::wallet2::has_testnet_option(*vm);
+    const bool stagenet = tools::wallet2::has_stagenet_option(*vm);
+    if (testnet && stagenet)
+    {
+      MERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --testnet and --stagenet"));
+      return 1;
+    }
+
     const auto wallet_file = command_line::get_arg(*vm, arg_wallet_file);
     const auto from_json = command_line::get_arg(*vm, arg_from_json);
     const auto wallet_dir = command_line::get_arg(*vm, arg_wallet_dir);

@@ -52,7 +52,7 @@ struct Wallet2CallbackImpl;
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl(bool testnet = false);
+    WalletImpl(NetworkType nettype = MAINNET);
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
                 const std::string &language);
@@ -115,7 +115,7 @@ public:
     void setRecoveringFromSeed(bool recoveringFromSeed);
     bool watchOnly() const;
     bool rescanSpent();
-    bool testnet() const {return m_wallet->testnet();}
+    NetworkType nettype() const {return static_cast<NetworkType>(m_wallet->nettype());}
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const;
     bool useForkRules(uint8_t version, int64_t early_blocks) const;
 

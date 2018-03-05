@@ -138,6 +138,14 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
+    const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
+    const bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
+    if (testnet && stagenet)
+    {
+      std::cerr << "Can't specify more than one of --tesnet and --stagenet" << ENDL;
+      return 1;
+    }
+
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
 
     // verify that blockchaindb type is valid

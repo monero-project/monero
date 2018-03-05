@@ -76,15 +76,16 @@ public:
     core.set_protocol(protocol.get());
 
     const auto testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
+    const auto stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
     const auto restricted = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
     const auto main_rpc_port = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
-    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, testnet, main_rpc_port, "core"});
+    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : cryptonote::MAINNET, main_rpc_port, "core"});
 
     auto restricted_rpc_port_arg = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
     if(!command_line::is_arg_defaulted(vm, restricted_rpc_port_arg))
     {
       auto restricted_rpc_port = command_line::get_arg(vm, restricted_rpc_port_arg);
-      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, testnet, restricted_rpc_port, "restricted"});
+      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : cryptonote::MAINNET, restricted_rpc_port, "restricted"});
     }
   }
 };

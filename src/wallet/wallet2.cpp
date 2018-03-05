@@ -118,6 +118,7 @@ struct options {
   const command_line::arg_descriptor<int> daemon_port = {"daemon-port", tools::wallet2::tr("Use daemon instance at port <arg> instead of 18081"), 0};
   const command_line::arg_descriptor<std::string> daemon_login = {"daemon-login", tools::wallet2::tr("Specify username[:password] for daemon RPC client"), "", true};
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
+  const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
   const command_line::arg_descriptor<bool> restricted = {"restricted-rpc", tools::wallet2::tr("Restricts to view-only commands"), false};
 };
 
@@ -159,6 +160,7 @@ std::string get_size_string(const cryptonote::blobdata &tx)
 std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
+  const bool stagenet = command_line::get_arg(vm, opts.stagenet);
   const bool restricted = command_line::get_arg(vm, opts.restricted);
 
   auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
@@ -187,13 +189,13 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 
   if (!daemon_port)
   {
-    daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+    daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : stagenet ? config::stagenet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
   }
 
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet, restricted));
+  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet ? TESTNET : stagenet ? STAGENET : MAINNET, restricted));
   wallet->init(std::move(daemon_address), std::move(login));
   return wallet;
 }
@@ -230,6 +232,8 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
+  const bool stagenet = command_line::get_arg(vm, opts.stagenet);
+  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
 
   /* GET_FIELD_FROM_JSON_RETURN_ON_ERROR Is a generic macro that can return
   false. Gcc will coerce this into unique_ptr(nullptr), but clang correctly
@@ -329,7 +333,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
     if (field_address_found)
     {
       cryptonote::address_parse_info info;
-      if(!get_account_address_from_str(info, testnet, field_address))
+      if(!get_account_address_from_str(info, nettype, field_address))
       {
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("invalid address"));
       }
@@ -388,7 +392,7 @@ std::unique_ptr<tools::wallet2> generate_from_json(const std::string& json_file,
           if (field_address_found)
           {
             cryptonote::address_parse_info info;
-            if(!get_account_address_from_str(info, testnet, field_address))
+            if(!get_account_address_from_str(info, nettype, field_address))
             {
               THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, std::string(tools::wallet2::tr("failed to parse address: ")) + field_address);
             }
@@ -589,12 +593,12 @@ const size_t MAX_SPLIT_ATTEMPTS = 30;
 constexpr const std::chrono::seconds wallet2::rpc_timeout;
 const char* wallet2::tr(const char* str) { return i18n_translate(str, "tools::wallet2"); }
 
-wallet2::wallet2(bool testnet, bool restricted):
+wallet2::wallet2(network_type nettype, bool restricted):
   m_multisig_rescan_info(NULL),
   m_multisig_rescan_k(NULL),
   m_run(true),
   m_callback(0),
-  m_testnet(testnet),
+  m_nettype(nettype),
   m_always_confirm_transfers(true),
   m_print_ring_members(false),
   m_store_tx_info(true),
@@ -634,6 +638,11 @@ bool wallet2::has_testnet_option(const boost::program_options::variables_map& vm
   return command_line::get_arg(vm, options().testnet);
 }
 
+bool wallet2::has_stagenet_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::get_arg(vm, options().stagenet);
+}
+
 void wallet2::init_options(boost::program_options::options_description& desc_params)
 {
   const options opts{};
@@ -644,6 +653,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_port);
   command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.testnet);
+  command_line::add_arg(desc_params, opts.stagenet);
   command_line::add_arg(desc_params, opts.restricted);
 }
 
@@ -690,7 +700,7 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit, bool ssl)
 {
-  m_checkpoints.init_default_checkpoints(m_testnet);
+  m_checkpoints.init_default_checkpoints(m_nettype);
   if(m_http_client.is_connected())
     m_http_client.disconnect();
   m_is_initialized = true;
@@ -836,12 +846,12 @@ crypto::public_key wallet2::get_subaddress_spend_public_key(const cryptonote::su
 std::string wallet2::get_subaddress_as_str(const cryptonote::subaddress_index& index) const
 {
   cryptonote::account_public_address address = get_subaddress(index);
-  return cryptonote::get_account_address_as_str(m_testnet, !index.is_zero(), address);
+  return cryptonote::get_account_address_as_str(m_nettype, !index.is_zero(), address);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_integrated_address_as_str(const crypto::hash8& payment_id) const
 {
-  return cryptonote::get_account_integrated_address_as_str(m_testnet, get_address(), payment_id);
+  return cryptonote::get_account_integrated_address_as_str(m_nettype, get_address(), payment_id);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::add_subaddress_account(const std::string& label)
@@ -2441,8 +2451,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_auto_low_priority ? 1 : 0);
   json.AddMember("auto_low_priority", value2, json.GetAllocator());
 
-  value2.SetInt(m_testnet ? 1 :0);
-  json.AddMember("testnet", value2, json.GetAllocator());
+  value2.SetUint(m_nettype);
+  json.AddMember("nettype", value2, json.GetAllocator());
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -2624,11 +2634,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_export_overwrite = field_confirm_export_overwrite;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_low_priority, int, Int, false, true);
     m_auto_low_priority = field_auto_low_priority;
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, testnet, int, Int, false, m_testnet);
-    // Wallet is being opened with testnet flag, but is saved as a mainnet wallet
-    THROW_WALLET_EXCEPTION_IF(m_testnet && !field_testnet, error::wallet_internal_error, "Mainnet wallet can not be opened as testnet wallet");
-    // Wallet is being opened without testnet flag but is saved as a testnet wallet.
-    THROW_WALLET_EXCEPTION_IF(!m_testnet && field_testnet, error::wallet_internal_error, "Testnet wallet can not be opened as mainnet wallet");
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, nettype, uint8_t, Uint, false, static_cast<uint8_t>(m_nettype));
+    // The network type given in the program argument is inconsistent with the network type saved in the wallet
+    THROW_WALLET_EXCEPTION_IF(static_cast<uint8_t>(m_nettype) != field_nettype, error::wallet_internal_error,
+      (boost::format("%s wallet can not be opened as %s wallet")
+        % (field_nettype == 0 ? "Mainnet" : field_nettype == 1 ? "Testnet" : "Stagenet")
+        % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : "stagenet")).str());
   }
   else
   {
@@ -2801,7 +2812,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -2855,7 +2866,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -2945,7 +2956,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     bool r = store_keys(m_keys_file, password, true);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -2992,7 +3003,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -3033,7 +3044,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
   cryptonote::block b;
@@ -3125,7 +3136,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -3225,7 +3236,7 @@ bool wallet2::finalize_multisig(const epee::wipeable_string &password, std::unor
     bool r = store_keys(m_keys_file, password, false);
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
 
-    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
 
@@ -3535,7 +3546,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, m_keys_file);
   }
-  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_testnet));
+  LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_nettype));
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem
@@ -3674,7 +3685,7 @@ void wallet2::trim_hashchain()
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::check_genesis(const crypto::hash& genesis_hash) const {
-  std::string what("Genesis block mismatch. You probably use wallet without testnet flag with blockchain from test network or vice versa");
+  std::string what("Genesis block mismatch. You probably use wallet without testnet (or stagenet) flag with blockchain from test (or stage) network or vice versa");
 
   THROW_WALLET_EXCEPTION_IF(genesis_hash != m_blockchain.genesis(), error::wallet_internal_error, what);
 }
@@ -3751,7 +3762,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
     // save address to the new file
     const std::string address_file = m_wallet_file + ".address.txt";
-    r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_testnet));
+    r = file_io_utils::save_string_to_file(address_file, m_account.get_public_address_str(m_nettype));
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
     // remove old wallet file
     r = boost::filesystem::remove(old_file);
@@ -4028,7 +4039,7 @@ bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_heig
     uint64_t current_time = static_cast<uint64_t>(time(NULL));
     // XXX: this needs to be fast, so we'd need to get the starting heights
     // from the daemon to be correct once voting kicks in
-    uint64_t v2height = m_testnet ? 624634 : 1009827;
+    uint64_t v2height = m_nettype == TESTNET ? 624634 : m_nettype == STAGENET ? (uint64_t)-1/*TODO*/ : 1009827;
     uint64_t leeway = block_height < v2height ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
     if(current_time + leeway >= unlock_time)
       return true;
@@ -4316,7 +4327,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   {
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::request oreq;
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::response ores;
-    oreq.address = get_account().get_public_address_str(m_testnet);
+    oreq.address = get_account().get_public_address_str(m_nettype);
     oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
     oreq.tx = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
     m_daemon_rpc_mutex.lock();
@@ -4526,7 +4537,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
     bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, sd.use_rct, bulletproof, m_multisig ? &msout : NULL);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
     // and if we really go over limit, the daemon will reject when it gets submitted. Chances are it's
@@ -4899,7 +4910,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     auto sources = sd.sources;
     const bool bulletproof = sd.use_rct && (ptx.tx.rct_signatures.type == rct::RCTTypeFullBulletproof || ptx.tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof);
     bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts.addr, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, bulletproof, &msout);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
 
     THROW_WALLET_EXCEPTION_IF(get_transaction_prefix_hash (tx) != get_transaction_prefix_hash(ptx.tx),
         error::wallet_internal_error, "Transaction prefix does not match data");
@@ -5645,7 +5656,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
     THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
     needed_money += dt.amount;
     LOG_PRINT_L2("transfer: adding " << print_money(dt.amount) << ", for a total of " << print_money (needed_money));
-    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_nettype);
   }
 
   uint64_t found_money = 0;
@@ -5738,7 +5749,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   LOG_PRINT_L2("constructing tx");
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, m_multisig ? &msout : NULL);
   LOG_PRINT_L2("constructed tx, r="<<r);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
+  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
   std::string key_images;
@@ -5802,7 +5813,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
     needed_money += dt.amount;
     LOG_PRINT_L2("transfer: adding " << print_money(dt.amount) << ", for a total of " << print_money (needed_money));
-    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_nettype);
   }
 
   // if this is a multisig wallet, create a list of multisig signers we can use
@@ -5942,7 +5953,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   auto sources_copy = sources;
   bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, bulletproof, m_multisig ? &msout : NULL);
   LOG_PRINT_L2("constructed tx, r="<<r);
-  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_testnet);
+  THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
   // work out the permutation done on sources
@@ -5987,7 +5998,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         auto sources_copy_copy = sources_copy;
         bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts.addr, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, true, bulletproof, &msout);
         LOG_PRINT_L2("constructed tx, r="<<r);
-        THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
+        THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
         THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
         THROW_WALLET_EXCEPTION_IF(cryptonote::get_transaction_prefix_hash(ms_tx) != prefix_hash, error::wallet_internal_error, "Multisig txes do not share prefix");
         multisig_sigs.push_back({ms_tx.rct_signatures, multisig_signers[signer_index], new_used_L, std::unordered_set<crypto::public_key>(), msout});
@@ -6157,7 +6168,7 @@ bool wallet2::light_wallet_login(bool &new_address)
   m_light_wallet_connected = false;
   cryptonote::COMMAND_RPC_LOGIN::request request;
   cryptonote::COMMAND_RPC_LOGIN::response response;
-  request.address = get_account().get_public_address_str(m_testnet);
+  request.address = get_account().get_public_address_str(m_nettype);
   request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   // Always create account if it doesn't exist.
   request.create_account = true;
@@ -6184,7 +6195,7 @@ bool wallet2::light_wallet_import_wallet_request(cryptonote::COMMAND_RPC_IMPORT_
 {
   MDEBUG("Light wallet import wallet request");
   cryptonote::COMMAND_RPC_IMPORT_WALLET_REQUEST::request oreq;
-  oreq.address = get_account().get_public_address_str(m_testnet);
+  oreq.address = get_account().get_public_address_str(m_nettype);
   oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/import_wallet_request", oreq, response, m_http_client, rpc_timeout, "POST");
@@ -6203,7 +6214,7 @@ void wallet2::light_wallet_get_unspent_outs()
   cryptonote::COMMAND_RPC_GET_UNSPENT_OUTS::response ores;
   
   oreq.amount = "0";
-  oreq.address = get_account().get_public_address_str(m_testnet);
+  oreq.address = get_account().get_public_address_str(m_nettype);
   oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   // openMonero specific
   oreq.dust_threshold = boost::lexical_cast<std::string>(::config::DEFAULT_DUST_THRESHOLD);
@@ -6353,7 +6364,7 @@ bool wallet2::light_wallet_get_address_info(cryptonote::COMMAND_RPC_GET_ADDRESS_
   
   cryptonote::COMMAND_RPC_GET_ADDRESS_INFO::request request;
   
-  request.address = get_account().get_public_address_str(m_testnet);
+  request.address = get_account().get_public_address_str(m_nettype);
   request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/get_address_info", request, response, m_http_client, rpc_timeout, "POST");
@@ -6370,7 +6381,7 @@ void wallet2::light_wallet_get_address_txs()
   cryptonote::COMMAND_RPC_GET_ADDRESS_TXS::request ireq;
   cryptonote::COMMAND_RPC_GET_ADDRESS_TXS::response ires;
   
-  ireq.address = get_account().get_public_address_str(m_testnet);
+  ireq.address = get_account().get_public_address_str(m_nettype);
   ireq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/get_address_txs", ireq, ires, m_http_client, rpc_timeout, "POST");
@@ -6695,7 +6706,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
     needed_money += dt.amount;
     LOG_PRINT_L2("transfer: adding " << print_money(dt.amount) << ", for a total of " << print_money (needed_money));
-    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, 0, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, 0, m_nettype);
   }
 
   // throw if attempting a transaction with no money
@@ -6923,7 +6934,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       while (!dsts.empty() && dsts[0].amount <= available_amount && estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size(), extra.size(), bulletproof) < TX_SIZE_TARGET(upper_transaction_size_limit))
       {
         // we can fully pay that destination
-        LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_testnet, dsts[0].is_subaddress, dsts[0].addr) <<
+        LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(dsts[0].amount));
         tx.add(dsts[0].addr, dsts[0].is_subaddress, dsts[0].amount, original_output_index, m_merge_destinations);
         available_amount -= dsts[0].amount;
@@ -6934,7 +6945,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
       if (available_amount > 0 && !dsts.empty() && estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size(), extra.size(), bulletproof) < TX_SIZE_TARGET(upper_transaction_size_limit)) {
         // we can partially fill that destination
-        LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_testnet, dsts[0].is_subaddress, dsts[0].addr) <<
+        LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
         tx.add(dsts[0].addr, dsts[0].is_subaddress, available_amount, original_output_index, m_merge_destinations);
         dsts[0].amount -= available_amount;
@@ -7004,7 +7015,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         if (i->amount > needed_fee)
         {
           uint64_t new_paid_amount = i->amount /*+ test_ptx.fee*/ - needed_fee;
-          LOG_PRINT_L2("Adjusting amount paid to " << get_account_address_as_str(m_testnet, i->is_subaddress, i->addr) << " from " <<
+          LOG_PRINT_L2("Adjusting amount paid to " << get_account_address_as_str(m_nettype, i->is_subaddress, i->addr) << " from " <<
             print_money(i->amount) << " to " << print_money(new_paid_amount) << " to accommodate " <<
             print_money(needed_fee) << " fee");
           dsts[0].amount += i->amount - new_paid_amount;
@@ -8431,16 +8442,16 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
   // time of v2 fork
-  const time_t fork_time = m_testnet ? 1448285909 : 1458748658;
+  const time_t fork_time = m_nettype == TESTNET ? 1448285909 : m_nettype == STAGENET ? (time_t)-1/*TODO*/ : 1458748658;
   // v2 fork block
-  const uint64_t fork_block = m_testnet ? 624634 : 1009827;
+  const uint64_t fork_block = m_nettype == TESTNET ? 624634 : m_nettype == STAGENET ? (uint64_t)-1/*TODO*/ : 1009827;
   // avg seconds per block
   const int seconds_per_block = DIFFICULTY_TARGET_V2;
   // Calculated blockchain height
   uint64_t approx_blockchain_height = fork_block + (time(NULL) - fork_time)/seconds_per_block;
   // testnet got some huge rollbacks, so the estimation is way off
   static const uint64_t approximate_testnet_rolled_back_blocks = 148540;
-  if (m_testnet && approx_blockchain_height > approximate_testnet_rolled_back_blocks)
+  if (m_nettype == TESTNET && approx_blockchain_height > approximate_testnet_rolled_back_blocks)
     approx_blockchain_height -= approximate_testnet_rolled_back_blocks;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
@@ -9421,7 +9432,7 @@ std::string wallet2::decrypt_with_view_secret_key(const std::string &ciphertext,
 std::string wallet2::make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const
 {
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, testnet(), address))
+  if(!get_account_address_from_str(info, nettype(), address))
   {
     error = std::string("wrong address: ") + address;
     return std::string();
@@ -9485,7 +9496,7 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
   address = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
 
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, testnet(), address))
+  if(!get_account_address_from_str(info, nettype(), address))
   {
     error = std::string("URI has wrong address: ") + address;
     return false;
@@ -9734,9 +9745,13 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
-  if (m_testnet)
+  if (m_nettype == TESTNET)
   {
     cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
+  }
+  else if (m_nettype == STAGENET)
+  {
+    cryptonote::generate_genesis_block(b, config::stagenet::GENESIS_TX, config::stagenet::GENESIS_NONCE);
   }
   else
   {

@@ -413,7 +413,7 @@ namespace rpc
   void DaemonHandler::handle(const StartMining::Request& req, StartMining::Response& res)
   {
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_core.get_testnet(), req.miner_address))
+    if(!get_account_address_from_str(info, m_core.get_nettype(), req.miner_address))
     {
       res.error_details = "Failed, wrong address";
       LOG_PRINT_L0(res.error_details);
@@ -492,7 +492,9 @@ namespace rpc
 
     res.info.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
 
-    res.info.testnet = m_core.get_testnet();
+    res.info.mainnet = m_core.get_nettype() == MAINNET;
+    res.info.testnet = m_core.get_nettype() == TESTNET;
+    res.info.stagenet = m_core.get_nettype() == STAGENET;
     res.info.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.info.height - 1);
     res.info.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
     res.info.start_time = (uint64_t)m_core.get_start_time();
@@ -525,7 +527,7 @@ namespace rpc
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
       const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(m_core.get_testnet(), false, lMiningAdr);
+      res.address = get_account_address_as_str(m_core.get_nettype(), false, lMiningAdr);
     }
 
     res.status = Message::STATUS_OK;

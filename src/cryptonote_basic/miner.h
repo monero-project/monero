@@ -64,7 +64,7 @@ namespace cryptonote
   public: 
     miner(i_miner_handler* phandler);
     ~miner();
-    bool init(const boost::program_options::variables_map& vm, bool testnet);
+    bool init(const boost::program_options::variables_map& vm, network_type nettype);
     static void init_options(boost::program_options::options_description& desc);
     bool set_block_template(const block& bl, const difficulty_type& diffic, uint64_t height);
     bool on_block_chain_update();

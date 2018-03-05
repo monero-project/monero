@@ -147,6 +147,7 @@ namespace tools
     static const char* tr(const char* str);
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
+    static bool has_stagenet_option(const boost::program_options::variables_map& vm);
     static void init_options(boost::program_options::options_description& desc_params);
 
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
@@ -164,7 +165,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev);
 
-    wallet2(bool testnet = false, bool restricted = false);
+    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, bool restricted = false);
 
     struct multisig_info
     {
@@ -637,7 +638,7 @@ namespace tools
     void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
     RefreshType get_refresh_type() const { return m_refresh_type; }
 
-    bool testnet() const { return m_testnet; }
+    cryptonote::network_type nettype() const { return m_nettype; }
     bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
@@ -1115,7 +1116,7 @@ namespace tools
 
     i_wallet2_callback* m_callback;
     bool m_key_on_device;
-    bool m_testnet;
+    cryptonote::network_type m_nettype;
     bool m_restricted;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
@@ -1646,7 +1647,7 @@ namespace tools
     {
       THROW_WALLET_EXCEPTION_IF(0 == dt.amount, error::zero_destination);
       needed_money += dt.amount;
-      THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_testnet);
+      THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_nettype);
     }
 
     // randomly select inputs for transaction
@@ -1768,7 +1769,7 @@ namespace tools
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
     bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, m_multisig ? &msout : NULL);
-    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_testnet);
+    THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
     THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
 
     std::string key_images;

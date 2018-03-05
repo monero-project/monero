@@ -183,16 +183,16 @@ DISABLE_VS_WARNINGS(4244 4345)
     return m_keys;
   }
   //-----------------------------------------------------------------
-  std::string account_base::get_public_address_str(bool testnet) const
+  std::string account_base::get_public_address_str(network_type nettype) const
   {
     //TODO: change this code into base 58
-    return get_account_address_as_str(testnet, false, m_keys.m_account_address);
+    return get_account_address_as_str(nettype, false, m_keys.m_account_address);
   }
   //-----------------------------------------------------------------
-  std::string account_base::get_public_integrated_address_str(const crypto::hash8 &payment_id, bool testnet) const
+  std::string account_base::get_public_integrated_address_str(const crypto::hash8 &payment_id, network_type nettype) const
   {
     //TODO: change this code into base 58
-    return get_account_integrated_address_as_str(testnet, m_keys.m_account_address, payment_id);
+    return get_account_integrated_address_as_str(nettype, m_keys.m_account_address, payment_id);
   }
   //-----------------------------------------------------------------
 }

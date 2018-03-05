@@ -91,7 +91,7 @@ namespace tests
     uint64_t get_target_blockchain_height() const { return 1; }
     size_t get_block_sync_size(uint64_t height) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
     virtual void on_transaction_relayed(const cryptonote::blobdata& tx) {}
-    bool get_testnet() const { return false; }
+    cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
     bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob) const { return false; }
     bool pool_has_tx(const crypto::hash &txid) const { return false; }
     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::list<cryptonote::blobdata>& txs) const { return false; }

@@ -37,26 +37,32 @@ namespace daemon_args
 {
   std::string const WINDOWS_SERVICE_NAME = "Monero Daemon";
 
-  const command_line::arg_descriptor<std::string, false, true> arg_config_file = {
+  const command_line::arg_descriptor<std::string, false, true, 2> arg_config_file = {
     "config-file"
   , "Specify configuration file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".conf")).string()
-  , cryptonote::arg_testnet_on
-  , [](bool testnet, bool defaulted, std::string val) {
-      if (testnet && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+      if (testnet_stagenet[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
+                std::string(CRYPTONOTE_NAME ".conf")).string();
+      else if (testnet_stagenet[1] && defaulted)
+        return (daemonizer::get_default_data_dir() / "stagenet" /
                 std::string(CRYPTONOTE_NAME ".conf")).string();
       return val;
     }
   };
-  const command_line::arg_descriptor<std::string, false, true> arg_log_file = {
+  const command_line::arg_descriptor<std::string, false, true, 2> arg_log_file = {
     "log-file"
   , "Specify log file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".log")).string()
-  , cryptonote::arg_testnet_on
-  , [](bool testnet, bool defaulted, std::string val) {
-      if (testnet && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+      if (testnet_stagenet[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
+                std::string(CRYPTONOTE_NAME ".log")).string();
+      else if (testnet_stagenet[1] && defaulted)
+        return (daemonizer::get_default_data_dir() / "stagenet" /
                 std::string(CRYPTONOTE_NAME ".log")).string();
       return val;
     }
@@ -91,14 +97,16 @@ namespace daemon_args
       , "127.0.0.1"
   };
 
-  const command_line::arg_descriptor<std::string, false, true> arg_zmq_rpc_bind_port = {
+  const command_line::arg_descriptor<std::string, false, true, 2> arg_zmq_rpc_bind_port = {
     "zmq-rpc-bind-port"
   , "Port for ZMQ RPC server to listen on"
   , std::to_string(config::ZMQ_RPC_DEFAULT_PORT)
-  , cryptonote::arg_testnet_on
-  , [](bool testnet, bool defaulted, std::string val) {
-      if (testnet && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+      if (testnet_stagenet[0] && defaulted)
         return std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT);
+      if (testnet_stagenet[1] && defaulted)
+        return std::to_string(config::stagenet::ZMQ_RPC_DEFAULT_PORT);
       return val;
     }
   };

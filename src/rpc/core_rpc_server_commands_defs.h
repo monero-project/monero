@@ -948,7 +948,9 @@ namespace cryptonote
       uint64_t rpc_connections_count;
       uint64_t white_peerlist_size;
       uint64_t grey_peerlist_size;
+      bool mainnet;
       bool testnet;
+      bool stagenet;
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
       uint64_t block_size_limit;
@@ -975,7 +977,9 @@ namespace cryptonote
         KV_SERIALIZE(rpc_connections_count)
         KV_SERIALIZE(white_peerlist_size)
         KV_SERIALIZE(grey_peerlist_size)
+        KV_SERIALIZE(mainnet)
         KV_SERIALIZE(testnet)
+        KV_SERIALIZE(stagenet)
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(block_size_limit)
