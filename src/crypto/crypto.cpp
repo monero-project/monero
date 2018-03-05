@@ -436,7 +436,7 @@ namespace crypto {
     return sc_isnonzero(&c2) == 0;
   }
 
-  void crypto_ops::hash_to_ec(const public_key &key, ge_p3 &res) {
+  static void hash_to_ec(const public_key &key, ge_p3 &res) {
     hash h;
     ge_p2 point;
     ge_p1p1 point2;
