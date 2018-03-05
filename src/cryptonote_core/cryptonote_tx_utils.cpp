@@ -190,6 +190,8 @@ namespace cryptonote
       addr = i.addr;
       ++count;
     }
+    if (count == 0 && change_addr)
+      return change_addr->m_view_public_key;
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
