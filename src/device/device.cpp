@@ -32,7 +32,7 @@
 #ifdef HAVE_PCSC
 #include "device_ledger.hpp"
 #endif
-#include "common/scoped_message_writer.h"
+#include "misc_log_ex.h"
 
 
 namespace hw {
@@ -56,12 +56,11 @@ namespace hw {
 
         auto device = devices.registry.find(device_descriptor);
         if (device == devices.registry.end()) {
-            auto logger = tools::fail_msg_writer();
-            logger << "device not found in registry '"<<device_descriptor<<"'\n" <<
-                      "known devices:"<<device_descriptor<<"'";
+            MERROR("device not found in registry: '" << device_descriptor << "'\n" <<
+                      "known devices:");
             
             for( const auto& sm_pair : devices.registry ) {
-             logger<< " - " << sm_pair.first ;
+                MERROR(" - " << sm_pair.first);
             }
             throw std::runtime_error("device not found: "+ device_descriptor);
         }
