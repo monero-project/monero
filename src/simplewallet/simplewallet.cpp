@@ -3143,7 +3143,17 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
     return true;
   }
 
-  m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container->password());
+  try
+  {
+    std::string new_keys_filename;
+    m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container->password(), new_keys_filename);
+    success_msg_writer() << tr("Watch only wallet saved as: ") << new_keys_filename;
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to save watch only wallet: ") << e.what();
+    return true;
+  }
   return true;
 }
 

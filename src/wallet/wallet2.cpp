@@ -3415,15 +3415,15 @@ void wallet2::rewrite(const std::string& wallet_name, const epee::wipeable_strin
  * \param wallet_name Base name of wallet file
  * \param password    Password for wallet file
  */
-void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password)
+void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password, std::string &new_keys_filename)
 {
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
-  std::string filename = m_keys_file + "-watchonly";
-  bool watch_only_keys_file_exists = boost::filesystem::exists(filename, ignored_ec);
-  THROW_WALLET_EXCEPTION_IF(watch_only_keys_file_exists, error::file_save_error, filename);
-  bool r = store_keys(filename, password, true);
-  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, filename);
+  new_keys_filename = m_wallet_file + "-watchonly.keys";
+  bool watch_only_keys_file_exists = boost::filesystem::exists(new_keys_filename, ignored_ec);
+  THROW_WALLET_EXCEPTION_IF(watch_only_keys_file_exists, error::file_save_error, new_keys_filename);
+  bool r = store_keys(new_keys_filename, password, true);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, new_keys_filename);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
