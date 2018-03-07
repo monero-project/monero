@@ -7854,13 +7854,13 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
 void wallet2::check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations)
 {
   crypto::key_derivation derivation;
-  THROW_WALLET_EXCEPTION_IF(!m_account.get_device().generate_key_derivation(address.m_view_public_key, tx_key, derivation), error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation), error::wallet_internal_error,
     "Failed to generate key derivation from supplied parameters");
 
   std::vector<crypto::key_derivation> additional_derivations;
   additional_derivations.resize(additional_tx_keys.size());
   for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-    THROW_WALLET_EXCEPTION_IF(!m_account.get_device().generate_key_derivation(address.m_view_public_key, additional_tx_keys[i], additional_derivations[i]), error::wallet_internal_error,
+    THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(address.m_view_public_key, additional_tx_keys[i], additional_derivations[i]), error::wallet_internal_error,
       "Failed to generate key derivation from supplied parameters");
 
   check_tx_key_helper(txid, derivation, additional_derivations, address, received, in_pool, confirmations);
