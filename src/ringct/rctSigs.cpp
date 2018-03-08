@@ -118,19 +118,32 @@ namespace rct {
     }
     
     //see above.
-    bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
+    bool verifyBorromean(const boroSig &bb, const ge_p3 P1[64], const ge_p3 P2[64]) {
         key64 Lv1; key chash, LL;
         int ii = 0;
+        ge_p2 p2;
         for (ii = 0 ; ii < 64 ; ii++) {
-            addKeys2(LL, bb.s0[ii], bb.ee, P1[ii]);
+            // equivalent of: addKeys2(LL, bb.s0[ii], bb.ee, P1[ii]);
+            ge_double_scalarmult_base_vartime(&p2, bb.ee.bytes, &P1[ii], bb.s0[ii].bytes);
+            ge_tobytes(LL.bytes, &p2);
             chash = hash_to_scalar(LL);
-            addKeys2(Lv1[ii], bb.s1[ii], chash, P2[ii]);
+            // equivalent of: addKeys2(Lv1[ii], bb.s1[ii], chash, P2[ii]);
+            ge_double_scalarmult_base_vartime(&p2, chash.bytes, &P2[ii], bb.s1[ii].bytes);
+            ge_tobytes(Lv1[ii].bytes, &p2);
         }
         key eeComputed = hash_to_scalar(Lv1); //hash function fine
         return equalKeys(eeComputed, bb.ee);
     }
 
-    
+    bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
+      ge_p3 P1_p3[64], P2_p3[64];
+      for (size_t i = 0 ; i < 64 ; ++i) {
+        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P1_p3[i], P1[i].bytes) == 0, false, "point conv failed");
+        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
+      }
+      return verifyBorromean(bb, P1_p3, P2_p3);
+    }
+
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //This is a just slghtly more efficient version than the ones described below
     //(will be explained in more detail in Ring Multisig paper
@@ -336,16 +349,30 @@ namespace rct {
       try
       {
         PERF_TIMER(verRange);
-        key64 CiH;
+        ge_p3 CiH[64], asCi[64];
         int i = 0;
-        key Ctmp = identity();
+        ge_p3 Ctmp_p3 = ge_p3_identity;
         for (i = 0; i < 64; i++) {
-            subKeys(CiH[i], as.Ci[i], H2[i]);
-            addKeys(Ctmp, Ctmp, as.Ci[i]);
+            // faster equivalent of:
+            // subKeys(CiH[i], as.Ci[i], H2[i]);
+            // addKeys(Ctmp, Ctmp, as.Ci[i]);
+            ge_cached cached;
+            ge_p3 p3;
+            ge_p1p1 p1;
+            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
+            ge_p3_to_cached(&cached, &p3);
+            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
+            ge_sub(&p1, &asCi[i], &cached);
+            ge_p3_to_cached(&cached, &asCi[i]);
+            ge_p1p1_to_p3(&CiH[i], &p1);
+            ge_add(&p1, &Ctmp_p3, &cached);
+            ge_p1p1_to_p3(&Ctmp_p3, &p1);
         }
+        key Ctmp;
+        ge_p3_tobytes(Ctmp.bytes, &Ctmp_p3);
         if (!equalKeys(C, Ctmp))
           return false;
-        if (!verifyBorromean(as.asig, as.Ci, CiH))
+        if (!verifyBorromean(as.asig, asCi, CiH))
           return false;
         return true;
       }
