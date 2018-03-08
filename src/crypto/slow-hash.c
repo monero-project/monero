@@ -727,7 +727,7 @@ void slow_hash_free_state(void)
 
 #define U64(x) ((uint64_t *) (x))
 
-STATIC INLINE void xor64(uint64 *a, const uint64 b)
+STATIC INLINE void xor64(uint64_t *a, const uint64_t b)
 {
     *a ^= b;
 }
