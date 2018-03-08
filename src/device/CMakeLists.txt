@@ -70,8 +70,6 @@ target_link_libraries(device
     cncrypto
     ringct
     ${OPENSSL_CRYPTO_LIBRARIES}
-    ${GNU_READLINE_LIBRARY}
-    ${EPEE_READLINE}
   PRIVATE
     ${Blocks}
     ${EXTRA_LIBRARIES})
