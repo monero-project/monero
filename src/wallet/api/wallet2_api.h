@@ -541,7 +541,7 @@ struct Wallet
     static bool addressValid(const std::string &str, NetworkType nettype);
     static bool addressValid(const std::string &str, bool testnet)          // deprecated
     {
-        return addressValid(str, testnet ? MAINNET : TESTNET);
+        return addressValid(str, testnet ? TESTNET : MAINNET);
     }
     static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, NetworkType nettype, std::string &error);
     static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)     // deprecated
