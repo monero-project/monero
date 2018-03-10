@@ -505,21 +505,39 @@ See [README.i18n.md](README.i18n.md).
 
 ## Using Tor
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, if you add --p2p-bind-ip 127.0.0.1 to the monerod command line. You also want to set DNS requests to go over TCP, so they'll be routed through Tor, by setting DNS_PUBLIC=tcp or use a particular DNS server with DNS_PUBLIC=tcp://a.b.c.d (default is 8.8.4.4, which is Google DNS). You may also disable IGD (UPnP port forwarding negotiation), which is pointless with Tor. To allow local connections from the wallet, you might have to add TORSOCKS_ALLOW_INBOUND=1, some OSes need it and some don't. Example:
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by
+setting the following configuration parameters and environment variables:
 
-`DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
+* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
+  monerod.conf to disable listening for connections on external interfaces.
+* `--no-igd` on the command line or `no-igd=1` in monerod.conf to disable IGD
+  (UPnP port forwarding negotiation), which is pointless with Tor.
+* `DNS_PUBLIC=tcp` or `DNS_PUBLIC=tcp://x.x.x.x` where x.x.x.x is the IP of the
+  desired DNS server, for DNS requests to go over TCP, so that they are routed
+  through Tor. When IP is not specified, monerod uses the default list of
+  servers defined in [src/common/dns_utils.cpp](src/common/dns_utils.cpp).
+* `TORSOCKS_ALLOW_INBOUND=1` to tell torsocks to allow monerod to bind to interfaces
+   to accept connections from the wallet. On some Linux systems, torsocks
+   allows binding to localhost by default, so setting this variable is only
+   necessary to allow binding to local LAN/VPN interfaces to allow wallets to
+   connect from remote hosts. On other systems, it may be needed for local wallets
+   as well.
+* Do NOT pass `--detach` when running through torsocks with systemd, (see
+  [utils/systemd/monerod.service](utils/systemd/monerod.service) for details).
 
-or:
+Example command line to start monerod through Tor:
 
-`DNS_PUBLIC=tcp TORSOCKS_ALLOW_INBOUND=1 torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd`
+    DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
 
-TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
+### Using Tor on Tails
 
-`sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT`
+TAILS ships with a very restrictive set of firewall rules. Therefore, you need
+to add a rule to allow this connection too, in addition to telling torsocks to
+allow inbound connections. Full example:
 
-`DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain`
-
-`./monero-wallet-cli`
+    sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
+    DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
+        --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
 
 ## Debugging
 
