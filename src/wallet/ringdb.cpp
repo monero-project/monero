@@ -126,6 +126,20 @@ static std::string decrypt(const std::string &ciphertext, const crypto::key_imag
   return plaintext;
 }
 
+static void store_relative_ring(MDB_txn *txn, MDB_dbi &dbi, const crypto::key_image &key_image, const std::vector<uint64_t> &relative_ring, const crypto::chacha_key &chacha_key)
+{
+  MDB_val key, data;
+  std::string key_ciphertext = encrypt(key_image, chacha_key);
+  key.mv_data = (void*)key_ciphertext.data();
+  key.mv_size = key_ciphertext.size();
+  std::string compressed_ring = compress_ring(relative_ring);
+  std::string data_ciphertext = encrypt(compressed_ring, key_image, chacha_key);
+  data.mv_size = data_ciphertext.size();
+  data.mv_data = (void*)data_ciphertext.c_str();
+  int dbr = mdb_put(txn, dbi, &key, &data, 0);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set ring for key image in LMDB table: " + std::string(mdb_strerror(dbr)));
+}
+
 static int resize_env(MDB_env *env, const char *db_path, size_t needed)
 {
   MDB_envinfo mei;
@@ -240,18 +254,7 @@ bool ringdb::add_rings(const crypto::chacha_key &chacha_key, const cryptonote::t
     if (ring_size == 1)
       continue;
 
-    MDB_val key, data;
-    std::string key_ciphertext = encrypt(txin.k_image, chacha_key);
-    key.mv_data = (void*)key_ciphertext.data();
-    key.mv_size = key_ciphertext.size();
-    MDEBUG("Saving relative ring for key image " << txin.k_image << ": " <<
-        boost::join(txin.key_offsets | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " "));
-    std::string compressed_ring = compress_ring(txin.key_offsets);
-    std::string data_ciphertext = encrypt(compressed_ring, txin.k_image, chacha_key);
-    data.mv_size = data_ciphertext.size();
-    data.mv_data = (void*)data_ciphertext.c_str();
-    dbr = mdb_put(txn, dbi_rings, &key, &data, 0);
-    THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to add ring to database: " + std::string(mdb_strerror(dbr)));
+    store_relative_ring(txn, dbi_rings, txin.k_image, txin.key_offsets, chacha_key);
   }
 
   dbr = mdb_txn_commit(txn);
@@ -353,16 +356,7 @@ bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_im
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
-  MDB_val key, data;
-  std::string key_ciphertext = encrypt(key_image, chacha_key);
-  key.mv_data = (void*)key_ciphertext.data();
-  key.mv_size = key_ciphertext.size();
-  std::string compressed_ring = compress_ring(relative ? outs : cryptonote::absolute_output_offsets_to_relative(outs));
-  std::string data_ciphertext = encrypt(compressed_ring, key_image, chacha_key);
-  data.mv_size = data_ciphertext.size();
-  data.mv_data = (void*)data_ciphertext.c_str();
-  dbr = mdb_put(txn, dbi_rings, &key, &data, 0);
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set ring for key image in LMDB table: " + std::string(mdb_strerror(dbr)));
+  store_relative_ring(txn, dbi_rings, key_image, relative ? outs : cryptonote::absolute_output_offsets_to_relative(outs), chacha_key);
 
   dbr = mdb_txn_commit(txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn setting ring to database: " + std::string(mdb_strerror(dbr)));
