@@ -116,7 +116,7 @@ void NodeRPCProxy::set_height(uint64_t h)
 boost::optional<std::string> NodeRPCProxy::get_target_height(uint64_t &height) const
 {
   const time_t now = time(NULL);
-  if (m_height == 0 || now >= m_height_time + 30) // re-cache every 30 seconds
+  if (m_target_height == 0 || now >= m_target_height_time + 30) // re-cache every 30 seconds
   {
     epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
     epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
