@@ -72,6 +72,72 @@ namespace cryptonote
     }
     LOG_PRINT_L2("destinations include " << num_stdaddresses << " standard addresses and " << num_subaddresses << " subaddresses");
   }
+
+  keypair get_deterministic_keypair_from_height(uint64_t height)
+  {
+    keypair k;
+
+    ec_scalar& sec = k.sec;
+
+    for (int i=0; i < 8; i++)
+    {
+      uint64_t height_byte = height & ((uint64_t)0xFF << (i*8));
+      uint8_t byte = height_byte >> i*8;
+      sec.data[i] = byte;
+    }
+    for (int i=8; i < 32; i++)
+    {
+      sec.data[i] = 0x00;
+    }
+
+    generate_keys(k.pub, k.sec, k.sec, true);
+
+    return k;
+  }
+
+  uint64_t get_governance_reward(uint64_t height, uint64_t base_reward)
+  {
+    return base_reward / 20;
+  }
+
+  bool get_deterministic_output_key(const account_public_address& address, const keypair& tx_key, size_t output_index, crypto::public_key& output_key)
+  {
+
+    crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);
+    bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key.sec, derivation);
+    CHECK_AND_ASSERT_MES(r, false, "failed to generate_key_derivation(" << address.m_view_public_key << ", " << tx_key.sec << ")");
+
+    r = crypto::derive_public_key(derivation, output_index, address.m_spend_public_key, output_key);
+    CHECK_AND_ASSERT_MES(r, false, "failed to derive_public_key(" << derivation << ", " << output_index << ", "<< address.m_spend_public_key << ")");
+
+    return true;
+  }
+
+  bool validate_governance_reward_key(uint64_t height, bool testnet, size_t output_index, const crypto::public_key& output_key)
+  {
+    keypair gov_key = get_deterministic_keypair_from_height(height);
+
+    cryptonote::address_parse_info governance_wallet_address;
+    if (testnet)
+    {
+      cryptonote::get_account_address_from_str(governance_wallet_address, true, ::config::testnet::GOVERNANCE_WALLET_ADDRESS);
+    }
+    else
+    {
+      cryptonote::get_account_address_from_str(governance_wallet_address, false, ::config::GOVERNANCE_WALLET_ADDRESS);
+    }
+
+    crypto::public_key correct_key;
+
+    if (!get_deterministic_output_key(governance_wallet_address.address, gov_key, output_index, correct_key))
+    {
+      MERROR("Failed to generate deterministic output key for governance wallet output validation");
+      return false;
+    }
+
+    return correct_key == output_key;
+  }
+
   //---------------------------------------------------------------
   bool construct_miner_tx(size_t height, size_t median_size, uint64_t already_generated_coins, size_t current_block_size, uint64_t fee, const account_public_address &miner_address, transaction& tx, const blobdata& extra_nonce, size_t max_outs, uint8_t hard_fork_version, bool testnet) {
     tx.vin.clear();
@@ -83,6 +149,12 @@ namespace cryptonote
     if(!extra_nonce.empty())
       if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
         return false;
+
+    keypair gov_key = get_deterministic_keypair_from_height(height);
+    if (already_generated_coins != 0)
+    {
+      add_tx_pub_key_to_extra(tx, gov_key.pub);
+    }
 
     txin_gen in;
     in.height = height;
@@ -103,18 +175,8 @@ namespace cryptonote
     uint64_t governance_reward = 0;
     if (already_generated_coins != 0)
     {
-      governance_reward = block_reward / 20;
+      governance_reward = get_governance_reward(height, block_reward);
       block_reward -= governance_reward;
-    }
-
-    cryptonote::address_parse_info governance_wallet_address;
-    if (testnet)
-    {
-      cryptonote::get_account_address_from_str(governance_wallet_address, true, ::config::testnet::GOVERNANCE_WALLET_ADDRESS);
-    }
-    else
-    {
-      cryptonote::get_account_address_from_str(governance_wallet_address, false, ::config::GOVERNANCE_WALLET_ADDRESS);
     }
 
     block_reward += fee;
@@ -175,13 +237,23 @@ namespace cryptonote
 
     if (already_generated_coins != 0)
     {
-      crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);;
-      crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
-      bool r = crypto::generate_key_derivation(governance_wallet_address.address.m_view_public_key, txkey.sec, derivation);
-      CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << governance_wallet_address.address.m_view_public_key << ", " << txkey.sec << ")");
+      cryptonote::address_parse_info governance_wallet_address;
+      if (testnet)
+      {
+        cryptonote::get_account_address_from_str(governance_wallet_address, true, ::config::testnet::GOVERNANCE_WALLET_ADDRESS);
+      }
+      else
+      {
+        cryptonote::get_account_address_from_str(governance_wallet_address, false, ::config::GOVERNANCE_WALLET_ADDRESS);
+      }
 
-      r = crypto::derive_public_key(derivation, out_amounts.size(), governance_wallet_address.address.m_spend_public_key, out_eph_public_key);
-      CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << out_amounts.size() << ", "<< governance_wallet_address.address.m_spend_public_key << ")");
+      crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
+
+      if (!get_deterministic_output_key(governance_wallet_address.address, gov_key, out_amounts.size(), out_eph_public_key))
+      {
+        MERROR("Failed to generate deterministic output key for governance wallet output creation");
+        return false;
+      }
 
       txout_to_key tk;
       tk.key = out_eph_public_key;

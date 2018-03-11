@@ -1021,6 +1021,24 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     MERROR_VER("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }
+
+  if (already_generated_coins != 0)
+  {
+    uint64_t governance_reward = get_governance_reward(m_db->height(), base_reward);
+
+    if (b.miner_tx.vout.back().amount != governance_reward)
+    {
+      MERROR("Governance reward amount incorrect.  Should be: " << print_money(governance_reward) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+      return false;
+    }
+
+    if (!validate_governance_reward_key(m_db->height(), m_testnet, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key))
+    {
+      MERROR("Governance reward public key incorrect.");
+      return false;
+    }
+  }
+
   if(base_reward + fee < money_in_use)
   {
     MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
