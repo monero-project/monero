@@ -165,4 +165,20 @@ void PerformanceTimer::resume()
   paused = false;
 }
 
+void PerformanceTimer::reset()
+{
+  if (paused)
+    ticks = 0;
+  else
+    ticks = get_tick_count();
+}
+
+uint64_t PerformanceTimer::value() const
+{
+  uint64_t v = ticks;
+  if (!paused)
+    v = get_tick_count() - v;
+  return ticks_to_ns(v);
+}
+
 }
