@@ -113,7 +113,8 @@ if (BUILD_GUI_DEPS)
             cncrypto
             ringct
             checkpoints
-            version)
+            version
+            ${ICU_LIBRARIES})
 
     foreach(lib ${libs_to_merge})
         list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt
