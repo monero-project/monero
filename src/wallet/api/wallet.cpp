@@ -1990,6 +1990,21 @@ bool WalletImpl::setRing(const std::string &key_image, const std::vector<uint64_
     return true;
 }
 
+void WalletImpl::segregatePreForkOutputs(bool segregate)
+{
+    m_wallet->segregate_pre_fork_outputs(segregate);
+}
+
+void WalletImpl::segregationHeight(uint64_t height)
+{
+    m_wallet->segregation_height(height);
+}
+
+void WalletImpl::keyReuseMitigation2(bool mitigation)
+{
+    m_wallet->key_reuse_mitigation2(mitigation);
+}
+
 } // namespace
 
 namespace Bitmonero = Monero;

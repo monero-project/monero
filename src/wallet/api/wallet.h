@@ -167,6 +167,9 @@ public:
     virtual bool unblackballOutput(const std::string &pubkey);
     virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const;
     virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative);
+    virtual void segregatePreForkOutputs(bool segregate);
+    virtual void segregationHeight(uint64_t height);
+    virtual void keyReuseMitigation2(bool mitigation);
 
 private:
     void clearStatus() const;

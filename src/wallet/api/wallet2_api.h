@@ -769,6 +769,15 @@ struct Wallet
     //! sets the ring used for a key image
     virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative) = 0;
 
+    //! sets whether pre-fork outs are to be segregated
+    virtual void segregatePreForkOutputs(bool segregate) = 0;
+
+    //! sets the height where segregation should occur
+    virtual void segregationHeight(uint64_t height) = 0;
+
+    //! secondary key reuse mitigation
+    virtual void keyReuseMitigation2(bool mitigation) = 0;
+
     //! Light wallet authenticate and login
     virtual bool lightWalletLogin(bool &isNewWallet) const = 0;
     
