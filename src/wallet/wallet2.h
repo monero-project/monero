@@ -872,6 +872,8 @@ namespace tools
     void segregate_pre_fork_outputs(bool value) { m_segregate_pre_fork_outputs = value; }
     bool key_reuse_mitigation2() const { return m_key_reuse_mitigation2; }
     void key_reuse_mitigation2(bool value) { m_key_reuse_mitigation2 = value; }
+    uint64_t segregation_height() const { return m_segregation_height; }
+    void segregation_height(uint64_t height) { m_segregation_height = height; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
@@ -1134,6 +1136,8 @@ namespace tools
 
     bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
+    uint64_t get_segregation_fork_height() const;
+
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;
@@ -1200,6 +1204,7 @@ namespace tools
     bool m_auto_low_priority;
     bool m_segregate_pre_fork_outputs;
     bool m_key_reuse_mitigation2;
+    uint64_t m_segregation_height;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];

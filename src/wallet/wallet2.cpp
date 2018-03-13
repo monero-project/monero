@@ -65,6 +65,7 @@ using namespace epee;
 #include "common/json_util.h"
 #include "memwipe.h"
 #include "common/base58.h"
+#include "common/dns_utils.h"
 #include "ringct/rctSigs.h"
 #include "ringdb.h"
 
@@ -662,6 +663,7 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_auto_low_priority(true),
   m_segregate_pre_fork_outputs(true),
   m_key_reuse_mitigation2(true),
+  m_segregation_height(0),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
@@ -2593,6 +2595,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
 
   value2.SetInt(m_key_reuse_mitigation2 ? 1 : 0);
   json.AddMember("key_reuse_mitigation2", value2, json.GetAllocator());
+
+  value2.SetUint(m_segregation_height);
+  json.AddMember("segregation_height", value2, json.GetAllocator());
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -5774,14 +5779,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
   if (fake_outputs_count > 0)
   {
-    uint64_t segregation_fork_height;
-    switch (m_nettype)
-    {
-      case TESTNET: segregation_fork_height = TESTNET_SEGREGATION_FORK_HEIGHT; break;
-      case STAGENET: segregation_fork_height = STAGENET_SEGREGATION_FORK_HEIGHT; break;
-      case MAINNET: segregation_fork_height = SEGREGATION_FORK_HEIGHT; break;
-      default: THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Invalid network type");
-    }
+    uint64_t segregation_fork_height = get_segregation_fork_height();
     // check whether we're shortly after the fork
     uint64_t height;
     boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
@@ -10322,6 +10320,58 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
     fee_levels.emplace_back(our_fee_byte_min, our_fee_byte_max);
   }
   return estimate_backlog(fee_levels);
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_segregation_fork_height() const
+{
+  if (m_nettype == TESTNET)
+    return TESTNET_SEGREGATION_FORK_HEIGHT;
+  if (m_nettype == STAGENET)
+    return STAGENET_SEGREGATION_FORK_HEIGHT;
+  THROW_WALLET_EXCEPTION_IF(m_nettype != MAINNET, tools::error::wallet_internal_error, "Invalid network type");
+
+  if (m_segregation_height > 0)
+    return m_segregation_height;
+
+  static const bool use_dns = true;
+  if (use_dns)
+  {
+    // All four MoneroPulse domains have DNSSEC on and valid
+    static const std::vector<std::string> dns_urls = {
+        "segheights.moneropulse.org",
+        "segheights.moneropulse.net",
+        "segheights.moneropulse.co",
+        "segheights.moneropulse.se"
+    };
+
+    const uint64_t current_height = get_blockchain_current_height();
+    uint64_t best_diff = std::numeric_limits<uint64_t>::max(), best_height = 0;
+    std::vector<std::string> records;
+    if (tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
+    {
+      for (const auto& record : records)
+      {
+        std::vector<std::string> fields;
+        boost::split(fields, record, boost::is_any_of(":"));
+        if (fields.size() != 2)
+          continue;
+        uint64_t height;
+        if (!string_tools::get_xtype_from_string(height, fields[1]))
+          continue;
+
+        MINFO("Found segregation height via DNS: " << fields[0] << " fork height at " << height);
+        uint64_t diff = height > current_height ? height - current_height : current_height - height;
+        if (diff < best_diff)
+        {
+          best_diff = diff;
+          best_height = height;
+        }
+      }
+      if (best_height)
+        return best_height;
+    }
+  }
+  return SEGREGATION_FORK_HEIGHT;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
