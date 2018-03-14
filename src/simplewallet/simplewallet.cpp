@@ -134,6 +134,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
   const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the monero network"), false};
+  const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -2848,10 +2849,12 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
 
   m_wallet->set_seed_language(mnemonic_language);
 
+  bool create_address_file = command_line::get_arg(vm, arg_create_address_file);
+
   crypto::secret_key recovery_val;
   try
   {
-    recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random);
+    recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random, create_address_file);
     message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
@@ -2900,15 +2903,17 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
 
+  bool create_address_file = command_line::get_arg(vm, arg_create_address_file);
+
   try
   {
     if (spendkey)
     {
-      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), address, *spendkey, viewkey);
+      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), address, *spendkey, viewkey, create_address_file);
     }
     else
     {
-      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), address, viewkey);
+      m_wallet->generate(m_wallet_file, std::move(rc.second).password(), address, viewkey, create_address_file);
     }
     message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
@@ -2971,9 +2976,11 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
 
   m_wallet->set_seed_language(mnemonic_language);
 
+  bool create_address_file = command_line::get_arg(vm, arg_create_address_file);
+
   try
   {
-    m_wallet->generate(m_wallet_file, std::move(rc.second).password(), multisig_keys);
+    m_wallet->generate(m_wallet_file, std::move(rc.second).password(), multisig_keys, create_address_file);
     bool ready;
     uint32_t threshold, total;
     if (!m_wallet->multisig(&ready, &threshold, &total) || !ready)
@@ -6979,6 +6986,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
   command_line::add_arg(desc_params, arg_do_not_relay);
+  command_line::add_arg(desc_params, arg_create_address_file);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
