@@ -5141,7 +5141,7 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin) const
 //----------------------------------------------------------------------------------------------------
 uint32_t wallet2::adjust_priority(uint32_t priority)
 {
-  if (priority == 0 && get_default_priority() != 1 && auto_low_priority())
+  if (priority == 0 && m_default_priority == 0 && auto_low_priority())
   {
     try
     {
