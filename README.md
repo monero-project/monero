@@ -99,9 +99,9 @@ Dates are provided in the format YYYY-MM-DD.
 | 1220516                        | 2017-01-05 | v4                | v0.10.1                | v0.10.2.1                  | Allow normal and RingCT transactions |
 | 1288616                        | 2017-04-15 | v5                | v0.10.3.0              | v0.10.3.1                  | Adjusted minimum blocksize and fee algorithm      |
 | 1400000                        | 2017-09-16 | v6                | v0.11.0.0              | v0.11.0.0                  | Allow only RingCT transactions, allow only >= ringsize 5      |
-| XXXXXXX                        | 2018-03-XX | XX                | XXXXXXXXX              | XXXXXXXXX                  | XXXXXX
+| 1539500                        | 2018-03-28 | v7                | XXXXXXXXX              | XXXXXXXXX                  | Cryptonight variant 1, ringsize >= 7, sorted inputs
 
-X's indicate that these details have not been determined as of commit date, 2017-09-20. 
+X's indicate that these details have not been determined as of commit date.
 
 ## Release staging schedule and protocol
 
