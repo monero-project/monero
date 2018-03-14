@@ -422,9 +422,11 @@ namespace nodetool
       memcpy(&m_network_id, &::config::stagenet::NETWORK_ID, 16);
       full_addrs = get_seed_nodes(cryptonote::STAGENET);
     }
-    else if (m_exclusive_peers.empty())
+    else
     {
       memcpy(&m_network_id, &::config::NETWORK_ID, 16);
+      if (m_exclusive_peers.empty())
+      {
       // for each hostname in the seed nodes list, attempt to DNS resolve and
       // add the result addresses as seed nodes
       // TODO: at some point add IPv6 support, but that won't be relevant
@@ -504,6 +506,7 @@ namespace nodetool
         for (const auto &peer: get_seed_nodes(cryptonote::MAINNET))
           full_addrs.insert(peer);
       }
+    }
     }
 
     for (const auto& full_addr : full_addrs)
