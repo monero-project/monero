@@ -29,11 +29,6 @@
 
 #pragma once
 
-
-//#define DEBUG_HWDEVICE
-//#define IODUMMYCRYPT 1
-//#define IONOCRYPT 1
-
 namespace hw {
     class device;
 

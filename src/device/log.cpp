@@ -55,14 +55,14 @@ namespace hw {
       MDEBUG(msg << ": " << info);
     }
 
-    #ifdef DEBUGLEDGER
+    #ifdef DEBUG_HWDEVICE
     extern crypto::secret_key viewkey;
     extern crypto::secret_key spendkey;
 
 
     void decrypt(char* buf, size_t len) {
-      #ifdef IODUMMYCRYPT
-      int i;
+      #ifdef IODUMMYCRYPT_HWDEVICE
+      size_t i;
       if (len == 32) {
         //view key?
         for (i = 0; i<32; i++) {
@@ -144,7 +144,7 @@ namespace hw {
           log_hexbuffer("    device", dd, len);
 
       } else {
-        buffer_to_str(logstr,  dd, len);
+        buffer_to_str(logstr, 128,  dd, len);
         log_message("ASSERT EQ OK",  msg + ": "+ info + ": "+ std::string(logstr) );
       }
     }

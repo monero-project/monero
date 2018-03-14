@@ -28,6 +28,20 @@
 //
 
 
+/* Note about debug:
+ * To debug Device you can def the following :
+ * #define DEBUG_HWDEVICE
+ *   Activate debug mechanism:
+ *     - Add more trace
+ *     - All computation done by device are checked by default device.
+ *       Required IODUMMYCRYPT_HWDEVICE or IONOCRYPT_HWDEVICE for fully working
+ * #define IODUMMYCRYPT_HWDEVICE 1
+ *     - It assumes sensitive data encryption is is off on device side. a XOR with 0x55. This allow Ledger Class to make check on clear value
+ * #define IONOCRYPT_HWDEVICE 1
+ *     - It assumes sensitive data encryption is off on device side.
+ */
+
+
 #pragma once
 
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -128,8 +142,8 @@ namespace hw {
         virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) = 0;
         virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec) = 0;
 
-        virtual bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, size_t real_output_index,
-                                            const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) = 0;
+        virtual bool  add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
+                                             const rct::key &amount_key,  const crypto::public_key &out_eph_public_key) = 0;
 
 
         virtual bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) = 0;
