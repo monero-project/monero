@@ -35,9 +35,6 @@
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/subaddress_index.h"
-#include "device/device.hpp"
 
 using namespace crypto;
 using namespace std;
@@ -669,7 +666,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            ecdhEncode(rv.ecdhInfo[i], amount_keys[i], hwdev);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
         }
 
         //set txn fee
@@ -750,7 +747,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            ecdhEncode(rv.ecdhInfo[i], amount_keys[i],hwdev);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i]);
         }
             
         //set txn fee
@@ -1007,7 +1004,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        ecdhDecode(ecdh_info, sk, hwdev);
+        hwdev.ecdhDecode(ecdh_info, sk);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1035,7 +1032,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        ecdhDecode(ecdh_info, sk, hwdev);
+        hwdev.ecdhDecode(ecdh_info, sk);
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;

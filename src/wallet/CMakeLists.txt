@@ -113,6 +113,7 @@ if (BUILD_GUI_DEPS)
             cncrypto
             device
             ringct
+            ringct_basic
             checkpoints
             version)
 

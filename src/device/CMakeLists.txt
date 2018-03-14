@@ -37,7 +37,6 @@ if(PCSC_FOUND)
 endif()
 
 set(device_headers
-  device_declare.hpp
   device.hpp
   device_default.hpp
   log.hpp
@@ -68,7 +67,7 @@ target_link_libraries(device
   PUBLIC
     ${PCSC_LIBRARIES}
     cncrypto
-    ringct
+    ringct_basic
     ${OPENSSL_CRYPTO_LIBRARIES}
   PRIVATE
     ${Blocks}

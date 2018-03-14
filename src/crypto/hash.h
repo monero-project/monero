@@ -72,7 +72,11 @@ namespace crypto {
   }
 
   inline void cn_slow_hash(const void *data, std::size_t length, hash &hash, int variant = 0) {
-    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), variant);
+    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), variant, 0/*prehashed*/);
+  }
+
+  inline void cn_slow_hash_prehashed(const void *data, std::size_t length, hash &hash, int variant = 0) {
+    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), variant, 1/*prehashed*/);
   }
 
   inline void tree_hash(const hash *hashes, std::size_t count, hash &root_hash) {

@@ -44,9 +44,9 @@
 
 #pragma once
 
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/account.h"
-#include "cryptonote_basic/subaddress_index.h"
+#include "crypto/crypto.h"
+#include "crypto/chacha.h"
+#include "ringct/rctTypes.h"
 
 #ifndef USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 1
@@ -60,6 +60,14 @@
 #if USE_DEVICE_LEDGER
 #define WITH_DEVICE_LEDGER
 #endif
+
+// forward declaration needed because this header is included by headers in libcryptonote_basic which depends on libdevice
+namespace cryptonote
+{
+    struct account_public_address;
+    struct account_keys;
+    struct subaddress_index;
+}
 
 namespace hw {
     namespace {
@@ -109,10 +117,10 @@ namespace hw {
         /*                               SUB ADDRESS                               */
         /* ======================================================================= */
         virtual bool  derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index,  crypto::public_key &derived_pub) = 0;
-        virtual bool  get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index, crypto::public_key &D) = 0;
-        virtual bool  get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end, std::vector<crypto::public_key> &pkeys) = 0;
-        virtual bool  get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index, cryptonote::account_public_address &address) = 0;
-        virtual bool  get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index, crypto::secret_key &sub_sec) = 0;
+        virtual crypto::public_key  get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index& index) = 0;
+        virtual std::vector<crypto::public_key>  get_subaddress_spend_public_keys(const cryptonote::account_keys &keys, uint32_t account, uint32_t begin, uint32_t end) = 0;
+        virtual cryptonote::account_public_address  get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) = 0;
+        virtual crypto::secret_key  get_subaddress_secret_key(const crypto::secret_key &sec, const cryptonote::subaddress_index &index) = 0;
 
         /* ======================================================================= */
         /*                            DERIVATION & KEY                             */
@@ -121,13 +129,28 @@ namespace hw {
         virtual bool  scalarmultKey(rct::key & aP, const rct::key &P, const rct::key &a) = 0;
         virtual bool  scalarmultBase(rct::key &aG, const rct::key &a) = 0;
         virtual bool  sc_secret_add( crypto::secret_key &r, const crypto::secret_key &a, const crypto::secret_key &b) = 0;
-        virtual bool  generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key, bool recover, crypto::secret_key &rng) = 0;
+        virtual crypto::secret_key  generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false) = 0;
         virtual bool  generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation) = 0;
         virtual bool  derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res) = 0;
         virtual bool  derive_secret_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::secret_key &sec,  crypto::secret_key &derived_sec) = 0;
         virtual bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) = 0;
         virtual bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub) = 0;
         virtual bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image) = 0;
+
+        // alternative prototypes available in libringct
+        rct::key scalarmultKey(const rct::key &P, const rct::key &a)
+        {
+            rct::key aP;
+            scalarmultKey(aP, P, a);
+            return aP;
+        }
+
+        rct::key scalarmultBase(const rct::key &a)
+        {
+            rct::key aG;
+            scalarmultBase(aG, a);
+            return aG;
+        }
 
         /* ======================================================================= */
         /*                               TRANSACTION                               */
@@ -137,7 +160,12 @@ namespace hw {
 
         virtual bool  set_signature_mode(unsigned int sig_mode) = 0;
 
-        virtual bool  encrypt_payment_id(const crypto::public_key &public_key, const crypto::secret_key &secret_key, crypto::hash8 &payment_id ) = 0;
+        virtual bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) = 0;
+        bool  decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
+        {
+            // Encryption and decryption are the same operation (xor with a key)
+            return encrypt_payment_id(payment_id, public_key, secret_key);
+        }
 
         virtual bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) = 0;
         virtual bool  ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec) = 0;

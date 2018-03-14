@@ -50,8 +50,6 @@ extern "C" {
 
 #include "rctTypes.h"
 #include "rctOps.h"
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "device/device_declare.hpp"
 
 //Define this flag when debugging to get additional info on the console
 #ifdef DBG
@@ -60,6 +58,9 @@ extern "C" {
 #define DP(x)
 #endif
 
+namespace hw {
+    class device;
+}
 
 
 namespace rct {

@@ -521,7 +521,7 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
                                  keypair* p_txkey/* = 0*/)
 {
   keypair txkey;
-  txkey = keypair::generate();
+  txkey = keypair::generate(hw::get_device("default"));
   add_tx_pub_key_to_extra(tx, txkey.pub);
 
   if (0 != p_txkey)

@@ -49,7 +49,7 @@ namespace
       m_tx.version = version;
       m_tx.unlock_time = unlock_time;
 
-      m_tx_key = keypair::generate();
+      m_tx_key = keypair::generate(hw::get_device("default"));
       add_tx_pub_key_to_extra(m_tx, m_tx_key.pub);
     }
 
@@ -518,7 +518,7 @@ bool gen_tx_key_image_not_derive_from_tx_key::generate(std::vector<test_event_en
   builder.step2_fill_inputs(miner_account.get_keys(), sources);
 
   txin_to_key& in_to_key = boost::get<txin_to_key>(builder.m_tx.vin.front());
-  keypair kp = keypair::generate();
+  keypair kp = keypair::generate(hw::get_device("default"));
   key_image another_ki;
   crypto::generate_key_image(kp.pub, kp.sec, another_ki);
   in_to_key.k_image = another_ki;
