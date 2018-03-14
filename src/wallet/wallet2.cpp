@@ -2191,6 +2191,11 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       std::list<cryptonote::block_complete_entry> next_blocks;
       std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> next_o_indices;
       bool error = false;
+      if (blocks.empty())
+      {
+        refreshed = false;
+        break;
+      }
       tpool.submit(&waiter, [&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, next_o_indices, error);});
 
       process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
