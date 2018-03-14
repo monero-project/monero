@@ -1521,6 +1521,14 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
     entry.first->second.m_subaddr_account = subaddr_account;
     entry.first->second.m_subaddr_indices = subaddr_indices;
   }
+
+  for (const auto &in: tx.vin)
+  {
+    if (in.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
+    entry.first->second.m_rings.push_back(std::make_pair(txin.k_image, txin.key_offsets));
+  }
   entry.first->second.m_block_height = height;
   entry.first->second.m_timestamp = ts;
   entry.first->second.m_unlock_time = tx.unlock_time;
@@ -4390,6 +4398,13 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amo
   utd.m_timestamp = time(NULL);
   utd.m_subaddr_account = subaddr_account;
   utd.m_subaddr_indices = subaddr_indices;
+  for (const auto &in: tx.vin)
+  {
+    if (in.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
+    utd.m_rings.push_back(std::make_pair(txin.k_image, txin.key_offsets));
+  }
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -4544,8 +4559,6 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_tx_keys.insert(std::make_pair(txid, ptx.tx_key));
     m_additional_tx_keys.insert(std::make_pair(txid, ptx.additional_tx_keys));
   }
-
-  add_rings(ptx.tx);
 
   LOG_PRINT_L2("transaction " << txid << " generated ok and sent to daemon, key_images: [" << ptx.key_images << "]");
 
@@ -5488,6 +5501,29 @@ bool wallet2::get_ring(const crypto::chacha_key &key, const crypto::key_image &k
   if (!m_ringdb)
     return true;
   return m_ringdb->get_ring(key, key_image, outs);
+}
+
+bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs)
+{
+  for (auto i: m_confirmed_txs)
+  {
+    if (txid == i.first)
+    {
+      for (const auto &x: i.second.m_rings)
+        outs.push_back({x.first, cryptonote::relative_output_offsets_to_absolute(x.second)});
+      return true;
+    }
+  }
+  for (auto i: m_unconfirmed_txs)
+  {
+    if (txid == i.first)
+    {
+      for (const auto &x: i.second.m_rings)
+        outs.push_back({x.first, cryptonote::relative_output_offsets_to_absolute(x.second)});
+      return true;
+    }
+  }
+  return false;
 }
 
 bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs)

@@ -1971,6 +1971,30 @@ bool WalletImpl::getRing(const std::string &key_image, std::vector<uint64_t> &ri
     return true;
 }
 
+bool WalletImpl::getRings(const std::string &txid, std::vector<std::pair<std::string, std::vector<uint64_t>>> &rings) const
+{
+    crypto::hash raw_txid;
+    if (!epee::string_tools::hex_to_pod(txid, raw_txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return false;
+    }
+    std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> raw_rings;
+    bool ret = m_wallet->get_rings(raw_txid, raw_rings);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to get rings");
+        return false;
+    }
+    for (const auto &r: raw_rings)
+    {
+      rings.push_back(std::make_pair(epee::string_tools::pod_to_hex(r.first), r.second));
+    }
+    return true;
+}
+
 bool WalletImpl::setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative)
 {
     crypto::key_image raw_key_image;
