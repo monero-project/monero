@@ -49,7 +49,7 @@ extern "C" {
     if ((length & 31) != 0) {
       throw ios_base::failure("Invalid input length for tree_hash");
     }
-    tree_hash((const char (*)[32]) data, length >> 5, hash);
+    tree_hash((const char (*)[crypto::HASH_SIZE]) data, length >> 5, hash);
   }
   static void cn_slow_hash_0(const void *data, size_t length, char *hash) {
     return cn_slow_hash(data, length, hash, 0/*variant*/, 0/*prehashed*/);
