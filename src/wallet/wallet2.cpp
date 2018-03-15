@@ -3540,20 +3540,17 @@ bool wallet2::check_connection(uint32_t *version, uint32_t timeout)
 
   if (version)
   {
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-    req_t.jsonrpc = "2.0";
-    req_t.id = epee::serialization::storage_entry(0);
-    req_t.method = "get_version";
-    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+    cryptonote::COMMAND_RPC_GET_VERSION::request req_t = AUTO_VAL_INIT(req_t);
+    cryptonote::COMMAND_RPC_GET_VERSION::response resp_t = AUTO_VAL_INIT(resp_t);
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_version", req_t, resp_t, m_http_client);
     if(!r) {
       *version = 0;
       return false;
     }
-    if (resp_t.result.status != CORE_RPC_STATUS_OK)
+    if (resp_t.status != CORE_RPC_STATUS_OK)
       *version = 0;
     else
-      *version = resp_t.result.version;
+      *version = resp_t.version;
   }
 
   return true;
@@ -3688,19 +3685,16 @@ void wallet2::trim_hashchain()
   if (!m_blockchain.empty() && m_blockchain.size() == m_blockchain.offset())
   {
     MINFO("Fixing empty hashchain");
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request> req = AUTO_VAL_INIT(req);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response, std::string> res = AUTO_VAL_INIT(res);
+    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT::response res = AUTO_VAL_INIT(res);
     m_daemon_rpc_mutex.lock();
-    req.jsonrpc = "2.0";
-    req.id = epee::serialization::storage_entry(0);
-    req.method = "getblockheaderbyheight";
-    req.params.height = m_blockchain.size() - 1;
-    bool r = net_utils::invoke_http_json("/json_rpc", req, res, m_http_client, rpc_timeout);
+    req.height = m_blockchain.size() - 1;
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheaderbyheight", req, res, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();
-    if (r && res.result.status == CORE_RPC_STATUS_OK)
+    if (r && res.status == CORE_RPC_STATUS_OK)
     {
       crypto::hash hash;
-      epee::string_tools::hex_to_pod(res.result.block_header.hash, hash);
+      epee::string_tools::hex_to_pod(res.block_header.hash, hash);
       m_blockchain.refill(hash);
     }
     else
@@ -5160,18 +5154,15 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       }
 
       // get the current full reward zone
-      epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> getinfo_req = AUTO_VAL_INIT(getinfo_req);
-      epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> getinfo_res = AUTO_VAL_INIT(getinfo_res);
+      cryptonote::COMMAND_RPC_GET_INFO::request getinfo_req = AUTO_VAL_INIT(getinfo_req);
+      cryptonote::COMMAND_RPC_GET_INFO::response getinfo_res = AUTO_VAL_INIT(getinfo_res);
       m_daemon_rpc_mutex.lock();
-      getinfo_req.jsonrpc = "2.0";
-      getinfo_req.id = epee::serialization::storage_entry(0);
-      getinfo_req.method = "get_info";
-      bool r = net_utils::invoke_http_json("/json_rpc", getinfo_req, getinfo_res, m_http_client);
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", getinfo_req, getinfo_res, m_http_client);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-      const uint64_t full_reward_zone = getinfo_res.result.block_size_limit / 2;
+      THROW_WALLET_EXCEPTION_IF(getinfo_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
+      THROW_WALLET_EXCEPTION_IF(getinfo_res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+      const uint64_t full_reward_zone = getinfo_res.block_size_limit / 2;
 
       // get the last N block headers and sum the block sizes
       const size_t N = 10;
@@ -5180,26 +5171,23 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
         MERROR("The blockchain is too short");
         return priority;
       }
-      epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request> getbh_req = AUTO_VAL_INIT(getbh_req);
-      epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response, std::string> getbh_res = AUTO_VAL_INIT(getbh_res);
+      cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request getbh_req = AUTO_VAL_INIT(getbh_req);
+      cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response getbh_res = AUTO_VAL_INIT(getbh_res);
       m_daemon_rpc_mutex.lock();
-      getbh_req.jsonrpc = "2.0";
-      getbh_req.id = epee::serialization::storage_entry(0);
-      getbh_req.method = "getblockheadersrange";
-      getbh_req.params.start_height = m_blockchain.size() - N;
-      getbh_req.params.end_height = m_blockchain.size() - 1;
-      r = net_utils::invoke_http_json("/json_rpc", getbh_req, getbh_res, m_http_client, rpc_timeout);
+      getbh_req.start_height = m_blockchain.size() - N;
+      getbh_req.end_height = m_blockchain.size() - 1;
+      r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheadersrange", getbh_req, getbh_res, m_http_client, rpc_timeout);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
-      THROW_WALLET_EXCEPTION_IF(getbh_res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
-      THROW_WALLET_EXCEPTION_IF(getbh_res.result.status != CORE_RPC_STATUS_OK, error::get_blocks_error, getbh_res.result.status);
-      if (getbh_res.result.headers.size() != N)
+      THROW_WALLET_EXCEPTION_IF(getbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
+      THROW_WALLET_EXCEPTION_IF(getbh_res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, getbh_res.status);
+      if (getbh_res.headers.size() != N)
       {
         MERROR("Bad blockheaders size");
         return priority;
       }
       size_t block_size_sum = 0;
-      for (const cryptonote::block_header_response &i : getbh_res.result.headers)
+      for (const cryptonote::block_header_response &i : getbh_res.headers)
       {
         block_size_sum += i.block_size;
       }
@@ -5464,24 +5452,21 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
   if (fake_outputs_count > 0)
   {
     // get histogram for the amounts we need
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+    cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
+    cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
     m_daemon_rpc_mutex.lock();
-    req_t.jsonrpc = "2.0";
-    req_t.id = epee::serialization::storage_entry(0);
-    req_t.method = "get_output_histogram";
     for(size_t idx: selected_transfers)
-      req_t.params.amounts.push_back(m_transfers[idx].is_rct() ? 0 : m_transfers[idx].amount());
-    std::sort(req_t.params.amounts.begin(), req_t.params.amounts.end());
-    auto end = std::unique(req_t.params.amounts.begin(), req_t.params.amounts.end());
-    req_t.params.amounts.resize(std::distance(req_t.params.amounts.begin(), end));
-    req_t.params.unlocked = true;
-    req_t.params.recent_cutoff = time(NULL) - RECENT_OUTPUT_ZONE;
-    bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
+      req_t.amounts.push_back(m_transfers[idx].is_rct() ? 0 : m_transfers[idx].amount());
+    std::sort(req_t.amounts.begin(), req_t.amounts.end());
+    auto end = std::unique(req_t.amounts.begin(), req_t.amounts.end());
+    req_t.amounts.resize(std::distance(req_t.amounts.begin(), end));
+    req_t.unlocked = true;
+    req_t.recent_cutoff = time(NULL) - RECENT_OUTPUT_ZONE;
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_histogram", req_t, resp_t, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
-    THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-    THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
+    THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
+    THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
 
     // we ask for more, to have spares if some outputs are still locked
     size_t base_requested_outputs_count = (size_t)((fake_outputs_count + 1) * 1.5 + 1);
@@ -5505,7 +5490,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       // if there are just enough outputs to mix with, use all of them.
       // Eventually this should become impossible.
       uint64_t num_outs = 0, num_recent_outs = 0;
-      for (const auto &he: resp_t.result.histogram)
+      for (const auto &he: resp_t.histogram)
       {
         if (he.amount == amount)
         {
@@ -7502,25 +7487,22 @@ std::vector<uint64_t> wallet2::get_unspent_amounts_vector() const
 //----------------------------------------------------------------------------------------------------
 std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct, bool trusted_daemon)
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_output_histogram";
   if (trusted_daemon)
-    req_t.params.amounts = get_unspent_amounts_vector();
-  req_t.params.min_count = count;
-  req_t.params.max_count = 0;
-  req_t.params.unlocked = unlocked;
-  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
+    req_t.amounts = get_unspent_amounts_vector();
+  req_t.min_count = count;
+  req_t.max_count = 0;
+  req_t.unlocked = unlocked;
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_histogram", req_t, resp_t, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "select_available_outputs_from_histogram");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
+  THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
+  THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
 
   std::set<uint64_t> mixable;
-  for (const auto &i: resp_t.result.histogram)
+  for (const auto &i: resp_t.histogram)
   {
     mixable.insert(i.amount);
   }
@@ -7543,24 +7525,21 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_num_rct_outputs()
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_output_histogram";
-  req_t.params.amounts.push_back(0);
-  req_t.params.min_count = 0;
-  req_t.params.max_count = 0;
-  bool r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client, rpc_timeout);
+  req_t.amounts.push_back(0);
+  req_t.min_count = 0;
+  req_t.max_count = 0;
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_histogram", req_t, resp_t, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_num_rct_outputs");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.result.status);
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram.size() != 1, error::get_histogram_error, "Expected exactly one response");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
+  THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
+  THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
+  THROW_WALLET_EXCEPTION_IF(resp_t.histogram.size() != 1, error::get_histogram_error, "Expected exactly one response");
+  THROW_WALLET_EXCEPTION_IF(resp_t.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
 
-  return resp_t.result.histogram[0].total_instances;
+  return resp_t.histogram[0].total_instances;
 }
 //----------------------------------------------------------------------------------------------------
 const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
@@ -8476,23 +8455,20 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err) const
 
 uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 {
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_info";
-  bool ok = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+  bool ok = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
   if (ok)
   {
-    if (resp_t.result.status == CORE_RPC_STATUS_BUSY)
+    if (resp_t.status == CORE_RPC_STATUS_BUSY)
     {
       err = "daemon is busy. Please try again later.";
     }
-    else if (resp_t.result.status != CORE_RPC_STATUS_OK)
+    else if (resp_t.status != CORE_RPC_STATUS_OK)
     {
-      err = resp_t.result.status;
+      err = resp_t.status;
     }
     else // success, cleaning up error message
     {
@@ -8503,7 +8479,7 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
   {
     err = "possibly lost connection to daemon";
   }
-  return resp_t.result.target_height;
+  return resp_t.target_height;
 }
 
 uint64_t wallet2::get_approximate_blockchain_height() const
@@ -9739,30 +9715,24 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   }
 
   // get txpool backlog
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request> req = AUTO_VAL_INIT(req);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response, std::string> res = AUTO_VAL_INIT(res);
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response res = AUTO_VAL_INIT(res);
   m_daemon_rpc_mutex.lock();
-  req.jsonrpc = "2.0";
-  req.id = epee::serialization::storage_entry(0);
-  req.method = "get_txpool_backlog";
-  bool r = net_utils::invoke_http_json("/json_rpc", req, res, m_http_client, rpc_timeout);
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_txpool_backlog", req, res, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "Failed to connect to daemon");
-  THROW_WALLET_EXCEPTION_IF(res.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_txpool_backlog");
-  THROW_WALLET_EXCEPTION_IF(res.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_txpool_backlog");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
 
-  epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_INFO::request> req_t = AUTO_VAL_INIT(req_t);
-  epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_INFO::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
+  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
   m_daemon_rpc_mutex.lock();
-  req_t.jsonrpc = "2.0";
-  req_t.id = epee::serialization::storage_entry(0);
-  req_t.method = "get_info";
-  r = net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client);
+  r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.result.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-  uint64_t full_reward_zone = resp_t.result.block_size_limit / 2;
+  THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
+  THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
+  uint64_t full_reward_zone = resp_t.block_size_limit / 2;
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
   for (const auto &fee_level: fee_levels)
@@ -9770,7 +9740,7 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
     const double our_fee_byte_min = fee_level.first;
     const double our_fee_byte_max = fee_level.second;
     uint64_t priority_size_min = 0, priority_size_max = 0;
-    for (const auto &i: res.result.backlog)
+    for (const auto &i: res.backlog)
     {
       if (i.blob_size == 0)
       {
