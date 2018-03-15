@@ -375,8 +375,9 @@ namespace
     return true;
   }
 
-  void handle_transfer_exception(const std::exception_ptr &e)
+  void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon)
   {
+    bool warn_of_possible_attack = !trusted_daemon;
     try
     {
       std::rethrow_exception(e);
@@ -404,6 +405,7 @@ namespace
         print_money(e.available()) %
         print_money(e.tx_amount()));
       fail_msg_writer() << tr("Not enough money in unlocked balance");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::not_enough_money& e)
     {
@@ -411,6 +413,7 @@ namespace
         print_money(e.available()) %
         print_money(e.tx_amount()));
       fail_msg_writer() << tr("Not enough money in unlocked balance");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_not_possible& e)
     {
@@ -420,6 +423,7 @@ namespace
         print_money(e.tx_amount()) %
         print_money(e.fee()));
       fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
@@ -434,6 +438,7 @@ namespace
     catch (const tools::error::tx_not_constructed&)
       {
       fail_msg_writer() << tr("transaction was not constructed");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_rejected& e)
     {
@@ -445,14 +450,17 @@ namespace
     catch (const tools::error::tx_sum_overflow& e)
     {
       fail_msg_writer() << e.what();
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::zero_destination&)
     {
       fail_msg_writer() << tr("one of destinations is zero");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_too_big& e)
     {
       fail_msg_writer() << tr("failed to find a suitable way to split transactions");
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::transfer_error& e)
     {
@@ -463,6 +471,7 @@ namespace
     {
       LOG_ERROR("Multisig error: " << e.to_string());
       fail_msg_writer() << tr("Multisig error: ") << e.what();
+      warn_of_possible_attack = false;
     }
     catch (const tools::error::wallet_internal_error& e)
     {
@@ -474,6 +483,9 @@ namespace
       LOG_ERROR("unexpected error: " << e.what());
       fail_msg_writer() << tr("unexpected error: ") << e.what();
     }
+
+    if (warn_of_possible_attack)
+      fail_msg_writer() << tr("There was an error, which could mean the node may be trying to get you to retry creating a transaction, and zero in on which outputs you own. Or it could be a bona fide error. It may be prudent to disconnect from this node, and not try to send a tranasction immediately. Alternatively, connect to another node so the original node cannot correlate information.");
   }
 
   bool check_file_overwrite(const std::string &filename)
@@ -1195,7 +1207,7 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
@@ -4175,7 +4187,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
@@ -4283,7 +4295,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   }
   catch (const std::exception &e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
@@ -4516,7 +4528,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
@@ -4715,7 +4727,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
@@ -5020,7 +5032,7 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
   }
   catch (const std::exception& e)
   {
-    handle_transfer_exception(std::current_exception());
+    handle_transfer_exception(std::current_exception(), m_trusted_daemon);
   }
   catch (...)
   {
