@@ -6802,9 +6802,13 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
   bool ready;
   uint32_t threshold, total;
-
+  std::string description = m_wallet->get_description();
+  if (description.empty())
+  {
+    description = "<Not set>"; 
+  }
   message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
-  message_writer() << tr("Description: ") << m_wallet->get_description();
+  message_writer() << tr("Description: ") << description;
   message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   std::string type;
   if (m_wallet->watch_only())
