@@ -2982,7 +2982,7 @@ bool Blockchain::check_fee(size_t blob_size, uint64_t fee) const
       return false;
     fee_per_kb = get_dynamic_per_kb_fee(base_reward, median, version);
   }
-  MDEBUG("Using " << print_money(fee) << "/kB fee");
+  MDEBUG("Using " << print_money(fee_per_kb) << "/kB fee");
 
   uint64_t needed_fee = blob_size / 1024;
   needed_fee += (blob_size % 1024) ? 1 : 0;
