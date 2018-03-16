@@ -46,6 +46,7 @@
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
 #include "generate_keypair.h"
+#include "signature.h"
 #include "is_out_to_acc.h"
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
@@ -150,6 +151,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, verbose, test_ge_frombytes_vartime);
   TEST_PERFORMANCE0(filter, verbose, test_generate_keypair);
   TEST_PERFORMANCE0(filter, verbose, test_sc_reduce32);
+  TEST_PERFORMANCE1(filter, verbose, test_signature, false);
+  TEST_PERFORMANCE1(filter, verbose, test_signature, true);
 
   TEST_PERFORMANCE2(filter, verbose, test_wallet2_expand_subaddresses, 50, 200);
 
