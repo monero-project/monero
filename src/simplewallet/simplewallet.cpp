@@ -134,6 +134,7 @@ namespace
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
   const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the monero network"), false};
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
+  const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -373,6 +374,25 @@ namespace
       subaddr_indices.insert(subaddr_index);
     }
     return true;
+  }
+
+  boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str)
+  {
+    auto pos = str.find(":");
+    bool r = pos != std::string::npos;
+    uint32_t major;
+    r = r && epee::string_tools::get_xtype_from_string(major, str.substr(0, pos));
+    uint32_t minor;
+    r = r && epee::string_tools::get_xtype_from_string(minor, str.substr(pos + 1));
+    if (r)
+    {
+      return std::make_pair(major, minor);
+    }
+    else
+    {
+      fail_msg_writer() << tr("invalid format for subaddress lookahead; must be <major>:<minor>");
+      return {};
+    }
   }
 
   void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon)
@@ -1933,6 +1953,21 @@ bool simple_wallet::set_key_reuse_mitigation2(const std::vector<std::string> &ar
   return true;
 }
 
+bool simple_wallet::set_subaddress_lookahead(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    auto lookahead = parse_subaddress_lookahead(args[1]);
+    if (lookahead)
+    {
+      m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    }
+  }
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if(args.empty())
@@ -2111,7 +2146,9 @@ simple_wallet::simple_wallet()
                                   "segregate-pre-fork-outputs <1|0>\n "
                                   "  Set this if you intend to spend outputs on both Monero AND a key reusing fork.\n "
                                   "key-reuse-mitigation2 <1|0>\n "
-                                  "  Set this if you are not sure whether you will spend on a key reusing Monero fork later."));
+                                  "  Set this if you are not sure whether you will spend on a key reusing Monero fork later.\n"
+                                  "subaddress-lookahead <major>:<minor>\n "
+                                  "  Set the lookahead sizes for the subaddress hash table."));
   m_cmd_binder.set_handler("encrypted_seed",
                            boost::bind(&simple_wallet::encrypted_seed, this, _1),
                            tr("Display the encrypted Electrum-style mnemonic seed."));
@@ -2305,6 +2342,8 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "auto-low-priority = " << m_wallet->auto_low_priority();
     success_msg_writer() << "segregate-pre-fork-outputs = " << m_wallet->segregate_pre_fork_outputs();
     success_msg_writer() << "key-reuse-mitigation2 = " << m_wallet->key_reuse_mitigation2();
+    const std::pair<size_t, size_t> lookahead = m_wallet->get_subaddress_lookahead();
+    success_msg_writer() << "subaddress-lookahead = " << lookahead.first << ":" << lookahead.second;
     return true;
   }
   else
@@ -2357,6 +2396,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("auto-low-priority", set_auto_low_priority, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("segregate-pre-fork-outputs", set_segregate_pre_fork_outputs, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("key-reuse-mitigation2", set_key_reuse_mitigation2, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("subaddress-lookahead", set_subaddress_lookahead, tr("<major>:<minor>"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
@@ -2512,6 +2552,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
   if (!m_generate_new.empty() || m_restoring)
   {
+    if (!m_subaddress_lookahead.empty() && !parse_subaddress_lookahead(m_subaddress_lookahead))
+      return false;
+
     std::string old_language;
     // check for recover flag.  if present, require electrum word list (only recovery option for now).
     if (m_restore_deterministic_wallet || m_restore_multisig_wallet)
@@ -3004,6 +3047,11 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   else
   {
     assert(!m_wallet_file.empty());
+    if (!m_subaddress_lookahead.empty())
+    {
+      fail_msg_writer() << tr("can't specify --subaddress-lookahead and --wallet-file at the same time");
+      return false;
+    }
     bool r = open_wallet(vm);
     CHECK_AND_ASSERT_MES(r, false, tr("failed to open account"));
   }
@@ -3059,6 +3107,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
   m_do_not_relay                  = command_line::get_arg(vm, arg_do_not_relay);
+  m_subaddress_lookahead          = command_line::get_arg(vm, arg_subaddress_lookahead);
   m_restoring                     = !m_generate_from_view_key.empty() ||
                                     !m_generate_from_spend_key.empty() ||
                                     !m_generate_from_keys.empty() ||
@@ -3159,6 +3208,13 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     return false;
   }
 
+  if (!m_subaddress_lookahead.empty())
+  {
+    auto lookahead = parse_subaddress_lookahead(m_subaddress_lookahead);
+    assert(lookahead);
+    m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
+  }
+
   bool was_deprecated_wallet = m_restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
     crypto::ElectrumWords::get_is_old_style_seed(m_electrum_seed));
 
@@ -3242,6 +3298,14 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   {
     return false;
   }
+
+  if (!m_subaddress_lookahead.empty())
+  {
+    auto lookahead = parse_subaddress_lookahead(m_subaddress_lookahead);
+    assert(lookahead);
+    m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
+  }
+
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
 
@@ -3279,6 +3343,14 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   {
     return false;
   }
+
+  if (!m_subaddress_lookahead.empty())
+  {
+    auto lookahead = parse_subaddress_lookahead(m_subaddress_lookahead);
+    assert(lookahead);
+    m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
+  }
+
   if (m_restore_height)
     m_wallet->set_refresh_from_block_height(m_restore_height);
 
@@ -3305,6 +3377,13 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   if (!m_wallet)
   {
     return false;
+  }
+
+  if (!m_subaddress_lookahead.empty())
+  {
+    auto lookahead = parse_subaddress_lookahead(m_subaddress_lookahead);
+    assert(lookahead);
+    m_wallet->set_subaddress_lookahead(lookahead->first, lookahead->second);
   }
 
   std::string mnemonic_language = old_language;
@@ -7342,6 +7421,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_height);
   command_line::add_arg(desc_params, arg_do_not_relay);
   command_line::add_arg(desc_params, arg_create_address_file);
+  command_line::add_arg(desc_params, arg_subaddress_lookahead);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
