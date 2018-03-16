@@ -133,6 +133,8 @@ namespace cryptonote
     bool set_confirm_export_overwrite(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_refresh_from_block_height(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_auto_low_priority(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_segregate_pre_fork_outputs(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_key_reuse_mitigation2(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -208,6 +210,12 @@ namespace cryptonote
     bool sign_multisig(const std::vector<std::string>& args);
     bool submit_multisig(const std::vector<std::string>& args);
     bool export_raw_multisig(const std::vector<std::string>& args);
+    bool print_ring(const std::vector<std::string>& args);
+    bool set_ring(const std::vector<std::string>& args);
+    bool save_known_rings(const std::vector<std::string>& args);
+    bool blackball(const std::vector<std::string>& args);
+    bool unblackball(const std::vector<std::string>& args);
+    bool blackballed(const std::vector<std::string>& args);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);

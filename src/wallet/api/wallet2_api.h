@@ -33,6 +33,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <set>
 #include <ctime>
 #include <iostream>
@@ -756,6 +757,30 @@ struct Wallet
     */
     virtual bool rescanSpent() = 0;
     
+    //! blackballs a set of outputs
+    virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) = 0;
+
+    //! unblackballs an output
+    virtual bool unblackballOutput(const std::string &pubkey) = 0;
+
+    //! gets the ring used for a key image, if any
+    virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const = 0;
+
+    //! gets the rings used for a txid, if any
+    virtual bool getRings(const std::string &txid, std::vector<std::pair<std::string, std::vector<uint64_t>>> &rings) const = 0;
+
+    //! sets the ring used for a key image
+    virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative) = 0;
+
+    //! sets whether pre-fork outs are to be segregated
+    virtual void segregatePreForkOutputs(bool segregate) = 0;
+
+    //! sets the height where segregation should occur
+    virtual void segregationHeight(uint64_t height) = 0;
+
+    //! secondary key reuse mitigation
+    virtual void keyReuseMitigation2(bool mitigation) = 0;
+
     //! Light wallet authenticate and login
     virtual bool lightWalletLogin(bool &isNewWallet) const = 0;
     

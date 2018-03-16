@@ -66,6 +66,8 @@ class Serialization_portability_wallet_Test;
 
 namespace tools
 {
+  class ringdb;
+
   class i_wallet2_callback
   {
   public:
@@ -166,6 +168,7 @@ namespace tools
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev);
 
     wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, bool restricted = false);
+    ~wallet2();
 
     struct multisig_info
     {
@@ -286,6 +289,7 @@ namespace tools
       uint64_t m_timestamp;
       uint32_t m_subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> m_subaddr_indices;  // set of address indices used as inputs in this transfer
+      std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
     };
 
     struct confirmed_transfer_details
@@ -300,10 +304,11 @@ namespace tools
       uint64_t m_unlock_time;
       uint32_t m_subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> m_subaddr_indices;  // set of address indices used as inputs in this transfer
+      std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
 
       confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(crypto::null_hash), m_timestamp(0), m_unlock_time(0), m_subaddr_account((uint32_t)-1) {}
       confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices) {}
+        m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices), m_rings(utd.m_rings) {}
     };
 
     struct tx_construction_data
@@ -810,6 +815,9 @@ namespace tools
       if(ver < 23)
         return;
       a & m_account_tags;
+      if(ver < 24)
+        return;
+      a & m_ring_history_saved;
     }
 
     /*!
@@ -859,6 +867,10 @@ namespace tools
     void confirm_export_overwrite(bool always) { m_confirm_export_overwrite = always; }
     bool auto_low_priority() const { return m_auto_low_priority; }
     void auto_low_priority(bool value) { m_auto_low_priority = value; }
+    bool segregate_pre_fork_outputs() const { return m_segregate_pre_fork_outputs; }
+    void segregate_pre_fork_outputs(bool value) { m_segregate_pre_fork_outputs = value; }
+    bool key_reuse_mitigation2() const { return m_key_reuse_mitigation2; }
+    void key_reuse_mitigation2(bool value) { m_key_reuse_mitigation2 = value; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
@@ -1046,6 +1058,18 @@ namespace tools
       return epee::net_utils::invoke_http_json_rpc(uri, method_name, req, res, m_http_client, timeout, http_method, req_id);
     }
 
+    void set_ring_database(const std::string &filename);
+    const std::string get_ring_database() const { return m_ring_database; }
+    bool get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+    bool get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs);
+    bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
+    bool find_and_save_rings(bool force = true);
+
+    bool blackball_output(const crypto::public_key &output);
+    bool set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add = false);
+    bool unblackball_output(const crypto::public_key &output);
+    bool is_output_blackballed(const crypto::public_key &output) const;
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1102,6 +1126,12 @@ namespace tools
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     rct::key get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L) const;
     void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
+    bool add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
+    bool add_rings(const cryptonote::transaction_prefix &tx);
+    bool remove_rings(const cryptonote::transaction_prefix &tx);
+    bool get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+
+    bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
@@ -1167,6 +1197,8 @@ namespace tools
     uint32_t m_confirm_backlog_threshold;
     bool m_confirm_export_overwrite;
     bool m_auto_low_priority;
+    bool m_segregate_pre_fork_outputs;
+    bool m_key_reuse_mitigation2;
     bool m_is_initialized;
     NodeRPCProxy m_node_rpc_proxy;
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
@@ -1185,17 +1217,21 @@ namespace tools
     std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
     // store calculated key image for faster lookup
     std::unordered_map<crypto::public_key, std::map<uint64_t, crypto::key_image> > m_key_image_cache;
+
+    std::string m_ring_database;
+    bool m_ring_history_saved;
+    std::unique_ptr<ringdb> m_ringdb;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 23)
+BOOST_CLASS_VERSION(tools::wallet2, 24)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 3)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 7)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 5)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
+BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
@@ -1395,6 +1431,9 @@ namespace boost
       }
       a & x.m_subaddr_account;
       a & x.m_subaddr_indices;
+      if (ver < 8)
+        return;
+      a & x.m_rings;
     }
 
     template <class Archive>
@@ -1439,6 +1478,9 @@ namespace boost
       }
       a & x.m_subaddr_account;
       a & x.m_subaddr_indices;
+      if (ver < 6)
+        return;
+      a & x.m_rings;
     }
 
     template <class Archive>

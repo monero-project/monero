@@ -68,6 +68,15 @@ namespace {
     static const int    DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // Connection timeout 30 sec
     static const int    DEFAULT_CONNECTION_TIMEOUT_MILLIS = 1000 * 30;
+
+    std::string get_default_ringdb_path()
+    {
+      boost::filesystem::path dir = tools::get_default_data_dir();
+      // remove .bitmonero, replace with .shared-ringdb
+      dir = dir.remove_filename();
+      dir /= ".shared-ringdb";
+      return dir.string();
+    }
 }
 
 struct Wallet2CallbackImpl : public tools::i_wallet2_callback
@@ -590,6 +599,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
         }
+        m_wallet->set_ring_database(get_default_ringdb_path());
         m_wallet->load(path, password);
 
         m_password = password;
@@ -1777,6 +1787,7 @@ void WalletImpl::doRefresh()
             if (m_history->count() == 0) {
                 m_history->refresh();
             }
+            m_wallet->find_and_save_rings(false);
         } else {
            LOG_PRINT_L3(__FUNCTION__ << ": skipping refresh - daemon is not synced");
         }
@@ -1895,6 +1906,127 @@ void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
 bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const 
 {
     return m_wallet->use_fork_rules(version,early_blocks);
+}
+
+bool WalletImpl::blackballOutputs(const std::vector<std::string> &pubkeys, bool add)
+{
+    std::vector<crypto::public_key> raw_pubkeys;
+    raw_pubkeys.reserve(pubkeys.size());
+    for (const std::string &str: pubkeys)
+    {
+        crypto::public_key pkey;
+        if (!epee::string_tools::hex_to_pod(str, pkey))
+        {
+            m_status = Status_Error;
+            m_errorString = tr("Failed to parse output public key");
+            return false;
+        }
+        raw_pubkeys.push_back(pkey);
+    }
+    bool ret = m_wallet->set_blackballed_outputs(raw_pubkeys, add);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to set blackballed outputs");
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::unblackballOutput(const std::string &pubkey)
+{
+    crypto::public_key raw_pubkey;
+    if (!epee::string_tools::hex_to_pod(pubkey, raw_pubkey))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse output public key");
+        return false;
+    }
+    bool ret = m_wallet->unblackball_output(raw_pubkey);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to unblackball output");
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::getRing(const std::string &key_image, std::vector<uint64_t> &ring) const
+{
+    crypto::key_image raw_key_image;
+    if (!epee::string_tools::hex_to_pod(key_image, raw_key_image))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse key image");
+        return false;
+    }
+    bool ret = m_wallet->get_ring(raw_key_image, ring);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to get ring");
+        return false;
+    }
+    return true;
+}
+
+bool WalletImpl::getRings(const std::string &txid, std::vector<std::pair<std::string, std::vector<uint64_t>>> &rings) const
+{
+    crypto::hash raw_txid;
+    if (!epee::string_tools::hex_to_pod(txid, raw_txid))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse txid");
+        return false;
+    }
+    std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> raw_rings;
+    bool ret = m_wallet->get_rings(raw_txid, raw_rings);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to get rings");
+        return false;
+    }
+    for (const auto &r: raw_rings)
+    {
+      rings.push_back(std::make_pair(epee::string_tools::pod_to_hex(r.first), r.second));
+    }
+    return true;
+}
+
+bool WalletImpl::setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative)
+{
+    crypto::key_image raw_key_image;
+    if (!epee::string_tools::hex_to_pod(key_image, raw_key_image))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to parse key image");
+        return false;
+    }
+    bool ret = m_wallet->set_ring(raw_key_image, ring, relative);
+    if (!ret)
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Failed to set ring");
+        return false;
+    }
+    return true;
+}
+
+void WalletImpl::segregatePreForkOutputs(bool segregate)
+{
+    m_wallet->segregate_pre_fork_outputs(segregate);
+}
+
+void WalletImpl::segregationHeight(uint64_t height)
+{
+    m_wallet->segregation_height(height);
+}
+
+void WalletImpl::keyReuseMitigation2(bool mitigation)
+{
+    m_wallet->key_reuse_mitigation2(mitigation);
 }
 
 } // namespace

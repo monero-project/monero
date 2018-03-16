@@ -66,6 +66,7 @@ using namespace epee;
 #include "memwipe.h"
 #include "common/base58.h"
 #include "ringct/rctSigs.h"
+#include "ringdb.h"
 
 extern "C"
 {
@@ -93,7 +94,9 @@ using namespace cryptonote;
 #define MULTISIG_UNSIGNED_TX_PREFIX "Monero multisig unsigned tx set\001"
 
 #define RECENT_OUTPUT_RATIO (0.5) // 50% of outputs are from the recent zone
-#define RECENT_OUTPUT_ZONE ((time_t)(1.8 * 86400)) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
+#define RECENT_OUTPUT_DAYS (1.8) // last 1.8 day makes up the recent zone (taken from monerolink.pdf, Miller et al)
+#define RECENT_OUTPUT_ZONE ((time_t)(RECENT_OUTPUT_DAYS * 86400))
+#define RECENT_OUTPUT_BLOCKS (RECENT_OUTPUT_DAYS * 720)
 
 #define FEE_ESTIMATE_GRACE_BLOCKS 10 // estimate fee valid for that many blocks
 
@@ -105,6 +108,24 @@ using namespace cryptonote;
 #define KEY_IMAGE_EXPORT_FILE_MAGIC "Monero key image export\002"
 
 #define MULTISIG_EXPORT_FILE_MAGIC "Monero multisig export\001"
+
+#define SEGREGATION_FORK_HEIGHT 1564965
+#define TESTNET_SEGREGATION_FORK_HEIGHT 1000000
+#define STAGENET_SEGREGATION_FORK_HEIGHT 1000000
+#define SEGREGATION_FORK_VICINITY 1500 /* blocks */
+
+
+namespace
+{
+  std::string get_default_ringdb_path()
+  {
+    boost::filesystem::path dir = tools::get_default_data_dir();
+    // remove .bitmonero, replace with .shared-ringdb
+    dir = dir.remove_filename();
+    dir /= ".shared-ringdb";
+    return dir.string();
+  }
+}
 
 namespace
 {
@@ -119,6 +140,16 @@ struct options {
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
   const command_line::arg_descriptor<bool> restricted = {"restricted-rpc", tools::wallet2::tr("Restricts to view-only commands"), false};
+  const command_line::arg_descriptor<std::string, false, true> shared_ringdb_dir = {
+    "shared-ringdb-dir", tools::wallet2::tr("Set shared ring database path"),
+    get_default_ringdb_path(),
+    testnet,
+    [](bool testnet, bool defaulted, std::string val) {
+      if (testnet)
+        return (boost::filesystem::path(val) / "testnet").string();
+      return val;
+    }
+  };
 };
 
 void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
@@ -196,6 +227,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet ? TESTNET : stagenet ? STAGENET : MAINNET, restricted));
   wallet->init(std::move(daemon_address), std::move(login));
+  boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
+  wallet->set_ring_database(ringdb_path.string());
   return wallet;
 }
 
@@ -627,6 +660,8 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_confirm_backlog_threshold(0),
   m_confirm_export_overwrite(true),
   m_auto_low_priority(true),
+  m_segregate_pre_fork_outputs(true),
+  m_key_reuse_mitigation2(true),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
@@ -639,7 +674,13 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_light_wallet_connected(false),
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
-  m_key_on_device(false)
+  m_key_on_device(false),
+  m_ring_history_saved(false),
+  m_ringdb()
+{
+}
+
+wallet2::~wallet2()
 {
 }
 
@@ -665,6 +706,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
   command_line::add_arg(desc_params, opts.restricted);
+  command_line::add_arg(desc_params, opts.shared_ringdb_dir);
 }
 
 std::unique_ptr<wallet2> wallet2::make_from_json(const boost::program_options::variables_map& vm, const std::string& json_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -1479,9 +1521,19 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
     entry.first->second.m_subaddr_account = subaddr_account;
     entry.first->second.m_subaddr_indices = subaddr_indices;
   }
+
+  for (const auto &in: tx.vin)
+  {
+    if (in.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
+    entry.first->second.m_rings.push_back(std::make_pair(txin.k_image, txin.key_offsets));
+  }
   entry.first->second.m_block_height = height;
   entry.first->second.m_timestamp = ts;
   entry.first->second.m_unlock_time = tx.unlock_time;
+
+  add_rings(tx);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices)
@@ -1852,6 +1904,7 @@ void wallet2::update_pool_state(bool refreshed)
         pit->second.m_state = wallet2::unconfirmed_transfer_details::failed;
 
         // the inputs aren't spent anymore, since the tx failed
+        remove_rings(pit->second.m_tx);
         for (size_t vini = 0; vini < pit->second.m_tx.vin.size(); ++vini)
         {
           if (pit->second.m_tx.vin[vini].type() == typeid(txin_to_key))
@@ -2266,6 +2319,73 @@ bool wallet2::refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok)
   return ok;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution)
+{
+  uint32_t rpc_version;
+  boost::optional<std::string> result = m_node_rpc_proxy.get_rpc_version(rpc_version);
+  // no error
+  if (!!result)
+  {
+    // empty string -> not connection
+    THROW_WALLET_EXCEPTION_IF(result->empty(), tools::error::no_connection_to_daemon, "getversion");
+    THROW_WALLET_EXCEPTION_IF(*result == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, "getversion");
+    if (*result != CORE_RPC_STATUS_OK)
+    {
+      MDEBUG("Cannot determine daemon RPC version, not requesting rct distribution");
+      return false;
+    }
+  }
+  else
+  {
+    if (rpc_version >= MAKE_CORE_RPC_VERSION(1, 19))
+    {
+      MDEBUG("Daemon is recent enough, requesting rct distribution");
+    }
+    else
+    {
+      MDEBUG("Daemon is too old, not requesting rct distribution");
+      return false;
+    }
+  }
+
+  cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response res = AUTO_VAL_INIT(res);
+  req.amounts.push_back(0);
+  req.from_height = 0;
+  req.cumulative = true;
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+  if (!r)
+  {
+    MWARNING("Failed to request output distribution: no connection to daemon");
+    return false;
+  }
+  if (res.status == CORE_RPC_STATUS_BUSY)
+  {
+    MWARNING("Failed to request output distribution: daemon is busy");
+    return false;
+  }
+  if (res.status != CORE_RPC_STATUS_OK)
+  {
+    MWARNING("Failed to request output distribution: " << res.status);
+    return false;
+  }
+  if (res.distributions.size() != 1)
+  {
+    MWARNING("Failed to request output distribution: not the expected single result");
+    return false;
+  }
+  if (res.distributions[0].amount != 0)
+  {
+    MWARNING("Failed to request output distribution: results are not for amount 0");
+    return false;
+  }
+  start_height = res.distributions[0].start_height;
+  distribution = std::move(res.distributions[0].distribution);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::detach_blockchain(uint64_t height)
 {
   LOG_PRINT_L0("Detaching blockchain on height " << height);
@@ -2467,6 +2587,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
 
   value2.SetUint(m_nettype);
   json.AddMember("nettype", value2, json.GetAllocator());
+
+  value2.SetInt(m_segregate_pre_fork_outputs ? 1 : 0);
+  json.AddMember("segregate_pre_fork_outputs", value2, json.GetAllocator());
+
+  value2.SetInt(m_key_reuse_mitigation2 ? 1 : 0);
+  json.AddMember("key_reuse_mitigation2", value2, json.GetAllocator());
 
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
@@ -3677,6 +3803,15 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
     add_subaddress_account(tr("Primary account"));
 
   m_local_bc_height = m_blockchain.size();
+
+  try
+  {
+    find_and_save_rings(false);
+  }
+  catch (const std::exception &e)
+  {
+    MERROR("Failed to save rings, will try again next time");
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::trim_hashchain()
@@ -4263,6 +4398,13 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amo
   utd.m_timestamp = time(NULL);
   utd.m_subaddr_account = subaddr_account;
   utd.m_subaddr_indices = subaddr_indices;
+  for (const auto &in: tx.vin)
+  {
+    if (in.type() != typeid(cryptonote::txin_to_key))
+      continue;
+    const auto &txin = boost::get<cryptonote::txin_to_key>(in);
+    utd.m_rings.push_back(std::make_pair(txin.k_image, txin.key_offsets));
+  }
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -5320,16 +5462,194 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   }
 }
 
+void wallet2::set_ring_database(const std::string &filename)
+{
+  m_ring_database = filename;
+  MINFO("ringdb path set to " << filename);
+  m_ringdb.reset();
+  cryptonote::block b;
+  generate_genesis(b);
+  if (!m_ring_database.empty())
+    m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+}
 
-bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& tx_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
+bool wallet2::add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->add_rings(key, tx);
+}
+
+bool wallet2::add_rings(const cryptonote::transaction_prefix &tx)
+{
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+  return add_rings(key, tx);
+}
+
+bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
+{
+  if (!m_ringdb)
+    return true;
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+  return m_ringdb->remove_rings(key, tx);
+}
+
+bool wallet2::get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->get_ring(key, key_image, outs);
+}
+
+bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs)
+{
+  for (auto i: m_confirmed_txs)
+  {
+    if (txid == i.first)
+    {
+      for (const auto &x: i.second.m_rings)
+        outs.push_back({x.first, cryptonote::relative_output_offsets_to_absolute(x.second)});
+      return true;
+    }
+  }
+  for (auto i: m_unconfirmed_txs)
+  {
+    if (txid == i.first)
+    {
+      for (const auto &x: i.second.m_rings)
+        outs.push_back({x.first, cryptonote::relative_output_offsets_to_absolute(x.second)});
+      return true;
+    }
+  }
+  return false;
+}
+
+bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t> &outs)
+{
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  return get_ring(key, key_image, outs);
+}
+
+bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
+{
+  if (!m_ringdb)
+    return true;
+
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  return m_ringdb->set_ring(key, key_image, outs, relative);
+}
+
+bool wallet2::find_and_save_rings(bool force)
+{
+  if (!force && m_ring_history_saved)
+    return true;
+  if (!m_ringdb)
+    return true;
+
+  COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
+  COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
+
+  MDEBUG("Finding and saving rings...");
+
+  // get payments we made
+  std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> payments;
+  get_payments_out(payments, 0, std::numeric_limits<uint64_t>::max(), boost::none, std::set<uint32_t>());
+  for (const std::pair<crypto::hash,wallet2::confirmed_transfer_details> &entry: payments)
+  {
+    const crypto::hash &txid = entry.first;
+    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  }
+
+  MDEBUG("Found " << std::to_string(req.txs_hashes.size()) << " transactions");
+
+  // get those transactions from the daemon
+  req.decode_as_json = false;
+  bool r;
+  {
+    const boost::lock_guard<boost::mutex> lock{m_daemon_rpc_mutex};
+    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
+  }
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "gettransactions");
+  THROW_WALLET_EXCEPTION_IF(res.txs.size() != req.txs_hashes.size(), error::wallet_internal_error,
+    "daemon returned wrong response for gettransactions, wrong txs count = " +
+    std::to_string(res.txs.size()) + ", expected " + std::to_string(req.txs_hashes.size()));
+
+  MDEBUG("Scanning " << res.txs.size() << " transactions");
+
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
+  auto it = req.txs_hashes.begin();
+  for (size_t i = 0; i < res.txs.size(); ++i, ++it)
+  {
+    const auto &tx_info = res.txs[i];
+    THROW_WALLET_EXCEPTION_IF(tx_info.tx_hash != *it, error::wallet_internal_error, "Wrong txid received");
+    cryptonote::blobdata bd;
+    THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(tx_info.as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
+    cryptonote::transaction tx;
+    crypto::hash tx_hash, tx_prefix_hash;
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
+    THROW_WALLET_EXCEPTION_IF(epee::string_tools::pod_to_hex(tx_hash) != tx_info.tx_hash, error::wallet_internal_error, "txid mismatch");
+    THROW_WALLET_EXCEPTION_IF(!add_rings(key, tx), error::wallet_internal_error, "Failed to save ring");
+  }
+
+  MINFO("Found and saved rings for " << res.txs.size() << " transactions");
+  m_ring_history_saved = true;
+  return true;
+}
+
+bool wallet2::blackball_output(const crypto::public_key &output)
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->blackball(output);
+}
+
+bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
+{
+  if (!m_ringdb)
+    return true;
+  bool ret = true;
+  if (!add)
+    ret &= m_ringdb->clear_blackballs();
+  for (const auto &output: outputs)
+    ret &= m_ringdb->blackball(output);
+  return ret;
+}
+
+bool wallet2::unblackball_output(const crypto::public_key &output)
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->unblackball(output);
+}
+
+bool wallet2::is_output_blackballed(const crypto::public_key &output) const
+{
+  if (!m_ringdb)
+    return true;
+  return m_ringdb->blackballed(output);
+}
+
+bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
 {
   if (!unlocked) // don't add locked outs
     return false;
   if (global_index == real_index) // don't re-add real one
     return false;
-  auto item = std::make_tuple(global_index, tx_public_key, mask);
+  auto item = std::make_tuple(global_index, output_public_key, mask);
   CHECK_AND_ASSERT_MES(!outs.empty(), false, "internal error: outs is empty");
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
+    return false;
+  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
     return false;
   outs.back().push_back(item);
   return true;
@@ -5449,8 +5769,25 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     return;
   }
 
+  crypto::chacha_key key;
+  generate_chacha_key_from_secret_keys(key);
+
   if (fake_outputs_count > 0)
   {
+    uint64_t segregation_fork_height;
+    switch (m_nettype)
+    {
+      case TESTNET: segregation_fork_height = TESTNET_SEGREGATION_FORK_HEIGHT; break;
+      case STAGENET: segregation_fork_height = STAGENET_SEGREGATION_FORK_HEIGHT; break;
+      case MAINNET: segregation_fork_height = SEGREGATION_FORK_HEIGHT; break;
+      default: THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Invalid network type");
+    }
+    // check whether we're shortly after the fork
+    uint64_t height;
+    boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
+    throw_on_rpc_response_error(result, "get_info");
+    bool is_shortly_after_segregation_fork = height >= segregation_fork_height && height < segregation_fork_height + SEGREGATION_FORK_VICINITY;
+
     // get histogram for the amounts we need
     cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
@@ -5467,6 +5804,50 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
     THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
     THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
+
+    // if we want to segregate fake outs pre or post fork, get distribution
+    std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> segregation_limit;
+    if (m_segregate_pre_fork_outputs || m_key_reuse_mitigation2)
+    {
+      cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request req_t = AUTO_VAL_INIT(req_t);
+      cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response resp_t = AUTO_VAL_INIT(resp_t);
+      for(size_t idx: selected_transfers)
+        req_t.amounts.push_back(m_transfers[idx].is_rct() ? 0 : m_transfers[idx].amount());
+      std::sort(req_t.amounts.begin(), req_t.amounts.end());
+      auto end = std::unique(req_t.amounts.begin(), req_t.amounts.end());
+      req_t.amounts.resize(std::distance(req_t.amounts.begin(), end));
+      req_t.from_height = segregation_fork_height >= RECENT_OUTPUT_ZONE ? height >= (segregation_fork_height ? segregation_fork_height : height) - RECENT_OUTPUT_BLOCKS : 0;
+      req_t.cumulative = true;
+      m_daemon_rpc_mutex.lock();
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req_t, resp_t, m_http_client, rpc_timeout);
+      m_daemon_rpc_mutex.unlock();
+      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
+      THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_distribution");
+      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_output_distribution, resp_t.status);
+
+      // check we got all data
+      for(size_t idx: selected_transfers)
+      {
+        const uint64_t amount = m_transfers[idx].is_rct() ? 0 : m_transfers[idx].amount();
+        bool found = false;
+        for (const auto &d: resp_t.distributions)
+        {
+          if (d.amount == amount)
+          {
+            THROW_WALLET_EXCEPTION_IF(d.start_height > segregation_fork_height, error::get_output_distribution, "Distribution start_height too high");
+            THROW_WALLET_EXCEPTION_IF(segregation_fork_height - d.start_height >= d.distribution.size(), error::get_output_distribution, "Distribution size too small");
+            THROW_WALLET_EXCEPTION_IF(segregation_fork_height <= RECENT_OUTPUT_BLOCKS, error::wallet_internal_error, "Fork height too low");
+            THROW_WALLET_EXCEPTION_IF(segregation_fork_height - RECENT_OUTPUT_BLOCKS < d.start_height, error::get_output_distribution, "Bad start height");
+            uint64_t till_fork = d.distribution[segregation_fork_height - d.start_height];
+            uint64_t recent = till_fork - d.distribution[segregation_fork_height - RECENT_OUTPUT_BLOCKS - d.start_height];
+            segregation_limit[amount] = std::make_pair(till_fork, recent);
+            found = true;
+            break;
+          }
+        }
+        THROW_WALLET_EXCEPTION_IF(!found, error::get_output_distribution, "Requested amount not found in response");
+      }
+    }
 
     // we ask for more, to have spares if some outputs are still locked
     size_t base_requested_outputs_count = (size_t)((fake_outputs_count + 1) * 1.5 + 1);
@@ -5487,37 +5868,126 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       size_t start = req.outputs.size();
 
-      // if there are just enough outputs to mix with, use all of them.
-      // Eventually this should become impossible.
+      const bool output_is_pre_fork = td.m_block_height < segregation_fork_height;
       uint64_t num_outs = 0, num_recent_outs = 0;
-      for (const auto &he: resp_t.histogram)
+      uint64_t num_post_fork_outs = 0;
+      float pre_fork_num_out_ratio = 0.0f;
+      float post_fork_num_out_ratio = 0.0f;
+
+      if (m_segregate_pre_fork_outputs && output_is_pre_fork)
       {
-        if (he.amount == amount)
-        {
-          LOG_PRINT_L2("Found " << print_money(amount) << ": " << he.total_instances << " total, "
-              << he.unlocked_instances << " unlocked, " << he.recent_instances << " recent");
-          num_outs = he.unlocked_instances;
-          num_recent_outs = he.recent_instances;
-          break;
-        }
+        num_outs = segregation_limit[amount].first;
+        num_recent_outs = segregation_limit[amount].second;
       }
+      else
+      {
+        // if there are just enough outputs to mix with, use all of them.
+        // Eventually this should become impossible.
+        for (const auto &he: resp_t.histogram)
+        {
+          if (he.amount == amount)
+          {
+            LOG_PRINT_L2("Found " << print_money(amount) << ": " << he.total_instances << " total, "
+                << he.unlocked_instances << " unlocked, " << he.recent_instances << " recent");
+            num_outs = he.unlocked_instances;
+            num_recent_outs = he.recent_instances;
+            break;
+          }
+        }
+        if (m_key_reuse_mitigation2)
+        {
+          if (output_is_pre_fork)
+          {
+            if (is_shortly_after_segregation_fork)
+            {
+              pre_fork_num_out_ratio = 33.4/100.0f * (1.0f - RECENT_OUTPUT_RATIO);
+            }
+            else
+            {
+              pre_fork_num_out_ratio = 33.4/100.0f * (1.0f - RECENT_OUTPUT_RATIO);
+              post_fork_num_out_ratio = 33.4/100.0f * (1.0f - RECENT_OUTPUT_RATIO);
+            }
+          }
+          else
+          {
+            if (is_shortly_after_segregation_fork)
+            {
+            }
+            else
+            {
+              post_fork_num_out_ratio = 67.8/100.0f * (1.0f - RECENT_OUTPUT_RATIO);
+            }
+          }
+        }
+        num_post_fork_outs = num_outs - segregation_limit[amount].first;
+      }
+
       LOG_PRINT_L1("" << num_outs << " unlocked outputs of size " << print_money(amount));
       THROW_WALLET_EXCEPTION_IF(num_outs == 0, error::wallet_internal_error,
           "histogram reports no unlocked outputs for " + boost::lexical_cast<std::string>(amount) + ", not even ours");
       THROW_WALLET_EXCEPTION_IF(num_recent_outs > num_outs, error::wallet_internal_error,
           "histogram reports more recent outs than outs for " + boost::lexical_cast<std::string>(amount));
 
+      // how many fake outs to draw on a pre-fork triangular distribution
+      size_t pre_fork_outputs_count = requested_outputs_count * pre_fork_num_out_ratio;
+      size_t post_fork_outputs_count = requested_outputs_count * post_fork_num_out_ratio;
+      // how many fake outs to draw otherwise
+      size_t normal_output_count = requested_outputs_count - pre_fork_outputs_count - post_fork_outputs_count;
+
       // X% of those outs are to be taken from recent outputs
-      size_t recent_outputs_count = requested_outputs_count * RECENT_OUTPUT_RATIO;
+      size_t recent_outputs_count = normal_output_count * RECENT_OUTPUT_RATIO;
       if (recent_outputs_count == 0)
         recent_outputs_count = 1; // ensure we have at least one, if possible
       if (recent_outputs_count > num_recent_outs)
         recent_outputs_count = num_recent_outs;
       if (td.m_global_output_index >= num_outs - num_recent_outs && recent_outputs_count > 0)
         --recent_outputs_count; // if the real out is recent, pick one less recent fake out
-      LOG_PRINT_L1("Using " << recent_outputs_count << " recent outputs");
+      LOG_PRINT_L1("Fake output makeup: " << requested_outputs_count << " requested: " << recent_outputs_count << " recent, " <<
+          pre_fork_outputs_count << " pre-fork, " << post_fork_outputs_count << " post-fork, " <<
+          (requested_outputs_count - recent_outputs_count - pre_fork_outputs_count - post_fork_outputs_count) << " full-chain");
 
-      if (num_outs <= requested_outputs_count)
+      uint64_t num_found = 0;
+
+      // if we have a known ring, use it
+      bool existing_ring_found = false;
+      if (td.m_key_image_known && !td.m_key_image_partial)
+      {
+        std::vector<uint64_t> ring;
+        if (get_ring(key, td.m_key_image, ring))
+        {
+          MINFO("This output has a known ring, reusing (size " << ring.size() << ")");
+          THROW_WALLET_EXCEPTION_IF(ring.size() > fake_outputs_count + 1, error::wallet_internal_error,
+              "An output in this transaction was previously spent on another chain with ring size " +
+              std::to_string(ring.size()) + ", it cannot be spent now with ring size " +
+              std::to_string(fake_outputs_count + 1) + " as it is smaller: use a higher ring size");
+          bool own_found = false;
+          existing_ring_found = true;
+          for (const auto &out: ring)
+          {
+            MINFO("Ring has output " << out);
+            if (out < num_outs)
+            {
+              MINFO("Using it");
+              req.outputs.push_back({amount, out});
+              ++num_found;
+              seen_indices.emplace(out);
+              if (out == td.m_global_output_index)
+              {
+                MINFO("This is the real output");
+                own_found = true;
+              }
+            }
+            else
+            {
+              MINFO("Ignoring output " << out << ", too recent");
+            }
+          }
+          THROW_WALLET_EXCEPTION_IF(!own_found, error::wallet_internal_error,
+              "Known ring does not include the spent output: " + std::to_string(td.m_global_output_index));
+        }
+      }
+
+      if (num_outs <= requested_outputs_count && !existing_ring_found)
       {
         for (uint64_t i = 0; i < num_outs; i++)
           req.outputs.push_back({amount, i});
@@ -5530,10 +6000,13 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       else
       {
         // start with real one
-        uint64_t num_found = 1;
-        seen_indices.emplace(td.m_global_output_index);
-        req.outputs.push_back({amount, td.m_global_output_index});
-        LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
+        if (num_found == 0)
+        {
+          num_found = 1;
+          seen_indices.emplace(td.m_global_output_index);
+          req.outputs.push_back({amount, td.m_global_output_index});
+          LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
+        }
 
         // while we still need more mixins
         while (num_found < requested_outputs_count)
@@ -5547,6 +6020,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           // list of output indices we've seen.
 
           uint64_t i;
+          const char *type = "";
           if (num_found - 1 < recent_outputs_count) // -1 to account for the real one we seeded with
           {
             // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
@@ -5556,7 +6030,29 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             // just in case rounding up to 1 occurs after calc
             if (i == num_outs)
               --i;
-            LOG_PRINT_L2("picking " << i << " as recent");
+            type = "recent";
+          }
+          else if (num_found -1 < recent_outputs_count + pre_fork_outputs_count)
+          {
+            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+            i = (uint64_t)(frac*segregation_limit[amount].first);
+            // just in case rounding up to 1 occurs after calc
+            if (i == num_outs)
+              --i;
+            type = " pre-fork";
+          }
+          else if (num_found -1 < recent_outputs_count + pre_fork_outputs_count + post_fork_outputs_count)
+          {
+            // triangular distribution over [a,b) with a=0, mode c=b=up_index_limit
+            uint64_t r = crypto::rand<uint64_t>() % ((uint64_t)1 << 53);
+            double frac = std::sqrt((double)r / ((uint64_t)1 << 53));
+            i = (uint64_t)(frac*num_post_fork_outs) + segregation_limit[amount].first;
+            // just in case rounding up to 1 occurs after calc
+            if (i == num_post_fork_outs+segregation_limit[amount].first)
+              --i;
+            type = "post-fork";
           }
           else
           {
@@ -5567,13 +6063,14 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             // just in case rounding up to 1 occurs after calc
             if (i == num_outs)
               --i;
-            LOG_PRINT_L2("picking " << i << " as triangular");
+            type = "triangular";
           }
 
           if (seen_indices.count(i))
             continue;
           seen_indices.emplace(i);
 
+          LOG_PRINT_L2("picking " << i << " as " << type);
           req.outputs.push_back({amount, i});
           ++num_found;
         }
@@ -5609,6 +6106,20 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       outs.back().reserve(fake_outputs_count + 1);
       const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
 
+      uint64_t num_outs = 0;
+      const uint64_t amount = td.is_rct() ? 0 : td.amount();
+      const bool output_is_pre_fork = td.m_block_height < segregation_fork_height;
+      if (m_segregate_pre_fork_outputs && output_is_pre_fork)
+        num_outs = segregation_limit[amount].first;
+      else for (const auto &he: resp_t.histogram)
+      {
+        if (he.amount == amount)
+        {
+          num_outs = he.unlocked_instances;
+          break;
+        }
+      }
+
       // make sure the real outputs we asked for are really included, along
       // with the correct key and mask: this guards against an active attack
       // where the node sends dummy data for all outputs, and we then send
@@ -5628,6 +6139,38 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
       // pick real out first (it will be sorted when done)
       outs.back().push_back(std::make_tuple(td.m_global_output_index, boost::get<txout_to_key>(td.m_tx.vout[td.m_internal_output_index].target).key, mask));
+
+      // then pick outs from an existing ring, if any
+      bool existing_ring_found = false;
+      if (td.m_key_image_known && !td.m_key_image_partial)
+      {
+        std::vector<uint64_t> ring;
+        if (get_ring(key, td.m_key_image, ring))
+        {
+          for (uint64_t out: ring)
+          {
+            if (out < num_outs)
+            {
+              if (out != td.m_global_output_index)
+              {
+                bool found = false;
+                for (size_t o = 0; o < requested_outputs_count; ++o)
+                {
+                  size_t i = base + o;
+                  if (req.outputs[i].index == out)
+                  {
+                    LOG_PRINT_L2("Index " << i << "/" << requested_outputs_count << ": idx " << req.outputs[i].index << " (real " << td.m_global_output_index << "), unlocked " << daemon_resp.outs[i].unlocked << ", key " << daemon_resp.outs[i].key << " (from existing ring)");
+                    tx_add_fake_output(outs, req.outputs[i].index, daemon_resp.outs[i].key, daemon_resp.outs[i].mask, td.m_global_output_index, daemon_resp.outs[i].unlocked);
+                    found = true;
+                    break;
+                  }
+                }
+                THROW_WALLET_EXCEPTION_IF(!found, error::wallet_internal_error, "Falied to find existing ring output in daemon out data");
+              }
+            }
+          }
+        }
+      }
 
       // then pick others in random order till we reach the required number
       // since we use an equiprobable pick here, we don't upset the triangular distribution
