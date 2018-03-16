@@ -153,7 +153,7 @@ namespace cryptonote
       uint64_t outputs_amount = get_outs_money_amount(tx);
       if(outputs_amount > inputs_amount)
       {
-        LOG_PRINT_L1("transaction use more money then it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
+        LOG_PRINT_L1("transaction use more money than it has: use " << print_money(outputs_amount) << ", have " << print_money(inputs_amount));
         tvc.m_verifivation_failed = true;
         tvc.m_overspend = true;
         return false;
@@ -292,7 +292,7 @@ namespace cryptonote
       }
       catch (const std::exception &e)
       {
-        MERROR("internal error: transaction already exists at inserting in memorypool: " << e.what());
+        MERROR("internal error: transaction already exists at inserting in memory pool: " << e.what());
         return false;
       }
       tvc.m_added_to_pool = true;

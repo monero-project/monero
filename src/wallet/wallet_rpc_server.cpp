@@ -2684,7 +2684,7 @@ namespace tools
     }
     else
     {
-      er.message = "Success, but cannot update spent status after import multisig info as dameon is untrusted";
+      er.message = "Success, but cannot update spent status after import multisig info as daemon is untrusted";
     }
 
     return true;
