@@ -2920,6 +2920,11 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         r = new_wallet(vm, m_recovery_key, m_restore_deterministic_wallet, m_non_deterministic, old_language);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
+
+    if (m_restoring && m_generate_from_json.empty())
+    {
+      m_wallet->explicit_refresh_from_block_height(!command_line::is_arg_defaulted(vm, arg_restore_height));
+    }
     if (!m_wallet->explicit_refresh_from_block_height() && m_restoring)
     {
       uint32_t version;
