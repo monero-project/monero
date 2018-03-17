@@ -51,7 +51,7 @@ namespace Language
   class Italian: public Base
   {
   public:
-    Italian(): Base("Italiano", std::vector<std::string>({
+    Italian(): Base("Italiano", "Italian", std::vector<std::string>({
         "abbinare",
         "abbonato",
         "abisso",

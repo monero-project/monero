@@ -334,6 +334,7 @@ namespace cryptonote
     bool m_restoring;           // are we restoring, by whatever method?
     uint64_t m_restore_height;  // optional
     bool m_do_not_relay;
+    bool m_use_english_language_names;
 
     epee::console_handlers_binder m_cmd_binder;
 

@@ -135,6 +135,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the monero network"), false};
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
+  const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -2321,7 +2322,10 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
 {
   if (args.empty())
   {
-    success_msg_writer() << "seed = " << m_wallet->get_seed_language();
+    std::string seed_language = m_wallet->get_seed_language();
+    if (m_use_english_language_names)
+      seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
+    success_msg_writer() << "seed = " << seed_language;
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
@@ -3108,6 +3112,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
   m_do_not_relay                  = command_line::get_arg(vm, arg_do_not_relay);
   m_subaddress_lookahead          = command_line::get_arg(vm, arg_subaddress_lookahead);
+  m_use_english_language_names    = command_line::get_arg(vm, arg_use_english_language_names);
   m_restoring                     = !m_generate_from_view_key.empty() ||
                                     !m_generate_from_spend_key.empty() ||
                                     !m_generate_from_keys.empty() ||
@@ -3154,8 +3159,9 @@ std::string simple_wallet::get_mnemonic_language()
   std::vector<std::string> language_list;
   std::string language_choice;
   int language_number = -1;
-  crypto::ElectrumWords::get_language_list(language_list);
+  crypto::ElectrumWords::get_language_list(language_list, m_use_english_language_names);
   std::cout << tr("List of available languages for your wallet's seed:") << std::endl;
+  std::cout << tr("If your display freezes, exit blind with ^C, then run again with --use-english-language-names") << std::endl;
   int ii;
   std::vector<std::string>::iterator it;
   for (it = language_list.begin(), ii = 0; it != language_list.end(); it++, ii++)
@@ -7422,6 +7428,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_do_not_relay);
   command_line::add_arg(desc_params, arg_create_address_file);
   command_line::add_arg(desc_params, arg_subaddress_lookahead);
+  command_line::add_arg(desc_params, arg_use_english_language_names);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);

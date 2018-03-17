@@ -56,7 +56,7 @@ namespace Language
   class Lojban: public Base
   {
   public:
-    Lojban(): Base("Lojban", std::vector<std::string>({
+    Lojban(): Base("Lojban", "Lojban", std::vector<std::string>({
       "backi",
       "bacru",
       "badna",
