@@ -135,6 +135,7 @@ namespace cryptonote
     bool set_auto_low_priority(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_segregate_pre_fork_outputs(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_key_reuse_mitigation2(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_subaddress_lookahead(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -320,6 +321,7 @@ namespace cryptonote
     std::string m_generate_from_json;
     std::string m_mnemonic_language;
     std::string m_import_path;
+    std::string m_subaddress_lookahead;
 
     std::string m_electrum_seed;  // electrum-style seed parameter
 
