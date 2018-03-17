@@ -497,7 +497,7 @@ namespace wallet_rpc
     };
   };
 
-  struct COMMAND_RPC_SWEEP_DUST
+  struct COMMAND_RPC_SWEEP_UNMIXABLE
   {
     struct request
     {
@@ -533,6 +533,7 @@ namespace wallet_rpc
       std::list<std::string> tx_metadata_list;
       std::string multisig_txset;
 
+      // Keep in sync with COMMAND_RPC_SWEEP_DUST::response (deprecated)
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_key_list)
@@ -541,6 +542,25 @@ namespace wallet_rpc
         KV_SERIALIZE(tx_blob_list)
         KV_SERIALIZE(tx_metadata_list)
         KV_SERIALIZE(multisig_txset)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_SWEEP_DUST : COMMAND_RPC_SWEEP_UNMIXABLE
+  {
+    struct response : COMMAND_RPC_SWEEP_UNMIXABLE::response
+    {
+      std::string deprecation_notice;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash_list)
+        KV_SERIALIZE(tx_key_list)
+        KV_SERIALIZE(amount_list)
+        KV_SERIALIZE(fee_list)
+        KV_SERIALIZE(tx_blob_list)
+        KV_SERIALIZE(tx_metadata_list)
+        KV_SERIALIZE(multisig_txset)
+        KV_SERIALIZE(deprecation_notice)
       END_KV_SERIALIZE_MAP()
     };
   };
