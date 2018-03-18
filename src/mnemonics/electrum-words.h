@@ -106,8 +106,9 @@ namespace crypto
     /*!
      * \brief Gets a list of seed languages that are supported.
      * \param languages A vector is set to the list of languages.
+     * \param english whether to get the names in English or the language language
      */
-    void get_language_list(std::vector<std::string> &languages);
+    void get_language_list(std::vector<std::string> &languages, bool english = false);
 
     /*!
      * \brief Tells if the seed passed is an old style seed or not.
@@ -115,6 +116,13 @@ namespace crypto
      * \return      true if the seed passed is a old style seed false if not.
      */
     bool get_is_old_style_seed(std::string seed);
+
+    /*!
+     * \brief Returns the name of a language in English
+     * \param  name the name of the language in its own language
+     * \return      the name of the language in English
+     */
+    std::string get_english_name_for(const std::string &name);
   }
 }
 
