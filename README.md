@@ -187,6 +187,16 @@ library archives (`.a`).
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
+### Cloning the repository
+
+Clone recursively to pull-in needed submodule(s):
+
+`$ git clone --recursive https://github.com/monero-project/monero`
+
+If you already have a repo cloned, initialize and update:
+
+`$ cd monero && git submodule init && git submodule update`
+
 ### Build instructions
 
 Monero uses the CMake build system and a top-level [Makefile](Makefile) that
