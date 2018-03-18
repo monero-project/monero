@@ -52,6 +52,13 @@ Additional targets:
     download-win: run 'make download-win' to fetch all sources needed for win builds
     download-linux: run 'make download-linux' to fetch all sources needed for linux builds
 
+#Darwin (macos) builds:
+
+To build with the x86_64-apple-darwin11 you require the mac os developer tools in MacOSX10.11.sdk. 
+Download it from apple, or search for it on github. Create a new directoty called SDKs in this
+directory and place the entire MacOSX10.11.sdk folder in it. The depends build will then pick it up automatically
+(without requiring SDK_PATH). 
+
 ### Other documentation
 
 - [description.md](description.md): General description of the depends system
