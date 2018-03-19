@@ -1,4 +1,4 @@
-packages:=boost openssl libevent zeromq cppzmq zlib expat ldns unbound cppzmq readline libiconv icu4c
+packages:=boost openssl libevent zeromq cppzmq zlib expat ldns unbound cppzmq readline libiconv
 native_packages := native_ccache
 
 wallet_packages=bdb
@@ -12,6 +12,9 @@ packages += unwind
 endif
 ifeq ($(host_os),darwin11)
 package += unwind
+endif
+ifeq ($(host_os),mingw32)
+packages += icu4c
 endif
 
 ifneq ($(build_os),darwin)

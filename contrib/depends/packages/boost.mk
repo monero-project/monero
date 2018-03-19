@@ -1,8 +1,8 @@
-package=boost
-$(package)_version=1_58_0
-$(package)_download_path=https://sourceforge.net/projects/boost/files/boost/1.58.0
-$(package)_file_name=$(package)_$($(package)_version).tar.gz
-$(package)_sha256_hash=a004d9b3fa95e956383693b86fce1b68805a6f71c2e68944fa813de0fb8c8102
+package=boost                                                                                                                                                                                                                      
+$(package)_version=1_64_0
+$(package)_download_path=https://dl.bintray.com/boostorg/release/1.64.0/source/
+$(package)_file_name=$(package)_$($(package)_version).tar.bz2
+$(package)_sha256_hash=7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -19,13 +19,13 @@ $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
-$(package)_config_libraries=system,filesystem,thread,date_time,chrono,regex,serialization,program_options,locale
+$(package)_config_libraries=chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale
 $(package)_cxxflags=-std=c++11 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
 
 define $(package)_preprocess_cmds
-  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
+  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <striper>\"$(host_STR    IP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
 endef
 
 define $(package)_config_cmds

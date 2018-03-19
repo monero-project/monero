@@ -67,7 +67,7 @@ endif
 ifeq ($(host_os),linux)
 host_cmake=Linux
 endif
-ifeq ($(host_os),darwin11)
+ifeq ($(host_os),darwin)
 host_cmake=Darwin
 endif
 
@@ -182,6 +182,8 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@debug@|$(DEBUG)|' \
             -e 's|@depends@|$(host_cmake)|' \
             -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
+            -e 's|@sdk@|$(SDK_PATH)|'\
+            -e 's|@arch@|$(host_arch)|'\
             $< > $@
 	$(AT)touch $@
 
