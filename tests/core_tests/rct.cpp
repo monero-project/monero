@@ -141,8 +141,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
 
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes[n], blk_last, miner_account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
-        crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 4, 4),
+        HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+        crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 4, HF_VERSION_ALLOW_RCT),
         false, "Failed to generate block");
     events.push_back(blk_txes[n]);
     blk_last = blk_txes[n];
@@ -155,8 +155,8 @@ bool gen_rct_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 4, 4),
+          HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 4, HF_VERSION_ALLOW_RCT),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;

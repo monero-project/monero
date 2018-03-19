@@ -132,8 +132,9 @@
 
 #define THREAD_STACK_SIZE                       5 * 1024 * 1024
 
+#define HF_VERSION_ALLOW_RCT                    255
 // #define HF_VERSION_DYNAMIC_FEE                  4
-#define HF_VERSION_ENFORCE_RCT                  6
+#define HF_VERSION_ENFORCE_RCT                  255
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
