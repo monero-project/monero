@@ -1,18 +1,14 @@
-# this one is important
+# Set the system name, either Darwin, Linux, or Windows
 SET(CMAKE_SYSTEM_NAME @depends@)
-
-#this one not so much
-SET(CMAKE_SYSTEM_VERSION 1)
-
-# specify the cross compiler
-SET(CMAKE_C_COMPILER @CC@)
-SET(CMAKE_CXX_COMPILER @CXX@)
+SET(CMAKE_BUILD_TYPE release)
 
 SET(STATIC true)
 SET(UNBOUND_STATIC true)
 
 # where is the target environment 
 SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
+
+SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
 
 SET(THREADS_PTHREAD_ARG "2" CACHE STRING "Forcibly set by CMakeLists.txt." FORCE) 
 SET(Readline_ROOT_DIR @prefix@)
@@ -28,18 +24,57 @@ SET(UNBOUND_LIBRARY @prefix@/lib/libunbound.a)
 SET(ZMQ_INCLUDE_PATH @prefix@/include)
 SET(ZMQ_LIB @prefix@/lib/libzmq.a)
 
-#SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
-#SET(BOOST_IGNORE_SYSTEM_PATH ON)
-#SET(BOOST_ROOT @prefix@)
-#SET(BOOST_LIBRARYDIR @prefix@/lib)
+SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
+SET(BOOST_IGNORE_SYSTEM_PATH ON)
+SET(BOOST_ROOT @prefix@)
+SET(BOOST_LIBRARYDIR @prefix@/lib)
+SET(Boost_COMPILER "-clang")
+SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
+SET(Boost_NO_SYSTEM_PATHS TRUE)
+SET(Boost_USE_STATIC_LIBS TRUE)
+SET(Boost_USE_STATIC_RUNTIME TRUE)
+
+SET(OpenSSL_DIR @prefix@/lib)
 
 # for libraries and headers in the target directories
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
 
-#set (MINGW_FLAG "-m64")
-#set (USE_LTO_DEFAULT false)
+# specify the cross compiler to be used. Darwin uses clang provided by the SDK.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  SET(CMAKE_C_COMPILER @prefix@/native/bin/clang)
+  SET(CMAKE_C_COMPILER_TARGET x86_64-apple-darwin11)
+  SET(CMAKE_CXX_COMPILER @prefix@/native/bin/clang++ -stdlib=libc++)
+  SET(CMAKE_CXX_COMPILER_TARGET x86_64-apple-darwin11)
+  SET(_CMAKE_TOOLCHAIN_PREFIX x86_64-apple-darwin11-)
+  SET(APPLE True)
+  SET(BUILD_TAG "mac-x64")
+  SET(BUILD_64 ON)
+  SET(ARCH "x86_64")
+  SET(BREW OFF)
+  SET(PORT OFF)
+  SET(CMAKE_OSX_SYSROOT "@sdk@/MacOSX10.11.sdk/")
+  SET(CMAKE_OSX_DEPLOYMENT_TARGET "10.08")
+  SET(CMAKE_CXX_STANDARD 11)
+  SET(CMAKE_OSX_ARCHITECTURES "x86_64")
+  SET(LLVM_ENABLE_PIC OFF)
+  SET(LLVM_ENABLE_PIE OFF)
+else()
+  SET(CMAKE_C_COMPILER @CC@)
+  SET(CMAKE_CXX_COMPILER @CXX@)
+endif()
 
-#Create a new cmake flag that indicates building with depends
+set(ARCH @arch@)
+
+if(ARCH STREQUAL "arm")
+  set(ARCH "armv6zk")
+  set(ARMID "armv6zk")
+  set(BUILD_64 OFF)
+  set(CMAKE_BUILD_TYPE release)
+  set(BUILD_TAG "linux-armv6")
+  set(ARM6)
+endif()
+
+#Create a new global cmake flag that indicates building with depends
 set (DEPENDS true)
