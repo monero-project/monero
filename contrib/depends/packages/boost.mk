@@ -1,8 +1,8 @@
 package=boost
-$(package)_version=1_63_0
-$(package)_download_path=https://sourceforge.net/projects/boost/files/boost/1.63.0
-$(package)_file_name=$(package)_$($(package)_version).tar.bz2
-$(package)_sha256_hash=beae2529f759f6b3bf3f4969a19c2e9d6f0c503edcb2de4a61d1428519fcb3b0
+$(package)_version=1_58_0
+$(package)_download_path=https://sourceforge.net/projects/boost/files/boost/1.58.0
+$(package)_file_name=$(package)_$($(package)_version).tar.gz
+$(package)_sha256_hash=a004d9b3fa95e956383693b86fce1b68805a6f71c2e68944fa813de0fb8c8102
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -19,7 +19,7 @@ $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
-$(package)_config_libraries=chrono,filesystem,program_options,system,thread,test
+$(package)_config_libraries=system,filesystem,thread,date_time,chrono,regex,serialization,program_options,locale
 $(package)_cxxflags=-std=c++11 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
