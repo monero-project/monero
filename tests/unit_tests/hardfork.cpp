@@ -554,3 +554,28 @@ TEST(get, higher)
     ASSERT_EQ(hf.get_ideal_version(7), 3);
 }
 
+TEST(get, earliest_ideal_height)
+{
+    TestDB db;
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+
+    //                      v  h  t
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(5, 5, 2));
+    ASSERT_TRUE(hf.add_fork(6, 10, 3));
+    ASSERT_TRUE(hf.add_fork(9, 15, 4));
+    hf.init();
+
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(1), 0);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(2), 2);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(3), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(4), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(5), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(6), 10);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(7), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(8), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(9), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(10), std::numeric_limits<uint64_t>::max());
+}
+
