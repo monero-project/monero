@@ -256,6 +256,35 @@ TEST(check_for_height, Success)
   }
 }
 
+TEST(get, next_version)
+{
+  TestDB db;
+  HardFork hf(db);
+
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(2, 5, 1));
+  ASSERT_TRUE(hf.add_fork(4, 10, 2));
+  hf.init();
+
+  for (uint64_t h = 0; h <= 4; ++h) {
+    ASSERT_EQ(2, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 5; h <= 9; ++h) {
+    ASSERT_EQ(4, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 10; h <= 15; ++h) {
+    ASSERT_EQ(4, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 4), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
 TEST(states, Success)
 {
   TestDB db;
