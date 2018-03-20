@@ -65,8 +65,6 @@ else()
   SET(CMAKE_CXX_COMPILER @CXX@)
 endif()
 
-set(ARCH @arch@)
-
 if(ARCH STREQUAL "arm")
   set(ARCH "armv6zk")
   set(ARMID "armv6zk")
