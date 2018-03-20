@@ -492,6 +492,55 @@ TEST(voting, different_thresholds)
   }
 }
 
+TEST(voting, info)
+{
+  TestDB db;
+  HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4, default threshold 50%
+
+  //                      v  h  ts
+  ASSERT_TRUE(hf.add_fork(1, 0,  0));
+  //                      v  h   thr  ts
+  ASSERT_TRUE(hf.add_fork(2, 5,    0,  1)); // asap
+  ASSERT_TRUE(hf.add_fork(3, 10, 100,  2)); // all votes
+  //                      v   h  ts
+  ASSERT_TRUE(hf.add_fork(4, 15,  3)); // default 50% votes
+  hf.init();
+
+  //                                             0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9
+  static const uint8_t block_versions[]      = { 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
+  static const uint8_t expected_versions[]   = { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 };
+  static const uint8_t expected_thresholds[] = { 0, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 2, 2, 2, 2 };
+
+  for (uint64_t h = 0; h < sizeof(block_versions) / sizeof(block_versions[0]); ++h) {
+    uint32_t window, votes, threshold;
+    uint64_t earliest_height;
+    uint8_t voting;
+
+    ASSERT_TRUE(hf.get_voting_info(1, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h, 4), votes);
+    ASSERT_EQ(0, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() >= 2, hf.get_voting_info(2, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 3 ? 0 : h - 3, 4), votes);
+    ASSERT_EQ(5, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() >= 3, hf.get_voting_info(3, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 8 ? 0 : h - 8, 4), votes);
+    ASSERT_EQ(10, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() == 4, hf.get_voting_info(4, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 14 ? 0 : h - 14, 4), votes);
+    ASSERT_EQ(15, earliest_height);
+
+    ASSERT_EQ(std::min<uint64_t>(h, 4), window);
+    ASSERT_EQ(expected_thresholds[h], threshold);
+    ASSERT_EQ(4, voting);
+
+    db.add_block(mkblock(hf, h, block_versions[h]), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
 TEST(new_blocks, denied)
 {
     TestDB db;
