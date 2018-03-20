@@ -34,8 +34,11 @@
 #include <string>
 #include <mutex>
 #include "device.hpp"
+
+#ifdef WITH_DEVICE_LEDGER
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
+#endif //WITH_DEVICE_LEDGER
 
 
 namespace hw {
