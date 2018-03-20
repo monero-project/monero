@@ -1,0 +1,37 @@
+Don't build object files twice
+
+When passed --enable-static and --enable-shared, icu will generate
+both a shared and a static version of its libraries.
+
+However, in order to do so, it builds each and every object file
+twice: once with -fPIC (for the shared library), and once without
+-fPIC (for the static library). While admittedly building -fPIC for a
+static library generates a slightly suboptimal code, this is what all
+the autotools-based project are doing. They build each object file
+once, and they use it for both the static and shared libraries.
+
+icu builds the object files for the shared library as .o files, and
+the object files for static library as .ao files. By simply changing
+the suffix of object files used for static libraries to ".o", we tell
+icu to use the ones built for the shared library (i.e, with -fPIC),
+and avoid the double build of icu.
+
+On a fast build server, this brings the target icu build from
+3m41.302s down to 1m43.926s (approximate numbers: some other builds
+are running on the system at the same time).
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+
+Index: b/source/config/mh-linux
+===================================================================
+--- a/source/config/mh-linux
++++ b/source/config/mh-linux
+@@ -38,7 +38,7 @@
+ ## Shared object suffix
+ SO = so
+ ## Non-shared intermediate object suffix
+-STATIC_O = ao
++STATIC_O = o
+ 
+ ## Compilation rules
+ %.$(STATIC_O): $(srcdir)/%.c

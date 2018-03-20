@@ -1,0 +1,45 @@
+# this one is important
+SET(CMAKE_SYSTEM_NAME @depends@)
+
+#this one not so much
+SET(CMAKE_SYSTEM_VERSION 1)
+
+# specify the cross compiler
+SET(CMAKE_C_COMPILER @CC@)
+SET(CMAKE_CXX_COMPILER @CXX@)
+
+SET(STATIC true)
+SET(UNBOUND_STATIC true)
+
+# where is the target environment 
+SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
+
+SET(THREADS_PTHREAD_ARG "2" CACHE STRING "Forcibly set by CMakeLists.txt." FORCE) 
+SET(Readline_ROOT_DIR @prefix@)
+
+SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
+SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
+SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
+
+SET(UNBOUND_INCLUDE_DIR @prefix@/include)
+SET(UNBOUND_LIBRARIES @prefix@/lib)
+SET(UNBOUND_LIBRARY @prefix@/lib/libunbound.a)
+
+SET(ZMQ_INCLUDE_PATH @prefix@/include)
+SET(ZMQ_LIB @prefix@/lib/libzmq.a)
+
+#SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
+#SET(BOOST_IGNORE_SYSTEM_PATH ON)
+#SET(BOOST_ROOT @prefix@)
+#SET(BOOST_LIBRARYDIR @prefix@/lib)
+
+# for libraries and headers in the target directories
+set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
+set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
+set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
+
+#set (MINGW_FLAG "-m64")
+#set (USE_LTO_DEFAULT false)
+
+#Create a new cmake flag that indicates building with depends
+set (DEPENDS true)
