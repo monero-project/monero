@@ -394,9 +394,9 @@ uint8_t HardFork::get_next_version() const
 {
   CRITICAL_REGION_LOCAL(lock);
   uint64_t height = db.height();
-  for (unsigned int n = heights.size() - 1; n > 0; --n) {
-    if (height >= heights[n].height) {
-      return heights[n < heights.size() - 1 ? n + 1 : n].version;
+  for (auto i = heights.rbegin(); i != heights.rend(); ++i) {
+    if (height >= i->height) {
+      return (i == heights.rbegin() ? i : (i - 1))->version;
     }
   }
   return original_version;
