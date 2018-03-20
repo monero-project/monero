@@ -656,6 +656,13 @@ namespace cryptonote
      uint8_t get_hard_fork_version(uint64_t height) const;
 
      /**
+      * @brief return the earliest block a given version may activate
+      *
+      * @return what it says above
+      */
+     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
+
+     /**
       * @brief gets start_time
       *
       */
