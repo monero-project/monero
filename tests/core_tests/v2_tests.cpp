@@ -122,7 +122,7 @@ bool gen_v2_tx_mixable_0_mixin::generate(std::vector<test_event_entry>& events) 
   const int mixin = 0;
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
-  return generate_with(events, out_idx, mixin, amount_paid, false);
+  return generate_with(events, out_idx, mixin, amount_paid, true);
 }
 
 bool gen_v2_tx_mixable_low_mixin::generate(std::vector<test_event_entry>& events) const

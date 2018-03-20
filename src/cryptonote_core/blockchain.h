@@ -1099,7 +1099,7 @@ namespace cryptonote
      *
      * @return false if any validation step fails, otherwise true
      */
-    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
+    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL, uint64_t* total_txs = NULL, uint64_t* nofake_txs = NULL);
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule

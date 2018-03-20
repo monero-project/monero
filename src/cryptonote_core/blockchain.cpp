@@ -2564,10 +2564,14 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
 //        check_tx_input() rather than here, and use this function simply
 //        to iterate the inputs as necessary (splitting the task
 //        using threads, etc.)
-bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height)
+bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height, uint64_t* total_txs, uint64_t* nofake_txs)
 {
   PERF_TIMER(check_tx_inputs);
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  CHECK_AND_ASSERT_MES((total_txs && nofake_txs) || (!total_txs && !nofake_txs), false, "only one of total_txs and nofake_txs is non-null");
+  bool is_nofake_tx = false;
+
   size_t sig_index = 0;
   if(pmax_used_block_height)
     *pmax_used_block_height = 0;
@@ -2611,19 +2615,24 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
+    // disallow ring size 2 in any case
+    if (mixin == 1)
+    {
+      MERROR_VER("Tx " << get_transaction_hash(tx) << " has ring size 2 which is disallowed");
+      tvc.m_low_mixin = true;
+      return false;
+    }
+
     if (mixin < min_mixin)
     {
-      if (n_unmixable == 0)
+      if (n_unmixable >= 1 && n_mixable <= 1)
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and no unmixable inputs");
-        tvc.m_low_mixin = true;
-        return false;
+        // we don't count this case as non-private
       }
-      if (n_mixable > 1)
+      else
       {
-        MERROR_VER("Tx " << get_transaction_hash(tx) << " has too low ring size (" << (mixin + 1) << "), and more than one mixable input with unmixable inputs");
-        tvc.m_low_mixin = true;
-        return false;
+        MDEBUG("Tx " << get_transaction_hash(tx) << " is non-private");
+        is_nofake_tx = true;
       }
     }
 
@@ -2928,6 +2937,16 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
   }
+
+  if (total_txs)
+  {
+    (*total_txs) += 1;
+    if (is_nofake_tx)
+    {
+      (*nofake_txs) += 1;
+    }
+  }
+
   return true;
 }
 
@@ -3411,6 +3430,7 @@ leave:
 // XXX old code adds miner tx here
 
   size_t tx_index = 0;
+  uint64_t total_txs = 0, nofake_txs = 0;
   // Iterate over the block's transaction hashes, grabbing each
   // from the tx_pool and validating them.  Each is then added
   // to txs.  Keys spent in each are added to <keys> by the double spend check.
@@ -3475,7 +3495,7 @@ leave:
     {
       // validate that transaction inputs and the keys spending them are correct.
       tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc))
+      if(!check_tx_inputs(tx, tvc, NULL, &total_txs, &nofake_txs))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 
@@ -3515,12 +3535,25 @@ leave:
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
-  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, m_hardfork->get_current_version(), get_current_blockchain_height()))
+  const uint8_t hf_version = m_hardfork->get_current_version();
+  if(!validate_miner_transaction(bl, cumulative_block_size, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, hf_version, get_current_blockchain_height()))
   {
     MERROR_VER("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
     return_tx_to_pool(txs);
     goto leave;
+  }
+
+  // from v7, limit the ratio of non-private txes
+  if (hf_version >= 7)
+  {
+    if (nofake_txs > rational_ceil(total_txs * NOFAKE_TXS_TO_TOTAL_TXS_PERCENT, 100))
+    {
+      MERROR_VER("Block with id: " << id << " has too many non-private transactions (" << nofake_txs << "/" << total_txs << ") exceeding the limit: " << rational_ceil(total_txs * NOFAKE_TXS_TO_TOTAL_TXS_PERCENT, 100));
+      bvc.m_verifivation_failed = true;
+      return_tx_to_pool(txs);
+      goto leave;
+    }
   }
 
   TIME_MEASURE_FINISH(vmt);
