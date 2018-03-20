@@ -232,6 +232,30 @@ TEST(ordering, Success)
   ASSERT_FALSE(hf.add_fork(5, 5, 4));
 }
 
+TEST(check_for_height, Success)
+{
+  TestDB db;
+  HardFork hf(db, 1, 0, 0, 0, 1, 0); // no voting
+
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(2, 5, 1));
+  hf.init();
+
+  for (uint64_t h = 0; h <= 4; ++h) {
+    ASSERT_TRUE(hf.check_for_height(mkblock(1, 1), h));
+    ASSERT_FALSE(hf.check_for_height(mkblock(2, 2), h));  // block version is too high
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 5; h <= 10; ++h) {
+    ASSERT_FALSE(hf.check_for_height(mkblock(1, 1), h));  // block version is too low
+    ASSERT_TRUE(hf.check_for_height(mkblock(2, 2), h));
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
 TEST(states, Success)
 {
   TestDB db;
