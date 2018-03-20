@@ -654,7 +654,7 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_always_confirm_transfers(true),
   m_print_ring_members(false),
   m_store_tx_info(true),
-  m_default_mixin(0),
+  m_default_ring_size(0),
   m_default_priority(0),
   m_refresh_type(RefreshOptimizeCoinbase),
   m_auto_refresh(true),
@@ -2576,8 +2576,8 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_store_tx_info ? 1 :0);
   json.AddMember("store_tx_info", value2, json.GetAllocator());
 
-  value2.SetUint(m_default_mixin);
-  json.AddMember("default_mixin", value2, json.GetAllocator());
+  value2.SetUint(m_default_ring_size);
+  json.AddMember("default_ring_size", value2, json.GetAllocator());
 
   value2.SetUint(m_default_priority);
   json.AddMember("default_priority", value2, json.GetAllocator());
@@ -2699,7 +2699,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_multisig_signers.clear();
     m_always_confirm_transfers = false;
     m_print_ring_members = false;
-    m_default_mixin = 0;
+    m_default_ring_size = 0;
     m_default_priority = 0;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
@@ -2780,8 +2780,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_keys, int, Int, false, true);
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, store_tx_info, int, Int, false, true);
     m_store_tx_info = ((field_store_tx_keys != 0) || (field_store_tx_info != 0));
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_mixin, unsigned int, Uint, false, 0);
-    m_default_mixin = field_default_mixin;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_ring_size, unsigned int, Uint, false, 0);
+    m_default_ring_size = field_default_ring_size;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
     if (field_default_priority_found)
     {
@@ -5332,13 +5332,13 @@ int wallet2::get_fee_algorithm() const
   return 0;
 }
 //------------------------------------------------------------------------------------------------------------------------------
-uint64_t wallet2::adjust_mixin(uint64_t mixin) const
+uint64_t wallet2::adjust_ring_size(uint64_t ring_size) const
 {
-  if (mixin < 2 && use_fork_rules(2, 10)) {
-    MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 2, using 3");
-    mixin = 2;
+  if (ring_size == 2 && use_fork_rules(2, 10)) {
+    MWARNING("Requested ring size 2 is too low for hard fork 2, using 3");
+    ring_size = 3;
   }
-  return mixin;
+  return ring_size;
 }
 //----------------------------------------------------------------------------------------------------
 uint32_t wallet2::adjust_priority(uint32_t priority)
@@ -5423,8 +5423,13 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
 //
 // this function will make multiple calls to wallet2::transfer if multiple
 // transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
 {
+  if (ring_size == 0)
+  {
+    ring_size = DEFAULT_RING_SIZE;
+  }
+  const size_t fake_outs_count = ring_size - 1;
   const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, true, trusted_daemon);
 
   const uint64_t fee_per_kb  = get_per_kb_fee();
@@ -7322,12 +7327,18 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
   boost::unique_lock<hw::device> hwdev_lock (hwdev);
   hw::reset_mode rst(hwdev);  
+
+  if (ring_size == 0)
+  {
+    ring_size = DEFAULT_RING_SIZE;
+  }
+  const size_t fake_outs_count = ring_size - 1;
 
   if(m_light_wallet) {
     // Populate m_transfers
@@ -7830,8 +7841,13 @@ skip_tx:
   return ptx_vector;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon)
 {
+  if (ring_size == 0)
+  {
+    ring_size = DEFAULT_RING_SIZE;
+  }
+  const size_t fake_outs_count = ring_size - 1;
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
   const bool use_rct = use_fork_rules(HF_VERSION_ALLOW_RCT, 0);
@@ -7884,8 +7900,13 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   return create_transactions_from(address, is_subaddress, unused_transfers_indices, unused_dust_indices, fake_outs_count, unlock_time, priority, extra, trusted_daemon);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon)
 {
+  if (ring_size == 0)
+  {
+    ring_size = DEFAULT_RING_SIZE;
+  }
+  const size_t fake_outs_count = ring_size - 1;
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
   const bool use_rct = use_fork_rules(HF_VERSION_ALLOW_RCT, 0);

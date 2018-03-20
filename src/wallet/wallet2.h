@@ -693,10 +693,10 @@ namespace tools
     // load unsigned_tx_set from file. 
     bool load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
-    std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);     // pass subaddr_indices by value on purpose
-    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);
-    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
+    std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);     // pass subaddr_indices by value on purpose
+    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);
+    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
     bool load_multisig_tx(cryptonote::blobdata blob, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL);
     bool load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL);
@@ -844,8 +844,8 @@ namespace tools
     void print_ring_members(bool value) { m_print_ring_members = value; }
     bool store_tx_info() const { return m_store_tx_info; }
     void store_tx_info(bool store) { m_store_tx_info = store; }
-    uint32_t default_mixin() const { return m_default_mixin; }
-    void default_mixin(uint32_t m) { m_default_mixin = m; }
+    uint32_t default_ring_size() const { return m_default_ring_size; }
+    void default_ring_size(uint32_t m) { m_default_ring_size = m; }
     uint32_t get_default_priority() const { return m_default_priority; }
     void set_default_priority(uint32_t p) { m_default_priority = p; }
     bool auto_refresh() const { return m_auto_refresh; }
@@ -999,7 +999,7 @@ namespace tools
 
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1) const;
     uint64_t get_per_kb_fee() const;
-    uint64_t adjust_mixin(uint64_t mixin) const;
+    uint64_t adjust_ring_size(uint64_t ring_size) const;
     uint32_t adjust_priority(uint32_t priority);
 
     // Light wallet specific functions
@@ -1190,7 +1190,7 @@ namespace tools
     bool m_always_confirm_transfers;
     bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */
-    uint32_t m_default_mixin;
+    uint32_t m_default_ring_size;
     uint32_t m_default_priority;
     RefreshType m_refresh_type;
     bool m_auto_refresh;

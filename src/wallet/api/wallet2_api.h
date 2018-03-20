@@ -634,7 +634,7 @@ struct Wallet
      * \param dst_addr          destination address as string
      * \param payment_id        optional payment_id, can be empty string
      * \param amount            amount
-     * \param mixin_count       mixin count. if 0 passed, wallet will use default value
+     * \param ring_size         ring size. if 0 passed, wallet will use default value
      * \param subaddr_account   subaddress account from which the input funds are taken
      * \param subaddr_indices   set of subaddress indices to use for transfer or sweeping. if set empty, all are chosen when sweeping, and one or more are automatically chosen when transferring. after execution, returns the set of actually used indices
      * \param priority
@@ -643,7 +643,7 @@ struct Wallet
      */
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
-                                                   optional<uint64_t> amount, uint32_t mixin_count,
+                                                   optional<uint64_t> amount, uint32_t ring_size,
                                                    PendingTransaction::Priority = PendingTransaction::Priority_Low,
                                                    uint32_t subaddr_account = 0,
                                                    std::set<uint32_t> subaddr_indices = {}) = 0;
@@ -697,15 +697,15 @@ struct Wallet
     virtual SubaddressAccount * subaddressAccount() = 0;
     virtual void setListener(WalletListener *) = 0;
     /*!
-     * \brief defaultMixin - returns number of mixins used in transactions
+     * \brief defaultRingSize - returns ring size used in transactions
      * \return
      */
-    virtual uint32_t defaultMixin() const = 0;
+    virtual uint32_t defaultRingSize() const = 0;
     /*!
-     * \brief setDefaultMixin - setum number of mixins to be used for new transactions
+     * \brief setDefaultRingSize - setum ring size to be used for new transactions
      * \param arg
      */
-    virtual void setDefaultMixin(uint32_t arg) = 0;
+    virtual void setDefaultRingSize(uint32_t arg) = 0;
 
     /*!
      * \brief setUserNote - attach an arbitrary string note to a txid
