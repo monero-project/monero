@@ -83,6 +83,7 @@ public:
     // void setListener(Listener *) {}
     int status() const;
     std::string errorString() const;
+    void statusWithErrorString(int& status, std::string& errorString) const override;
     bool setPassword(const std::string &password);
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const;
     std::string integratedAddress(const std::string &payment_id) const;
@@ -174,6 +175,9 @@ public:
 
 private:
     void clearStatus() const;
+    void setStatusError(const std::string& message) const;
+    void setStatusCritical(const std::string& message) const;
+    void setStatus(int status, const std::string& message) const;
     void refreshThreadFunc();
     void doRefresh();
     bool daemonSynced() const;
@@ -191,7 +195,8 @@ private:
     friend class SubaddressAccountImpl;
 
     tools::wallet2 * m_wallet;
-    mutable std::atomic<int>  m_status;
+    mutable boost::mutex m_statusMutex;
+    mutable int m_status;
     mutable std::string m_errorString;
     std::string m_password;
     TransactionHistoryImpl * m_history;
