@@ -178,6 +178,7 @@ else()
 endif()
 
 option(USE_READLINE "Build with GNU readline support." ON)
+option(EMBEDDED_ZMQ "Build zmq for embedded devices" OFF)
 option(EMBEDDED_WALLET "Build monero wallet library for embedded devices with minimum of dependencies")
 if (EMBEDDED_WALLET)
   set(USE_READLINE OFF)
@@ -852,7 +853,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "Clang" AND ARCH_WIDTH EQUAL "32" AND NOT IOS AN
 endif()
 
 
-if (NOT EMBEDDED_WALLET)
+if (NOT EMBEDDED_WALLET OR EMBEDDED_ZMQ)
   find_path(ZMQ_INCLUDE_PATH zmq.hpp)
   find_library(ZMQ_LIB zmq)
 endif()
@@ -861,7 +862,7 @@ find_library(PGM_LIBRARY pgm)
 find_library(NORM_LIBRARY norm)
 find_library(SODIUM_LIBRARY sodium)
 
-if (NOT EMBEDDED_WALLET)
+if (NOT EMBEDDED_WALLET OR EMBEDDED_ZMQ)
   if(NOT ZMQ_INCLUDE_PATH)
     message(FATAL_ERROR "Could not find required header zmq.hpp")
   endif()
