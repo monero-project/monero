@@ -5467,29 +5467,43 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   }
 }
 
-void wallet2::set_ring_database(const std::string &filename)
+bool wallet2::set_ring_database(const std::string &filename)
 {
   m_ring_database = filename;
   MINFO("ringdb path set to " << filename);
   m_ringdb.reset();
-  cryptonote::block b;
-  generate_genesis(b);
   if (!m_ring_database.empty())
-    m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+  {
+    try
+    {
+      cryptonote::block b;
+      generate_genesis(b);
+      m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to initialize ringdb: " << e.what());
+      m_ring_database = "";
+      return false;
+    }
+  }
+  return true;
 }
 
 bool wallet2::add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->add_rings(key, tx);
+  try { return m_ringdb->add_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::add_rings(const cryptonote::transaction_prefix &tx)
 {
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
-  return add_rings(key, tx);
+  try { return add_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
@@ -5498,14 +5512,16 @@ bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
     return true;
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
-  return m_ringdb->remove_rings(key, tx);
+  try { return m_ringdb->remove_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->get_ring(key, key_image, outs);
+  try { return m_ringdb->get_ring(key, key_image, outs); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs)
@@ -5536,7 +5552,8 @@ bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t>
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
 
-  return get_ring(key, key_image, outs);
+  try { return get_ring(key, key_image, outs); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
@@ -5547,7 +5564,8 @@ bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uin
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
 
-  return m_ringdb->set_ring(key, key_image, outs, relative);
+  try { return m_ringdb->set_ring(key, key_image, outs, relative); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::find_and_save_rings(bool force)
@@ -5615,33 +5633,40 @@ bool wallet2::blackball_output(const crypto::public_key &output)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->blackball(output);
+  try { return m_ringdb->blackball(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
 {
   if (!m_ringdb)
     return true;
-  bool ret = true;
-  if (!add)
-    ret &= m_ringdb->clear_blackballs();
-  for (const auto &output: outputs)
-    ret &= m_ringdb->blackball(output);
-  return ret;
+  try
+  {
+    bool ret = true;
+    if (!add)
+      ret &= m_ringdb->clear_blackballs();
+    for (const auto &output: outputs)
+      ret &= m_ringdb->blackball(output);
+    return ret;
+  }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::unblackball_output(const crypto::public_key &output)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->unblackball(output);
+  try { return m_ringdb->unblackball(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::is_output_blackballed(const crypto::public_key &output) const
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->blackballed(output);
+  try { return m_ringdb->blackballed(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
