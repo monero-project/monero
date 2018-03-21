@@ -127,6 +127,14 @@ public:
     std::string getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const;
     void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label);
 
+    MultisigState multisig() const override;
+    std::string getMultisigInfo() const override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
+    bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
+    bool exportMultisigImages(std::string& images) override;
+    size_t importMultisigImages(const std::vector<std::string>& images) override;
+    PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
+
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,

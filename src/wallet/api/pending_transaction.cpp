@@ -34,6 +34,7 @@
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "common/base58.h"
 
 #include <memory>
 #include <vector>
@@ -102,6 +103,11 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
       }
       // Commit tx
       else {
+        auto multisigState = m_wallet.multisig();
+        if (multisigState.isMultisig && m_signers.size() < multisigState.threshold) {
+            throw runtime_error("Not enough signers to send multisig transaction");
+        }
+
         m_wallet.pauseRefresh();
         while (!m_pending_tx.empty()) {
             auto & ptx = m_pending_tx.back();
@@ -186,6 +192,53 @@ std::vector<std::set<uint32_t>> PendingTransactionImpl::subaddrIndices() const
     for (const auto& ptx : m_pending_tx)
         result.push_back(ptx.construction_data.subaddr_indices);
     return result;
+}
+
+std::string PendingTransactionImpl::multisigSignData() {
+    try {
+        if (!m_wallet.multisig().isMultisig) {
+            throw std::runtime_error("wallet is not multisig");
+        }
+
+        auto cipher = m_wallet.m_wallet->save_multisig_tx(m_pending_tx);
+        return epee::string_tools::buff_to_hex_nodelimer(cipher);
+    } catch (const std::exception& e) {
+        m_status = Status_Error;
+        m_errorString = std::string(tr("Couldn't multisig sign data: ")) + e.what();
+    }
+
+    return std::string();
+}
+
+void PendingTransactionImpl::signMultisigTx() {
+    try {
+        std::vector<crypto::hash> ignore;
+
+        tools::wallet2::multisig_tx_set txSet;
+        txSet.m_ptx = m_pending_tx;
+        txSet.m_signers = m_signers;
+
+        if (!m_wallet.m_wallet->sign_multisig_tx(txSet, ignore)) {
+            throw std::runtime_error("couldn't sign multisig transaction");
+        }
+
+        std::swap(m_pending_tx, txSet.m_ptx);
+        std::swap(m_signers, txSet.m_signers);
+    } catch (const std::exception& e) {
+        m_status = Status_Error;
+        m_errorString = std::string(tr("Couldn't sign multisig transaction: ")) + e.what();
+    }
+}
+
+std::vector<std::string> PendingTransactionImpl::signersKeys() const {
+    std::vector<std::string> keys;
+    keys.reserve(m_signers.size());
+
+    for (const auto& signer: m_signers) {
+        keys.emplace_back(tools::base58::encode(cryptonote::t_serializable_object_to_blob(signer)));
+    }
+
+    return keys;
 }
 
 }
