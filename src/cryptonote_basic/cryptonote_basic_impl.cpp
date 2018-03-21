@@ -96,14 +96,14 @@ namespace cryptonote {
     }
 
     static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
-    const int target = version < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
-    const int target_minutes = target / 60;
-    const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE - (target_minutes-1);
 
-    uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
-    if (base_reward < FINAL_SUBSIDY_PER_MINUTE*target_minutes)
+    uint64_t emission_supply_component = (already_generated_coins * EMISSION_SUPPLY_MULTIPLIER) / EMISSION_SUPPLY_DIVISOR;
+    uint64_t base_reward = (EMISSION_LINEAR_BASE - emission_supply_component) / EMISSION_DIVISOR;
+
+    uint64_t minimum_reward = already_generated_coins / (720 * 365 * YEARLY_INFLATION_INVERSE);
+    if (base_reward < minimum_reward)
     {
-      base_reward = FINAL_SUBSIDY_PER_MINUTE*target_minutes;
+      base_reward = minimum_reward;
     }
 
     uint64_t full_reward_zone = get_min_block_size(version);
