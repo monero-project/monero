@@ -358,9 +358,11 @@ struct Wallet
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
-    virtual int status() const = 0;
+    virtual int status() const = 0; //deprecated: use safe alternative statusWithErrorString
     //! in case error status, returns error string
-    virtual std::string errorString() const = 0;
+    virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
+    //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
+    virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
