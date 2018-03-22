@@ -397,8 +397,8 @@ namespace nodetool
       full_addrs.insert("163.172.182.165:18080");
       full_addrs.insert("161.67.132.39:18080");
       full_addrs.insert("198.74.231.92:18080");
-      full_addrs.insert("195.154.123.123:28080");
-      full_addrs.insert("212.83.172.165:28080");
+      full_addrs.insert("195.154.123.123:18080");
+      full_addrs.insert("212.83.172.165:18080");
     }
     return full_addrs;
   }
@@ -490,7 +490,7 @@ namespace nodetool
         if (result.size())
         {
           for (const auto& addr_string : result)
-            full_addrs.insert(addr_string + ":18080");
+            full_addrs.insert(addr_string + ":" + std::to_string(m_nettype == cryptonote::TESTNET ? ::config::testnet::P2P_DEFAULT_PORT : m_nettype == cryptonote::STAGENET ? ::config::stagenet::P2P_DEFAULT_PORT : ::config::P2P_DEFAULT_PORT));
         }
         ++i;
       }
