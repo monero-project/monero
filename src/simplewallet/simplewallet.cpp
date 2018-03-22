@@ -3797,7 +3797,7 @@ void simple_wallet::on_skip_transaction(uint64_t height, const crypto::hash &txi
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init)
 {
-  if (!try_connect_to_daemon())
+  if (!try_connect_to_daemon(is_init))
     return true;
 
   LOCK_IDLE_SCOPE();
