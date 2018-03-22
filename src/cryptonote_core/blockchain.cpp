@@ -2985,6 +2985,11 @@ bool Blockchain::check_fee(size_t blob_size, uint64_t fee) const
 {
   const uint8_t version = get_current_hard_fork_version();
 
+  if (version == 1)
+  {
+    return fee >= DEFAULT_FEE_V1;
+  }
+
   uint64_t fee_per_kb = FEE_PER_KB;
 #if 0
   if (version < HF_VERSION_DYNAMIC_FEE)

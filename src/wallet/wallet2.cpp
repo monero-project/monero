@@ -166,18 +166,25 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
     keys_file += ".keys";
   }
 }
+} // namespace
 
-uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier)
+uint64_t tools::wallet2::calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier)
 {
   uint64_t kB = (bytes + 1023) / 1024;
-  return kB * fee_per_kb * fee_multiplier;
+  uint64_t fee = kB * fee_per_kb;
+  if (!use_fork_rules(2))
+  {
+    fee = std::max<uint64_t>(DEFAULT_FEE_V1, fee);
+  }
+  return fee * fee_multiplier;
 }
 
-uint64_t calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, uint64_t fee_multiplier)
+uint64_t tools::wallet2::calculate_fee(uint64_t fee_per_kb, const cryptonote::blobdata &blob, uint64_t fee_multiplier)
 {
   return calculate_fee(fee_per_kb, blob.size(), fee_multiplier);
 }
 
+namespace {
 std::string get_size_string(size_t sz)
 {
   return std::to_string(sz) + " bytes (" + std::to_string((sz + 1023) / 1024) + " kB)";
