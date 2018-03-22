@@ -2974,6 +2974,22 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       // create wallet
       bool r = new_wallet(vm, "Ledger");
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
+      // if no block_height is specified, assume its a new account and start it "now"
+      if(m_wallet->get_refresh_from_block_height() == 0) {
+        {
+          tools::scoped_message_writer wrt = tools::msg_writer();
+          wrt << tr("No restore height is specified.");
+          wrt << tr("Assumed you are creating a new account, restore will be done from current estimated blockchain height.");
+          wrt << tr("Use --restore-height if you want to restore an already setup account from a specific height");
+        }
+        std::string confirm = input_line(tr("Is this okay?  (Y/Yes/N/No): "));
+        if (std::cin.eof() || !command_line::is_yes(confirm))
+          CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
+
+        m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height()-1);
+        m_wallet->explicit_refresh_from_block_height(true);
+        m_restore_height = m_wallet->get_refresh_from_block_height();
+      }
     }
     else
     {
@@ -2990,7 +3006,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
     }
 
-    if (m_restoring && m_generate_from_json.empty())
+    if (m_restoring && m_generate_from_json.empty() && m_generate_from_device.empty())
     {
       m_wallet->explicit_refresh_from_block_height(!command_line::is_arg_defaulted(vm, arg_restore_height));
     }
@@ -3388,7 +3404,7 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
   try
   {
     m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_name);
-    message_writer(console_color_white, true) << tr("Generated new on device wallet: ")
+    message_writer(console_color_white, true) << tr("Generated new wallet on hw device: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   }
   catch (const std::exception& e)
