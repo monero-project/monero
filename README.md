@@ -356,7 +356,16 @@ application.
 
         make release-static-win32
 
+
 * The resulting executables can be found in `build/release/bin`
+
+* **Optional**: to build binaries suitable for debugging (if you are on a 64-bit system):
+
+         make debug-static-win64
+
+* If you are on a 32-bit system, run:
+
+         make debug-static-win32
 
 ### On FreeBSD:
 
