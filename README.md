@@ -304,7 +304,7 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
 ```
 * Wait ~8 hours
 ```
-	sudo ./bjam cxxflags=-fPIC cflags=-fPIC install
+	sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
 ```
 * Wait ~4 hours
 
