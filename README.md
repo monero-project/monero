@@ -261,7 +261,7 @@ If you are using the older Raspbian Jessie image, compiling Aeon is a bit more c
 ```
 * Wait ~8 hours
 ```
-	sudo ./bjam install
+	sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
 ```
 * Wait ~4 hours
 
