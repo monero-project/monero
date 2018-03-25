@@ -70,8 +70,9 @@ static boost::mutex init_mutex;
 
 static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
 {
+  static const size_t STEP = getenv("STRAUS_STEP") ? atoi(getenv("STRAUS_STEP")) : 0;
   if (HiGi || data.size() < 1000)
-    return straus(data, HiGi ? HiGi_cache: NULL);
+    return straus(data, HiGi ? HiGi_cache: NULL, STEP);
   else
     return bos_coster_heap_conv_robust(data);
 }

@@ -34,6 +34,7 @@ extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
+#include "common/aligned.h"
 #include "rctOps.h"
 #include "multiexp.h"
 
@@ -42,6 +43,17 @@ extern "C"
 
 //#define MULTIEXP_PERF(x) x
 #define MULTIEXP_PERF(x)
+
+#define RAW_MEMORY_BLOCK
+//#define ALTERNATE_LAYOUT
+//#define TRACK_STRAUS_ZERO_IDENTITY
+
+//   per points us for N/B points (B point bands)
+//   raw   alt   128/192  4096/192  4096/4096
+//   0     0     52.6     71        71.2
+//   0     1     53.2     72.2      72.4
+//   1     0     52.7     67        67.1
+//   1     1     52.8     70.4      70.2
 
 namespace rct
 {
@@ -198,6 +210,7 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
 
     ge_cached cached;
     ge_p1p1 p1;
+    ge_p2 p2;
 
     MULTIEXP_PERF(PERF_TIMER_RESUME(div));
     while (1)
@@ -214,8 +227,8 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
         std::push_heap(heap.begin(), heap.end(), Comp);
       }
       data[index1].scalar = div2(data[index1].scalar);
-      ge_p3_to_cached(&cached, &data[index1].point);
-      ge_add(&p1, &data[index1].point, &cached);
+      ge_p3_to_p2(&p2, &data[index1].point);
+      ge_p2_dbl(&p1, &p2);
       ge_p1p1_to_p3(&data[index1].point, &p1);
     }
     MULTIEXP_PERF(PERF_TIMER_PAUSE(div));
@@ -259,12 +272,32 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   return res;
 }
 
+static constexpr unsigned int STRAUS_C = 4;
+
 struct straus_cached_data
 {
+#ifdef RAW_MEMORY_BLOCK
+  size_t size;
+  ge_cached *multiples;
+  straus_cached_data(): size(0), multiples(NULL) {}
+  ~straus_cached_data() { aligned_free(multiples); }
+#else
   std::vector<std::vector<ge_cached>> multiples;
+#endif
 };
-
-static constexpr unsigned int STRAUS_C = 4;
+#ifdef RAW_MEMORY_BLOCK
+#ifdef ALTERNATE_LAYOUT
+#define CACHE_OFFSET(cache,point,digit) cache->multiples[(point)*((1<<STRAUS_C)-1)+((digit)-1)]
+#else
+#define CACHE_OFFSET(cache,point,digit) cache->multiples[(point)+cache->size*((digit)-1)]
+#endif
+#else
+#ifdef ALTERNATE_LAYOUT
+#define CACHE_OFFSET(cache,point,digit) local_cache->multiples[j][digit-1]
+#else
+#define CACHE_OFFSET(cache,point,digit) local_cache->multiples[digit][j]
+#endif
+#endif
 
 std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<MultiexpData> &data)
 {
@@ -274,6 +307,36 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
   ge_p3 p3;
   std::shared_ptr<straus_cached_data> cache(new straus_cached_data());
 
+#ifdef RAW_MEMORY_BLOCK
+  const size_t offset = cache->size;
+  cache->multiples = (ge_cached*)aligned_realloc(cache->multiples, sizeof(ge_cached) * ((1<<STRAUS_C)-1) * std::max(offset, data.size()), 4096);
+  cache->size = data.size();
+  for (size_t j=offset;j<data.size();++j)
+  {
+    ge_p3_to_cached(&CACHE_OFFSET(cache, j, 1), &data[j].point);
+    for (size_t i=2;i<1<<STRAUS_C;++i)
+    {
+      ge_add(&p1, &data[j].point, &CACHE_OFFSET(cache, j, i-1));
+      ge_p1p1_to_p3(&p3, &p1);
+      ge_p3_to_cached(&CACHE_OFFSET(cache, j, i), &p3);
+    }
+  }
+#else
+#ifdef ALTERNATE_LAYOUT
+  const size_t offset = cache->multiples.size();
+  cache->multiples.resize(std::max(offset, data.size()));
+  for (size_t i = offset; i < data.size(); ++i)
+  {
+    cache->multiples[i].resize((1<<STRAUS_C)-1);
+    ge_p3_to_cached(&cache->multiples[i][0], &data[i].point);
+    for (size_t j=2;j<1<<STRAUS_C;++j)
+    {
+      ge_add(&p1, &data[i].point, &cache->multiples[i][j-2]);
+      ge_p1p1_to_p3(&p3, &p1);
+      ge_p3_to_cached(&cache->multiples[i][j-1], &p3);
+    }
+  }
+#else
   cache->multiples.resize(1<<STRAUS_C);
   size_t offset = cache->multiples[1].size();
   cache->multiples[1].resize(std::max(offset, data.size()));
@@ -290,6 +353,8 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
       ge_p3_to_cached(&cache->multiples[i][j], &p3);
     }
   }
+#endif
+#endif
   MULTIEXP_PERF(PERF_TIMER_STOP(multiples));
 
   return cache;
@@ -298,15 +363,20 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
 size_t straus_get_cache_size(const std::shared_ptr<straus_cached_data> &cache)
 {
   size_t sz = 0;
+#ifdef RAW_MEMORY_BLOCK
+  sz += cache->size * sizeof(ge_cached) * ((1<<STRAUS_C)-1);
+#else
   for (const auto &e0: cache->multiples)
-    sz += e0.size() * sizeof(ge_p3);
+    sz += e0.size() * sizeof(ge_cached);
+#endif
   return sz;
 }
 
-rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<straus_cached_data> &cache)
+rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<straus_cached_data> &cache, size_t STEP)
 {
   MULTIEXP_PERF(PERF_TIMER_UNIT(straus, 1000000));
   bool HiGi = cache != NULL;
+  STEP = STEP ? STEP : 192;
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(setup, 1000000));
   static constexpr unsigned int mask = (1<<STRAUS_C)-1;
@@ -315,9 +385,13 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   ge_p1p1 p1;
   ge_p3 p3;
 
+#ifdef TRACK_STRAUS_ZERO_IDENTITY
+  MULTIEXP_PERF(PERF_TIMER_START_UNIT(skip, 1000000));
   std::vector<uint8_t> skip(data.size());
   for (size_t i = 0; i < data.size(); ++i)
     skip[i] = data[i].scalar == rct::zero() || !memcmp(&data[i].point, &ge_p3_identity, sizeof(ge_p3));
+  MULTIEXP_PERF(PERF_TIMER_STOP(skip));
+#endif
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(digits, 1000000));
   std::vector<std::vector<uint8_t>> digits;
@@ -361,35 +435,53 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   for (size_t i = 0; i < data.size(); ++i)
     if (maxscalar < data[i].scalar)
       maxscalar = data[i].scalar;
-  size_t i = 0;
-  while (i < 256 && !(maxscalar < pow2(i)))
-    i += STRAUS_C;
+  size_t start_i = 0;
+  while (start_i < 256 && !(maxscalar < pow2(start_i)))
+    start_i += STRAUS_C;
   MULTIEXP_PERF(PERF_TIMER_STOP(setup));
 
   ge_p3 res_p3 = ge_p3_identity;
-  if (!(i < STRAUS_C))
-    goto skipfirst;
-  while (!(i < STRAUS_C))
+
+  for (size_t start_offset = 0; start_offset < data.size(); start_offset += STEP)
   {
-    for (size_t j = 0; j < STRAUS_C; ++j)
+    const size_t num_points = std::min(data.size() - start_offset, STEP);
+
+    ge_p3 band_p3 = ge_p3_identity;
+    size_t i = start_i;
+    if (!(i < STRAUS_C))
+      goto skipfirst;
+    while (!(i < STRAUS_C))
     {
-      ge_p3_to_cached(&cached, &res_p3);
-      ge_add(&p1, &res_p3, &cached);
-      ge_p1p1_to_p3(&res_p3, &p1);
-    }
-skipfirst:
-    i -= STRAUS_C;
-    for (size_t j = 0; j < data.size(); ++j)
-    {
-      if (skip[j])
-        continue;
-      int digit = digits[j][i];
-      if (digit)
+      ge_p2 p2;
+      ge_p3_to_p2(&p2, &band_p3);
+      for (size_t j = 0; j < STRAUS_C; ++j)
       {
-        ge_add(&p1, &res_p3, &local_cache->multiples[digit][j]);
-        ge_p1p1_to_p3(&res_p3, &p1);
+        ge_p2_dbl(&p1, &p2);
+        if (j == STRAUS_C - 1)
+          ge_p1p1_to_p3(&band_p3, &p1);
+        else
+          ge_p1p1_to_p2(&p2, &p1);
+      }
+skipfirst:
+      i -= STRAUS_C;
+      for (size_t j = start_offset; j < start_offset + num_points; ++j)
+      {
+#ifdef TRACK_STRAUS_ZERO_IDENTITY
+        if (skip[j])
+          continue;
+#endif
+        const uint8_t digit = digits[j][i];
+        if (digit)
+        {
+          ge_add(&p1, &band_p3, &CACHE_OFFSET(local_cache, j, digit));
+          ge_p1p1_to_p3(&band_p3, &p1);
+        }
       }
     }
+
+    ge_p3_to_cached(&cached, &band_p3);
+    ge_add(&p1, &res_p3, &cached);
+    ge_p1p1_to_p3(&res_p3, &p1);
   }
 
   rct::key res;
