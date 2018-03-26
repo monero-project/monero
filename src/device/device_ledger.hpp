@@ -32,11 +32,11 @@
 
 #include <cstddef>
 #include <string>
-#include <mutex>
 #include "device.hpp"
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
-
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 namespace hw {
 
@@ -80,13 +80,11 @@ namespace hw {
 
     class device_ledger : public hw::device {
     private:
-        mutable std::mutex   device_locker;
-        mutable std::mutex   tx_locker;
-        void lock_device() ;
-        void unlock_device() ;
-        void lock_tx() ;
-        void unlock_tx() ;
- 
+        // Locker for concurrent access
+        mutable boost::recursive_mutex   device_locker;
+        mutable boost::mutex   command_locker;
+
+        //PCSC management 
         std::string  full_name;
         SCARDCONTEXT hContext;
         SCARDHANDLE  hCard;
@@ -95,15 +93,21 @@ namespace hw {
         DWORD        length_recv;
         BYTE         buffer_recv[BUFFER_RECV_SIZE];
         unsigned int id;
-
-        Keymap key_map;
-
-
         void logCMD(void);
         void logRESP(void);
         unsigned int  exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
         void reset_buffer(void);
 
+        // hw running mode
+        device_mode mode;
+        // map public destination key to ephemeral destination key
+        Keymap key_map;
+
+        // To speed up blockchain parsing the view key maybe handle here.
+        crypto::secret_key viewkey;
+        bool has_view_key;
+        
+        //extra debug
         #ifdef DEBUG_HWDEVICE
         device *controle_device;
         #endif
@@ -129,6 +133,15 @@ namespace hw {
         bool release() override;
         bool connect(void) override;
         bool disconnect() override;
+
+        bool  set_mode(device_mode mode) override;
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+        void lock(void)  override;
+        void unlock(void) override;
+        bool try_lock(void) override;
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
@@ -168,8 +181,6 @@ namespace hw {
 
         bool  open_tx(crypto::secret_key &tx_key) override;
 
-        bool  set_signature_mode(unsigned int sig_mode) override;
-
         bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) override;
 
         bool  ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) override;
@@ -190,10 +201,9 @@ namespace hw {
     };
 
 
-
     #ifdef DEBUG_HWDEVICE
-    extern crypto::secret_key viewkey;
-    extern crypto::secret_key spendkey;
+    extern crypto::secret_key dbg_viewkey;
+    extern crypto::secret_key dbg_spendkey;
     #endif
 
     #endif  //WITH_DEVICE_LEDGER
