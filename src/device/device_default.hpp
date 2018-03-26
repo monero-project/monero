@@ -60,6 +60,13 @@ namespace hw {
             bool disconnect() override;
 
             /* ======================================================================= */
+            /*  LOCKER                                                                 */
+            /* ======================================================================= */ 
+            void lock(void)  override;
+            void unlock(void) override;
+            bool try_lock(void) override;
+            
+            /* ======================================================================= */
             /*                             WALLET & ADDRESS                            */
             /* ======================================================================= */
             bool  get_public_address(cryptonote::account_public_address &pubkey) override;

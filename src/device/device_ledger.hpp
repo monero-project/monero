@@ -36,7 +36,8 @@
 #include "device.hpp"
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
-
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 namespace hw {
 
@@ -80,13 +81,11 @@ namespace hw {
 
     class device_ledger : public hw::device {
     private:
-        mutable std::mutex   device_locker;
-        mutable std::mutex   tx_locker;
-        void lock_device() ;
-        void unlock_device() ;
-        void lock_tx() ;
-        void unlock_tx() ;
- 
+        // Locker for concurrent access
+        mutable boost::recursive_mutex   device_locker;
+        mutable boost::mutex   command_locker;
+
+        //PCSC management 
         std::string  full_name;
         SCARDCONTEXT hContext;
         SCARDHANDLE  hCard;
@@ -129,6 +128,14 @@ namespace hw {
         bool release() override;
         bool connect(void) override;
         bool disconnect() override;
+
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+        void lock(void)  override;
+        void unlock(void) override;
+        bool try_lock(void) override;
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
