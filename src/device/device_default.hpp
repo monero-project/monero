@@ -58,6 +58,8 @@ namespace hw {
 
             bool connect(void) override;
             bool disconnect() override;
+ 
+            bool set_mode(device_mode mode) override;
 
             /* ======================================================================= */
             /*  LOCKER                                                                 */
@@ -103,9 +105,6 @@ namespace hw {
             /* ======================================================================= */
 
             bool  open_tx(crypto::secret_key &tx_key) override;
-
-            //bool  get_additional_key(const bool subaddr, cryptonote::keypair &additional_txkey) override;
-            bool  set_signature_mode(unsigned int sig_mode) override;
 
             bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) override;
 

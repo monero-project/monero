@@ -58,8 +58,8 @@ namespace hw {
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
 
     #ifdef DEBUG_HWDEVICE
-      crypto::secret_key viewkey;
-      crypto::secret_key spendkey;
+      crypto::secret_key dbg_viewkey;
+      crypto::secret_key dbg_spendkey;
     #endif
 
     /* ===================================================================== */
@@ -119,7 +119,14 @@ namespace hw {
     #endif
 
     /* ===================================================================== */
-    /* ===                         Device                               ==== */
+    /* ===                       Internal Helpers                       ==== */
+    /* ===================================================================== */
+    static bool is_fake_view_key(const crypto::secret_key &sec) {
+      return sec == crypto::null_skey;
+    }
+
+    /* ===================================================================== */
+    /* ===                             Device                           ==== */
     /* ===================================================================== */
 
     static int device_id = 0;
@@ -197,6 +204,8 @@ namespace hw {
       this->hCard   = 0;
       this->hContext = 0;
       this->reset_buffer();      
+      this->mode = NONE;
+      this->has_view_key = false;
       MDEBUG( "Device "<<this->id <<" Created");
     }
 
@@ -403,10 +412,10 @@ namespace hw {
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
       this->get_public_address(pubkey);
+      #endif
       crypto::secret_key vkey;
       crypto::secret_key skey;
       this->get_secret_keys(vkey,skey);
-      #endif
 
       return rv==SCARD_S_SUCCESS;
     }
@@ -418,6 +427,47 @@ namespace hw {
         this->hCard = 0;
       }
       return true;
+    }
+
+    bool  device_ledger::set_mode(device_mode mode) {
+        AUTO_LOCK_CMD();
+
+        int offset;
+
+        reset_buffer();
+
+        switch(mode) {
+        case TRANSACTION_CREATE_REAL:
+        case TRANSACTION_CREATE_FAKE:
+          this->buffer_send[0] = 0x00;
+          this->buffer_send[1] = INS_SET_SIGNATURE_MODE;
+          this->buffer_send[2] = 0x01;
+          this->buffer_send[3] = 0x00;
+          this->buffer_send[4] = 0x00;
+          offset = 5;
+          //options
+          this->buffer_send[offset] = 0x00;
+          offset += 1;
+          //account
+          this->buffer_send[offset] = mode;
+          offset += 1;
+
+          this->buffer_send[4] = offset-5;
+          this->length_send = offset;
+          this->exchange();
+
+          this->mode = mode;
+          break;
+
+        case TRANSACTION_PARSE: 
+        case NONE:
+          this->mode = mode;
+          break;
+        default:
+           CHECK_AND_ASSERT_THROW_MES(false, " device_ledger::set_mode(unsigned int mode): invalid mode: "<<mode);
+        }
+        MDEBUG("Switch to mode: " <<mode);
+        return true;
     }
 
 
@@ -451,12 +501,13 @@ namespace hw {
         return true;
     }
 
-    bool  device_ledger::get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) {
+    bool  device_ledger::get_secret_keys(crypto::secret_key &vkey , crypto::secret_key &skey) {
         AUTO_LOCK_CMD();
-      memset(viewkey.data, 0x00, 32);
-      memset(spendkey.data, 0xFF, 32);
 
-      #ifdef DEBUG_HWDEVICE
+        //secret key are represented as fake key on the wallet side
+        memset(vkey.data, 0x00, 32);
+        memset(skey.data, 0xFF, 32);
+
         //spcialkey, normal conf handled in decrypt
         int offset;
         reset_buffer();
@@ -475,12 +526,22 @@ namespace hw {
         this->length_send = offset;
         this->exchange();
 
-        //clear key
-        memmove(ledger::viewkey.data,  this->buffer_recv+64, 32);
-        memmove(ledger::spendkey.data, this->buffer_recv+96, 32);
+        //View key is retrievied, if allowed, to speed up blockchain parsing
+        memmove(this->viewkey.data,  this->buffer_recv+0,  32);
+        if (is_fake_view_key(this->viewkey)) {
+          MDEBUG("Have Not view key");
+          this->has_view_key = false;
+        } else {
+          MDEBUG("Have view key");
+          this->has_view_key = true;
+        }
+      
+        #ifdef DEBUG_HWDEVICE
+        memmove(dbg_viewkey.data, this->buffer_recv+0, 32);
+        memmove(dbg_spendkey.data, this->buffer_recv+32, 32);
+        #endif
 
-      #endif
-      return true;
+        return true;
     }
 
     bool  device_ledger::generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key) {
@@ -525,11 +586,14 @@ namespace hw {
 
     bool device_ledger::derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index, crypto::public_key &derived_pub){
         AUTO_LOCK_CMD();
-        int offset;
-
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
-        const crypto::key_derivation derivation_x  = hw::ledger::decrypt(derivation);
+        crypto::key_derivation derivation_x;
+         if ((this->mode == TRANSACTION_PARSE) && has_view_key) {    
+          derivation_x = derivation;
+        } else {
+          derivation_x = hw::ledger::decrypt(derivation);
+        }
         const std::size_t output_index_x = output_index;
         crypto::public_key derived_pub_x;
         hw::ledger::log_hexbuffer("derive_subaddress_public_key: [[IN]]  pub       ", pub_x.data, 32);
@@ -539,6 +603,15 @@ namespace hw {
         hw::ledger::log_hexbuffer("derive_subaddress_public_key: [[OUT]] derived_pub", derived_pub_x.data, 32);
         #endif
 
+      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {     
+        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
+        //of the device), so continue that way.
+        MDEBUG( "derive_subaddress_public_key  : PARSE mode with known viewkey");     
+        crypto::derive_subaddress_public_key(pub, derivation, output_index,derived_pub);
+      } else {
+       
+        int offset =0;
+ 
         reset_buffer();
 
         this->buffer_send[0] = 0x00;
@@ -569,10 +642,10 @@ namespace hw {
 
         //pub key
         memmove(derived_pub.data, &this->buffer_recv[0], 32);
-
-        #ifdef DEBUG_HWDEVICE
-        hw::ledger::check32("derive_subaddress_public_key", "derived_pub", derived_pub_x.data, derived_pub.data);
-        #endif
+      }
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check32("derive_subaddress_public_key", "derived_pub", derived_pub_x.data, derived_pub.data);
+      #endif
 
       return true;
     }
@@ -959,7 +1032,7 @@ namespace hw {
 
     bool device_ledger::generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation) {
         AUTO_LOCK_CMD();
-        int offset;
+        bool r = false;
 
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
@@ -970,6 +1043,17 @@ namespace hw {
         this->controle_device->generate_key_derivation(pub_x, sec_x, derivation_x);
         hw::ledger::log_hexbuffer("generate_key_derivation: [[OUT]] derivation", derivation_x.data, 32);
         #endif
+
+      if ((this->mode == TRANSACTION_PARSE)  && has_view_key) {
+        //A derivation is resquested in PASRE mode and we have the view key,
+        //so do that wihtout the device and return the derivation unencrypted.
+        MDEBUG( "generate_key_derivation  : PARSE mode with known viewkey");     
+        //Note derivation in PARSE mode can only happen with viewkey, so assert it!
+        assert(is_fake_view_key(sec));
+        r = crypto::generate_key_derivation(pub, this->viewkey, derivation);
+      } else {
+
+        int offset;
 
         reset_buffer();
 
@@ -995,14 +1079,19 @@ namespace hw {
 
         //derivattion data
         memmove(derivation.data, &this->buffer_recv[0], 32);
+        r = true;
+      }
+      #ifdef DEBUG_HWDEVICE
+      crypto::key_derivation derivation_clear ;
+        if ((this->mode == TRANSACTION_PARSE)  && has_view_key) {
+          derivation_clear  = derivation;
+        }else {
+          derivation_clear  = hw::ledger::decrypt(derivation);
+        }
+      hw::ledger::check32("generate_key_derivation", "derivation", derivation_x.data, derivation_clear.data);
+      #endif
 
-        #ifdef DEBUG_HWDEVICE
-        crypto::key_derivation derivation_clear  = hw::ledger::decrypt(derivation);
-        hw::ledger::check32("generate_key_derivation", "derivation", derivation_x.data, derivation_clear.data);
-        #endif
-
-
-      return true;
+      return r;
     }
 
     bool device_ledger::derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res) {
@@ -1288,32 +1377,6 @@ namespace hw {
         memmove(tx_key.data, &this->buffer_recv[32], 32);
   
         return true;
-    }
-
-    bool  device_ledger::set_signature_mode(unsigned int sig_mode) {
-        AUTO_LOCK_CMD();
-        int offset ;
-
-        reset_buffer();
-
-        this->buffer_send[0] = 0x00;
-        this->buffer_send[1] = INS_SET_SIGNATURE_MODE;
-        this->buffer_send[2] = 0x01;
-        this->buffer_send[3] = 0x00;
-        this->buffer_send[4] = 0x00;
-        offset = 5;
-        //options
-        this->buffer_send[offset] = 0x00;
-        offset += 1;
-        //account
-        this->buffer_send[offset] = sig_mode;
-        offset += 1;
-
-        this->buffer_send[4] = offset-5;
-        this->length_send = offset;
-        this->exchange();
-        
-      return true;
     }
 
     bool device_ledger::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
