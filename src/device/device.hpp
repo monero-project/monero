@@ -78,8 +78,10 @@ namespace hw {
            return false;
     }
 
-
     class device {
+    protected:
+        std::string  name;
+
     public:
 
         device()  {}
@@ -92,8 +94,6 @@ namespace hw {
         static const int SIGNATURE_FAKE = 1;
 
 
-        std::string  name;
-
         /* ======================================================================= */
         /*                              SETUP/TEARDOWN                             */
         /* ======================================================================= */
@@ -104,7 +104,15 @@ namespace hw {
         virtual bool release() = 0;
 
         virtual bool connect(void) = 0;
-        virtual bool disconnect() = 0;
+        virtual bool disconnect(void) = 0;
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+        virtual void lock(void) = 0;
+        virtual void unlock(void) = 0;
+        virtual bool try_lock(void) = 0;
+
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
