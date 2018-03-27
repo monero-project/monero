@@ -40,7 +40,8 @@ set(common_sources
   perf_timer.cpp
   spawn.cpp
   threadpool.cpp
-  updates.cpp)
+  updates.cpp
+  aligned.c)
 
 if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
@@ -71,7 +72,8 @@ set(common_private_headers
   spawn.h
   stack_trace.h
   threadpool.h
-  updates.h)
+  updates.h
+  aligned.h)
 
 monero_private_headers(common
   ${common_private_headers})
