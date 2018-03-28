@@ -3101,6 +3101,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   if (!m_trusted_daemon)
     message_writer() << (boost::format(tr("Warning: using an untrusted daemon at %s, privacy will be lessened")) % m_wallet->get_daemon_address()).str();
 
+  if (m_wallet->get_ring_database().empty())
+    fail_msg_writer() << tr("Failed to initialize ring database: privacy enhancing features will be inactive");
+
   m_wallet->callback(this);
 
   return true;

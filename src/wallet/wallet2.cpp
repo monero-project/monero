@@ -2669,6 +2669,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_backlog_threshold = 0;
     m_confirm_export_overwrite = true;
     m_auto_low_priority = true;
+    m_segregate_pre_fork_outputs = true;
+    m_key_reuse_mitigation2 = true;
+    m_segregation_height = 0;
     m_key_on_device = false;
   }
   else if(json.IsObject())
@@ -2785,6 +2788,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     (boost::format("%s wallet cannot be opened as %s wallet")
     % (field_nettype == 0 ? "Mainnet" : field_nettype == 1 ? "Testnet" : "Stagenet")
     % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : "stagenet")).str());
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregate_pre_fork_outputs, int, Int, false, true);
+    m_segregate_pre_fork_outputs = field_segregate_pre_fork_outputs;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_reuse_mitigation2, int, Int, false, true);
+    m_key_reuse_mitigation2 = field_key_reuse_mitigation2;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregation_height, int, Uint, false, 0);
+    m_segregation_height = field_segregation_height;
   }
   else
   {
@@ -5467,29 +5476,43 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<crypto
   }
 }
 
-void wallet2::set_ring_database(const std::string &filename)
+bool wallet2::set_ring_database(const std::string &filename)
 {
   m_ring_database = filename;
   MINFO("ringdb path set to " << filename);
   m_ringdb.reset();
-  cryptonote::block b;
-  generate_genesis(b);
   if (!m_ring_database.empty())
-    m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+  {
+    try
+    {
+      cryptonote::block b;
+      generate_genesis(b);
+      m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to initialize ringdb: " << e.what());
+      m_ring_database = "";
+      return false;
+    }
+  }
+  return true;
 }
 
 bool wallet2::add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->add_rings(key, tx);
+  try { return m_ringdb->add_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::add_rings(const cryptonote::transaction_prefix &tx)
 {
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
-  return add_rings(key, tx);
+  try { return add_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
@@ -5498,14 +5521,16 @@ bool wallet2::remove_rings(const cryptonote::transaction_prefix &tx)
     return true;
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
-  return m_ringdb->remove_rings(key, tx);
+  try { return m_ringdb->remove_rings(key, tx); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->get_ring(key, key_image, outs);
+  try { return m_ringdb->get_ring(key, key_image, outs); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs)
@@ -5536,7 +5561,8 @@ bool wallet2::get_ring(const crypto::key_image &key_image, std::vector<uint64_t>
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
 
-  return get_ring(key, key_image, outs);
+  try { return get_ring(key, key_image, outs); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative)
@@ -5547,7 +5573,8 @@ bool wallet2::set_ring(const crypto::key_image &key_image, const std::vector<uin
   crypto::chacha_key key;
   generate_chacha_key_from_secret_keys(key);
 
-  return m_ringdb->set_ring(key, key_image, outs, relative);
+  try { return m_ringdb->set_ring(key, key_image, outs, relative); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::find_and_save_rings(bool force)
@@ -5615,33 +5642,40 @@ bool wallet2::blackball_output(const crypto::public_key &output)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->blackball(output);
+  try { return m_ringdb->blackball(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
 {
   if (!m_ringdb)
     return true;
-  bool ret = true;
-  if (!add)
-    ret &= m_ringdb->clear_blackballs();
-  for (const auto &output: outputs)
-    ret &= m_ringdb->blackball(output);
-  return ret;
+  try
+  {
+    bool ret = true;
+    if (!add)
+      ret &= m_ringdb->clear_blackballs();
+    for (const auto &output: outputs)
+      ret &= m_ringdb->blackball(output);
+    return ret;
+  }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::unblackball_output(const crypto::public_key &output)
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->unblackball(output);
+  try { return m_ringdb->unblackball(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::is_output_blackballed(const crypto::public_key &output) const
 {
   if (!m_ringdb)
     return true;
-  return m_ringdb->blackballed(output);
+  try { return m_ringdb->blackballed(output); }
+  catch (const std::exception &e) { return false; }
 }
 
 bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const
@@ -5785,6 +5819,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
     throw_on_rpc_response_error(result, "get_info");
     bool is_shortly_after_segregation_fork = height >= segregation_fork_height && height < segregation_fork_height + SEGREGATION_FORK_VICINITY;
+    bool is_after_segregation_fork = height >= segregation_fork_height;
 
     // get histogram for the amounts we need
     cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
@@ -5805,7 +5840,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
     // if we want to segregate fake outs pre or post fork, get distribution
     std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> segregation_limit;
-    if (m_segregate_pre_fork_outputs || m_key_reuse_mitigation2)
+    if (is_after_segregation_fork && (m_segregate_pre_fork_outputs || m_key_reuse_mitigation2))
     {
       cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request req_t = AUTO_VAL_INIT(req_t);
       cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response resp_t = AUTO_VAL_INIT(resp_t);
@@ -5814,7 +5849,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       std::sort(req_t.amounts.begin(), req_t.amounts.end());
       auto end = std::unique(req_t.amounts.begin(), req_t.amounts.end());
       req_t.amounts.resize(std::distance(req_t.amounts.begin(), end));
-      req_t.from_height = segregation_fork_height >= RECENT_OUTPUT_ZONE ? height >= (segregation_fork_height ? segregation_fork_height : height) - RECENT_OUTPUT_BLOCKS : 0;
+      req_t.from_height = std::max<uint64_t>(segregation_fork_height, RECENT_OUTPUT_BLOCKS) - RECENT_OUTPUT_BLOCKS;
       req_t.cumulative = true;
       m_daemon_rpc_mutex.lock();
       bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req_t, resp_t, m_http_client, rpc_timeout);
@@ -5872,7 +5907,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       float pre_fork_num_out_ratio = 0.0f;
       float post_fork_num_out_ratio = 0.0f;
 
-      if (m_segregate_pre_fork_outputs && output_is_pre_fork)
+      if (is_after_segregation_fork && m_segregate_pre_fork_outputs && output_is_pre_fork)
       {
         num_outs = segregation_limit[amount].first;
         num_recent_outs = segregation_limit[amount].second;
@@ -5892,7 +5927,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             break;
           }
         }
-        if (m_key_reuse_mitigation2)
+        if (is_after_segregation_fork && m_key_reuse_mitigation2)
         {
           if (output_is_pre_fork)
           {
@@ -6107,7 +6142,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       uint64_t num_outs = 0;
       const uint64_t amount = td.is_rct() ? 0 : td.amount();
       const bool output_is_pre_fork = td.m_block_height < segregation_fork_height;
-      if (m_segregate_pre_fork_outputs && output_is_pre_fork)
+      if (is_after_segregation_fork && m_segregate_pre_fork_outputs && output_is_pre_fork)
         num_outs = segregation_limit[amount].first;
       else for (const auto &he: resp_t.histogram)
       {
