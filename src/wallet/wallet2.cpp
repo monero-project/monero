@@ -5478,7 +5478,7 @@ void wallet2::set_ring_database(const std::string &filename)
     m_ringdb.reset(new tools::ringdb(m_ring_database, epee::string_tools::pod_to_hex(get_block_hash(b))));
 }
 
-std::string wallet2::get_ring_database() const
+std::string wallet2::get_ring_database()
 {
   if(!m_ring_database)
     m_ring_database = get_default_ringdb_path();
