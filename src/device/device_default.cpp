@@ -81,6 +81,20 @@ namespace hw {
             dfns();
         }
 
+        bool  device_default::set_mode(device_mode mode) {
+            return true;
+        }
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+    
+        void device_default::lock() { }
+
+        bool device_default::try_lock() { return true; }
+
+        void device_default::unlock() { }
+
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
         /* ======================================================================= */
@@ -259,10 +273,6 @@ namespace hw {
 
         bool device_default::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
                                                   const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
-            return true;
-        }
-
-        bool  device_default::set_signature_mode(unsigned int sig_mode) {
             return true;
         }
 
