@@ -5480,7 +5480,7 @@ void wallet2::set_ring_database(const std::string &filename)
 
 std::string wallet2::get_ring_database()
 {
-  if(!m_ring_database)
+  if(m_ring_database.empty())
     m_ring_database = get_default_ringdb_path();
   return m_ring_database;
 }
