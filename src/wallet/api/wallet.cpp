@@ -599,7 +599,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
         }
-        m_wallet->set_ring_database(get_default_ringdb_path());
+        m_wallet->get_ring_database();
         m_wallet->load(path, password);
 
         m_password = password;
@@ -1950,6 +1950,10 @@ bool WalletImpl::unblackballOutput(const std::string &pubkey)
         return false;
     }
     return true;
+}
+
+string WalletImpl::setRingDatabase(const std::string &filename) {
+    m_wallet->set_ring_database(filename);
 }
 
 bool WalletImpl::getRing(const std::string &key_image, std::vector<uint64_t> &ring) const

@@ -763,6 +763,9 @@ struct Wallet
     //! unblackballs an output
     virtual bool unblackballOutput(const std::string &pubkey) = 0;
 
+    //! set default ring db path/filename
+    virtual void setRingDatabase(const std::string &filename) = 0;
+
     //! gets the ring used for a key image, if any
     virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const = 0;
 
@@ -1013,4 +1016,3 @@ struct WalletManagerFactory
 }
 
 namespace Bitmonero = Monero;
-
