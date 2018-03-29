@@ -42,7 +42,7 @@ namespace daemon_args
   , "Specify configuration file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".conf")).string()
   , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
       if (testnet_stagenet[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
                 std::string(CRYPTONOTE_NAME ".conf")).string();
@@ -57,7 +57,7 @@ namespace daemon_args
   , "Specify log file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".log")).string()
   , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
       if (testnet_stagenet[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
                 std::string(CRYPTONOTE_NAME ".log")).string();
@@ -102,7 +102,7 @@ namespace daemon_args
   , "Port for ZMQ RPC server to listen on"
   , std::to_string(config::ZMQ_RPC_DEFAULT_PORT)
   , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
       if (testnet_stagenet[0] && defaulted)
         return std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT);
       if (testnet_stagenet[1] && defaulted)
