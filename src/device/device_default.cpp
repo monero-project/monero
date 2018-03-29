@@ -31,6 +31,7 @@
 
 
 #include "device_default.hpp"
+#include "common/int-util.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "ringct/rctOps.h"
@@ -195,10 +196,13 @@ namespace hw {
 
         crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
             const char prefix[] = "SubAddr";
-            char data[sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(cryptonote::subaddress_index)];
+            char data[sizeof(prefix) + sizeof(crypto::secret_key) + 2 * sizeof(uint32_t)];
             memcpy(data, prefix, sizeof(prefix));
             memcpy(data + sizeof(prefix), &a, sizeof(crypto::secret_key));
-            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &index, sizeof(cryptonote::subaddress_index));
+            uint32_t idx = SWAP32LE(index.major);
+            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &idx, sizeof(uint32_t));
+            idx = SWAP32LE(index.minor);
+            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(uint32_t), &idx, sizeof(uint32_t));
             crypto::secret_key m;
             crypto::hash_to_scalar(data, sizeof(data), m);
             return m;
