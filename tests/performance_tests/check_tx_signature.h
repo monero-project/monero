@@ -84,7 +84,7 @@ public:
   {
     if (rct)
     {
-      if (m_tx.rct_signatures.type == rct::RCTTypeFull || m_tx.rct_signatures.type == rct::RCTTypeFullBulletproof)
+      if (m_tx.rct_signatures.type == rct::RCTTypeFull)
         return rct::verRct(m_tx.rct_signatures);
       else
         return rct::verRctSimple(m_tx.rct_signatures);
