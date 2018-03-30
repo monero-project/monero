@@ -28,6 +28,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "misc_log_ex.h"
 #include "rctTypes.h"
 using namespace crypto;
 using namespace std;
@@ -214,7 +215,7 @@ namespace rct {
         switch (type)
         {
             case RCTTypeSimple:
-            case RCTTypeSimpleBulletproof:
+            case RCTTypeBulletproof:
                 return true;
             default:
                 return false;
@@ -225,19 +226,29 @@ namespace rct {
     {
         switch (type)
         {
-            case RCTTypeSimpleBulletproof:
-            case RCTTypeFullBulletproof:
+            case RCTTypeBulletproof:
                 return true;
             default:
                 return false;
         }
     }
 
+    size_t n_bulletproof_amounts(const Bulletproof &proof)
+    {
+        CHECK_AND_ASSERT_MES(proof.L.size() >= 6, 0, "Invalid bulletproof L size");
+        return 1 << (proof.L.size() - 6);
+    }
+
     size_t n_bulletproof_amounts(const std::vector<Bulletproof> &proofs)
     {
         size_t n = 0;
         for (const Bulletproof &proof: proofs)
-            n += proof.V.size();
+        {
+            size_t n2 = n_bulletproof_amounts(proof);
+            if (n2 == 0)
+                return 0;
+            n += n2;
+        }
         return n;
     }
 

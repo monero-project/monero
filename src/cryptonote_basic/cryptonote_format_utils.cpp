@@ -139,18 +139,26 @@ namespace cryptonote
 
       if (!base_only)
       {
-        const bool bulletproof = rv.type == rct::RCTTypeFullBulletproof || rv.type == rct::RCTTypeSimpleBulletproof;
+        const bool bulletproof = rct::is_rct_bulletproof(rv.type);
         if (bulletproof)
         {
-          if (rv.p.bulletproofs.size() != tx.vout.size())
+          if (rct::n_bulletproof_amounts(rv.p.bulletproofs) != tx.vout.size())
           {
             LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs size in tx " << get_transaction_hash(tx));
             return false;
           }
-          for (size_t n = 0; n < rv.outPk.size(); ++n)
+          size_t idx = 0;
+          for (size_t n = 0; n < rv.p.bulletproofs.size(); ++n)
           {
-            rv.p.bulletproofs[n].V.resize(1);
-            rv.p.bulletproofs[n].V[0] = rv.outPk[n].mask;
+            //rv.p.bulletproofs[n].V.resize(1);
+            //rv.p.bulletproofs[n].V[0] = rv.outPk[n].mask;
+            CHECK_AND_ASSERT_MES(rv.p.bulletproofs[n].L.size() >= 6, false, "Bad bulletproofs L size"); // at least 64 bits
+            const size_t n_amounts = rct::n_bulletproof_amounts(rv.p.bulletproofs[n]);
+            CHECK_AND_ASSERT_MES(idx + n_amounts <= rv.outPk.size(), false, "Internal error filling out V");
+            rv.p.bulletproofs[n].V.resize(n_amounts);
+            rv.p.bulletproofs[n].V.clear();
+            for (size_t i = 0; i < n_amounts; ++i)
+              rv.p.bulletproofs[n].V[i] = rv.outPk[idx++].mask;
           }
         }
       }

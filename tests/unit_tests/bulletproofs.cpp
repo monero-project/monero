@@ -78,58 +78,62 @@ TEST(bulletproofs, multi_splitting)
 {
   rct::ctkeyV sc, pc;
   rct::ctkey sctmp, pctmp;
+  std::vector<unsigned int> index;
+  std::vector<uint64_t> inamounts, outamounts;
 
   std::tie(sctmp, pctmp) = rct::ctskpkGen(6000);
   sc.push_back(sctmp);
   pc.push_back(pctmp);
+  inamounts.push_back(6000);
+  index.push_back(1);
 
   std::tie(sctmp, pctmp) = rct::ctskpkGen(7000);
   sc.push_back(sctmp);
   pc.push_back(pctmp);
+  inamounts.push_back(7000);
+  index.push_back(1);
 
   const int mixin = 3, max_outputs = 16;
 
   for (int n_outputs = 1; n_outputs <= max_outputs; ++n_outputs)
   {
-    std::vector<uint64_t> amounts;
+    std::vector<uint64_t> outamounts;
     rct::keyV amount_keys;
     rct::keyV destinations;
     rct::key Sk, Pk;
     uint64_t available = 6000 + 7000;
     uint64_t amount;
-    rct::ctkeyM mixRing(mixin+1);
+    rct::ctkeyM mixRing(sc.size());
 
     //add output
     for (size_t i = 0; i < n_outputs; ++i)
     {
       amount = rct::randXmrAmount(available);
-      amounts.push_back(amount);
+      outamounts.push_back(amount);
       amount_keys.push_back(rct::hash_to_scalar(rct::zero()));
       rct::skpkGen(Sk, Pk);
       destinations.push_back(Pk);
       available -= amount;
     }
-    if (!amounts.empty())
-      amounts.back() += available;
 
-    for (size_t j = 0; j <= mixin; ++j)
+    for (size_t i = 0; i < sc.size(); ++i)
     {
-      for (size_t i = 0; i < sc.size(); ++i)
+      for (size_t j = 0; j <= mixin; ++j)
       {
         if (j == 1)
-          mixRing[j].push_back(pc[i]);
+          mixRing[i].push_back(pc[i]);
         else
-          mixRing[j].push_back({rct::scalarmultBase(rct::skGen()), rct::scalarmultBase(rct::skGen())});
+          mixRing[i].push_back({rct::scalarmultBase(rct::skGen()), rct::scalarmultBase(rct::skGen())});
       }
     }
 
     rct::ctkeyV outSk;
-    rct::rctSig s = rct::genRct(rct::zero(), sc, destinations, amounts, mixRing, amount_keys, NULL, NULL, 1, outSk, rct::RangeProofMultiOutputBulletproof, hw::get_device("default"));
-    ASSERT_TRUE(rct::verRct(s));
+    rct::rctSig s = rct::genRctSimple(rct::zero(), sc, destinations, inamounts, outamounts, available, mixRing, amount_keys, NULL, NULL, index, outSk, rct::RangeProofMultiOutputBulletproof, hw::get_device("default"));
+    ASSERT_TRUE(rct::verRctSimple(s));
     for (size_t i = 0; i < n_outputs; ++i)
     {
       rct::key mask;
-      rct::decodeRct(s, amount_keys[i], i, mask, hw::get_device("default"));
+      rct::decodeRctSimple(s, amount_keys[i], i, mask, hw::get_device("default"));
       ASSERT_TRUE(mask == outSk[i].mask);
     }
   }
