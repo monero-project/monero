@@ -84,14 +84,18 @@ int threadpool::get_max_concurrency() {
 
 threadpool::waiter::~waiter()
 {
+  if (warn_in_dtor)
   {
     boost::unique_lock<boost::mutex> lock(mt);
     if (num)
-      MERROR("wait should have been called before waiter dtor - waiting now");
+      MWARNING("wait should have been called before waiter dtor - waiting now");
   }
   try
   {
-    wait();
+    if (wait_in_dtor)
+    {
+      wait();
+    }
   }
   catch (const std::exception &e)
   {

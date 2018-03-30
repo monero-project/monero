@@ -53,11 +53,13 @@ public:
     boost::mutex mt;
     boost::condition_variable cv;
     int num;
+    bool warn_in_dtor;
+    bool wait_in_dtor;
     public:
     void inc();
     void dec();
     void wait();  //! Wait for a set of tasks to finish.
-    waiter() : num(0){}
+    waiter(bool warn_in_dtor = true, bool wait_in_dtor = true) : num(0), warn_in_dtor(warn_in_dtor), wait_in_dtor(wait_in_dtor) {}
     ~waiter();
   };
 
