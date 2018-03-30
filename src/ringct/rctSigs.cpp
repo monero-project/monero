@@ -762,7 +762,7 @@ namespace rct {
             {
                 size_t batch_size = 1;
                 if (range_proof_type == RangeProofMultiOutputBulletproof)
-                  while (batch_size * 2 + amounts_proved <= n_amounts && batch_size * 2 <= 16)
+                  while (batch_size * 2 + amounts_proved <= n_amounts && batch_size * 2 <= BULLETPROOF_MAX_OUTPUTS)
                     batch_size *= 2;
                 rct::keyV C, masks;
                 std::vector<uint64_t> batch_amounts(batch_size);
