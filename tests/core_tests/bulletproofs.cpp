@@ -215,14 +215,14 @@ bool gen_bp_tx_valid_1::generate(std::vector<test_event_entry>& events) const
   return generate_with(events, out_idx, mixin, 1, amounts_paid, true, multi_out, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_1"); });
 }
 
-bool gen_bp_tx_valid_1_1::generate(std::vector<test_event_entry>& events) const
+bool gen_bp_tx_invalid_1_1::generate(std::vector<test_event_entry>& events) const
 {
   const int mixin = 6;
   const int out_idx[] = {1, -1};
   const uint64_t amounts_paid[] = {5000, 5000, (uint64_t)-1};
   const size_t bp_sizes[] = {1, 1, (size_t)-1};
   const bool multi_out[] = {false};
-  return generate_with(events, out_idx, mixin, 1, amounts_paid, true, multi_out, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_1_1"); });
+  return generate_with(events, out_idx, mixin, 1, amounts_paid, false, multi_out, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_invalid_1_1"); });
 }
 
 bool gen_bp_tx_valid_2::generate(std::vector<test_event_entry>& events) const
@@ -265,13 +265,13 @@ bool gen_bp_txs_valid_2_and_2::generate(std::vector<test_event_entry>& events) c
   return generate_with(events, out_idx, mixin, 2, amounts_paid, true, multi_out, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_2"); });
 }
 
-bool gen_bp_txs_valid_1_1_and_8_2_and_16_16_1::generate(std::vector<test_event_entry>& events) const
+bool gen_bp_txs_valid_2_and_8_2_and_16_16_1::generate(std::vector<test_event_entry>& events) const
 {
   const int mixin = 6;
   const int out_idx[] = {1, -1};
   const uint64_t amounts_paid[] = {1000, 1000, (uint64_t)-1, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, (uint64_t)-1, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, (uint64_t)-1};
-  const bool multi_out[] = {false, true, true};
-  const size_t bp_sizes[] = {1, 1, (size_t)-1, 8, 2, (size_t)-1, 16, 16, 1, (size_t)-1};
+  const bool multi_out[] = {true, true, true};
+  const size_t bp_sizes[] = {2, (size_t)-1, 8, 2, (size_t)-1, 16, 16, 1, (size_t)-1};
   return generate_with(events, out_idx, mixin, 3, amounts_paid, true, multi_out, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_1_1_and_8_2_and_16_16_1"); });
 }
 
@@ -325,8 +325,8 @@ bool gen_bp_tx_invalid_switched::generate(std::vector<test_event_entry>& events)
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_switched");
   const int mixin = 6;
   const int out_idx[] = {1, -1};
-  const uint64_t amounts_paid[] = {5000, 5000, (uint64_t)-1};
-  const bool multi_out[] = {false};
+  const uint64_t amounts_paid[] = {1001, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, (uint64_t)-1};
+  const bool multi_out[] = {true};
   return generate_with(events, out_idx, mixin, 1, amounts_paid, false, multi_out, NULL, [&](cryptonote::transaction &tx, size_t tx_idx){
     CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
     CHECK_TEST_CONDITION(tx.rct_signatures.p.bulletproofs.size() == 2);
