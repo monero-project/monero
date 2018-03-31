@@ -1094,7 +1094,7 @@ void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex
 //    - confirmed_transfer_details)
 
 PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t ring_size,
-                                                  PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+                                                  PendingTransaction::Priority priority_enum, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 
 {
     clearStatus();
@@ -1109,7 +1109,9 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
         ring_size = m_wallet->default_ring_size();
     ring_size = m_wallet->adjust_ring_size(ring_size);
 
-    uint32_t adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
+    uint32_t priority = static_cast<uint32_t>(priority_enum);
+    if (ring_size != 1)
+      priority = m_wallet->adjust_priority(priority);
 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
@@ -1170,7 +1172,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 de.is_subaddress = info.is_subaddress;
                 dsts.push_back(de);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, ring_size, 0 /* unlock_time */,
-                                                                          adjusted_priority,
+                                                                          priority,
                                                                           extra, subaddr_account, subaddr_indices, m_trustedDaemon);
             } else {
                 // for the GUI, sweep_all (i.e. amount set as "(all)") will always sweep all the funds in all the addresses
@@ -1180,7 +1182,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                         subaddr_indices.insert(index);
                 }
                 transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, ring_size, 0 /* unlock_time */,
-                                                                          adjusted_priority,
+                                                                          priority,
                                                                           extra, subaddr_account, subaddr_indices, m_trustedDaemon);
             }
 

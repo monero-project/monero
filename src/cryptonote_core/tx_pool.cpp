@@ -654,9 +654,28 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
+      // skip if this tx is non-private (ring size == 1)
+      transaction tx;
+      if (!parse_and_validate_tx_from_blob(*bd, tx))
+      {
+        MERROR("Failed to parse tx from txpool");
+        return true;
+      }
+      uint64_t ring_size = std::numeric_limits<uint64_t>::max();
+      for (const auto& txin : tx.vin)
+      {
+        if (txin.type() == typeid(txin_to_key))
+        {
+          const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+          ring_size = std::min<uint64_t>(ring_size, in_to_key.key_offsets.size());
+        }
+      }
+      if (ring_size == 1)
+        return true;
+
       backlog.push_back({meta.blob_size, meta.fee, meta.receive_time - now});
       return true;
-    }, false, include_unrelayed_txes);
+    }, true, include_unrelayed_txes);
   }
   //------------------------------------------------------------------
   void tx_memory_pool::get_transaction_stats(struct txpool_stats& stats, bool include_unrelayed_txes) const

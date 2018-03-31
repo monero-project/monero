@@ -4326,8 +4326,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  priority = m_wallet->adjust_priority(priority);
-
   size_t ring_size = 0;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -4351,6 +4349,9 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
+
+  if (ring_size != 1)
+    priority = m_wallet->adjust_priority(priority);
 
   const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
   if(local_args.size() < min_args)
@@ -4508,7 +4509,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     // if we need to check for backlog, check the worst case tx
-    if (m_wallet->confirm_backlog())
+    if (m_wallet->confirm_backlog() && ring_size != 1)
     {
       std::stringstream prompt;
       double worst_fee_per_byte = std::numeric_limits<double>::max();
@@ -4819,8 +4820,6 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  priority = m_wallet->adjust_priority(priority);
-
   size_t ring_size = 0;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -4844,6 +4843,9 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
+
+  if (ring_size != 1)
+    priority = m_wallet->adjust_priority(priority);
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
@@ -5034,8 +5036,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  priority = m_wallet->adjust_priority(priority);
-
   size_t ring_size = 0;
   if(local_args.size() > 0) {
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -5059,6 +5059,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % ring_size % adjusted_ring_size).str();
     return true;
   }
+
+  if (ring_size != 1)
+    priority = m_wallet->adjust_priority(priority);
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;

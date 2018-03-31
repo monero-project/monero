@@ -793,7 +793,11 @@ namespace tools
       {
         ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
 
       if (ptx_vector.empty())
@@ -853,7 +857,11 @@ namespace tools
       {
         ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
@@ -928,7 +936,11 @@ namespace tools
       {
         ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, req.do_not_relay,
@@ -984,7 +996,11 @@ namespace tools
       {
         ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, ring_size, req.unlock_time, priority, extra, m_trusted_daemon);
 
       if (ptx_vector.empty())
