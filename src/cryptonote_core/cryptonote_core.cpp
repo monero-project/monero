@@ -745,6 +745,25 @@ namespace cryptonote
     bad_semantics_txes_lock.unlock();
   }
   //-----------------------------------------------------------------------------------------------
+  static bool is_canonical_bulletproof_layout(const std::vector<rct::Bulletproof> &proofs)
+  {
+    size_t n_amounts = rct::n_bulletproof_amounts(proofs), amounts_proved = 0;
+    size_t n = 0;
+    while (amounts_proved < n_amounts)
+    {
+      if (n >= proofs.size())
+        return false;
+      size_t batch_size = 1;
+      while (batch_size * 2 + amounts_proved <= n_amounts && batch_size * 2 <= BULLETPROOF_MAX_OUTPUTS)
+        batch_size *= 2;
+      if (rct::n_bulletproof_amounts(proofs[n]) != batch_size)
+        return false;
+      amounts_proved += batch_size;
+      ++n;
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block)
   {
     bool ret = true;
@@ -797,6 +816,16 @@ namespace cryptonote
           }
           break;
         case rct::RCTTypeBulletproof:
+          // in addition to valid bulletproofs, we want multi-out
+          // proofs to be in decreasing power of 2 constituents
+          if (!is_canonical_bulletproof_layout(rv.p.bulletproofs))
+          {
+            MERROR_VER("Bulletproof does not use decreasing power of 2 rule");
+            set_semantics_failed(tx_info[n].tx_hash);
+            tx_info[n].tvc.m_verifivation_failed = true;
+            tx_info[n].result = false;
+            break;
+          }
           rvv.push_back(&rv); // delayed batch verification
           break;
         default:
