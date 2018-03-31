@@ -874,6 +874,8 @@ namespace tools
     void key_reuse_mitigation2(bool value) { m_key_reuse_mitigation2 = value; }
     uint64_t segregation_height() const { return m_segregation_height; }
     void segregation_height(uint64_t height) { m_segregation_height = height; }
+    bool confirm_non_default_ring_size() const { return m_confirm_non_default_ring_size; }
+    void confirm_non_default_ring_size(bool always) { m_confirm_non_default_ring_size = always; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void check_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations);
@@ -1194,6 +1196,7 @@ namespace tools
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
     bool m_confirm_missing_payment_id;
+    bool m_confirm_non_default_ring_size;
     bool m_ask_password;
     uint32_t m_min_output_count;
     uint64_t m_min_output_value;
