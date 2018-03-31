@@ -1650,6 +1650,9 @@ bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/*
       return true;
     }
  
+    if (ring_size != 0 && ring_size != DEFAULT_MIX+1)
+      message_writer() << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
+
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
     {
@@ -4599,6 +4602,23 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         {
           if (!print_ring_members(ptx_vector, prompt))
             return true;
+        }
+        bool default_ring_size = true;
+        for (const auto &ptx: ptx_vector)
+        {
+          for (const auto &vin: ptx.tx.vin)
+          {
+            if (vin.type() == typeid(txin_to_key))
+            {
+              const txin_to_key& in_to_key = boost::get<txin_to_key>(vin);
+              if (in_to_key.key_offsets.size() != DEFAULT_MIX + 1)
+                default_ring_size = false;
+            }
+          }
+        }
+        if (m_wallet->confirm_non_default_ring_size() && !default_ring_size)
+        {
+          prompt << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
         }
         prompt << ENDL << tr("Is this okay?  (Y/Yes/N/No): ");
         
