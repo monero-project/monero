@@ -174,3 +174,22 @@ TEST(bulletproofs, invalid_31)
   rct::Bulletproof proof = bulletproof_PROVE(invalid_amount, rct::skGen());
   ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
 }
+
+TEST(bulletproofs, invalid_gamma_0)
+{
+  rct::key invalid_amount = rct::zero();
+  invalid_amount[8] = 1;
+  rct::key gamma = rct::zero();
+  rct::Bulletproof proof = bulletproof_PROVE(invalid_amount, gamma);
+  ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+}
+
+TEST(bulletproofs, invalid_gamma_ff)
+{
+  rct::key invalid_amount = rct::zero();
+  invalid_amount[8] = 1;
+  rct::key gamma = rct::zero();
+  memset(&gamma, 0xff, sizeof(gamma));
+  rct::Bulletproof proof = bulletproof_PROVE(invalid_amount, gamma);
+  ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+}
