@@ -3330,6 +3330,15 @@ leave:
     else
       proof_of_work = get_block_longhash(bl, m_db->height());
 
+    // sometimes hardware failure can cause insertion of null POW hash to m_blocks_longhash_table
+    if (proof_of_work == crypto::null_hash)
+    {
+      MERROR_VER("Proof of work hash for block " << id << " is found to be null " << (precomputed ? "probably because internal cache got corrupt due to hardware failure"
+        : "even though it was freshly computed just now, which is extremely strange"));
+      bvc.m_verifivation_failed = true;
+      goto leave;
+    }
+
     // validate proof_of_work versus difficulty target
     if(!check_hash(proof_of_work, current_diffic))
     {
