@@ -31,6 +31,7 @@
 #include <numeric>
 #include <random>
 #include <tuple>
+#include <mutex>
 #include <boost/format.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/utility/value_init.hpp>
