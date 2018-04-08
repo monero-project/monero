@@ -5877,7 +5877,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       req_t.to_height = segregation_fork_height + 1;
       req_t.cumulative = true;
       m_daemon_rpc_mutex.lock();
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req_t, resp_t, m_http_client, rpc_timeout);
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req_t, resp_t, m_http_client, rpc_timeout * 1000);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
       THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_distribution");
