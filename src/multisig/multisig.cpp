@@ -116,7 +116,7 @@ namespace cryptonote
   bool generate_multisig_composite_key_image(const account_keys &keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key &tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, const std::vector<crypto::key_image> &pkis, crypto::key_image &ki)
   {
     cryptonote::keypair in_ephemeral;
-    if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki))
+    if (!cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_public_key, additional_tx_public_keys, real_output_index, in_ephemeral, ki, keys.get_device()))
       return false;
     std::unordered_set<crypto::key_image> used;
     for (size_t m = 0; m < keys.m_multisig_keys.size(); ++m)

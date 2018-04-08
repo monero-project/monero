@@ -1,6 +1,6 @@
 /// @file
 /// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
-/// @brief This is the orginal cryptonote protocol network-events handler, modified by us
+/// @brief This is the original cryptonote protocol network-events handler, modified by us
 
 // Copyright (c) 2014-2018, The Monero Project
 //
@@ -302,7 +302,7 @@ namespace cryptonote
     int64_t diff = static_cast<int64_t>(hshd.current_height) - static_cast<int64_t>(m_core.get_current_blockchain_height());
     uint64_t abs_diff = std::abs(diff);
     uint64_t max_block_height = std::max(hshd.current_height,m_core.get_current_blockchain_height());
-    uint64_t last_block_v1 = m_core.get_testnet() ? 624633 : 1009826;
+    uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
     uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
     MCLOG(is_inital ? el::Level::Info : el::Level::Debug, "global", context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
       << " [Your node is " << abs_diff << " blocks (" << ((abs_diff - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
@@ -1395,7 +1395,7 @@ skip:
           const uint64_t first_block_height_needed = span.first;
           const uint64_t last_block_height_needed = span.first + std::min(span.second, (uint64_t)count_limit) - 1;
           MDEBUG(context << " gap found, span: " << span.first << " - " << span.first + span.second - 1 << " (" << last_block_height_needed << ")");
-          MDEBUG(context << " current known hashes from from " << first_block_height_known << " to " << last_block_height_known);
+          MDEBUG(context << " current known hashes from " << first_block_height_known << " to " << last_block_height_known);
           if (first_block_height_needed < first_block_height_known || last_block_height_needed > last_block_height_known)
           {
             MDEBUG(context << " we are missing some of the necessary hashes for this gap, requesting chain again");

@@ -87,7 +87,7 @@ struct variant_reader
 };
 
 // This one just fails when you call it.... okay
-// So the TEnd parameter must be specified/differnt from TBegin
+// So the TEnd parameter must be specified/different from TBegin
 template <class Archive, class Variant, class TBegin>
 struct variant_reader<Archive, Variant, TBegin, TBegin>
 {

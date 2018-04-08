@@ -45,7 +45,7 @@ public:
 
   bool test()
   {
-    cryptonote::keypair::generate();
+    cryptonote::keypair::generate(hw::get_device("default"));
     return true;
   }
 };

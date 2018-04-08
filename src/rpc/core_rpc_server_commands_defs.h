@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 18
+#define CORE_RPC_VERSION_MINOR 19
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -948,7 +948,9 @@ namespace cryptonote
       uint64_t rpc_connections_count;
       uint64_t white_peerlist_size;
       uint64_t grey_peerlist_size;
+      bool mainnet;
       bool testnet;
+      bool stagenet;
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
       uint64_t block_size_limit;
@@ -975,7 +977,9 @@ namespace cryptonote
         KV_SERIALIZE(rpc_connections_count)
         KV_SERIALIZE(white_peerlist_size)
         KV_SERIALIZE(grey_peerlist_size)
+        KV_SERIALIZE(mainnet)
         KV_SERIALIZE(testnet)
+        KV_SERIALIZE(stagenet)
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(block_size_limit)
@@ -2199,4 +2203,47 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_OUTPUT_DISTRIBUTION
+  {
+    struct request
+    {
+      std::vector<uint64_t> amounts;
+      uint64_t from_height;
+      bool cumulative;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amounts)
+        KV_SERIALIZE_OPT(from_height, (uint64_t)0)
+        KV_SERIALIZE_OPT(cumulative, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct distribution
+    {
+      uint64_t amount;
+      uint64_t start_height;
+      std::vector<uint64_t> distribution;
+      uint64_t base;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(start_height)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(distribution)
+        KV_SERIALIZE(base)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<distribution> distributions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(distributions)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }

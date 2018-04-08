@@ -54,6 +54,7 @@ target_link_libraries(simplewallet
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${ICU_LIBRARIES}
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${GNU_READLINE_LIBRARY}

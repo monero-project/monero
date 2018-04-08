@@ -72,7 +72,7 @@ namespace Language
   class Chinese_Simplified: public Base
   {
   public:
-    Chinese_Simplified(): Base("简体中文 (中国)", std::vector<std::string>({
+    Chinese_Simplified(): Base("简体中文 (中国)", "Chinese (simplified)", std::vector<std::string>({
       "的",
       "一",
       "是",

@@ -45,7 +45,7 @@
  * is as follows: Strip the msb of each byte, then from left to right,
  * read in what remains, placing it in reverse, into the buffer. Thus,
  * the following bit stream: 0xff02 would return 0x027f. 0xff turns
- * into 0x7f, is placed on the beggining of the buffer, then 0x02 is
+ * into 0x7f, is placed on the beginning of the buffer, then 0x02 is
  * unchanged, since its msb is not set, and placed at the end of the
  * buffer.
  */
@@ -108,7 +108,7 @@ namespace tools {
 	return EVARINT_REPRESENT;
       }
 
-      write |= static_cast<T>(byte & 0x7f) << shift; /* Does the actualy placing into write, stripping the first bit */
+      write |= static_cast<T>(byte & 0x7f) << shift; /* Does the actually placing into write, stripping the first bit */
 
       /* If there is no next */
       if ((byte & 0x80) == 0) {
