@@ -111,25 +111,25 @@ namespace cryptonote
      * @brief Initialize the Blockchain state
      *
      * @param db a pointer to the backing store to use for the blockchain
-     * @param testnet true if on testnet, else false
+     * @param nettype network type
      * @param offline true if running offline, else false
      * @param test_options test parameters
      *
      * @return true on success, false if any initialization steps fail
      */
-    bool init(BlockchainDB* db, const bool testnet = false, bool offline = false, const cryptonote::test_options *test_options = NULL);
+    bool init(BlockchainDB* db, const network_type nettype = MAINNET, bool offline = false, const cryptonote::test_options *test_options = NULL);
 
     /**
      * @brief Initialize the Blockchain state
      *
      * @param db a pointer to the backing store to use for the blockchain
      * @param hf a structure containing hardfork information
-     * @param testnet true if on testnet, else false
+     * @param nettype network type
      * @param offline true if running offline, else false
      *
      * @return true on success, false if any initialization steps fail
      */
-    bool init(BlockchainDB* db, HardFork*& hf, const bool testnet = false, bool offline = false);
+    bool init(BlockchainDB* db, HardFork*& hf, const network_type nettype = MAINNET, bool offline = false);
 
     /**
      * @brief Uninitializes the blockchain state
@@ -205,15 +205,6 @@ namespace cryptonote
      * @return true if the block was found, else false
      */
     bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
-
-    /**
-     * @brief get all block hashes (main chain, alt chains, and invalid blocks)
-     *
-     * @param main return-by-reference container to put result main chain blocks' hashes in
-     * @param alt return-by-reference container to put result alt chain blocks' hashes in
-     * @param invalid return-by-reference container to put result invalid blocks' hashes in
-     */
-    void get_all_known_block_ids(std::list<crypto::hash> &main, std::list<crypto::hash> &alt, std::list<crypto::hash> &invalid) const;
 
     /**
      * @brief performs some preprocessing on a group of incoming blocks to speed up verification
@@ -531,6 +522,17 @@ namespace cryptonote
      * @return true
      */
     bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
+
+    /**
+     * @brief gets per block distribution of outputs of a given amount
+     *
+     * @param amount the amount to get a ditribution for
+     * @param return-by-reference from_height the height before which we do not care about the data
+     * @param return-by-reference start_height the height of the first rct output
+     * @param return-by-reference distribution the start offset of the first rct output in this block (same as previous if none)
+     * @param return-by-reference base how many outputs of that amount are before the stated distribution
+     */
+    bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
     /**
      * @brief gets the global indices for outputs from a given transaction
@@ -866,7 +868,17 @@ namespace cryptonote
      *
      * @return false if any output fails the check, otherwise true
      */
-    bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, size_t tx_idx)>) const;
+    bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)>) const;
+
+    /**
+     * @brief perform a check on all outputs of a given amount in the blockchain
+     *
+     * @param amount the amount to iterate through
+     * @param std::function the check to perform, pass/fail
+     *
+     * @return false if any output fails the check, otherwise true
+     */
+    bool for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)>) const;
 
     /**
      * @brief get a reference to the BlockchainDB in use by Blockchain
@@ -1010,7 +1022,7 @@ namespace cryptonote
 
     HardFork *m_hardfork;
 
-    bool m_testnet;
+    network_type m_nettype;
     bool m_offline;
 
     std::atomic<bool> m_cancel;

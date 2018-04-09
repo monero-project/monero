@@ -50,4 +50,16 @@ if(${ARCH_WIDTH} EQUAL 32)
   target_compile_definitions(lmdb
     PUBLIC -DMDB_VL32)
 endif()
+
+# GUI/libwallet install target
+if (BUILD_GUI_DEPS)
+    if(IOS)
+        set(lib_folder lib-${ARCH})
+    else()
+        set(lib_folder lib)
+    endif()
+    install(TARGETS lmdb
+        ARCHIVE DESTINATION ${lib_folder}
+        LIBRARY DESTINATION ${lib_folder})
+endif()
 set_property(TARGET lmdb APPEND PROPERTY COMPILE_FLAGS "-fPIC")

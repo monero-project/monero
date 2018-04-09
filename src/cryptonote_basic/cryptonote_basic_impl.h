@@ -94,26 +94,26 @@ namespace cryptonote {
   uint8_t get_account_integrated_address_checksum(const public_integrated_address_outer_blob& bl);
 
   std::string get_account_address_as_str(
-      bool testnet
+      network_type nettype
     , bool subaddress
     , const account_public_address& adr
     );
 
   std::string get_account_integrated_address_as_str(
-      bool testnet
+      network_type nettype
     , const account_public_address& adr
     , const crypto::hash8& payment_id
     );
 
   bool get_account_address_from_str(
       address_parse_info& info
-    , bool testnet
+    , network_type nettype
     , const std::string& str
     );
 
   bool get_account_address_from_str_or_url(
       address_parse_info& info
-    , bool testnet
+    , network_type nettype
     , const std::string& str_or_url
     , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
     );

@@ -37,7 +37,6 @@
 #include "common/updates.h"
 #include "version.h"
 #include "net/http_client.h"
-
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 
@@ -60,46 +59,46 @@ namespace {
 namespace Monero {
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
-                                    const std::string &language, bool testnet)
+                                    const std::string &language, NetworkType nettype)
 {
-    WalletImpl * wallet = new WalletImpl(testnet);
+    WalletImpl * wallet = new WalletImpl(nettype);
     wallet->create(path, password, language);
     return wallet;
 }
 
-Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, bool testnet)
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype)
 {
-    WalletImpl * wallet = new WalletImpl(testnet);
+    WalletImpl * wallet = new WalletImpl(nettype);
     wallet->open(path, password);
     //Refresh addressBook
     wallet->addressBook()->refresh(); 
     return wallet;
 }
 
-Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &mnemonic, bool testnet, uint64_t restoreHeight)
+Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight)
 {
-    return recoveryWallet(path, "", mnemonic, testnet, restoreHeight);
+    return recoveryWallet(path, "", mnemonic, nettype, restoreHeight);
 }
 
 Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
                                                 const std::string &language,
-                                                bool testnet,
+                                                NetworkType nettype,
                                                 uint64_t restoreHeight,
                                                 const std::string &addressString,
                                                 const std::string &viewKeyString,
                                                 const std::string &spendKeyString)
 {
-    return createWalletFromKeys(path, "", language, testnet, restoreHeight,
+    return createWalletFromKeys(path, "", language, nettype, restoreHeight,
                                 addressString, viewKeyString, spendKeyString);
 }
 
 Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
                                                 const std::string &password,
                                                 const std::string &mnemonic,
-                                                bool testnet,
+                                                NetworkType nettype,
                                                 uint64_t restoreHeight)
 {
-    WalletImpl * wallet = new WalletImpl(testnet);
+    WalletImpl * wallet = new WalletImpl(nettype);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
@@ -110,13 +109,13 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
 Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
                                                 const std::string &password,
                                                 const std::string &language,
-                                                bool testnet, 
+                                                NetworkType nettype, 
                                                 uint64_t restoreHeight,
                                                 const std::string &addressString,
                                                 const std::string &viewKeyString,
                                                 const std::string &spendKeyString)
 {
-    WalletImpl * wallet = new WalletImpl(testnet);
+    WalletImpl * wallet = new WalletImpl(nettype);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
@@ -151,7 +150,7 @@ bool WalletManagerImpl::walletExists(const std::string &path)
 
 bool WalletManagerImpl::verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key) const
 {
-	    return tools::wallet2::verify_password(keys_file_name, password, no_spend_key);
+	    return tools::wallet2::verify_password(keys_file_name, password, no_spend_key, hw::get_device("default"));
 }
 
 std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)

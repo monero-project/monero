@@ -38,6 +38,8 @@ target_link_libraries(cn_deserialize
   LINK_PRIVATE
     cryptonote_core
     blockchain_db
+    device
+    ringct
     p2p
     epee
     ${CMAKE_THREAD_LIBS_INIT})

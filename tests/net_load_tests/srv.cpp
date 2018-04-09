@@ -132,7 +132,7 @@ namespace
 
     int handle_shutdown(int command, const CMD_SHUTDOWN::request& req, test_connection_context& /*context*/)
     {
-      LOG_PRINT_L0("Got shutdown requst. Shutting down...");
+      LOG_PRINT_L0("Got shutdown request. Shutting down...");
       m_tcp_server.send_stop_signal();
       return 1;
     }

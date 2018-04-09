@@ -31,6 +31,31 @@
 #include <iostream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
+#ifdef WIN32
+#include <windows.h>
+#endif
+
+// On Windows there is a problem with non-ASCII characters in path and file names
+// as far as support by the standard components used is concerned:
+
+// The various file stream classes, e.g. std::ifstream and std::ofstream, are
+// part of the GNU C++ Library / libstdc++. On the most basic level they use the
+// fopen() call as defined / made accessible to programs compiled within MSYS2
+// by the stdio.h header file maintained by the MinGW project.
+
+// The critical point: The implementation of fopen() is part of MSVCRT, the
+// Microsoft Visual C/C++ Runtime Library, and this method does NOT offer any
+// Unicode support.
+
+// Monero code that would want to continue to use the normal file stream classes
+// but WITH Unicode support could therefore not solve this problem on its own,
+// but 2 different projects from 2 different maintaining groups would need changes
+// in this particular direction - something probably difficult to achieve and
+// with a long time to wait until all new versions / releases arrive.
+
+// Implemented solution approach: Circumvent the problem by stopping to use std
+// file stream classes on Windows and directly use Unicode-capable WIN32 API
+// calls. Most of the code doing so is concentrated in this header file here.
 
 namespace epee
 {
@@ -46,7 +71,22 @@ namespace file_io_utils
 	inline
 		bool save_string_to_file(const std::string& path_to_file, const std::string& str)
 	{
-
+#ifdef WIN32
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (file_handle == INVALID_HANDLE_VALUE)
+                    return false;
+                DWORD bytes_written;
+                DWORD bytes_to_write = (DWORD)str.size();
+                BOOL result = WriteFile(file_handle, str.data(), bytes_to_write, &bytes_written, NULL);
+                CloseHandle(file_handle);
+                if (bytes_written != bytes_to_write)
+                    result = FALSE;
+                return result;
+#else
 		try
 		{
 			std::ofstream fstream;
@@ -61,6 +101,7 @@ namespace file_io_utils
 		{
 			return false;
 		}
+#endif
 	}
 
 	inline
@@ -89,6 +130,27 @@ namespace file_io_utils
 	inline
 		bool load_file_to_string(const std::string& path_to_file, std::string& target_str)
 	{
+#ifdef WIN32
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (file_handle == INVALID_HANDLE_VALUE)
+                    return false;
+                DWORD file_size = GetFileSize(file_handle, NULL);
+                if ((file_size == INVALID_FILE_SIZE) || (file_size > 1000000000)) {
+                    CloseHandle(file_handle);
+                    return false;
+                }
+                target_str.resize(file_size);
+                DWORD bytes_read;
+                BOOL result = ReadFile(file_handle, &target_str[0], file_size, &bytes_read, NULL);
+                CloseHandle(file_handle);
+                if (bytes_read != file_size)
+                    result = FALSE;
+                return result;
+#else
 		try
 		{
 			std::ifstream fstream;
@@ -113,11 +175,13 @@ namespace file_io_utils
 		{
 			return false;
 		}
+#endif
 	}
 
 	inline
 		bool append_string_to_file(const std::string& path_to_file, const std::string& str)
 	{
+                // No special Windows implementation because so far not used in Monero code
 		try
 		{
 			std::ofstream fstream;
@@ -137,6 +201,22 @@ namespace file_io_utils
 	inline
 		bool get_file_size(const std::string& path_to_file, uint64_t &size)
 	{
+#ifdef WIN32
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (file_handle == INVALID_HANDLE_VALUE)
+                    return false;
+                LARGE_INTEGER file_size;
+                BOOL result = GetFileSizeEx(file_handle, &file_size);
+                CloseHandle(file_handle);
+                if (result) {
+                    size = file_size.QuadPart;
+                }
+                return size;
+#else
 		try
 		{
 			std::ifstream fstream;
@@ -151,6 +231,7 @@ namespace file_io_utils
 		{
 			return false;
 		}
+#endif
 	}
 
 }

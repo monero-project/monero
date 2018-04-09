@@ -445,13 +445,9 @@ namespace crypto
       return bytes_to_words(src.data, sizeof(src), words, language_name);
     }
 
-    /*!
-     * \brief Gets a list of seed languages that are supported.
-     * \param languages The vector is set to the list of languages.
-     */
-    void get_language_list(std::vector<std::string> &languages)
+    std::vector<const Language::Base*> get_language_list()
     {
-      std::vector<Language::Base*> language_instances({
+      static const std::vector<const Language::Base*> language_instances({
         Language::Singleton<Language::German>::instance(),
         Language::Singleton<Language::English>::instance(),
         Language::Singleton<Language::Spanish>::instance(),
@@ -465,10 +461,20 @@ namespace crypto
         Language::Singleton<Language::Esperanto>::instance(),
         Language::Singleton<Language::Lojban>::instance()
       });
-      for (std::vector<Language::Base*>::iterator it = language_instances.begin();
+      return language_instances;
+    }
+
+    /*!
+     * \brief Gets a list of seed languages that are supported.
+     * \param languages The vector is set to the list of languages.
+     */
+    void get_language_list(std::vector<std::string> &languages, bool english)
+    {
+      const std::vector<const Language::Base*> language_instances = get_language_list();
+      for (std::vector<const Language::Base*>::const_iterator it = language_instances.begin();
         it != language_instances.end(); it++)
       {
-        languages.push_back((*it)->get_language_name());
+        languages.push_back(english ? (*it)->get_english_language_name() : (*it)->get_language_name());
       }
     }
 
@@ -483,6 +489,18 @@ namespace crypto
       boost::algorithm::trim(seed);
       boost::split(word_list, seed, boost::is_any_of(" "), boost::token_compress_on);
       return word_list.size() != (seed_length + 1);
+    }
+
+    std::string get_english_name_for(const std::string &name)
+    {
+      const std::vector<const Language::Base*> language_instances = get_language_list();
+      for (std::vector<const Language::Base*>::const_iterator it = language_instances.begin();
+        it != language_instances.end(); it++)
+      {
+        if ((*it)->get_language_name() == name)
+          return (*it)->get_english_language_name();
+      }
+      return "<language not found>";
     }
 
   }

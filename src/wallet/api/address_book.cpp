@@ -49,7 +49,7 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
   clearStatus();
   
   cryptonote::address_parse_info info;
-  if(!cryptonote::get_account_address_from_str(info, m_wallet->m_wallet->testnet(), dst_addr)) {
+  if(!cryptonote::get_account_address_from_str(info, m_wallet->m_wallet->nettype(), dst_addr)) {
     m_errorString = tr("Invalid destination address");
     m_errorCode = Invalid_Address;
     return false;
@@ -105,13 +105,13 @@ void AddressBookImpl::refresh()
     tools::wallet2::address_book_row * row = &rows.at(i);
     
     std::string payment_id = (row->m_payment_id == crypto::null_hash)? "" : epee::string_tools::pod_to_hex(row->m_payment_id);
-    std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->testnet(), row->m_is_subaddress, row->m_address);
+    std::string address = cryptonote::get_account_address_as_str(m_wallet->m_wallet->nettype(), row->m_is_subaddress, row->m_address);
     // convert the zero padded short payment id to integrated address
     if (!row->m_is_subaddress && payment_id.length() > 16 && payment_id.substr(16).find_first_not_of('0') == std::string::npos) {
         payment_id = payment_id.substr(0,16);
         crypto::hash8 payment_id_short;
         if(tools::wallet2::parse_short_payment_id(payment_id, payment_id_short)) {
-          address = cryptonote::get_account_integrated_address_as_str(m_wallet->m_wallet->testnet(), row->m_address, payment_id_short);
+          address = cryptonote::get_account_integrated_address_as_str(m_wallet->m_wallet->nettype(), row->m_address, payment_id_short);
           // Don't show payment id when integrated address is used
           payment_id = "";
         }

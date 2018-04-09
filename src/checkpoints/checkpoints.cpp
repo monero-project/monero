@@ -159,7 +159,7 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::init_default_checkpoints(bool testnet)
+  bool checkpoints::init_default_checkpoints(network_type nettype)
   {
     return true;
   }
@@ -200,54 +200,19 @@ namespace cryptonote
     return true;
   }
 
-  bool checkpoints::load_checkpoints_from_dns(bool testnet)
+  bool checkpoints::load_checkpoints_from_dns(network_type nettype)
   {
-    std::vector<std::string> records;
-
-    // All four MoneroPulse domains have DNSSEC on and valid
-    static const std::vector<std::string> dns_urls;
-
-    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
-      return true; // why true ?
-
-    for (const auto& record : records)
-    {
-      auto pos = record.find(":");
-      if (pos != std::string::npos)
-      {
-        uint64_t height;
-        crypto::hash hash;
-
-        // parse the first part as uint64_t,
-        // if this fails move on to the next record
-        std::stringstream ss(record.substr(0, pos));
-        if (!(ss >> height))
-        {
-    continue;
-        }
-
-        // parse the second part as crypto::hash,
-        // if this fails move on to the next record
-        std::string hashStr = record.substr(pos + 1);
-        if (!epee::string_tools::parse_tpod_from_hex_string(hashStr, hash))
-        {
-    continue;
-        }
-
-        ADD_CHECKPOINT(height, hashStr);
-      }
-    }
     return true;
   }
 
-  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, bool testnet, bool dns)
+  bool checkpoints::load_new_checkpoints(const std::string &json_hashfile_fullpath, network_type nettype, bool dns)
   {
     bool result;
 
     result = load_checkpoints_from_json(json_hashfile_fullpath);
     if (dns)
     {
-      result &= load_checkpoints_from_dns(testnet);
+      result &= load_checkpoints_from_dns(nettype);
     }
 
     return result;

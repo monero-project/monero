@@ -38,27 +38,27 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, bool testnet);
-    Wallet * openWallet(const std::string &path, const std::string &password, bool testnet);
+                          const std::string &language, NetworkType nettype);
+    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype);
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
                                        const std::string &mnemonic,
-                                       bool testnet,
+                                       NetworkType nettype,
                                        uint64_t restoreHeight);
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
                                              const std::string &language,
-                                             bool testnet,
+                                             NetworkType nettype,
                                              uint64_t restoreHeight,
                                              const std::string &addressString,
                                              const std::string &viewKeyString,
                                              const std::string &spendKeyString = "");
     // next two methods are deprecated - use the above version which allow setting of a password
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, bool testnet, uint64_t restoreHeight);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight);
     // deprecated: use createWalletFromKeys(..., password, ...) instead
     virtual Wallet * createWalletFromKeys(const std::string &path, 
                                                     const std::string &language,
-                                                    bool testnet, 
+                                                    NetworkType nettype, 
                                                     uint64_t restoreHeight,
                                                     const std::string &addressString,
                                                     const std::string &viewKeyString,

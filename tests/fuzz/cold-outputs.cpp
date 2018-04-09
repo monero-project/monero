@@ -37,7 +37,7 @@
 class ColdOutputsFuzzer: public Fuzzer
 {
 public:
-  ColdOutputsFuzzer(): wallet(true) {}
+  ColdOutputsFuzzer(): wallet(cryptonote::TESTNET) {}
   virtual int init();
   virtual int run(const std::string &filename);
 
@@ -54,6 +54,7 @@ int ColdOutputsFuzzer::init()
   try
   {
     wallet.init("");
+    wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
   }
   catch (const std::exception &e)

@@ -51,7 +51,7 @@ namespace Language
   class EnglishOld: public Base
   {
   public:
-    EnglishOld(): Base("EnglishOld", std::vector<std::string>({
+    EnglishOld(): Base("EnglishOld", "English (old)", std::vector<std::string>({
         "like",
         "just",
         "love",

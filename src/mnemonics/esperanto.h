@@ -58,7 +58,7 @@ namespace Language
   class Esperanto: public Base
   {
   public:
-    Esperanto(): Base("Esperanto", std::vector<std::string>({
+    Esperanto(): Base("Esperanto", "Esperanto", std::vector<std::string>({
       "abako",
       "abdiki",
       "abelo",

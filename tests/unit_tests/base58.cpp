@@ -474,14 +474,14 @@ TEST(get_account_address_as_str, works_correctly)
 {
   cryptonote::account_public_address addr;
   ASSERT_TRUE(serialization::parse_binary(test_serialized_keys, addr));
-  std::string addr_str = cryptonote::get_account_address_as_str(false, false, addr);
+  std::string addr_str = cryptonote::get_account_address_as_str(cryptonote::MAINNET, false, addr);
   ASSERT_EQ(addr_str, test_keys_addr_str);
 }
 
 TEST(get_account_address_from_str, handles_valid_address)
 {
   cryptonote::address_parse_info info;
-  ASSERT_TRUE(cryptonote::get_account_address_from_str(info, false, test_keys_addr_str));
+  ASSERT_TRUE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, test_keys_addr_str));
 
   std::string blob;
   ASSERT_TRUE(serialization::dump_binary(info.address, blob));
@@ -494,7 +494,7 @@ TEST(get_account_address_from_str, fails_on_invalid_address_format)
   std::string addr_str = test_keys_addr_str;
   addr_str[0] = '0';
 
-  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, false, addr_str));
+  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
 
 TEST(get_account_address_from_str, fails_on_invalid_address_prefix)
@@ -502,7 +502,7 @@ TEST(get_account_address_from_str, fails_on_invalid_address_prefix)
   std::string addr_str = base58::encode_addr(0, test_serialized_keys);
 
   cryptonote::address_parse_info info;
-  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, false, addr_str));
+  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
 
 TEST(get_account_address_from_str, fails_on_invalid_address_content)
@@ -510,7 +510,7 @@ TEST(get_account_address_from_str, fails_on_invalid_address_content)
   std::string addr_str = base58::encode_addr(config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, test_serialized_keys.substr(1));
 
   cryptonote::address_parse_info info;
-  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, false, addr_str));
+  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
 
 TEST(get_account_address_from_str, fails_on_invalid_address_spend_key)
@@ -520,7 +520,7 @@ TEST(get_account_address_from_str, fails_on_invalid_address_spend_key)
   std::string addr_str = base58::encode_addr(config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, serialized_keys_copy);
 
   cryptonote::address_parse_info info;
-  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, false, addr_str));
+  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
 
 TEST(get_account_address_from_str, fails_on_invalid_address_view_key)
@@ -530,11 +530,11 @@ TEST(get_account_address_from_str, fails_on_invalid_address_view_key)
   std::string addr_str = base58::encode_addr(config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, serialized_keys_copy);
 
   cryptonote::address_parse_info info;
-  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, false, addr_str));
+  ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
 
 TEST(get_account_address_from_str, parses_old_address_format)
 {
   cryptonote::address_parse_info info;
-  ASSERT_TRUE(cryptonote::get_account_address_from_str(info, false, "002391bbbb24dea6fd95232e97594a27769d0153d053d2102b789c498f57a2b00b69cd6f2f5c529c1660f2f4a2b50178d6640c20ce71fe26373041af97c5b10236fc"));
+  ASSERT_TRUE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, "002391bbbb24dea6fd95232e97594a27769d0153d053d2102b789c498f57a2b00b69cd6f2f5c529c1660f2f4a2b50178d6640c20ce71fe26373041af97c5b10236fc"));
 }
