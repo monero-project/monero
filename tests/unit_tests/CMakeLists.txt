@@ -69,7 +69,8 @@ set(unit_tests_sources
   varint.cpp
   ringct.cpp
   output_selection.cpp
-  vercmp.cpp)
+  vercmp.cpp
+  ringdb.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
