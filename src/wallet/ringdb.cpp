@@ -190,7 +190,8 @@ namespace tools
 {
 
 ringdb::ringdb(std::string filename, const std::string &genesis):
-  filename(filename)
+  filename(filename),
+  env(NULL)
 {
   MDB_txn *txn;
   bool tx_active = false;
@@ -227,9 +228,18 @@ ringdb::ringdb(std::string filename, const std::string &genesis):
 
 ringdb::~ringdb()
 {
-  mdb_dbi_close(env, dbi_rings);
-  mdb_dbi_close(env, dbi_blackballs);
-  mdb_env_close(env);
+  close();
+}
+
+void ringdb::close()
+{
+  if (env)
+  {
+    mdb_dbi_close(env, dbi_rings);
+    mdb_dbi_close(env, dbi_blackballs);
+    mdb_env_close(env);
+    env = NULL;
+  }
 }
 
 bool ringdb::add_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx)
