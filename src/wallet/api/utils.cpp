@@ -40,6 +40,15 @@ namespace Utils {
 
 bool isAddressLocal(const std::string &address)
 { 
+    // TODO: workaround for std::bad_cast thrown by boost::basic_regex ctor due to std::collate<char> missing in some Linux, see https://svn.boost.org/trac10/ticket/4671
+    // reverting https://github.com/monero-project/monero-gui/pull/1015
+    if (address == "")
+        return false;
+    std::string host = address.substr(0, address.find(':'));
+    if (host == "127.0.0.1" || host == "localhost")
+        return true;
+    return false;
+
     try {
         return tools::is_local_address(address);
     } catch (const std::exception &e) {
