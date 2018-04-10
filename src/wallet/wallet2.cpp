@@ -10296,7 +10296,7 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
     uint64_t nblocks_min = priority_size_min / full_reward_zone;
     uint64_t nblocks_max = priority_size_max / full_reward_zone;
     MDEBUG("estimate_backlog: priority_size " << priority_size_min << " - " << priority_size_max << " for "
-        << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee, "
+        << our_fee_byte_min << " - " << our_fee_byte_max << " rok byte fee, "
         << nblocks_min << " - " << nblocks_max << " blocks at block size " << full_reward_zone);
     blocks.push_back(std::make_pair(nblocks_min, nblocks_max));
   }

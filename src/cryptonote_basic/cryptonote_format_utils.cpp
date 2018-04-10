@@ -53,7 +53,7 @@ using namespace epee;
 using namespace crypto;
 
 static const uint64_t valid_decomposed_outputs[] = {
-  (uint64_t)1, (uint64_t)2, (uint64_t)3, (uint64_t)4, (uint64_t)5, (uint64_t)6, (uint64_t)7, (uint64_t)8, (uint64_t)9, // 1 piconero
+  (uint64_t)1, (uint64_t)2, (uint64_t)3, (uint64_t)4, (uint64_t)5, (uint64_t)6, (uint64_t)7, (uint64_t)8, (uint64_t)9, // 1 rok
   (uint64_t)10, (uint64_t)20, (uint64_t)30, (uint64_t)40, (uint64_t)50, (uint64_t)60, (uint64_t)70, (uint64_t)80, (uint64_t)90,
   (uint64_t)100, (uint64_t)200, (uint64_t)300, (uint64_t)400, (uint64_t)500, (uint64_t)600, (uint64_t)700, (uint64_t)800, (uint64_t)900,
   (uint64_t)1000, (uint64_t)2000, (uint64_t)3000, (uint64_t)4000, (uint64_t)5000, (uint64_t)6000, (uint64_t)7000, (uint64_t)8000, (uint64_t)9000,
@@ -672,7 +672,6 @@ namespace cryptonote
   {
     switch (decimal_point)
     {
-      case 12:
       case 9:
       case 6:
       case 3:
@@ -693,7 +692,8 @@ namespace cryptonote
   {
     if (decimal_point == (unsigned int)-1)
       decimal_point = default_decimal_point;
-    switch (std::atomic_load(&default_decimal_point))
+
+    switch (decimal_point)
     {
       case 9:
         return "loki";
@@ -704,7 +704,7 @@ namespace cryptonote
       case 0:
         return "rok";
       default:
-        ASSERT_MES_AND_THROW("Invalid decimal point specification: " << default_decimal_point);
+        ASSERT_MES_AND_THROW("Invalid decimal point specification: " << decimal_point);
     }
   }
   //---------------------------------------------------------------
