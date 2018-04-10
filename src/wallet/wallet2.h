@@ -964,6 +964,22 @@ namespace tools
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
+    /*!
+     * \brief sign_multisig_participant signs given message with the multisig public signer key
+     * \param data                      message to sign
+     * \throws                          if wallet is not multisig
+     * \return                          signature
+     */
+    std::string sign_multisig_participant(const std::string& data) const;
+    /*!
+     * \brief verify_with_public_key verifies message was signed with given public key
+     * \param data                   message
+     * \param public_key             public key to check signature
+     * \param signature              signature of the message
+     * \return                       true if the signature is correct
+     */
+    bool verify_with_public_key(const std::string &data, const crypto::public_key &public_key, const std::string &signature) const;
+
     // Import/Export wallet data
     std::vector<tools::wallet2::transfer_details> export_outputs() const;
     size_t import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs);
