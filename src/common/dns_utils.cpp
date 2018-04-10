@@ -230,7 +230,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   if (use_dns_public)
   {
     for (const auto &ip: dns_public_addr)
-      ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str());
+      ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
   }
