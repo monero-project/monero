@@ -5207,34 +5207,43 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
     return true;
   }
 
-  std::vector<std::string> local_args = args_;
-  if(local_args.empty() || local_args.size() > 5)
+  if (0)
   {
-     fail_msg_writer() << tr("usage: donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>]");
-     return true;
+      std::vector<std::string> local_args = args_;
+      if(local_args.empty() || local_args.size() > 5)
+      {
+         fail_msg_writer() << tr("usage: donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>]");
+         return true;
+      }
+      std::string amount_str;
+      std::string payment_id_str;
+      // get payment id and pop
+      crypto::hash payment_id;
+      crypto::hash8 payment_id8;
+      if (tools::wallet2::parse_long_payment_id (local_args.back(), payment_id ) ||
+          tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
+      {
+        payment_id_str = local_args.back();
+        local_args.pop_back();
+      }
+      // get amount and pop
+      amount_str = local_args.back();
+      local_args.pop_back();
+      // push back address, amount, payment id
+      local_args.push_back(MONERO_DONATION_ADDR);
+      local_args.push_back(amount_str);
+      if (!payment_id_str.empty())
+        local_args.push_back(payment_id_str);
+      message_writer() << tr("Donating ") << amount_str << " to The Monero Project (donate.getmonero.org or "<< MONERO_DONATION_ADDR <<").";
+      transfer_new(local_args);
   }
-  std::string amount_str;
-  std::string payment_id_str;
-  // get payment id and pop
-  crypto::hash payment_id;
-  crypto::hash8 payment_id8;
-  if (tools::wallet2::parse_long_payment_id (local_args.back(), payment_id ) ||
-      tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
+  else
   {
-    payment_id_str = local_args.back();
-    local_args.pop_back();
+    fail_msg_writer() << tr("Donations are not supported in Loki right now");
   }
-  // get amount and pop
-  amount_str = local_args.back();
-  local_args.pop_back();
-  // push back address, amount, payment id
-  local_args.push_back(MONERO_DONATION_ADDR);
-  local_args.push_back(amount_str);
-  if (!payment_id_str.empty())
-    local_args.push_back(payment_id_str);
-  message_writer() << tr("Donating ") << amount_str << " to The Monero Project (donate.getmonero.org or "<< MONERO_DONATION_ADDR <<").";
-  transfer_new(local_args);
+
   return true;
+
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
