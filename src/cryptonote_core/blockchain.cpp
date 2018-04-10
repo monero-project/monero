@@ -112,16 +112,8 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } stagenet_hard_forks[] = {
-  // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
-
-  // versions 2-7 in rapid succession from March 13th, 2018
-  { 2, 32000, 0, 1521000000 },
-  { 3, 33000, 0, 1521120000 },
-  { 4, 34000, 0, 1521240000 },
-  { 5, 35000, 0, 1521360000 },
-  { 6, 36000, 0, 1521480000 },
-  { 7, 37000, 0, 1521600000 },
+  // version 7 from the start of the blockchain, inhereted from Loki testnet
+  { 7, 1, 0, 1341378000 },
 };
 
 //------------------------------------------------------------------
@@ -323,11 +315,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if (m_hardfork == nullptr)
   {
     if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
-      m_hardfork = new HardFork(*db, 1, 0);
+      m_hardfork = new HardFork(*db, 7, 0);
     else if (m_nettype == TESTNET)
-      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 7, testnet_hard_fork_version_1_till);
     else
-      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      m_hardfork = new HardFork(*db, 7, mainnet_hard_fork_version_1_till);
   }
   if (m_nettype == FAKECHAIN)
   {
@@ -1055,7 +1047,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         return false;
     }
 
-    if (!validate_governance_reward_key(m_db->height(), governance_wallet_address_str, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key))
+    if (!validate_governance_reward_key(m_db->height(), governance_wallet_address_str, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
     {
       MERROR("Governance reward public key incorrect.");
       return false;

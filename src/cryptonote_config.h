@@ -198,10 +198,10 @@ namespace config
     boost::uuids::uuid const NETWORK_ID = { {
         0x12 ,0x30, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x12
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "013c01ff0001ffffffffffff0302df5d56da0c7d643ddd1ce61901c7bdc5fb1738bfe39fbe69c28a3a7032729c0f2101168d0c4ca86fb55a4cf6a36d31431be1c53a3bd7411bb24e8832410289fa6f3b";
+    std::string const GENESIS_TX = "023c01ff000380808d93f5d771027389ebfc2065e669080d96f3b5706958d485d25cf2031c6ecc30a17191fc4fe08080b4ccd4dfc60302a45f41e3ebfca05a9723e6cbbba2caffbd767153d1e1a85230bbcfb8b7482388808088fccdbcc3230252635354495b1282b6510b03fc484884ba82f2a574a59bdbaf749d4a75ea6603210177fb23a01548df63e87a60f8fb41d4bbe293c3d6b2c128dde2d37b27958bdd2f00";
     uint32_t const GENESIS_NONCE = 10002;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "T6U5dnmhyw1XsDryZUZL4hAwkNDYahFLEbhyfipTJ2ZZLV1Epm5zHTf6SQzxre9V8R9zjSPN6WWiT9adBQYt7Wut2xjon6dgT";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "52hBAREiNay8bH6JCfWrGdDM3cV6yHMLpcKFnVfnqPcVUrKGLbJCmkuUzJZqLfjzrMRYQgUsoHTuuMA1Z7QKvxFVANKHdGt";
   }
 }
 
