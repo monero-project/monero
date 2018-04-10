@@ -105,12 +105,12 @@ int main(int argc, char* argv[])
   SL(tools::wallet2::unsigned_tx_set);
   SL(tools::wallet2::signed_tx_set);
 
-  SL(Loki::WalletImpl);
-  SL(Loki::AddressBookRow);
-  SL(Loki::TransactionInfoImpl);
-  SL(Loki::TransactionHistoryImpl);
-  SL(Loki::PendingTransactionImpl);
-  SL(Loki::UnsignedTransactionImpl);
+  SL(Monero::WalletImpl);
+  SL(Monero::AddressBookRow);
+  SL(Monero::TransactionInfoImpl);
+  SL(Monero::TransactionHistoryImpl);
+  SL(Monero::PendingTransactionImpl);
+  SL(Monero::UnsignedTransactionImpl);
 
   return 0;
 }

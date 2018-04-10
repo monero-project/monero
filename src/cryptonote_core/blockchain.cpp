@@ -90,7 +90,7 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } mainnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Loki mainnet
+  // version 7 from the start of the blockchain, inhereted from Monero mainnet
   { 7, 1, 0, 1503046577 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 0;
@@ -101,7 +101,7 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } testnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Loki testnet
+  // version 7 from the start of the blockchain, inhereted from Monero testnet
   { 7, 1, 0, 1512211236 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;
@@ -112,7 +112,7 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } stagenet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Loki testnet
+  // version 7 from the start of the blockchain, inhereted from Monero testnet
   { 7, 1, 0, 1341378000 },
 };
 
