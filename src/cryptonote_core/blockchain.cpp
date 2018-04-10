@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
 //
@@ -56,8 +57,8 @@
 #include "blocks/blocks.h"
 #endif
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "blockchain"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "blockchain"
 
 #define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
 
@@ -89,7 +90,7 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } mainnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Monero mainnet
+  // version 7 from the start of the blockchain, inhereted from Loki mainnet
   { 7, 1, 0, 1503046577 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 0;
@@ -100,7 +101,7 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } testnet_hard_forks[] = {
-  // version 7 from the start of the blockchain, inhereted from Monero testnet
+  // version 7 from the start of the blockchain, inhereted from Loki testnet
   { 7, 1, 0, 1512211236 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 624633;

@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -34,8 +35,8 @@
 #include "p2p/net_node.h"
 #include "daemon/protocol.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize
 {

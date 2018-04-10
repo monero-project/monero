@@ -1,4 +1,5 @@
 // Copyright (c) 2017-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -35,8 +36,8 @@ namespace hw {
     #ifdef WITH_DEVICE_LEDGER    
     namespace ledger {
     
-    #undef MONERO_DEFAULT_LOG_CATEGORY
-    #define MONERO_DEFAULT_LOG_CATEGORY "device.ledger"
+    #undef LOKI_DEFAULT_LOG_CATEGORY
+    #define LOKI_DEFAULT_LOG_CATEGORY "device.ledger"
 
     void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) {
       CHECK_AND_ASSERT_THROW_MES(to_len > (len*2), "destination buffer too short. At least" << (len*2+1) << " bytes required");
