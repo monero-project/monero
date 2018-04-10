@@ -753,6 +753,16 @@ std::string WalletImpl::publicSpendKey() const
     return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key);
 }
 
+std::string WalletImpl::publicMultisigSignerKey() const
+{
+    try {
+        crypto::public_key signer = m_wallet->get_multisig_signer_public_key();
+        return epee::string_tools::pod_to_hex(signer);
+    } catch (const std::exception&) {
+        return "";
+    }
+}
+
 std::string WalletImpl::path() const
 {
     return m_wallet->path();

@@ -409,6 +409,12 @@ struct Wallet
     virtual std::string publicSpendKey() const = 0;
 
     /*!
+     * \brief publicMultisigSignerKey - returns public signer key
+     * \return                        - public multisignature signer key or empty string if wallet is not multisig
+     */
+    virtual std::string publicMultisigSignerKey() const = 0;
+
+    /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
