@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 
 # builder stage
-FROM ubuntu:16.04 as builder
+FROM debian:jessie as builder
 
 RUN apt-get update && \
     apt-get --no-install-recommends --yes install \
@@ -16,9 +16,22 @@ RUN apt-get update && \
         curl \
         libtool-bin \
         autoconf \
-        automake
+        automake \
+        bzip2
 
 WORKDIR /usr/local
+
+#Cmake
+ARG CMAKE_VERSION=3.11.0
+ARG CMAKE_VERSION_DOT=v3.11
+ARG CMAKE_HASH=c313bee371d4d255be2b4e96fd59b11d58bc550a7c78c021444ae565709a656b
+RUN curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
+    && echo "${CMAKE_HASH} cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
+    && tar -xzf cmake-${CMAKE_VERSION}.tar.gz \
+    && cd cmake-${CMAKE_VERSION} \
+    && ./configure \
+    && make \
+    && make install
 
 ## Boost
 ARG BOOST_VERSION=1_66_0
@@ -86,6 +99,8 @@ RUN git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
     && make check \
     && make install
 
+
+
 WORKDIR /src
 COPY . .
 
@@ -94,7 +109,7 @@ RUN rm -rf build && \
     if [ -z "$NPROC" ];then make -j$(nproc) release-static;else make -j$NPROC release-static;fi
 
 # runtime stage
-FROM ubuntu:16.04
+FROM debian:jessie
 
 RUN apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates && \
@@ -114,4 +129,4 @@ VOLUME /wallet
 EXPOSE 18080
 EXPOSE 18081
 
-ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"] 
+ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
