@@ -113,12 +113,25 @@ namespace cryptonote
     return true;
   }
 
-  bool validate_governance_reward_key(uint64_t height, const std::string& governance_wallet_address_str, size_t output_index, const crypto::public_key& output_key)
+  bool validate_governance_reward_key(uint64_t height, const std::string& governance_wallet_address_str, size_t output_index, const crypto::public_key& output_key, const cryptonote::network_type nettype)
   {
     keypair gov_key = get_deterministic_keypair_from_height(height);
 
     cryptonote::address_parse_info governance_wallet_address;
-    cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, governance_wallet_address_str);
+    switch (nettype)
+    {
+      case STAGENET:
+        cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::STAGENET, governance_wallet_address_str);
+        break;
+      case TESTNET:
+        cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::TESTNET, governance_wallet_address_str);
+        break;
+      case MAINNET:
+        cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, governance_wallet_address_str);
+        break;
+      default:
+        return false;
+    }
 
     crypto::public_key correct_key;
 
@@ -231,23 +244,24 @@ namespace cryptonote
     if (already_generated_coins != 0)
     {
       std::string governance_wallet_address_str;
+
+      cryptonote::address_parse_info governance_wallet_address;
+
       switch (nettype)
       {
         case STAGENET:
-          governance_wallet_address_str = ::config::stagenet::GOVERNANCE_WALLET_ADDRESS;
+          cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::STAGENET, ::config::stagenet::GOVERNANCE_WALLET_ADDRESS);
           break;
         case TESTNET:
-          governance_wallet_address_str = ::config::testnet::GOVERNANCE_WALLET_ADDRESS;
+          cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::TESTNET, ::config::testnet::GOVERNANCE_WALLET_ADDRESS);
           break;
         case MAINNET:
-          governance_wallet_address_str = ::config::GOVERNANCE_WALLET_ADDRESS;
+          cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, ::config::GOVERNANCE_WALLET_ADDRESS);
           break;
         default:
           return false;
       }
 
-      cryptonote::address_parse_info governance_wallet_address;
-      cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, governance_wallet_address_str);
 
       crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
 
