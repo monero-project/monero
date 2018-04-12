@@ -80,6 +80,9 @@ namespace hw {
 
 
     class device {
+    protected:
+        std::string  name;
+
     public:
 
         device()  {}
@@ -87,12 +90,12 @@ namespace hw {
         virtual ~device()   {}
 
         explicit virtual operator bool() const = 0;
-
-        static const int SIGNATURE_REAL = 0;
-        static const int SIGNATURE_FAKE = 1;
-
-
-        std::string  name;
+        enum device_mode {
+            NONE,
+            TRANSACTION_CREATE_REAL,
+            TRANSACTION_CREATE_FAKE,
+            TRANSACTION_PARSE
+        };
 
         /* ======================================================================= */
         /*                              SETUP/TEARDOWN                             */
@@ -104,7 +107,18 @@ namespace hw {
         virtual bool release() = 0;
 
         virtual bool connect(void) = 0;
-        virtual bool disconnect() = 0;
+        virtual bool disconnect(void) = 0;
+
+        virtual bool  set_mode(device_mode mode) = 0;
+
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+        virtual void lock(void) = 0;
+        virtual void unlock(void) = 0;
+        virtual bool try_lock(void) = 0;
+
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
@@ -131,6 +145,7 @@ namespace hw {
         virtual bool  sc_secret_add( crypto::secret_key &r, const crypto::secret_key &a, const crypto::secret_key &b) = 0;
         virtual crypto::secret_key  generate_keys(crypto::public_key &pub, crypto::secret_key &sec, const crypto::secret_key& recovery_key = crypto::secret_key(), bool recover = false) = 0;
         virtual bool  generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation) = 0;
+        virtual bool  conceal_derivation(crypto::key_derivation &derivation, const crypto::public_key &tx_pub_key, const std::vector<crypto::public_key> &additional_tx_pub_keys, const crypto::key_derivation &main_derivation, const std::vector<crypto::key_derivation> &additional_derivations) = 0;
         virtual bool  derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res) = 0;
         virtual bool  derive_secret_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::secret_key &sec,  crypto::secret_key &derived_sec) = 0;
         virtual bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) = 0;
@@ -158,8 +173,6 @@ namespace hw {
 
         virtual bool  open_tx(crypto::secret_key &tx_key) = 0;
 
-        virtual bool  set_signature_mode(unsigned int sig_mode) = 0;
-
         virtual bool  encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) = 0;
         bool  decrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key)
         {
@@ -182,6 +195,12 @@ namespace hw {
 
         virtual bool  close_tx(void) = 0;
     } ;
+
+    struct reset_mode {
+        device& hwref;
+        reset_mode(hw::device& dev) : hwref(dev) { }
+        ~reset_mode() { hwref.set_mode(hw::device::NONE);}
+    };
 
     device& get_device(const std::string device_descriptor) ;
 }
