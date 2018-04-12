@@ -2669,6 +2669,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_confirm_backlog_threshold = 0;
     m_confirm_export_overwrite = true;
     m_auto_low_priority = true;
+    m_segregate_pre_fork_outputs = true;
+    m_key_reuse_mitigation2 = true;
+    m_segregation_height = 0;
     m_key_on_device = false;
   }
   else if(json.IsObject())
@@ -2785,6 +2788,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     (boost::format("%s wallet cannot be opened as %s wallet")
     % (field_nettype == 0 ? "Mainnet" : field_nettype == 1 ? "Testnet" : "Stagenet")
     % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : "stagenet")).str());
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregate_pre_fork_outputs, int, Int, false, true);
+    m_segregate_pre_fork_outputs = field_segregate_pre_fork_outputs;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_reuse_mitigation2, int, Int, false, true);
+    m_key_reuse_mitigation2 = field_key_reuse_mitigation2;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregation_height, int, Uint, false, 0);
+    m_segregation_height = field_segregation_height;
   }
   else
   {
