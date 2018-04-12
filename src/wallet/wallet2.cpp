@@ -2627,6 +2627,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(m_segregation_height);
   json.AddMember("segregation_height", value2, json.GetAllocator());
 
+  value2.SetUint(m_subaddress_lookahead_major);
+  json.AddMember("subaddress_lookahead_major", value2, json.GetAllocator());
+
+  value2.SetUint(m_subaddress_lookahead_minor);
+  json.AddMember("subaddress_lookahead_minor", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -2701,6 +2707,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_segregate_pre_fork_outputs = true;
     m_key_reuse_mitigation2 = true;
     m_segregation_height = 0;
+    m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
+    m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_key_on_device = false;
   }
   else if(json.IsObject())
@@ -2825,6 +2833,10 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_key_reuse_mitigation2 = field_key_reuse_mitigation2;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregation_height, int, Uint, false, 0);
     m_segregation_height = field_segregation_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_major, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MAJOR);
+    m_subaddress_lookahead_major = field_subaddress_lookahead_major;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
+    m_subaddress_lookahead_minor = field_subaddress_lookahead_minor;
   }
   else
   {
