@@ -253,7 +253,8 @@ int main(int argc, char* argv[])
     return 1;
   }
   std::vector<std::unique_ptr<Blockchain>> core_storage(inputs.size());
-  tx_memory_pool m_mempool(*(Blockchain*)NULL);
+  Blockchain *blockchain = NULL;
+  tx_memory_pool m_mempool(*blockchain);
   for (size_t n = 0; n < inputs.size(); ++n)
   {
     core_storage[n].reset(new Blockchain(m_mempool));
