@@ -2083,6 +2083,18 @@ namespace cryptonote
     {
       for (uint64_t amount: req.amounts)
       {
+		static boost::mutex mutex;
+        boost::unique_lock<boost::mutex> lock(mutex);
+        static std::vector<uint64_t> cached_distribution;
+        static uint64_t cached_from = 0, cached_to = 0, cached_start_height = 0, cached_base = 0;
+        static bool cached = false;
+
+        if (cached && amount == 0 && cached_from == req.from_height && cached_to == req.to_height)
+        {
+          res.distributions.push_back({amount, cached_start_height, cached_distribution, cached_base});
+          continue;
+        }
+
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
         if (!m_core.get_output_distribution(amount, req.from_height, start_height, distribution, base))
@@ -2091,12 +2103,29 @@ namespace cryptonote
           error_resp.message = "Failed to get rct distribution";
           return false;
         }
+        if (req.to_height > 0 && req.to_height >= req.from_height)
+        {
+          uint64_t offset = std::max(req.from_height, start_height);
+          if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
+            distribution.resize(req.to_height - offset + 1);
+        }
         if (req.cumulative)
         {
           distribution[0] += base;
           for (size_t n = 1; n < distribution.size(); ++n)
             distribution[n] += distribution[n-1];
         }
+
+        if (amount == 0)
+        {
+          cached_from = req.from_height;
+          cached_to = req.to_height;
+          cached_distribution = distribution;
+          cached_start_height = start_height;
+          cached_base = base;
+          cached = true;
+        }
+
         res.distributions.push_back({amount, start_height, std::move(distribution), base});
       }
     }
