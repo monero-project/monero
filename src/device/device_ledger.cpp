@@ -56,6 +56,7 @@ namespace hw {
     #define ASSERT_RV(rv)        CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
     #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), "Wrong Device Status : SW=" << std::hex << (sw) << " (EXPECT=" << std::hex << (ok) << ", MASK=" << std::hex << (mask) << ")") ;
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
+    #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
     #ifdef DEBUG_HWDEVICE
       crypto::secret_key dbg_viewkey;
@@ -123,6 +124,10 @@ namespace hw {
     /* ===================================================================== */
     static bool is_fake_view_key(const crypto::secret_key &sec) {
       return sec == crypto::null_skey;
+    }
+
+    bool operator==(const crypto::key_derivation &d0, const crypto::key_derivation &d1) {
+      return !memcmp(&d0, &d1, sizeof(d0));
     }
 
     /* ===================================================================== */
@@ -1093,6 +1098,24 @@ namespace hw {
 
       return r;
     }
+
+    bool device_ledger::conceal_derivation(crypto::key_derivation &derivation, const crypto::public_key &tx_pub_key, const std::vector<crypto::public_key> &additional_tx_pub_keys, const crypto::key_derivation &main_derivation, const std::vector<crypto::key_derivation> &additional_derivations) {
+      const crypto::public_key *pkey=NULL;
+      if (derivation == main_derivation) {        
+        pkey = &tx_pub_key;
+        MDEBUG("conceal derivation with main tx pub key");
+      } else {
+        for(size_t n=0; n < additional_derivations.size();++n) {
+          if(derivation == additional_derivations[n]) {
+            pkey = &additional_tx_pub_keys[n];
+            MDEBUG("conceal derivation with additionnal tx pub key");
+            break;
+          }
+        }
+      }
+      ASSERT_X(pkey, "Mismatched derivation on scan info");
+      return this->generate_key_derivation(*pkey,  crypto::null_skey, derivation);
+    } 
 
     bool device_ledger::derivation_to_scalar(const crypto::key_derivation &derivation, const size_t output_index, crypto::ec_scalar &res) {
         AUTO_LOCK_CMD();
