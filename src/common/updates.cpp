@@ -1,4 +1,5 @@
 // Copyright (c) 2017-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -32,8 +33,8 @@
 #include "dns_utils.h"
 #include "updates.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "updates"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "updates"
 
 namespace tools
 {
@@ -45,12 +46,7 @@ namespace tools
     MDEBUG("Checking updates for " << buildtag << " " << software);
 
     // All four MoneroPulse domains have DNSSEC on and valid
-    static const std::vector<std::string> dns_urls = {
-        "updates.moneropulse.org",
-        "updates.moneropulse.net",
-        "updates.moneropulse.co",
-        "updates.moneropulse.se"
-    };
+    static const std::vector<std::string> dns_urls = {};
 
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return false;
