@@ -1268,24 +1268,33 @@ namespace cryptonote
     m_spent_key_images.clear();
     m_txpool_size = 0;
     std::vector<crypto::hash> remove;
-    bool r = m_blockchain.for_all_txpool_txes([this, &remove](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
-      cryptonote::transaction tx;
-      if (!parse_and_validate_tx_from_blob(*bd, tx))
-      {
-        MWARNING("Failed to parse tx from txpool, removing");
-        remove.push_back(txid);
-      }
-      if (!insert_key_images(tx, meta.kept_by_block))
-      {
-        MFATAL("Failed to insert key images from txpool tx");
+
+    // first add the not kept by block, then the kept by block,
+    // to avoid rejection due to key image collision
+    for (int pass = 0; pass < 2; ++pass)
+    {
+      const bool kept = pass == 1;
+      bool r = m_blockchain.for_all_txpool_txes([this, &remove, kept](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd) {
+        if (!!kept != !!meta.kept_by_block)
+          return true;
+        cryptonote::transaction tx;
+        if (!parse_and_validate_tx_from_blob(*bd, tx))
+        {
+          MWARNING("Failed to parse tx from txpool, removing");
+          remove.push_back(txid);
+        }
+        if (!insert_key_images(tx, meta.kept_by_block))
+        {
+          MFATAL("Failed to insert key images from txpool tx");
+          return false;
+        }
+        m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.blob_size, meta.receive_time), txid);
+        m_txpool_size += meta.blob_size;
+        return true;
+      }, true);
+      if (!r)
         return false;
-      }
-      m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.blob_size, meta.receive_time), txid);
-      m_txpool_size += meta.blob_size;
-      return true;
-    }, true);
-    if (!r)
-      return false;
+    }
     if (!remove.empty())
     {
       LockedTXN lock(m_blockchain);
