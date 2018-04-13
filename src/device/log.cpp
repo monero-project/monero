@@ -57,8 +57,8 @@ namespace hw {
     }
 
     #ifdef DEBUG_HWDEVICE
-    extern crypto::secret_key viewkey;
-    extern crypto::secret_key spendkey;
+    extern crypto::secret_key dbg_viewkey;
+    extern crypto::secret_key dbg_spendkey;
 
 
     void decrypt(char* buf, size_t len) {
@@ -70,7 +70,7 @@ namespace hw {
           if (buf[i] != 0) break;
         }
         if (i == 32) {
-          memmove(buf, hw::ledger::viewkey.data, 32);
+          memmove(buf, hw::ledger::dbg_viewkey.data, 32);
           return;
         }
         //spend key?
@@ -78,7 +78,7 @@ namespace hw {
           if (buf[i] != (char)0xff) break;
         }
         if (i == 32) {
-          memmove(buf, hw::ledger::spendkey.data, 32);
+          memmove(buf, hw::ledger::dbg_spendkey.data, 32);
           return;
         }
       }
