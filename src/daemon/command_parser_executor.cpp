@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "common/dns_utils.h"
+#include "version.h"
 #include "daemon/command_parser_executor.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -662,6 +663,12 @@ bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
   if (args.size() != 0) return false;
 
   return m_executor.sync_info();
+}
+
+bool t_command_parser_executor::version(const std::vector<std::string>& args)
+{
+  std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
+  return true;
 }
 
 } // namespace daemonize
