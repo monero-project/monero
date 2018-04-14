@@ -32,7 +32,7 @@ set(core_proxy_sources
 set(core_proxy_headers
   core_proxy.h)
 
-monero_add_minimal_executable(core_proxy
+monero_add_test_executable(core_proxy
   ${core_proxy_sources}
   ${core_proxy_headers})
 target_link_libraries(core_proxy
@@ -44,6 +44,3 @@ target_link_libraries(core_proxy
     epee
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-set_property(TARGET core_proxy
-  PROPERTY
-    FOLDER "tests")

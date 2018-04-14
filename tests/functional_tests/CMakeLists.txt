@@ -35,7 +35,7 @@ set(functional_tests_headers
   transactions_flow_test.h
   transactions_generation_from_blockchain.h)
 
-monero_add_minimal_executable(functional_tests
+monero_add_test_executable(functional_tests
   ${functional_tests_sources}
   ${functional_tests_headers})
 target_link_libraries(functional_tests

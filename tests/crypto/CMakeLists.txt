@@ -37,7 +37,7 @@ set(crypto_sources
 set(crypto_headers
   crypto-tests.h)
 
-monero_add_minimal_executable(cncrypto-tests
+monero_add_test_executable(cncrypto-tests
   ${crypto_sources}
   ${crypto_headers})
 target_link_libraries(cncrypto-tests
@@ -45,9 +45,6 @@ target_link_libraries(cncrypto-tests
     common
     ${Boost_SYSTEM_LIBRARY}
     ${EXTRA_LIBRARIES})
-set_property(TARGET cncrypto-tests
-  PROPERTY
-    FOLDER "tests")
 
 add_test(
   NAME    cncrypto

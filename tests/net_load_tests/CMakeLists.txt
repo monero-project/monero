@@ -32,7 +32,7 @@ set(clt_sources
 set(clt_headers
   net_load_tests.h)
 
-monero_add_minimal_executable(net_load_tests_clt
+monero_add_test_executable(net_load_tests_clt
   ${clt_sources}
   ${clt_headers})
 target_link_libraries(net_load_tests_clt
@@ -54,7 +54,7 @@ set(srv_sources
 set(srv_headers
   net_load_tests.h)
 
-monero_add_minimal_executable(net_load_tests_srv
+monero_add_test_executable(net_load_tests_srv
   ${srv_sources}
   ${srv_headers})
 target_link_libraries(net_load_tests_srv
@@ -69,9 +69,6 @@ target_link_libraries(net_load_tests_srv
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 
-set_property(TARGET net_load_tests_clt net_load_tests_srv
-  PROPERTY
-    FOLDER "tests")
 if(NOT MSVC)
   set_property(TARGET net_load_tests_clt net_load_tests_srv APPEND_STRING
     PROPERTY

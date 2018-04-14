@@ -72,6 +72,25 @@ else ()
   include_directories(SYSTEM "${CMAKE_CURRENT_SOURCE_DIR}/gtest/include")
 endif (GTest_FOUND)
 
+function (monero_add_test_executable name)
+  source_group("${name}"
+    FILES
+      ${ARGN})
+
+  monero_add_minimal_executable("${name}"
+    ${ARGN})
+  target_link_libraries("${name}"
+    PRIVATE
+      exception
+      stdc++
+      ${EXTRA_LIBRARIES})
+  set_property(TARGET "${name}"
+    PROPERTY
+      FOLDER "tests")
+  enable_stack_trace("${name}")
+endfunction ()
+
+
 file(COPY
   data/wallet_9svHk1.keys
   data/wallet_9svHk1
@@ -111,15 +130,12 @@ set(hash_targets_sources
 
 set(hash_targets_headers)
 
-monero_add_minimal_executable(hash-target-tests
+monero_add_test_executable(hash-target-tests
   ${hash_targets_sources}
   ${hash_targets_headers})
 target_link_libraries(hash-target-tests
   PRIVATE
     cryptonote_core)
-set_property(TARGET hash-target-tests
-  PROPERTY
-    FOLDER "${folder}")
 
 add_test(
   NAME    hash-target

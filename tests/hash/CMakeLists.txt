@@ -31,7 +31,7 @@ set(hash_sources
 
 set(hash_headers)
 
-monero_add_minimal_executable(hash-tests
+monero_add_test_executable(hash-tests
   ${hash_sources}
   ${hash_headers})
 target_link_libraries(hash-tests
@@ -39,9 +39,6 @@ target_link_libraries(hash-tests
     common
     cncrypto
     ${EXTRA_LIBRARIES})
-set_property(TARGET hash-tests
-  PROPERTY
-    FOLDER "tests")
 
 foreach (hash IN ITEMS fast slow slow-1 slow-2 slow-4 tree extra-blake extra-groestl extra-jh extra-skein)
   add_test(
