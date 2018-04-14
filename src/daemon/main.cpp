@@ -138,6 +138,28 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
+    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
+    boost::filesystem::path config_path(config);
+    boost::system::error_code ec;
+    if (bf::exists(config_path, ec))
+    {
+      try
+      {
+        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      }
+      catch (const std::exception &e)
+      {
+        // log system isn't initialized yet
+        std::cerr << "Error parsing config file: " << e.what() << std::endl;
+        throw;
+      }
+    }
+    else if (!command_line::is_arg_defaulted(vm, daemon_args::arg_config_file))
+    {
+      std::cerr << "Can't find config file " << config << std::endl;
+      return 1;
+    }
+
     const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     const bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
     if (testnet && stagenet)
@@ -170,29 +192,6 @@ int main(int argc, char const * argv[])
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
     bf::path relative_path_base = data_dir;
 
-    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
-
-    boost::filesystem::path data_dir_path(data_dir);
-    boost::filesystem::path config_path(config);
-    if (!config_path.has_parent_path())
-    {
-      config_path = data_dir / config_path;
-    }
-
-    boost::system::error_code ec;
-    if (bf::exists(config_path, ec))
-    {
-      try
-      {
-        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
-      }
-      catch (const std::exception &e)
-      {
-        // log system isn't initialized yet
-        std::cerr << "Error parsing config file: " << e.what() << std::endl;
-        throw;
-      }
-    }
     po::notify(vm);
 
     // log_file_path
