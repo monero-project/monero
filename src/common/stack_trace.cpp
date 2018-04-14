@@ -26,18 +26,19 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#if !defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__
-#define USE_UNWIND
-#else
+#ifdef USE_BOOST_STACKTRACE
+#include <boost/stacktrace.hpp>
+#elif defined USE_EASYLOGGING_STACKTRACE
 #define ELPP_FEATURE_CRASH_LOG 1
 #endif
 #include "easylogging++/easylogging++.h"
 
 #include <stdexcept>
-#ifdef USE_UNWIND
+#ifdef USE_LIBUNWIND_STACKTRACE
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #include <cxxabi.h>
+#include <iomanip>
 #endif
 #ifndef STATICLIB
 #include <dlfcn.h>
@@ -50,6 +51,8 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "stacktrace"
 
 #define ST_LOG(x) CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x
+
+#ifdef STACK_TRACE_ON_EXCEPTIONS
 
 // from http://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
 
@@ -95,6 +98,8 @@ void CXA_THROW(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*))
   __real___cxa_throw(ex, info, dest);
 }
 
+#endif
+
 namespace
 {
   std::string stack_trace_log;
@@ -110,7 +115,7 @@ void set_stack_trace_log(const std::string &log)
 
 void log_stack_trace(const char *msg)
 {
-#ifdef USE_UNWIND
+#ifdef USE_LIBUNWIND_STACKTRACE
   unw_context_t ctx;
   unw_cursor_t cur;
   unw_word_t ip, off;
@@ -124,7 +129,7 @@ void log_stack_trace(const char *msg)
     ST_LOG(msg);
   ST_LOG("Unwound call stack:");
 
-#ifdef USE_UNWIND
+#ifdef USE_LIBUNWIND_STACKTRACE
   if (unw_getcontext(&ctx) < 0) {
     ST_LOG("Failed to create unwind context");
     return;
@@ -153,7 +158,15 @@ void log_stack_trace(const char *msg)
     ST_LOG("  " << std::setw(4) << level << std::setbase(16) << std::setw(20) << "0x" << ip << " " << (!status && dsym ? dsym : sym) << " + " << "0x" << off);
     free(dsym);
   }
-#else
+#elif defined USE_BOOST_STACKTRACE
+  std::stringstream ss;
+  ss << boost::stacktrace::stacktrace();
+  std::vector<std::string> lines;
+  std::string s = ss.str();
+  boost::split(lines, s, boost::is_any_of("\n"));
+  for (const auto &line: lines)
+    ST_LOG(line);
+#elif defined USE_EASYLOGGING_STACKTRACE
   std::stringstream ss;
   ss << el::base::debug::StackTrace();
   std::vector<std::string> lines;

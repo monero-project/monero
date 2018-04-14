@@ -351,38 +351,6 @@ endif()
 
 add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 
-# Can't install hook in static build on OSX, because OSX linker does not support --wrap
-# On ARM, having libunwind package (with .so's only) installed breaks static link.
-# When possible, avoid stack tracing using libunwind in favor of using easylogging++.
-if (APPLE)
-  set(DEFAULT_STACK_TRACE OFF)
-  set(LIBUNWIND_LIBRARIES "")
-elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
-  set(DEFAULT_STACK_TRACE ON)
-  set(STACK_TRACE_LIB "easylogging++") # for diag output only
-  set(LIBUNWIND_LIBRARIES "")
-elseif (ARM AND STATIC)
-  set(DEFAULT_STACK_TRACE OFF)
-  set(LIBUNWIND_LIBRARIES "")
-else()
-  find_package(Libunwind)
-  if(LIBUNWIND_FOUND)
-    set(DEFAULT_STACK_TRACE ON)
-    set(STACK_TRACE_LIB "libunwind") # for diag output only
-  else()
-    set(DEFAULT_STACK_TRACE OFF)
-    set(LIBUNWIND_LIBRARIES "")
-  endif()
-endif()
-
-option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
-
-if(STACK_TRACE)
-  message(STATUS "Stack trace on exception enabled (using ${STACK_TRACE_LIB})")
-else()
-  message(STATUS "Stack trace on exception disabled")
-endif()
-
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -790,6 +758,72 @@ elseif(Boost_FOUND)
 endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+
+if (NOT Boost_VERSION VERSION_LESS 106500)
+if(MINGW)
+  check_library_exists(backtrace backtrace_full "backtrace.h" USE_BOOST_STACKTRACE)
+else()
+  set(USE_BOOST_STACKTRACE ON)
+endif()
+endif()
+
+# Can't install hook in static build on OSX, because OSX linker does not support --wrap
+# On ARM, having libunwind package (with .so's only) installed breaks static link.
+# When possible, avoid stack tracing using libunwind in favor of using easylogging++.
+if (NOT Boost_VERSION VERSION_LESS 106500 AND USE_BOOST_STACKTRACE)
+  set(DEFAULT_STACK_TRACE ON)
+  if (MINGW)
+    set(STACK_TRACE_LIBRARIES "-lbacktrace")
+    set(STACK_TRACE_LIB "boost/backtrace") # for diag output only
+    add_definitions(-DBOOST_STACKTRACE_USE_BACKTRACE)
+  else()
+    set(STACK_TRACE_LIBRARIES "")
+    set(STACK_TRACE_LIB "boost/addr2line") # for diag output only
+    add_definitions(-DBOOST_STACKTRACE_USE_ADDR2LINE)
+  endif()
+  add_definitions(-DUSE_BOOST_STACKTRACE)
+elseif (APPLE)
+  set(DEFAULT_STACK_TRACE OFF)
+  set(STACK_TRACE_LIBRARIES "")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
+  set(DEFAULT_STACK_TRACE ON)
+  set(STACK_TRACE_LIB "easylogging++") # for diag output only
+  set(STACK_TRACE_LIBRARIES "")
+  add_definitions(-DUSE_EASYLOGGING_STACKTRACE)
+elseif (ARM AND STATIC)
+  set(DEFAULT_STACK_TRACE OFF)
+  set(STACK_TRACE_LIBRARIES "")
+else()
+  find_package(Libunwind)
+  if(LIBUNWIND_FOUND)
+    set(DEFAULT_STACK_TRACE ON)
+    set(STACK_TRACE_LIBRARIES ${LIBUNWIND_LIBRARIES})
+    set(STACK_TRACE_LIB "libunwind") # for diag output only
+    add_definitions(-DUSE_LIBUNWIND_STACKTRACE)
+  else()
+    set(DEFAULT_STACK_TRACE OFF)
+    set(STACK_TRACE_LIBRARIES "")
+  endif()
+endif()
+
+option(STACK_TRACE "Enable stack trace dumping" ${DEFAULT_STACK_TRACE})
+option(STACK_TRACE_ON_EXCEPTIONS "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
+
+if(STACK_TRACE)
+  message(STATUS "Stack traces enabled (using ${STACK_TRACE_LIB})")
+  add_definitions(-DSTACK_TRACE)
+else()
+  message(STATUS "Stack traces disabled")
+endif()
+
+if(STACK_TRACE_ON_EXCEPTIONS)
+  message(STATUS "Stack trace on exception enabled")
+  add_definitions(-DSTACK_TRACE_ON_EXCEPTIONS)
+else()
+  message(STATUS "Stack trace on exception disabled")
+endif()
+
+
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi)

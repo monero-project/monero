@@ -81,7 +81,7 @@ target_link_libraries(common
     epee
     cncrypto
     ${UNBOUND_LIBRARY}
-    ${LIBUNWIND_LIBRARIES}
+    ${STACK_TRACE_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
