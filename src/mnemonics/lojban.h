@@ -35,7 +35,7 @@
 /*
  * Word list authored by: sorpaas
  * Sources:
- *   lo gimste jo'u lo ma'oste (http://guskant.github.io/lojbo/gismu-cmavo.html)
+ *   lo gimste jo'u lo ma'oste (https://guskant.github.io/lojbo/gismu-cmavo.html)
  *   N-grams of Lojban corpus (https://mw.lojban.org/papri/N-grams_of_Lojban_corpus)
  */
 

@@ -73,7 +73,7 @@ public:
 #if defined(_MSC_VER)
     , m_oss(std::move(rhs.m_oss))
 #else
-      // GCC bug: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
+      // GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
     , m_oss(rhs.m_oss.str(), std::ios_base::out | std::ios_base::ate)
 #endif
     , m_color(std::move(rhs.m_color))

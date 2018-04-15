@@ -30,7 +30,7 @@ Status of This Memo
    Internet-Drafts are working documents of the Internet Engineering
    Task Force (IETF).  Note that other groups may also distribute
    working documents as Internet-Drafts.  The list of current Internet-
-   Drafts is at http://datatracker.ietf.org/drafts/current/.
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
 
    Internet-Drafts are draft documents valid for a maximum of six months
    and may be updated, replaced, or obsoleted by other documents at any
@@ -46,7 +46,7 @@ Copyright Notice
 
    This document is subject to BCP 78 and the IETF Trust's Legal
    Provisions Relating to IETF Documents
-   (http://trustee.ietf.org/license-info) in effect on the date of
+   (https://trustee.ietf.org/license-info) in effect on the date of
    publication of this document.  Please review these documents
    carefully, as they describe your rights and restrictions with respect
    to this document.  Code Components extracted from this document must
@@ -1059,31 +1059,31 @@ Internet-Draft               EdDSA & Ed25519               February 2015
 
    [EDDSA]    Bernstein, D., Duif, N., Lange, T., Schwabe, P., and B.
               Yang, "High-speed high-security signatures", WWW
-              http://ed25519.cr.yp.to/ed25519-20110926.pdf, September
+              https://ed25519.cr.yp.to/ed25519-20110926.pdf, September
               2011.
 
    [Faster-ECC]
               Bernstein, D. and T. Lange, "Faster addition and doubling
-              on elliptic curves", WWW http://eprint.iacr.org/2007/286,
+              on elliptic curves", WWW https://eprint.iacr.org/2007/286,
               July 2007.
 
    [Edwards-revisited]
               Hisil, H., Wong, K., Carter, G., and E. Dawson, "Twisted
               Edwards Curves Revisited", WWW
-              http://eprint.iacr.org/2008/522, December 2008.
+              https://eprint.iacr.org/2008/522, December 2008.
 
    [CURVE25519]
               Bernstein, D., "Curve25519: new Diffie-Hellman speed
-              records", WWW http://cr.yp.to/ecdh.html, February 2006.
+              records", WWW https://cr.yp.to/ecdh.html, February 2006.
 
    [ED25519-TEST-VECTORS]
               Bernstein, D., Duif, N., Lange, T., Schwabe, P., and B.
               Yang, "Ed25519 test vectors", WWW
-              http://ed25519.cr.yp.to/python/sign.input, July 2011.
+              https://ed25519.cr.yp.to/python/sign.input, July 2011.
 
    [ED25519-LIBGCRYPT-TEST-VECTORS]
               Koch, W., "Ed25519 Libgcrypt test vectors", WWW
-              http://git.gnupg.org/cgi-
+              https://git.gnupg.org/cgi-
               bin/gitweb.cgi?p=libgcrypt.git;a=blob;f=tests/t-ed25519.in
               p;h=e13566f826321eece65e02c593bc7d885b3dbe23;hb=refs/
               heads/master, July 2014.
@@ -1095,7 +1095,7 @@ Appendix A.  Ed25519 Python Library
    version 3.2 or higher is required.
 
 # Loosely based on the public domain code at
-# http://ed25519.cr.yp.to/software.html
+# https://ed25519.cr.yp.to/software.html
 #
 # Needs python-3.2
 
@@ -1326,7 +1326,7 @@ Appendix B.  Library driver
                s[pos+1:])
 
    # Read a file in the format of
-   # http://ed25519.cr.yp.to/python/sign.input
+   # https://ed25519.cr.yp.to/python/sign.input
    lineno = 0
    while True:
        line = sys.stdin.readline()
@@ -1368,7 +1368,7 @@ Authors' Addresses
    SJD AB
 
    Email: simon@josefsson.org
-   URI:   http://josefsson.org/
+   URI:   https://josefsson.org/
 
 
    Niels Moeller
