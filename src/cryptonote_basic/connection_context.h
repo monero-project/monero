@@ -52,7 +52,7 @@ namespace cryptonote
     };
 
     state m_state;
-    std::list<crypto::hash> m_needed_objects;
+    std::vector<crypto::hash> m_needed_objects;
     std::unordered_set<crypto::hash> m_requested_objects;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;

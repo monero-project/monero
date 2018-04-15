@@ -85,7 +85,7 @@ namespace service_nodes
 
     while (m_height < current_height)
     {
-      std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+      std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
       if (!m_blockchain.get_blocks(m_height, 1000, blocks))
       {
         LOG_ERROR("Unable to initialize service nodes list");
@@ -95,8 +95,8 @@ namespace service_nodes
       for (const auto& block_pair : blocks)
       {
         const cryptonote::block& block = block_pair.second;
-        std::list<cryptonote::transaction> txs;
-        std::list<crypto::hash> missed_txs;
+        std::vector<cryptonote::transaction> txs;
+        std::vector<crypto::hash> missed_txs;
         if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
         {
           LOG_ERROR("Unable to get transactions for block " << block.hash);
@@ -593,7 +593,7 @@ namespace service_nodes
 
     const uint64_t expired_nodes_block_height = block_height - lock_blocks;
 
-    std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+    std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
     if (!m_blockchain.get_blocks(expired_nodes_block_height, 1, blocks))
     {
       LOG_ERROR("Unable to get historical blocks");
@@ -601,8 +601,8 @@ namespace service_nodes
     }
 
     const cryptonote::block& block = blocks.begin()->second;
-    std::list<cryptonote::transaction> txs;
-    std::list<crypto::hash> missed_txs;
+    std::vector<cryptonote::transaction> txs;
+    std::vector<crypto::hash> missed_txs;
     if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
     {
       LOG_ERROR("Unable to get transactions for block " << block.hash);
