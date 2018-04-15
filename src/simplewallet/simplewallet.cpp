@@ -2439,8 +2439,24 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
     fail_msg_writer() << tr("usage: set_log <log_level_number_0-4> | <categories>");
     return true;
   }
-  if (!args.empty())
-    mlog_set_log(args[0].c_str());
+  if(!args.empty())
+  {
+    uint16_t level = 0;
+    if(epee::string_tools::get_xtype_from_string(level, args[0]))
+    {
+      if(4 < level)
+      {
+        fail_msg_writer() << tr("wrong number range, use: set_log <log_level_number_0-4> | <categories>");
+        return true;
+      }
+      mlog_set_log_level(level);
+    }
+    else
+    {
+      mlog_set_log(args[0].c_str());
+    }
+  }
+  
   success_msg_writer() << "New log categories: " << mlog_get_categories();
   return true;
 }
