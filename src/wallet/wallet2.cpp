@@ -1695,8 +1695,8 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
       boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
 
   blocks_start_height = res.start_height;
-  blocks = res.blocks;
-  o_indices = res.output_indices;
+  blocks = std::move(res.blocks);
+  o_indices = std::move(res.output_indices);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<crypto::hash> &hashes)
@@ -1714,7 +1714,7 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
 
   blocks_start_height = res.start_height;
-  hashes = res.m_block_ids;
+  hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::block_complete_entry> &blocks, const std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t& blocks_added)
@@ -2297,7 +2297,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
       // switch to the new blocks from the daemon
       blocks_start_height = next_blocks_start_height;
-      blocks = next_blocks;
+      blocks = std::move(next_blocks);
       o_indices = next_o_indices;
 
       // handle error from async fetching thread
