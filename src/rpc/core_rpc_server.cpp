@@ -258,6 +258,12 @@ namespace cryptonote
           return false;
         }
       }
+      if(b.tx_hashes.size() != bd.second.size())
+      {
+        MERROR("block " << get_block_hash(b) << ": tx_hashes.size() " << b.tx_hashes.size() << ", bd.second.size() " << bd.second.size());
+        res.status = "Failed";
+        return false;
+      }
       size_t txidx = 0;
       ntxes += bd.second.size();
       for (std::list<cryptonote::blobdata>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
