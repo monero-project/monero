@@ -242,6 +242,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
       MDEBUG("Additional outputs needed: " << absolute_offsets.size() - outputs.size());
       std::vector < uint64_t > add_offsets;
       std::vector<output_data_t> add_outputs;
+      add_outputs.reserve(absolute_offsets.size() - outputs.size());
       for (size_t i = outputs.size(); i < absolute_offsets.size(); i++)
         add_offsets.push_back(absolute_offsets[i]);
       try
@@ -850,6 +851,11 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 
     timestamps.clear();
     difficulties.clear();
+    if (height > offset)
+    {
+      timestamps.reserve(height - offset);
+      difficulties.reserve(height - offset);
+    }
     for (; offset < height; offset++)
     {
       timestamps.push_back(m_db->get_block_timestamp(offset));
@@ -1170,6 +1176,7 @@ void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) 
   m_db->block_txn_start(true);
   // add size of last <count> blocks to vector <sz> (or less, if blockchain size < count)
   size_t start_offset = h - std::min<size_t>(h, count);
+  sz.reserve(sz.size() + h - start_offset);
   for(size_t i = start_offset; i < h; i++)
   {
     sz.push_back(m_db->get_block_size(i));
@@ -1367,6 +1374,7 @@ bool Blockchain::complete_timestamps_vector(uint64_t start_top_height, std::vect
   size_t need_elements = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW - timestamps.size();
   CHECK_AND_ASSERT_MES(start_top_height < m_db->height(), false, "internal error: passed start_height not < " << " m_db->height() -- " << start_top_height << " >= " << m_db->height());
   size_t stop_offset = start_top_height > need_elements ? start_top_height - need_elements : 0;
+  timestamps.reserve(timestamps.size() + start_top_height - stop_offset);
   while (start_top_height != stop_offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(start_top_height));
@@ -1566,7 +1574,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const
+bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -1580,7 +1588,7 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<std::
 
   for(const auto& blk : blocks)
   {
-    std::list<crypto::hash> missed_ids;
+    std::vector<crypto::hash> missed_ids;
     get_transactions_blobs(blk.second.tx_hashes, txs, missed_ids);
     CHECK_AND_ASSERT_MES(!missed_ids.size(), false, "has missed transactions in own block in main blockchain");
   }
@@ -1588,14 +1596,16 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<std::
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const
+bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  if(start_offset >= m_db->height())
+  const uint64_t height = m_db->height();
+  if(start_offset >= height)
     return false;
 
-  for(size_t i = start_offset; i < start_offset + count && i < m_db->height();i++)
+  blocks.reserve(blocks.size() + height - start_offset);
+  for(size_t i = start_offset; i < start_offset + count && i < height;i++)
   {
     blocks.push_back(std::make_pair(m_db->get_block_blob_from_height(i), block()));
     if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
@@ -1620,13 +1630,13 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   m_db->block_txn_start(true);
   rsp.current_blockchain_height = get_current_blockchain_height();
-  std::list<std::pair<cryptonote::blobdata,block>> blocks;
+  std::vector<std::pair<cryptonote::blobdata,block>> blocks;
   get_blocks(arg.blocks, blocks, rsp.missed_ids);
 
   for (const auto& bl: blocks)
   {
-    std::list<crypto::hash> missed_tx_ids;
-    std::list<cryptonote::blobdata> txs;
+    std::vector<crypto::hash> missed_tx_ids;
+    std::vector<cryptonote::blobdata> txs;
 
     // FIXME: s/rsp.missed_ids/missed_tx_id/ ?  Seems like rsp.missed_ids
     //        is for missed blocks, not missed transactions as well.
@@ -1642,8 +1652,8 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       // append missed transaction hashes to response missed_ids field,
       // as done below if any standalone transactions were requested
       // and missed.
-      rsp.missed_ids.splice(rsp.missed_ids.end(), missed_tx_ids);
-	  m_db->block_txn_stop();
+      rsp.missed_ids.insert(rsp.missed_ids.end(), missed_tx_ids.begin(), missed_tx_ids.end());
+      m_db->block_txn_stop();
       return false;
     }
 
@@ -1656,7 +1666,7 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
       e.txs.push_back(tx);
   }
   //get another transactions, if need
-  std::list<cryptonote::blobdata> txs;
+  std::vector<cryptonote::blobdata> txs;
   get_transactions_blobs(arg.txs, txs, rsp.missed_ids);
   //pack aside transactions
   for (const auto& tx: txs)
@@ -1666,11 +1676,12 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::get_alternative_blocks(std::list<block>& blocks) const
+bool Blockchain::get_alternative_blocks(std::vector<block>& blocks) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  blocks.reserve(m_alternative_chains.size());
   for (const auto& alt_bl: m_alternative_chains)
   {
     blocks.push_back(alt_bl.second.bl);
@@ -2090,6 +2101,9 @@ uint64_t Blockchain::block_difficulty(uint64_t i) const
   return 0;
 }
 //------------------------------------------------------------------
+template<typename T> void reserve_container(std::vector<T> &v, size_t N) { v.reserve(N); }
+template<typename T> void reserve_container(std::list<T> &v, size_t N) { }
+//------------------------------------------------------------------
 //TODO: return type should be void, throw on exception
 //       alternatively, return true only if no blocks missed
 template<class t_ids_container, class t_blocks_container, class t_missed_container>
@@ -2098,6 +2112,7 @@ bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  reserve_container(blocks, block_ids.size());
   for (const auto& block_hash : block_ids)
   {
     try
@@ -2132,6 +2147,7 @@ bool Blockchain::get_transactions_blobs(const t_ids_container& txs_ids, t_tx_con
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  reserve_container(txs, txs_ids.size());
   for (const auto& tx_hash : txs_ids)
   {
     try
@@ -2158,6 +2174,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  reserve_container(txs, txs_ids.size());
   for (const auto& tx_hash : txs_ids)
   {
     try
@@ -2186,7 +2203,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
 // Find the split point between us and foreign blockchain and return
 // (by reference) the most recent common block hash along with up to
 // BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT additional (more recent) hashes.
-bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::list<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const
+bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, std::vector<crypto::hash>& hashes, uint64_t& start_height, uint64_t& current_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2200,6 +2217,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   m_db->block_txn_start(true);
   current_height = get_current_blockchain_height();
   size_t count = 0;
+  hashes.reserve(std::max((size_t)(current_height - start_height), (size_t)BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT));
   for(size_t i = start_height; i < current_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
     hashes.push_back(m_db->get_block_hash_from_height(i));
@@ -2224,7 +2242,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 // find split point between ours and foreign blockchain (or start at
 // blockchain height <req_start_block>), and return up to max_count FULL
 // blocks by reference.
-bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const
+bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2250,13 +2268,14 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   m_db->block_txn_start(true);
   total_height = get_current_blockchain_height();
   size_t count = 0, size = 0;
+  blocks.reserve(std::min(std::min(max_count, (size_t)10000), (size_t)(total_height - start_height)));
   for(size_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
   {
     blocks.resize(blocks.size()+1);
     blocks.back().first = m_db->get_block_blob_from_height(i);
     block b;
     CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blocks.back().first, b), false, "internal error, invalid block");
-    std::list<crypto::hash> mis;
+    std::vector<crypto::hash> mis;
     get_transactions_blobs(b.tx_hashes, blocks.back().second, mis, pruned);
     CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
     size += blocks.back().first.size();
@@ -2991,6 +3010,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result)
 {
   std::vector<const crypto::public_key *> p_output_keys;
+  p_output_keys.reserve(pubkeys.size());
   for (auto &key : pubkeys)
   {
     // rct::key and crypto::public_key have the same structure, avoid object ctor/memcpy
@@ -3087,6 +3107,7 @@ uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) cons
   const uint64_t min_block_size = get_min_block_size(version);
   std::vector<size_t> sz;
   get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
+  sz.reserve(grace_blocks);
   for (size_t i = 0; i < grace_blocks; ++i)
     sz.push_back(min_block_size);
 
@@ -3244,6 +3265,7 @@ bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) cons
 
   // need most recent 60 blocks, get index of first of those
   size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+  timestamps.reserve(h - offset);
   for(;offset < h; ++offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
@@ -3270,7 +3292,7 @@ void Blockchain::return_tx_to_pool(std::vector<transaction> &txs)
   }
 }
 //------------------------------------------------------------------
-bool Blockchain::flush_txes_from_pool(const std::list<crypto::hash> &txids)
+bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
 {
   CRITICAL_REGION_LOCAL(m_tx_pool);
 
@@ -3460,6 +3482,7 @@ leave:
   // Iterate over the block's transaction hashes, grabbing each
   // from the tx_pool and validating them.  Each is then added
   // to txs.  Keys spent in each are added to <keys> by the double spend check.
+  txs.reserve(bl.tx_hashes.size());
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
     transaction tx;
@@ -3873,7 +3896,7 @@ void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uin
   }
 }
 
-uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes)
+uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes)
 {
   // new: . . . . . X X X X X . . . . . .
   // pre: A A A A B B B B C C C C D D D D
@@ -3976,7 +3999,7 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::list<c
 //    vs [k_image, output_keys] (m_scan_table). This is faster because it takes advantage of bulk queries
 //    and is threaded if possible. The table (m_scan_table) will be used later when querying output
 //    keys.
-bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_entry> &blocks_entry)
+bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry)
 {
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
@@ -4042,6 +4065,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::list<block_complete_e
 
     for (uint64_t i = 0; i < threads; i++)
     {
+      blocks[i].reserve(batches + 1);
       for (int j = 0; j < batches; j++)
       {
         block block;
@@ -4505,7 +4529,7 @@ void Blockchain::load_compiled_in_block_hashes()
         // for tx hashes will fail in handle_block_to_main_chain(..)
         CRITICAL_REGION_LOCAL(m_tx_pool);
 
-        std::list<transaction> txs;
+        std::vector<transaction> txs;
         m_tx_pool.get_transactions(txs);
 
         size_t blob_size;
@@ -4568,6 +4592,6 @@ bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t he
 }
 
 namespace cryptonote {
-template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::list<transaction>&, std::list<crypto::hash>&) const;
-template bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>&, std::list<cryptonote::blobdata>&, std::list<crypto::hash>&, bool) const;
+template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::vector<transaction>&, std::vector<crypto::hash>&) const;
+template bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>&, std::vector<cryptonote::blobdata>&, std::vector<crypto::hash>&, bool) const;
 }
