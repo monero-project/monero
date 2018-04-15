@@ -76,7 +76,7 @@ namespace tests
     bool have_block(const crypto::hash& id);
     void get_blockchain_top(uint64_t& height, crypto::hash& top_id);
     bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
-    bool handle_incoming_txs(const std::list<cryptonote::blobdata>& tx_blobs, std::vector<cryptonote::tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+    bool handle_incoming_txs(const std::vector<cryptonote::blobdata>& tx_blobs, std::vector<cryptonote::tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
     bool handle_incoming_block(const cryptonote::blobdata& block_blob, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true);
     void pause_mine(){}
     void resume_mine(){}
@@ -86,7 +86,7 @@ namespace tests
     cryptonote::Blockchain &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class proxy_core."); }
     bool get_test_drop_download() {return true;}
     bool get_test_drop_download_height() {return true;}
-    bool prepare_handle_incoming_blocks(const std::list<cryptonote::block_complete_entry>  &blocks) { return true; }
+    bool prepare_handle_incoming_blocks(const std::vector<cryptonote::block_complete_entry>  &blocks) { return true; }
     bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
     uint64_t get_target_blockchain_height() const { return 1; }
     size_t get_block_sync_size(uint64_t height) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
@@ -94,8 +94,8 @@ namespace tests
     cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
     bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob) const { return false; }
     bool pool_has_tx(const crypto::hash &txid) const { return false; }
-    bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::list<cryptonote::blobdata>& txs) const { return false; }
-    bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::transaction>& txs, std::list<crypto::hash>& missed_txs) const { return false; }
+    bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::vector<cryptonote::blobdata>& txs) const { return false; }
+    bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::transaction>& txs, std::vector<crypto::hash>& missed_txs) const { return false; }
     bool get_block_by_hash(const crypto::hash &h, cryptonote::block &blk, bool *orphan = NULL) const { return false; }
     uint8_t get_ideal_hard_fork_version() const { return 0; }
     uint8_t get_ideal_hard_fork_version(uint64_t height) const { return 0; }
@@ -103,6 +103,6 @@ namespace tests
     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return 0; }
     cryptonote::difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return 0; }
     bool fluffy_blocks_enabled() const { return false; }
-    uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes) { return 0; }
+    uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes) { return 0; }
   };
 }

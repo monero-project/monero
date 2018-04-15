@@ -134,7 +134,7 @@ namespace cryptonote
       *
       * @return true if the transactions made it to the transaction pool, otherwise false
       */
-     bool handle_incoming_txs(const std::list<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief handles an incoming block
@@ -157,7 +157,7 @@ namespace cryptonote
       *
       * @note see Blockchain::prepare_handle_incoming_blocks
       */
-     bool prepare_handle_incoming_blocks(const std::list<block_complete_entry>  &blocks);
+     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks);
 
      /**
       * @copydoc Blockchain::cleanup_handle_incoming_blocks
@@ -309,25 +309,25 @@ namespace cryptonote
      void get_blockchain_top(uint64_t& height, crypto::hash& top_id) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&, std::vector<transaction>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&, std::list<transaction>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&, std::vector<transaction>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks, std::list<cryptonote::blobdata>& txs) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks, std::vector<cryptonote::blobdata>& txs) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata,block>>& blocks) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata,block>>& blocks) const;
 
      /**
-      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      * @copydoc Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       *
-      * @note see Blockchain::get_blocks(uint64_t, size_t, std::list<std::pair<cryptonote::blobdata,block>>&) const
+      * @note see Blockchain::get_blocks(uint64_t, size_t, std::vector<std::pair<cryptonote::blobdata,block>>&) const
       */
-     bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks) const;
+     bool get_blocks(uint64_t start_offset, size_t count, std::vector<block>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_blocks(const t_ids_container&, t_blocks_container&, t_missed_container&) const
@@ -352,14 +352,14 @@ namespace cryptonote
       *
       * @note see Blockchain::get_transactions
       */
-     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::blobdata>& txs, std::list<crypto::hash>& missed_txs) const;
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs) const;
 
      /**
       * @copydoc Blockchain::get_transactions
       *
       * @note see Blockchain::get_transactions
       */
-     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<transaction>& txs, std::list<crypto::hash>& missed_txs) const;
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<transaction>& txs, std::vector<crypto::hash>& missed_txs) const;
 
      /**
       * @copydoc Blockchain::get_block_by_hash
@@ -371,9 +371,9 @@ namespace cryptonote
      /**
       * @copydoc Blockchain::get_alternative_blocks
       *
-      * @note see Blockchain::get_alternative_blocks(std::list<block>&) const
+      * @note see Blockchain::get_alternative_blocks(std::vector<block>&) const
       */
-     bool get_alternative_blocks(std::list<block>& blocks) const;
+     bool get_alternative_blocks(std::vector<block>& blocks) const;
 
      /**
       * @copydoc Blockchain::get_alternative_blocks_count
@@ -430,7 +430,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_transactions
       */
-     bool get_pool_transactions(std::list<transaction>& txs, bool include_unrelayed_txes = true) const;
+     bool get_pool_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes = true) const;
 
      /**
       * @copydoc tx_memory_pool::get_txpool_backlog
@@ -513,11 +513,11 @@ namespace cryptonote
      bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const;
 
      /**
-      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >&, uint64_t&, uint64_t&, size_t) const
+      * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >&, uint64_t&, uint64_t&, size_t) const
       *
-      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
+      * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const;
 
      /**
       * @brief gets some stats about the daemon
@@ -764,7 +764,7 @@ namespace cryptonote
       *
       * @return number of usable blocks
       */
-     uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes);
+     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes);
 
      /**
       * @brief get free disk space on the blockchain partition
