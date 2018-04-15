@@ -1967,10 +1967,12 @@ void VRegistry::setCategories(const char* categories, bool clear) {
   base::threading::ScopedLock scopedLock(lock());
   auto insert = [&](std::stringstream& ss, Level level) {
     m_categories.push_back(std::make_pair(ss.str(), level));
+    m_cached_allowed_categories.clear();
   };
 
   if (clear) {
     m_categories.clear();
+    m_cached_allowed_categories.clear();
     m_categoriesString.clear();
   }
   if (!m_categoriesString.empty())
@@ -2033,15 +2035,22 @@ static int priority(Level level) {
 
 bool VRegistry::allowed(Level level, const char* category) {
   base::threading::ScopedLock scopedLock(lock());
+  const std::string scategory = category;
+  const std::map<std::string, int>::const_iterator it = m_cached_allowed_categories.find(scategory);
+  if (it != m_cached_allowed_categories.end())
+    return priority(level) <= it->second;
   if (m_categories.empty() || category == nullptr) {
     return false;
   } else {
     std::deque<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
     for (; it != m_categories.rend(); ++it) {
       if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
-        return priority(level) <= priority(it->second);
+        const int p = priority(it->second);
+        m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), p));
+        return priority(level) <= p;
       }
     }
+    m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), -1));
     return false;
   }
 }

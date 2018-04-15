@@ -2485,6 +2485,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   inline void clearCategories(void) {
     base::threading::ScopedLock scopedLock(lock());
     m_categories.clear();
+    m_cached_allowed_categories.clear();
   }
 
   inline void clearModules(void) {
@@ -2526,6 +2527,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   base::type::EnumType* m_pFlags;
   std::map<std::string, base::type::VerboseLevel> m_modules;
   std::deque<std::pair<std::string, Level>> m_categories;
+  std::map<std::string, int> m_cached_allowed_categories;
   std::string m_categoriesString;
   std::string m_filenameCommonPrefix;
 };
