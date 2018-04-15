@@ -82,7 +82,7 @@ namespace wallet_args
     return i18n_translate(str, "wallet_args");
   }
 
-  boost::optional<boost::program_options::variables_map> main(
+  std::pair<boost::optional<boost::program_options::variables_map>, bool> main(
     int argc, char** argv,
     const char* const usage,
     const char* const notice,
@@ -127,6 +127,7 @@ namespace wallet_args
     po::options_description desc_all;
     desc_all.add(desc_general).add(desc_params);
     po::variables_map vm;
+    bool should_terminate = false;
     bool r = command_line::handle_error_helper(desc_all, [&]()
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
@@ -139,12 +140,14 @@ namespace wallet_args
 												  "daemon to work correctly.") << ENDL;
         Print(print) << wallet_args::tr("Usage:") << ENDL << "  " << usage;
         Print(print) << desc_all;
-        return false;
+        should_terminate = true;
+        return true;
       }
       else if (command_line::get_arg(vm, command_line::arg_version))
       {
         Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-        return false;
+        should_terminate = true;
+        return true;
       }
 
       if(command_line::has_arg(vm, arg_config_file))
@@ -167,7 +170,10 @@ namespace wallet_args
       return true;
     });
     if (!r)
-      return boost::none;
+      return {boost::none, true};
+
+    if (should_terminate)
+      return {std::move(vm), should_terminate};
 
     std::string log_path;
     if (!command_line::is_arg_defaulted(vm, arg_log_file))
@@ -196,6 +202,6 @@ namespace wallet_args
 
     Print(print) << boost::format(wallet_args::tr("Logging to %s")) % log_path;
 
-    return {std::move(vm)};
+    return {std::move(vm), should_terminate};
   }
 }

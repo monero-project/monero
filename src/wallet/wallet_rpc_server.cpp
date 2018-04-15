@@ -2895,7 +2895,9 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
 
-  const auto vm = wallet_args::main(
+  boost::optional<po::variables_map> vm;
+  bool should_terminate = false;
+  std::tie(vm, should_terminate) = wallet_args::main(
     argc, argv,
     "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>|--wallet-dir=<directory>] [--rpc-bind-port=<port>]",
     tools::wallet_rpc_server::tr("This is the RPC monero wallet. It needs to connect to a monero\ndaemon to work correctly."),
@@ -2908,6 +2910,10 @@ int main(int argc, char** argv) {
   if (!vm)
   {
     return 1;
+  }
+  if (should_terminate)
+  {
+    return 0;
   }
 
   std::unique_ptr<tools::wallet2> wal;
