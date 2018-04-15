@@ -249,11 +249,14 @@ namespace cryptonote
         res.status = "Invalid block";
         return false;
       }
-      bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.miner_tx), res.output_indices.back().indices.back().indices);
-      if (!r)
+      if (!req.no_miner_tx)
       {
-        res.status = "Failed";
-        return false;
+        bool r = m_core.get_tx_outputs_gindexs(get_transaction_hash(b.miner_tx), res.output_indices.back().indices.back().indices);
+        if (!r)
+        {
+          res.status = "Failed";
+          return false;
+        }
       }
       size_t txidx = 0;
       ntxes += bd.second.size();
