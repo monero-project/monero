@@ -50,9 +50,9 @@ namespace rpc
 
   void DaemonHandler::handle(const GetBlocksFast::Request& req, GetBlocksFast::Response& res)
   {
-    std::vector<std::pair<blobdata, std::vector<blobdata> > > blocks;
+    std::vector<std::pair<std::pair<blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, blobdata> > > > blocks;
 
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.start_height, req.prune, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.start_height, req.prune, true, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "core::find_blockchain_supplement() returned false";
@@ -69,7 +69,7 @@ namespace rpc
     {
       cryptonote::rpc::block_with_transactions& bwt = res.blocks[block_count];
 
-      if (!parse_and_validate_block_from_blob(it->first, bwt.block))
+      if (!parse_and_validate_block_from_blob(it->first.first, bwt.block))
       {
         res.blocks.clear();
         res.output_indices.clear();
@@ -87,10 +87,10 @@ namespace rpc
           return;
       }
       std::vector<transaction> txs;
-      for (const auto& blob : it->second)
+      for (const auto& p : it->second)
       {
         txs.resize(txs.size() + 1);
-        if (!parse_and_validate_tx_from_blob(blob, txs.back()))
+        if (!parse_and_validate_tx_from_blob(p.second, txs.back()))
         {
           res.blocks.clear();
           res.output_indices.clear();
