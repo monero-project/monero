@@ -2242,7 +2242,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 // find split point between ours and foreign blockchain (or start at
 // blockchain height <req_start_block>), and return up to max_count FULL
 // blocks by reference.
-bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const
+bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2272,15 +2272,24 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   for(size_t i = start_height; i < total_height && count < max_count && (size < FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE || count < 3); i++, count++)
   {
     blocks.resize(blocks.size()+1);
-    blocks.back().first = m_db->get_block_blob_from_height(i);
+    blocks.back().first.first = m_db->get_block_blob_from_height(i);
     block b;
-    CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blocks.back().first, b), false, "internal error, invalid block");
+    CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blocks.back().first.first, b), false, "internal error, invalid block");
+    blocks.back().first.second = get_miner_tx_hash ? cryptonote::get_transaction_hash(b.miner_tx) : crypto::null_hash;
     std::vector<crypto::hash> mis;
-    get_transactions_blobs(b.tx_hashes, blocks.back().second, mis, pruned);
+    std::vector<cryptonote::blobdata> txs;
+    get_transactions_blobs(b.tx_hashes, txs, mis, pruned);
     CHECK_AND_ASSERT_MES(!mis.size(), false, "internal error, transaction from block not found");
-    size += blocks.back().first.size();
-    for (const auto &t: blocks.back().second)
+    size += blocks.back().first.first.size();
+    for (const auto &t: txs)
       size += t.size();
+
+    CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size(), false, "mismatched sizes of b.tx_hashes and txs");
+    blocks.back().second.reserve(txs.size());
+    for (size_t i = 0; i < txs.size(); ++i)
+    {
+      blocks.back().second.push_back(std::make_pair(b.tx_hashes[i], std::move(txs[i])));
+    }
   }
   m_db->block_txn_stop();
   return true;
