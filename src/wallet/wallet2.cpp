@@ -1729,76 +1729,30 @@ void wallet2::process_blocks(uint64_t start_height, const std::vector<cryptonote
   THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "size mismatch");
   THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::wallet_internal_error, "Index out of bounds of hashchain");
 
+  std::vector<crypto::hash> round_block_hashes(blocks.size());
+  std::vector<cryptonote::block> round_blocks(blocks.size());
+  std::deque<bool> error(blocks.size());
+
   tools::threadpool& tpool = tools::threadpool::getInstance();
-  int threads = tpool.get_max_concurrency();
-  if (threads > 1)
+  tools::threadpool::waiter waiter;
+  for (size_t i = 0; i < blocks.size(); ++i)
   {
-    std::vector<crypto::hash> round_block_hashes(threads);
-    std::vector<cryptonote::block> round_blocks(threads);
-    std::deque<bool> error(threads);
-    size_t blocks_size = blocks.size();
-    std::vector<block_complete_entry>::const_iterator blocki = blocks.begin();
-    for (size_t b = 0; b < blocks_size; b += threads)
-    {
-      size_t round_size = std::min((size_t)threads, blocks_size - b);
-      tools::threadpool::waiter waiter;
-
-      std::vector<block_complete_entry>::const_iterator tmpblocki = blocki;
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        tpool.submit(&waiter, boost::bind(&wallet2::parse_block_round, this, std::cref(tmpblocki->block),
-          std::ref(round_blocks[i]), std::ref(round_block_hashes[i]), std::ref(error[i])));
-        ++tmpblocki;
-      }
-      waiter.wait();
-      tmpblocki = blocki;
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        THROW_WALLET_EXCEPTION_IF(error[i], error::block_parse_error, tmpblocki->block);
-        ++tmpblocki;
-      }
-      for (size_t i = 0; i < round_size; ++i)
-      {
-        const crypto::hash &bl_id = round_block_hashes[i];
-        cryptonote::block &bl = round_blocks[i];
-
-        if(current_index >= m_blockchain.size())
-        {
-          process_new_blockchain_entry(bl, *blocki, bl_id, current_index, o_indices[b+i]);
-          ++blocks_added;
-        }
-        else if(bl_id != m_blockchain[current_index])
-        {
-          //split detected here !!!
-          THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
-            "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-            " (height " + std::to_string(start_height) + "), local block id at this height: " +
-            string_tools::pod_to_hex(m_blockchain[current_index]));
-
-          detach_blockchain(current_index);
-          process_new_blockchain_entry(bl, *blocki, bl_id, current_index, o_indices[b+i]);
-        }
-        else
-        {
-          LOG_PRINT_L2("Block is already in blockchain: " << string_tools::pod_to_hex(bl_id));
-        }
-        ++current_index;
-        ++blocki;
-      }
-    }
+    tpool.submit(&waiter, boost::bind(&wallet2::parse_block_round, this, std::cref(blocks[i].block),
+      std::ref(round_blocks[i]), std::ref(round_block_hashes[i]), std::ref(error[i])));
   }
-  else
+  waiter.wait();
+  for (size_t i = 0; i < blocks.size(); ++i)
   {
-  for(auto& bl_entry: blocks)
+    THROW_WALLET_EXCEPTION_IF(error[i], error::block_parse_error, blocks[i].block);
+  }
+  for (size_t i = 0; i < blocks.size(); ++i)
   {
-    cryptonote::block bl;
-    bool r = cryptonote::parse_and_validate_block_from_blob(bl_entry.block, bl);
-    THROW_WALLET_EXCEPTION_IF(!r, error::block_parse_error, bl_entry.block);
+    const crypto::hash &bl_id = round_block_hashes[i];
+    cryptonote::block &bl = round_blocks[i];
 
-    crypto::hash bl_id = get_block_hash(bl);
     if(current_index >= m_blockchain.size())
     {
-      process_new_blockchain_entry(bl, bl_entry, bl_id, current_index, o_indices[tx_o_indices_idx]);
+      process_new_blockchain_entry(bl, blocks[i], bl_id, current_index, o_indices[i]);
       ++blocks_added;
     }
     else if(bl_id != m_blockchain[current_index])
@@ -1810,16 +1764,13 @@ void wallet2::process_blocks(uint64_t start_height, const std::vector<cryptonote
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
       detach_blockchain(current_index);
-      process_new_blockchain_entry(bl, bl_entry, bl_id, current_index, o_indices[tx_o_indices_idx]);
+      process_new_blockchain_entry(bl, blocks[i], bl_id, current_index, o_indices[i]);
     }
     else
     {
       LOG_PRINT_L2("Block is already in blockchain: " << string_tools::pod_to_hex(bl_id));
     }
-
     ++current_index;
-    ++tx_o_indices_idx;
-  }
   }
 }
 //----------------------------------------------------------------------------------------------------
