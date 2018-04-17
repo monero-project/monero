@@ -1582,7 +1582,9 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   if(b.timestamp + 60*60*24 > m_account.get_createtime() && height >= m_refresh_from_block_height)
   {
     TIME_MEASURE_START(miner_tx_handle_time);
-    process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, o_indices.indices[txidx++].indices, height, b.timestamp, true, false, false);
+    if (m_refresh_type != RefreshNoCoinbase)
+      process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, o_indices.indices[txidx].indices, height, b.timestamp, true, false, false);
+    ++txidx;
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
     TIME_MEASURE_START(txs_handle_time);
