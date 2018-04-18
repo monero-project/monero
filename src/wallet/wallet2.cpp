@@ -1093,9 +1093,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device(); 
   
-  boost::unique_lock<hw::device> hwdev_lock (hwdev);
+  boost::unique_lock<hw::device> hwdev_lock (hwdev, boost::defer_lock);
   hw::reset_mode rst(hwdev);  
-  hwdev_lock.unlock();
 
  // In this function, tx (probably) only contains the base information
   // (that is, the prunable stuff may or may not be included)
