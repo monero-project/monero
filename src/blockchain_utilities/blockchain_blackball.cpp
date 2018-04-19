@@ -77,6 +77,15 @@ namespace std
       return reinterpret_cast<const std::size_t &>(h);
     }
   };
+  template<> struct hash<std::vector<uint64_t>>
+  {
+    size_t operator()(const std::vector<uint64_t> &v) const
+    {
+      crypto::hash h;
+      crypto::cn_fast_hash(v.data(), v.size() * sizeof(uint64_t), h);
+      return reinterpret_cast<const std::size_t &>(h);
+    }
+  };
 }
 
 struct blackball_state_t
@@ -85,6 +94,7 @@ struct blackball_state_t
   std::unordered_map<output_data, std::unordered_set<crypto::key_image>> outputs;
   std::unordered_map<std::string, uint64_t> processed_heights;
   std::unordered_set<output_data> spent;
+  std::unordered_map<std::vector<uint64_t>, size_t> ring_instances;
 
   template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
   {
@@ -92,9 +102,12 @@ struct blackball_state_t
     a & outputs;
     a & processed_heights;
     a & spent;
+    if (ver < 1)
+      return;
+    a & ring_instances;
   }
 };
-BOOST_CLASS_VERSION(blackball_state_t, 0)
+BOOST_CLASS_VERSION(blackball_state_t, 1)
 
 static std::string get_default_db_path()
 {
@@ -179,6 +192,24 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   mdb_dbi_close(env, dbi);
   mdb_env_close(env);
   return fret;
+}
+
+static std::vector<uint64_t> canonicalize(const std::vector<uint64_t> &v)
+{
+  std::vector<uint64_t> c;
+  c.reserve(v.size());
+  c.push_back(v[0]);
+  for (size_t n = 1; n < v.size(); ++n)
+  {
+    if (v[n] != 0)
+      c.push_back(v[n]);
+  }
+  if (c.size() < v.size())
+  {
+    MINFO("Ring has duplicate member(s): " <<
+        boost::join(v | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " "));
+  }
+  return c;
 }
 
 int main(int argc, char* argv[])
@@ -396,15 +427,27 @@ int main(int argc, char* argv[])
           for (uint64_t out: absolute)
             state.outputs[output_data(txin.amount, out)].insert(txin.k_image);
 
-        std::vector<uint64_t> new_ring = txin.key_offsets;
+        std::vector<uint64_t> new_ring = canonicalize(txin.key_offsets);
         const uint32_t ring_size = txin.key_offsets.size();
+        state.ring_instances[new_ring] += 1;
         if (ring_size == 1)
         {
-          const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, txin.key_offsets[0]);
+          const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[0]);
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
           ringdb.blackball(pkey);
-          newly_spent.insert(output_data(txin.amount, txin.key_offsets[0]));
-          state.spent.insert(output_data(txin.amount, txin.key_offsets[0]));
+          newly_spent.insert(output_data(txin.amount, absolute[0]));
+          state.spent.insert(output_data(txin.amount, absolute[0]));
+        }
+        else if (state.ring_instances[new_ring] == new_ring.size())
+        {
+          for (size_t o = 0; o < new_ring.size(); ++o)
+          {
+            const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[o]);
+            MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
+            ringdb.blackball(pkey);
+            newly_spent.insert(output_data(txin.amount, absolute[o]));
+            state.spent.insert(output_data(txin.amount, absolute[o]));
+          }
         }
         else if (state.relative_rings.find(txin.k_image) != state.relative_rings.end())
         {
