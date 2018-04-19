@@ -55,10 +55,10 @@ else()
   if(STATIC)
     message(STATUS "Using miniupnpc from local source tree for static build")
   else()
-    message(STATUS "Using miniupnpc from local source tree (/external/miniupnpc)")
+    message(STATUS "Using miniupnpc from local source tree (/external/miniupnp/miniupnpc)")
   endif()
 
-  add_subdirectory(miniupnpc)
+  add_subdirectory(miniupnp/miniupnpc)
 
   set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
   if(MSVC)

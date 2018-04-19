@@ -51,9 +51,9 @@
 
 // We have to look for miniupnpc headers in different places, dependent on if its compiled or external
 #ifdef UPNP_STATIC
-  #include <miniupnpc/miniupnpc.h>
-  #include <miniupnpc/upnpcommands.h>
-  #include <miniupnpc/upnperrors.h>
+  #include <miniupnp/miniupnpc/miniupnpc.h>
+  #include <miniupnp/miniupnpc/upnpcommands.h>
+  #include <miniupnp/miniupnpc/upnperrors.h>
 #else
   #include "miniupnpc.h"
   #include "upnpcommands.h"
