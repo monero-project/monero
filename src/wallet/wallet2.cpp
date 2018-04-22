@@ -8202,7 +8202,7 @@ std::vector<size_t> wallet2::select_available_mixable_outputs(bool trusted_daemo
   return select_available_outputs_from_histogram(min_mixin + 1, true, true, true, trusted_daemon);
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
+std::vector<wallet2::pending_tx> wallet2::create_mixable_or_unmixable_sweep_transactions(bool trusted_daemon, bool mixable)
 {
   // From hard fork 1, we don't consider small amounts to be dust anymore
   const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
@@ -8211,8 +8211,9 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   const uint64_t fee_per_kb  = get_per_kb_fee();
 
   // may throw
-  std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs(trusted_daemon);
-  size_t num_dust_outputs = unmixable_outputs.size();
+  std::vector<size_t> outputs = mixable ? select_available_mixable_outputs(trusted_daemon)
+                                        : select_available_unmixable_outputs(trusted_daemon);
+  size_t num_dust_outputs = outputs.size();
 
   if (num_dust_outputs == 0)
   {
@@ -8220,18 +8221,28 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bo
   }
 
   // split in "dust" and "non dust" to make it easier to select outputs
-  std::vector<size_t> unmixable_transfer_outputs, unmixable_dust_outputs;
-  for (auto n: unmixable_outputs)
+  std::vector<size_t> transfer_outputs, dust_outputs;
+  for (auto n: outputs)
   {
     if (m_transfers[n].amount() < fee_per_kb)
-      unmixable_dust_outputs.push_back(n);
+      dust_outputs.push_back(n);
     else
-      unmixable_transfer_outputs.push_back(n);
+      transfer_outputs.push_back(n);
   }
 
-  return create_transactions_from(m_account_public_address, false, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>(), trusted_daemon);
+  return create_transactions_from(m_account_public_address, false, transfer_outputs, dust_outputs, 0 /*fake_outs_count */, 0 /* unlock_time */, 1 /*priority */, std::vector<uint8_t>(), trusted_daemon);
 }
-
+//----------------------------------------------------------------------------------------------------
+std::vector<wallet2::pending_tx> wallet2::create_mixable_sweep_transactions(bool trusted_daemon)
+{
+  return create_mixable_or_unmixable_sweep_transactions(trusted_daemon, true);
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions(bool trusted_daemon)
+{
+  return create_mixable_or_unmixable_sweep_transactions(trusted_daemon, false);
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const
 {
   additional_tx_keys.clear();

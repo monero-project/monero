@@ -2057,6 +2057,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("sweep_unmixable",
                            boost::bind(&simple_wallet::sweep_unmixable, this, _1),
                            tr("Send all unmixable outputs to yourself with ring_size 1"));
+  m_cmd_binder.set_handler("sweep_mixable",
+                           boost::bind(&simple_wallet::sweep_mixable, this, _1),
+                           tr("Send all mixable outputs to yourself with ring_size 1"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1),
                            tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]"),
                            tr("Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used."));
@@ -4692,7 +4695,7 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
 }
 //----------------------------------------------------------------------------------------------------
 
-bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
+bool simple_wallet::sweep_only_mixable_or_unmixable(const std::vector<std::string> &args_, bool mixable)
 {
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
@@ -4702,7 +4705,8 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
+    auto ptx_vector = mixable ? m_wallet->create_mixable_sweep_transactions(m_trusted_daemon)
+                              : m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
 
     if (ptx_vector.empty())
     {
@@ -4711,24 +4715,24 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     }
 
     // give user total and fee, and prompt to confirm
-    uint64_t total_fee = 0, total_unmixable = 0;
+    uint64_t total_fee = 0, total_amount = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
-        total_unmixable += m_wallet->get_transfer_details(i).amount();
+        total_amount += m_wallet->get_transfer_details(i).amount();
     }
 
-    std::string prompt_str = tr("Sweeping ") + print_money(total_unmixable);
+    std::string prompt_str = tr("Sweeping ") + print_money(total_amount);
     if (ptx_vector.size() > 1) {
       prompt_str = (boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
-        print_money(total_unmixable) %
+        print_money(total_amount) %
         ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee)).str();
     }
     else {
       prompt_str = (boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
-        print_money(total_unmixable) %
+        print_money(total_amount) %
         print_money(total_fee)).str();
     }
     std::string accepted = input_line(prompt_str);
@@ -4782,6 +4786,16 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   }
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_mixable(const std::vector<std::string> &args_)
+{
+  return sweep_only_mixable_or_unmixable(args_, true);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
+{
+  return sweep_only_mixable_or_unmixable(args_, false);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &args_)
