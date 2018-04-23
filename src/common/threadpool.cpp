@@ -39,8 +39,8 @@ static __thread int depth = 0;
 
 namespace tools
 {
-threadpool::threadpool() {
-  start();
+threadpool::threadpool(unsigned int max_threads) {
+  start(max_threads);
 }
 
 threadpool::~threadpool() {
@@ -60,13 +60,13 @@ void threadpool::stop() {
   queue.clear();
 }
 
-void threadpool::start() {
+void threadpool::start(unsigned int max_threads) {
   running = true;
   active = 0;
   boost::thread::attributes attrs;
   attrs.set_stack_size(THREAD_STACK_SIZE);
-  max = tools::get_max_concurrency();
-  size_t i = max;
+  max = max_threads ? max_threads : tools::get_max_concurrency();
+  unsigned int i = max;
   while(i--) {
     threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this)));
   }
@@ -90,7 +90,7 @@ void threadpool::submit(waiter *obj, std::function<void()> f) {
   }
 }
 
-int threadpool::get_max_concurrency() {
+unsigned int threadpool::get_max_concurrency() const {
   return max;
 }
 
