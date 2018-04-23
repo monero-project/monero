@@ -62,6 +62,7 @@ set(unit_tests_sources
   test_tx_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
+  threadpool.cpp
   hardfork.cpp
   unbound.cpp
   uri.cpp
