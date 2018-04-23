@@ -170,7 +170,6 @@ namespace cryptonote
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
-              m_threadpool(tools::threadpool::getInstance()),
               m_update_download(0),
               m_nettype(UNDEFINED)
   {
@@ -713,10 +712,11 @@ namespace cryptonote
     std::vector<result> results(tx_blobs.size());
 
     tvc.resize(tx_blobs.size());
+    tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter;
     std::list<blobdata>::const_iterator it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
-      m_threadpool.submit(&waiter, [&, i, it] {
+      tpool.submit(&waiter, [&, i, it] {
         try
         {
           results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
@@ -743,7 +743,7 @@ namespace cryptonote
       }
       else
       {
-        m_threadpool.submit(&waiter, [&, i, it] {
+        tpool.submit(&waiter, [&, i, it] {
           try
           {
             results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash, results[i].prefix_hash, keeped_by_block, relayed, do_not_relay);
