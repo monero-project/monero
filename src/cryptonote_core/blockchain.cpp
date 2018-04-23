@@ -2217,19 +2217,19 @@ bool Blockchain::have_block(const crypto::hash& id) const
 
   if(m_db->block_exists(id))
   {
-    LOG_PRINT_L3("block exists in main chain");
+    LOG_PRINT_L2("block " << id << " found in main chain");
     return true;
   }
 
   if(m_alternative_chains.count(id))
   {
-    LOG_PRINT_L3("block found in m_alternative_chains");
+    LOG_PRINT_L2("block " << id << " found in m_alternative_chains");
     return true;
   }
 
   if(m_invalid_blocks.count(id))
   {
-    LOG_PRINT_L3("block found in m_invalid_blocks");
+    LOG_PRINT_L2("block " << id << " found in m_invalid_blocks");
     return true;
   }
 
