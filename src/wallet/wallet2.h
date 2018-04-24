@@ -745,7 +745,7 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
-    uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
+    uint64_t get_blockchain_current_height() const { return m_light_wallet_blockchain_height ? m_light_wallet_blockchain_height : m_blockchain.size(); }
     void rescan_spent();
     void rescan_blockchain(bool refresh = true);
     bool is_transfer_unlocked(const transfer_details& td) const;
@@ -1200,7 +1200,6 @@ namespace tools
     std::string m_keys_file;
     epee::net_utils::http::http_simple_client m_http_client;
     hashchain m_blockchain;
-    std::atomic<uint64_t> m_local_bc_height; //temporary workaround
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
     std::unordered_map<crypto::hash, confirmed_transfer_details> m_confirmed_txs;
     std::unordered_multimap<crypto::hash, pool_payment_details> m_unconfirmed_payments;
