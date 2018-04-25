@@ -8,7 +8,7 @@ define $(package)_set_vars
   $(package)_build_opts=CC="$($(package)_cc)"
   $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
   $(package)_config_opts=--prefix=$(host_prefix)
-  $(package)_config_opts_release=--disable-debug-mode --disable-libsystemd --enable-static
+  $(package)_config_opts_release=--disable-debug-mode --disable-libsystemd --disable-libudev --enable-static --disable-shared --disable-libusb
   $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -fPIC"
 endef
 
