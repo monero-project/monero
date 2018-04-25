@@ -1,3 +1,4 @@
+# Copyright (c) 2018, The Loki Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -41,7 +42,7 @@ endif()
 
 cmake_minimum_required(VERSION 2.8.7)
 
-project(monero)
+project(loki)
 
 function (die msg)
   if (NOT WIN32)
@@ -298,7 +299,7 @@ if(SANITIZE)
 endif()
 
 # Set default blockchain storage location:
-# memory was the default in Cryptonote before Monero implemented LMDB, it still works but is unnecessary.
+# memory was the default in Cryptonote before monero implemented LMDB, it still works but is unnecessary.
 # set(DATABASE memory)
 set(DATABASE lmdb)
 

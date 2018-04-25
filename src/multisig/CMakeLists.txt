@@ -1,3 +1,4 @@
+# Copyright (c) 2018, The Loki Project
 # Copyright (c) 2017-2018, The Monero Project
 #
 # All rights reserved.
@@ -34,10 +35,10 @@ set(multisig_headers)
 set(multisig_private_headers
   multisig.h)
 
-monero_private_headers(multisig
+loki_private_headers(multisig
   ${multisig_private_headers})
 
-monero_add_library(multisig
+loki_add_library(multisig
   ${multisig_sources}
   ${multisig_headers}
   ${multisig_private_headers})

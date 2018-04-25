@@ -1,3 +1,4 @@
+# Copyright (c) 2018, The Loki Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -68,9 +69,9 @@ set(crypto_private_headers
   skein.h
   skein_port.h)
 
-monero_private_headers(cncrypto
+loki_private_headers(cncrypto
   ${crypto_private_headers})
-monero_add_library(cncrypto
+loki_add_library(cncrypto
   ${crypto_sources}
   ${crypto_headers}
   ${crypto_private_headers})
