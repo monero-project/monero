@@ -1254,9 +1254,9 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         for (size_t i = 1; i < tx.vout.size(); ++i)
         {
           tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
-            std::cref(is_out_data_ptr), std::ref(tx_scan_info[i])));
+            std::cref(is_out_data_ptr), std::ref(tx_scan_info[i])), true);
         }
-        waiter.wait();
+        waiter.wait(&tpool);
         // then scan all outputs from 0
         hw::device &hwdev = m_account.get_device();
         boost::unique_lock<hw::device> hwdev_lock (hwdev);
@@ -1277,9 +1277,9 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
         tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
-            std::cref(is_out_data_ptr), std::ref(tx_scan_info[i])));
+            std::cref(is_out_data_ptr), std::ref(tx_scan_info[i])), true);
       }
-      waiter.wait();
+      waiter.wait(&tpool);
 
       hw::device &hwdev = m_account.get_device();
       boost::unique_lock<hw::device> hwdev_lock (hwdev);
@@ -1822,7 +1822,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
     }
   }
   THROW_WALLET_EXCEPTION_IF(txidx != num_txes, error::wallet_internal_error, "txidx does not match tx_cache_data size");
-  waiter.wait();
+  waiter.wait(&tpool);
 
   hw::device &hwdev =  m_account.get_device();
   hw::reset_mode rst(hwdev);
@@ -1842,11 +1842,11 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   for (auto &slot: tx_cache_data)
   {
     for (auto &iod: slot.primary)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); });
+      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
     for (auto &iod: slot.additional)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); });
+      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
   }
-  waiter.wait();
+  waiter.wait(&tpool);
 
   auto geniod = [&](const cryptonote::transaction &tx, size_t n_vouts, size_t txidx) {
     for (size_t k = 0; k < n_vouts; ++k)
@@ -1876,18 +1876,18 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
     {
       THROW_WALLET_EXCEPTION_IF(txidx >= tx_cache_data.size(), error::wallet_internal_error, "txidx out of range");
       const size_t n_vouts = m_refresh_type == RefreshType::RefreshOptimizeCoinbase ? 1 : parsed_blocks[i].block.miner_tx.vout.size();
-      tpool.submit(&waiter, [&, i, txidx](){ geniod(parsed_blocks[i].block.miner_tx, n_vouts, txidx); });
+      tpool.submit(&waiter, [&, i, txidx](){ geniod(parsed_blocks[i].block.miner_tx, n_vouts, txidx); }, true);
     }
     ++txidx;
     for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
     {
       THROW_WALLET_EXCEPTION_IF(txidx >= tx_cache_data.size(), error::wallet_internal_error, "txidx out of range");
-      tpool.submit(&waiter, [&, i, j, txidx](){ geniod(parsed_blocks[i].txes[j], parsed_blocks[i].txes[j].vout.size(), txidx); });
+      tpool.submit(&waiter, [&, i, j, txidx](){ geniod(parsed_blocks[i].txes[j], parsed_blocks[i].txes[j].vout.size(), txidx); }, true);
       ++txidx;
     }
   }
   THROW_WALLET_EXCEPTION_IF(txidx != tx_cache_data.size(), error::wallet_internal_error, "txidx did not reach expected value");
-  waiter.wait();
+  waiter.wait(&tpool);
   hwdev.set_mode(hw::device::NONE);
 
   size_t tx_cache_data_offset = 0;
@@ -1960,9 +1960,9 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
     for (size_t i = 0; i < blocks.size(); ++i)
     {
       tpool.submit(&waiter, boost::bind(&wallet2::parse_block_round, this, std::cref(blocks[i].block),
-        std::ref(parsed_blocks[i].block), std::ref(parsed_blocks[i].hash), std::ref(parsed_blocks[i].error)));
+        std::ref(parsed_blocks[i].block), std::ref(parsed_blocks[i].hash), std::ref(parsed_blocks[i].error)), true);
     }
-    waiter.wait();
+    waiter.wait(&tpool);
     for (size_t i = 0; i < blocks.size(); ++i)
     {
       if (parsed_blocks[i].error)
@@ -1985,10 +1985,10 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
             boost::unique_lock<boost::mutex> lock(error_lock);
             error = true;
           }
-        });
+        }, true);
       }
     }
-    waiter.wait();
+    waiter.wait(&tpool);
   }
   catch(...)
   {
@@ -2423,7 +2423,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
         process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
         blocks_fetched += added_blocks;
       }
-      waiter.wait();
+      waiter.wait(&tpool);
       if(!first && blocks_start_height == next_blocks_start_height)
       {
         m_node_rpc_proxy.set_height(m_blockchain.size());
@@ -2446,7 +2446,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
-      waiter.wait();
+      waiter.wait(&tpool);
       if(try_count < 3)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");

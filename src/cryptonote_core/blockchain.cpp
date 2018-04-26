@@ -2818,7 +2818,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       {
         // ND: Speedup
         // 1. Thread ring signature verification if possible.
-        tpool.submit(&waiter, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])));
+        tpool.submit(&waiter, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])), true);
       }
       else
       {
@@ -2842,7 +2842,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     sig_index++;
   }
   if (tx.version == 1 && threads > 1)
-    waiter.wait();
+    waiter.wait(&tpool);
 
   if (tx.version == 1)
   {
@@ -4128,11 +4128,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       tools::threadpool::waiter waiter;
       for (uint64_t i = 0; i < threads; i++)
       {
-        tpool.submit(&waiter, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, std::cref(blocks[i]), std::ref(maps[i])));
+        tpool.submit(&waiter, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, std::cref(blocks[i]), std::ref(maps[i])), true);
         thread_height += blocks[i].size();
       }
 
-      waiter.wait();
+      waiter.wait(&tpool);
 
       if (m_cancel)
          return false;
@@ -4267,9 +4267,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     for (size_t i = 0; i < amounts.size(); i++)
     {
       uint64_t amount = amounts[i];
-      tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount]), std::ref(transactions[i])));
+      tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount]), std::ref(transactions[i])), true);
     }
-    waiter.wait();
+    waiter.wait(&tpool);
   }
   else
   {

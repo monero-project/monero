@@ -697,7 +697,7 @@ namespace cryptonote
         }
       });
     }
-    waiter.wait();
+    waiter.wait(&tpool);
     it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
       if (!results[i].res)
@@ -725,7 +725,7 @@ namespace cryptonote
         });
       }
     }
-    waiter.wait();
+    waiter.wait(&tpool);
 
     bool ok = true;
     it = tx_blobs.begin();
