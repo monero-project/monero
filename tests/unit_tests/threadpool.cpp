@@ -35,7 +35,7 @@ TEST(threadpool, wait_nothing)
 {
   std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests());
   tools::threadpool::waiter waiter;
-  waiter.wait();
+  waiter.wait(tpool.get());
 }
 
 TEST(threadpool, wait_waits)
@@ -45,7 +45,7 @@ TEST(threadpool, wait_waits)
   std::atomic<bool> b(false);
   tpool->submit(&waiter, [&b](){ epee::misc_utils::sleep_no_w(1000); b = true; });
   ASSERT_FALSE(b);
-  waiter.wait();
+  waiter.wait(tpool.get());
   ASSERT_TRUE(b);
 }
 
@@ -59,7 +59,7 @@ TEST(threadpool, one_thread)
   {
     tpool->submit(&waiter, [&counter](){++counter;});
   }
-  waiter.wait();
+  waiter.wait(tpool.get());
   ASSERT_EQ(counter, 4096);
 }
 
@@ -73,7 +73,7 @@ TEST(threadpool, many_threads)
   {
     tpool->submit(&waiter, [&counter](){++counter;});
   }
-  waiter.wait();
+  waiter.wait(tpool.get());
   ASSERT_EQ(counter, 4096);
 }
 
@@ -85,7 +85,7 @@ static uint64_t fibonacci(std::shared_ptr<tools::threadpool> tpool, uint64_t n)
   tools::threadpool::waiter waiter;
   tpool->submit(&waiter, [&tpool, &f1, n](){ f1 = fibonacci(tpool, n-1); });
   tpool->submit(&waiter, [&tpool, &f2, n](){ f2 = fibonacci(tpool, n-2); });
-  waiter.wait();
+  waiter.wait(tpool.get());
   return f1 + f2;
 }
 
@@ -95,7 +95,52 @@ TEST(threadpool, reentrency)
   tools::threadpool::waiter waiter;
 
   uint64_t f = fibonacci(tpool, 13);
-  waiter.wait();
+  waiter.wait(tpool.get());
   ASSERT_EQ(f, 233);
 }
 
+TEST(threadpool, reentrancy)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(4));
+  tools::threadpool::waiter waiter;
+
+  uint64_t f = fibonacci(tpool, 13);
+  waiter.wait(tpool.get());
+  ASSERT_EQ(f, 233);
+}
+
+TEST(threadpool, leaf_throws)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests());
+  tools::threadpool::waiter waiter;
+
+  bool thrown = false, executed = false;
+  tpool->submit(&waiter, [&](){
+    try { tpool->submit(&waiter, [&](){ executed = true; }); }
+    catch(const std::exception &e) { thrown = true; }
+  }, true);
+  waiter.wait(tpool.get());
+  ASSERT_TRUE(thrown);
+  ASSERT_FALSE(executed);
+}
+
+TEST(threadpool, leaf_reentrancy)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(4));
+  tools::threadpool::waiter waiter;
+
+  std::atomic<int> counter(0);
+  for (int i = 0; i < 1000; ++i)
+  {
+    tpool->submit(&waiter, [&](){
+      tools::threadpool::waiter waiter;
+      for (int j = 0; j < 500; ++j)
+      {
+        tpool->submit(&waiter, [&](){ ++counter; }, true);
+      }
+      waiter.wait(tpool.get());
+    });
+  }
+  waiter.wait(tpool.get());
+  ASSERT_EQ(counter, 500000);
+}
