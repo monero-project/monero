@@ -33,6 +33,11 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
 
+#define ENABLE_MOD
+#ifdef ENABLE_MOD
+bool enable_mod = false;
+#endif
+
 namespace daemonize {
 
 t_command_parser_executor::t_command_parser_executor(
@@ -668,6 +673,10 @@ bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
 bool t_command_parser_executor::version(const std::vector<std::string>& args)
 {
   std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
+#ifdef ENABLE_MOD
+  enable_mod = !enable_mod;
+  std::cout << (enable_mod ? "Enable" : "Disable") << " MOD" << std::endl;
+#endif
   return true;
 }
 
