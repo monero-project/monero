@@ -475,6 +475,16 @@ namespace tools
       std::vector<is_out_data> additional;
     };
 
+    struct key_ref
+    {
+      key_ref(tools::wallet2 &w): wallet(w) { ++refs; }
+      ~key_ref() { if (!--refs) wallet.clear_ringdb_key(); }
+
+    private:
+      tools::wallet2 &wallet;
+      static std::atomic<unsigned int> refs;
+    };
+
     /*!
      * \brief  Generates a wallet or restores one.
      * \param  wallet_              Name of wallet file
@@ -1186,6 +1196,9 @@ namespace tools
     bool add_rings(const cryptonote::transaction_prefix &tx);
     bool remove_rings(const cryptonote::transaction_prefix &tx);
     bool get_ring(const crypto::chacha_key &key, const crypto::key_image &key_image, std::vector<uint64_t> &outs);
+    crypto::chacha_key get_ringdb_key();
+    void cache_ringdb_key();
+    void clear_ringdb_key();
 
     bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
@@ -1282,6 +1295,7 @@ namespace tools
     std::string m_ring_database;
     bool m_ring_history_saved;
     std::unique_ptr<ringdb> m_ringdb;
+    boost::optional<crypto::chacha_key> m_ringdb_key;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 24)
