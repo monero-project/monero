@@ -101,6 +101,11 @@ namespace cryptonote {
     uint64_t emission_supply_component = (already_generated_coins * EMISSION_SUPPLY_MULTIPLIER) / EMISSION_SUPPLY_DIVISOR;
     uint64_t base_reward = (EMISSION_LINEAR_BASE - emission_supply_component) / EMISSION_DIVISOR;
 
+    // Check if we just overflowed
+    if (emission_supply_component > EMISSION_LINEAR_BASE) {
+      base_reward = 0;
+    }
+
     uint64_t minimum_reward = already_generated_coins / (720 * 365 * YEARLY_INFLATION_INVERSE);
     if (base_reward < minimum_reward)
     {
