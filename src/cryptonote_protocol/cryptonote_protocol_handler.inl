@@ -1196,6 +1196,7 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::on_idle()
   {
     m_idle_peer_kicker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::kick_idle_peers, this));
+    m_wedged_sync_restarter.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::restart_wedged_sync, this));
     return m_core.on_idle();
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1224,6 +1225,39 @@ skip:
     {
       m_p2p->for_connection(conn_id, [this](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags) {
         drop_connection(context, false, false);
+        return true;
+      });
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::restart_wedged_sync()
+  {
+    unsigned int n_normal = 0, n_syncing = 0;
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+    {
+      if (context.m_state == cryptonote_connection_context::state_normal)
+        ++n_normal;
+      else if (context.m_state == cryptonote_connection_context::state_synchronizing)
+        ++n_syncing;
+      return true;
+    });
+    const uint64_t target = m_core.get_target_blockchain_height();
+    const uint64_t height = m_core.get_current_blockchain_height();
+    if (n_syncing == 0 && n_normal > 0 && target > height + 2)
+    {
+      MWARNING("Sync seems wedged, restarting");
+      m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
+      {
+        if (context.m_state == cryptonote_connection_context::state_normal)
+        {
+          context.m_state = cryptonote_connection_context::state_synchronizing;
+          //let the socket to send response to handshake, but request callback, to let send request data after response
+          LOG_PRINT_CCONTEXT_L2("requesting callback");
+          ++context.m_callback_request_count;
+          m_p2p->request_callback(context);
+        }
         return true;
       });
     }
