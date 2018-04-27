@@ -148,6 +148,7 @@ namespace cryptonote
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();
+    bool restart_wedged_sync();
     int try_add_next_blocks(cryptonote_connection_context &context);
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
@@ -174,6 +175,7 @@ namespace cryptonote
     uint64_t m_last_add_end_time;
     uint64_t m_sync_spans_downloaded, m_sync_old_spans_downloaded, m_sync_bad_spans_downloaded;
     uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
+    epee::math_helper::once_a_time_seconds<150> m_wedged_sync_restarter;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
 
