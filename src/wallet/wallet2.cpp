@@ -1720,7 +1720,7 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   size_t tx_o_indices_idx = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "size mismatch");
-  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::wallet_internal_error, "Index out of bounds of hashchain");
+  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::out_of_hashchain_bounds_error);
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
   int threads = tpool.get_max_concurrency();
@@ -2274,6 +2274,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       std::list<cryptonote::block_complete_entry> next_blocks;
       std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> next_o_indices;
       bool error = false;
+      added_blocks = 0;
       if (blocks.empty())
       {
         refreshed = false;
@@ -2281,7 +2282,19 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       }
       tpool.submit(&waiter, [&]{pull_next_blocks(start_height, next_blocks_start_height, short_chain_history, blocks, next_blocks, next_o_indices, error);});
 
-      process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
+      try
+      {
+        process_blocks(blocks_start_height, blocks, o_indices, added_blocks);
+      }
+      catch (const tools::error::out_of_hashchain_bounds_error)
+      {
+        MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
+        cryptonote::block b;
+        generate_genesis(b);
+        m_blockchain.clear();
+        m_blockchain.push_back(get_block_hash(b));
+        throw std::runtime_error(""); // loop again
+      }
       blocks_fetched += added_blocks;
       waiter.wait();
       if(blocks_start_height == next_blocks_start_height)
