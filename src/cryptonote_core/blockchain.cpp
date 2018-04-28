@@ -1149,7 +1149,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   b.timestamp = time(NULL);
 
   uint8_t version = get_current_hard_fork_version();
-  uint64_t blockchain_timestamp_check_window = version < 9 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V9;
+  uint64_t blockchain_timestamp_check_window = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
 
   if(m_db->height() >= blockchain_timestamp_check_window) {
     std::vector<uint64_t> timestamps;
