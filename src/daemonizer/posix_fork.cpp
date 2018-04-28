@@ -121,7 +121,7 @@ void fork(const std::string & pidfile)
   if (!tmpdir)
     tmpdir = TMPDIR;
   std::string output = tmpdir;
-  output += "/bitmonero.daemon.stdout.stderr";
+  output += "/loki.daemon.stdout.stderr";
   const int flags = O_WRONLY | O_CREAT | O_APPEND;
   const mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   if (open(output.c_str(), flags, mode) < 0)

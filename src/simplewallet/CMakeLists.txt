@@ -1,3 +1,4 @@
+# Copyright (c) 2018, The Loki Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -34,9 +35,9 @@ set(simplewallet_headers)
 set(simplewallet_private_headers
   simplewallet.h)
 
-monero_private_headers(simplewallet
+loki_private_headers(simplewallet
   ${simplewallet_private_headers})
-monero_add_executable(simplewallet
+loki_add_executable(simplewallet
   ${simplewallet_sources}
   ${simplewallet_headers}
   ${simplewallet_private_headers})
