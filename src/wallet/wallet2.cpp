@@ -2421,7 +2421,7 @@ void wallet2::detach_blockchain(uint64_t height)
   // size  1 2 3 4 5 6 7 8 9
   // block 0 1 2 3 4 5 6 7 8
   //               C
-  THROW_WALLET_EXCEPTION_IF(height <= m_checkpoints.get_max_height() && m_blockchain.size() > m_checkpoints.get_max_height(),
+  THROW_WALLET_EXCEPTION_IF(height < m_blockchain.offset() && m_blockchain.size() > m_blockchain.offset(),
       error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
 
   size_t transfers_detached = 0;
@@ -3875,6 +3875,11 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
 void wallet2::trim_hashchain()
 {
   uint64_t height = m_checkpoints.get_max_height();
+
+  for (const transfer_details &td: m_transfers)
+    if (td.m_block_height < height)
+      height = td.m_block_height;
+
   if (!m_blockchain.empty() && m_blockchain.size() == m_blockchain.offset())
   {
     MINFO("Fixing empty hashchain");
