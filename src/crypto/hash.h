@@ -38,6 +38,7 @@
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
+#include "crypto/cn_slow_hash.hpp"
 
 namespace crypto {
 
@@ -72,11 +73,23 @@ namespace crypto {
   }
 
   inline void cn_slow_hash(const void *data, std::size_t length, hash &hash, int variant = 0) {
-    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), variant, 0/*prehashed*/);
+    static thread_local cn_pow_hash_v1 ctx1;
+    static thread_local cn_pow_hash_v2 ctx2;
+    if (variant == 0) {
+      ctx1.hash(data, length, hash.data);
+    } else {
+      ctx2.hash(data, length, hash.data);
+    }
   }
 
   inline void cn_slow_hash_prehashed(const void *data, std::size_t length, hash &hash, int variant = 0) {
-    cn_slow_hash(data, length, reinterpret_cast<char *>(&hash), variant, 1/*prehashed*/);
+    static thread_local cn_pow_hash_v1 ctx1;
+    static thread_local cn_pow_hash_v2 ctx2;
+    if (variant == 0) {
+      ctx1.hash(data, length, hash.data, true);
+    } else {
+      ctx2.hash(data, length, hash.data, true);
+    }
   }
 
   inline void tree_hash(const hash *hashes, std::size_t count, hash &root_hash) {
