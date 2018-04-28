@@ -1705,7 +1705,7 @@ namespace cryptonote
   {
     struct request
     {
-      int64_t limit_down;
+      int64_t limit_down;  // all limits (for get and set) are kB/s
       int64_t limit_up;
       
       BEGIN_KV_SERIALIZE_MAP()
