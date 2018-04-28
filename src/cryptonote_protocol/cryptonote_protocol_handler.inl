@@ -795,7 +795,7 @@ namespace cryptonote
       relay_transactions(arg, context);
     }
 
-    return true;
+    return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -1064,7 +1064,7 @@ skip:
             if (tvc.size() != block_entry.txs.size())
             {
               LOG_ERROR_CCONTEXT("Internal error: tvc.size() != block_entry.txs.size()");
-              return true;
+              return 1;
             }
             std::list<blobdata>::const_iterator it = block_entry.txs.begin();
             for (size_t i = 0; i < tvc.size(); ++i, ++it)
@@ -1075,7 +1075,7 @@ skip:
                   LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
                       << epee::string_tools::pod_to_hex(get_blob_hash(*it)) << ", dropping connection");
                   drop_connection(context, false, true);
-                  return true;
+                  return 1;
                 }))
                   LOG_ERROR_CCONTEXT("span connection id not found");
 
@@ -1104,7 +1104,7 @@ skip:
               if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
                 LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
                 drop_connection(context, true, true);
-                return true;
+                return 1;
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
@@ -1123,7 +1123,7 @@ skip:
               if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
                 LOG_PRINT_CCONTEXT_L1("Block received at sync phase was marked as orphaned, dropping connection");
                 drop_connection(context, true, true);
-                return true;
+                return 1;
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
@@ -1363,13 +1363,13 @@ skip:
           MDEBUG(context << " we have the next span, and it is scheduled, resuming");
           ++context.m_callback_request_count;
           m_p2p->request_callback(context);
-          return 1;
+          return true;
         }
 
         for (size_t n = 0; n < 50; ++n)
         {
           if (m_stopping)
-            return 1;
+            return true;
           boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
         }
       }
@@ -1693,7 +1693,7 @@ skip:
     m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, fluffyBlob, fluffyConnections);
     m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, fullBlob, fullConnections);
 
-    return 1;
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
