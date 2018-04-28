@@ -1797,7 +1797,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   blocks_added = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
-  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::wallet_internal_error, "Index out of bounds of hashchain");
+  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::out_of_hashchain_bounds_error);
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
   tools::threadpool::waiter waiter;
@@ -2412,6 +2412,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       std::vector<cryptonote::block_complete_entry> next_blocks;
       std::vector<parsed_block> next_parsed_blocks;
       bool error = false;
+      added_blocks = 0;
       if (!first && blocks.empty())
       {
         refreshed = false;
@@ -2421,7 +2422,19 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
 
       if (!first)
       {
-        process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
+        try
+        {
+          process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
+        }
+        catch (const tools::error::out_of_hashchain_bounds_error)
+        {
+          MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
+          cryptonote::block b;
+          generate_genesis(b);
+          m_blockchain.clear();
+          m_blockchain.push_back(get_block_hash(b));
+          throw std::runtime_error(""); // loop again
+        }
         blocks_fetched += added_blocks;
       }
       waiter.wait(&tpool);
