@@ -62,6 +62,7 @@
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
+#include "version.h"
 #include <stdexcept>
 
 #ifdef WIN32
@@ -1584,6 +1585,12 @@ bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::version(const std::vector<std::string> &args)
+{
+  message_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -2335,6 +2342,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::blackballed, this, _1),
                            tr("blackballed <output public key>"),
                            tr("Checks whether an output is blackballed"));
+  m_cmd_binder.set_handler("version",
+                           boost::bind(&simple_wallet::version, this, _1),
+                           tr("version"),
+                           tr("Returns version information"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::help, this, _1),
                            tr("help [<command>]"),
