@@ -83,6 +83,12 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+#define ENABLE_MOD
+#ifdef ENABLE_MOD
+extern bool enable_mod;
+std::unordered_map<crypto::hash, crypto::hash> debug_modded_blk_to_original_blk;
+#endif
+
 static const struct {
   uint8_t version;
   uint64_t height;
@@ -1975,6 +1981,13 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   uint64_t split_height = 0;
   for(; bl_it != qblock_ids.end(); bl_it++)
   {
+#ifdef ENABLE_MOD
+    if (enable_mod && bl_it == qblock_ids.begin())
+    {
+      LOG_ERROR("MODDED find_blockchain_supplement: skipping " << *bl_it);
+      continue;
+    }
+#endif
     try
     {
       if (m_db->block_exists(*bl_it, &split_height))
@@ -2032,12 +2045,30 @@ bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container
   {
     try
     {
+#ifdef ENABLE_MOD
+      crypto::hash original_block_hash = block_hash;
+      if (enable_mod && debug_modded_blk_to_original_blk.count(block_hash) != 0)
+      {
+        original_block_hash = debug_modded_blk_to_original_blk[block_hash];
+        LOG_ERROR("MODDED get_blocks: original=" << original_block_hash << ", modded=" << block_hash);
+      }
+      blocks.push_back(std::make_pair(m_db->get_block_blob(original_block_hash), block()));
+#else
       blocks.push_back(std::make_pair(m_db->get_block_blob(block_hash), block()));
+#endif
       if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
       {
         LOG_ERROR("Invalid block");
         return false;
       }
+#ifdef ENABLE_MOD
+      if (enable_mod && debug_modded_blk_to_original_blk.count(block_hash) != 0)
+      {
+        block& blk = blocks.back().second;
+        blk.prev_id = crypto::null_hash;
+        blocks.back().first = block_to_blob(blk);
+      }
+#endif
     }
     catch (const BLOCK_DNE& e)
     {
@@ -2127,7 +2158,27 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
   size_t count = 0;
   for(size_t i = start_height; i < current_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
+#ifdef ENABLE_MOD
+    const crypto::hash blk_id = m_db->get_block_hash_from_height(i);
+    if (!enable_mod || i == start_height)
+    {
+      hashes.push_back(blk_id);
+    }
+    else
+    {
+      // mod block to make the receiving node stuck
+      const blobdata blk_blob = m_db->get_block_blob(blk_id);
+      block blk;
+      CHECK_AND_ASSERT_MES(parse_and_validate_block_from_blob(blk_blob, blk), false, "internal error, invalid block");
+      blk.prev_id = crypto::null_hash;
+      const crypto::hash modded_blk_id = get_block_hash(blk);
+      hashes.push_back(modded_blk_id);
+      debug_modded_blk_to_original_blk[modded_blk_id] = blk_id;
+      LOG_ERROR("MODDED find_blockchain_supplement: height=" << i << ", original=" << blk_id << ", modded=" << modded_blk_id);
+    }
+#else
     hashes.push_back(m_db->get_block_hash_from_height(i));
+#endif
   }
 
   m_db->block_txn_stop();
