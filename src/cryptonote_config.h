@@ -166,7 +166,7 @@ namespace config
   std::string const GENESIS_TX = "";
   uint32_t const GENESIS_NONCE = 10000;
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "LCFxT37LAogDn1jLQKf4y7aAqfi21DjovX9qyijaLYQSdrxY1U5VGcnMJMjWrD9RhjeK5Lym67wZ73uh9AujXLQ1RKmXEyL";
   
   namespace testnet
   {
