@@ -462,12 +462,12 @@ TEST_decode_addr_neg("ZZZZZZ", decode_fails_due_address_too_short_5);
 namespace
 {
   std::string test_serialized_keys = MAKE_STR(
-    "\xf7\x24\xbc\x5c\x6c\xfb\xb9\xd9\x76\x02\xc3\x00\x42\x3a\x2f\x28"
-    "\x64\x18\x74\x51\x3a\x03\x57\x78\xa0\xc1\x77\x8d\x83\x32\x01\xe9"
-    "\x22\x09\x39\x68\x9e\xdf\x1a\xbd\x5b\xc1\xd0\x31\xf7\x3e\xcd\x6c"
-    "\x99\x3a\xdd\x66\xd6\x80\x88\x70\x45\x6a\xfe\xb8\xe7\xee\xb6\x8d");
+    "\x12\x3a\x93\x42\xd6\xa2\x7e\x8e\xee\x0d\x53\x9a\x6f\xa3\x00\x33"
+    "\xc6\xa9\x07\x69\x6a\x52\xa5\x23\xe7\xbf\xe5\xae\xce\x38\x8d\x1d"
+    "\x80\x08\xec\x7d\x8f\x78\x0d\x8a\xe0\x72\x27\x7a\xd3\x63\x7b\xea"
+    "\x92\x96\x7e\x66\x66\x97\x6a\x2e\xc7\xad\x82\xa2\x53\x29\xb0\xe9");
   // DON'T ever use this as a destination for funds, as the keys are right above this comment...
-  std::string test_keys_addr_str = "4AzKEX4gXdJdNeM6dfiBFL7kqund3HYGvMBF3ttsNd9SfzgYB6L7ep1Yg1osYJzLdaKAYSLVh6e6jKnAuzj3bw1oGy9kXCb";
+  std::string test_keys_addr_str = "L5dkQUgpdssQubjyfnkLTh9fHx2ScppAQ71Kv3jdn7rL5wBvMZ4GQWxQEH9QPcn8bLgEebMZqSeZF8pppfi2FGWbTPeQFoL";
 }
 
 TEST(get_account_address_as_str, works_correctly)
@@ -526,7 +526,7 @@ TEST(get_account_address_from_str, fails_on_invalid_address_spend_key)
 TEST(get_account_address_from_str, fails_on_invalid_address_view_key)
 {
   std::string serialized_keys_copy = test_serialized_keys;
-  serialized_keys_copy.back() = '\x01';
+  serialized_keys_copy.back() = '\0';
   std::string addr_str = base58::encode_addr(config::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX, serialized_keys_copy);
 
   cryptonote::address_parse_info info;

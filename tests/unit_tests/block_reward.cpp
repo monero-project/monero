@@ -53,24 +53,23 @@ namespace
 
   TEST_F(block_reward_and_already_generated_coins, handles_first_values)
   {
-  	// 17592186044415 from neozaru, confirmed by fluffypony
-    TEST_ALREADY_GENERATED_COINS(0, UINT64_C(17592186044415));
-    TEST_ALREADY_GENERATED_COINS(m_block_reward, UINT64_C(17592169267200));
-    TEST_ALREADY_GENERATED_COINS(UINT64_C(2756434948434199641), UINT64_C(14963444829249));
+    TEST_ALREADY_GENERATED_COINS(0, UINT64_C(22500000000000000));
+    TEST_ALREADY_GENERATED_COINS(m_block_reward, UINT64_C(122740188075));
+    TEST_ALREADY_GENERATED_COINS(UINT64_C(2756434948434199641), UINT64_C(8593548431289));
   }
 
   TEST_F(block_reward_and_already_generated_coins, correctly_steps_from_2_to_1)
   {
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 20) + 1), FINAL_SUBSIDY_PER_MINUTE);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (2 << 20)     , FINAL_SUBSIDY_PER_MINUTE);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((2 << 20) - 1), FINAL_SUBSIDY_PER_MINUTE);
+    TEST_ALREADY_GENERATED_COINS(((uint64_t)(1) << 58)-1, 9093668367586);
+    TEST_ALREADY_GENERATED_COINS(((uint64_t)(1) << 58)  , 9093668367586);
+    TEST_ALREADY_GENERATED_COINS(((uint64_t)(1) << 58)+1, 9093668367586);
   }
 
   TEST_F(block_reward_and_already_generated_coins, handles_max)
   {
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) + 1), FINAL_SUBSIDY_PER_MINUTE);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (1 << 20)     , FINAL_SUBSIDY_PER_MINUTE);
-    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) - 1), FINAL_SUBSIDY_PER_MINUTE);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) + 1), 8445150021246);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY -  (1 << 20)     , 8445150021246);
+    TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) - 1), 8445150021246);
   }
 
   //--------------------------------------------------------------------------------------------------------------------
@@ -89,7 +88,7 @@ namespace
       m_block_not_too_big = get_block_reward(median_block_size, current_block_size, already_generated_coins, m_block_reward, 1);
     }
 
-    static const uint64_t already_generated_coins = 0;
+    static const uint64_t already_generated_coins = UINT64_C(22500000000000000);
 
     bool m_block_not_too_big;
     uint64_t m_block_reward;
@@ -180,7 +179,7 @@ namespace
       m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_sizes), current_block_size, already_generated_coins, m_block_reward, 1);
     }
 
-    static const uint64_t already_generated_coins = 0;
+    static const uint64_t already_generated_coins = UINT64_C(22500000000000000);
 
     std::vector<size_t> m_last_block_sizes;
     uint64_t m_last_block_sizes_median;
