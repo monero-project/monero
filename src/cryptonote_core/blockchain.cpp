@@ -2032,16 +2032,19 @@ bool Blockchain::get_blocks(const t_ids_container& block_ids, t_blocks_container
   {
     try
     {
-      blocks.push_back(std::make_pair(m_db->get_block_blob(block_hash), block()));
-      if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
+      uint64_t height = 0;
+      if (m_db->block_exists(block_hash, &height))
       {
-        LOG_ERROR("Invalid block");
-        return false;
+        blocks.push_back(std::make_pair(m_db->get_block_blob_from_height(height), block()));
+        if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
+        {
+          LOG_ERROR("Invalid block: " << block_hash);
+          blocks.pop_back();
+          missed_bs.push_back(block_hash);
+        }
       }
-    }
-    catch (const BLOCK_DNE& e)
-    {
-      missed_bs.push_back(block_hash);
+      else
+        missed_bs.push_back(block_hash);
     }
     catch (const std::exception& e)
     {
