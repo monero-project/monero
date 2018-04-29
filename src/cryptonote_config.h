@@ -163,7 +163,7 @@ namespace config
   boost::uuids::uuid const NETWORK_ID = { {
       0x12 ,0x31, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10
     } }; // Bender's nightmare
-  std::string const GENESIS_TX = "";
+  std::string const GENESIS_TX = "023c01ff000380808d93f5d77102e51b89b74e760fc2e0a479dfe80667375eab217a7c707c1195338bdcdd2bb9358080b4ccd4dfc603020b2416627630a7175b11fce16cbc2168e4d7a586c58a66ac7d0e257c8428b7f6808088fccdbcc3230285b2b78958f91b193d28cc0e350329737e2b3a9f7711f387e8a612c7a7be6f3b2101a427e224cae34ffdf8784b79a857ba1be82edffd471050ed78234ca2fe883c1000";
   uint32_t const GENESIS_NONCE = 10000;
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "LCFxT37LAogDn1jLQKf4y7aAqfi21DjovX9qyijaLYQSdrxY1U5VGcnMJMjWrD9RhjeK5Lym67wZ73uh9AujXLQ1RKmXEyL";
