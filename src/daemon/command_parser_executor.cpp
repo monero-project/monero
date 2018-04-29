@@ -665,4 +665,25 @@ bool t_command_parser_executor::version(const std::vector<std::string>& args)
   return true;
 }
 
+bool t_command_parser_executor::prune_blockchain(const std::vector<std::string>& args)
+{
+  if (args.size() > 1) return false;
+
+  uint32_t pruning_seed = 0;
+  if (args.size() == 1)
+  {
+    if(!epee::string_tools::get_xtype_from_string(pruning_seed, args[0]))
+    {
+      std::cout << "failed to parse pruning seed" << std::endl;
+      return true;
+    }
+  }
+  return m_executor.prune_blockchain(pruning_seed);
+}
+
+bool t_command_parser_executor::check_blockchain_pruning(const std::vector<std::string>& args)
+{
+  return m_executor.check_blockchain_pruning();
+}
+
 } // namespace daemonize

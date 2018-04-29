@@ -157,6 +157,11 @@ namespace cryptonote
   , "Set maximum txpool size in bytes."
   , DEFAULT_TXPOOL_MAX_SIZE
   };
+  static const command_line::arg_descriptor<bool> arg_prune_blockchain  = {
+    "prune-blockchain"
+  , "Prune blockchain"
+  , false
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -263,6 +268,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_size);
+    command_line::add_arg(desc, arg_prune_blockchain);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -348,6 +354,11 @@ namespace cryptonote
     return m_blockchain_storage.get_transactions_blobs(txs_ids, txs, missed_txs);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_split_transactions_blobs(const std::vector<crypto::hash>& txs_ids, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>& txs, std::vector<crypto::hash>& missed_txs) const
+  {
+    return m_blockchain_storage.get_split_transactions_blobs(txs_ids, txs, missed_txs);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_txpool_backlog(std::vector<tx_backlog_entry>& backlog) const
   {
     m_mempool.get_transaction_backlog(backlog);
@@ -390,6 +401,7 @@ namespace cryptonote
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
     size_t max_txpool_size = command_line::get_arg(vm, arg_max_txpool_size);
+    bool prune_blockchain = command_line::get_arg(vm, arg_prune_blockchain);
 
     boost::filesystem::path folder(m_config_folder);
     if (m_nettype == FAKECHAIN)
@@ -544,6 +556,8 @@ namespace cryptonote
 
     r = m_miner.init(vm, m_nettype);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
+
+    CHECK_AND_ASSERT_MES(!prune_blockchain || m_blockchain_storage.prune_blockchain(), false, "Failed to prune blockchain");
 
     return load_state_data();
   }
@@ -1360,6 +1374,7 @@ namespace cryptonote
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
+    m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1544,6 +1559,17 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::update_blockchain_pruning()
+  {
+    return m_blockchain_storage.update_blockchain_pruning();
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_blockchain_pruning()
+  {
+MGINFO("trace");
+    return m_blockchain_storage.check_blockchain_pruning();
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::set_target_blockchain_height(uint64_t target_blockchain_height)
   {
     m_target_blockchain_height = target_blockchain_height;
@@ -1564,6 +1590,16 @@ namespace cryptonote
     boost::filesystem::path path(m_config_folder);
     boost::filesystem::space_info si = boost::filesystem::space(path);
     return si.available;
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint32_t core::get_blockchain_pruning_seed() const
+  {
+    return get_blockchain_storage().get_blockchain_pruning_seed();
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::prune_blockchain(uint32_t pruning_seed)
+  {
+    return get_blockchain_storage().prune_blockchain(pruning_seed);
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

@@ -76,13 +76,35 @@ namespace nodetool
     bool append_with_peer_white(const peerlist_entry& pr);
     bool append_with_peer_gray(const peerlist_entry& pr);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
-    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr);
+    bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed);
     bool set_peer_unreachable(const peerlist_entry& pr);
     bool is_host_allowed(const epee::net_utils::network_address &address);
     bool get_random_gray_peer(peerlist_entry& pe);
     bool remove_from_peer_gray(const peerlist_entry& pe);
     bool get_and_empty_anchor_peerlist(std::vector<anchor_peerlist_entry>& apl);
     bool remove_from_peer_anchor(const epee::net_utils::network_address& addr);
+#if 0
+void twiddle_white(size_t i) {
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+    if(i >= m_peers_white.size())
+      return false;
+
+    peers_indexed::index<by_time>::type& by_time_index = m_peers_white.get<by_time>();
+by_time_index->pruning_seed = by_time_index->adr.as<epee::net_utils::ipv4_network_address>().ip() % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES);
+    return true;
+}
+void twiddle_gray(size_t i) {
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+    if(i >= m_peers_gray.size())
+      return false;
+
+    peers_indexed::index<by_time>::type& by_time_index = m_peers_gray.get<by_time>();
+by_time_index->pruning_seed = by_time_index->adr.as<epee::net_utils::ipv4_network_address>().ip() % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES);
+    return true;
+}
+#endif
+    bool remove_from_peer_white(const peerlist_entry& pe);
+#warning DGFFDAF
     
   private:
     struct by_time{};
@@ -354,7 +376,7 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr)
+  bool peerlist_manager::set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed)
   {
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
@@ -363,6 +385,7 @@ namespace nodetool
     ple.adr = addr;
     ple.id = peer;
     ple.last_seen = time(NULL);
+    ple.pruning_seed = pruning_seed;
     return append_with_peer_white(ple);
     CATCH_ENTRY_L0("peerlist_manager::set_peer_just_seen()", false);
   }
@@ -463,6 +486,25 @@ namespace nodetool
     return true;
 
     CATCH_ENTRY_L0("peerlist_manager::get_random_gray_peer()", false);
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::remove_from_peer_white(const peerlist_entry& pe)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    peers_indexed::index_iterator<by_addr>::type iterator = m_peers_white.get<by_addr>().find(pe.adr);
+
+    if (iterator != m_peers_white.get<by_addr>().end()) {
+      m_peers_white.erase(iterator);
+    }
+
+    return true;
+#warning REMOVE
+
+    CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_gray()", false);
   }
   //--------------------------------------------------------------------------------------------------
   inline

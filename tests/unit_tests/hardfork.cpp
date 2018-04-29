@@ -65,6 +65,7 @@ public:
   virtual blobdata get_block_blob(const crypto::hash& h) const { return blobdata(); }
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
+  virtual bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const { return false; }
   virtual bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const { return false; }
   virtual uint64_t get_block_height(const crypto::hash& h) const { return 0; }
   virtual block_header get_block_header(const crypto::hash& h) const { return block_header(); }
@@ -125,6 +126,10 @@ public:
   virtual void remove_txpool_tx(const crypto::hash& txid) {}
   virtual bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const { return false; }
   virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const { return false; }
+  virtual uint32_t get_blockchain_pruning_seed() const { return 0; }
+  virtual bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
+  virtual bool update_pruning() { return true; }
+  virtual bool check_pruning() { return true; }
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const { return ""; }
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, bool include_unrelayed_txes = false) const { return false; }
 

@@ -52,6 +52,7 @@
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
+#include "common/pruning.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -2181,6 +2182,40 @@ bool Blockchain::get_transactions_blobs(const t_ids_container& txs_ids, t_tx_con
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_tx_container, class t_missed_container>
+bool Blockchain::get_split_transactions_blobs(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  reserve_container(txs, txs_ids.size());
+  for (const auto& tx_hash : txs_ids)
+  {
+    try
+    {
+      cryptonote::blobdata tx;
+      if (m_db->get_pruned_tx_blob(tx_hash, tx))
+      {
+        txs.push_back(std::make_tuple(tx_hash, std::move(tx), crypto::null_hash, cryptonote::blobdata()));
+        if ((std::get<1>(txs.back()).empty() || std::get<1>(txs.back())[0] > 1) && !m_db->get_prunable_tx_hash(tx_hash, std::get<2>(txs.back())))
+        {
+          MERROR("Prunable data hash not found for " << tx_hash);
+          return false;
+        }
+        if (!m_db->get_prunable_tx_blob(tx_hash, std::get<3>(txs.back())))
+          std::get<3>(txs.back()).clear();
+      }
+      else
+        missed_txs.push_back(tx_hash);
+    }
+    catch (const std::exception& e)
+    {
+      return false;
+    }
+  }
+  return true;
+}
+//------------------------------------------------------------------
+template<class t_ids_container, class t_tx_container, class t_missed_container>
 bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2228,9 +2263,12 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   m_db->block_txn_start(true);
   current_height = get_current_blockchain_height();
+  const uint32_t pruning_seed = get_blockchain_pruning_seed();
+  start_height = tools::get_next_unpruned_block_height(start_height, current_height, pruning_seed);
+  uint64_t stop_height = tools::get_next_pruned_block_height(start_height, current_height, pruning_seed);
   size_t count = 0;
-  hashes.reserve(std::max((size_t)(current_height - start_height), (size_t)BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT));
-  for(size_t i = start_height; i < current_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
+  hashes.reserve(std::min((size_t)(stop_height - start_height), (size_t)BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT));
+  for(size_t i = start_height; i < stop_height && count < BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT; i++, count++)
   {
     hashes.push_back(m_db->get_block_hash_from_height(i));
   }
@@ -2773,7 +2811,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
   tools::threadpool::waiter waiter;
-  const auto waiter_guard = epee::misc_utils::create_scope_leave_handler([&]() { waiter.wait(); });
+  const auto waiter_guard = epee::misc_utils::create_scope_leave_handler([&]() { waiter.wait(&tpool); });
   int threads = tpool.get_max_concurrency();
 
   for (const auto& txin : tx.vin)
@@ -3685,6 +3723,24 @@ leave:
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::update_blockchain_pruning()
+{
+  m_tx_pool.lock();
+  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  return m_db->update_pruning();
+}
+//------------------------------------------------------------------
+bool Blockchain::check_blockchain_pruning()
+{
+  m_tx_pool.lock();
+  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  return m_db->check_pruning();
+}
+//------------------------------------------------------------------
 bool Blockchain::update_next_cumulative_size_limit()
 {
   uint64_t full_reward_zone = get_min_block_size(get_current_hard_fork_version());
@@ -3895,6 +3951,8 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 
   CRITICAL_REGION_END();
   m_tx_pool.unlock();
+
+  update_blockchain_pruning();
 
   return success;
 }
@@ -4616,4 +4674,5 @@ bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t he
 namespace cryptonote {
 template bool Blockchain::get_transactions(const std::vector<crypto::hash>&, std::vector<transaction>&, std::vector<crypto::hash>&) const;
 template bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>&, std::vector<cryptonote::blobdata>&, std::vector<crypto::hash>&, bool) const;
+template bool Blockchain::get_split_transactions_blobs(const std::vector<crypto::hash>&, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>&, std::vector<crypto::hash>&) const;
 }

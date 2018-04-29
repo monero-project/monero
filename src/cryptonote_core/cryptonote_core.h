@@ -358,6 +358,13 @@ namespace cryptonote
       *
       * @note see Blockchain::get_transactions
       */
+     bool get_split_transactions_blobs(const std::vector<crypto::hash>& txs_ids, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>& txs, std::vector<crypto::hash>& missed_txs) const;
+
+     /**
+      * @copydoc Blockchain::get_transactions
+      *
+      * @note see Blockchain::get_transactions
+      */
      bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<transaction>& txs, std::vector<crypto::hash>& missed_txs) const;
 
      /**
@@ -779,6 +786,36 @@ namespace cryptonote
       */
      bool offline() const { return m_offline; }
 
+     /**
+      * @brief get the blockchain pruning seed
+      *
+      * @return the blockchain pruning seed
+      */
+     uint32_t get_blockchain_pruning_seed() const;
+
+     /**
+      * @brief rune the blockchain
+      *
+      * @param pruning_seed the seed to use to prune the chain (0 for default, highly recommended)
+      *
+      * @return true iff success
+      */
+     bool prune_blockchain(uint32_t pruning_seed = 0);
+
+     /**
+      * @brief incrementally prunes blockchain
+      *
+      * @return true on success, false otherwise
+      */
+     bool update_blockchain_pruning();
+
+     /**
+      * @brief checks the blockchain pruning if enabled
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_blockchain_pruning();
+
    private:
 
      /**
@@ -969,6 +1006,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
+     epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 

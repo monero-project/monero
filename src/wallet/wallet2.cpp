@@ -2176,7 +2176,7 @@ void wallet2::update_pool_state(bool refreshed)
       req.txs_hashes.push_back(epee::string_tools::pod_to_hex(p.first));
     MDEBUG("asking for " << txids.size() << " transactions");
     req.decode_as_json = false;
-    req.prune = false;
+    req.prune = true;
     m_daemon_rpc_mutex.lock();
     bool r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();
@@ -2191,10 +2191,14 @@ void wallet2::update_pool_state(bool refreshed)
           {
             cryptonote::transaction tx;
             cryptonote::blobdata bd;
-            crypto::hash tx_hash, tx_prefix_hash;
-            if (epee::string_tools::parse_hexstr_to_binbuff(tx_entry.as_hex, bd))
+            crypto::hash tx_hash;
+            if (!epee::string_tools::hex_to_pod(tx_entry.tx_hash, tx_hash))
             {
-              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash))
+              MERROR("Failed to parse txid: " << tx_entry.tx_hash);
+            }
+            else if (epee::string_tools::parse_hexstr_to_binbuff(tx_entry.as_hex, bd))
+            {
+              if (cryptonote::parse_and_validate_tx_base_from_blob(bd, tx))
               {
                 const std::vector<std::pair<crypto::hash, bool>>::const_iterator i = std::find_if(txids.begin(), txids.end(),
                     [tx_hash](const std::pair<crypto::hash, bool> &e) { return e.first == tx_hash; });
@@ -5933,9 +5937,7 @@ bool wallet2::find_and_save_rings(bool force)
     cryptonote::blobdata bd;
     THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(tx_info.as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
     cryptonote::transaction tx;
-    crypto::hash tx_hash, tx_prefix_hash;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-    THROW_WALLET_EXCEPTION_IF(epee::string_tools::pod_to_hex(tx_hash) != tx_info.tx_hash, error::wallet_internal_error, "txid mismatch");
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx), error::wallet_internal_error, "failed to parse tx from blob");
     THROW_WALLET_EXCEPTION_IF(!add_rings(get_ringdb_key(), tx), error::wallet_internal_error, "Failed to save ring");
     }
   }
@@ -8510,7 +8512,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
   bool r;
   {
@@ -8526,9 +8528,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
   cryptonote::blobdata bd;
   THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
   cryptonote::transaction tx;
-  crypto::hash tx_hash, tx_prefix_hash;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "txid mismatch");
+  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx), error::wallet_internal_error, "failed to parse tx from blob");
 
   std::vector<std::vector<crypto::signature>> signatures;
 
@@ -8630,7 +8630,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
   bool r;
   {
@@ -8646,9 +8646,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   cryptonote::blobdata bd;
   THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
   cryptonote::transaction tx;
-  crypto::hash tx_hash, tx_prefix_hash;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "txid mismatch");
+  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(bd, tx), error::wallet_internal_error, "failed to parse tx from blob");
 
   // check signature size
   size_t num_sigs = 0;

@@ -40,7 +40,7 @@ namespace cryptonote
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
-        m_last_request_time(boost::posix_time::microsec_clock::universal_time()), m_callback_request_count(0), m_last_known_hash(crypto::null_hash) {}
+        m_last_request_time(boost::posix_time::microsec_clock::universal_time()), m_callback_request_count(0), m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_anchor(false) {}
 
     enum state
     {
@@ -59,6 +59,8 @@ namespace cryptonote
     boost::posix_time::ptime m_last_request_time;
     epee::copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
     crypto::hash m_last_known_hash;
+    uint32_t m_pruning_seed;
+    bool m_anchor;
     //size_t m_score;  TODO: add score calculations
   };
 

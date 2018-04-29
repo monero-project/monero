@@ -209,15 +209,6 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  static cryptonote::blobdata get_pruned_tx_blob(cryptonote::transaction &tx)
-  {
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
-    bool r = tx.serialize_base(ba);
-    CHECK_AND_ASSERT_MES(r, cryptonote::blobdata(), "Failed to serialize rct signatures base");
-    return ss.str();
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     PERF_TIMER(on_get_blocks);
@@ -544,8 +535,8 @@ namespace cryptonote
       vh.push_back(*reinterpret_cast<const crypto::hash*>(b.data()));
     }
     std::vector<crypto::hash> missed_txs;
-    std::vector<transaction> txs;
-    bool r = m_core.get_transactions(vh, txs, missed_txs);
+    std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> txs;
+    bool r = m_core.get_split_transactions_blobs(vh, txs, missed_txs);
     if(!r)
     {
       res.status = "Failed";
@@ -565,7 +556,7 @@ namespace cryptonote
       if(r)
       {
         // sort to match original request
-        std::vector<transaction> sorted_txs;
+        std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
         std::vector<tx_info>::const_iterator i;
         for (const crypto::hash &h: vh)
         {
@@ -577,7 +568,7 @@ namespace cryptonote
               return true;
             }
             // core returns the ones it finds in the right order
-            if (get_transaction_hash(txs.front()) != h)
+            if (std::get<0>(txs.front()) != h)
             {
               res.status = "Failed: tx hash mismatch";
               return true;
@@ -593,7 +584,16 @@ namespace cryptonote
               res.status = "Failed to parse and validate tx from blob";
               return true;
             }
-            sorted_txs.push_back(tx);
+            std::stringstream ss;
+            binary_archive<true> ba(ss);
+            bool r = const_cast<cryptonote::transaction&>(tx).serialize_base(ba);
+            if (!r)
+            {
+              res.status = "Failed to serialize transaction base";
+              return true;
+            }
+            const cryptonote::blobdata pruned = ss.str();
+            sorted_txs.push_back(std::make_tuple(h, pruned, get_transaction_prunable_hash(tx), std::string(i->tx_blob, pruned.size())));
             missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
             pool_tx_hashes.insert(h);
             const std::string hash_string = epee::string_tools::pod_to_hex(h);
@@ -622,10 +622,24 @@ namespace cryptonote
 
       crypto::hash tx_hash = *vhi++;
       e.tx_hash = *txhi++;
-      blobdata blob = req.prune ? get_pruned_tx_blob(tx) : t_serializable_object_to_blob(tx);
-      e.as_hex = string_tools::buff_to_hex_nodelimer(blob);
-      if (req.decode_as_json)
-        e.as_json = obj_to_json_str(tx);
+      e.prunable_hash = epee::string_tools::pod_to_hex(std::get<2>(tx));
+      if (req.split)
+      {
+        e.pruned_as_hex = string_tools::buff_to_hex_nodelimer(std::get<1>(tx));
+        if (!req.prune)
+          e.prunable_as_hex = string_tools::buff_to_hex_nodelimer(std::get<3>(tx));
+      }
+      else
+      {
+        cryptonote::blobdata tx_data;
+        if (req.prune)
+          tx_data = std::get<1>(tx);
+        else
+          tx_data = std::get<1>(tx) + std::get<3>(tx);
+        e.as_hex = string_tools::buff_to_hex_nodelimer(tx_data);
+        if (req.decode_as_json && !tx_data.empty())
+          e.as_json = obj_to_json_str(tx_data);
+      }
       e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
       if (e.in_pool)
       {
@@ -913,18 +927,18 @@ namespace cryptonote
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
-            entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen);
+            entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen, entry.pruning_seed);
       else
-        res.white_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen);
+        res.white_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen, entry.pruning_seed);
     }
 
     for (auto & entry : gray_list)
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
         res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
-            entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen);
+            entry.adr.as<epee::net_utils::ipv4_network_address>().port(), entry.last_seen, entry.pruning_seed);
       else
-        res.gray_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen);
+        res.gray_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen, entry.pruning_seed);
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -2041,6 +2055,7 @@ namespace cryptonote
     m_core.get_blockchain_top(res.height, top_hash);
     ++res.height; // turn top block height into blockchain height
     res.target_height = m_core.get_target_blockchain_height();
+    res.next_needed_pruning_seed = m_p2p.get_payload_object().get_next_needed_pruning_seed().second;
 
     for (const auto &c: m_p2p.get_payload_object().get_connections())
       res.peers.push_back({c});
@@ -2055,6 +2070,7 @@ namespace cryptonote
       res.spans.push_back({span.start_block_height, span.nblocks, span_connection_id, (uint32_t)(span.rate + 0.5f), speed, span.size, address});
       return true;
     });
+    res.overview = block_queue.get_overview(res.height);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -2147,6 +2163,29 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Failed to get output distribution";
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_prune_blockchain(const COMMAND_RPC_PRUNE_BLOCKCHAIN::request& req, COMMAND_RPC_PRUNE_BLOCKCHAIN::response& res, epee::json_rpc::error& error_resp)
+  {
+    try
+    {
+      if (!(req.check ? m_core.check_blockchain_pruning() : m_core.prune_blockchain(req.pruning_seed)))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+        error_resp.message = req.check ? "Failed to check blockchain pruning" : "Failed to prune blockchain";
+        return false;
+      }
+      res.pruning_seed = m_core.get_blockchain_pruning_seed();
+    }
+    catch (const std::exception &e)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Failed to prune blockchain";
       return false;
     }
 
