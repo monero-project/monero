@@ -85,6 +85,16 @@
 #define MGINFO_MAGENTA(x) MCLOG_MAGENTA(el::Level::Info, "global",x)
 #define MGINFO_CYAN(x) MCLOG_CYAN(el::Level::Info, "global",x)
 
+#define IFLOG(level, cat, type, init, x) \
+  do { \
+    if (ELPP->vRegistry()->allowed(level, cat)) { \
+      init; \
+      el::base::Writer(level, __FILE__, __LINE__, ELPP_FUNC, type).construct(cat) << x; \
+    } \
+  } while(0)
+#define MIDEBUG(init, x) IFLOG(el::Level::Debug, MONERO_DEFAULT_LOG_CATEGORY, el::base::DispatchAction::NormalLog, init, x)
+
+
 #define LOG_ERROR(x) MERROR(x)
 #define LOG_PRINT_L0(x) MWARNING(x)
 #define LOG_PRINT_L1(x) MINFO(x)

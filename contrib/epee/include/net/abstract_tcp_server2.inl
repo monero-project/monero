@@ -295,6 +295,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			CRITICAL_REGION_LOCAL(m_throttle_speed_in_mutex);
 			m_throttle_speed_in.handle_trafic_exact(bytes_transferred);
 			context.m_current_speed_down = m_throttle_speed_in.get_current_speed();
+			context.m_max_speed_down = std::max(context.m_max_speed_down, context.m_current_speed_down);
 		}
     
     {
@@ -497,6 +498,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		CRITICAL_REGION_LOCAL(m_throttle_speed_out_mutex);
 		m_throttle_speed_out.handle_trafic_exact(cb);
 		context.m_current_speed_up = m_throttle_speed_out.get_current_speed();
+		context.m_max_speed_up = std::max(context.m_max_speed_up, context.m_current_speed_up);
 	}
 
     //_info("[sock " << socket_.native_handle() << "] SEND " << cb);

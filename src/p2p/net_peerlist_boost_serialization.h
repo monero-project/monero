@@ -33,6 +33,10 @@
 #include "net/net_utils_base.h"
 #include "p2p/p2p_protocol_defs.h"
 
+#ifdef CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
+#include "common/pruning.h"
+#endif
+
 namespace boost
 {
   namespace serialization
@@ -77,6 +81,19 @@ namespace boost
       a & pl.adr;
       a & pl.id;
       a & pl.last_seen;
+      if (ver < 1)
+      {
+        if (!typename Archive::is_saving())
+          pl.pruning_seed = 0;
+        return;
+      }
+      a & pl.pruning_seed;
+#ifdef CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
+      if (!typename Archive::is_saving())
+      {
+        pl.pruning_seed = tools::make_pruning_seed(1+pl.adr.as<epee::net_utils::ipv4_network_address>().ip() % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES), CRYPTONOTE_PRUNING_LOG_STRIPES);
+      }
+#endif
     }
 
     template <class Archive, class ver_type>

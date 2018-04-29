@@ -65,6 +65,7 @@ set(unit_tests_sources
   notify.cpp
   output_distribution.cpp
   parse_amount.cpp
+  pruning.cpp
   random.cpp
   serialization.cpp
   sha256.cpp
