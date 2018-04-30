@@ -157,13 +157,13 @@ namespace config
   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 114;
   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 115;
   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 116;
-  uint16_t const P2P_DEFAULT_PORT = 18080;
-  uint16_t const RPC_DEFAULT_PORT = 18081;
-  uint16_t const ZMQ_RPC_DEFAULT_PORT = 18082;
+  uint16_t const P2P_DEFAULT_PORT = 1808;
+  uint16_t const RPC_DEFAULT_PORT = 1801;
+  uint16_t const ZMQ_RPC_DEFAULT_PORT = 1802;
   boost::uuids::uuid const NETWORK_ID = { {
       0x12 ,0x31, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10
     } }; // Bender's nightmare
-  std::string const GENESIS_TX = "023c01ff000380808d93f5d77102b8f9495fc22c5efcbedce6d444a61c671d08e20659f5e5d8eb4a5973a1b3e7958080b4ccd4dfc60302684881e4c281bd5461e33e445380115c77b24342e93209b826d190bb3b55f20f808088fccdbcc32302b82a9811fa52e8f55bd7cdcba04c4417931f1756249b7cb515cf8229922895132101738bc434facbdc632c6d9549e07c0d5985afec2ca739b0604b62bef50d37d65c00";
+  std::string const GENESIS_TX = "";
   uint32_t const GENESIS_NONCE = 1022201;
 
   std::string const GOVERNANCE_WALLET_ADDRESS = "LCFxT37LAogDn1jLQKf4y7aAqfi21DjovX9qyijaLYQSdrxY1U5VGcnMJMjWrD9RhjeK5Lym67wZ73uh9AujXLQ1RKmXEyL";
@@ -194,8 +194,8 @@ namespace config
     uint16_t const RPC_DEFAULT_PORT = 38154;
     uint16_t const ZMQ_RPC_DEFAULT_PORT = 38155;
     boost::uuids::uuid const NETWORK_ID = { {
-        0x62 ,0x37, 0x9B, 0x22 , 0x0A, 0x66 , 0x69, 0x1E, 0x09, 0xB2, 0x97, 0x8A, 0xCC, 0xA1, 0xDF, 0x9C
-      } }; // Bender's daydream
+        0xbb ,0x37, 0x9B, 0x22 , 0x0A, 0x66 , 0x69, 0x1E, 0x09, 0xB2, 0x97, 0x8A, 0xCC, 0xA1, 0xDF, 0x9C
+      } }; // Beep Boop
     std::string const GENESIS_TX = "021e01ff000380808d93f5d771027e4490431900c66a6532917ad9e6a1de634a209b708f653097e7b48efc1238c68080b4ccd4dfc60302ba19a224e6474371f9161b2e6271a36d060cbdc2e479ad78f1be64c56576fa07808088fccdbcc32302bccf9c13ba1b5bb02638de6e557acdd46bf48953e42cf98a12d2ad2900cc316121018fc6728d9e3c062d3afae3b2317998d2abee1e12f51271ba1c0d3cdd236b81d200";
     uint32_t const GENESIS_NONCE = 10002;
 
