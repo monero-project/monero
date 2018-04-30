@@ -45,7 +45,9 @@ set(crypto_sources
   oaes_lib.c
   random.c
   skein.c
-  slow-hash.c
+  cn_slow_hash_hard_arm.cpp
+  cn_slow_hash_hard_intel.cpp
+  cn_slow_hash_soft.cpp
   tree-hash.c)
 
 set(crypto_headers)
@@ -67,7 +69,8 @@ set(crypto_private_headers
   oaes_lib.h
   random.h
   skein.h
-  skein_port.h)
+  skein_port.h
+  cn_slow_hash.hpp)
 
 loki_private_headers(cncrypto
   ${crypto_private_headers})
