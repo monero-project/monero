@@ -9131,8 +9131,9 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
   const int seconds_per_block         = DIFFICULTY_TARGET_V2;
-  const time_t epochTimeMiningStarted = 1524470565;
-  uint64_t approx_blockchain_height   = (time(NULL) - epochTimeMiningStarted)/seconds_per_block;
+  const time_t epochTimeMiningStarted = 1525067730 + (60 * 60 * 24 * 7); // 2018-04-30 ~3:55PM + 1 week to be conservative.
+  const time_t currentTime            = time(NULL);
+  uint64_t approx_blockchain_height   = (currentTime < epochTimeMiningStarted) ? 0 : (currentTime - epochTimeMiningStarted)/seconds_per_block;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
