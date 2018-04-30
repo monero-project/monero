@@ -46,10 +46,10 @@
 #define CURRENT_BLOCK_MINOR_VERSION                     6
 #define CURRENT_BLOCK_MAJOR_VERSION_TESTNET             7
 #define CURRENT_BLOCK_MINOR_VERSION_TESTNET             7
-#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
+#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
-#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(-1))
@@ -80,19 +80,17 @@
 
 
 #define DIFFICULTY_TARGET_V2                            120  // seconds
-#define DIFFICULTY_TARGET_V1                            60  // seconds - before first fork
-#define DIFFICULTY_WINDOW                               720 // blocks
+#define DIFFICULTY_WINDOW_V2                            60
 #define DIFFICULTY_LAG                                  15  // !!!
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
-#define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
+#define DIFFICULTY_BLOCKS_COUNT_V2                      (DIFFICULTY_WINDOW_V2 + 1) // added +1 to make N=N
 
 
-#define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS       1
 
 
-#define DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN             DIFFICULTY_TARGET_V1 //just alias; used by tests
+#define DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN             DIFFICULTY_TARGET_V2 //just alias; used by tests
 
 
 #define BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT          10000  //by default, blocks ids count in synchronizing
@@ -159,16 +157,16 @@ namespace config
   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 114;
   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 115;
   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 116;
-  uint16_t const P2P_DEFAULT_PORT = 18080;
-  uint16_t const RPC_DEFAULT_PORT = 18081;
-  uint16_t const ZMQ_RPC_DEFAULT_PORT = 18082;
+  uint16_t const P2P_DEFAULT_PORT = 1808;
+  uint16_t const RPC_DEFAULT_PORT = 1801;
+  uint16_t const ZMQ_RPC_DEFAULT_PORT = 1802;
   boost::uuids::uuid const NETWORK_ID = { {
       0x12 ,0x31, 0xF1, 0x71 , 0x61, 0x04 , 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10
     } }; // Bender's nightmare
   std::string const GENESIS_TX = "";
-  uint32_t const GENESIS_NONCE = 10000;
+  uint32_t const GENESIS_NONCE = 1022201;
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "LCFxT37LAogDn1jLQKf4y7aAqfi21DjovX9qyijaLYQSdrxY1U5VGcnMJMjWrD9RhjeK5Lym67wZ73uh9AujXLQ1RKmXEyL";
   
   namespace testnet
   {
@@ -196,12 +194,12 @@ namespace config
     uint16_t const RPC_DEFAULT_PORT = 38154;
     uint16_t const ZMQ_RPC_DEFAULT_PORT = 38155;
     boost::uuids::uuid const NETWORK_ID = { {
-        0x62 ,0x37, 0x9B, 0x22 , 0x0A, 0x66 , 0x69, 0x1E, 0x09, 0xB2, 0x97, 0x8A, 0xCC, 0xA1, 0xDF, 0x9C
-      } }; // Bender's daydream
-    std::string const GENESIS_TX = "023c01ff000380808d93f5d77102895ed587c190517c0d73885722330cf9c9e063b1897b3e9bc47e0f71693162298080b4ccd4dfc60302f7bf648401370624e008d10f12bad9bea8a82a5f6bfee12a30318ad6dbdee681808088fccdbcc323024497d2fc7d856d8b7b755034d4808a68bbe0d0cf9ab14151b2402b358bf441e3210179d5ba0a6c2c2c641c793e2a74ba0709c70781724275843b53d1d1c439dcf2f400";
+        0xbb ,0x37, 0x9B, 0x22 , 0x0A, 0x66 , 0x69, 0x1E, 0x09, 0xB2, 0x97, 0x8A, 0xCC, 0xA1, 0xDF, 0x9C
+      } }; // Beep Boop
+    std::string const GENESIS_TX = "021e01ff000380808d93f5d771027e4490431900c66a6532917ad9e6a1de634a209b708f653097e7b48efc1238c68080b4ccd4dfc60302ba19a224e6474371f9161b2e6271a36d060cbdc2e479ad78f1be64c56576fa07808088fccdbcc32302bccf9c13ba1b5bb02638de6e557acdd46bf48953e42cf98a12d2ad2900cc316121018fc6728d9e3c062d3afae3b2317998d2abee1e12f51271ba1c0d3cdd236b81d200";
     uint32_t const GENESIS_NONCE = 10002;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "52hBAREiNay8bH6JCfWrGdDM3cV6yHMLpcKFnVfnqPcVUrKGLbJCmkuUzJZqLfjzrMRYQgUsoHTuuMA1Z7QKvxFVANKHdGt";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "59f7FCwYMiwMnFr8HwsnfJ2hK3DYB1tryhjsfmXqEBJojKyqKeNWoaDaZaauoZPiZHUYp2wJuy5s9H96qy4q9xUVCXXHmTU";
   }
 }
 

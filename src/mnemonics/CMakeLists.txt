@@ -1,3 +1,4 @@
+# Copyright (c) 2018, The Loki Project
 # Copyright (c) 2014-2018, The Monero Project
 #
 # All rights reserved.
@@ -49,9 +50,9 @@ set(mnemonics_private_headers
   esperanto.h
   lojban.h)
 
-monero_private_headers(mnemonics
+loki_private_headers(mnemonics
   ${mnemonics_private_headers})
-monero_add_library(mnemonics
+loki_add_library(mnemonics
   ${mnemonics_sources}
   ${mnemonics_headers}
   ${mnemonics_private_headers})

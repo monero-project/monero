@@ -89,8 +89,6 @@ typedef cryptonote::simple_wallet sw;
 
 #define DEFAULT_MIX 9
 
-#define MIN_RING_SIZE 10 // Used to inform user about min ring size -- does not track actual protocol
-
 #define OUTPUT_EXPORT_FILE_MAGIC "Loki output export\003"
 
 #define LOCK_IDLE_SCOPE() \
@@ -1637,50 +1635,6 @@ bool simple_wallet::set_store_tx_info(const std::vector<std::string> &args/* = s
   return true;
 }
 
-bool simple_wallet::set_default_ring_size(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
-{
-  if (m_wallet->watch_only())
-  {
-    fail_msg_writer() << tr("wallet is watch-only and cannot transfer");
-    return true;
-  }
-  try
-  {
-    if (strchr(args[1].c_str(), '-'))
-    {
-      fail_msg_writer() << tr("ring size must be an integer >= ") << MIN_RING_SIZE;
-      return true;
-    }
-    uint32_t ring_size = boost::lexical_cast<uint32_t>(args[1]);
-    if (ring_size < MIN_RING_SIZE && ring_size != 0)
-    {
-      fail_msg_writer() << tr("ring size must be an integer >= ") << MIN_RING_SIZE;
-      return true;
-    }
- 
-    if (ring_size != 0 && ring_size != DEFAULT_MIX+1)
-      message_writer() << tr("WARNING: this is a non default ring size, which may harm your privacy. Default is recommended.");
-
-    const auto pwd_container = get_and_verify_password();
-    if (pwd_container)
-    {
-      m_wallet->default_mixin(ring_size > 0 ? ring_size - 1 : 0);
-      m_wallet->rewrite(m_wallet_file, pwd_container->password());
-    }
-    return true;
-  }
-  catch(const boost::bad_lexical_cast &)
-  {
-    fail_msg_writer() << tr("ring size must be an integer >= ") << MIN_RING_SIZE;
-    return true;
-  }
-  catch(...)
-  {
-    fail_msg_writer() << tr("could not change default ring size");
-    return true;
-  }
-}
-
 bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   int priority = 0;
@@ -2051,32 +2005,36 @@ simple_wallet::simple_wallet()
                            tr("Show the blockchain height."));
   m_cmd_binder.set_handler("transfer_original",
                            boost::bind(&simple_wallet::transfer, this, _1),
-                           tr("transfer_original [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"),
-                           tr("Transfer <amount> to <address> using an older transaction building algorithm. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("transfer_original [index=<N1>[,<N2>,...]] [<priority>] <address> <amount> [<payment_id>]"),
+                           tr("Transfer <amount> to <address> using an older transaction building algorithm. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1),
-                           tr("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"),
-                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("transfer [index=<N1>[,<N2>,...]] [<priority>] <address> <amount> [<payment_id>]"),
+                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
   m_cmd_binder.set_handler("locked_transfer",
                            boost::bind(&simple_wallet::locked_transfer, this, _1),
-                           tr("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <addr> <amount> <lockblocks> [<payment_id>]"),
-                           tr("Transfer <amount> to <address> and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] <addr> <amount> <lockblocks> [<payment_id>]"),
+                           tr("Transfer <amount> to <address> and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+  m_cmd_binder.set_handler("locked_sweep_all",
+                           boost::bind(&simple_wallet::locked_sweep_all, this, _1),
+                           tr("locked_sweep_all [index=<N1>[,<N2>,...]] [<priority>] <address> <lockblocks> [<payment_id>]"),
+                           tr("Send all unlocked balance to an address and lock it for <lockblocks> (max. 1000000). If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the sweep. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
   m_cmd_binder.set_handler("sweep_unmixable",
                            boost::bind(&simple_wallet::sweep_unmixable, this, _1),
-                           tr("Send all unmixable outputs to yourself with ring_size 1"));
+                           tr("Deprecated"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1),
-                           tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]"),
+                           tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] <address> [<payment_id>]"),
                            tr("Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used."));
   m_cmd_binder.set_handler("sweep_below",
                            boost::bind(&simple_wallet::sweep_below, this, _1),
-                           tr("sweep_below <amount_threshold> [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]"),
+                           tr("sweep_below <amount_threshold> [index=<N1>[,<N2>,...]] [<priority>] <address> [<payment_id>]"),
                            tr("Send all unlocked outputs below the threshold to an address."));
   m_cmd_binder.set_handler("sweep_single",
                            boost::bind(&simple_wallet::sweep_single, this, _1),
-                           tr("sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]"),
+                           tr("sweep_single [<priority>] <key_image> <address> [<payment_id>]"),
                            tr("Send a single output of the given key image to an address without change."));
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::donate, this, _1),
-                           tr("donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>]"),
+                           tr("donate [index=<N1>[,<N2>,...]] [<priority>] <amount> [<payment_id>]"),
                            tr("Donation is not supported at the moment and does nothing."));
   m_cmd_binder.set_handler("sign_transfer",
                            boost::bind(&simple_wallet::sign_transfer, this, _1),
@@ -2144,8 +2102,6 @@ simple_wallet::simple_wallet()
                                   "  Whether to print detailed information about ring members during confirmation.\n "
                                   "store-tx-info <1|0>\n "
                                   "  Whether to store outgoing tx info (destination address, payment ID, tx secret key) for future reference.\n "
-                                  "default-ring-size <n>\n "
-                                  "  Set the default ring size (default and minimum is 5).\n "
                                   "auto-refresh <1|0>\n "
                                   "  Whether to automatically synchronize new blocks from the daemon.\n "
                                   "refresh-type <full|optimize-coinbase|no-coinbase|default>\n "
@@ -2362,7 +2318,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "always-confirm-transfers = " << m_wallet->always_confirm_transfers();
     success_msg_writer() << "print-ring-members = " << m_wallet->print_ring_members();
     success_msg_writer() << "store-tx-info = " << m_wallet->store_tx_info();
-    success_msg_writer() << "default-ring-size = " << (m_wallet->default_mixin() ? m_wallet->default_mixin() + 1 : 0);
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
     success_msg_writer() << "priority = " << m_wallet->get_default_priority();
@@ -2417,7 +2372,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("always-confirm-transfers", set_always_confirm_transfers, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("print-ring-members", set_print_ring_members, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("store-tx-info", set_store_tx_info, tr("0 or 1"));
-    CHECK_SIMPLE_VARIABLE("default-ring-size", set_default_ring_size, tr("integer >= ") << MIN_RING_SIZE);
     CHECK_SIMPLE_VARIABLE("auto-refresh", set_auto_refresh, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("refresh-type", set_refresh_type, tr("full (slowest, no assumptions); optimize-coinbase (fast, assumes the whole coinbase is paid to a single address); no-coinbase (fastest, assumes we receive no coinbase transaction), default (same as optimize-coinbase)"));
     CHECK_SIMPLE_VARIABLE("priority", set_default_priority, tr("0, 1, 2, 3, or 4"));
@@ -4304,7 +4258,7 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_)
 {
-//  "transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"
+//  "transfer [index=<N1>[,<N2>,...]] [<priority>] <address> <amount> [<payment_id>]"
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
     return true;
@@ -4327,26 +4281,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = 0;
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
-    }
-    else if (ring_size == 0)
-    {
-      fail_msg_writer() << tr("Ring size must not be 0");
-      return true;
-    }
-    else
-    {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
-    }
-  }
+  size_t fake_outs_count = DEFAULT_MIX;
   uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
   if (adjusted_fake_outs_count > fake_outs_count)
   {
@@ -4701,6 +4636,11 @@ bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
   return transfer_main(TransferLocked, args_);
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
+{
+  return sweep_main(0, true, args_);
+}
+//----------------------------------------------------------------------------------------------------
 
 bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 {
@@ -4794,9 +4734,9 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &args_)
+bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<std::string> &args_)
 {
-  // sweep_all [index=<N1>[,<N2>,...]] [<ring_size>] <address> [<payment_id>]
+  // sweep_all [index=<N1>[,<N2>,...]] <address> [<payment_id>]
   if (args_.size() == 0)
   {
     fail_msg_writer() << tr("No address given");
@@ -4823,36 +4763,53 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = 0;
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
-    }
-    else if (ring_size == 0)
-    {
-      fail_msg_writer() << tr("Ring size must not be 0");
+  size_t fake_outs_count = DEFAULT_MIX;
+
+  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
+  if (adjusted_fake_outs_count != fake_outs_count)
+  {
+    fail_msg_writer() << (boost::format(tr("ring size %u is incorrect, must be %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+    return true;
+  }
+
+  uint64_t unlock_block = 0;
+  if (locked) {
+    uint64_t locked_blocks = 0;
+
+    if (local_args.size() < 2) {
+      fail_msg_writer() << tr("missing lockedblocks parameter");
       return true;
     }
-    else
+
+    try
     {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
+      locked_blocks = boost::lexical_cast<uint64_t>(local_args[1]);
     }
-  }
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count > fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return true;
+    catch (const std::exception &e)
+    {
+      fail_msg_writer() << tr("bad locked_blocks parameter");
+      return true;
+    }
+    if (locked_blocks > 1000000)
+    {
+      fail_msg_writer() << tr("Locked blocks too high, max 1000000 (˜4 yrs)");
+      return true;
+    }
+    std::string err;
+    uint64_t bc_height = get_daemon_blockchain_height(err);
+    if (!err.empty())
+    {
+      fail_msg_writer() << tr("failed to get blockchain height: ") << err;
+      return true;
+    }
+    unlock_block = bc_height + locked_blocks;
+
+    local_args.erase(local_args.begin() + 1);
   }
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
-  if (2 >= local_args.size())
+  if (local_args.size() >= 2)
   {
     std::string payment_id_str = local_args.back();
 
@@ -4932,7 +4889,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, m_trusted_daemon);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, m_trusted_daemon);
 
     if (ptx_vector.empty())
     {
@@ -5041,21 +4998,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = 0;
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-      fake_outs_count = m_wallet->default_mixin();
-      if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIX;
-    }
-    else
-    {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
-    }
-  }
+  size_t fake_outs_count = DEFAULT_MIX;
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
@@ -5090,7 +5033,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   if (local_args.size() != 2)
   {
-    fail_msg_writer() << tr("usage: sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]");
+    fail_msg_writer() << tr("usage: sweep_single [<priority>] <key_image> <address> [<payment_id>]");
     return true;
   }
 
@@ -5228,7 +5171,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 {
-  return sweep_main(0, args_);
+  return sweep_main(0, false, args_);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
@@ -5244,7 +5187,7 @@ bool simple_wallet::sweep_below(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("invalid amount threshold");
     return true;
   }
-  return sweep_main(below, std::vector<std::string>(++args_.begin(), args_.end()));
+  return sweep_main(below, false, std::vector<std::string>(++args_.begin(), args_.end()));
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::donate(const std::vector<std::string> &args_)
@@ -5260,7 +5203,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
       std::vector<std::string> local_args = args_;
       if(local_args.empty() || local_args.size() > 5)
       {
-         fail_msg_writer() << tr("usage: donate [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <amount> [<payment_id>]");
+         fail_msg_writer() << tr("usage: donate [index=<N1>[,<N2>,...]] [<priority>] <amount> [<payment_id>]");
          return true;
       }
       std::string amount_str;
@@ -7329,7 +7272,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       else
       {
         uint64_t current_time = static_cast<uint64_t>(time(NULL));
-        uint64_t threshold = current_time + (m_wallet->use_fork_rules(2, 0) ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1);
+        uint64_t threshold = current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
         if (threshold >= pd.m_unlock_time)
           success_msg_writer() << "unlocked for " << get_human_readable_timespan(std::chrono::seconds(threshold - pd.m_unlock_time));
         else

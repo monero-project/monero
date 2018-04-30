@@ -4275,7 +4275,7 @@ bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_heig
     // XXX: this needs to be fast, so we'd need to get the starting heights
     // from the daemon to be correct once voting kicks in
     uint64_t v2height = m_nettype == TESTNET ? 624634 : m_nettype == STAGENET ? (uint64_t)-1/*TODO*/ : 1009827;
-    uint64_t leeway = block_height < v2height ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
+    uint64_t leeway = CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
     if(current_time + leeway >= unlock_time)
       return true;
     else
@@ -5316,13 +5316,9 @@ int wallet2::get_fee_algorithm() const
 //------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::adjust_mixin(uint64_t mixin) const
 {
-  if (mixin < 9 && use_fork_rules(7, 10)) {
-    MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 6, using 10");
+  if (mixin != 9) {
+    MWARNING("Requested ring size " << (mixin + 1) << " incorrect for loki, using 10");
     mixin = 9;
-  }
-  else if (mixin < 2 && use_fork_rules(2, 10)) {
-    MWARNING("Requested ring size " << (mixin + 1) << " too low for hard fork 2, using 3");
-    mixin = 2;
   }
   return mixin;
 }
@@ -9135,8 +9131,9 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 uint64_t wallet2::get_approximate_blockchain_height() const
 {
   const int seconds_per_block         = DIFFICULTY_TARGET_V2;
-  const time_t epochTimeMiningStarted = 1524470565;
-  uint64_t approx_blockchain_height   = (time(NULL) - epochTimeMiningStarted)/seconds_per_block;
+  const time_t epochTimeMiningStarted = 1525067730 + (60 * 60 * 24 * 7); // 2018-04-30 ~3:55PM + 1 week to be conservative.
+  const time_t currentTime            = time(NULL);
+  uint64_t approx_blockchain_height   = (currentTime < epochTimeMiningStarted) ? 0 : (currentTime - epochTimeMiningStarted)/seconds_per_block;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
   return approx_blockchain_height;
 }
