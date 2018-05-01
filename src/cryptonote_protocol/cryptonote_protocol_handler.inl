@@ -1712,6 +1712,9 @@ skip:
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans)
   {
+    LOG_DEBUG_CC(context, "dropping connection id " << context.m_connection_id <<
+        ", add_fail " << add_fail << ", flush_all_spans " << flush_all_spans);
+
     if (add_fail)
       m_p2p->add_host_fail(context.m_remote_address);
 
