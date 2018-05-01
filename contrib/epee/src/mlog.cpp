@@ -69,14 +69,15 @@ std::string mlog_get_default_log_path(const char *default_filename)
 {
   std::string process_name = epee::string_tools::get_current_module_name();
   std::string default_log_folder = epee::string_tools::get_current_module_folder();
-  std::string default_log_file = process_name;
+  std::string default_log_file = default_filename ? default_filename : "";
+  if (!default_log_file.empty())
+    return (boost::filesystem::path(default_log_folder) / boost::filesystem::path(default_log_file)).string();
+
+  default_log_file = process_name;
   std::string::size_type a = default_log_file.rfind('.');
   if ( a != std::string::npos )
     default_log_file.erase( a, default_log_file.size());
-  if ( ! default_log_file.empty() )
-    default_log_file += ".log";
-  else
-    default_log_file = default_filename;
+  default_log_file += ".log";
 
   return (boost::filesystem::path(default_log_folder) / boost::filesystem::path(default_log_file)).string();
 }
