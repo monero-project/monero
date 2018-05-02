@@ -334,8 +334,8 @@ namespace nodetool
     cryptonote::network_type m_nettype;
   };
 
-    const int64_t default_limit_up = 2048;
-    const int64_t default_limit_down = 8192;
+    const int64_t default_limit_up = 2048;    // kB/s
+    const int64_t default_limit_down = 8192;  // kB/s
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;

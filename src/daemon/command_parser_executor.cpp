@@ -381,8 +381,6 @@ bool t_command_parser_executor::set_limit(const std::vector<std::string>& args)
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
-  if (limit > 0)
-    limit *= 1024;
 
   return m_executor.set_limit(limit, limit);
 }
@@ -401,8 +399,6 @@ bool t_command_parser_executor::set_limit_up(const std::vector<std::string>& arg
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
-  if (limit > 0)
-    limit *= 1024;
 
   return m_executor.set_limit(0, limit);
 }
@@ -421,8 +417,6 @@ bool t_command_parser_executor::set_limit_down(const std::vector<std::string>& a
       std::cout << "failed to parse argument" << std::endl;
       return false;
   }
-  if (limit > 0)
-    limit *= 1024;
 
   return m_executor.set_limit(limit, 0);
 }
