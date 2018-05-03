@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <boost/align/aligned_alloc.hpp>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <malloc.h>
@@ -145,13 +146,8 @@ class cn_slow_hash
 public:
 	cn_slow_hash() : borrowed_pad(false)
 	{
-#if !defined(HAS_WIN_INTRIN_API)
-		lpad.set(aligned_alloc(4096, MEMORY));
-		spad.set(aligned_alloc(4096, 4096));
-#else
-		lpad.set(_aligned_malloc(MEMORY, 4096));
-		spad.set(_aligned_malloc(4096, 4096));
-#endif
+		lpad.set(boost::alignment::aligned_alloc(4096, MEMORY));
+		spad.set(boost::alignment::aligned_alloc(4096, 4096));
 	}
 
 	cn_slow_hash (cn_slow_hash&& other) noexcept : lpad(other.lpad.as_byte()), spad(other.spad.as_byte()), borrowed_pad(other.borrowed_pad)
@@ -235,17 +231,10 @@ private:
 	{
 		if(!borrowed_pad)
 		{
-#if !defined(HAS_WIN_INTRIN_API)
 			if(lpad.as_void() != nullptr)
-				free(lpad.as_void());
+				boost::alignment::aligned_free(lpad.as_void());
 			if(lpad.as_void() != nullptr)
-				free(spad.as_void());
-#else
-			if(lpad.as_void() != nullptr)
-				_aligned_free(lpad.as_void());
-			if(lpad.as_void() != nullptr)
-				_aligned_free(spad.as_void());
-#endif
+				boost::alignment::aligned_free(spad.as_void());
 		}
 
 		lpad.set(nullptr);

@@ -202,7 +202,12 @@ void mlog_set_log(const char *log)
   long level;
   char *ptr = NULL;
 
-  level = strtoll(log, &ptr, 10);
+  if (!*log)
+  {
+    mlog_set_categories(log);
+    return;
+  }
+  level = strtol(log, &ptr, 10);
   if (ptr && *ptr)
   {
     // we can have a default level, eg, 2,foo:ERROR
