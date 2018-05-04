@@ -42,6 +42,8 @@ using namespace std;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "ringct"
 
+#define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
+
 namespace rct {
     bool is_simple(int type)
     {
@@ -135,8 +137,8 @@ namespace rct {
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
       ge_p3 P1_p3[64], P2_p3[64];
       for (size_t i = 0 ; i < 64 ; ++i) {
-        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P1_p3[i], P1[i].bytes) == 0, false, "point conv failed");
-        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
+        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P1_p3[i], P1[i].bytes) == 0, false, "point conv failed");
+        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
       }
       return verifyBorromean(bb, P1_p3, P2_p3);
     }
@@ -356,9 +358,9 @@ namespace rct {
             ge_cached cached;
             ge_p3 p3;
             ge_p1p1 p1;
-            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
+            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
             ge_p3_to_cached(&cached, &p3);
-            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
+            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
             ge_sub(&p1, &asCi[i], &cached);
             ge_p3_to_cached(&cached, &asCi[i]);
             ge_p1p1_to_p3(&CiH[i], &p1);
