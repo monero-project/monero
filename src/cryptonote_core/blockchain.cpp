@@ -3100,7 +3100,16 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
   LOG_PRINT_L3("Blockchain::" << __func__);
   uint64_t median_ts = epee::misc_utils::median(timestamps);
 
-  size_t blockchain_timestamp_check_window = get_current_hard_fork_version() < 8 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V8;
+  uint8_t hf_version = get_current_hard_fork_version();
+  size_t blockchain_timestamp_check_window = hf_version > 7 ? BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V8 : BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+
+  uint64_t top_block_timestamp = timestamps.back();
+  if (hf_version > 7 && b.timestamp < top_block_timestamp - CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V8)
+  {
+    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", is less than top block timestamp - FTL " << top_block_timestamp - CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V8);
+    return false;
+  }
+
   if(b.timestamp < median_ts)
   {
     MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", less than median of last " << blockchain_timestamp_check_window << " blocks, " << median_ts);
@@ -3109,6 +3118,7 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 
   return true;
 }
+
 //------------------------------------------------------------------
 // This function grabs the timestamps from the most recent <n> blocks,
 // where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
