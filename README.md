@@ -208,8 +208,10 @@ invokes cmake commands as needed.
 * Install the dependencies
 * Change to the root of the source code directory and build:
 
-        cd monero
-        make
+	cd monero
+	git submodule init
+	git submodule update
+	make
 
     *Optional*: If your machine has several cores and enough memory, enable
     parallel build by running `make -j<number of threads>` instead of `make`. For
