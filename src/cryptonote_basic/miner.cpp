@@ -328,6 +328,11 @@ namespace cryptonote
       LOG_PRINT_L0("Background mining controller thread started" );
     }
 
+    if(get_ignore_battery())
+    {
+      MINFO("Ignoring battery");
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
