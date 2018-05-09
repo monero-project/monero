@@ -78,6 +78,7 @@ static void readhdr(void)
 {
 	char *ptr;
 
+	flags = 0;
 	while (fgets(dbuf.mv_data, dbuf.mv_size, stdin) != NULL) {
 		lineno++;
 		if (!strncmp(dbuf.mv_data, "VERSION=", STRLENOF("VERSION="))) {
@@ -303,7 +304,7 @@ int main(int argc, char *argv[])
 	MDB_cursor *mc;
 	MDB_dbi dbi;
 	char *envname;
-	int envflags = 0, putflags = 0;
+	int envflags = MDB_NOSYNC, putflags = 0;
 	int dohdr = 0, append = 0;
 	MDB_val prevk;
 
@@ -391,13 +392,11 @@ int main(int argc, char *argv[])
 	kbuf.mv_data = malloc(kbuf.mv_size * 2);
 	k0buf.mv_size = kbuf.mv_size;
 	k0buf.mv_data = (char *)kbuf.mv_data + kbuf.mv_size;
-	prevk.mv_size = 0;
 	prevk.mv_data = k0buf.mv_data;
 
 	while(!Eof) {
 		MDB_val key, data;
 		int batch = 0;
-		flags = 0;
 		int appflag;
 
 		if (!dohdr) {
@@ -416,6 +415,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "mdb_open failed, error %d %s\n", rc, mdb_strerror(rc));
 			goto txn_abort;
 		}
+		prevk.mv_size = 0;
 		if (append) {
 			mdb_set_compare(txn, dbi, greater);
 			if (flags & MDB_DUPSORT)
@@ -443,7 +443,7 @@ int main(int argc, char *argv[])
 				appflag = MDB_APPEND;
 				if (flags & MDB_DUPSORT) {
 					if (prevk.mv_size == key.mv_size && !memcmp(prevk.mv_data, key.mv_data, key.mv_size))
-						appflag = MDB_APPENDDUP;
+						appflag = MDB_CURRENT|MDB_APPENDDUP;
 					else {
 						memcpy(prevk.mv_data, key.mv_data, key.mv_size);
 						prevk.mv_size = key.mv_size;
@@ -476,6 +476,10 @@ int main(int argc, char *argv[])
 				if (rc) {
 					fprintf(stderr, "mdb_cursor_open failed, error %d %s\n", rc, mdb_strerror(rc));
 					goto txn_abort;
+				}
+				if (appflag & MDB_APPENDDUP) {
+					MDB_val k, d;
+					mdb_cursor_get(mc, &k, &d, MDB_LAST);
 				}
 				batch = 0;
 			}
