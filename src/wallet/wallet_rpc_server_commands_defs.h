@@ -1714,6 +1714,29 @@ namespace wallet_rpc
     };
   };
 
+  struct COMMAND_RPC_REFRESH
+  {
+    struct request
+    {
+      uint64_t start_height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(start_height, (uint64_t) 0)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint64_t blocks_fetched;
+      bool received_money;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blocks_fetched);
+        KV_SERIALIZE(received_money);
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_START_MINING
   {
     struct request
