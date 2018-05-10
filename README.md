@@ -81,49 +81,6 @@ Dates are provided in the format YYYY-MM-DD.
 | 592000                        | 2015-08-04 | v1 (exceptional, version not bumped)      | v0.9.0.0                 | v0.9.14.0                     | blocktime = 240 seconds, CryptoNight-Lite, lower mining priority for ringsize < 3       |
 | 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.0.0                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
 
-## Installing Aeon from a package
-
-Packages are available for
-
-* (**TODO**) ~Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.~
-
-        snap install aeon --beta
-
-~Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.~
-
-* (**TODO**) ~Arch Linux (via [AUR](https://aur.archlinux.org/)):~
-  - ~Stable release: [`aeon`](https://aur.archlinux.org/packages/aeon)~
-  - ~Bleeding edge: [`aeon-git`](https://aur.archlinux.org/packages/aeon-git)~
-
-* (**TODO**) ~Void Linux:~
-
-        xbps-install -S aeon
-
-* (**TODO**) ~GuixSD~
-
-        guix package -i aeon
-
-* OS X via [Homebrew](http://brew.sh)
-
-        brew tap sammy007/aeon
-        brew install aeon -v
-
-* (**TODO**) ~Docker~
-
-        # Build using all available cores
-        docker build -t aeon .
-
-        # or build using a specific number of cores (reduce RAM requirement)
-        docker build --build-arg NPROC=1 -t aeon .
-     
-        # either run in foreground
-        docker run -it -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
-
-        # or in background
-        docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
-
-Packaging for your favorite distribution would be a welcome contribution!
-
 ## Compiling Aeon from source
 
 ### Dependencies
@@ -475,6 +432,51 @@ By default, in either dynamically or statically linked builds, binaries target t
 * ```make release-static-linux-armv6``` builds binaries on Linux portable across POSIX systems on armv6 processors
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
+
+## Installing Aeon from a package
+
+**DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
+
+Packages are available for
+
+* (**TODO**) ~Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.~
+
+        snap install aeon --beta
+
+~Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.~
+
+* (**TODO**) ~Arch Linux (via [AUR](https://aur.archlinux.org/)):~
+  - ~Stable release: [`aeon`](https://aur.archlinux.org/packages/aeon)~
+  - ~Bleeding edge: [`aeon-git`](https://aur.archlinux.org/packages/aeon-git)~
+
+* (**TODO**) ~Void Linux:~
+
+        xbps-install -S aeon
+
+* (**TODO**) ~GuixSD~
+
+        guix package -i aeon
+
+* OS X via [Homebrew](http://brew.sh)
+
+        brew tap sammy007/aeon
+        brew install aeon -v
+
+* (**TODO**) ~Docker~
+
+        # Build using all available cores
+        docker build -t aeon .
+
+        # or build using a specific number of cores (reduce RAM requirement)
+        docker build --build-arg NPROC=1 -t aeon .
+     
+        # either run in foreground
+        docker run -it -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
+
+        # or in background
+        docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
+
+Packaging for your favorite distribution would be a welcome contribution!
 
 ## Running aeond
 
