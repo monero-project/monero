@@ -85,8 +85,6 @@ void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_con
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   block_map::iterator i = blocks.begin();
-  if (i != blocks.end() && is_blockchain_placeholder(*i))
-    ++i;
   while (i != blocks.end())
   {
     block_map::iterator j = i++;
@@ -144,7 +142,7 @@ void block_queue::print() const
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   MDEBUG("Block queue has " << blocks.size() << " spans");
   for (const auto &span: blocks)
-    MDEBUG("  " << span.start_block_height << " - " << (span.start_block_height+span.nblocks-1) << " (" << span.nblocks << ") - " << (is_blockchain_placeholder(span) ? "blockchain" : span.blocks.empty() ? "scheduled" : "filled    ") << "  " << span.connection_id << " (" << ((unsigned)(span.rate*10/1024.f))/10.f << " kB/s)");
+    MDEBUG("  " << span.start_block_height << " - " << (span.start_block_height+span.nblocks-1) << " (" << span.nblocks << ") - " << (span.blocks.empty() ? "scheduled" : "filled    ") << "  " << span.connection_id << " (" << ((unsigned)(span.rate*10/1024.f))/10.f << " kB/s)");
 }
 
 std::string block_queue::get_overview() const
@@ -205,39 +203,12 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
   return std::make_pair(span_start_height, span_length);
 }
 
-bool block_queue::is_blockchain_placeholder(const span &span) const
-{
-  return span.connection_id == boost::uuids::nil_uuid();
-}
-
-std::pair<uint64_t, uint64_t> block_queue::get_start_gap_span() const
-{
-  boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  if (blocks.empty())
-    return std::make_pair(0, 0);
-  block_map::const_iterator i = blocks.begin();
-  if (!is_blockchain_placeholder(*i))
-    return std::make_pair(0, 0);
-  uint64_t current_height = i->start_block_height + i->nblocks - 1;
-  ++i;
-  if (i == blocks.end())
-    return std::make_pair(0, 0);
-  uint64_t first_span_height = i->start_block_height;
-  if (first_span_height <= current_height + 1)
-    return std::make_pair(0, 0);
-  MDEBUG("Found gap at start of spans: last blockchain block height " << current_height << ", first span's block height " << first_span_height);
-  print();
-  return std::make_pair(current_height + 1, first_span_height - current_height - 1);
-}
-
 std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::list<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   if (blocks.empty())
     return std::make_pair(0, 0);
   block_map::const_iterator i = blocks.begin();
-  if (is_blockchain_placeholder(*i))
-    ++i;
   if (i == blocks.end())
     return std::make_pair(0, 0);
   if (!i->blocks.empty())
@@ -270,8 +241,6 @@ bool block_queue::get_next_span(uint64_t &height, std::list<cryptonote::block_co
   if (blocks.empty())
     return false;
   block_map::const_iterator i = blocks.begin();
-  if (is_blockchain_placeholder(*i))
-    ++i;
   for (; i != blocks.end(); ++i)
   {
     if (!filled || !i->blocks.empty())
@@ -291,8 +260,6 @@ bool block_queue::has_next_span(const boost::uuids::uuid &connection_id, bool &f
   if (blocks.empty())
     return false;
   block_map::const_iterator i = blocks.begin();
-  if (is_blockchain_placeholder(*i))
-    ++i;
   if (i == blocks.end())
     return false;
   if (i->connection_id != connection_id)
@@ -317,8 +284,6 @@ size_t block_queue::get_num_filled_spans_prefix() const
   if (blocks.empty())
     return 0;
   block_map::const_iterator i = blocks.begin();
-  if (is_blockchain_placeholder(*i))
-    ++i;
   size_t size = 0;
   while (i != blocks.end() && !i->blocks.empty())
   {
@@ -403,12 +368,10 @@ float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
   return speed;
 }
 
-bool block_queue::foreach(std::function<bool(const span&)> f, bool include_blockchain_placeholder) const
+bool block_queue::foreach(const std::function<bool(const span&)> &f) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   block_map::const_iterator i = blocks.begin();
-  if (!include_blockchain_placeholder && i != blocks.end() && is_blockchain_placeholder(*i))
-    ++i;
   while (i != blocks.end())
     if (!f(*i++))
       return false;
