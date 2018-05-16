@@ -3179,6 +3179,47 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
   return histogram;
 }
 
+bool BlockchainLMDB::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(output_amounts);
+
+  distribution.clear();
+  const uint64_t db_height = height();
+  if (from_height >= db_height)
+    return false;
+  distribution.resize(db_height - from_height, 0);
+
+  bool fret = true;
+  MDB_val_set(k, amount);
+  MDB_val v;
+  MDB_cursor_op op = MDB_SET;
+  while (1)
+  {
+    int ret = mdb_cursor_get(m_cur_output_amounts, &k, &v, op);
+    op = MDB_NEXT_DUP;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret)
+      throw0(DB_ERROR("Failed to enumerate outputs"));
+    const outkey *ok = (const outkey *)v.mv_data;
+    const uint64_t height = ok->data.height;
+    if (height >= from_height)
+      distribution[height - from_height]++;
+    else
+      base++;
+    if (to_height > 0 && height > to_height)
+      break;
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return true;
+}
+
 void BlockchainLMDB::check_hard_fork_info()
 {
 }
