@@ -39,7 +39,7 @@ find_package(Miniupnpc REQUIRED)
 
 message(STATUS "Using in-tree miniupnpc")
 
-add_subdirectory(miniupnp/miniupnpc)
+add_subdirectory(miniupnpc)
 
 set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
 if(MSVC)
