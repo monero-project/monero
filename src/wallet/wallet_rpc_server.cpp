@@ -64,7 +64,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
 #ifndef WIN32
-  const command_line::arg_descriptor<bool> arg_detach = {"detach", "Run as daemon", ""};
+  const command_line::arg_descriptor<bool> arg_detach = {"detach", "Run as daemon"};
   const command_line::arg_descriptor<std::string> arg_pidfile = {"pidfile", "File path to write the daemon's PID to (optional, requires --detach)", ""};
 #endif
 
@@ -161,10 +161,7 @@ namespace tools
     {
       MWARNING("Forking to background...");
       std::string pidfile;
-      if (command_line::has_arg(*m_vm, arg_pidfile))
-      {
-        pidfile = command_line::get_arg(*m_vm, arg_pidfile);
-      }
+      pidfile = command_line::get_arg(*m_vm, arg_pidfile);
       posix::fork(pidfile);
     }
 
