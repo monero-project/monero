@@ -91,8 +91,12 @@ static const struct {
 } mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
+
+  // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
+  // version 7 starts from block 962600, which is on or around the 1st of June, 2018. Fork time finalised on 2018-05-20.
+  { 7, 962600, 0, 1526828224 },
 };
-static const uint64_t mainnet_hard_fork_version_1_till = 0;
+static const uint64_t mainnet_hard_fork_version_1_till = 961099;
 
 static const struct {
   uint8_t version;
@@ -117,6 +121,10 @@ static const struct {
 } stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
+
+  // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
+  // version 7 starts from block 100000, which is on or around the 31st of May, 2018. Fork time finalised on 2018-05-20.
+  { 7, 100000, 0, 1526828224 },
 };
 
 //------------------------------------------------------------------
