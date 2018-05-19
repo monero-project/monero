@@ -1628,7 +1628,7 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   return true;
 }
 
-bool t_rpc_command_executor::alt_chain_info()
+bool t_rpc_command_executor::alt_chain_info(const std::string &tip)
 {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
@@ -1663,12 +1663,32 @@ bool t_rpc_command_executor::alt_chain_info()
     }
   }
 
-  tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
-  for (const auto &chain: res.chains)
+  if (tip.empty())
   {
-    uint64_t start_height = (chain.height - chain.length + 1);
-    tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
-        << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
+    tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
+    for (const auto &chain: res.chains)
+    {
+      uint64_t start_height = (chain.height - chain.length + 1);
+      tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+          << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
+    }
+  }
+  else
+  {
+    const auto i = std::find_if(res.chains.begin(), res.chains.end(), [&tip](cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info){ return info.block_hash == tip; });
+    if (i != res.chains.end())
+    {
+      const auto &chain = *i;
+      tools::success_msg_writer() << "Found alternate chain with tip " << tip;
+      uint64_t start_height = (chain.height - chain.length + 1);
+      tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+          << " deep), diff " << chain.difficulty << ":";
+      for (const std::string &block_id: chain.block_hashes)
+        tools::msg_writer() << "  " << block_id;
+      tools::msg_writer() << "Chain parent on main chain: " << chain.main_chain_parent_block;
+    }
+    else
+      tools::fail_msg_writer() << "Block hash " << tip << " is not the tip of any known alternate chain";
   }
   return true;
 }
