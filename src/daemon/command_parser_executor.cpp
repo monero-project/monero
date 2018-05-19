@@ -599,13 +599,13 @@ bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::str
 
 bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& args)
 {
-  if(args.size())
+  if(args.size() > 1)
   {
-    std::cout << "No parameters allowed" << std::endl;
+    std::cout << "usage: alt_chain_info [block_hash]" << std::endl;
     return false;
   }
 
-  return m_executor.alt_chain_info();
+  return m_executor.alt_chain_info(args.size() == 1 ? args[0] : "");
 }
 
 bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector<std::string>& args)
