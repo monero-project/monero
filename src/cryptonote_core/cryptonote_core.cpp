@@ -1355,7 +1355,7 @@ namespace cryptonote
       m_starter_message_showed = true;
     }
 
-    m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
+    // m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
