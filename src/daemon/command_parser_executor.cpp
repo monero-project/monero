@@ -309,11 +309,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
       nettype = cryptonote::TESTNET;
     }
   }
-  if (info.is_subaddress)
-  {
-    tools::fail_msg_writer() << "subaddress for mining reward is not yet supported!" << std::endl;
-    return true;
-  }
+
   if(nettype != cryptonote::MAINNET)
     std::cout << "Mining to a " << (nettype == cryptonote::TESTNET ? "testnet" : "stagenet") << "address, make sure this is intentional!" << std::endl;
   uint64_t threads_count = 1;
@@ -340,7 +336,7 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
-  m_executor.start_mining(info.address, threads_count, nettype, do_background_mining, ignore_battery);
+  m_executor.start_mining(args.front(), threads_count, nettype, do_background_mining, ignore_battery);
 
   return true;
 }

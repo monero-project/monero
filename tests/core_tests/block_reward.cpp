@@ -37,7 +37,7 @@ using namespace cryptonote;
 namespace
 {
   bool construct_miner_tx_by_size(transaction& miner_tx, uint64_t height, uint64_t already_generated_coins,
-    const account_public_address& miner_address, std::vector<size_t>& block_sizes, size_t target_tx_size,
+    std::string miner_address, std::vector<size_t>& block_sizes, size_t target_tx_size,
     size_t target_block_size, uint64_t fee = 0)
   {
     if (!construct_miner_tx(height, misc_utils::median(block_sizes), already_generated_coins, target_block_size, fee, miner_address, miner_tx))
@@ -81,8 +81,9 @@ namespace
     median = std::max(median, static_cast<size_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1));
 
     transaction miner_tx;
+    std::string miner_account_str = get_account_address_as_str(MAINNET, false, miner_account.get_keys().m_account_address);
     bool r = construct_miner_tx_by_size(miner_tx, get_block_height(blk_prev) + 1, generator.get_already_generated_coins(blk_prev),
-      miner_account.get_keys().m_account_address, block_sizes, 2 * median, 2 * median);
+      miner_account_str, block_sizes, 2 * median, 2 * median);
     if (!r)
       return false;
 
@@ -195,8 +196,9 @@ bool gen_block_reward::generate(std::vector<test_event_entry>& events) const
     size_t median = misc_utils::median(block_sizes);
 
     transaction miner_tx;
+    std::string miner_account_str = get_account_address_as_str(MAINNET, false, miner_account.get_keys().m_account_address);
     bool r = construct_miner_tx_by_size(miner_tx, get_block_height(blk_7) + 1, generator.get_already_generated_coins(blk_7),
-      miner_account.get_keys().m_account_address, block_sizes, 2 * median - txs_1_size, 2 * median, txs_fee);
+      miner_account_str, block_sizes, 2 * median - txs_1_size, 2 * median, txs_fee);
     if (!r)
       return false;
 
