@@ -60,7 +60,6 @@ namespace Monero {
 
 namespace {
     // copy-pasted from simplewallet
-    static const size_t DEFAULT_MIXIN = 6;
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
     static const int    MAX_REFRESH_INTERVAL_MILLIS = 1000 * 60 * 1;
@@ -305,14 +304,14 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
-void Wallet::init(const char *argv0, const char *default_log_base_name) {
+void Wallet::init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console) {
 #ifdef WIN32
     // Activate UTF-8 support for Boost filesystem classes on Windows
     std::locale::global(boost::locale::generator().generate(""));
     boost::filesystem::path::imbue(std::locale());
 #endif
     epee::string_tools::set_module_name_and_folder(argv0);
-    mlog_configure(mlog_get_default_log_path(default_log_base_name), true);
+    mlog_configure(log_path.empty() ? mlog_get_default_log_path(default_log_base_name) : log_path.c_str(), console);
 }
 
 void Wallet::debug(const std::string &category, const std::string &str) {
@@ -1094,8 +1093,8 @@ void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex
 //    - unconfirmed_transfer_details;
 //    - confirmed_transfer_details)
 
-PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
-                                                  PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t ring_size,
+                                                  PendingTransaction::Priority priority_enum, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 
 {
     clearStatus();
@@ -1106,11 +1105,13 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 
     // indicates if dst_addr is integrated address (address + payment_id)
     // TODO:  (https://bitcointalk.org/index.php?topic=753252.msg9985441#msg9985441)
-    size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
-    if (fake_outs_count == 0)
-        fake_outs_count = DEFAULT_MIXIN;
+    if (ring_size == 0)
+        ring_size = m_wallet->default_ring_size();
+    ring_size = m_wallet->adjust_ring_size(ring_size);
 
-    uint32_t adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
+    uint32_t priority = static_cast<uint32_t>(priority_enum);
+    if (ring_size != 1)
+      priority = m_wallet->adjust_priority(priority);
 
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
@@ -1170,8 +1171,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                 de.amount = *amount;
                 de.is_subaddress = info.is_subaddress;
                 dsts.push_back(de);
-                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
-                                                                          adjusted_priority,
+                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, ring_size, 0 /* unlock_time */,
+                                                                          priority,
                                                                           extra, subaddr_account, subaddr_indices, m_trustedDaemon);
             } else {
                 // for the GUI, sweep_all (i.e. amount set as "(all)") will always sweep all the funds in all the addresses
@@ -1180,8 +1181,8 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
                     for (uint32_t index = 0; index < m_wallet->get_num_subaddresses(subaddr_account); ++index)
                         subaddr_indices.insert(index);
                 }
-                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, fake_outs_count, 0 /* unlock_time */,
-                                                                          adjusted_priority,
+                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, ring_size, 0 /* unlock_time */,
+                                                                          priority,
                                                                           extra, subaddr_account, subaddr_indices, m_trustedDaemon);
             }
 
@@ -1408,14 +1409,14 @@ void WalletImpl::setListener(WalletListener *l)
     m_wallet2Callback->setListener(l);
 }
 
-uint32_t WalletImpl::defaultMixin() const
+uint32_t WalletImpl::defaultRingSize() const
 {
-    return m_wallet->default_mixin();
+    return m_wallet->default_ring_size();
 }
 
-void WalletImpl::setDefaultMixin(uint32_t arg)
+void WalletImpl::setDefaultRingSize(uint32_t arg)
 {
-    m_wallet->default_mixin(arg);
+    m_wallet->default_ring_size(arg);
 }
 
 bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)

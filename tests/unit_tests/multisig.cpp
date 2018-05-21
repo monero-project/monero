@@ -39,15 +39,15 @@ static const struct
 } test_addresses[] =
 {
   {
-    "9uvjbU54ZJb8j7Dcq1h3F1DnBRkxXdYUX4pbJ7mE3ghM8uF3fKzqRKRNAKYZXcNLqMg7MxjVVD2wKC2PALUwEveGSC3YSWD",
+    "UmisRZazUipRnY5UAw3sMZLTExBSCLvpCAP8sdPuPhJ2BjfsUoBes3eGUJx2fZf7S8Fsa7urJ7LamRTt4uucAtqk1wiPcpu3g",
     "2dd6e34a234c3e8b5d29a371789e4601e96dee4ea6f7ef79224d1a2d91164c01"
   },
   {
-    "9ywDBAyDbb6QKFiZxDJ4hHZqZEQXXCR5EaYNcndUpqPDeE7rEgs6neQdZnhcDrWbURYK8xUjhuG2mVjJdmknrZbcG7NnbaB",
+    "Umjn6SGcmGc1Fz3USjnSYJcb771AkkNmqgmoAiHAu5713pewPFyAA9wcmemSiYxWtqcvARA3r4L6QUD7VXodxC7n2WQRzVXN8",
     "fac47aecc948ce9d3531aa042abb18235b1df632087c55a361b632ffdd6ede0c"
   },
   {
-    "9t6Hn946u3eah5cuncH1hB5hGzsTUoevtf4SY7MHN5NgJZh2SFWsyVt3vUhuHyRKyrCQvr71Lfc1AevG3BXE11PQFoXDtD8",
+    "UmiTJonYS5c6emvHeethY1JkPzMHbAAHjQ4hH3zpo5JZBwZX8UxmjPjQG8tyg5HJaKVK6eWHENbPA4fKPw9eEkG71JgghLzW5",
     "bbd3175ef9fd9f5eefdc43035f882f74ad14c4cf1799d8b6f9001bc197175d02"
   }
 };

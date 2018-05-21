@@ -792,6 +792,13 @@ namespace cryptonote
     uint8_t get_hard_fork_version(uint64_t height) const { return m_hardfork->get(height); }
 
     /**
+     * @brief returns the earliest block a given version may activate
+     *
+     * @return the height
+     */
+    uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return m_hardfork->get_earliest_ideal_height_for_version(version); }
+
+    /**
      * @brief get information about hardfork voting for a version
      *
      * @param version the version in question
@@ -1092,7 +1099,7 @@ namespace cryptonote
      *
      * @return false if any validation step fails, otherwise true
      */
-    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL);
+    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL, uint64_t* total_txs = NULL, uint64_t* nofake_txs = NULL);
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule
@@ -1195,10 +1202,11 @@ namespace cryptonote
      * @param already_generated_coins the amount of currency generated prior to this block
      * @param partial_block_reward return-by-reference true if miner accepted only partial reward
      * @param version hard fork version for that transaction
+     * @param height block height for that transaction
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, uint64_t height);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1292,10 +1300,12 @@ namespace cryptonote
      *   false otherwise
      *
      * @param b the block to be checked
+     * @param median_ts return-by-reference the median of timestamps
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(const block& b) const;
+    bool check_block_timestamp(const block& b, uint64_t& median_ts) const;
+    bool check_block_timestamp(const block& b) const { uint64_t median_ts; return check_block_timestamp(b, median_ts); }
 
     /**
      * @brief checks a block's timestamp
@@ -1308,7 +1318,8 @@ namespace cryptonote
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b) const;
+    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const;
+    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b) const { uint64_t median_ts; return check_block_timestamp(timestamps, b, median_ts); }
 
     /**
      * @brief get the "adjusted time"

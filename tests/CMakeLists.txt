@@ -70,8 +70,8 @@ else ()
 endif (GTest_FOUND)
 
 file(COPY
-  data/wallet_9svHk1.keys
-  data/wallet_9svHk1
+  data/wallet_WmsMW3.keys
+  data/wallet_WmsMW3
   data/outputs
   data/unsigned_monero_tx
   data/signed_monero_tx

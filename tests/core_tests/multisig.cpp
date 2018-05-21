@@ -95,8 +95,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_base &account = n < inputs ? miner_account[creator] : miner_accounts[n];
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        4, 4, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
+        HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, HF_VERSION_ALLOW_RCT),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
     prev_block = blocks + n;
@@ -113,8 +113,8 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_accounts[0],
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          4, 4, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
+          HF_VERSION_ALLOW_RCT, HF_VERSION_ALLOW_RCT, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 4, // v2 has blocks four times as long
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, HF_VERSION_ALLOW_RCT),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;

@@ -1702,8 +1702,8 @@ Si l&apos;argument &quot;tag_description&quot; est spécifié, le texte arbitrai
    Set the fee too default/unimportant/normal/elevated/priority.
  confirm-missing-payment-id &lt;1|0&gt;
  ask-password &lt;1|0&gt;
- unit &lt;monero|millinero|micronero|nanonero|piconero&gt;
-   Set the default monero (sub-)unit.
+ unit &lt;aeon|milliaeon|microaeon|nanoaeon|picoaeon&gt;
+   Set the default aeon (sub-)unit.
  min-outputs-count [n]
    Try to keep at least that many outputs of value at least min-outputs-value.
  min-outputs-value [n]
@@ -1737,8 +1737,8 @@ Si l&apos;argument &quot;tag_description&quot; est spécifié, le texte arbitrai
    Utiliser les frais pour la priorité par défaut/peu importante/normale/élevée/prioritaire.
  confirm-missing-payment-id &lt;1|0&gt;
  ask-password &lt;1|0&gt;
- unit &lt;monero|millinero|micronero|nanonero|piconero&gt;
-   Définir la (sous-)unité monero par défaut.
+ unit &lt;aeon|milliaeon|microaeon|nanoaeon|picoaeon&gt;
+   Définir la (sous-)unité aeon par défaut.
  min-outputs-count [n]
    Essayer de garder au moins ce nombre de sorties d&apos;une valeur d&apos;au moins min-outputs-value.
  min-outputs-value [n]
@@ -2610,8 +2610,8 @@ Attention : Certaines clés d&apos;entrées étant dépensées sont issues de <
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1923"/>
-        <source>monero, millinero, micronero, nanonero, piconero</source>
-        <translation>monero, millinero, micronero, nanonero, piconero</translation>
+        <source>aeon, milliaeon, microaeon, nanoaeon, picoaeon</source>
+        <translation>aeon, milliaeon, microaeon, nanoaeon, picoaeon</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1975"/>

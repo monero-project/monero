@@ -53,6 +53,7 @@ set(unit_tests_sources
   memwipe.cpp
   mnemonics.cpp
   mul_div.cpp
+  int-util.cpp
   multisig.cpp
   parse_amount.cpp
   serialization.cpp
@@ -102,6 +103,8 @@ if (NOT MSVC)
     PROPERTY
       COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 endif ()
+
+SET_PROPERTY(SOURCE main.cpp PROPERTY COMPILE_FLAGS -DDEFAULT_DATA_DIR="\\"${CMAKE_SOURCE_DIR}/tests/data\\"")
 
 SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 

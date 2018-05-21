@@ -129,6 +129,26 @@ static inline uint32_t div128_32(uint64_t dividend_hi, uint64_t dividend_lo, uin
   return remainder;
 }
 
+static inline uint64_t int_log2(uint64_t x)
+{
+  assert(x != 0);
+  assert((x & (x - 1)) == 0);
+  uint64_t r = 0;
+  while (true)
+  {
+    x >>= 1;
+    if (x == 0)
+      break;
+    ++r;
+  }
+  return r;
+}
+
+static inline uint64_t rational_ceil(uint64_t numerator, uint64_t denominator) {
+  assert(denominator != 0);
+  return numerator / denominator + !!(numerator % denominator);
+}
+
 #define IDENT32(x) ((uint32_t) (x))
 #define IDENT64(x) ((uint64_t) (x))
 

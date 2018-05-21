@@ -63,7 +63,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
 
-  constexpr const char default_rpc_username[] = "monero";
+  constexpr const char default_rpc_username[] = "aeon";
 
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
@@ -201,7 +201,7 @@ namespace tools
           string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size())
         );
 
-        std::string temp = "monero-wallet-rpc." + bind_port + ".login";
+        std::string temp = "aeon-wallet-rpc." + bind_port + ".login";
         rpc_login_file = tools::private_file::create(temp);
         if (!rpc_login_file.handle())
         {
@@ -591,7 +591,7 @@ namespace tools
           }
           if (addresses.empty())
           {
-            er.message = std::string("No Monero address found at ") + url;
+            er.message = std::string("No Aeon address found at ") + url;
             return {};
           }
           return addresses[0];
@@ -784,17 +784,21 @@ namespace tools
 
     try
     {
-      uint64_t mixin;
-      if(req.ring_size != 0)
+      uint64_t ring_size;
+      if(req.ring_size == 0 && req.mixin != 0)
       {
-        mixin = m_wallet->adjust_mixin(req.ring_size - 1);
+        ring_size = m_wallet->adjust_ring_size(req.mixin + 1);
       }
       else
       {
-        mixin = m_wallet->adjust_mixin(req.mixin);
+        ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
 
       if (ptx_vector.empty())
       {
@@ -844,18 +848,22 @@ namespace tools
 
     try
     {
-      uint64_t mixin;
-      if(req.ring_size != 0)
+      uint64_t ring_size;
+      if(req.ring_size == 0 && req.mixin != 0)
       {
-        mixin = m_wallet->adjust_mixin(req.ring_size - 1);
+        ring_size = m_wallet->adjust_ring_size(req.mixin + 1);
       }
       else
       {
-        mixin = m_wallet->adjust_mixin(req.mixin);
+        ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, req.do_not_relay,
@@ -919,17 +927,21 @@ namespace tools
 
     try
     {
-      uint64_t mixin;
-      if(req.ring_size != 0)
+      uint64_t ring_size;
+      if(req.ring_size == 0 && req.mixin != 0)
       {
-        mixin = m_wallet->adjust_mixin(req.ring_size - 1);
+        ring_size = m_wallet->adjust_ring_size(req.mixin + 1);
       }
       else
       {
-        mixin = m_wallet->adjust_mixin(req.mixin);
+        ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, ring_size, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, er);
@@ -975,17 +987,21 @@ namespace tools
 
     try
     {
-      uint64_t mixin;
-      if(req.ring_size != 0)
+      uint64_t ring_size;
+      if(req.ring_size == 0 && req.mixin != 0)
       {
-        mixin = m_wallet->adjust_mixin(req.ring_size - 1);
+        ring_size = m_wallet->adjust_ring_size(req.mixin + 1);
       }
       else
       {
-        mixin = m_wallet->adjust_mixin(req.mixin);
+        ring_size = m_wallet->adjust_ring_size(req.ring_size);
       }
-      uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra, m_trusted_daemon);
+
+      uint32_t priority = req.priority;
+      if (ring_size != 1)
+        priority = m_wallet->adjust_priority(priority);
+
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, ring_size, req.unlock_time, priority, extra, m_trusted_daemon);
 
       if (ptx_vector.empty())
       {
@@ -1424,7 +1440,7 @@ namespace tools
         }
         if (addresses.empty())
         {
-          er.message = std::string("No Monero address found at ") + url;
+          er.message = std::string("No Aeon address found at ") + url;
           return {};
         }
         return addresses[0];
@@ -2129,7 +2145,7 @@ namespace tools
         }
         if (addresses.empty())
         {
-          er.message = std::string("No Monero address found at ") + url;
+          er.message = std::string("No Aeon address found at ") + url;
           return {};
         }
         return addresses[0];
@@ -2897,12 +2913,12 @@ int main(int argc, char** argv) {
 
   const auto vm = wallet_args::main(
     argc, argv,
-    "monero-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>|--wallet-dir=<directory>] [--rpc-bind-port=<port>]",
-    tools::wallet_rpc_server::tr("This is the RPC monero wallet. It needs to connect to a monero\ndaemon to work correctly."),
+    "aeon-wallet-rpc [--wallet-file=<file>|--generate-from-json=<file>|--wallet-dir=<directory>] [--rpc-bind-port=<port>]",
+    tools::wallet_rpc_server::tr("This is the RPC Aeon wallet. It needs to connect to an Aeon\ndaemon to work correctly."),
     desc_params,
     po::positional_options_description(),
     [](const std::string &s, bool emphasis){ epee::set_console_color(emphasis ? epee::console_color_white : epee::console_color_default, true); std::cout << s << std::endl; if (emphasis) epee::reset_console_color(); },
-    "monero-wallet-rpc.log",
+    "aeon-wallet-rpc.log",
     true
   );
   if (!vm)

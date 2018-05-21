@@ -81,7 +81,7 @@ private:
 
 template<>
 struct get_test_options<gen_rct_tx_validation_base> {
-  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(4, 65), std::make_pair(0, 0)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(HF_VERSION_ALLOW_RCT, 65), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };
