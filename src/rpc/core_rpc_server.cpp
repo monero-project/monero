@@ -47,6 +47,7 @@ using namespace epee;
 #include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
 #include "p2p/net_node.h"
+#include "get_output_distribution_cache.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -2103,9 +2104,23 @@ namespace cryptonote
           continue;
         }
 
+        // this is a slow operation, so we have precomputed caches of common cases
+        bool found = false;
+        for (const auto &slot: get_output_distribution_cache)
+        {
+          if (slot.amount == amount && slot.from_height == req.from_height && slot.to_height == req.to_height)
+          {
+            res.distributions.push_back({amount, slot.start_height, slot.distribution, slot.base});
+            found = true;
+            break;
+          }
+        }
+        if (found)
+          continue;
+
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
-        if (!m_core.get_output_distribution(amount, req.from_height, start_height, distribution, base))
+        if (!m_core.get_output_distribution(amount, req.from_height, req.to_height, start_height, distribution, base))
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
           error_resp.message = "Failed to get rct distribution";
