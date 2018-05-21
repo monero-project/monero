@@ -527,12 +527,13 @@ namespace cryptonote
      * @brief gets per block distribution of outputs of a given amount
      *
      * @param amount the amount to get a ditribution for
-     * @param return-by-reference from_height the height before which we do not care about the data
+     * @param from_height the height before which we do not care about the data
+     * @param to_height the height after which we do not care about the data
      * @param return-by-reference start_height the height of the first rct output
      * @param return-by-reference distribution the start offset of the first rct output in this block (same as previous if none)
      * @param return-by-reference base how many outputs of that amount are before the stated distribution
      */
-    bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+    bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
     /**
      * @brief gets the global indices for outputs from a given transaction
