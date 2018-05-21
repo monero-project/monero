@@ -177,25 +177,25 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, verbose, test_range_proof, true);
   TEST_PERFORMANCE1(filter, verbose, test_range_proof, false);
 
-  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 1);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 1); // 1 bulletproof with 1 amount
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 1);
 
-  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 2); // 1 bulletproof with 2 amounts
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 2);
 
-  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 15);
+  TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 15); // 1 bulletproof with 15 amounts
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 15);
 
   TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 4);
-  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 4); // 4 proofs, each with 2 amounts
   TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 8, 1, 1, 0, 4);
-  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 8, 1, 1, 0, 4); // 4 proofs, each with 8 amounts
   TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 1, 2, 0, 4);
-  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 1, 2, 0, 4); // 4 proofs with 1, 2, 4, 8 amounts
   TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 8, 1, 1, 4);
-  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 8, 1, 1, 4); // 32 proofs, with 1, 2, 3, 4 amounts, 8 of each
   TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 64);
-  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 64);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 64); // 64 proof, each with 2 amounts
 
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, false);
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, false);
