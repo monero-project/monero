@@ -120,6 +120,10 @@ static const struct {
 } stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000, 0 },
+
+  // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
+  // version 7 starts from block 90000, which is on or around the 24th of May, 2018. Fork time finalised on 2018-05-22.
+  { 7, 90000, 0, 1526828224, 50 },
 };
 
 //------------------------------------------------------------------
