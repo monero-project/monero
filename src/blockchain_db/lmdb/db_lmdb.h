@@ -45,6 +45,7 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_blocks;
   MDB_cursor *m_txc_block_heights;
   MDB_cursor *m_txc_block_info;
+  MDB_cursor *m_txc_rct_distribution;
 
   MDB_cursor *m_txc_output_txs;
   MDB_cursor *m_txc_output_amounts;
@@ -67,6 +68,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_blocks	m_cursors->m_txc_blocks
 #define m_cur_block_heights	m_cursors->m_txc_block_heights
 #define m_cur_block_info	m_cursors->m_txc_block_info
+#define m_cur_rct_distribution	m_cursors->m_txc_rct_distribution
 #define m_cur_output_txs	m_cursors->m_txc_output_txs
 #define m_cur_output_amounts	m_cursors->m_txc_output_amounts
 #define m_cur_txs	m_cursors->m_txc_txs
@@ -86,6 +88,7 @@ typedef struct mdb_rflags
   bool m_rf_blocks;
   bool m_rf_block_heights;
   bool m_rf_block_info;
+  bool m_rf_rct_distribution;
   bool m_rf_output_txs;
   bool m_rf_output_amounts;
   bool m_rf_txs;
@@ -196,6 +199,8 @@ public:
   virtual cryptonote::blobdata get_block_blob(const crypto::hash& h) const;
 
   virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const;
+
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const;
 
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
@@ -317,6 +322,7 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
                 );
 
@@ -387,6 +393,9 @@ private:
   // migrate from DB version 1 to 2
   void migrate_1_2();
 
+  // migrate from DB version 2 to 3
+  void migrate_2_3();
+
   void cleanup_batch();
 
 private:
@@ -395,6 +404,7 @@ private:
   MDB_dbi m_blocks;
   MDB_dbi m_block_heights;
   MDB_dbi m_block_info;
+  MDB_dbi m_rct_distribution;
 
   MDB_dbi m_txs;
   MDB_dbi m_txs_pruned;
@@ -425,6 +435,8 @@ private:
 
   bool m_batch_transactions; // support for batch transactions
   bool m_batch_active; // whether batch transaction is in progress
+
+  uint64_t m_rct_distribution_offset;
 
   mdb_txn_cursors m_wcursors;
   mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;

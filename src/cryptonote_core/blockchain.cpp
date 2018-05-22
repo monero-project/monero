@@ -2004,11 +2004,35 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
     start_height = 0;
   base = 0;
 
+  if (to_height > 0 && to_height < from_height)
+    return false;
+
   const uint64_t real_start_height = start_height;
   if (from_height > start_height)
     start_height = from_height;
 
-  return m_db->get_output_distribution(amount, start_height, to_height, distribution, base);
+  distribution.clear();
+  uint64_t db_height = m_db->height();
+  if (db_height == 0)
+    return false;
+  if (to_height == 0)
+    to_height = db_height - 1;
+  if (start_height >= db_height || to_height >= db_height)
+    return false;
+  distribution.resize(to_height - start_height, 0);
+  if (amount == 0)
+  {
+    std::vector<uint64_t> heights;
+    heights.reserve(to_height + 1 - start_height);
+    for (uint64_t h = start_height; h <= to_height; ++h)
+      heights.push_back(h);
+    distribution = m_db->get_block_cumulative_rct_outputs(heights);
+    return true;
+  }
+  else
+  {
+    return m_db->get_output_distribution(amount, start_height, to_height, distribution, base);
+  }
 }
 //------------------------------------------------------------------
 // This function takes a list of block hashes from another node
