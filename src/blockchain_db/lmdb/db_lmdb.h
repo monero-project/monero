@@ -197,6 +197,8 @@ public:
 
   virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const;
 
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const;
+
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
   virtual uint64_t get_top_block_timestamp() const;
@@ -317,6 +319,7 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
                 );
 
@@ -386,6 +389,9 @@ private:
 
   // migrate from DB version 1 to 2
   void migrate_1_2();
+
+  // migrate from DB version 2 to 3
+  void migrate_2_3();
 
   void cleanup_batch();
 
