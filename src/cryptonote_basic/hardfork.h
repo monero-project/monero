@@ -30,6 +30,7 @@
 
 #include "syncobj.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/difficulty.h"
 
 namespace cryptonote
 {
@@ -70,8 +71,9 @@ namespace cryptonote
      * @param height The height the hardfork takes effect
      * @param threshold The threshold of votes needed for this fork (0-100)
      * @param time Approximate time of the hardfork (seconds since epoch)
+     * @param diff_reset_value The predefined value for the difficulty reset (0 if there is no reset)
      */
-    bool add_fork(uint8_t version, uint64_t height, uint8_t threshold, time_t time);
+    bool add_fork(uint8_t version, uint64_t height, uint8_t threshold, time_t time, difficulty_type diff_reset_value = 0);
 
     /**
      * @brief add a new hardfork height
@@ -202,6 +204,18 @@ namespace cryptonote
     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
 
     /**
+     * @brief returns the last height up to the given height when the difficult was reset
+     * 0 means there was no reset
+     */
+    uint64_t get_last_diff_reset_height(uint64_t height) const;
+
+    /**
+     * @brief returns the predefined difficulty for the last difficult reset up to the given height
+     * 0 means there was no reset
+     */
+    difficulty_type get_last_diff_reset_value(uint64_t height) const;
+
+    /**
      * @brief returns information about current voting state
      *
      * returns true if the given version is enabled (ie, the current version
@@ -249,7 +263,8 @@ namespace cryptonote
       uint8_t threshold;
       uint64_t height;
       time_t time;
-      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time): version(version), threshold(threshold), height(height), time(time) {}
+      difficulty_type diff_reset_value;
+      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time, difficulty_type diff_reset_value): version(version), threshold(threshold), height(height), time(time), diff_reset_value(diff_reset_value) {}
     };
     std::vector<Params> heights;
 

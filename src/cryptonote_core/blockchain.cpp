@@ -88,9 +88,10 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } mainnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1341378000, 0 },
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 0;
 
@@ -99,13 +100,14 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } testnet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1341378000, 0 },
 
   // versions 2, 3, 4, 5 and 6 are skipped, in favor of reducing the cost of adopting the POW change and other consensus updates from Monero
   // version 7 starts from block 44000, which is on or around the 24th of March, 2018.
-  { 7, 44000, 0, 1521900000 },
+  { 7, 44000, 0, 1521900000, 0 },
 };
 static const uint64_t testnet_hard_fork_version_1_till = 43999;
 
@@ -114,9 +116,10 @@ static const struct {
   uint64_t height;
   uint8_t threshold;
   time_t time;
+  difficulty_type diff_reset_value;
 } stagenet_hard_forks[] = {
   // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1341378000, 0 },
 };
 
 //------------------------------------------------------------------
@@ -332,17 +335,17 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   else if (m_nettype == TESTNET)
   {
     for (size_t n = 0; n < sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+      m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time, testnet_hard_forks[n].diff_reset_value);
   }
   else if (m_nettype == STAGENET)
   {
     for (size_t n = 0; n < sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
+      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time, stagenet_hard_forks[n].diff_reset_value);
   }
   else
   {
     for (size_t n = 0; n < sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]); ++n)
-      m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
+      m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time, mainnet_hard_forks[n].diff_reset_value);
   }
   m_hardfork->init();
 
@@ -807,7 +810,9 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
   size_t target = get_difficulty_target();
-  return next_difficulty(timestamps, difficulties, target, height);
+  uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(height);
+  difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(height);
+  return next_difficulty(timestamps, difficulties, target, height, last_diff_reset_height, last_diff_reset_value);
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
@@ -1008,9 +1013,11 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 
   // FIXME: This will fail if fork activation heights are subject to voting
   size_t target = get_ideal_hard_fork_version(bei.height) < 2 && bei.height < HARDFORK_1_HEIGHT ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
+  uint64_t last_diff_reset_height = m_hardfork->get_last_diff_reset_height(bei.height);
+  difficulty_type last_diff_reset_value = m_hardfork->get_last_diff_reset_value(bei.height);
 
   // calculate the difficulty target for the block and return it
-  return next_difficulty(timestamps, cumulative_difficulties, target, bei.height);
+  return next_difficulty(timestamps, cumulative_difficulties, target, bei.height, last_diff_reset_height, last_diff_reset_value);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner

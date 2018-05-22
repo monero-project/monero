@@ -55,16 +55,16 @@ int main(int argc, char *argv[]) {
     size_t n = 0;
     while (data >> timestamp >> difficulty) {
         size_t begin, end;
-        if (n < DIFFICULTY_WINDOW + DIFFICULTY_LAG) {
+        if (n < DIFFICULTY_BLOCKS_COUNT) {
             begin = 0;
-            end = min(n, (size_t) DIFFICULTY_WINDOW);
+            end = n;
         } else {
-            end = n - DIFFICULTY_LAG;
-            begin = end - DIFFICULTY_WINDOW;
+            end = n;
+            begin = end - DIFFICULTY_BLOCKS_COUNT;
         }
         uint64_t res = cryptonote::next_difficulty(
             vector<uint64_t>(timestamps.begin() + begin, timestamps.begin() + end),
-            vector<uint64_t>(cumulative_difficulties.begin() + begin, cumulative_difficulties.begin() + end), DEFAULT_TEST_DIFFICULTY_TARGET, 1);
+            vector<uint64_t>(cumulative_difficulties.begin() + begin, cumulative_difficulties.begin() + end), DEFAULT_TEST_DIFFICULTY_TARGET, n + 1, 850, 100);
         if (res != difficulty) {
             cerr << "Wrong difficulty for block " << n << endl
                 << "Expected: " << difficulty << endl

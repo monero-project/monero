@@ -678,3 +678,37 @@ TEST(get, earliest_ideal_height)
     ASSERT_EQ(hf.get_earliest_ideal_height_for_version(10), std::numeric_limits<uint64_t>::max());
 }
 
+TEST(get, last_diff_reset)
+{
+    TestDB db;
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+
+    //                      version,  height, threshold, timestamp, diff_reset_value
+    ASSERT_TRUE(hf.add_fork(1, 0, 0, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 0, 1, 100));
+    ASSERT_TRUE(hf.add_fork(5, 5, 0, 2, 0));
+    ASSERT_TRUE(hf.add_fork(6, 10, 0, 3, 200));
+    ASSERT_TRUE(hf.add_fork(9, 15, 0, 4, 0));
+    hf.init();
+
+    ASSERT_EQ(hf.get_last_diff_reset_height(1), 0);
+    ASSERT_EQ(hf.get_last_diff_reset_height(2), 2);
+    ASSERT_EQ(hf.get_last_diff_reset_height(3), 2);
+    ASSERT_EQ(hf.get_last_diff_reset_height(5), 2);
+    ASSERT_EQ(hf.get_last_diff_reset_height(6), 2);
+    ASSERT_EQ(hf.get_last_diff_reset_height(10), 10);
+    ASSERT_EQ(hf.get_last_diff_reset_height(11), 10);
+    ASSERT_EQ(hf.get_last_diff_reset_height(15), 10);
+    ASSERT_EQ(hf.get_last_diff_reset_height(16), 10);
+
+    ASSERT_EQ(hf.get_last_diff_reset_value(1), 0);
+    ASSERT_EQ(hf.get_last_diff_reset_value(2), 100);
+    ASSERT_EQ(hf.get_last_diff_reset_value(3), 100);
+    ASSERT_EQ(hf.get_last_diff_reset_value(5), 100);
+    ASSERT_EQ(hf.get_last_diff_reset_value(6), 100);
+    ASSERT_EQ(hf.get_last_diff_reset_value(10), 200);
+    ASSERT_EQ(hf.get_last_diff_reset_value(11), 200);
+    ASSERT_EQ(hf.get_last_diff_reset_value(15), 200);
+    ASSERT_EQ(hf.get_last_diff_reset_value(16), 200);
+}
+
