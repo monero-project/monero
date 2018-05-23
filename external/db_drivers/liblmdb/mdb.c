@@ -1595,7 +1595,7 @@ mdb_strerror(int err)
 	 *           If this happens to be a problem, 
 	 *             make it global var and free in the destructor of a global obj instance.
 	 */
-	static __declspec(thread) (char*) ptr = NULL;
+	static __declspec(thread) char* ptr = NULL;
 #else
 	need proper RETLOCALVARPT_SOLUTION setting.
 #endif
@@ -1627,7 +1627,7 @@ mdb_strerror(int err)
 	default:
 		;
 	}
-#elif RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
+#if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
 	if (!ptr) ptr = malloc(MSGSIZE);
 	if (!ptr) return "MDB_CANNOT_PRTINT_ERR: No mem."
 #endif
