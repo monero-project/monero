@@ -1629,12 +1629,19 @@ mdb_strerror(int err)
 	}
 #if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
 	if (!ptr) ptr = malloc(MSGSIZE);
-	if (!ptr) return "MDB_CANNOT_PRTINT_ERR: No mem."
+	if (!ptr) return ("MDB_CANNOT_PRINT_ERR: No mem.");
 #endif
 	*ptr = 0;
 	FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
 		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, err, 0, ptr, MSGSIZE, (va_list *)buf+MSGSIZE);
+		NULL, err, 0, ptr, MSGSIZE, 
+#if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_STACKHACK
+		       (va_list *)buf+MSGSIZE
+#else
+		       NULL
+#endif
+
+		      );
 	return ptr;
 #else
 	return strerror(err);
