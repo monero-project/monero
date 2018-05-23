@@ -1599,6 +1599,7 @@ mdb_strerror(int err)
 #else
 	need proper RETLOCALVARPT_SOLUTION setting.
 #endif
+#endif
 	int i;
 	if (!err)
 		return ("Successful return: 0");
