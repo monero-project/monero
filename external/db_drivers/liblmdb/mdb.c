@@ -1588,14 +1588,14 @@ mdb_strerror(int err)
 #define PADSIZE	4096
 	char buf[MSGSIZE+PADSIZE], *ptr = buf;
 #elif RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_LIGHTLYTHREADEDAPP
-	static __declspec(thread) char buf[MSGSIZE];
+	static __thread char buf[MSGSIZE];
 	char *ptr = buf;
 #elif RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
 	/** BEWARE : There is no cleanup, i.e., "free(ptr);" 
 	 *           If this happens to be a problem, 
 	 *             make it global var and free in the destructor of a global obj instance.
 	 */
-	static __declspec(thread) char* ptr = NULL;
+	static __thread char* ptr = NULL;
 #else
 	need proper RETLOCALVARPT_SOLUTION setting.
 #endif
