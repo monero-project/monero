@@ -1575,13 +1575,30 @@ char *
 mdb_strerror(int err)
 {
 #ifdef _WIN32
+#define MSGSIZE	1024
+#define RETLOCALVARPTR_STACKHACK  1
+#define RETLOCALVARPTR_LIGHTLYTHREADEDAPP 2
+#define RETLOCALVARPTR_HEAVILYTHREADEDAPP 3
+#define RETLOCALVARPT_SOLUTION RETLOCALVARPTR_HEAVILYTHREADEDAPP
+#if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_STACKHACK
 	/** HACK: pad 4KB on stack over the buf. Return system msgs in buf.
 	 *	This works as long as no function between the call to mdb_strerror
 	 *	and the actual use of the message uses more than 4K of stack.
 	 */
-#define MSGSIZE	1024
 #define PADSIZE	4096
 	char buf[MSGSIZE+PADSIZE], *ptr = buf;
+#elif RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_LIGHTLYTHREADEDAPP
+	static __thread char buf[MSGSIZE];
+	char *ptr = buf;
+#elif RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
+	/** BEWARE : There is no cleanup, i.e., "free(ptr);" 
+	 *           If this happens to be a problem, 
+	 *             make it global var and free in the destructor of a global obj instance.
+	 */
+	static __thread char* ptr = NULL;
+#else
+	need proper RETLOCALVARPT_SOLUTION setting.
+#endif
 #endif
 	int i;
 	if (!err)
@@ -1610,10 +1627,21 @@ mdb_strerror(int err)
 	default:
 		;
 	}
-	buf[0] = 0;
+#if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_HEAVILYTHREADEDAPP
+	if (!ptr) ptr = malloc(MSGSIZE);
+	if (!ptr) return ("MDB_CANNOT_PRINT_ERR: No mem.");
+#endif
+	*ptr = 0;
 	FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
 		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, err, 0, ptr, MSGSIZE, (va_list *)buf+MSGSIZE);
+		NULL, err, 0, ptr, MSGSIZE, 
+#if RETLOCALVARPT_SOLUTION == RETLOCALVARPTR_STACKHACK
+		       (va_list *)buf+MSGSIZE
+#else
+		       NULL
+#endif
+
+		      );
 	return ptr;
 #else
 	return strerror(err);
