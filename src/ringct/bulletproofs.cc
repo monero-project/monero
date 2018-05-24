@@ -521,8 +521,8 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultKey(rct::H, t1), rct::scalarmultBase(tau1));
-  rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
+  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -592,10 +592,10 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
     // PAPER LINES 18-19
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
-    rct::addKeys(L[round], L[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
-    rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
@@ -764,8 +764,8 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultKey(rct::H, t1), rct::scalarmultBase(tau1));
-  rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
+  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -842,10 +842,10 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
     // PAPER LINES 18-19
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
-    rct::addKeys(L[round], L[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
-    rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
@@ -964,7 +964,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
       sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
       std::vector<MultiexpData> multiexp_data;
       multiexp_data.reserve(3+proof.V.size());
-      multiexp_data.emplace_back(tmp, rct::H);
+      multiexp_data.emplace_back(tmp, ge_p3_H);
       for (size_t j = 0; j < proof.V.size(); j++)
       {
         multiexp_data.emplace_back(zpow[j+2], proof.V[j]);
@@ -980,7 +980,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     {
       PERF_TIMER_START_BP(VERIFY_line_61rl_old);
       sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
-      L61Right = rct::scalarmultKey(rct::H, tmp);
+      L61Right = rct::scalarmultH(tmp);
       ge_p3 L61Right_p3;
       CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&L61Right_p3, L61Right.bytes) == 0, "ge_frombytes_vartime failed");
       for (size_t j = 0; j+1 < proof.V.size(); j += 2)
@@ -1118,7 +1118,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   sc_sub(tmp.bytes, rct::zero().bytes, z1.bytes);
   rct::addKeys(Y, Y, rct::scalarmultBase(tmp));
   rct::addKeys(Y, Y, Z2);
-  rct::addKeys(Y, Y, rct::scalarmultKey(rct::H, z3));
+  rct::addKeys(Y, Y, rct::scalarmultH(z3));
 
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(2 * maxMN);

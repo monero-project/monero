@@ -1086,6 +1086,13 @@ TEST(ringct, zeroCommmit)
   ASSERT_EQ(z, manual);
 }
 
+TEST(ringct, H)
+{
+  ge_p3 p3;
+  ASSERT_EQ(ge_frombytes_vartime(&p3, rct::H.bytes), 0);
+  ASSERT_EQ(memcmp(&p3, &ge_p3_H, sizeof(ge_p3)), 0);
+}
+
 TEST(ringct, aggregated)
 {
   static const size_t N_PROOFS = 16;
