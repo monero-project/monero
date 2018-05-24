@@ -193,10 +193,8 @@ namespace rct {
 
     //Computes aH where H= toPoint(cn_fast_hash(G)), G the basepoint
     key scalarmultH(const key & a) {
-        ge_p3 A;
         ge_p2 R;
-        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&A, H.bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
-        ge_scalarmult(&R, a.bytes, &A);
+        ge_scalarmult(&R, a.bytes, &ge_p3_H);
         key aP;
         ge_tobytes(aP.bytes, &R);
         return aP;
