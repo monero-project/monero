@@ -244,6 +244,7 @@ namespace nodetool
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
+    bool check_incoming_connections();
 
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
@@ -307,6 +308,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
+    epee::math_helper::once_a_time_seconds<900, false> m_incoming_connections_interval;
 
     std::string m_bind_ip;
     std::string m_port;
