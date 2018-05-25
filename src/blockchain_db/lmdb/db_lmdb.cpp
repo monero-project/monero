@@ -533,8 +533,8 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   MDEBUG("Space used:      " << size_used);
   MDEBUG("Space remaining: " << mei.me_mapsize - size_used);
   MDEBUG("Size threshold:  " << threshold_size);
-  float resize_percent_old = RESIZE_PERCENT;
-  MDEBUG(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent_old);
+  float resize_percent = RESIZE_PERCENT;
+  MDEBUG(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent);
 
   if (threshold_size > 0)
   {
@@ -546,10 +546,6 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
     else
       return false;
   }
-
-  std::mt19937 engine(std::random_device{}());
-  std::uniform_real_distribution<double> fdis(0.6, 0.9);
-  double resize_percent = fdis(engine);
 
   if ((double)size_used / mei.me_mapsize  > resize_percent)
   {
