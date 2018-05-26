@@ -236,6 +236,8 @@ namespace net_utils
 	bool simple_http_connection_handler<t_connection_context>::handle_buff_in(std::string& buf)
 	{
 
+		size_t ndel;
+
 		if(m_cache.size())
 			m_cache += buf;
 		else
@@ -253,11 +255,12 @@ namespace net_utils
 					break;
 
 				//check_and_handle_fake_response();
-				if((m_cache[0] == '\r' || m_cache[0] == '\n'))
+				ndel = m_cache.find_first_not_of("\r\n");
+				if (ndel != 0)
 				{
           //some times it could be that before query line cold be few line breaks
           //so we have to be calm without panic with assers
-					m_cache.erase(0, 1);
+					m_cache.erase(0, ndel);
 					break;
 				}
 
