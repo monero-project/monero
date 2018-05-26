@@ -394,37 +394,35 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
 #endif
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(digits, 1000000));
-  std::vector<std::vector<uint8_t>> digits;
-  digits.resize(data.size());
+  std::unique_ptr<uint8_t[]> digits{new uint8_t[256 * data.size()]};
   for (size_t j = 0; j < data.size(); ++j)
   {
-    digits[j].resize(256);
     unsigned char bytes33[33];
     memcpy(bytes33,  data[j].scalar.bytes, 32);
     bytes33[32] = 0;
+    const unsigned char *bytes = bytes33;
 #if 1
     static_assert(STRAUS_C == 4, "optimized version needs STRAUS_C == 4");
-    const unsigned char *bytes = bytes33;
     unsigned int i;
     for (i = 0; i < 256; i += 8, bytes++)
     {
-      digits[j][i] = bytes[0] & 0xf;
-      digits[j][i+1] = (bytes[0] >> 1) & 0xf;
-      digits[j][i+2] = (bytes[0] >> 2) & 0xf;
-      digits[j][i+3] = (bytes[0] >> 3) & 0xf;
-      digits[j][i+4] = ((bytes[0] >> 4) | (bytes[1]<<4)) & 0xf;
-      digits[j][i+5] = ((bytes[0] >> 5) | (bytes[1]<<3)) & 0xf;
-      digits[j][i+6] = ((bytes[0] >> 6) | (bytes[1]<<2)) & 0xf;
-      digits[j][i+7] = ((bytes[0] >> 7) | (bytes[1]<<1)) & 0xf;
+      digits[j*256+i] = bytes[0] & 0xf;
+      digits[j*256+i+1] = (bytes[0] >> 1) & 0xf;
+      digits[j*256+i+2] = (bytes[0] >> 2) & 0xf;
+      digits[j*256+i+3] = (bytes[0] >> 3) & 0xf;
+      digits[j*256+i+4] = ((bytes[0] >> 4) | (bytes[1]<<4)) & 0xf;
+      digits[j*256+i+5] = ((bytes[0] >> 5) | (bytes[1]<<3)) & 0xf;
+      digits[j*256+i+6] = ((bytes[0] >> 6) | (bytes[1]<<2)) & 0xf;
+      digits[j*256+i+7] = ((bytes[0] >> 7) | (bytes[1]<<1)) & 0xf;
     }
 #elif 1
     for (size_t i = 0; i < 256; ++i)
-      digits[j][i] = ((bytes[i>>3] | (bytes[(i>>3)+1]<<8)) >> (i&7)) & mask;
+      digits[j*256+i] = ((bytes[i>>3] | (bytes[(i>>3)+1]<<8)) >> (i&7)) & mask;
 #else
     rct::key shifted = data[j].scalar;
     for (size_t i = 0; i < 256; ++i)
     {
-      digits[j][i] = shifted.bytes[0] & 0xf;
+      digits[j*256+i] = shifted.bytes[0] & 0xf;
       shifted = div2(shifted, (256-i)>>3);
     }
 #endif
@@ -470,7 +468,7 @@ skipfirst:
         if (skip[j])
           continue;
 #endif
-        const uint8_t digit = digits[j][i];
+        const uint8_t digit = digits[j*256+i];
         if (digit)
         {
           ge_add(&p1, &band_p3, &CACHE_OFFSET(local_cache, j, digit));
