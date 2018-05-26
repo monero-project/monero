@@ -38,6 +38,7 @@
 
 #define HTTP_MAX_URI_LEN		 9000 
 #define HTTP_MAX_HEADER_LEN		 100000
+#define HTTP_MAX_STARTING_NEWLINES       8
 
 namespace epee
 {
@@ -203,6 +204,7 @@ namespace net_utils
 		m_len_remain(0),
 		m_config(config), 
 		m_want_close(false),
+		m_newlines(0),
         m_psnd_hndlr(psnd_hndlr)
 	{
 
@@ -216,6 +218,7 @@ namespace net_utils
 		m_body_transfer_type = http_body_transfer_undefined;
 		m_query_info.clear();
 		m_len_summary = 0;
+		m_newlines = 0;
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
@@ -260,6 +263,13 @@ namespace net_utils
 				{
           //some times it could be that before query line cold be few line breaks
           //so we have to be calm without panic with assers
+					m_newlines += std::string::npos == ndel ? m_cache.size() : ndel;
+					if (m_newlines > HTTP_MAX_STARTING_NEWLINES)
+					{
+						LOG_ERROR("simple_http_connection_handler::handle_buff_out: Too many starting newlines");
+						m_state = http_state_error;
+						return false;
+					}
 					m_cache.erase(0, ndel);
 					break;
 				}

@@ -607,7 +607,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     {
       if(ec == boost::asio::error::operation_aborted)
         return;
-      MDEBUG("Connection timeout, closing");
+      MDEBUG(context << "connection timeout, closing");
       self->close();
     });
   }
