@@ -47,6 +47,7 @@ using namespace epee;
 static std::string generate_log_filename(const char *base)
 {
   std::string filename(base);
+  static unsigned int fallback_counter = 0;
   char tmp[200];
   struct tm tm;
   time_t now = time(NULL);
@@ -56,7 +57,7 @@ static std::string generate_log_filename(const char *base)
 #else
   (!gmtime_r(&now, &tm))
 #endif
-    strcpy(tmp, "unknown");
+    snprintf(tmp, sizeof(tmp), "part-%u", ++fallback_counter);
   else
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", &tm);
   tmp[sizeof(tmp) - 1] = 0;
