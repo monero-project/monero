@@ -60,6 +60,8 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data);
 std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<MultiexpData> &data);
 size_t straus_get_cache_size(const std::shared_ptr<straus_cached_data> &cache);
 rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<straus_cached_data> &cache = NULL, size_t STEP = 0);
+size_t get_pippenger_c(size_t N);
+rct::key pippenger(const std::vector<MultiexpData> &data, size_t c);
 
 }
 

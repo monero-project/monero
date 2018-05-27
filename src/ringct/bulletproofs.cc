@@ -72,10 +72,10 @@ static boost::mutex init_mutex;
 static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
 {
   static const size_t STEP = getenv("STRAUS_STEP") ? atoi(getenv("STRAUS_STEP")) : 0;
-  if (HiGi || data.size() < 1000)
-    return straus(data, HiGi ? HiGi_cache: NULL, STEP);
+  if (HiGi)
+    return data.size() <= 256 ? straus(data, HiGi_cache, STEP) : pippenger(data, get_pippenger_c(data.size()));
   else
-    return bos_coster_heap_conv_robust(data);
+    return data.size() <= 64 ? straus(data, NULL, STEP) : pippenger(data, get_pippenger_c(data.size()));
 }
 
 //addKeys3acc_p3
