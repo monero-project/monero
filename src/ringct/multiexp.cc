@@ -55,6 +55,30 @@ extern "C"
 //   1     0     52.7     67        67.1
 //   1     1     52.8     70.4      70.2
 
+// Pippenger:
+// 	1	2	3	4	5	6	7	8	9	bestN
+// 2	555	598	621	804	1038	1733	2486	5020	8304	1
+// 4	783	747	800	1006	1428	2132	3285	5185	9806	2
+// 8	1174	1071	1095	1286	1640	2398	3869	6378	12080	2
+// 16	2279	1874	1745	1739	2144	2831	4209	6964	12007	4
+// 32	3910	3706	2588	2477	2782	3467	4856	7489	12618	4
+// 64	7184	5429	4710	4368	4010	4672	6027	8559	13684	5
+// 128	14097	10574	8452	7297	6841	6718	8615	10580	15641	6
+// 256	27715	20800	16000	13550	11875	11400	11505	14090	18460	6
+// 512	55100	41250	31740	26570	22030	19830	20760	21380	25215	6
+// 1024	111520	79000	61080	49720	43080	38320	37600	35040	36750	8
+// 2048	219480	162680	122120	102080	83760	70360	66600	63920	66160	8
+// 4096	453320	323080	247240	210200	180040	150240	132440	114920	110560	9
+
+// 			2	4	8	16	32	64	128	256	512	1024	2048	4096
+// Bos Coster		858	994	1316	1949	3183	5512	9865	17830	33485	63160	124280	246320
+// Straus		226	341	548	980	1870	3538	7039	14490	29020	57200	118640	233640
+// Straus/cached	226	315	485	785	1514	2858	5753	11065	22970	45120	98880	194840
+// Pippenger		555	747	1071	1739	2477	4010	6718	11400	19830	35040	63920	110560
+
+// Best/cached		Straus	Straus	Straus	Straus	Straus	Straus	Straus	Straus	Pip	Pip	Pip	Pip
+// Best/uncached	Straus	Straus	Straus	Straus	Straus	Straus	Pip	Pip	Pip	Pip	Pip	Pip
+
 namespace rct
 {
 
@@ -89,6 +113,26 @@ static inline rct::key pow2(size_t n)
   rct::key res = rct::zero();
   res[n >> 3] |= 1<<(n&7);
   return res;
+}
+
+static inline int test(const rct::key &k, size_t n)
+{
+  if (n >= 256) return 0;
+  return k[n >> 3] & (1 << (n & 7));
+}
+
+static inline void add(ge_p3 &p3, const ge_cached &other)
+{
+  ge_p1p1 p1;
+  ge_add(&p1, &p3, &other);
+  ge_p1p1_to_p3(&p3, &p1);
+}
+
+static inline void add(ge_p3 &p3, const ge_p3 &other)
+{
+  ge_cached cached;
+  ge_p3_to_cached(&cached, &other);
+  add(p3, cached);
 }
 
 rct::key bos_coster_heap_conv(std::vector<MultiexpData> data)
@@ -484,6 +528,95 @@ skipfirst:
 
   rct::key res;
   ge_p3_tobytes(res.bytes, &res_p3);
+  return res;
+}
+
+size_t get_pippenger_c(size_t N)
+{
+// 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
+  if (N <= 2) return 1;
+  if (N <= 8) return 2;
+  if (N <= 16) return 3;
+  if (N <= 64) return 4;
+  if (N <= 128) return 5;
+  if (N <= 256) return 6;
+  if (N <= 1024) return 7;
+  if (N <= 2048) return 8;
+  return 9;
+}
+
+rct::key pippenger(const std::vector<MultiexpData> &data, size_t c)
+{
+  CHECK_AND_ASSERT_THROW_MES(c <= 9, "c is too large");
+
+  ge_p3 result = ge_p3_identity;
+  std::unique_ptr<ge_p3[]> buckets{new ge_p3[1<<c]};
+  std::unique_ptr<ge_cached[]> cached_points{new ge_cached[data.size()]};
+
+  for (size_t i = 0; i < data.size(); ++i)
+  {
+    ge_p3_to_cached(&cached_points[i], &data[i].point);
+  }
+
+  rct::key maxscalar = rct::zero();
+  for (size_t i = 0; i < data.size(); ++i)
+    if (maxscalar < data[i].scalar)
+      maxscalar = data[i].scalar;
+  size_t groups = 0;
+  while (groups < 256 && pow2(groups) < maxscalar)
+    ++groups;
+  groups = (groups + c - 1) / c;
+
+  for (size_t k = groups; k-- > 0; )
+  {
+    if (memcmp(&result, &ge_p3_identity, sizeof(ge_p3)))
+    {
+      ge_p2 p2;
+      ge_p3_to_p2(&p2, &result);
+      for (size_t i = 0; i < c; ++i)
+      {
+        ge_p1p1 p1;
+        ge_p2_dbl(&p1, &p2);
+        if (i == c - 1)
+          ge_p1p1_to_p3(&result, &p1);
+        else
+          ge_p1p1_to_p2(&p2, &p1);
+      }
+    }
+    for (size_t i = 0; i < (1u<<c); ++i)
+      buckets[i] = ge_p3_identity;
+
+    // partition scalars into buckets
+    for (size_t i = 0; i < data.size(); ++i)
+    {
+      unsigned int bucket = 0;
+      for (size_t j = 0; j < c; ++j)
+        if (test(data[i].scalar, k*c+j))
+          bucket |= 1<<j;
+      if (bucket == 0)
+        continue;
+      CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
+      if (memcmp(&buckets[bucket], &ge_p3_identity, sizeof(ge_p3)))
+      {
+        add(buckets[bucket], cached_points[i]);
+      }
+      else
+        buckets[bucket] = data[i].point;
+    }
+
+    // sum the buckets
+    ge_p3 pail = ge_p3_identity;
+    for (size_t i = (1<<c)-1; i > 0; --i)
+    {
+      if (memcmp(&buckets[i], &ge_p3_identity, sizeof(ge_p3)))
+        add(pail, buckets[i]);
+      if (memcmp(&pail, &ge_p3_identity, sizeof(ge_p3)))
+        add(result, pail);
+    }
+  }
+
+  rct::key res;
+  ge_p3_tobytes(res.bytes, &result);
   return res;
 }
 

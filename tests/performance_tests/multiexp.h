@@ -39,9 +39,10 @@ enum test_multiexp_algorithm
   multiexp_bos_coster,
   multiexp_straus,
   multiexp_straus_cached,
+  multiexp_pippenger,
 };
 
-template<test_multiexp_algorithm algorithm, size_t npoints>
+template<test_multiexp_algorithm algorithm, size_t npoints, size_t c=0>
 class test_multiexp
 {
 public:
@@ -74,6 +75,8 @@ public:
         return res == straus(data);
       case multiexp_straus_cached:
         return res == straus(data, cache);
+      case multiexp_pippenger:
+        return res == pippenger(data, c);
       default:
         return false;
     }
