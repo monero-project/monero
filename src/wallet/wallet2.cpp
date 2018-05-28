@@ -3772,7 +3772,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     wallet2::cache_file_data cache_file_data;
     std::string buf;
-    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf);
+    bool r = epee::file_io_utils::load_file_to_string(m_wallet_file, buf, std::numeric_limits<size_t>::max());
     THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, m_wallet_file);
 
     // try to read it as an encrypted cache
