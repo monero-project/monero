@@ -33,7 +33,7 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "perf"
 
-namespace
+namespace tools
 {
   uint64_t get_tick_count()
   {
@@ -83,7 +83,7 @@ namespace tools
 
 el::Level performance_timer_log_level = el::Level::Debug;
 
-static __thread std::vector<PerformanceTimer*> *performance_timers = NULL;
+static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 
 void set_performance_timer_log_level(el::Level level)
 {
@@ -96,17 +96,24 @@ void set_performance_timer_log_level(el::Level level)
   performance_timer_log_level = level;
 }
 
-PerformanceTimer::PerformanceTimer(const std::string &s, uint64_t unit, el::Level l): name(s), unit(unit), level(l), started(false), paused(false)
+PerformanceTimer::PerformanceTimer(bool paused): started(true), paused(paused)
 {
-  ticks = get_tick_count();
+  if (paused)
+    ticks = 0;
+  else
+    ticks = get_tick_count();
+}
+
+LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, uint64_t unit, el::Level l): PerformanceTimer(), name(s), unit(unit), level(l)
+{
   if (!performance_timers)
   {
     MLOG(level, "PERF             ----------");
-    performance_timers = new std::vector<PerformanceTimer*>();
+    performance_timers = new std::vector<LoggingPerformanceTimer*>();
   }
   else
   {
-    PerformanceTimer *pt = performance_timers->back();
+    LoggingPerformanceTimer *pt = performance_timers->back();
     if (!pt->started && !pt->paused)
     {
       size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
@@ -119,9 +126,14 @@ PerformanceTimer::PerformanceTimer(const std::string &s, uint64_t unit, el::Leve
 
 PerformanceTimer::~PerformanceTimer()
 {
-  performance_timers->pop_back();
   if (!paused)
     ticks = get_tick_count() - ticks;
+}
+
+LoggingPerformanceTimer::~LoggingPerformanceTimer()
+{
+  pause();
+  performance_timers->pop_back();
   char s[12];
   snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
   size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
