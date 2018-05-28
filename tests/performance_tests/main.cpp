@@ -141,6 +141,16 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 100, 2, true, true);
   TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature, 2, 10, true, true);
 
+  TEST_PERFORMANCE3(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 64);
+  TEST_PERFORMANCE3(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 64);
+  TEST_PERFORMANCE3(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 100, 2, 64);
+  TEST_PERFORMANCE3(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 2, 10, 64);
+
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 62, 4);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 62, 4);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 56, 16);
+  TEST_PERFORMANCE4(filter, verbose, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 56, 16);
+
   TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, verbose, test_is_out_to_acc_precomp);
   TEST_PERFORMANCE0(filter, verbose, test_generate_key_image_helper);
