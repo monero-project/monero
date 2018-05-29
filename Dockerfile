@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 
 # builder stage
-FROM ubuntu:16.04 as builder
+FROM debian:jessie as builder
 
 RUN apt-get update && \
     apt-get --no-install-recommends --yes install \
@@ -16,14 +16,27 @@ RUN apt-get update && \
         curl \
         libtool-bin \
         autoconf \
-        automake
+        automake \
+        bzip2
 
 WORKDIR /usr/local
 
+#Cmake
+ARG CMAKE_VERSION=3.11.2
+ARG CMAKE_VERSION_DOT=v3.11
+ARG CMAKE_HASH=5ebc22bbcf2b4c7a20c4190d42c084cf38680a85b1a7980a2f1d5b4a52bf5248
+RUN curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
+    && echo "${CMAKE_HASH} cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
+    && tar -xzf cmake-${CMAKE_VERSION}.tar.gz \
+    && cd cmake-${CMAKE_VERSION} \
+    && ./configure \
+    && make \
+    && make install
+
 ## Boost
-ARG BOOST_VERSION=1_66_0
-ARG BOOST_VERSION_DOT=1.66.0
-ARG BOOST_HASH=5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9
+ARG BOOST_VERSION=1_67_0
+ARG BOOST_VERSION_DOT=1.67.0
+ARG BOOST_HASH=2684c972994ee57fc5632e03bf044746f6eb45d4920c343937a465fd67a5adba
 RUN curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
     && echo "${BOOST_HASH} boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
     && tar -xvf boost_${BOOST_VERSION}.tar.bz2 \
@@ -33,20 +46,21 @@ RUN curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostor
 ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 
 # OpenSSL
-ARG OPENSSL_VERSION=1.0.2n
-ARG OPENSSL_HASH=370babb75f278c39e0c50e8c4e7493bc0f18db6867478341a832a982fd15a8fe
+ARG OPENSSL_VERSION=1.1.0h
+ARG OPENSSL_HASH=5835626cde9e99656585fc7aaa2302a73a7e1340bf8c14fd635a62c66802a517
 RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH} openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
     && ./Configure linux-x86_64 no-shared --static -fPIC \
-    && make build_crypto build_ssl \
+    && make build_generated \
+    && make libcrypto.a \
     && make install
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.2.3
-ARG ZMQ_HASH=3226b8ebddd9c6c738ba42986822c26418a49afb
+ARG ZMQ_VERSION=v4.2.5
+ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
 RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
     && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
@@ -57,8 +71,9 @@ RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && ldconfig
 
 # zmq.hpp
+ARG CPPZMQ_VERSION=v4.2.3
 ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
-RUN git clone https://github.com/zeromq/cppzmq.git -b ${ZMQ_VERSION} \
+RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && mv *.hpp /usr/local/include
@@ -86,6 +101,8 @@ RUN git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
     && make check \
     && make install
 
+
+
 WORKDIR /src
 COPY . .
 
@@ -94,7 +111,7 @@ RUN rm -rf build && \
     if [ -z "$NPROC" ];then make -j$(nproc) release-static;else make -j$NPROC release-static;fi
 
 # runtime stage
-FROM ubuntu:16.04
+FROM debian:jessie
 
 RUN apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates && \
@@ -114,4 +131,4 @@ VOLUME /wallet
 EXPOSE 18080
 EXPOSE 18081
 
-ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"] 
+ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
