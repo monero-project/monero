@@ -2883,6 +2883,7 @@ bool wallet2::verify_password(const epee::wipeable_string& password) const
  * \param keys_file_name  Keys file to verify password for
  * \param password        Password to verify
  * \param no_spend_key    If set = only verify view keys, otherwise also spend keys
+ * \param hwdev           The hardware device to use
  * \return                true if password is correct
  *
  * for verification only
@@ -2933,9 +2934,10 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
 
 /*!
  * \brief  Generates a wallet or restores one.
- * \param  wallet_        Name of wallet file
- * \param  password       Password of wallet file
- * \param  multisig_data  The multisig restore info and keys
+ * \param  wallet_              Name of wallet file
+ * \param  password             Password of wallet file
+ * \param  multisig_data        The multisig restore info and keys
+ * \param  create_address_file  Whether to create an address file
  */
 void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const std::string& multisig_data, bool create_address_file)
@@ -3028,12 +3030,13 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 
 /*!
  * \brief  Generates a wallet or restores one.
- * \param  wallet_        Name of wallet file
- * \param  password       Password of wallet file
- * \param  recovery_param If it is a restore, the recovery key
- * \param  recover        Whether it is a restore
- * \param  two_random     Whether it is a non-deterministic wallet
- * \return                The secret key of the generated wallet
+ * \param  wallet_                 Name of wallet file
+ * \param  password                Password of wallet file
+ * \param  recovery_param          If it is a restore, the recovery key
+ * \param  recover                 Whether it is a restore
+ * \param  two_random              Whether it is a non-deterministic wallet
+ * \param  create_address_file     Whether to create an address file
+ * \return                         The secret key of the generated wallet
  */
 crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const crypto::secret_key& recovery_param, bool recover, bool two_random, bool create_address_file)
@@ -3129,9 +3132,11 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
 
 /*!
 * \brief Creates a watch only wallet from a public address and a view secret key.
-* \param  wallet_        Name of wallet file
-* \param  password       Password of wallet file
-* \param  viewkey        view secret key
+* \param  wallet_                 Name of wallet file
+* \param  password                Password of wallet file
+* \param  account_public_address  The account's public address
+* \param  viewkey                 view secret key
+* \param  create_address_file     Whether to create an address file
 */
 void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const cryptonote::account_public_address &account_public_address,
@@ -3178,10 +3183,12 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 
 /*!
 * \brief Creates a wallet from a public address and a spend/view secret key pair.
-* \param  wallet_        Name of wallet file
-* \param  password       Password of wallet file
-* \param  spendkey       spend secret key
-* \param  viewkey        view secret key
+* \param  wallet_                 Name of wallet file
+* \param  password                Password of wallet file
+* \param  account_public_address  The account's public address
+* \param  spendkey                spend secret key
+* \param  viewkey                 view secret key
+* \param  create_address_file     Whether to create an address file
 */
 void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const cryptonote::account_public_address &account_public_address,
@@ -3628,8 +3635,9 @@ void wallet2::rewrite(const std::string& wallet_name, const epee::wipeable_strin
 }
 /*!
  * \brief Writes to a file named based on the normal wallet (doesn't generate key, assumes it's already there)
- * \param wallet_name Base name of wallet file
- * \param password    Password for wallet file
+ * \param wallet_name       Base name of wallet file
+ * \param password          Password for wallet file
+ * \param new_keys_filename [OUT] Name of new keys file
  */
 void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password, std::string &new_keys_filename)
 {
