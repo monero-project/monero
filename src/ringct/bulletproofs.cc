@@ -49,6 +49,9 @@ extern "C"
 
 #define PERF_TIMER_START_BP(x) PERF_TIMER_START_UNIT(x, 1000000)
 
+#define STRAUS_SIZE_LIMIT 128
+#define PIPPENGER_SIZE_LIMIT 0
+
 namespace rct
 {
 
@@ -61,8 +64,8 @@ static constexpr size_t maxN = 64;
 static constexpr size_t maxM = BULLETPROOF_MAX_OUTPUTS;
 static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
 static ge_p3 Hi_p3[maxN*maxM], Gi_p3[maxN*maxM];
-static ge_dsmp Gprecomp[maxN*maxM], Hprecomp[maxN*maxM];
-static std::shared_ptr<straus_cached_data> HiGi_cache;
+static std::shared_ptr<straus_cached_data> straus_HiGi_cache;
+static std::shared_ptr<pippenger_cached_data> pippenger_HiGi_cache;
 static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
 static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
@@ -73,9 +76,12 @@ static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi
 {
   static const size_t STEP = getenv("STRAUS_STEP") ? atoi(getenv("STRAUS_STEP")) : 0;
   if (HiGi)
-    return data.size() <= 256 ? straus(data, HiGi_cache, STEP) : pippenger(data, get_pippenger_c(data.size()));
+  {
+    static_assert(128 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
+    return data.size() <= 128 ? straus(data, straus_HiGi_cache, STEP) : pippenger(data, pippenger_HiGi_cache, get_pippenger_c(data.size()));
+  }
   else
-    return data.size() <= 64 ? straus(data, NULL, STEP) : pippenger(data, get_pippenger_c(data.size()));
+    return data.size() <= 64 ? straus(data, NULL, STEP) : pippenger(data, NULL, get_pippenger_c(data.size()));
 }
 
 //addKeys3acc_p3
@@ -123,18 +129,23 @@ static void init_exponents()
   for (size_t i = 0; i < maxN*maxM; ++i)
   {
     Hi[i] = get_exponent(rct::H, i * 2);
-    rct::precomp(Hprecomp[i], Hi[i]);
     CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Hi_p3[i], Hi[i].bytes) == 0, "ge_frombytes_vartime failed");
     Gi[i] = get_exponent(rct::H, i * 2 + 1);
-    rct::precomp(Gprecomp[i], Gi[i]);
     CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi[i].bytes) == 0, "ge_frombytes_vartime failed");
 
     data.push_back({rct::zero(), Gi[i]});
     data.push_back({rct::zero(), Hi[i]});
   }
-  HiGi_cache = straus_init_cache(data);
-  size_t cache_size = (sizeof(Hi)+sizeof(Hprecomp)+sizeof(Hi_p3))*2 + straus_get_cache_size(HiGi_cache);
-  MINFO("cache size: " << cache_size/1024 << " kB");
+
+  straus_HiGi_cache = straus_init_cache(data, STRAUS_SIZE_LIMIT);
+  pippenger_HiGi_cache = pippenger_init_cache(data, PIPPENGER_SIZE_LIMIT);
+
+  MINFO("Hi/Gi cache size: " << (sizeof(Hi)+sizeof(Gi))/1024 << " kB");
+  MINFO("Hi_p3/Gi_p3 cache size: " << (sizeof(Hi_p3)+sizeof(Gi_p3))/1024 << " kB");
+  MINFO("Straus cache size: " << straus_get_cache_size(straus_HiGi_cache)/1024 << " kB");
+  MINFO("Pippenger cache size: " << pippenger_get_cache_size(pippenger_HiGi_cache)/1024 << " kB");
+  size_t cache_size = (sizeof(Hi)+sizeof(Hi_p3))*2 + straus_get_cache_size(straus_HiGi_cache) + pippenger_get_cache_size(pippenger_HiGi_cache);
+  MINFO("Total cache size: " << cache_size/1024 << "kB");
   init_done = true;
 }
 
