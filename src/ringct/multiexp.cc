@@ -343,9 +343,12 @@ struct straus_cached_data
 #endif
 #endif
 
-std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<MultiexpData> &data)
+std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<MultiexpData> &data, size_t N)
 {
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(multiples, 1000000));
+  if (N == 0)
+    N = data.size();
+  CHECK_AND_ASSERT_THROW_MES(N <= data.size(), "Bad cache base data");
   ge_cached cached;
   ge_p1p1 p1;
   ge_p3 p3;
@@ -353,9 +356,10 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
 
 #ifdef RAW_MEMORY_BLOCK
   const size_t offset = cache->size;
-  cache->multiples = (ge_cached*)aligned_realloc(cache->multiples, sizeof(ge_cached) * ((1<<STRAUS_C)-1) * std::max(offset, data.size()), 4096);
-  cache->size = data.size();
-  for (size_t j=offset;j<data.size();++j)
+  cache->multiples = (ge_cached*)aligned_realloc(cache->multiples, sizeof(ge_cached) * ((1<<STRAUS_C)-1) * std::max(offset, N), 4096);
+  CHECK_AND_ASSERT_THROW_MES(cache->multiples, "Out of memory");
+  cache->size = N;
+  for (size_t j=offset;j<N;++j)
   {
     ge_p3_to_cached(&CACHE_OFFSET(cache, j, 1), &data[j].point);
     for (size_t i=2;i<1<<STRAUS_C;++i)
@@ -368,8 +372,8 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
 #else
 #ifdef ALTERNATE_LAYOUT
   const size_t offset = cache->multiples.size();
-  cache->multiples.resize(std::max(offset, data.size()));
-  for (size_t i = offset; i < data.size(); ++i)
+  cache->multiples.resize(std::max(offset, N));
+  for (size_t i = offset; i < N; ++i)
   {
     cache->multiples[i].resize((1<<STRAUS_C)-1);
     ge_p3_to_cached(&cache->multiples[i][0], &data[i].point);
@@ -383,12 +387,12 @@ std::shared_ptr<straus_cached_data> straus_init_cache(const std::vector<Multiexp
 #else
   cache->multiples.resize(1<<STRAUS_C);
   size_t offset = cache->multiples[1].size();
-  cache->multiples[1].resize(std::max(offset, data.size()));
-  for (size_t i = offset; i < data.size(); ++i)
+  cache->multiples[1].resize(std::max(offset, N));
+  for (size_t i = offset; i < N; ++i)
     ge_p3_to_cached(&cache->multiples[1][i], &data[i].point);
   for (size_t i=2;i<1<<STRAUS_C;++i)
-    cache->multiples[i].resize(std::max(offset, data.size()));
-  for (size_t j=offset;j<data.size();++j)
+    cache->multiples[i].resize(std::max(offset, N));
+  for (size_t j=offset;j<N;++j)
   {
     for (size_t i=2;i<1<<STRAUS_C;++i)
     {
@@ -418,6 +422,7 @@ size_t straus_get_cache_size(const std::shared_ptr<straus_cached_data> &cache)
 
 rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<straus_cached_data> &cache, size_t STEP)
 {
+  CHECK_AND_ASSERT_THROW_MES(cache == NULL || cache->size >= data.size(), "Cache is too small");
   MULTIEXP_PERF(PERF_TIMER_UNIT(straus, 1000000));
   bool HiGi = cache != NULL;
   STEP = STEP ? STEP : 192;
@@ -533,7 +538,8 @@ skipfirst:
 
 size_t get_pippenger_c(size_t N)
 {
-// 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
+// uncached: 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
+//   cached: 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
   if (N <= 2) return 1;
   if (N <= 8) return 2;
   if (N <= 16) return 3;
@@ -545,23 +551,55 @@ size_t get_pippenger_c(size_t N)
   return 9;
 }
 
-rct::key pippenger(const std::vector<MultiexpData> &data, size_t c)
+struct pippenger_cached_data
 {
+  size_t size;
+  ge_cached *cached;
+  pippenger_cached_data(): size(0), cached(NULL) {}
+  ~pippenger_cached_data() { aligned_free(cached); }
+};
+
+std::shared_ptr<pippenger_cached_data> pippenger_init_cache(const std::vector<MultiexpData> &data, size_t N)
+{
+  MULTIEXP_PERF(PERF_TIMER_START_UNIT(pippenger_init_cache, 1000000));
+  if (N == 0)
+    N = data.size();
+  CHECK_AND_ASSERT_THROW_MES(N <= data.size(), "Bad cache base data");
+  ge_cached cached;
+  std::shared_ptr<pippenger_cached_data> cache(new pippenger_cached_data());
+
+  cache->size = N;
+  cache->cached = (ge_cached*)aligned_realloc(cache->cached, N * sizeof(ge_cached), 4096);
+  CHECK_AND_ASSERT_THROW_MES(cache->cached, "Out of memory");
+  for (size_t i = 0; i < N; ++i)
+    ge_p3_to_cached(&cache->cached[i], &data[i].point);
+
+  MULTIEXP_PERF(PERF_TIMER_STOP(pippenger_init_cache));
+  return cache;
+}
+
+size_t pippenger_get_cache_size(const std::shared_ptr<pippenger_cached_data> &cache)
+{
+  return cache->size * sizeof(*cache->cached);
+}
+
+rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<pippenger_cached_data> &cache, size_t c)
+{
+  CHECK_AND_ASSERT_THROW_MES(cache == NULL || cache->size >= data.size(), "Cache is too small");
+  if (c == 0)
+    c = get_pippenger_c(data.size());
   CHECK_AND_ASSERT_THROW_MES(c <= 9, "c is too large");
 
   ge_p3 result = ge_p3_identity;
   std::unique_ptr<ge_p3[]> buckets{new ge_p3[1<<c]};
-  std::unique_ptr<ge_cached[]> cached_points{new ge_cached[data.size()]};
-
-  for (size_t i = 0; i < data.size(); ++i)
-  {
-    ge_p3_to_cached(&cached_points[i], &data[i].point);
-  }
+  std::shared_ptr<pippenger_cached_data> local_cache = cache == NULL ? pippenger_init_cache(data) : cache;
 
   rct::key maxscalar = rct::zero();
   for (size_t i = 0; i < data.size(); ++i)
+  {
     if (maxscalar < data[i].scalar)
       maxscalar = data[i].scalar;
+  }
   size_t groups = 0;
   while (groups < 256 && pow2(groups) < maxscalar)
     ++groups;
@@ -598,7 +636,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, size_t c)
       CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
       if (memcmp(&buckets[bucket], &ge_p3_identity, sizeof(ge_p3)))
       {
-        add(buckets[bucket], cached_points[i]);
+        add(buckets[bucket], local_cache->cached[i]);
       }
       else
         buckets[bucket] = data[i].point;
