@@ -74,6 +74,13 @@ TEST(multiexp, straus_empty)
   ASSERT_TRUE(basic(data) == straus(data));
 }
 
+TEST(multiexp, pippenger_empty)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({rct::zero(), get_p3(rct::identity())});
+  ASSERT_TRUE(basic(data) == pippenger(data));
+}
+
 TEST(multiexp, bos_coster_only_zeroes)
 {
   std::vector<rct::MultiexpData> data;
@@ -90,6 +97,14 @@ TEST(multiexp, straus_only_zeroes)
   ASSERT_TRUE(basic(data) == straus(data));
 }
 
+TEST(multiexp, pippenger_only_zeroes)
+{
+  std::vector<rct::MultiexpData> data;
+  for (int n = 0; n < 16; ++n)
+    data.push_back({rct::zero(), get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == pippenger(data));
+}
+
 TEST(multiexp, bos_coster_only_identities)
 {
   std::vector<rct::MultiexpData> data;
@@ -104,6 +119,14 @@ TEST(multiexp, straus_only_identities)
   for (int n = 0; n < 16; ++n)
     data.push_back({TESTSCALAR, get_p3(rct::identity())});
   ASSERT_TRUE(basic(data) == straus(data));
+}
+
+TEST(multiexp, pippenger_only_identities)
+{
+  std::vector<rct::MultiexpData> data;
+  for (int n = 0; n < 16; ++n)
+    data.push_back({TESTSCALAR, get_p3(rct::identity())});
+  ASSERT_TRUE(basic(data) == pippenger(data));
 }
 
 TEST(multiexp, bos_coster_random)
@@ -126,6 +149,16 @@ TEST(multiexp, straus_random)
   }
 }
 
+TEST(multiexp, pippenger_random)
+{
+  std::vector<rct::MultiexpData> data;
+  for (int n = 0; n < 32; ++n)
+  {
+    data.push_back({rct::skGen(), get_p3(rct::scalarmultBase(rct::skGen()))});
+    ASSERT_TRUE(basic(data) == pippenger(data));
+  }
+}
+
 TEST(multiexp, straus_cached)
 {
   static constexpr size_t N = 256;
@@ -145,5 +178,27 @@ TEST(multiexp, straus_cached)
       data.push_back({rct::skGen(), P[s].point});
     }
     ASSERT_TRUE(basic(data) == straus(data, cache));
+  }
+}
+
+TEST(multiexp, pippenger_cached)
+{
+  static constexpr size_t N = 256;
+  std::vector<rct::MultiexpData> P(N);
+  for (size_t n = 0; n < N; ++n)
+  {
+    P[n].scalar = rct::zero();
+    ASSERT_TRUE(ge_frombytes_vartime(&P[n].point, rct::scalarmultBase(rct::skGen()).bytes) == 0);
+  }
+  std::shared_ptr<rct::pippenger_cached_data> cache = rct::pippenger_init_cache(P);
+  for (size_t n = 0; n < N/16; ++n)
+  {
+    std::vector<rct::MultiexpData> data;
+    size_t sz = 1 + crypto::rand<size_t>() % (N-1);
+    for (size_t s = 0; s < sz; ++s)
+    {
+      data.push_back({rct::skGen(), P[s].point});
+    }
+    ASSERT_TRUE(basic(data) == pippenger(data, cache));
   }
 }
