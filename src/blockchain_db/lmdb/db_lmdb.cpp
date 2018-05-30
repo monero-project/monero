@@ -1397,6 +1397,7 @@ void BlockchainLMDB::sync()
 
 void BlockchainLMDB::safesyncmode(const bool onoff)
 {
+  MINFO("switching safe mode " << (onoff ? "on" : "off"));
   mdb_env_set_flags(m_env, MDB_NOSYNC|MDB_MAPASYNC, !onoff);
 }
 

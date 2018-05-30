@@ -438,6 +438,7 @@ namespace cryptonote
       std::vector<std::string> options;
       boost::trim(db_sync_mode);
       boost::split(options, db_sync_mode, boost::is_any_of(" :"));
+      const bool db_sync_mode_is_default = command_line::is_arg_defaulted(vm, cryptonote::arg_db_sync_mode);
 
       for(const auto &option : options)
         MDEBUG("option: " << option);
@@ -458,18 +459,18 @@ namespace cryptonote
         {
           safemode = true;
           db_flags = DBF_SAFE;
-          sync_mode = db_nosync;
+          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_nosync;
         }
         else if(options[0] == "fast")
         {
           db_flags = DBF_FAST;
-          sync_mode = db_async;
+          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
         }
         else if(options[0] == "fastest")
         {
           db_flags = DBF_FASTEST;
           blocks_per_sync = 1000; // default to fastest:async:1000
-          sync_mode = db_async;
+          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
         }
         else
           db_flags = DEFAULT_FLAGS;
@@ -478,9 +479,9 @@ namespace cryptonote
       if(options.size() >= 2 && !safemode)
       {
         if(options[1] == "sync")
-          sync_mode = db_sync;
+          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_sync;
         else if(options[1] == "async")
-          sync_mode = db_async;
+          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
       }
 
       if(options.size() >= 3 && !safemode)
