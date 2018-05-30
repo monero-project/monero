@@ -1252,13 +1252,6 @@ skip:
     boost::posix_time::ptime request_time;
     std::pair<uint64_t, uint64_t> span;
 
-    span = m_block_queue.get_start_gap_span();
-    if (span.second > 0)
-    {
-      MDEBUG(context << " we should download it as there is a gap");
-      return true;
-    }
-
     // if the next span is not scheduled (or there is none)
     span = m_block_queue.get_next_span_if_scheduled(hashes, span_connection_id, request_time);
     if (span.second == 0)
@@ -1388,28 +1381,6 @@ skip:
       size_t count = 0;
       const size_t count_limit = m_core.get_block_sync_size(m_core.get_current_blockchain_height());
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
-      {
-        MDEBUG(context << " checking for gap");
-        span = m_block_queue.get_start_gap_span();
-        if (span.second > 0)
-        {
-          const uint64_t first_block_height_known = context.m_last_response_height - context.m_needed_objects.size() + 1;
-          const uint64_t last_block_height_known = context.m_last_response_height;
-          const uint64_t first_block_height_needed = span.first;
-          const uint64_t last_block_height_needed = span.first + std::min(span.second, (uint64_t)count_limit) - 1;
-          MDEBUG(context << " gap found, span: " << span.first << " - " << span.first + span.second - 1 << " (" << last_block_height_needed << ")");
-          MDEBUG(context << " current known hashes from " << first_block_height_known << " to " << last_block_height_known);
-          if (first_block_height_needed < first_block_height_known || last_block_height_needed > last_block_height_known)
-          {
-            MDEBUG(context << " we are missing some of the necessary hashes for this gap, requesting chain again");
-            context.m_needed_objects.clear();
-            context.m_last_response_height = 0;
-            start_from_current_chain = true;
-            goto skip;
-          }
-          MDEBUG(context << " we have the hashes for this gap");
-        }
-      }
       if (force_next_span)
       {
         if (span.second == 0)
