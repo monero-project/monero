@@ -70,8 +70,6 @@ namespace crypto {
 #include "random.h"
   }
 
-  boost::mutex random_lock;
-
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }
@@ -88,6 +86,13 @@ namespace crypto {
     return &reinterpret_cast<const unsigned char &>(scalar);
   }
 
+  void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes)
+  {
+    static boost::mutex random_lock;
+    boost::lock_guard<boost::mutex> lock(random_lock);
+    generate_random_bytes_not_thread_safe(N, bytes);
+  }
+
   /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar_not_thread_safe(ec_scalar &res) {
     unsigned char tmp[64];
@@ -96,8 +101,10 @@ namespace crypto {
     memcpy(&res, tmp, 32);
   }
   static inline void random_scalar(ec_scalar &res) {
-    boost::lock_guard<boost::mutex> lock(random_lock);
-    random_scalar_not_thread_safe(res);
+    unsigned char tmp[64];
+    generate_random_bytes_thread_safe(64, tmp);
+    sc_reduce(tmp);
+    memcpy(&res, tmp, 32);
   }
 
   void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
