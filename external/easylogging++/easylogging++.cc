@@ -2041,7 +2041,7 @@ bool VRegistry::allowed(Level level, const char* category) {
   if (m_categories.empty() || category == nullptr) {
     return false;
   } else {
-    std::deque<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
+    std::vector<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
     for (; it != m_categories.rend(); ++it) {
       if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
         const bool res = priority(level) <= priority(it->second);

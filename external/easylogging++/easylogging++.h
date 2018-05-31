@@ -381,7 +381,6 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #include <string>
 #include <vector>
 #include <map>
-#include <deque>
 #include <utility>
 #include <functional>
 #include <algorithm>
@@ -2526,7 +2525,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   base::type::VerboseLevel m_level;
   base::type::EnumType* m_pFlags;
   std::map<std::string, base::type::VerboseLevel> m_modules;
-  std::deque<std::pair<std::string, Level>> m_categories;
+  std::vector<std::pair<std::string, Level>> m_categories;
   std::map<std::pair<std::string, Level>, bool> m_cached_allowed_categories;
   std::string m_categoriesString;
   std::string m_filenameCommonPrefix;
