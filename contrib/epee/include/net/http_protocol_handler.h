@@ -141,6 +141,7 @@ namespace net_utils
 			size_t m_len_summary, m_len_remain;
 			config_type& m_config;
 			bool m_want_close;
+			size_t m_newlines;
 		protected:
 			i_service_endpoint* m_psnd_hndlr; 
 		};
