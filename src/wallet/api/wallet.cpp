@@ -69,12 +69,16 @@ namespace {
     // Connection timeout 30 sec
     static const int    DEFAULT_CONNECTION_TIMEOUT_MILLIS = 1000 * 30;
 
-    std::string get_default_ringdb_path()
+    std::string get_default_ringdb_path(cryptonote::network_type nettype)
     {
       boost::filesystem::path dir = tools::get_default_data_dir();
       // remove .bitmonero, replace with .shared-ringdb
       dir = dir.remove_filename();
       dir /= ".shared-ringdb";
+      if (nettype == cryptonote::TESTNET)
+        dir /= "testnet";
+      else if (nettype == cryptonote::STAGENET)
+        dir /= "stagenet";
       return dir.string();
     }
 }
@@ -599,7 +603,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
         }
-        m_wallet->set_ring_database(get_default_ringdb_path());
+        m_wallet->set_ring_database(get_default_ringdb_path(m_wallet->nettype()));
         m_wallet->load(path, password);
 
         m_password = password;
