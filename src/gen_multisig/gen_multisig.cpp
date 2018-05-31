@@ -174,7 +174,9 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_stagenet);
   command_line::add_arg(desc_params, arg_create_address_file);
 
-  const auto vm = wallet_args::main(
+  boost::optional<po::variables_map> vm;
+  bool should_terminate = false;
+  std::tie(vm, should_terminate) = wallet_args::main(
    argc, argv,
    "monero-gen-multisig [(--testnet|--stagenet)] [--filename-base=<filename>] [--scheme=M/N] [--threshold=M] [--participants=N]",
     genms::tr("This program generates a set of multisig wallets - use this simpler scheme only if all the participants trust each other"),
@@ -185,6 +187,8 @@ int main(int argc, char* argv[])
   );
   if (!vm)
     return 1;
+  if (should_terminate)
+    return 0;
 
   bool testnet, stagenet;
   uint32_t threshold = 0, total = 0;
