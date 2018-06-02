@@ -74,6 +74,21 @@ namespace
     }
     return pwd_container;
   }
+  //------------------------------------------------------------------------------------------------------------------------------
+  void set_confirmations(tools::wallet_rpc::transfer_entry &entry, uint64_t blockchain_height, uint64_t block_reward)
+  {
+    if (entry.height >= blockchain_height)
+    {
+      entry.confirmations = 0;
+      entry.suggested_confirmations_threshold = 0;
+      return;
+    }
+    entry.confirmations = blockchain_height - entry.height;
+    if (block_reward == 0)
+      entry.suggested_confirmations_threshold = 0;
+    else
+      entry.suggested_confirmations_threshold = (entry.amount + block_reward - 1) / block_reward;
+  }
 }
 
 namespace tools
@@ -258,6 +273,7 @@ namespace tools
     entry.type = "in";
     entry.subaddr_index = pd.m_subaddr_index;
     entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
+    set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::confirmed_transfer_details &pd)
@@ -284,6 +300,7 @@ namespace tools
     entry.type = "out";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
     entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
+    set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const tools::wallet2::unconfirmed_transfer_details &pd)
@@ -303,6 +320,7 @@ namespace tools
     entry.type = is_failed ? "failed" : "pending";
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
     entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
+    set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &payment_id, const tools::wallet2::pool_payment_details &ppd)
@@ -322,6 +340,7 @@ namespace tools
     entry.type = "pool";
     entry.subaddr_index = pd.m_subaddr_index;
     entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
+    set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward());
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er)

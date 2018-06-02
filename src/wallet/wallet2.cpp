@@ -699,7 +699,8 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_light_wallet_unlocked_balance(0),
   m_key_on_device(false),
   m_ring_history_saved(false),
-  m_ringdb()
+  m_ringdb(),
+  m_last_block_reward(0)
 {
 }
 
@@ -1728,6 +1729,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++]);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
+    m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
     LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
   }else
   {
@@ -3231,6 +3233,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (!wallet_.empty())
@@ -3289,6 +3292,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (!wallet_.empty())
@@ -3384,6 +3388,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (!wallet_.empty())
@@ -3436,6 +3441,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (!wallet_.empty())
@@ -3482,6 +3488,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
     m_subaddress_lookahead_major = 5;
     m_subaddress_lookahead_minor = 20;
   }
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
   if (!wallet_.empty()) {
     store();
@@ -3578,6 +3585,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (!m_wallet_file.empty())
@@ -4080,6 +4088,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   if (m_blockchain.empty())
   {
     m_blockchain.push_back(genesis_hash);
+    m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
   }
   else
   {
@@ -4469,6 +4478,7 @@ void wallet2::rescan_blockchain(bool refresh)
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);
   m_blockchain.push_back(genesis_hash);
+  m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
   add_subaddress_account(tr("Primary account"));
 
   if (refresh)
@@ -10121,6 +10131,7 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);
   check_genesis(genesis_hash);
+  m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<tools::wallet2::transfer_details> wallet2::export_outputs() const
