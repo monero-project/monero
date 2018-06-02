@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 0
+#define WALLET_RPC_VERSION_MINOR 1
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1194,6 +1194,8 @@ namespace wallet_rpc
     cryptonote::subaddress_index subaddr_index;
     std::string address;
     bool double_spend_seen;
+    uint64_t confirmations;
+    uint64_t suggested_confirmation_threshold;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -1209,6 +1211,8 @@ namespace wallet_rpc
       KV_SERIALIZE(subaddr_index);
       KV_SERIALIZE(address);
       KV_SERIALIZE(double_spend_seen)
+      KV_SERIALIZE_OPT(confirmations, 0)
+      KV_SERIALIZE_OPT(suggested_confirmation_threshold, 0)
     END_KV_SERIALIZE_MAP()
   };
 
