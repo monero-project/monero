@@ -139,7 +139,7 @@ namespace tools
 
         uint64_t num = uint_8be_to_64(reinterpret_cast<const uint8_t*>(block), size);
         int i = static_cast<int>(encoded_block_sizes[size]) - 1;
-        while (0 < num)
+        while (0 <= i)
         {
           uint64_t remainder = num % alphabet_size;
           num /= alphabet_size;
