@@ -114,6 +114,26 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
     return wallet;
 }
 
+Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
+                                                  const std::string &password,
+                                                  NetworkType nettype,
+                                                  const std::string &deviceName,
+                                                  uint64_t restoreHeight,
+                                                  const std::string &subaddressLookahead)
+{
+    WalletImpl * wallet = new WalletImpl(nettype);
+    if(restoreHeight > 0){
+        wallet->setRefreshFromBlockHeight(restoreHeight);
+    }
+    auto lookahead = tools::parse_subaddress_lookahead(subaddressLookahead);
+    if (lookahead)
+    {
+        wallet->setSubaddressLookahead(lookahead->first, lookahead->second);
+    }
+    wallet->recoverFromDevice(path, password, deviceName);
+    return wallet;
+}
+
 bool WalletManagerImpl::closeWallet(Wallet *wallet, bool store)
 {
     WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);
