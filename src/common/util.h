@@ -32,6 +32,7 @@
 
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/optional.hpp>
 #include <system_error>
 #include <csignal>
 #include <cstdio>
@@ -212,4 +213,6 @@ namespace tools
 
   bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash);
   bool sha256sum(const std::string &filename, crypto::hash &hash);
+
+  boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str);
 }
