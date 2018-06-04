@@ -509,6 +509,21 @@ struct Wallet
     */
     virtual void setRecoveringFromSeed(bool recoveringFromSeed) = 0;
 
+   /*!
+    * \brief setRecoveringFromDevice - set state to recovering from device
+    *
+    * \param recoveringFromDevice - true/false
+    */
+    virtual void setRecoveringFromDevice(bool recoveringFromDevice) = 0;
+
+    /*!
+     * \brief setSubaddressLookahead - set size of subaddress lookahead
+     *
+     * \param major - size fot the major index
+     * \param minor - size fot the minor index
+     */
+    virtual void setSubaddressLookahead(uint32_t major, uint32_t minor) = 0;
+
     /**
      * @brief connectToDaemon - connects to the daemon. TODO: check if it can be removed
      * @return
@@ -1013,6 +1028,23 @@ struct WalletManager
     {
         return createWalletFromKeys(path, language, testnet ? TESTNET : MAINNET, restoreHeight, addressString, viewKeyString, spendKeyString);
     }
+
+    /*!
+     * \brief  creates wallet using hardware device.
+     * \param  path                 Name of wallet file to be created
+     * \param  password             Password of wallet file
+     * \param  nettype              Network type
+     * \param  deviceName           Device name
+     * \param  restoreHeight        restore from start height (0 sets to current height)
+     * \param  subaddressLookahead  Size of subaddress lookahead (empty sets to some default low value)
+     * \return                      Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
+     */
+    virtual Wallet * createWalletFromDevice(const std::string &path,
+                                            const std::string &password,
+                                            NetworkType nettype,
+                                            const std::string &deviceName,
+                                            uint64_t restoreHeight = 0,
+                                            const std::string &subaddressLookahead = "") = 0;
 
     /*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted
