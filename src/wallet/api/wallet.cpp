@@ -554,18 +554,26 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
     }
 
     // parse view secret key
+    bool has_viewkey = true;
+    crypto::secret_key viewkey;
     if (viewkey_string.empty()) {
-        setStatusError(tr("No view key supplied, cancelled"));
-        return false;
+        if(has_spendkey) {
+          has_viewkey = false;
+        }
+        else {
+          setStatusError(tr("Neither view key nor spend key supplied, cancelled"));
+          return false;
+        }
     }
-    cryptonote::blobdata viewkey_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
-    {
-        setStatusError(tr("failed to parse secret view key"));
-        return false;
+    if(has_viewkey) {
+      cryptonote::blobdata viewkey_data;
+      if(!epee::string_tools::parse_hexstr_to_binbuff(viewkey_string, viewkey_data) || viewkey_data.size() != sizeof(crypto::secret_key))
+      {
+          setStatusError(tr("failed to parse secret view key"));
+          return false;
+      }
+      viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
     }
-    crypto::secret_key viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
-
     // check the spend and view keys match the given address
     crypto::public_key pkey;
     if(has_spendkey) {
@@ -578,25 +586,31 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
             return false;
         }
     }
-    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
-        setStatusError(tr("failed to verify secret view key"));
-        return false;
-    }
-    if (info.address.m_view_public_key != pkey) {
-        setStatusError(tr("view key does not match address"));
-        return false;
+    if(has_viewkey) {
+       if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+           setStatusError(tr("failed to verify secret view key"));
+           return false;
+       }
+       if (info.address.m_view_public_key != pkey) {
+           setStatusError(tr("view key does not match address"));
+           return false;
+       }
     }
 
     try
     {
-        if (has_spendkey) {
+        if (has_spendkey && has_viewkey) {
             m_wallet->generate(path, password, info.address, spendkey, viewkey);
-            setSeedLanguage(language);
-            LOG_PRINT_L1("Generated new wallet from keys with seed language: " + language);
+            LOG_PRINT_L1("Generated new wallet from spend key and view key");
         }
-        else {
+        if(!has_spendkey && has_viewkey) {
             m_wallet->generate(path, password, info.address, viewkey);
             LOG_PRINT_L1("Generated new view only wallet from keys");
+        }
+        if(has_spendkey && !has_viewkey) {
+           m_wallet->generate(path, password, spendkey, true, false, false);
+           setSeedLanguage(language);
+           LOG_PRINT_L1("Generated deterministic wallet from spend key with seed language: " + language);
         }
         
     }
