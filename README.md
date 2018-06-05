@@ -79,7 +79,7 @@ Dates are provided in the format YYYY-MM-DD.
 | Software upgrade block height | Date       | Fork version | Minimum Aeon version | Recommended Aeon version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 592000                        | 2015-08-04 | v1 (exceptional, version not bumped)      | v0.9.0.0                 | v0.9.14.0                     | blocktime = 240 seconds, CryptoNight-Lite, lower mining priority for ringsize < 3       |
-| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.0.0                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
+| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.2.1                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
 
 ## Compiling Aeon from source
 
