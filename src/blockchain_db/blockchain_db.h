@@ -148,6 +148,7 @@ struct txpool_tx_meta_t
   uint8_t relayed;
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
+  uint8_t bf_padding: 7;
 
   uint8_t padding[76]; // till 192 bytes
 };
