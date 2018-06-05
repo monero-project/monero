@@ -727,6 +727,13 @@ std::string get_nix_version_display_string()
 
   bool is_local_address(const std::string &address)
   {
+    // always assume Tor/I2P addresses to be untrusted by default
+    if (boost::ends_with(address, ".onion") || boost::ends_with(address, ".i2p"))
+    {
+      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
+      return false;
+    }
+
     // extract host
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(address, u_c))
