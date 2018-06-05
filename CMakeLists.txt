@@ -153,6 +153,14 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+if(NOT MANUAL_SUBMODULES)
+  find_package(Git)
+  if(GIT_FOUND)
+    message(STATUS "Initializing submodules")
+    execute_process(COMMAND git "submodule" "update" "--init" "--recursive" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+endif()
+
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG ${OPT_FLAGS_RELEASE}")
 

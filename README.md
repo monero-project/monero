@@ -194,13 +194,12 @@ build the library binary manually. This can be done with the following command `
 
 ### Cloning the repository
 
-Clone recursively to pull-in needed submodule(s):
+Clone the repository from github to get the monero source code:
 
-`$ git clone --recursive https://github.com/monero-project/monero`
+`$ git clone https://github.com/monero-project/monero`
 
-If you already have a repo cloned, initialize and update:
-
-`$ cd monero && git submodule init && git submodule update`
+Submodules are fetched automatically in the cmake script. If you wish to
+control this manually, run cmake with `cmake -DMANUAL_SUBMODULES=ON`
 
 ### Build instructions
 
