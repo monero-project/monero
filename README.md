@@ -138,9 +138,10 @@ invokes cmake commands as needed.
 #### On Linux and OS X
 
 * Install the dependencies
-* Change to the root of the source code directory and build:
+* Change to the root of the source code directory, change to the most recent release tag, and build:
 
         cd aeon
+        git checkout v0.12.2.1
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -150,6 +151,12 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
+    
+    *Note*: The instructions above will compile the most stable release of the
+    Aeon software. If you would like to use and test the most recent software,
+    use ```git checkout master```. The master branch may contain updates that are
+    both unstable and incompatible with release software, though testing is always 
+    encouraged. 
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -196,7 +203,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/aeonix/aeon.git
 	cd aeon
-	git checkout tags/v0.12.0.0
+	git checkout tags/v0.12.2.1
 ```
 * Build:
 ```
