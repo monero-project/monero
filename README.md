@@ -118,7 +118,7 @@ Packages are available for
 
 * Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
 
-    snap install monero --beta
+        snap install monero --beta
 
 Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
 
@@ -128,7 +128,7 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
 * Void Linux:
 
-    xbps-install -S monero
+        xbps-install -S monero
 
 * GuixSD
 
