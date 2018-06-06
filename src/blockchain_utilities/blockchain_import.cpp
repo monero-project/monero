@@ -738,6 +738,18 @@ int main(int argc, char* argv[])
   MINFO("bootstrap file path: " << import_file_path);
   MINFO("database path:       " << m_config_folder);
 
+  if (!opt_verify)
+  {
+    MCLOG_RED(el::Level::Warning, "global", "\n"
+      "Import is set to proceed WITHOUT VERIFICATION.\n"
+      "This is a DANGEROUS operation: if the file was tampered in transit, or obtained from a malicious source,\n"
+      "you could end up with a compromised database. It is recommended to NOT use --guard-against-pwnage 0\n"
+      "*****************************************************************************************\n"
+      "You have 90 seconds to press ^C or terminate this program before unverified import starts\n"
+      "*****************************************************************************************");
+    sleep(90);
+  }
+
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core core(&pr);
 
