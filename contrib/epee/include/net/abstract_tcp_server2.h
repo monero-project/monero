@@ -137,7 +137,7 @@ namespace net_utils
 
     /// reset connection timeout timer and callback
     void reset_timer(boost::posix_time::milliseconds ms, bool add);
-    boost::posix_time::milliseconds get_default_time() const;
+    boost::posix_time::milliseconds get_default_timeout() const;
     boost::posix_time::milliseconds get_timeout_from_bytes_read(size_t bytes) const;
 
     /// Buffer for incoming data.

@@ -56,8 +56,8 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
 
-#define DEFAULT_TIMEOUT_MS_LOCAL boost::posix_time::milliseconds(120000) // 2 minutes
-#define DEFAULT_TIMEOUT_MS_REMOTE boost::posix_time::milliseconds(10000) // 10 seconds
+#define DEFAULT_TIMEOUT_MS_LOCAL boost::posix_time::milliseconds(300000) // 5 minutes
+#define DEFAULT_TIMEOUT_MS_REMOTE boost::posix_time::milliseconds(120000) // 2 minutes
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
 
 PRAGMA_WARNING_PUSH
@@ -146,7 +146,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     context = boost::value_initialized<t_connection_context>();
     const unsigned long ip_{boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong())};
-    m_local = epee::net_utils::is_ip_loopback(ip_);
+    m_local = epee::net_utils::is_ip_local(ip_);
 
     // create a random uuid
     boost::uuids::uuid random_uuid;
@@ -167,7 +167,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     m_protocol_handler.after_init_connection();
 
-    reset_timer(get_default_time(), false);
+    reset_timer(get_default_timeout(), false);
 
     socket_.async_read_some(boost::asio::buffer(buffer_),
       strand_.wrap(
@@ -551,7 +551,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 			do_send_handler_write( ptr , size_now ); // (((H)))
 
         CHECK_AND_ASSERT_MES( size_now == m_send_que.front().size(), false, "Unexpected queue size");
-        reset_timer(get_default_time(), false);
+        reset_timer(get_default_timeout(), false);
         boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now ) ,
                                  //strand_.wrap(
                                  boost::bind(&connection<t_protocol_handler>::handle_write, self, _1, _2)
@@ -570,7 +570,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   } // do_send_chunk
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  boost::posix_time::milliseconds connection<t_protocol_handler>::get_default_time() const
+  boost::posix_time::milliseconds connection<t_protocol_handler>::get_default_timeout() const
   {
     if (m_local)
       return DEFAULT_TIMEOUT_MS_LOCAL;
@@ -583,8 +583,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   {
     boost::posix_time::milliseconds ms = (boost::posix_time::milliseconds)(unsigned)(bytes * TIMEOUT_EXTRA_MS_PER_BYTE);
     ms += m_timer.expires_from_now();
-    if (ms > get_default_time())
-      ms = get_default_time();
+    if (ms > get_default_timeout())
+      ms = get_default_timeout();
     return ms;
   }
   //---------------------------------------------------------------------------------
@@ -687,7 +687,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }else
     {
       //have more data to send
-		reset_timer(get_default_time(), false);
+		reset_timer(get_default_timeout(), false);
 		auto size_now = m_send_que.front().size();
 		MDEBUG("handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
 		if (speed_limit_is_enabled())
