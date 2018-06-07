@@ -2087,6 +2087,13 @@ namespace cryptonote
         if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
         {
           res.distributions.push_back({amount, d.cached_start_height, d.cached_distribution, d.cached_base});
+          if (req.cumulative)
+          {
+            auto &distribution = res.distributions.back().distribution;
+            distribution[0] += d.cached_base;
+            for (size_t n = 1; n < distribution.size(); ++n)
+              distribution[n] += distribution[n-1];
+          }
           continue;
         }
 
