@@ -146,7 +146,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     context = boost::value_initialized<t_connection_context>();
     const unsigned long ip_{boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong())};
-    m_local = epee::net_utils::is_ip_loopback(ip_);
+    m_local = epee::net_utils::is_ip_local(ip_);
 
     // create a random uuid
     boost::uuids::uuid random_uuid;
