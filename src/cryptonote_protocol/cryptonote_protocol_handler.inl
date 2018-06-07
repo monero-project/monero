@@ -1630,10 +1630,10 @@ skip:
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids);
-    if (n_use_blocks == 0)
+    if (n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("Peer yielded no usable blocks, dropping connection");
-      drop_connection(context, false, false);
+      LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
+      drop_connection(context, true, false);
       return 1;
     }
 
