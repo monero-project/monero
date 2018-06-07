@@ -320,6 +320,7 @@ namespace tools
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
+      bool use_bulletproofs;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
@@ -332,6 +333,7 @@ namespace tools
         FIELD(extra)
         FIELD(unlock_time)
         FIELD(use_rct)
+        FIELD(use_bulletproofs)
         FIELD(dests)
         FIELD(subaddr_account)
         FIELD(subaddr_indices)
@@ -1248,7 +1250,7 @@ BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 2)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 3)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
@@ -1595,6 +1597,9 @@ namespace boost
       if (ver < 2)
         return;
       a & x.selected_transfers;
+      if (ver < 3)
+        return;
+      a & x.use_bulletproofs;
     }
 
     template <class Archive>
@@ -1880,6 +1885,7 @@ namespace tools
     ptx.construction_data.extra = tx.extra;
     ptx.construction_data.unlock_time = unlock_time;
     ptx.construction_data.use_rct = false;
+    ptx.construction_data.use_bulletproofs = false;
     ptx.construction_data.dests = dsts;
     // record which subaddress indices are being used as inputs
     ptx.construction_data.subaddr_account = subaddr_account;
