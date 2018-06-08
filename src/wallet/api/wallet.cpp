@@ -1766,6 +1766,50 @@ bool WalletImpl::verifySignedMessage(const std::string &message, const std::stri
   return m_wallet->verify(message, info.address, signature);
 }
 
+std::string WalletImpl::signMultisigParticipant(const std::string &message) const
+{
+    clearStatus();
+
+    bool ready = false;
+    if (!m_wallet->multisig(&ready) || !ready) {
+        m_status = Status_Error;
+        m_errorString = tr("The wallet must be in multisig ready state");
+        return {};
+    }
+
+    try {
+        return m_wallet->sign_multisig_participant(message);
+    } catch (const std::exception& e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+
+    return {};
+}
+
+bool WalletImpl::verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const
+{
+    clearStatus();
+
+    cryptonote::blobdata pkeyData;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(publicKey, pkeyData) || pkeyData.size() != sizeof(crypto::public_key))
+    {
+        m_status = Status_Error;
+        m_errorString = tr("Given string is not a key");
+        return false;
+    }
+
+    try {
+        crypto::public_key pkey = *reinterpret_cast<const crypto::public_key*>(pkeyData.data());
+        return m_wallet->verify_with_public_key(message, pkey, signature);
+    } catch (const std::exception& e) {
+        m_status = Status_Error;
+        m_errorString = e.what();
+    }
+
+    return false;
+}
+
 bool WalletImpl::connectToDaemon()
 {
     bool result = m_wallet->check_connection(NULL, DEFAULT_CONNECTION_TIMEOUT_MILLIS);
