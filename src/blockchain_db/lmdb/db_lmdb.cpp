@@ -2048,12 +2048,16 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
         }
       }
     }
+    mdb_cursor_close(c_tx_indices);
   }
 
   if ((result = mdb_stat(txn, m_txs_prunable, &db_stats)))
     throw0(DB_ERROR(lmdb_error("Failed to query m_txs_prunable: ", result).c_str()));
   const size_t pages1 = db_stats.ms_branch_pages + db_stats.ms_leaf_pages + db_stats.ms_overflow_pages;
   const size_t db_bytes = (pages0 - pages1) * db_stats.ms_psize;
+
+  mdb_cursor_close(c_txs_prunable_tip);
+  mdb_cursor_close(c_prunable);
 
   txn.commit();
 
