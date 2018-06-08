@@ -91,6 +91,7 @@ public:
     std::string publicViewKey() const;
     std::string secretSpendKey() const;
     std::string publicSpendKey() const;
+    std::string publicMultisigSignerKey() const;
     std::string path() const;
     bool store(const std::string &path);
     std::string filename() const;
