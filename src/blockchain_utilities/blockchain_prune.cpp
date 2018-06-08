@@ -55,7 +55,10 @@ static const size_t slack = 512 * 1024 * 1024;
 
 static std::error_code replace_file(const boost::filesystem::path& replacement_name, const boost::filesystem::path& replaced_name)
 {
-  return tools::replace_file(replacement_name.string(), replaced_name.string());
+  std::error_code ec = tools::replace_file(replacement_name.string(), replaced_name.string());
+  if (ec)
+    MERROR("Error renaming " << replacement_name << " to " << replaced_name << ": " << ec.message());
+  return ec;
 }
 
 static void open(MDB_env *&env, const boost::filesystem::path &path, bool readonly)
@@ -258,11 +261,27 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
   mdb_dbi_close(env0, dbi0);
 }
 
+static bool is_v1_tx(MDB_cursor *c_txs_pruned, MDB_val *tx_id)
+{
+  MDB_val v;
+  int ret = mdb_cursor_get(c_txs_pruned, tx_id, &v, MDB_SET);
+  if (ret)
+    throw std::runtime_error("Failed to find transaction pruned data: " + std::string(mdb_strerror(ret)));
+  if (v.mv_size == 0)
+    throw std::runtime_error("Invalid transaction pruned data");
+  uint64_t version;
+  std::string tmp((const char*)v.mv_data, v.mv_size);
+  int read = tools::read_varint(tmp.begin(), tmp.end(), version);
+  if (read <= 0)
+    throw std::runtime_error("Internal error getting transaction version");
+  return version <= 1;
+}
+
 static void prune(MDB_env *env0, MDB_env *env1)
 {
-  MDB_dbi dbi0_blocks, dbi0_txs_prunable, dbi0_tx_indices, dbi1_txs_prunable, dbi1_txs_prunable_tip, dbi1_properties;
+  MDB_dbi dbi0_blocks, dbi0_txs_pruned, dbi0_txs_prunable, dbi0_tx_indices, dbi1_txs_prunable, dbi1_txs_prunable_tip, dbi1_properties;
   MDB_txn *txn0, *txn1;
-  MDB_cursor *cur0_txs_prunable, *cur0_tx_indices, *cur1_txs_prunable, *cur1_txs_prunable_tip;
+  MDB_cursor *cur0_txs_pruned, *cur0_txs_prunable, *cur0_tx_indices, *cur1_txs_prunable, *cur1_txs_prunable_tip;
   bool tx_active0 = false, tx_active1 = false;
   int dbr;
 
@@ -279,6 +298,11 @@ static void prune(MDB_env *env0, MDB_env *env1)
   dbr = mdb_txn_begin(env1, NULL, 0, &txn1);
   if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   tx_active1 = true;
+
+  dbr = mdb_dbi_open(txn0, "txs_pruned", MDB_INTEGERKEY, &dbi0_txs_pruned);
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_cursor_open(txn0, dbi0_txs_pruned, &cur0_txs_pruned);
+  if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
 
   dbr = mdb_dbi_open(txn0, "txs_prunable", MDB_INTEGERKEY, &dbi0_txs_prunable);
   if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
@@ -348,18 +372,17 @@ static void prune(MDB_env *env0, MDB_env *env1)
 
     const txindex *ti = (const txindex*)v.mv_data;
     const uint64_t block_height = ti->data.block_id;
+    MDB_val_set(kk, ti->data.tx_id);
     if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
     {
       MDEBUG(block_height << "/" << blockchain_height << " is in tip");
-      MDB_val_set(kk, ti->data.tx_id);
       MDB_val_set(vv, block_height);
       dbr = mdb_cursor_put(cur1_txs_prunable_tip, &kk, &vv, 0);
       if (dbr) throw std::runtime_error("Failed to write prunable tx tip data: " + std::string(mdb_strerror(dbr)));
       bytes += kk.mv_size + vv.mv_size;
     }
-    if (tools::has_unpruned_block(block_height, blockchain_height, pruning_seed))
+    if (tools::has_unpruned_block(block_height, blockchain_height, pruning_seed) || is_v1_tx(cur0_txs_pruned, &kk))
     {
-      MDB_val_set(kk, ti->data.tx_id);
       MDB_val vv;
       dbr = mdb_cursor_get(cur0_txs_prunable, &kk, &vv, MDB_SET);
       if (dbr) throw std::runtime_error("Failed to read prunable tx data: " + std::string(mdb_strerror(dbr)));
@@ -383,6 +406,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
   mdb_cursor_close(cur1_txs_prunable_tip);
   mdb_cursor_close(cur1_txs_prunable);
   mdb_cursor_close(cur0_txs_prunable);
+  mdb_cursor_close(cur0_txs_pruned);
   mdb_cursor_close(cur0_tx_indices);
   mdb_txn_commit(txn1);
   tx_active1 = false;
@@ -392,6 +416,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
   mdb_dbi_close(env1, dbi1_txs_prunable_tip);
   mdb_dbi_close(env1, dbi1_txs_prunable);
   mdb_dbi_close(env0, dbi0_txs_prunable);
+  mdb_dbi_close(env0, dbi0_txs_pruned);
   mdb_dbi_close(env0, dbi0_tx_indices);
 }
 
@@ -644,8 +669,11 @@ int main(int argc, char* argv[])
   close(env0);
 
   MINFO("Swapping databases, pre-pruning blockchain will be left in " << paths[0].string() + "-old and can be removed if desired");
-  replace_file(paths[0].string(), paths[0].string() + "-old");
-  replace_file(paths[1].string(), paths[0].string());
+  if (replace_file(paths[0].string(), paths[0].string() + "-old") || replace_file(paths[1].string(), paths[0].string()))
+  {
+    MERROR("Blockchain pruned OK, but renaming failed");
+    return 1;
+  }
 
   MINFO("Blockchain pruned OK");
   return 0;
