@@ -75,6 +75,7 @@ namespace {
       << "depth: " << boost::lexical_cast<std::string>(header.depth) << std::endl
       << "hash: " << header.hash << std::endl
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
+      << "POW hash: " << header.pow_hash << std::endl
       << "reward: " << boost::lexical_cast<std::string>(header.reward);
   }
 
@@ -655,6 +656,7 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
   epee::json_rpc::error error_resp;
 
   req.hash = epee::string_tools::pod_to_hex(block_hash);
+  req.fill_pow_hash = true;
 
   std::string fail_message = "Unsuccessful";
 
@@ -686,6 +688,7 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
   epee::json_rpc::error error_resp;
 
   req.height = height;
+  req.fill_pow_hash = true;
 
   std::string fail_message = "Unsuccessful";
 
@@ -721,6 +724,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
 
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
   req.decode_as_json = false;
+  req.prune = false;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/gettransactions", fail_message.c_str()))
