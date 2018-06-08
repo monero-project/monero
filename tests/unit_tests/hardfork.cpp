@@ -232,6 +232,59 @@ TEST(ordering, Success)
   ASSERT_FALSE(hf.add_fork(5, 5, 4));
 }
 
+TEST(check_for_height, Success)
+{
+  TestDB db;
+  HardFork hf(db, 1, 0, 0, 0, 1, 0); // no voting
+
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(2, 5, 1));
+  hf.init();
+
+  for (uint64_t h = 0; h <= 4; ++h) {
+    ASSERT_TRUE(hf.check_for_height(mkblock(1, 1), h));
+    ASSERT_FALSE(hf.check_for_height(mkblock(2, 2), h));  // block version is too high
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 5; h <= 10; ++h) {
+    ASSERT_FALSE(hf.check_for_height(mkblock(1, 1), h));  // block version is too low
+    ASSERT_TRUE(hf.check_for_height(mkblock(2, 2), h));
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
+TEST(get, next_version)
+{
+  TestDB db;
+  HardFork hf(db);
+
+  ASSERT_TRUE(hf.add_fork(1, 0, 0));
+  ASSERT_TRUE(hf.add_fork(2, 5, 1));
+  ASSERT_TRUE(hf.add_fork(4, 10, 2));
+  hf.init();
+
+  for (uint64_t h = 0; h <= 4; ++h) {
+    ASSERT_EQ(2, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 5; h <= 9; ++h) {
+    ASSERT_EQ(4, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+
+  for (uint64_t h = 10; h <= 15; ++h) {
+    ASSERT_EQ(4, hf.get_next_version());
+    db.add_block(mkblock(hf, h, 4), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
 TEST(states, Success)
 {
   TestDB db;
@@ -439,6 +492,55 @@ TEST(voting, different_thresholds)
   }
 }
 
+TEST(voting, info)
+{
+  TestDB db;
+  HardFork hf(db, 1, 0, 1, 1, 4, 50); // window size 4, default threshold 50%
+
+  //                      v  h  ts
+  ASSERT_TRUE(hf.add_fork(1, 0,  0));
+  //                      v  h   thr  ts
+  ASSERT_TRUE(hf.add_fork(2, 5,    0,  1)); // asap
+  ASSERT_TRUE(hf.add_fork(3, 10, 100,  2)); // all votes
+  //                      v   h  ts
+  ASSERT_TRUE(hf.add_fork(4, 15,  3)); // default 50% votes
+  hf.init();
+
+  //                                             0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9
+  static const uint8_t block_versions[]      = { 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4 };
+  static const uint8_t expected_versions[]   = { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 };
+  static const uint8_t expected_thresholds[] = { 0, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 2, 2, 2, 2 };
+
+  for (uint64_t h = 0; h < sizeof(block_versions) / sizeof(block_versions[0]); ++h) {
+    uint32_t window, votes, threshold;
+    uint64_t earliest_height;
+    uint8_t voting;
+
+    ASSERT_TRUE(hf.get_voting_info(1, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h, 4), votes);
+    ASSERT_EQ(0, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() >= 2, hf.get_voting_info(2, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 3 ? 0 : h - 3, 4), votes);
+    ASSERT_EQ(5, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() >= 3, hf.get_voting_info(3, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 8 ? 0 : h - 8, 4), votes);
+    ASSERT_EQ(10, earliest_height);
+
+    ASSERT_EQ(hf.get_current_version() == 4, hf.get_voting_info(4, window, votes, threshold, earliest_height, voting));
+    ASSERT_EQ(std::min<uint64_t>(h <= 14 ? 0 : h - 14, 4), votes);
+    ASSERT_EQ(15, earliest_height);
+
+    ASSERT_EQ(std::min<uint64_t>(h, 4), window);
+    ASSERT_EQ(expected_thresholds[h], threshold);
+    ASSERT_EQ(4, voting);
+
+    db.add_block(mkblock(hf, h, block_versions[h]), 0, 0, 0, crypto::hash());
+    ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
+  }
+}
+
 TEST(new_blocks, denied)
 {
     TestDB db;
@@ -552,5 +654,30 @@ TEST(get, higher)
     ASSERT_EQ(hf.get_ideal_version(5), 3);
     ASSERT_EQ(hf.get_ideal_version(6), 3);
     ASSERT_EQ(hf.get_ideal_version(7), 3);
+}
+
+TEST(get, earliest_ideal_height)
+{
+    TestDB db;
+    HardFork hf(db, 1, 0, 1, 1, 4, 50);
+
+    //                      v  h  t
+    ASSERT_TRUE(hf.add_fork(1, 0, 0));
+    ASSERT_TRUE(hf.add_fork(2, 2, 1));
+    ASSERT_TRUE(hf.add_fork(5, 5, 2));
+    ASSERT_TRUE(hf.add_fork(6, 10, 3));
+    ASSERT_TRUE(hf.add_fork(9, 15, 4));
+    hf.init();
+
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(1), 0);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(2), 2);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(3), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(4), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(5), 5);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(6), 10);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(7), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(8), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(9), 15);
+    ASSERT_EQ(hf.get_earliest_ideal_height_for_version(10), std::numeric_limits<uint64_t>::max());
 }
 
