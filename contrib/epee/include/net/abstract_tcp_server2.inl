@@ -383,7 +383,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       //ask it inside(!) critical region if we still able to go in event wait...
       size_t cnt = socket_.get_io_service().poll_one();     
       if(!cnt)
-        misc_utils::sleep_no_w(0);
+        misc_utils::sleep_no_w(1);
     }
     
     return true;
@@ -836,7 +836,9 @@ POP_WARNINGS
     {
       try
       {
-        io_service_.run();
+        size_t cnt = io_service_.run();
+        if (cnt == 0)
+          misc_utils::sleep_no_w(1);
       }
       catch(const std::exception& ex)
       {
