@@ -196,6 +196,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
+  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
   const bool restricted = command_line::get_arg(vm, opts.restricted);
 
   auto daemon_address = command_line::get_arg(vm, opts.daemon_address);
@@ -224,13 +225,13 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 
   if (!daemon_port)
   {
-    daemon_port = testnet ? config::testnet::RPC_DEFAULT_PORT : stagenet ? config::stagenet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+    daemon_port = get_config(nettype).RPC_DEFAULT_PORT;
   }
 
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(testnet ? TESTNET : stagenet ? STAGENET : MAINNET, restricted));
+  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, restricted));
   wallet->init(std::move(daemon_address), std::move(login));
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
@@ -10545,17 +10546,6 @@ uint64_t wallet2::get_segregation_fork_height() const
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
-  if (m_nettype == TESTNET)
-  {
-    cryptonote::generate_genesis_block(b, config::testnet::GENESIS_TX, config::testnet::GENESIS_NONCE);
-  }
-  else if (m_nettype == STAGENET)
-  {
-    cryptonote::generate_genesis_block(b, config::stagenet::GENESIS_TX, config::stagenet::GENESIS_NONCE);
-  }
-  else
-  {
-    cryptonote::generate_genesis_block(b, config::GENESIS_TX, config::GENESIS_NONCE);
-  }
+  cryptonote::generate_genesis_block(b, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
 }
 }
