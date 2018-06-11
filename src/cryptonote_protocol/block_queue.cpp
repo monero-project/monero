@@ -167,7 +167,7 @@ std::string block_queue::get_overview(uint64_t blockchain_height) const
   if (blocks.empty())
     return "[]";
   block_map::const_iterator i = blocks.begin();
-  std::string s = std::string("[") + std::to_string(blockchain_height) + ":";
+  std::string s = std::string("[");
   uint64_t expected = blockchain_height;
   while (i != blocks.end())
   {

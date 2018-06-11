@@ -68,8 +68,7 @@ namespace cryptonote
                                                                                                               m_p2p(p_net_layout),
                                                                                                               m_syncronized_connections_count(0),
                                                                                                               m_synchronized(offline),
-                                                                                                              m_stopping(false),
-                                                                                                              m_next_needed_pruning_seed(0)
+                                                                                                              m_stopping(false)
 
   {
     if(!m_p2p)
@@ -1408,10 +1407,7 @@ skip:
       if (height > m_core.get_current_blockchain_height())
       {
         if (!tools::has_unpruned_block(height, context.m_remote_blockchain_height, context.m_pruning_seed))
-        {
-          m_next_needed_pruning_seed = tools::get_pruning_seed(height, context.m_remote_blockchain_height);
           return false;
-        }
         MDEBUG(context << " we should download it as the next block isn't scheduled");
         return true;
       }
@@ -1454,9 +1450,7 @@ skip:
       }
       else
       {
-        MDEBUG(context << " this span was requested long ago, but we don't have it, marking its seed " <<
-            epee::string_tools::to_string_hex(context.m_pruning_seed) << " for next connection");
-        m_next_needed_pruning_seed = tools::get_pruning_seed(span.first, context.m_remote_blockchain_height);
+        MDEBUG(context << " this span was requested long ago, but we don't have it, and this peer does not either");
         return false;
       }
     }
@@ -1492,7 +1486,6 @@ skip:
             << m_max_out_peers << ") or distance " << distance << " from " <<
             epee::string_tools::to_string_hex(next_seed) << " to " << epee::string_tools::to_string_hex(context.m_pruning_seed) <<
             " is too large and we have only " << n_peers_on_next_seed << " peers on next seed, dropping connection to make space");
-        m_next_needed_pruning_seed = next_seed;
         return true;
       }
     }

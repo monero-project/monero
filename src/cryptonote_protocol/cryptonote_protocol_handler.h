@@ -150,7 +150,6 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<30> m_idle_peer_kicker;
     epee::math_helper::once_a_time_seconds<150> m_wedged_sync_restarter;
     std::atomic<unsigned int> m_max_out_peers;
-    std::atomic<unsigned int> m_next_needed_pruning_seed;
 
     boost::mutex m_buffer_mutex;
     double get_avg_block_size();
