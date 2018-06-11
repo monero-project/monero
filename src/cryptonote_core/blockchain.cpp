@@ -2015,9 +2015,9 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   // make sure the request includes at least the genesis block, otherwise
   // how can we expect to sync from the client that the block list came from?
-  if(!qblock_ids.size() /*|| !req.m_total_height*/)
+  if(!qblock_ids.size())
   {
-    MCERROR("net.p2p", "Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << /*", m_height=" << req.m_total_height <<*/ ", dropping connection");
+    MCERROR("net.p2p", "Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << ", dropping connection");
     return false;
   }
 
