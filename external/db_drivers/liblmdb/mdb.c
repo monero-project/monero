@@ -4040,6 +4040,8 @@ fail:
 	return rc;
 }
 
+static int ESECT mdb_env_map(MDB_env *env, void *addr);
+
 /** Read the environment parameters of a DB environment before
  * mapping it into memory.
  * @param[in] env the environment handle
@@ -4055,6 +4057,31 @@ mdb_env_read_header(MDB_env *env, int prev, MDB_meta *meta)
 	MDB_meta	*m;
 	int			i, rc, off;
 	enum { Size = sizeof(pbuf) };
+
+	if (env->me_flags & MDB_RAWPART) {
+#define VM_ALIGN	0x200000
+		env->me_mapsize += VM_ALIGN-1;
+		env->me_mapsize &= ~(VM_ALIGN-1);
+		env->me_psize = env->me_os_psize;
+		rc = mdb_env_map(env, NULL);
+		if (rc) {
+			DPRINTF(("mdb_env_map: %s", mdb_strerror(rc)));
+			return rc;
+		}
+		p = (MDB_page *)env->me_map;
+		for (i=0; i<NUM_METAS; i++) {
+			if (!F_ISSET(p->mp_flags, P_META))
+				return ENOENT;
+			if (env->me_metas[i]->mm_magic != MDB_MAGIC)
+				return MDB_INVALID;
+			if (env->me_metas[i]->mm_version != MDB_DATA_VERSION)
+				return MDB_VERSION_MISMATCH;
+			if (i == 0 || env->me_metas[i]->mm_txnid > meta->mm_txnid)
+				*meta = *env->me_metas[i];
+			p = (MDB_page *)((char *)p + env->me_psize);
+		}
+		return 0;
+	}
 
 	/* We don't know the page size yet, so use a minimum value.
 	 * Read both meta pages so we can use the latest one.
@@ -4151,6 +4178,18 @@ mdb_env_init_meta(MDB_env *env, MDB_meta *meta)
 	DPUTS("writing new meta page");
 
 	psize = env->me_psize;
+
+	if ((env->me_flags & (MDB_RAWPART|MDB_WRITEMAP)) == (MDB_RAWPART|MDB_WRITEMAP)) {
+		p = (MDB_page *)env->me_map;
+		p->mp_pgno = 0;
+		p->mp_flags = P_META;
+		*(MDB_meta *)METADATA(p) = *meta;
+		q = (MDB_page *)((char *)p + psize);
+		q->mp_pgno = 1;
+		q->mp_flags = P_META;
+		*(MDB_meta *)METADATA(q) = *meta;
+		return 0;
+	}
 
 	p = calloc(NUM_METAS, psize);
 	if (!p)
@@ -5460,8 +5499,11 @@ mdb_env_open(MDB_env *env, const char *path, unsigned int flags, mdb_mode_t mode
 		if (rc)
 			return ErrCode();
 		flags &= ~MDB_RAWPART;
-		if (S_ISBLK(st.st_mode))
+		if (S_ISBLK(st.st_mode)) {
 			flags |= MDB_RAWPART | MDB_NOSUBDIR;
+			if (!env->me_mapsize)
+				env->me_mapsize = DEFAULT_MAPSIZE;
+		}
 	}
 #endif
 	flags |= MDB_ENV_ACTIVE;	/* tell mdb_env_close0() to clean up */
