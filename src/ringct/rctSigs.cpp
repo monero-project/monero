@@ -313,26 +313,13 @@ namespace rct {
     //   mask is a such that C = aG + bH, and b = amount
     //verRange verifies that \sum Ci = C and that each Ci is a commitment to 0 or 2^i
     rangeSig proveRange(key & C, key & mask, const xmr_amount & amount) {
-        sc_0(mask.bytes);
         bits b;
         d2b(b, amount);
         rangeSig sig;
         key64 ai;
         key64 CiH;
         int i = 0;
-
-        skGen(ai[i]);
-        if (b[i] == 0) {
-            scalarmultBase(sig.Ci[i], ai[i]);
-        }
-        if (b[i] == 1) {
-            addKeys1(sig.Ci[i], ai[i], H2[i]);
-        }
-        subKeys(CiH[i], sig.Ci[i], H2[i]);
-        sc_add(mask.bytes, mask.bytes, ai[i].bytes);
-        C = sig.Ci[i]; // eliminate one addKeys(C, C, sig.Ci[i]);
-
-        for (i = 1; i < ATOMS; i++) {
+        for (i = 0; i < ATOMS; i++) {
             skGen(ai[i]);
             if (b[i] == 0) {
                 scalarmultBase(sig.Ci[i], ai[i]);
@@ -341,8 +328,13 @@ namespace rct {
                 addKeys1(sig.Ci[i], ai[i], H2[i]);
             }
             subKeys(CiH[i], sig.Ci[i], H2[i]);
-            sc_add(mask.bytes, mask.bytes, ai[i].bytes);
-            addKeys(C, C, sig.Ci[i]);
+            if (i == 0) {
+                mask = ai[0];
+                C = sig.Ci[0];
+            } else {
+                sc_add(mask.bytes, mask.bytes, ai[i].bytes);
+                addKeys(C, C, sig.Ci[i]);
+            }
         }
         sig.asig = genBorromean(ai, sig.Ci, CiH, b);
         return sig;
@@ -361,19 +353,8 @@ namespace rct {
         PERF_TIMER(verRange);
         ge_p3 CiH[64], asCi[64];
         int i = 0;
-
-        ge_cached cached;
-        ge_p3 p3;
-        ge_p1p1 p1;
-        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
-        ge_p3_to_cached(&cached, &p3);
-        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
-        ge_sub(&p1, &asCi[i], &cached);
-        ge_p3_to_cached(&cached, &asCi[i]);
-        ge_p1p1_to_p3(&CiH[i], &p1);
-        ge_p3 Ctmp_p3 = asCi[i]; // eliminate one ge_add(&p1, &Ctmp_p3, &cached);
-
-        for (i = 1; i < 64; i++) {
+        ge_p3 Ctmp_p3 = ge_p3_identity;
+        for (i = 0; i < 64; i++) {
             // faster equivalent of:
             // subKeys(CiH[i], as.Ci[i], H2[i]);
             // addKeys(Ctmp, Ctmp, as.Ci[i]);
@@ -386,8 +367,12 @@ namespace rct {
             ge_sub(&p1, &asCi[i], &cached);
             ge_p3_to_cached(&cached, &asCi[i]);
             ge_p1p1_to_p3(&CiH[i], &p1);
-            ge_add(&p1, &Ctmp_p3, &cached);
-            ge_p1p1_to_p3(&Ctmp_p3, &p1);
+            if (i == 0) {
+                Ctmp_p3 = asCi[0];
+            } else {
+                ge_add(&p1, &Ctmp_p3, &cached);
+                ge_p1p1_to_p3(&Ctmp_p3, &p1);
+            }
         }
         key Ctmp;
         ge_p3_tobytes(Ctmp.bytes, &Ctmp_p3);
@@ -493,11 +478,13 @@ namespace rct {
         keyM M(cols, tmp);
         //create the matrix to mg sig
         for (i = 0; i < cols; i++) {
-            M[i][0] = pubs[i][0].dest;
-            M[i][rows] = pubs[i][0].mask; //begin with first input commitment (last row)
-            for (j = 1; j < rows; j++) {
+            for (j = 0; j < rows; j++) {
                 M[i][j] = pubs[i][j].dest;
-                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add input commitments in last row
+                if (j == 0) {
+                    M[i][rows] = pubs[i][0].mask;
+                } else {
+                    addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add input commitments in last row
+                }
             }
         }
         sc_0(sk[rows].bytes);
@@ -569,21 +556,19 @@ namespace rct {
 
         keyV tmp(rows + 1);
         size_t i = 0, j = 0;
-        for (i = 0; i < rows + 1; i++) {
-            identity(tmp[i]);
-        }
         keyM M(cols, tmp);
 
         //create the matrix to mg sig
-        for (i = 0; i < cols; i++) {
-            M[i][0] = pubs[i][0].dest;
-            M[i][rows] = pubs[i][0].mask; //begin with first input commitment (last row)
-            for (j = 1; j < rows; j++) {
+        for (j = 0; j < rows; j++) {
+            for (i = 0; i < cols; i++) {
                 M[i][j] = pubs[i][j].dest;
-                addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add input commitments in last row
+                if (j == 0) {
+                    M[i][rows] = pubs[i][0].mask;
+                } else {
+                    addKeys(M[i][rows], M[i][rows], pubs[i][j].mask); //add Ci in last row
+                }
             }
         }
-
         for (i = 0; i < cols; i++) {
             for (j = 0; j < outPk.size(); j++) {
                 subKeys(M[i][rows], M[i][rows], outPk[j].mask); //subtract output Ci's in last row
@@ -968,7 +953,7 @@ namespace rct {
         const keyV &pseudoOuts = is_bulletproof(rv.type) ? rv.p.pseudoOuts : rv.pseudoOuts;
 
         if (semantics) {
-          key sumOutpks = rv.outPk[0].mask; //begin with first mask
+          key sumOutpks = rv.outPk.empty() ? identity() : rv.outPk[0].mask; //begin with first mask
           for (size_t i = 1; i < rv.outPk.size(); i++) {
               addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
           }
@@ -976,7 +961,7 @@ namespace rct {
           key txnFeeKey = scalarmultH(d2h(rv.txnFee));
           addKeys(sumOutpks, txnFeeKey, sumOutpks);
 
-          key sumPseudoOuts = pseudoOuts[0]; //begin with first pseudoOut
+          key sumPseudoOuts = pseudoOuts.empty() ? identity() : pseudoOuts[0]; //begin with first pseudoOut
           for (size_t i = 1 ; i < pseudoOuts.size() ; i++) {
               addKeys(sumPseudoOuts, sumPseudoOuts, pseudoOuts[i]);
           }
