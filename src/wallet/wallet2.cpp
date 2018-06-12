@@ -1303,20 +1303,20 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
           }
         }
-	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx.vout[o].amount)
+	else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx_scan_info[o].amount)
         {
 	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
+              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
               << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
-              << print_money(m_transfers[kit->second].amount()) << ", received output ignored");
+              << print_money(m_transfers[kit->second].amount()) << " in tx " << m_transfers[kit->second].m_txid << ", received output ignored");
         }
         else
         {
 	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
+              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
               << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
           // The new larger output replaced a previous smaller one
-          tx_money_got_in_outs[tx_scan_info[o].received->index] -= tx.vout[o].amount;
+          tx_money_got_in_outs[tx_scan_info[o].received->index] -= tx_scan_info[o].amount;
 
           if (!pool)
           {
