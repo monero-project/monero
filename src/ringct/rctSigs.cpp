@@ -362,7 +362,6 @@ namespace rct {
         ge_p3 CiH[64], asCi[64];
         int i = 0;
 
-
         ge_cached cached;
         ge_p3 p3;
         ge_p1p1 p1;
