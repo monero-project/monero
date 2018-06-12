@@ -44,7 +44,7 @@ namespace demo
   public:
 	  typedef epee::net_utils::connection_context_base connection_context;
 
-    demo_http_server():m_stop(false){}
+    demo_http_server():m_net_server(epee::net_utils::e_connection_type_RPC), m_stop(false){}
     bool run();
     bool init(const std::string& bind_port = "11112", const std::string& bind_ip = "0.0.0.0");
     bool deinit();
@@ -58,7 +58,7 @@ namespace demo
 
     BEGIN_URI_MAP2()
       MAP_URI2("/requestr_uri_1", on_requestr_uri_1)
-      MAP_URI2("/requestr_uri_2", on_requestr_uri_1)
+      MAP_URI2("/requestr_uri_2", on_requestr_uri_2)
       //MAP_URI_AUTO_XML2("/request_api_xml_1", on_request_api_1, COMMAND_EXAMPLE_1)
       //MAP_URI_AUTO_XML2("/request_api_xml_2", on_request_api_2, COMMAND_EXAMPLE_2)
       MAP_URI_AUTO_JON2("/request_api_json_1", on_request_api_1, COMMAND_EXAMPLE_1)
@@ -91,10 +91,10 @@ namespace demo
                              net_utils::http::http_response_info& response,
                              const net_utils::connection_context_base& m_conn_context);
 
-    bool on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, connection_context& ctxt);
-    bool on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res, connection_context& ctxt);
+    bool on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res/*, connection_context& ctxt*/);
+    bool on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res/*, connection_context& ctxt*/);
 
-    bool on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp, connection_context& ctxt);
+    bool on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp/*, connection_context& ctxt*/);
 
     net_utils::boosted_http_server_custum_handling m_net_server;
     std::atomic<bool> m_stop;

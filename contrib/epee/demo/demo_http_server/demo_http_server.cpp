@@ -24,7 +24,13 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
+// g++ -L /home/user/boost_1_65_1_install/lib -I /home/user/boost_1_65_1_install/include/ -Isrc -I contrib/epee/include/ -I contrib/epee/demo/iface/ -I external/easylogging++ contrib/epee/demo/demo_http_server/demo_http_server.cpp build/debug/src/crypto/libcncrypto.so build/debug/contrib/epee/src/libepee*.a build/debug/external/easylogging++/libeasylogging.so -lboost_thread -lboost_regex -lboost_chrono -lboost_filesystem -lboost_system -lstdc++ -lcrypto -lssl -lpthread
+
+// LD_LIBRARY_PATH=/home/user/boost_1_65_1_install/lib:build/debug/src/crypto:build/debug/external/easylogging++/:build/debug/contrib/epee/src/:$LD_LIBRARY_PATH  ./a.out
+
+#include "crypto/crypto.h"
 #include "stdafx.h"
+#include "misc_log_ex.h"
 #include "console_handler.h"
 #include "demo_http_server.h"
 #include "net/http_client.h"
@@ -35,7 +41,8 @@ template<class t_request, class t_response>
 bool communicate(const std::string url, t_request& req, t_response& rsp, const std::string& ip, const std::string& port, bool use_json, bool use_jrpc = false)
 {
   epee::net_utils::http::http_simple_client http_client;
-  bool r = http_client.connect(ip, port, 1000);
+  http_client.set_server(ip + ":" + port, boost::none, false);
+  bool r = http_client.connect(std::chrono::milliseconds(1000));
   CHECK_AND_ASSERT_MES(r, false, "failed to connect");
   if(use_json)
   {
@@ -47,19 +54,36 @@ bool communicate(const std::string url, t_request& req, t_response& rsp, const s
       req_t.method = "command_example_1";
       req_t.params = req;
       epee::json_rpc::response<t_response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
-      if(!epee::net_utils::invoke_http_json_remote_command2("/request_json_rpc", req_t, resp_t, http_client))
+      if(!epee::net_utils::invoke_http_json("/request_json_rpc", req_t, resp_t, http_client))
       {
         return false;
       }
       rsp = resp_t.result;
       return true;
     }else
-      return epee::net_utils::invoke_http_json_remote_command2(url, req, rsp, http_client);
+      return epee::net_utils::invoke_http_json(url, req, rsp, http_client);
   }
   else   
-    return epee::net_utils::invoke_http_bin_remote_command2(url, req, rsp, http_client);
+    return epee::net_utils::invoke_http_bin(url, req, rsp, http_client);
 }
 
+bool communicate(const std::string &data, const std::string& ip, const std::string& port)
+{
+#if 1
+  epee::net_utils::blocked_mode_client client;
+  bool r = client.connect(ip, port, std::chrono::milliseconds(1000), false);
+  CHECK_AND_ASSERT_MES(r, false, "failed to connect");
+  client.send(data, std::chrono::seconds(5));
+#else
+  epee::net_utils::http::http_simple_client http_client;
+  http_client.set_server(ip + ":" + port, boost::none, false);
+  bool r = http_client.connect(std::chrono::milliseconds(1000));
+  CHECK_AND_ASSERT_MES(r, false, "failed to connect");
+  http_client.send_raw(data, std::chrono::seconds(5));
+#endif
+  misc_utils::sleep_no_w(10000);
+  return true;
+}
 
 int main(int argc, char* argv[])
 {
@@ -67,23 +91,16 @@ int main(int argc, char* argv[])
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  log_space::get_set_log_detalisation_level(true, LOG_LEVEL_2);
-  log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
-  log_space::log_singletone::add_logger(LOGGER_FILE, 
-    log_space::log_singletone::get_default_log_file().c_str(), 
-    log_space::log_singletone::get_default_log_folder().c_str());
+  mlog_configure(mlog_get_default_log_path("demo-http-server.log"), true);
 
-
-
-  LOG_PRINT("Demo server starting ...", LOG_LEVEL_0);
-
+  MINFO("Demo server starting ...");
 
   demo::demo_http_server srv;
 
   start_default_console(&srv, "#");
 
   std::string bind_param = "0.0.0.0";
-  std::string port = "83";
+  std::string port = "8083";
 
   if(!srv.init(port, bind_param))
   {
@@ -96,7 +113,12 @@ int main(int argc, char* argv[])
   size_t count = 0;
   while (!srv.is_stop())
   {
-   
+#if 0
+    //bool r = communicate(std::string(8192, '\n'), "127.0.0.1", port);
+    misc_utils::sleep_no_w(1000);
+#elif 1
+    misc_utils::sleep_no_w(10);
+#else
     demo::COMMAND_EXAMPLE_1::request req;
     req.sub = demo::get_test_data();
     demo::COMMAND_EXAMPLE_1::response rsp;
@@ -112,13 +134,14 @@ int main(int argc, char* argv[])
     CHECK_AND_ASSERT_MES(rsp.subs.size()==1, false, "wrong response");
     CHECK_AND_ASSERT_MES(rsp.subs.front() == demo::get_test_data(), false, "wrong response");
     //misc_utils::sleep_no_w(1000);
+#endif
     ++count;
   }
   bool r = srv.wait_stop();
   CHECK_AND_ASSERT_MES(r, 1, "failed to wait server stop");
   srv.deinit();
 
-  LOG_PRINT("Demo server stoped.", LOG_LEVEL_0);
+  MINFO("Demo server stopped.");
   return 1;
 
   CATCH_ENTRY_L0("main", 1);
@@ -150,7 +173,7 @@ namespace demo
     int thrds_count = 4;
 
     //go to loop
-    LOG_PRINT("Run net_service loop( " << thrds_count << " threads)...", LOG_LEVEL_0);
+    MINFO("Run net_service loop( " << thrds_count << " threads)...");
     if(!m_net_server.run_server(thrds_count, false))
     {
       LOG_ERROR("Failed to run net tcp server!");
@@ -175,6 +198,7 @@ namespace demo
     net_utils::http::http_response_info& response,
     const net_utils::connection_context_base& m_conn_context)
   {
+    MGINFO("on_requestr_uri_1");
     return true;
   }
 
@@ -183,6 +207,7 @@ namespace demo
     net_utils::http::http_response_info& response,
     const net_utils::connection_context_base& m_conn_context)
   {
+    MGINFO("on_requestr_uri_2");
     return true;
   }
 
@@ -195,7 +220,7 @@ namespace demo
     return true;
   }
 
-  bool demo_http_server::on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, connection_context& ctxt)
+  bool demo_http_server::on_request_api_1(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res/*, connection_context& ctxt*/)
   {
     CHECK_AND_ASSERT_MES(req.sub == demo::get_test_data(), false, "wrong request");
     res.m_success = true;
@@ -203,14 +228,14 @@ namespace demo
     return true;
   }
 
-  bool demo_http_server::on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp, connection_context& ctxt)
+  bool demo_http_server::on_request_api_1_with_error(const COMMAND_EXAMPLE_1::request& req, COMMAND_EXAMPLE_1::response& res, epee::json_rpc::error& error_resp/*, connection_context& ctxt*/)
   {
     error_resp.code = 232432;
     error_resp.message = "bla bla bla";
     return false;
   }
 
-  bool demo_http_server::on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res, connection_context& ctxt)
+  bool demo_http_server::on_request_api_2(const COMMAND_EXAMPLE_2::request& req, COMMAND_EXAMPLE_2::response& res/*, connection_context& ctxt*/)
   {
     return true;
   }
