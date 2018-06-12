@@ -4816,6 +4816,20 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
       commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
+  catch (const tools::error::not_enough_unlocked_money& e)
+  {
+    fail_msg_writer() << tr("Not enough money in unlocked balance");
+    std::string accepted = input_line((boost::format(tr("Discarding %s of unmixable outputs that cannot be spent, which can be undone by \"rescan_spent\".  Is this okay?  (Y/Yes/N/No): ")) % print_money(e.available())).str());
+    if (std::cin.eof())
+      return true;
+    if (command_line::is_yes(accepted))
+    {
+      try
+      {
+        m_wallet->discard_unmixable_outputs(is_daemon_trusted());
+      } catch (...) {}
+    }
+  }
   catch (const std::exception &e)
   {
     handle_transfer_exception(std::current_exception(), is_daemon_trusted());

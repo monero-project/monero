@@ -707,6 +707,7 @@ namespace tools
     bool sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids);
     bool sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
     std::vector<pending_tx> create_unmixable_sweep_transactions(bool trusted_daemon);
+    void discard_unmixable_outputs(bool trusted_daemon);
     bool check_connection(uint32_t *version = NULL, uint32_t timeout = 200000);
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height = 0, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
