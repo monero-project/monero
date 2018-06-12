@@ -2636,6 +2636,7 @@ void wallet2::detach_blockchain(uint64_t height)
 bool wallet2::deinit()
 {
   m_is_initialized=false;
+  m_keys_file_locker.reset();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2802,10 +2803,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   crypto::chacha20(account_data.data(), account_data.size(), key, keys_file_data.iv, &cipher[0]);
   keys_file_data.account_data = cipher;
 
+  m_keys_file_locker.reset();
   std::string buf;
   r = ::serialization::dump_binary(keys_file_data, buf);
   r = r && epee::file_io_utils::save_string_to_file(keys_file_name, buf); //and never touch wallet_keys_file again, only read
   CHECK_AND_ASSERT_MES(r, false, "failed to generate wallet keys file " << keys_file_name);
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
 
   return true;
 }
@@ -3935,12 +3938,17 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   boost::system::error_code e;
   bool exists = boost::filesystem::exists(m_keys_file, e);
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  THROW_WALLET_EXCEPTION_IF(!m_keys_file_locker->locked(), error::wallet_internal_error, "internal error: \"" + m_keys_file + "\" is opened by another wallet program");
 
+  // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
+  m_keys_file_locker.reset();
   if (!load_keys(m_keys_file, password))
   {
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, m_keys_file);
   }
   LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_nettype));
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem
