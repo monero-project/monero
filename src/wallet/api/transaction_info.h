@@ -42,24 +42,24 @@ public:
     TransactionInfoImpl();
     ~TransactionInfoImpl();
     //! in/out
-    virtual int direction() const;
+    virtual int direction() const override;
     //! true if hold
-    virtual bool isPending() const;
-    virtual bool isFailed() const;
-    virtual uint64_t amount() const;
+    virtual bool isPending() const override;
+    virtual bool isFailed() const override;
+    virtual uint64_t amount() const override;
     //! always 0 for incoming txes
-    virtual uint64_t fee() const;
-    virtual uint64_t blockHeight() const;
-    virtual std::set<uint32_t> subaddrIndex() const;
-    virtual uint32_t subaddrAccount() const;
-    virtual std::string label() const;
+    virtual uint64_t fee() const override;
+    virtual uint64_t blockHeight() const override;
+    virtual std::set<uint32_t> subaddrIndex() const override;
+    virtual uint32_t subaddrAccount() const override;
+    virtual std::string label() const override;
 
-    virtual std::string hash() const;
-    virtual std::time_t timestamp() const;
-    virtual std::string paymentId() const;
-    virtual const std::vector<Transfer> &transfers() const;
-    virtual uint64_t confirmations() const;
-    virtual uint64_t unlockTime() const;
+    virtual std::string hash() const override;
+    virtual std::time_t timestamp() const override;
+    virtual std::string paymentId() const override;
+    virtual const std::vector<Transfer> &transfers() const override;
+    virtual uint64_t confirmations() const override;
+    virtual uint64_t unlockTime() const override;
 
 private:
     int         m_direction;

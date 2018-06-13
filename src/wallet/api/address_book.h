@@ -42,16 +42,16 @@ public:
     ~AddressBookImpl();
     
     // Fetches addresses from Wallet2
-    void refresh();
-    std::vector<AddressBookRow*> getAll() const;
-    bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description);
-    bool deleteRow(std::size_t rowId);
+    void refresh() override;
+    std::vector<AddressBookRow*> getAll() const override;
+    bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description) override;
+    bool deleteRow(std::size_t rowId) override;
      
     // Error codes. See AddressBook:ErrorCode enum in wallet2_api.h
-    std::string errorString() const {return m_errorString;}
-    int errorCode() const {return m_errorCode;}
+    std::string errorString() const override {return m_errorString;}
+    int errorCode() const override {return m_errorCode;}
 
-    int lookupPaymentID(const std::string &payment_id) const;
+    int lookupPaymentID(const std::string &payment_id) const override;
     
 private:
     void clearRows();
