@@ -461,7 +461,7 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="105"/>
-        <source> requires RFC server password --</source>
+        <source> requires RPC server password --</source>
         <translation> kräver lösenord till RPC-server --</translation>
     </message>
 </context>
@@ -1699,7 +1699,7 @@ Om argumentet &quot;tag_description&quot; anges, så tilldelas taggen &lt;taggna
  refresh-type &lt;full|optimize-coinbase|no-coinbase|default>
    Set the wallet&apos;s refresh behaviour.
  priority [0|1|2|3|4]
-   Set the fee too default/unimportant/normal/elevated/priority.
+   Set the fee to default/unimportant/normal/elevated/priority.
  confirm-missing-payment-id &lt;1|0>
  ask-password &lt;1|0>
  unit &lt;monero|millinero|micronero|nanonero|piconero>
