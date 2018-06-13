@@ -104,7 +104,7 @@ namespace tools
     m_stop = false;
     m_net_server.add_idle_handler([this](){
       try {
-        if (m_wallet) m_wallet->refresh();
+        if (m_wallet) m_wallet->refresh(m_trusted_daemon);
       } catch (const std::exception& ex) {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
@@ -3196,7 +3196,7 @@ int main(int argc, char** argv) {
       wal->stop();
     });
 
-    wal->refresh();
+    wal->refresh(command_line::get_arg(*vm, arg_trusted_daemon));
     // if we ^C during potentially length load/refresh, there's no server loop yet
     if (quit)
     {
