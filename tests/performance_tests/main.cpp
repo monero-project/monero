@@ -51,6 +51,7 @@
 #include "sc_reduce32.h"
 #include "cn_fast_hash.h"
 #include "rct_mlsag.h"
+#include "equality.h"
 
 namespace po = boost::program_options;
 
@@ -150,6 +151,11 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 5, true);
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 10, true);
   TEST_PERFORMANCE3(filter, test_ringct_mlsag, 1, 100, true);
+
+  TEST_PERFORMANCE2(filter, test_equality, memcmp32, true);
+  TEST_PERFORMANCE2(filter, test_equality, memcmp32, false);
+  TEST_PERFORMANCE2(filter, test_equality, verify32, false);
+  TEST_PERFORMANCE2(filter, test_equality, verify32, false);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
