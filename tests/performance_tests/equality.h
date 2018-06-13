@@ -30,38 +30,43 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstring>
-#include <functional>
+#include <string.h>
+#include "crypto/verify.h"
 
-extern "C"
+struct memcmp32
 {
-#include "verify.h"
-}
+  static const size_t loop_count = 1000000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return memcmp(k0, k1, 32); }
+};
 
-#define CRYPTO_MAKE_COMPARABLE(type) \
-namespace crypto { \
-  inline bool operator==(const type &_v1, const type &_v2) { \
-    return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) == 0; \
-  } \
-  inline bool operator!=(const type &_v1, const type &_v2) { \
-    return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) != 0; \
-  } \
-}
+struct verify32
+{
+  static const size_t loop_count = 10000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return crypto_verify_32(k0, k1); }
+};
 
-#define CRYPTO_MAKE_HASHABLE(type) \
-CRYPTO_MAKE_COMPARABLE(type) \
-namespace crypto { \
-  static_assert(sizeof(std::size_t) <= sizeof(type), "Size of " #type " must be at least that of size_t"); \
-  inline std::size_t hash_value(const type &_v) { \
-    return reinterpret_cast<const std::size_t &>(_v); \
-  } \
-} \
-namespace std { \
-  template<> \
-  struct hash<crypto::type> { \
-    std::size_t operator()(const crypto::type &_v) const { \
-      return reinterpret_cast<const std::size_t &>(_v); \
-    } \
-  }; \
-}
+template<typename f, bool equal>
+class test_equality
+{
+public:
+  static const size_t loop_count = f::loop_count;
+
+  bool init()
+  {
+    for (int n = 0; n < 32; ++n)
+      k0[n] = n;
+    for (int n = 0; n < 32; ++n)
+      k1[n] = equal ? n : n + 1;
+    return true;
+  }
+
+  bool test()
+  {
+    return equal == !f::call(k0, k1);
+  }
+
+private:
+  unsigned char k0[32];
+  unsigned char k1[32];
+};
+
