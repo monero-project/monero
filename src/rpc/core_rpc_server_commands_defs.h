@@ -49,7 +49,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 1
-#define CORE_RPC_VERSION_MINOR 20
+#define CORE_RPC_VERSION_MINOR 21
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -953,6 +953,7 @@ namespace cryptonote
       bool mainnet;
       bool testnet;
       bool stagenet;
+      std::string nettype;
       std::string top_block_hash;
       uint64_t cumulative_difficulty;
       uint64_t block_size_limit;
@@ -982,6 +983,7 @@ namespace cryptonote
         KV_SERIALIZE(mainnet)
         KV_SERIALIZE(testnet)
         KV_SERIALIZE(stagenet)
+        KV_SERIALIZE(nettype)
         KV_SERIALIZE(top_block_hash)
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(block_size_limit)

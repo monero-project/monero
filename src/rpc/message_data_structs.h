@@ -181,6 +181,7 @@ namespace rpc
     bool mainnet;
     bool testnet;
     bool stagenet;
+    std::string nettype;
     crypto::hash top_block_hash;
     uint64_t cumulative_difficulty;
     uint64_t block_size_limit;
