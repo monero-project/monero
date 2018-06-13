@@ -642,10 +642,10 @@ namespace tools
      * \brief Tells if the wallet file is deprecated.
      */
     bool is_deprecated() const;
-    void refresh();
-    void refresh(uint64_t start_height, uint64_t & blocks_fetched);
-    void refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
-    bool refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok);
+    void refresh(bool trusted_daemon);
+    void refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched);
+    void refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money);
+    bool refresh(bool trusted_daemon, uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
     void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
     RefreshType get_refresh_type() const { return m_refresh_type; }
@@ -1112,7 +1112,7 @@ namespace tools
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen);
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const crypto::hash& bl_id, uint64_t height, const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices &o_indices);
     void detach_blockchain(uint64_t height);
-    void get_short_chain_history(std::list<crypto::hash>& ids) const;
+    void get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity = 1) const;
     bool is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const;
     bool clear();
     void pull_blocks(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices);
@@ -1210,6 +1210,7 @@ namespace tools
     uint32_t m_default_priority;
     RefreshType m_refresh_type;
     bool m_auto_refresh;
+    bool m_first_refresh_done;
     uint64_t m_refresh_from_block_height;
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/

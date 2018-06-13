@@ -115,6 +115,8 @@ using namespace cryptonote;
 #define STAGENET_SEGREGATION_FORK_HEIGHT 1000000
 #define SEGREGATION_FORK_VICINITY 1500 /* blocks */
 
+#define FIRST_REFRESH_GRANULARITY     1024
+
 static const std::string MULTISIG_SIGNATURE_MAGIC = "SigMultisigPkV1";
 
 
@@ -654,6 +656,7 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_default_priority(0),
   m_refresh_type(RefreshOptimizeCoinbase),
   m_auto_refresh(true),
+  m_first_refresh_done(false),
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
   m_confirm_missing_payment_id(true),
@@ -1608,11 +1611,12 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
     m_callback->on_new_block(height, b);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_short_chain_history(std::list<crypto::hash>& ids) const
+void wallet2::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity) const
 {
   size_t i = 0;
   size_t current_multiplier = 1;
-  size_t sz = m_blockchain.size() - m_blockchain.offset();
+  size_t blockchain_size = std::max(m_blockchain.size() / granularity * granularity, m_blockchain.offset());
+  size_t sz = blockchain_size - m_blockchain.offset();
   if(!sz)
   {
     ids.push_back(m_blockchain.genesis());
@@ -1818,16 +1822,16 @@ void wallet2::process_blocks(uint64_t start_height, const std::list<cryptonote::
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh()
+void wallet2::refresh(bool trusted_daemon)
 {
   uint64_t blocks_fetched = 0;
-  refresh(0, blocks_fetched);
+  refresh(trusted_daemon, 0, blocks_fetched);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched)
 {
   bool received_money = false;
-  refresh(start_height, blocks_fetched, received_money);
+  refresh(trusted_daemon, start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::pull_next_blocks(uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::list<cryptonote::block_complete_entry> &prev_blocks, std::list<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, bool &error)
@@ -2196,7 +2200,7 @@ bool wallet2::delete_address_book_row(std::size_t row_id) {
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
 {
   if(m_light_wallet) {
 
@@ -2245,7 +2249,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
   bool refreshed = false;
 
   // pull the first set of blocks
-  get_short_chain_history(short_chain_history);
+  get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
   m_run.store(true, std::memory_order_relaxed);
   if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
     if (!start_height)
@@ -2254,7 +2258,7 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     fast_refresh(start_height, blocks_start_height, short_chain_history);
     // regenerate the history now that we've got a full set of hashes
     short_chain_history.clear();
-    get_short_chain_history(short_chain_history);
+    get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
     start_height = 0;
     // and then fall through to regular refresh processing
   }
@@ -2334,14 +2338,16 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
     LOG_PRINT_L1("Failed to check pending transactions");
   }
 
+  m_first_refresh_done = true;
+
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all()) << ", unlocked: " << print_money(unlocked_balance_all()));
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::refresh(uint64_t & blocks_fetched, bool& received_money, bool& ok)
+bool wallet2::refresh(bool trusted_daemon, uint64_t & blocks_fetched, bool& received_money, bool& ok)
 {
   try
   {
-    refresh(0, blocks_fetched, received_money);
+    refresh(trusted_daemon, 0, blocks_fetched, received_money);
     ok = true;
   }
   catch (...)
@@ -4256,7 +4262,7 @@ void wallet2::rescan_blockchain(bool refresh)
   m_local_bc_height = 1;
 
   if (refresh)
-    this->refresh();
+    this->refresh(false);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_transfer_unlocked(const transfer_details& td) const
@@ -10118,7 +10124,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
   m_multisig_rescan_info = &info;
   try
   {
-    refresh();
+    refresh(false);
   }
   catch (...) {}
   m_multisig_rescan_info = NULL;
