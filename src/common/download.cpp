@@ -182,7 +182,7 @@ namespace tools
 
       lock.unlock();
 
-      bool ssl = u_c.schema == "https";
+      epee::net_utils::ssl_support_t ssl = u_c.schema == "https" ? epee::net_utils::e_ssl_support_enabled : epee::net_utils::e_ssl_support_disabled;
       uint16_t port = u_c.port ? u_c.port : ssl ? 443 : 80;
       MDEBUG("Connecting to " << u_c.host << ":" << port);
       client.set_server(u_c.host, std::to_string(port), boost::none, ssl);
