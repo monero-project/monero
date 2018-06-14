@@ -650,6 +650,7 @@ namespace nodetool
       return res;
 
     //try to bind
+    m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
     for (auto& zone : m_network_zones)
     {
       zone.second.m_net_server.get_config_object().set_handler(this);
@@ -659,7 +660,7 @@ namespace nodetool
       {
         zone.second.m_net_server.set_connection_filter(this);
         MINFO("Binding on " << zone.second.m_bind_ip << ":" << zone.second.m_port);
-        res = zone.second.m_net_server.init_server(zone.second.m_port, zone.second.m_bind_ip);
+        res = zone.second.m_net_server.init_server(zone.second.m_port, zone.second.m_bind_ip, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
       }
     }
@@ -1057,7 +1058,7 @@ namespace nodetool
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
         << ")...");
 
-    auto con = zone.m_connect(zone, na);
+    auto con = zone.m_connect(zone, na, m_ssl_support);
     if(!con)
     {
       bool is_priority = is_priority_node(na);
@@ -1119,7 +1120,7 @@ namespace nodetool
                                   << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
                                   << ")...");
 
-    auto con = zone.m_connect(zone, na);
+    auto con = zone.m_connect(zone, na, m_ssl_support);
     if (!con) {
       bool is_priority = is_priority_node(na);
 
@@ -2456,13 +2457,13 @@ namespace nodetool
 
   template<typename t_payload_net_handler>
   boost::optional<p2p_connection_context_t<typename t_payload_net_handler::connection_context>>
-  node_server<t_payload_net_handler>::socks_connect(network_zone& zone, const epee::net_utils::network_address& remote)
+  node_server<t_payload_net_handler>::socks_connect(network_zone& zone, const epee::net_utils::network_address& remote, epee::net_utils::ssl_support_t ssl_support)
   {
     auto result = socks_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_service(), zone.m_proxy_address, remote);
     if (result) // if no error
     {
       p2p_connection_context context{};
-      if (zone.m_net_server.add_connection(context, std::move(*result), remote))
+      if (zone.m_net_server.add_connection(context, std::move(*result), remote, ssl_support))
         return {std::move(context)};
     }
     return boost::none;
@@ -2470,7 +2471,7 @@ namespace nodetool
 
   template<typename t_payload_net_handler>
   boost::optional<p2p_connection_context_t<typename t_payload_net_handler::connection_context>>
-  node_server<t_payload_net_handler>::public_connect(network_zone& zone, epee::net_utils::network_address const& na)
+  node_server<t_payload_net_handler>::public_connect(network_zone& zone, epee::net_utils::network_address const& na, epee::net_utils::ssl_support_t ssl_support)
   {
     CHECK_AND_ASSERT_MES(na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id(), boost::none,
       "Only IPv4 addresses are supported here");
@@ -2480,7 +2481,7 @@ namespace nodetool
     const bool res = zone.m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
       epee::string_tools::num_to_string_fast(ipv4.port()),
       zone.m_config.m_net_config.connection_timeout,
-      con);
+      con, "0.0.0.0", ssl_support);
 
     if (res)
       return {std::move(con)};

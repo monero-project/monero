@@ -40,6 +40,7 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include "net/net_utils_base.h"
+#include "net/net_ssl.h"
 #include "misc_language.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -57,6 +58,13 @@ namespace net_utils
 
   class blocked_mode_client
 	{
+		enum try_connect_result_t
+		{
+			CONNECT_SUCCESS,
+			CONNECT_FAILURE,
+			CONNECT_NO_SSL,
+		};
+
 		
 		
 				struct handler_obj
@@ -84,9 +92,9 @@ namespace net_utils
                             m_connected(false), 
                             m_deadline(m_io_service), 
                             m_shutdowned(0),
-                            m_ssl(false),
-                            m_ctx(boost::asio::ssl::context::sslv23),
-                            m_ssl_socket(m_io_service,m_ctx)
+                            m_ssl_support(epee::net_utils::ssl_support_t::e_ssl_support_autodetect),
+                            m_ctx({boost::asio::ssl::context(boost::asio::ssl::context::sslv23), {}}),
+                            m_ssl_socket(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service,m_ctx.context))
 		{
 			
 			
@@ -110,28 +118,92 @@ namespace net_utils
 			catch(...) { /* ignore */ }
 		}
 
+		inline void set_ssl(epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, const std::pair<std::string, std::string> &private_key_and_certificate_path = {}, const std::list<std::string> &allowed_certificates = std::list<std::string>(), bool allow_any_cert = false)
+		{
+			if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_disabled)
+				m_ctx = {boost::asio::ssl::context(boost::asio::ssl::context::sslv23), {}};
+			else
+				m_ctx = create_ssl_context(private_key_and_certificate_path, allowed_certificates, allow_any_cert);
+			m_ssl_support = ssl_support;
+		}
+
     inline
-      bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0")
+      bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, const std::string& bind_ip = "0.0.0.0")
     {
-      return connect(addr, std::to_string(port), timeout, ssl, bind_ip);
+      return connect(addr, std::to_string(port), timeout, bind_ip);
     }
 
     inline
-			bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0")
+			try_connect_result_t try_connect(const std::string& addr, const std::string& port, const boost::asio::ip::tcp::endpoint &remote_endpoint, std::chrono::milliseconds timeout, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
 		{
-      m_connected = false;
-      m_ssl = ssl;
+				m_ssl_socket->next_layer().open(remote_endpoint.protocol());
+				if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
+				{
+					boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(addr.c_str()), 0);
+					m_ssl_socket->next_layer().bind(local_endpoint);
+				}
+
+				
+				m_deadline.expires_from_now(timeout);
+
+				boost::system::error_code ec = boost::asio::error::would_block;
+
+				m_ssl_socket->next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
+				while (ec == boost::asio::error::would_block)
+				{	
+					m_io_service.run_one(); 
+				}
+				
+				if (!ec && m_ssl_socket->next_layer().is_open())
+				{
+					m_connected = true;
+					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
+					// SSL Options
+					if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
+					{
+						if (!ssl_handshake(*m_ssl_socket, boost::asio::ssl::stream_base::client, m_ctx))
+						{
+							if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
+							{
+								boost::system::error_code ignored_ec;
+								m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+								m_ssl_socket->next_layer().close();
+								m_connected = false;
+								return CONNECT_NO_SSL;
+							}
+							else
+							{
+								MWARNING("Failed to establish SSL connection");
+								m_connected = false;
+								return CONNECT_FAILURE;
+							}
+						}
+						m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+					}
+					return CONNECT_SUCCESS;
+				}else
+				{
+					MWARNING("Some problems at connect, message: " << ec.message());
+					return CONNECT_FAILURE;
+				}
+
+		}
+
+    inline
+			bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, const std::string& bind_ip = "0.0.0.0")
+		{
+			m_connected = false;
 			try
 			{
-				m_ssl_socket.next_layer().close();
+				m_ssl_socket->next_layer().close();
 
 				// Set SSL options
 				// disable sslv2
-				m_ctx.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
-				m_ctx.set_default_verify_paths();
+				m_ctx.context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
+				m_ctx.context.set_default_verify_paths();
+				m_ssl_socket.reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, m_ctx.context));
 
 				// Get a list of endpoints corresponding to the server name.
-				
 
 				//////////////////////////////////////////////////////////////////////////
 
@@ -151,45 +223,20 @@ namespace net_utils
 				//boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
 				boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
 
-
-				m_ssl_socket.next_layer().open(remote_endpoint.protocol());
-				if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
-				{
-					boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(addr.c_str()), 0);
-					m_ssl_socket.next_layer().bind(local_endpoint);
-				}
-
-				
-				m_deadline.expires_from_now(timeout);
-
-
-				boost::system::error_code ec = boost::asio::error::would_block;
-
-				m_ssl_socket.next_layer().async_connect(remote_endpoint, boost::lambda::var(ec) = boost::lambda::_1);
-				while (ec == boost::asio::error::would_block)
-				{	
-					m_io_service.run_one(); 
-				}
-				
-				if (!ec && m_ssl_socket.next_layer().is_open())
-				{
-					m_connected = true;
-					m_deadline.expires_at(std::chrono::steady_clock::time_point::max());
-					// SSL Options
-					if(m_ssl) {
-						// Disable verification of host certificate
-						m_ssl_socket.set_verify_mode(boost::asio::ssl::verify_peer);
-						// Handshake
-						m_ssl_socket.next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
-						m_ssl_socket.handshake(boost::asio::ssl::stream_base::client);
-					}
-					return true;
-				}else
-				{
-					MWARNING("Some problems at connect, message: " << ec.message());
+				try_connect_result_t try_connect_result = try_connect(addr, port, remote_endpoint, timeout, bind_ip, m_ssl_support);
+				if (try_connect_result == CONNECT_FAILURE)
 					return false;
+				if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
+				{
+					m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+					if (try_connect_result == CONNECT_NO_SSL)
+					{
+						MERROR("SSL handshake failed on an autodetect connection, reconnecting without SSL");
+						m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+						if (try_connect(addr, port, remote_endpoint, timeout, bind_ip, m_ssl_support) != CONNECT_SUCCESS)
+							return false;
+					}
 				}
-
 			}
 			catch(const boost::system::system_error& er)
 			{
@@ -213,9 +260,9 @@ namespace net_utils
 				if(m_connected)
 				{
 					m_connected = false;
-					if(m_ssl)
+					if(m_ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_disabled)
 						shutdown_ssl();
-					m_ssl_socket.next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+					m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 				}
 			}
 			
@@ -342,9 +389,13 @@ namespace net_utils
 			return true;
 		}
 
-		bool is_connected()
+		bool is_connected(bool *ssl = NULL)
 		{
-			return m_connected && m_ssl_socket.next_layer().is_open();
+			if (!m_connected || !m_ssl_socket->next_layer().is_open())
+				return false;
+			if (ssl)
+				*ssl = m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+			return true;
 		}
 
 		inline 
@@ -506,15 +557,15 @@ namespace net_utils
 		{
 			m_deadline.cancel();
 			boost::system::error_code ec;
-			if(m_ssl)
+			if(m_ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_disabled)
 				shutdown_ssl();
-			m_ssl_socket.next_layer().cancel(ec);
+			m_ssl_socket->next_layer().cancel(ec);
 			if(ec)
 				MDEBUG("Problems at cancel: " << ec.message());
-			m_ssl_socket.next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+			m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
 			if(ec)
 				MDEBUG("Problems at shutdown: " << ec.message());
-			m_ssl_socket.next_layer().close(ec);
+			m_ssl_socket->next_layer().close(ec);
 			if(ec)
 				MDEBUG("Problems at close: " << ec.message());
 			boost::interprocess::ipcdetail::atomic_write32(&m_shutdowned, 1);
@@ -533,7 +584,7 @@ namespace net_utils
 
 		boost::asio::ip::tcp::socket& get_socket()
 		{
-			return m_ssl_socket.next_layer();
+			return m_ssl_socket->next_layer();
 		}
 		
 	private:
@@ -550,7 +601,7 @@ namespace net_utils
 				// connect(), read_line() or write_line() functions to return.
 				LOG_PRINT_L3("Timed out socket");
         m_connected = false;
-				m_ssl_socket.next_layer().close();
+				m_ssl_socket->next_layer().close();
 
 				// There is no longer an active deadline. The expiry is set to positive
 				// infinity so that the actor takes no action until a new deadline is set.
@@ -565,7 +616,7 @@ namespace net_utils
 			// ssl socket shutdown blocks if server doesn't respond. We close after 2 secs
 			boost::system::error_code ec = boost::asio::error::would_block;
 			m_deadline.expires_from_now(std::chrono::milliseconds(2000));
-			m_ssl_socket.async_shutdown(boost::lambda::var(ec) = boost::lambda::_1);
+			m_ssl_socket->async_shutdown(boost::lambda::var(ec) = boost::lambda::_1);
 			while (ec == boost::asio::error::would_block)
 			{
 				m_io_service.run_one();
@@ -586,35 +637,39 @@ namespace net_utils
 		bool write(const void* data, size_t sz, boost::system::error_code& ec)
 		{
 			bool success;
-			if(m_ssl)
-				success = boost::asio::write(m_ssl_socket, boost::asio::buffer(data, sz), ec);
+			if(m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+				success = boost::asio::write(*m_ssl_socket, boost::asio::buffer(data, sz), ec);
 			else
-				success = boost::asio::write(m_ssl_socket.next_layer(), boost::asio::buffer(data, sz), ec);
+				success = boost::asio::write(m_ssl_socket->next_layer(), boost::asio::buffer(data, sz), ec);
 			return success;
 		}
 		
 		void async_write(const void* data, size_t sz, boost::system::error_code& ec) 
 		{
-			if(m_ssl)
-				boost::asio::async_write(m_ssl_socket, boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
+			if(m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+				boost::asio::async_write(*m_ssl_socket, boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
 			else
-				boost::asio::async_write(m_ssl_socket.next_layer(), boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
+				boost::asio::async_write(m_ssl_socket->next_layer(), boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
 		}
 		
 		void async_read(char* buff, size_t sz, boost::asio::detail::transfer_at_least_t transfer_at_least, handler_obj& hndlr)
 		{
-			if(!m_ssl)
-				boost::asio::async_read(m_ssl_socket.next_layer(), boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
+			if(m_ssl_support != epee::net_utils::ssl_support_t::e_ssl_support_enabled)
+				boost::asio::async_read(m_ssl_socket->next_layer(), boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
 			else
-				boost::asio::async_read(m_ssl_socket, boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
+				boost::asio::async_read(*m_ssl_socket, boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
 			
 		}
 		
 	protected:
 		boost::asio::io_service m_io_service;
-		boost::asio::ssl::context m_ctx;
-		boost::asio::ssl::stream<boost::asio::ip::tcp::socket> m_ssl_socket;
-		bool m_ssl;
+		epee::net_utils::ssl_context_t m_ctx;
+		std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> m_ssl_socket;
+		epee::net_utils::ssl_support_t m_ssl_support;
+		std::string m_ssl_private_key;
+		std::string m_ssl_certificate;
+		std::list<std::string> m_ssl_allowed_certificates;
+		bool m_ssl_allow_any_cerl;
 		bool m_initialized;
 		bool m_connected;
 		boost::asio::steady_timer m_deadline;
@@ -722,7 +777,7 @@ namespace net_utils
 				// asynchronous operations are cancelled. This allows the blocked
 				// connect(), read_line() or write_line() functions to return.
 				LOG_PRINT_L3("Timed out socket");
-				m_ssl_socket.next_layer().close();
+				m_ssl_socket->next_layer().close();
 
 				// There is no longer an active deadline. The expiry is set to positive
 				// infinity so that the actor takes no action until a new deadline is set.
