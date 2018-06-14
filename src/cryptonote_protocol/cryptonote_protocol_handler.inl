@@ -1939,7 +1939,7 @@ skip:
     const uint64_t want_height = std::max(want_height_from_blockchain, want_height_from_block_queue);
     uint64_t blockchain_height = m_core.get_target_blockchain_height();
     if (blockchain_height == 0)
-      blockchain_height = std::numeric_limits<uint64_t>::max();
+      return std::make_pair(0, 0);
     const uint32_t next_pruning_seed = tools::get_pruning_stripe(tools::get_pruning_seed(want_height, blockchain_height));
     if (next_pruning_seed == 0)
       return std::make_pair(0, 0);
