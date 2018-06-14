@@ -31,6 +31,7 @@
 #include <boost/bind.hpp> 
 
 #include "net/http_server_cp2.h"
+#include "net/connection_basic.hpp"
 #include "transport_defs.h"
 #include "net/http_server_handlers_map2.h"
 
@@ -46,7 +47,7 @@ namespace demo
 
     demo_http_server():m_net_server(epee::net_utils::e_connection_type_RPC), m_stop(false){}
     bool run();
-    bool init(const std::string& bind_port = "11112", const std::string& bind_ip = "0.0.0.0");
+    bool init(const std::string& bind_port = "11112", const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect, const std::string &private_key_path = std::string(), const std::string &certificate_path = std::string());
     bool deinit();
     bool send_stop_signal();
     bool is_stop(){return m_stop;}
