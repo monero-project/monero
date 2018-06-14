@@ -50,6 +50,7 @@
 #include <atomic>
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
@@ -60,6 +61,7 @@
 #include <memory>
 
 #include "net/net_utils_base.h"
+#include "net/net_ssl.h"
 #include "syncobj.h"
 
 namespace epee
@@ -79,7 +81,7 @@ class connection_basic_pimpl; // PIMPL for this class
 	  e_connection_type_RPC = 1, // the rpc commands  (probably not rate limited, not chunked, etc)
 	  e_connection_type_P2P = 2  // to other p2p node (probably limited)
   };
-  
+
   std::string to_string(t_connection_type type);
 
 class connection_basic { // not-templated base class for rapid developmet of some code parts
@@ -96,14 +98,52 @@ class connection_basic { // not-templated base class for rapid developmet of som
     /// Strand to ensure the connection's handlers are not called concurrently.
     boost::asio::io_service::strand strand_;
     /// Socket for the connection.
-    boost::asio::ip::tcp::socket socket_;
+    ssl_context_t &m_ssl_context;
+    ssl_support_t m_ssl_support;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
 
 		std::atomic<long> &m_ref_sock_count; // reference to external counter of existing sockets that we will ++/--
 	public:
 		// first counter is the ++/-- count of current sockets, the other socket_number is only-increasing ++ number generator
-		connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number);
+		connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number, ssl_support_t ssl, ssl_context_t &ssl_context);
 
 		virtual ~connection_basic() noexcept(false);
+
+		boost::asio::ip::tcp::socket& socket() { return socket_.next_layer(); }
+		ssl_support_t get_ssl_support() const { return m_ssl_support; }
+		void disable_ssl() { m_ssl_support = e_ssl_support_disabled; }
+
+		bool handshake(boost::asio::ssl::stream_base::handshake_type type)
+		{
+			return ssl_handshake(socket_, type, m_ssl_context);
+		}
+
+		template<typename MutableBufferSequence, typename ReadHandler>
+		void async_read_some(const MutableBufferSequence &buffers, ReadHandler &&handler)
+		{
+			if (m_ssl_support == e_ssl_support_enabled)
+				socket_.async_read_some(buffers, handler);
+			else
+				socket().async_read_some(buffers, handler);
+		}
+
+		template<typename ConstBufferSequence, typename WriteHandler>
+		void async_write_some(const ConstBufferSequence &buffers, WriteHandler &&handler)
+		{
+			if (m_ssl_support == e_ssl_support_enabled)
+				socket_.async_write_some(buffers, handler);
+			else
+				socket().async_write_some(buffers, handler);
+		}
+
+		template<typename ConstBufferSequence, typename WriteHandler>
+		void async_write(const ConstBufferSequence &buffers, WriteHandler &&handler)
+		{
+			if (m_ssl_support == e_ssl_support_enabled)
+				boost::asio::async_write(socket_, buffers, handler);
+			else
+				boost::asio::async_write(socket(), buffers, handler);
+		}
 
 		// various handlers to be called from connection class:
 		void do_send_handler_write(const void * ptr , size_t cb);

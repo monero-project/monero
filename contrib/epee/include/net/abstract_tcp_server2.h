@@ -46,6 +46,7 @@
 #include <memory>
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
@@ -94,12 +95,12 @@ namespace net_utils
 			typename t_protocol_handler::config_type& config, 
 			std::atomic<long> &ref_sock_count,  // the ++/-- counter 
 			std::atomic<long> &sock_number, // the only increasing ++ number generator
-			i_connection_filter * &pfilter
-			,t_connection_type connection_type);
+			i_connection_filter * &pfilter,
+			t_connection_type connection_type,
+			epee::net_utils::ssl_support_t ssl_support,
+			ssl_context_t &ssl_context);
 
     virtual ~connection() noexcept(false);
-    /// Get the socket associated with the connection.
-    boost::asio::ip::tcp::socket& socket();
 
     /// Start the first asynchronous operation for the connection.
     bool start(bool is_income, bool is_multithreaded);
@@ -129,6 +130,10 @@ namespace net_utils
     //------------------------------------------------------
     boost::shared_ptr<connection<t_protocol_handler> > safe_shared_from_this();
     bool shutdown();
+    /// Handle completion of a receive operation.
+    void handle_receive(const boost::system::error_code& e,
+      std::size_t bytes_transferred);
+
     /// Handle completion of a read operation.
     void handle_read(const boost::system::error_code& e,
       std::size_t bytes_transferred);
@@ -197,8 +202,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0");
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect, const std::string &private_key_path = std::string(), const std::string &certificate_path = std::string(), const std::list<std::string> &allowed_certificates = {});
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect, const std::string &private_key_path = std::string(), const std::string &certificate_path = std::string(), const std::list<std::string> &allowed_certificates = {});
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
@@ -219,9 +224,9 @@ namespace net_utils
 
     void set_connection_filter(i_connection_filter* pfilter);
 
-    bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0");
+    bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect);
     template<class t_callback>
-    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0");
+    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect);
 
     typename t_protocol_handler::config_type& get_config_object(){return m_config;}
 
@@ -328,6 +333,9 @@ namespace net_utils
 
     boost::mutex connections_mutex;
     std::set<connection_ptr> connections_;
+
+    ssl_context_t m_ssl_context;
+    std::list<std::string> m_allowed_certificates;
 
   }; // class <>boosted_tcp_server
 

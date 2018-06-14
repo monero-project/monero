@@ -76,6 +76,9 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
+    command_line::add_arg(desc, arg_p2p_ssl);
+    command_line::add_arg(desc, arg_p2p_ssl_private_key);
+    command_line::add_arg(desc, arg_p2p_ssl_certificate);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_out_peers);
     command_line::add_arg(desc, arg_in_peers);
@@ -568,7 +571,21 @@ for (auto &e:plg) m_peerlist.append_with_peer_gray(e);
 
     //try to bind
     MINFO("Binding on " << m_bind_ip << ":" << m_port);
-    res = m_net_server.init_server(m_port, m_bind_ip);
+    const std::string ssl = command_line::get_arg(vm, arg_p2p_ssl);
+    if (ssl == "enabled")
+      m_ssl_support = epee::net_utils::e_ssl_support_enabled;
+    else if (ssl == "disabled")
+      m_ssl_support = epee::net_utils::e_ssl_support_disabled;
+    else if (ssl == "autodetect")
+      m_ssl_support = epee::net_utils::e_ssl_support_autodetect;
+    else
+    {
+      MFATAL("Invalid P2P SSL support: " << ssl);
+      return false;
+    }
+    const std::string ssl_private_key = command_line::get_arg(vm, arg_p2p_ssl_private_key);
+    const std::string ssl_certificate = command_line::get_arg(vm, arg_p2p_ssl_certificate);
+    res = m_net_server.init_server(m_port, m_bind_ip, m_ssl_support, ssl_private_key, ssl_certificate);
     CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
 
     m_listening_port = m_net_server.get_binded_port();
@@ -939,7 +956,7 @@ for (auto &e:plg) m_peerlist.append_with_peer_gray(e);
     bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
       epee::string_tools::num_to_string_fast(ipv4.port()),
       m_config.m_net_config.connection_timeout,
-      con);
+      con, "0.0.0.0", m_ssl_support);
 
     if(!res)
     {
@@ -1006,7 +1023,7 @@ for (auto &e:plg) m_peerlist.append_with_peer_gray(e);
     bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
                                     epee::string_tools::num_to_string_fast(ipv4.port()),
                                     m_config.m_net_config.connection_timeout,
-                                    con);
+                                    con, "0.0.0.0", m_ssl_support);
 
     if (!res) {
       bool is_priority = is_priority_node(na);

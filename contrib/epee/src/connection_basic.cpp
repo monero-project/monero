@@ -80,7 +80,7 @@
 #include "net/network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
+#define MONERO_DEFAULT_LOG_CATEGORY "net.conn"
 
 // ################################################################################################
 // local (TU local) headers
@@ -102,7 +102,6 @@ namespace net_utils
 	  
 	  return std::string("UNKNOWN");
   }
-
 
 /* ============================================================================ */
 
@@ -145,30 +144,29 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number)
+connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number, ssl_support_t ssl_support, ssl_context_t &ssl_context)
 	: 
 	mI( new connection_basic_pimpl("peer") ),
 	strand_(io_service),
-	socket_(io_service),
 	m_want_close_connection(false), 
 	m_was_shutdown(false),
-	m_ref_sock_count(ref_sock_count)
+	m_ref_sock_count(ref_sock_count),
+	socket_(io_service, ssl_context.context),
+	m_ssl_support(ssl_support),
+	m_ssl_context(ssl_context)
 { 
 	++ref_sock_count; // increase the global counter
 	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
 
-	std::string remote_addr_str = "?";
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
-
-	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
+	_note("Spawned connection #"<<mI->m_peer_number<<", currently we have sockets count:" << m_ref_sock_count);
 	//boost::filesystem::create_directories("log/dr-monero/net/");
 }
 
 connection_basic::~connection_basic() noexcept(false) {
 	std::string remote_addr_str = "?";
 	m_ref_sock_count--;
-	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
-	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
+	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
+	_note("Destructing connection #"<<mI->m_peer_number << " to " << remote_addr_str);
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {

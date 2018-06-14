@@ -351,6 +351,8 @@ namespace nodetool
     std::array<std::list<epee::net_utils::network_address>, 1 << CRYPTONOTE_PRUNING_LOG_STRIPES> m_used_stripe_peers;
 
     cryptonote::network_type m_nettype;
+
+    epee::net_utils::ssl_support_t m_ssl_support;
   };
 
     const int64_t default_limit_up = 2048;    // kB/s
@@ -363,6 +365,9 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl_private_key;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl_certificate;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
 
     extern const command_line::arg_descriptor<bool>        arg_no_igd;
