@@ -1209,6 +1209,68 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_generateblocks(const COMMAND_RPC_GENERATEBLOCKS::request& req, COMMAND_RPC_GENERATEBLOCKS::response& res, epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_generateblocks);
+
+    CHECK_CORE_READY();
+    
+    res.status = CORE_RPC_STATUS_OK;
+
+    if(m_core.get_nettype() != FAKECHAIN)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_REGTEST_REQUIRED;
+      error_resp.message = "Regtest required when generating blocks";      
+      return false;
+    }
+
+    COMMAND_RPC_GETBLOCKTEMPLATE::request template_req;
+    COMMAND_RPC_GETBLOCKTEMPLATE::response template_res;
+    COMMAND_RPC_SUBMITBLOCK::request submit_req;
+    COMMAND_RPC_SUBMITBLOCK::response submit_res;
+
+    template_req.reserve_size = 1;
+    template_req.wallet_address = req.wallet_address;
+    submit_req.push_back(boost::value_initialized<std::string>());
+    res.height = m_core.get_blockchain_storage().get_current_blockchain_height();
+
+    bool r;
+
+    for(size_t i = 0; i < req.amount_of_blocks; i++)
+    {
+      r = on_getblocktemplate(template_req, template_res, error_resp);
+      res.status = template_res.status;
+      
+      if (!r) return false;
+
+      blobdata blockblob;
+      if(!string_tools::parse_hexstr_to_binbuff(template_res.blocktemplate_blob, blockblob))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
+        error_resp.message = "Wrong block blob";
+        return false;
+      }
+      block b = AUTO_VAL_INIT(b);
+      if(!parse_and_validate_block_from_blob(blockblob, b))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
+        error_resp.message = "Wrong block blob";
+        return false;
+      }
+      miner::find_nonce_for_given_block(b, template_res.difficulty, template_res.height);
+
+      submit_req.front() = string_tools::buff_to_hex_nodelimer(block_to_blob(b));
+      r = on_submitblock(submit_req, submit_res, error_resp);
+      res.status = submit_res.status;
+
+      if (!r) return false;
+
+      res.height = template_res.height;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   uint64_t core_rpc_server::get_block_reward(const block& blk)
   {
     uint64_t reward = 0;
