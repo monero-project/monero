@@ -1469,6 +1469,21 @@ std::vector<std::string> BlockchainLMDB::get_filenames() const
   return filenames;
 }
 
+bool BlockchainLMDB::remove_data_file(const std::string& folder) const
+{
+  const std::string filename = folder + "/data.mdb";
+  try
+  {
+    boost::filesystem::remove(filename);
+  }
+  catch (const std::exception &e)
+  {
+    MERROR("Failed to remove " << filename << ": " << e.what());
+    return false;
+  }
+  return true;
+}
+
 std::string BlockchainLMDB::get_db_name() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

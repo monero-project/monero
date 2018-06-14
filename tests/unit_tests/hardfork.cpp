@@ -50,6 +50,7 @@ public:
   virtual void safesyncmode(const bool onoff) {}
   virtual void reset() {}
   virtual std::vector<std::string> get_filenames() const { return std::vector<std::string>(); }
+  virtual bool remove_data_file(const std::string& folder) const { return true; }
   virtual std::string get_db_name() const { return std::string(); }
   virtual bool lock() { return true; }
   virtual void unlock() { }

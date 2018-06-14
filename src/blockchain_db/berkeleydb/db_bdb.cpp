@@ -1213,6 +1213,11 @@ std::vector<std::string> BlockchainBDB::get_filenames() const
     return full_paths;
 }
 
+bool BlockchainBDB::remove_data_file(const std::string& folder)
+{
+    return true;
+}
+
 std::string BlockchainBDB::get_db_name() const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
