@@ -101,8 +101,11 @@ int main(int argc, char* argv[])
 
   std::string bind_param = "0.0.0.0";
   std::string port = "8083";
+  epee::net_utils::ssl_support_t ssl_support = epee::net_utils::e_ssl_support_autodetect;
+  std::string private_key_path = "";
+  std::string certificate_path = "";
 
-  if(!srv.init(port, bind_param))
+  if(!srv.init(port, bind_param, ssl_support, private_key_path, certificate_path))
   {
     LOG_ERROR("Failed to initialize srv!");
     return 1;
@@ -152,7 +155,7 @@ int main(int argc, char* argv[])
 /************************************************************************/
 namespace demo
 {
-  bool demo_http_server::init(const std::string& bind_port, const std::string& bind_ip)
+  bool demo_http_server::init(const std::string& bind_port, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support, const std::string &private_key_path, const std::string &certificate_path)
   {
 
 
@@ -163,7 +166,7 @@ namespace demo
     m_net_server.get_config_object().m_folder = "";
 
     LOG_PRINT_L0("Binding on " << bind_ip << ":" << bind_port);
-    return m_net_server.init_server(bind_port, bind_ip);
+    return m_net_server.init_server(bind_port, bind_ip, ssl_support, private_key_path, certificate_path);
   }
 
   bool demo_http_server::run()
