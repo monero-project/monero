@@ -41,6 +41,7 @@ namespace tools
   {
   public:
     ringdb(std::string filename, const std::string &genesis);
+    void close();
     ~ringdb();
 
     bool add_rings(const crypto::chacha_key &chacha_key, const cryptonote::transaction_prefix &tx);

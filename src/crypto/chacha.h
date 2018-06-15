@@ -75,7 +75,7 @@ namespace crypto {
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
     static thread_local cn_pow_hash_v1 ctx;
     ctx.hash(data, size, pwd_hash.data());
-    memcpy(&key, pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key_prehashed(const void *data, size_t size, chacha_key& key) {
@@ -83,7 +83,7 @@ namespace crypto {
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
     static thread_local cn_pow_hash_v1 ctx;
     ctx.hash(data, size, pwd_hash.data(), true);
-    memcpy(&key, pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key(std::string password, chacha_key& key) {

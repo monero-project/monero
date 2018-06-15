@@ -83,6 +83,7 @@ public:
     // void setListener(Listener *) {}
     int status() const;
     std::string errorString() const;
+    void statusWithErrorString(int& status, std::string& errorString) const override;
     bool setPassword(const std::string &password);
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const;
     std::string integratedAddress(const std::string &payment_id) const;
@@ -125,6 +126,14 @@ public:
     void addSubaddress(uint32_t accountIndex, const std::string& label);
     std::string getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const;
     void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label);
+
+    MultisigState multisig() const override;
+    std::string getMultisigInfo() const override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
+    bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
+    bool exportMultisigImages(std::string& images) override;
+    size_t importMultisigImages(const std::vector<std::string>& images) override;
+    PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
@@ -174,6 +183,9 @@ public:
 
 private:
     void clearStatus() const;
+    void setStatusError(const std::string& message) const;
+    void setStatusCritical(const std::string& message) const;
+    void setStatus(int status, const std::string& message) const;
     void refreshThreadFunc();
     void doRefresh();
     bool daemonSynced() const;
@@ -191,7 +203,8 @@ private:
     friend class SubaddressAccountImpl;
 
     tools::wallet2 * m_wallet;
-    mutable std::atomic<int>  m_status;
+    mutable boost::mutex m_statusMutex;
+    mutable int m_status;
     mutable std::string m_errorString;
     std::string m_password;
     TransactionHistoryImpl * m_history;

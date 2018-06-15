@@ -135,6 +135,11 @@ namespace net_utils
     /// Handle completion of a write operation.
     void handle_write(const boost::system::error_code& e, size_t cb);
 
+    /// reset connection timeout timer and callback
+    void reset_timer(boost::posix_time::milliseconds ms, bool add);
+    boost::posix_time::milliseconds get_default_time() const;
+    boost::posix_time::milliseconds get_timeout_from_bytes_read(size_t bytes) const;
+
     /// Buffer for incoming data.
     boost::array<char, 8192> buffer_;
     //boost::array<char, 1024> buffer_;
@@ -157,6 +162,9 @@ namespace net_utils
     network_throttle m_throttle_speed_out;
     boost::mutex m_throttle_speed_in_mutex;
     boost::mutex m_throttle_speed_out_mutex;
+
+    boost::asio::deadline_timer m_timer;
+    bool m_local;
 
 	public:
 			void setRpcStation();

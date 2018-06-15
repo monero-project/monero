@@ -478,21 +478,23 @@ namespace tools
       bool two_random = false, bool create_address_file = false);
     /*!
      * \brief Creates a wallet from a public address and a spend/view secret key pair.
-     * \param  wallet_              Name of wallet file
-     * \param  password             Password of wallet file
-     * \param  viewkey              view secret key
-     * \param  spendkey             spend secret key
-     * \param  create_address_file  Whether to create an address file
+     * \param  wallet_                 Name of wallet file
+     * \param  password                Password of wallet file
+     * \param  account_public_address  The account's public address
+     * \param  spendkey                spend secret key
+     * \param  viewkey                 view secret key
+     * \param  create_address_file     Whether to create an address file
      */
     void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool create_address_file = false);
     /*!
      * \brief Creates a watch only wallet from a public address and a view secret key.
-     * \param  wallet_              Name of wallet file
-     * \param  password             Password of wallet file
-     * \param  viewkey              view secret key
-     * \param  create_address_file  Whether to create an address file
+     * \param  wallet_                 Name of wallet file
+     * \param  password                Password of wallet file
+     * \param  account_public_address  The account's public address
+     * \param  viewkey                 view secret key
+     * \param  create_address_file     Whether to create an address file
      */
     void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
@@ -562,9 +564,9 @@ namespace tools
     void load(const std::string& wallet, const epee::wipeable_string& password);
     void store();
     /*!
-     * \brief store_to - stores wallet to another file(s), deleting old ones
-     * \param path     - path to the wallet file (keys and address filenames will be generated based on this filename)
-     * \param password - password to protect new wallet (TODO: probably better save the password in the wallet object?)
+     * \brief store_to  Stores wallet to another file(s), deleting old ones
+     * \param path      Path to the wallet file (keys and address filenames will be generated based on this filename)
+     * \param password  Password to protect new wallet (TODO: probably better save the password in the wallet object?)
      */
     void store_to(const std::string &path, const epee::wipeable_string &password);
 
@@ -687,6 +689,7 @@ namespace tools
     bool save_multisig_tx(const multisig_tx_set &txs, const std::string &filename);
     std::string save_multisig_tx(const std::vector<pending_tx>& ptx_vector);
     bool save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename);
+    multisig_tx_set make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const;
     // load unsigned tx from file and sign it. Takes confirmation callback as argument. Used by the cli wallet
     bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx, std::function<bool(const unsigned_tx_set&)> accept_func = NULL, bool export_raw = false);
     // sign unsigned tx. Takes unsigned_tx_set as argument. Used by GUI
@@ -960,7 +963,7 @@ namespace tools
     /*!
      * \brief  Set the label of the given tag.
      * \param  tag            Tag's name (which must be non-empty).
-     * \param  label          Tag's description.
+     * \param  description    Tag's description.
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 

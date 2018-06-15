@@ -70,11 +70,11 @@ else ()
 endif (GTest_FOUND)
 
 file(COPY
-  data/wallet_9svHk1.keys
-  data/wallet_9svHk1
+  data/wallet_testnet.keys
+  data/wallet_testnet
   data/outputs
-  data/unsigned_monero_tx
-  data/signed_monero_tx
+  data/unsigned_loki_tx
+  data/signed_loki_tx
   DESTINATION data)
 
 add_subdirectory(core_tests)
