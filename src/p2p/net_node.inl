@@ -405,6 +405,7 @@ namespace nodetool
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
 
+    m_fallback_seed_nodes_added = false;
     if (m_nettype == cryptonote::TESTNET)
     {
       memcpy(&m_network_id, &::config::testnet::NETWORK_ID, 16);
@@ -498,6 +499,7 @@ namespace nodetool
 
         for (const auto &peer: get_seed_nodes(cryptonote::MAINNET))
           full_addrs.insert(peer);
+        m_fallback_seed_nodes_added = true;
       }
     }
     }
@@ -1134,7 +1136,6 @@ namespace nodetool
 
       size_t try_count = 0;
       size_t current_index = crypto::rand<size_t>()%m_seed_nodes.size();
-      bool fallback_nodes_added = false;
       while(true)
       {
         if(m_net_server.is_stop_signal_sent())
@@ -1144,15 +1145,21 @@ namespace nodetool
           break;
         if(++try_count > m_seed_nodes.size())
         {
-          if (!fallback_nodes_added)
+          if (!m_fallback_seed_nodes_added)
           {
             MWARNING("Failed to connect to any of seed peers, trying fallback seeds");
+            current_index = m_seed_nodes.size();
             for (const auto &peer: get_seed_nodes(m_nettype))
             {
               MDEBUG("Fallback seed node: " << peer);
               append_net_address(m_seed_nodes, peer);
             }
-            fallback_nodes_added = true;
+            m_fallback_seed_nodes_added = true;
+            if (current_index == m_seed_nodes.size())
+            {
+              MWARNING("No fallback seeds, continuing without seeds");
+              break;
+            }
             // continue for another few cycles
           }
           else
