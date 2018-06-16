@@ -8430,8 +8430,9 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   }
   std::vector<std::vector<crypto::signature>> signatures = { std::vector<crypto::signature>(1) };
   const size_t sig_len = tools::base58::encode(std::string((const char *)&signatures[0][0], sizeof(crypto::signature))).size();
-  THROW_WALLET_EXCEPTION_IF(sig_str.size() != header_len + num_sigs * sig_len,
-    error::wallet_internal_error, "incorrect signature size");
+  if( sig_str.size() != header_len + num_sigs * sig_len ) {
+    return false;
+  }
 
   // decode base58
   signatures.clear();
