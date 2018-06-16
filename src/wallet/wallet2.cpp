@@ -3624,6 +3624,14 @@ bool wallet2::has_multisig_partial_key_images() const
   return false;
 }
 
+bool wallet2::has_unknown_key_images() const
+{
+  for (const auto &td: m_transfers)
+    if (!td.m_key_image_known)
+      return true;
+  return false;
+}
+
 /*!
  * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
  * \param wallet_name Name of wallet file (should exist)
