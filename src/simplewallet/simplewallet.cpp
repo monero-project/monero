@@ -3991,7 +3991,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(start_height, fetched_blocks);
+    m_wallet->refresh(is_daemon_trusted(), start_height, fetched_blocks);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -6501,7 +6501,7 @@ void simple_wallet::wallet_idle_thread()
       {
         uint64_t fetched_blocks;
         if (try_connect_to_daemon(true))
-          m_wallet->refresh(0, fetched_blocks);
+          m_wallet->refresh(is_daemon_trusted(), 0, fetched_blocks);
       }
       catch(...) {}
       m_auto_refresh_refreshing = false;
@@ -7078,7 +7078,8 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 {
   uint64_t local_height = m_wallet->get_blockchain_current_height();
   uint32_t version = 0;
-  if (!m_wallet->check_connection(&version))
+  bool ssl = false;
+  if (!m_wallet->check_connection(&version, &ssl))
   {
     success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
     return true;
@@ -7090,7 +7091,7 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   {
     bool synced = local_height == bc_height;
     success_msg_writer() << "Refreshed " << local_height << "/" << bc_height << ", " << (synced ? "synced" : "syncing")
-        << ", daemon RPC v" << get_version_string(version);
+        << ", daemon RPC v" << get_version_string(version) << ", " << (ssl ? "SSL" : "no SSL");
   }
   else
   {

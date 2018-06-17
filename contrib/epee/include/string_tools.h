@@ -232,6 +232,15 @@ POP_WARNINGS
 		return boost::lexical_cast<std::string>(val);
 	}
 	//----------------------------------------------------------------------------
+	template<typename T> inline std::string to_string_hex(const T &val)
+	{
+		std::stringstream ss;
+		ss << std::hex << val;
+		std::string s;
+		ss >> s;
+		return s;
+	}
+	//----------------------------------------------------------------------------
 	
 	inline bool compare_no_case(const std::string& str1, const std::string& str2)
 	{

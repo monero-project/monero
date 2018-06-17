@@ -29,6 +29,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "string_tools.h"
+#include "common/pruning.h"
 #include "blockchain_db.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
@@ -218,13 +219,22 @@ uint64_t BlockchainDB::add_block( const block& blk
   // call out to add the transactions
 
   time1 = epee::misc_utils::get_tick_count();
+
+  uint64_t num_rct_outs = 0;
   add_transaction(blk_hash, blk.miner_tx);
+  if (blk.miner_tx.version == 2)
+    num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
   for (const transaction& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
     add_transaction(blk_hash, tx, &tx_hash);
+    for (const auto &vout: tx.vout)
+    {
+      if (vout.amount == 0)
+        ++num_rct_outs;
+    }
     ++tx_i;
   }
   TIME_MEASURE_FINISH(time1);
@@ -232,7 +242,7 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_size, cumulative_difficulty, coins_generated, blk_hash);
+  add_block(blk, block_size, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
@@ -256,9 +266,12 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 
   remove_block();
 
+  CHECK_AND_ASSERT_THROW_MES(!blk.miner_tx.vin.empty(), "Miner tx has no inputs");
+  const uint64_t block_height = boost::get<cryptonote::txin_gen>(blk.miner_tx.vin.front()).height;
+  const bool has_unpruned_block = tools::has_unpruned_block(block_height, height(), get_blockchain_pruning_seed());
   for (const auto& h : boost::adaptors::reverse(blk.tx_hashes))
   {
-    txs.push_back(get_tx(h));
+    txs.push_back(has_unpruned_block ? get_tx(h) : get_pruned_tx(h));
     remove_transaction(h);
   }
   remove_transaction(get_transaction_hash(blk.miner_tx));
@@ -271,7 +284,7 @@ bool BlockchainDB::is_open() const
 
 void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
-  transaction tx = get_tx(tx_hash);
+  transaction tx = get_pruned_tx(tx_hash);
 
   for (const txin_v& tx_input : tx.vin)
   {
@@ -316,11 +329,30 @@ bool BlockchainDB::get_tx(const crypto::hash& h, cryptonote::transaction &tx) co
   return true;
 }
 
+bool BlockchainDB::get_pruned_tx(const crypto::hash& h, cryptonote::transaction &tx) const
+{
+  blobdata bd;
+  if (!get_pruned_tx_blob(h, bd))
+    return false;
+  if (!parse_and_validate_tx_base_from_blob(bd, tx))
+    throw DB_ERROR("Failed to parse transaction base from blob retrieved from the db");
+
+  return true;
+}
+
 transaction BlockchainDB::get_tx(const crypto::hash& h) const
 {
   transaction tx;
   if (!get_tx(h, tx))
     throw TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
+  return tx;
+}
+
+transaction BlockchainDB::get_pruned_tx(const crypto::hash& h) const
+{
+  transaction tx;
+  if (!get_pruned_tx(h, tx))
+    throw TX_DNE(std::string("pruned tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
   return tx;
 }
 

@@ -47,6 +47,7 @@ using namespace epee;
 static std::string generate_log_filename(const char *base)
 {
   std::string filename(base);
+  static unsigned int fallback_counter = 0;
   char tmp[200];
   struct tm tm;
   time_t now = time(NULL);
@@ -56,7 +57,7 @@ static std::string generate_log_filename(const char *base)
 #else
   (!gmtime_r(&now, &tm))
 #endif
-    strcpy(tmp, "unknown");
+    snprintf(tmp, sizeof(tmp), "part-%u", ++fallback_counter);
   else
     strftime(tmp, sizeof(tmp), "%Y-%m-%d-%H-%M-%S", &tm);
   tmp[sizeof(tmp) - 1] = 0;
@@ -96,7 +97,7 @@ static const char *get_default_categories(int level)
   switch (level)
   {
     case 0:
-      categories = "*:WARNING,net:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO";
+      categories = "*:WARNING,net:FATAL,net.http:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO";
       break;
     case 1:
       categories = "*:INFO,global:INFO,stacktrace:INFO,logging:INFO,msgwriter:INFO";

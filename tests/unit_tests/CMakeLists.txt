@@ -49,12 +49,14 @@ set(unit_tests_sources
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
+  logging.cpp
   main.cpp
   memwipe.cpp
   mnemonics.cpp
   mul_div.cpp
   multisig.cpp
   parse_amount.cpp
+  pruning.cpp
   serialization.cpp
   sha256.cpp
   slow_memmem.cpp

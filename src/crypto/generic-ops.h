@@ -34,13 +34,18 @@
 #include <cstring>
 #include <functional>
 
+extern "C"
+{
+#include "verify.h"
+}
+
 #define CRYPTO_MAKE_COMPARABLE(type) \
 namespace crypto { \
   inline bool operator==(const type &_v1, const type &_v2) { \
-    return std::memcmp(&_v1, &_v2, sizeof(type)) == 0; \
+    return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) == 0; \
   } \
   inline bool operator!=(const type &_v1, const type &_v2) { \
-    return std::memcmp(&_v1, &_v2, sizeof(type)) != 0; \
+    return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) != 0; \
   } \
 }
 

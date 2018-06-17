@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+#include <array>
 #include <boost/thread.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -125,6 +126,11 @@ namespace nodetool
     virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
+
+    virtual void add_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
+    virtual void remove_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
+    virtual void clear_used_stripe_peers();
+
   private:
     const std::vector<std::string> m_seed_nodes_list =
     { "seeds.moneroseeds.se"
@@ -207,6 +213,7 @@ namespace nodetool
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
 
+    std::deque<size_t> filter_by_pruning_seed(uint32_t pruning_seed, const std::function<size_t(void)>&get_count, const std::function<bool(peerlist_entry&, size_t)> &get, size_t limit) const;
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(bool use_white_list);
     bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
@@ -233,7 +240,13 @@ namespace nodetool
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
     bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool get_max_out_peers() const { return m_config.m_net_config.max_out_connection_count; }
+    bool get_current_out_peers() const { return m_current_number_of_out_peers; }
+
     bool set_max_in_peers(const boost::program_options::variables_map& vm, int64_t max);
+    bool get_max_in_peers() const { return m_config.m_net_config.max_in_connection_count; }
+    bool get_current_in_peers() const { return m_current_number_of_in_peers; }
+
     bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
 
     bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
@@ -244,6 +257,7 @@ namespace nodetool
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
+    bool check_incoming_connections();
 
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
@@ -307,6 +321,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
+    epee::math_helper::once_a_time_seconds<900, false> m_incoming_connections_interval;
 
     std::string m_bind_ip;
     std::string m_port;
@@ -332,7 +347,12 @@ namespace nodetool
     epee::critical_section m_host_fails_score_lock;
     std::map<std::string, uint64_t> m_host_fails_score;
 
+    boost::mutex m_used_stripe_peers_mutex;
+    std::array<std::list<epee::net_utils::network_address>, 1 << CRYPTONOTE_PRUNING_LOG_STRIPES> m_used_stripe_peers;
+
     cryptonote::network_type m_nettype;
+
+    epee::net_utils::ssl_support_t m_ssl_support;
   };
 
     const int64_t default_limit_up = 2048;    // kB/s
@@ -345,6 +365,9 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl_private_key;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl_certificate;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
 
     extern const command_line::arg_descriptor<bool>        arg_no_igd;

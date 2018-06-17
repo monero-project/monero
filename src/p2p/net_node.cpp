@@ -54,6 +54,9 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node   = {"add-exclusive-node", "Specify list of peers to connect to only."
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
+    const command_line::arg_descriptor<std::string> arg_p2p_ssl   = {"p2p-ssl", "Enable SSL on P2P connections: enabled|disabled|autodetect", "autodetect"};
+    const command_line::arg_descriptor<std::string> arg_p2p_ssl_private_key   = {"p2p-ssl-private-key", "Path to a PEM format private key"};
+    const command_line::arg_descriptor<std::string> arg_p2p_ssl_certificate   = {"p2p-ssl-certificate", "Path to a PEM format certificate"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
 
     const command_line::arg_descriptor<bool>        arg_no_igd  = {"no-igd", "Disable UPnP port mapping"};

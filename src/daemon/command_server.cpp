@@ -255,6 +255,7 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "alt_chain_info"
     , std::bind(&t_command_parser_executor::alt_chain_info, &m_parser, p::_1)
+    , "alt_chain_info [blockhash]"
     , "Print the information about alternative chains."
     );
     m_command_lookup.set_handler(
@@ -284,6 +285,16 @@ t_command_server::t_command_server(
       "version"
     , std::bind(&t_command_parser_executor::version, &m_parser, p::_1)
     , "Print version information."
+    );
+    m_command_lookup.set_handler(
+      "prune_blockchain"
+    , std::bind(&t_command_parser_executor::prune_blockchain, &m_parser, p::_1)
+    , "Prune the blockchain."
+    );
+    m_command_lookup.set_handler(
+      "check_blockchain_pruning"
+    , std::bind(&t_command_parser_executor::check_blockchain_pruning, &m_parser, p::_1)
+    , "Check the blockchain pruning."
     );
 }
 

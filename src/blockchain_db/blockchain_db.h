@@ -148,6 +148,7 @@ struct txpool_tx_meta_t
   uint8_t relayed;
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
+  uint8_t bf_padding: 7;
 
   uint8_t padding[76]; // till 192 bytes
 };
@@ -366,6 +367,7 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
                 ) = 0;
 
@@ -891,6 +893,20 @@ public:
   virtual uint64_t get_block_timestamp(const uint64_t& height) const = 0;
 
   /**
+   * @brief fetch a block's cumulative number of rct outputs
+   *
+   * The subclass should return the numer of rct outputs in the blockchain
+   * up to the block with the given height (inclusive).
+   *
+   * If the block does not exist, the subclass should throw BLOCK_DNE
+   *
+   * @param height the height requested
+   *
+   * @return the cumulative number of rct outputs
+   */
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const = 0;
+
+  /**
    * @brief fetch the top block's timestamp
    *
    * The subclass should return the timestamp of the most recent block.
@@ -1097,6 +1113,17 @@ public:
   virtual transaction get_tx(const crypto::hash& h) const;
 
   /**
+   * @brief fetches the transaction base with the given hash
+   *
+   * If the transaction does not exist, the subclass should throw TX_DNE.
+   *
+   * @param h the hash to look for
+   *
+   * @return the transaction with the given hash
+   */
+  virtual transaction get_pruned_tx(const crypto::hash& h) const;
+
+  /**
    * @brief fetches the transaction with the given hash
    *
    * If the transaction does not exist, the subclass should return false.
@@ -1106,6 +1133,17 @@ public:
    * @return true iff the transaction was found
    */
   virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+
+  /**
+   * @brief fetches the transaction base with the given hash
+   *
+   * If the transaction does not exist, the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found
+   */
+  virtual bool get_pruned_tx(const crypto::hash& h, transaction &tx) const;
 
   /**
    * @brief fetches the transaction blob with the given hash
@@ -1134,6 +1172,21 @@ public:
    * @return true iff the transaction was found
    */
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
+
+  /**
+   * @brief fetches the prunable transaction blob with the given hash
+   *
+   * The subclass should return the prunable transaction stored which has the given
+   * hash.
+   *
+   * If the transaction does not exist, or if we do not have that prunable data,
+   * the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found and we have its prunable data
+   */
+  virtual bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
 
   /**
    * @brief fetches the prunable transaction hash
@@ -1391,6 +1444,31 @@ public:
    * @return the blob for that transaction
    */
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const = 0;
+
+  /**
+   * @brief get the blockchain pruning seed
+   * @return the blockchain pruning seed
+   */
+  virtual uint32_t get_blockchain_pruning_seed() const = 0;
+
+  /**
+   * @brief prunes the blockchain
+   * @param pruning_seed the seed to use, 0 for default (highly recommended)
+   * @return success iff true
+   */
+  virtual bool prune_blockchain(uint32_t pruning_seed = 0) = 0;
+
+  /**
+   * @brief prunes recent blockchain changes as needed, iff pruning is enabled
+   * @return success iff true
+   */
+  virtual bool update_pruning() = 0;
+
+  /**
+   * @brief checks pruning was done correctly, iff enabled
+   * @return success iff true
+   */
+  virtual bool check_pruning() = 0;
 
   /**
    * @brief runs a function over all txpool transactions

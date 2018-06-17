@@ -599,13 +599,13 @@ bool t_command_parser_executor::print_coinbase_tx_sum(const std::vector<std::str
 
 bool t_command_parser_executor::alt_chain_info(const std::vector<std::string>& args)
 {
-  if(args.size())
+  if(args.size() > 1)
   {
-    std::cout << "No parameters allowed" << std::endl;
+    std::cout << "usage: alt_chain_info [blockhash]" << std::endl;
     return false;
   }
 
-  return m_executor.alt_chain_info();
+  return m_executor.alt_chain_info(args.size() == 1 ? args[0] : "");
 }
 
 bool t_command_parser_executor::print_blockchain_dynamic_stats(const std::vector<std::string>& args)
@@ -663,6 +663,27 @@ bool t_command_parser_executor::version(const std::vector<std::string>& args)
 {
   std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
   return true;
+}
+
+bool t_command_parser_executor::prune_blockchain(const std::vector<std::string>& args)
+{
+  if (args.size() > 1) return false;
+
+  uint32_t pruning_seed = 0;
+  if (args.size() == 1)
+  {
+    if(!epee::string_tools::get_xtype_from_string(pruning_seed, args[0]))
+    {
+      std::cout << "failed to parse pruning seed" << std::endl;
+      return true;
+    }
+  }
+  return m_executor.prune_blockchain(pruning_seed);
+}
+
+bool t_command_parser_executor::check_blockchain_pruning(const std::vector<std::string>& args)
+{
+  return m_executor.check_blockchain_pruning();
 }
 
 } // namespace daemonize

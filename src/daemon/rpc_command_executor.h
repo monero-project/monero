@@ -143,7 +143,7 @@ public:
 
   bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
 
-  bool alt_chain_info();
+  bool alt_chain_info(const std::string &tip);
 
   bool print_blockchain_dynamic_stats(uint64_t nblocks);
 
@@ -152,6 +152,10 @@ public:
   bool relay_tx(const std::string &txid);
 
   bool sync_info();
+
+  bool prune_blockchain(uint32_t pruning_seed);
+
+  bool check_blockchain_pruning();
 };
 
 } // namespace daemonize

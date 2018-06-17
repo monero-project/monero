@@ -177,6 +177,12 @@ int main(int argc, char* argv[])
   }
   r = core_storage->init(db, opt_testnet ? cryptonote::TESTNET : opt_stagenet ? cryptonote::STAGENET : cryptonote::MAINNET);
 
+  if (core_storage->get_blockchain_pruning_seed())
+  {
+    LOG_PRINT_L0("Blockchain is pruned, cannot export");
+    return 1;
+  }
+
   CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
   LOG_PRINT_L0("Exporting blockchain raw data...");
