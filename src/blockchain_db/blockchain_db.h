@@ -1535,6 +1535,13 @@ public:
    */
   virtual bool is_read_only() const = 0;
 
+  /**
+   * @brief get disk space requirements
+   *
+   * @return the size required
+   */
+  virtual uint64_t get_database_size() const = 0;
+
   // TODO: this should perhaps be (or call) a series of functions which
   // progressively update through version updates
   /**
