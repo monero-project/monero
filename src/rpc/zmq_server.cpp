@@ -98,14 +98,24 @@ bool ZmqServer::addTCPSocket(std::string address, std::string port)
 {
   try
   {
+MGINFO("trace");
     std::string addr_prefix("tcp://");
 
+MGINFO("trace");
     rep_socket.reset(new zmq::socket_t(context, ZMQ_REP));
 
+MGINFO("trace");
     rep_socket->setsockopt(ZMQ_RCVTIMEO, &DEFAULT_RPC_RECV_TIMEOUT_MS, sizeof(DEFAULT_RPC_RECV_TIMEOUT_MS));
 
+MGINFO("trace");
+    if (address.empty())
+      address = "*";
+    if (port.empty())
+      port = "*";
     std::string bind_address = addr_prefix + address + std::string(":") + port;
+MGINFO("trace, address: [" << bind_address << "]");
     rep_socket->bind(bind_address.c_str());
+MGINFO("trace");
   }
   catch (const std::exception& e)
   {
