@@ -216,6 +216,7 @@ namespace cryptonote
       res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
     }
     res.database_size = m_core.get_blockchain_storage().get_db().get_database_size();
+    res.update_available = m_core.is_update_available();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1613,6 +1614,7 @@ namespace cryptonote
       res.was_bootstrap_ever_used = m_was_bootstrap_ever_used;
     }
     res.database_size = m_core.get_blockchain_storage().get_db().get_database_size();
+    res.update_available = m_core.is_update_available();
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
