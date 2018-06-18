@@ -1168,7 +1168,9 @@ skip:
             if (ELPP->vRegistry()->allowed(el::Level::Debug, "sync-info"))
               timing_message += std::string(": ") + m_block_queue.get_overview();
             MGINFO_YELLOW(context << " Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height()
-                << " (" << (m_core.get_target_blockchain_height()-m_core.get_current_blockchain_height()) << " blocks remaining)" << timing_message);
+                << " " << (m_core.get_current_blockchain_height() / m_core.get_target_blockchain_height() * 100) << "% ("
+                << (m_core.get_target_blockchain_height()-m_core.get_current_blockchain_height()) << " blocks remaining)"
+                << timing_message);
           }
         }
       }
