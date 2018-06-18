@@ -1170,14 +1170,13 @@ skip:
             if (m_core.get_current_blockchain_height() == 0){
               MGINFO_YELLOW(context << " Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height()
                 << " (" << (m_core.get_target_blockchain_height()-m_core.get_current_blockchain_height()) << " blocks remaining)" << timing_message);
-                << " (" << (m_core.get_target_blockchain_height()-) << " blocks remaining)" << timing_message);
+                << " (" << (m_core.get_target_blockchain_height()-m_core.get_current_blockchain_height()) << " blocks remaining)" << timing_message);
             }
           }
             } else {
               MGINFO_YELLOW(context << " Synced " << m_core.get_current_blockchain_height() << "/" << m_core.get_target_blockchain_height()
-                << " (" << (m_core.get_target_blockchain_height()-m_core.get_current_blockchain_height()) << " blocks remaining)" << timing_message);
                 << " " << (m_core.get_current_blockchain_height() / m_core.get_target_blockchain_height() * 100) << "% ("
-                << (m_core.get_target_blockchain_height()-) << " blocks remaining)"
+                << (m_core.get_target_blockchain_height() - m_core.get_current_blockchain_height()) << " blocks remaining)"
                 << timing_message);
             }
           }
