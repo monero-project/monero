@@ -181,7 +181,8 @@ namespace cryptonote
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
               m_update_download(0),
-              m_nettype(UNDEFINED)
+              m_nettype(UNDEFINED),
+              m_update_available(false)
   {
     m_checkpoints_updating.clear();
     set_cryptonote_protocol(pprotocol);
@@ -1551,10 +1552,14 @@ namespace cryptonote
       return false;
 
     if (tools::vercmp(version.c_str(), MONERO_VERSION) <= 0)
+    {
+      m_update_available = false;
       return true;
+    }
 
     std::string url = tools::get_update_url(software, subdir, buildtag, version, true);
     MCLOG_CYAN(el::Level::Info, "global", "Version " << version << " of " << software << " for " << buildtag << " is available: " << url << ", SHA256 hash " << hash);
+    m_update_available = true;
 
     if (check_updates_level == UPDATES_NOTIFY)
       return true;
