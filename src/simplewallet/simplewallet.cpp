@@ -1837,6 +1837,7 @@ bool simple_wallet::set_auto_refresh(const std::vector<std::string> &args/* = st
   if (pwd_container)
   {
     parse_bool_and_use(args[1], [&](bool auto_refresh) {
+      m_auto_refresh_enabled.store(false, std::memory_order_relaxed);
       m_wallet->auto_refresh(auto_refresh);
       m_idle_mutex.lock();
       m_auto_refresh_enabled.store(auto_refresh, std::memory_order_relaxed);
