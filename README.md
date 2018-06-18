@@ -134,10 +134,9 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
         guix package -i monero
 
-* OS X via [Homebrew](http://brew.sh)
+* macOS via [Homebrew](https://brew.sh/)
 
-        brew tap sammy007/cryptonight
-        brew install monero --build-from-source
+        brew install --build-from-source monero
 
 * Docker
 
