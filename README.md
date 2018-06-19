@@ -184,12 +184,12 @@ library archives (`.a`).
 | libreadline  | 6.3.0         | NO       | `libreadline6-dev` | `readline`   | `readline-devel`  | YES      | Input editing  |
 | ldns         | 1.6.17        | NO       | `libldns-dev`      | `ldns`       | `ldns-devel`      | YES      | SSL toolkit    |
 | expat        | 1.1           | NO       | `libexpat1-dev`    | `expat`      | `expat-devel`     | YES      | XML parsing    |
-| GTest        | 1.5           | YES      | `libgtest-dev` [^](./#[^])     | `gtest`      | `gtest-devel`     | YES      | Test suite     |
+| GTest        | 1.5           | YES      | `libgtest-dev` [^](./#note)     | `gtest`      | `gtest-devel`     | YES      | Test suite     |
 | Doxygen      | any           | NO       | `doxygen`          | `doxygen`    | `doxygen`         | YES      | Documentation  |
 | Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
 
 
-##### [^]
+##### note
 
 >On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 >build the library binary manually. This can be done with the following command:
