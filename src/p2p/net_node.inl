@@ -1300,6 +1300,20 @@ namespace nodetool
     m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
+    m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::check_incoming_connections()
+  {
+    if (m_offline || m_hide_my_port)
+      return true;
+    if (get_incoming_connections_count() == 0)
+    {
+      const el::Level level = el::Level::Warning;
+      MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+    }
     return true;
   }
   //-----------------------------------------------------------------------------------
