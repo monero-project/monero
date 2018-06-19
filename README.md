@@ -197,7 +197,6 @@ library archives (`.a`).
 
 ### Cloning the repository
 
-
 Clone recursively to pull-in needed submodule(s):
 
 `$ git clone --recursive https://github.com/monero-project/monero`
