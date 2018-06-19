@@ -55,6 +55,10 @@ public:
     std::vector<std::set<uint32_t>> subaddrIndices() const;
     // TODO: continue with interface;
 
+    std::string multisigSignData();
+    void signMultisigTx();
+    std::vector<std::string> signersKeys() const;
+
 private:
     friend class WalletImpl;
     WalletImpl &m_wallet;
@@ -62,6 +66,7 @@ private:
     int  m_status;
     std::string m_errorString;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
+    std::unordered_set<crypto::public_key> m_signers;
 };
 
 

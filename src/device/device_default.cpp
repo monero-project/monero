@@ -31,6 +31,7 @@
 
 
 #include "device_default.hpp"
+#include "common/int-util.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "ringct/rctOps.h"
@@ -80,6 +81,20 @@ namespace hw {
         bool device_default::disconnect() {
             dfns();
         }
+
+        bool  device_default::set_mode(device_mode mode) {
+            return true;
+        }
+
+        /* ======================================================================= */
+        /*  LOCKER                                                                 */
+        /* ======================================================================= */ 
+    
+        void device_default::lock() { }
+
+        bool device_default::try_lock() { return true; }
+
+        void device_default::unlock() { }
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
@@ -181,10 +196,13 @@ namespace hw {
 
         crypto::secret_key  device_default::get_subaddress_secret_key(const crypto::secret_key &a, const cryptonote::subaddress_index &index) {
             const char prefix[] = "SubAddr";
-            char data[sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(cryptonote::subaddress_index)];
+            char data[sizeof(prefix) + sizeof(crypto::secret_key) + 2 * sizeof(uint32_t)];
             memcpy(data, prefix, sizeof(prefix));
             memcpy(data + sizeof(prefix), &a, sizeof(crypto::secret_key));
-            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &index, sizeof(cryptonote::subaddress_index));
+            uint32_t idx = SWAP32LE(index.major);
+            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key), &idx, sizeof(uint32_t));
+            idx = SWAP32LE(index.minor);
+            memcpy(data + sizeof(prefix) + sizeof(crypto::secret_key) + sizeof(uint32_t), &idx, sizeof(uint32_t));
             crypto::secret_key m;
             crypto::hash_to_scalar(data, sizeof(data), m);
             return m;
@@ -246,6 +264,10 @@ namespace hw {
             return true;
         }
 
+        bool device_default::conceal_derivation(crypto::key_derivation &derivation, const crypto::public_key &tx_pub_key, const std::vector<crypto::public_key> &additional_tx_pub_keys, const crypto::key_derivation &main_derivation, const std::vector<crypto::key_derivation> &additional_derivations){
+            return true;
+        }
+
         /* ======================================================================= */
         /*                               TRANSACTION                               */
         /* ======================================================================= */
@@ -259,10 +281,6 @@ namespace hw {
 
         bool device_default::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
                                                   const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
-            return true;
-        }
-
-        bool  device_default::set_signature_mode(unsigned int sig_mode) {
             return true;
         }
 

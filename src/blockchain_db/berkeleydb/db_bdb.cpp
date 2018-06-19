@@ -313,7 +313,7 @@ void BlockchainBDB::remove_block()
         throw1(DB_ERROR("Failed to add removal of block hash to db transaction"));
 }
 
-void BlockchainBDB::add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash)
+void BlockchainBDB::add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
@@ -655,7 +655,7 @@ bool BlockchainBDB::for_all_blocks(std::function<bool(uint64_t, const crypto::ha
     return ret;
 }
 
-bool BlockchainBDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f) const
+bool BlockchainBDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f, bool pruned) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();

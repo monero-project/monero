@@ -39,7 +39,6 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
-#include "common/threadpool.h"
 #include "common/command_line.h"
 #include "tx_pool.h"
 #include "blockchain.h"
@@ -517,7 +516,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::list<std::pair<cryptonote::blobdata, std::list<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const;
 
      /**
       * @brief gets some stats about the daemon
@@ -576,7 +575,7 @@ namespace cryptonote
       *
       * @brief get per block distribution of outputs of a given amount
       */
-     bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+     bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
      /**
       * @copydoc miner::pause
@@ -642,6 +641,13 @@ namespace cryptonote
      uint64_t get_target_blockchain_height() const;
 
      /**
+      * @brief returns the newest hardfork version known to the blockchain
+      *
+      * @return the version
+      */
+     uint8_t get_ideal_hard_fork_version() const;
+
+     /**
       * @brief return the ideal hard fork version for a given block height
       *
       * @return what it says above
@@ -654,6 +660,13 @@ namespace cryptonote
       * @return what it says above
       */
      uint8_t get_hard_fork_version(uint64_t height) const;
+
+     /**
+      * @brief return the earliest block a given version may activate
+      *
+      * @return what it says above
+      */
+     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
 
      /**
       * @brief gets start_time
@@ -976,8 +989,6 @@ namespace cryptonote
 
      std::unordered_set<crypto::hash> bad_semantics_txes[2];
      boost::mutex bad_semantics_txes_lock;
-
-     tools::threadpool& m_threadpool;
 
      enum {
        UPDATES_DISABLED,

@@ -3,7 +3,8 @@
 # builder stage
 FROM debian:jessie as builder
 
-RUN apt-get update && \
+RUN set -ex && \
+    apt-get update && \
     apt-get --no-install-recommends --yes install \
         ca-certificates \
         cmake \
@@ -48,7 +49,8 @@ ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 # OpenSSL
 ARG OPENSSL_VERSION=1.1.0h
 ARG OPENSSL_HASH=5835626cde9e99656585fc7aaa2302a73a7e1340bf8c14fd635a62c66802a517
-RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
+RUN set -ex \
+    curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH} openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
@@ -61,7 +63,8 @@ ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 # ZMQ
 ARG ZMQ_VERSION=v4.2.5
 ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
-RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
+RUN set -ex \
+    git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
     && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
     && ./autogen.sh \
@@ -73,7 +76,8 @@ RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
 # zmq.hpp
 ARG CPPZMQ_VERSION=v4.2.3
 ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
-RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
+RUN set -ex \
+    git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && mv *.hpp /usr/local/include
@@ -81,8 +85,9 @@ RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
 # Readline
 ARG READLINE_VERSION=7.0
 ARG READLINE_HASH=750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334
-RUN curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
-    && echo "${READLINE_HASH} readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
+RUN set -ex \
+    && curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz \
+    && echo "${READLINE_HASH}  readline-${READLINE_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf readline-${READLINE_VERSION}.tar.gz \
     && cd readline-${READLINE_VERSION} \
     && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure \
@@ -92,7 +97,8 @@ RUN curl -s -O https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar
 # Sodium
 ARG SODIUM_VERSION=1.0.16
 ARG SODIUM_HASH=675149b9b8b66ff44152553fb3ebf9858128363d
-RUN git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
+RUN set -ex \
+    && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
     && cd libsodium \
     && test `git rev-parse HEAD` = ${SODIUM_HASH} || exit 1 \
     && ./autogen.sh \
@@ -107,13 +113,18 @@ WORKDIR /src
 COPY . .
 
 ARG NPROC
-RUN rm -rf build && \
-    if [ -z "$NPROC" ];then make -j$(nproc) release-static;else make -j$NPROC release-static;fi
+RUN set -ex && \
+    rm -rf build && \
+    if [ -z "$NPROC" ] ; \
+    then make -j$(nproc) release-static ; \
+    else make -j$NPROC release-static ; \
+    fi
 
 # runtime stage
 FROM debian:jessie
 
-RUN apt-get update && \
+RUN set -ex && \
+    apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt

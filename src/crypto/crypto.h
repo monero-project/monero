@@ -53,8 +53,6 @@ namespace crypto {
 #include "random.h"
   }
 
-  extern boost::mutex random_lock;
-
 #pragma pack(push, 1)
   POD_CLASS ec_point {
     char data[32];
@@ -149,11 +147,12 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
   };
 
+  void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);
+
   /* Generate N random bytes
    */
   inline void rand(size_t N, uint8_t *bytes) {
-    boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(N, bytes);
+    generate_random_bytes_thread_safe(N, bytes);
   }
 
   /* Generate a value filled with random bytes.
@@ -161,8 +160,7 @@ namespace crypto {
   template<typename T>
   typename std::enable_if<std::is_pod<T>::value, T>::type rand() {
     typename std::remove_cv<T>::type res;
-    boost::lock_guard<boost::mutex> lock(random_lock);
-    generate_random_bytes_not_thread_safe(sizeof(T), &res);
+    generate_random_bytes_thread_safe(sizeof(T), (uint8_t*)&res);
     return res;
   }
 

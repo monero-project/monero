@@ -47,6 +47,7 @@ using namespace epee;
 #include "rpc/rpc_args.h"
 #include "core_rpc_server_error_codes.h"
 #include "p2p/net_node.h"
+#include "get_output_distribution_cache.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -209,20 +210,12 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  static cryptonote::blobdata get_pruned_tx_blob(const cryptonote::blobdata &blobdata)
+  static cryptonote::blobdata get_pruned_tx_blob(cryptonote::transaction &tx)
   {
-    cryptonote::transaction tx;
-
-    if (!cryptonote::parse_and_validate_tx_from_blob(blobdata, tx))
-    {
-      MERROR("Failed to parse and validate tx from blob");
-      return blobdata;
-    }
-
     std::stringstream ss;
     binary_archive<true> ba(ss);
     bool r = tx.serialize_base(ba);
-    CHECK_AND_ASSERT_MES(r, blobdata, "Failed to serialize rct signatures base");
+    CHECK_AND_ASSERT_MES(r, cryptonote::blobdata(), "Failed to serialize rct signatures base");
     return ss.str();
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -235,7 +228,7 @@ namespace cryptonote
 
     std::list<std::pair<cryptonote::blobdata, std::list<cryptonote::blobdata> > > bs;
 
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT))
     {
       res.status = "Failed";
       return false;
@@ -267,10 +260,7 @@ namespace cryptonote
       for (std::list<cryptonote::blobdata>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
         unpruned_size += i->size();
-        if (req.prune)
-          res.blocks.back().txs.push_back(get_pruned_tx_blob(std::move(*i)));
-        else
-          res.blocks.back().txs.push_back(std::move(*i));
+        res.blocks.back().txs.push_back(std::move(*i));
         i->clear();
         i->shrink_to_fit();
         pruned_size += res.blocks.back().txs.back().size();
@@ -633,7 +623,7 @@ namespace cryptonote
 
       crypto::hash tx_hash = *vhi++;
       e.tx_hash = *txhi++;
-      blobdata blob = t_serializable_object_to_blob(tx);
+      blobdata blob = req.prune ? get_pruned_tx_blob(tx) : t_serializable_object_to_blob(tx);
       e.as_hex = string_tools::buff_to_hex_nodelimer(blob);
       if (req.decode_as_json)
         e.as_json = obj_to_json_str(tx);
@@ -1229,7 +1219,7 @@ namespace cryptonote
     return reward;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::fill_block_header_response(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_response& response)
+  bool core_rpc_server::fill_block_header_response(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_response& response, bool fill_pow_hash)
   {
     PERF_TIMER(fill_block_header_response);
     response.major_version = blk.major_version;
@@ -1245,6 +1235,7 @@ namespace cryptonote
     response.reward = get_block_reward(blk);
     response.block_size = m_core.get_blockchain_storage().get_db().get_block_size(height);
     response.num_txes = blk.tx_hashes.size();
+    response.pow_hash = fill_pow_hash ? string_tools::pod_to_hex(get_block_longhash(blk, height)) : "";
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1334,7 +1325,7 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get last block.";
       return false;
     }
-    bool response_filled = fill_block_header_response(last_block, false, last_block_height, last_block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(last_block, false, last_block_height, last_block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1375,7 +1366,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1424,7 +1415,7 @@ namespace cryptonote
         return false;
       }
       res.headers.push_back(block_header_response());
-      bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back());
+      bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back(), req.fill_pow_hash);
       if (!response_filled)
       {
         error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1457,7 +1448,7 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get block by height. Height = " + std::to_string(req.height) + '.';
       return false;
     }
-    bool response_filled = fill_block_header_response(blk, false, req.height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, false, req.height, block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1511,7 +1502,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1724,7 +1715,7 @@ namespace cryptonote
     std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> histogram;
     try
     {
-      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked, req.recent_cutoff);
+      histogram = m_core.get_blockchain_storage().get_output_histogram(req.amounts, req.unlocked, req.recent_cutoff, req.min_count);
     }
     catch (const std::exception &e)
     {
@@ -2078,24 +2069,87 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_output_distribution(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp)
   {
+    PERF_TIMER(on_get_output_distribution);
     try
     {
       for (uint64_t amount: req.amounts)
       {
+        static struct D
+        {
+          boost::mutex mutex;
+          std::vector<uint64_t> cached_distribution;
+          uint64_t cached_from, cached_to, cached_start_height, cached_base;
+          bool cached;
+          D(): cached_from(0), cached_to(0), cached_start_height(0), cached_base(0), cached(false) {}
+        } d;
+        boost::unique_lock<boost::mutex> lock(d.mutex);
+
+        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
+        {
+          res.distributions.push_back({amount, d.cached_start_height, d.cached_distribution, d.cached_base});
+          if (req.cumulative)
+          {
+            auto &distribution = res.distributions.back().distribution;
+            distribution[0] += d.cached_base;
+            for (size_t n = 1; n < distribution.size(); ++n)
+              distribution[n] += distribution[n-1];
+          }
+          continue;
+        }
+
+        // this is a slow operation, so we have precomputed caches of common cases
+        bool found = false;
+        for (const auto &slot: get_output_distribution_cache)
+        {
+          if (slot.amount == amount && slot.from_height == req.from_height && slot.to_height == req.to_height)
+          {
+            res.distributions.push_back({amount, slot.start_height, slot.distribution, slot.base});
+            found = true;
+            if (req.cumulative)
+            {
+              auto &distribution = res.distributions.back().distribution;
+              distribution[0] += slot.base;
+              for (size_t n = 1; n < distribution.size(); ++n)
+                distribution[n] += distribution[n-1];
+            }
+            break;
+          }
+        }
+        if (found)
+          continue;
+
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
-        if (!m_core.get_output_distribution(amount, req.from_height, start_height, distribution, base))
+        if (!m_core.get_output_distribution(amount, req.from_height, req.to_height, start_height, distribution, base))
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
           error_resp.message = "Failed to get rct distribution";
           return false;
         }
+        if (req.to_height > 0 && req.to_height >= req.from_height)
+        {
+          uint64_t offset = std::max(req.from_height, start_height);
+          if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
+            distribution.resize(req.to_height - offset + 1);
+        }
+
+        if (amount == 0)
+        {
+          d.cached_from = req.from_height;
+          d.cached_to = req.to_height;
+          d.cached_distribution = distribution;
+          d.cached_start_height = start_height;
+          d.cached_base = base;
+          d.cached = true;
+        }
+
         if (req.cumulative)
         {
           distribution[0] += base;
           for (size_t n = 1; n < distribution.size(); ++n)
             distribution[n] += distribution[n-1];
         }
+
         res.distributions.push_back({amount, start_height, std::move(distribution), base});
       }
     }
@@ -2117,7 +2171,7 @@ namespace cryptonote
     , "Port for RPC server"
     , std::to_string(config::RPC_DEFAULT_PORT)
     , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-    , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
+    , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
         if (testnet_stagenet[0] && defaulted)
           return std::to_string(config::testnet::RPC_DEFAULT_PORT);
         else if (testnet_stagenet[1] && defaulted)

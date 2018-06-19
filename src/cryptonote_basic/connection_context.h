@@ -67,15 +67,15 @@ namespace cryptonote
     switch (s)
     {
     case cryptonote_connection_context::state_before_handshake:
-      return "state_before_handshake";
+      return "before_handshake";
     case cryptonote_connection_context::state_synchronizing:
-      return "state_synchronizing";
+      return "synchronizing";
     case cryptonote_connection_context::state_standby:
-      return "state_standby";
+      return "standby";
     case cryptonote_connection_context::state_idle:
-      return "state_idle";
+      return "idle";
     case cryptonote_connection_context::state_normal:
-      return "state_normal";
+      return "normal";
     default:
       return "unknown";
     }    

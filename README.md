@@ -16,6 +16,10 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - Our [Vulnerability Response Process](https://github.com/monero-project/meta/blob/master/VULNERABILITY_RESPONSE_PROCESS.md) encourages responsible disclosure
 - We are also available via [HackerOne](https://hackerone.com/monero)
 
+## Announcements
+
+- You can subscribe to an [announcement listserv](https://lists.getmonero.org) to get critical announcements from the Monero core team. The announcement list can be very helpful for knowing when software updates are needed.
+
 ## Build
 
 | Operating System      | Processor | Status |
@@ -86,9 +90,9 @@ See [LICENSE](LICENSE).
 
 If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidelines.
 
-## Scheduled mandatory software upgrades
+## Scheduled software upgrades
 
-Monero uses a fixed-schedule mandatory software upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) need to run current versions and upgrade their software on a regular schedule. Mandatory software upgrades occur during the months of March and September. The required software for these upgrades will be available prior to the scheduled date. Please check the repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
+Monero uses a fixed-schedule software upgrade (hard fork) mechanism to implement new features. This means that users of Monero (end users and service providers) should run current versions and upgrade their software on a regular schedule. Software upgrades occur during the months of April and October. The required software for these upgrades will be available prior to the scheduled date. Please check the repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. 
 
 
@@ -100,58 +104,13 @@ Dates are provided in the format YYYY-MM-DD.
 | 1288616                        | 2017-04-15 | v5                | v0.10.3.0              | v0.10.3.1                  | Adjusted minimum blocksize and fee algorithm      |
 | 1400000                        | 2017-09-16 | v6                | v0.11.0.0              | v0.11.0.0                  | Allow only RingCT transactions, allow only >= ringsize 5      |
 | 1546000                        | 2018-04-06 | v7                | v0.12.0.0              | v0.12.0.0                  | Cryptonight variant 1, ringsize >= 7, sorted inputs
+| XXXXXXX                        | 2018-10-XX | XX                | XXXXXXXXX              | XXXXXXXXX                  | X
 
 X's indicate that these details have not been determined as of commit date.
 
 ## Release staging schedule and protocol
 
-Approximately three months prior to a scheduled mandatory software upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optimizations and new features) should *not* be made to the release branch. 
-
-## Installing Monero from a package
-
-Packages are available for
-
-* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
-
-    snap install monero --beta
-
-Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
-
-* Arch Linux (via [AUR](https://aur.archlinux.org/)):
-  - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
-  - Bleeding edge: [`monero-git`](https://aur.archlinux.org/packages/monero-git)
-
-* Void Linux:
-
-    xbps-install -S monero
-
-* GuixSD
-
-        guix package -i monero
-
-* OS X via [Homebrew](http://brew.sh)
-
-        brew tap sammy007/cryptonight
-        brew install monero --build-from-source
-
-* Docker
-
-        # Build using all available cores
-        docker build -t monero .
-
-        # or build using a specific number of cores (reduce RAM requirement)
-        docker build --build-arg NPROC=1 -t monero .
-     
-        # either run in foreground
-        docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
-
-        # or in background
-        docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
-
-* v7 need 2,5 Gb space
-* Wait one hour or more
-
-Packaging for your favorite distribution would be a welcome contribution!
+Approximately three months prior to a scheduled software upgrade, a branch from Master will be created with the new release version tag. Pull requests that address bugs should then be made to both Master and the new release branch. Pull requests that require extensive review and testing (generally, optimizations and new features) should *not* be made to the release branch. 
 
 ## Compiling Monero from source
 
@@ -169,7 +128,7 @@ library archives (`.a`).
 | Dep          | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg     | Fedora            | Optional | Purpose        |
 | ------------ | ------------- | -------- | ------------------ | ------------ | ----------------- | -------- | -------------- |
 | GCC          | 4.7.3         | NO       | `build-essential`  | `base-devel` | `gcc`             | NO       |                |
-| CMake        | 3.2.0         | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
+| CMake        | 3.0.0         | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
 | pkg-config   | any           | NO       | `pkg-config`       | `base-devel` | `pkgconf`         | NO       |                |
 | Boost        | 1.58          | NO       | `libboost-all-dev` | `boost`      | `boost-devel`     | NO       | C++ libraries  |
 | OpenSSL      | basically any | NO       | `libssl-dev`       | `openssl`    | `openssl-devel`   | NO       | sha256 sum     |
@@ -240,6 +199,8 @@ invokes cmake commands as needed.
 * **Optional**: to build statically-linked binaries:
 
          make release-static
+
+Dependencies need to be built with -fPIC. Static libraries usually aren't, so you may have to build them yourself with -fPIC. Refer to their documentation for how to build them.
 
 * **Optional**: build documentation in `doc/html` (omit `HAVE_DOT=YES` if `graphviz` is not installed):
 
@@ -361,6 +322,16 @@ application.
 
 * The resulting executables can be found in `build/release/bin`
 
+* **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
+
+        make debug-static-win64
+	
+* **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
+
+        make debug-static-win32
+
+* The resulting executables can be found in `build/debug/bin`
+
 ### On FreeBSD:
 
 The project can be built from scratch by following instructions for Linux above. If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
@@ -477,6 +448,9 @@ Then you can run make as usual.
         # Get binaries
         docker cp monero-android:/opt/android/monero/build/release/bin .
 
+
+
+
 ### Building portable statically linked binaries
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
@@ -488,6 +462,50 @@ By default, in either dynamically or statically linked builds, binaries target t
 * ```make release-static-linux-armv6``` builds binaries on Linux portable across POSIX systems on armv6 processors
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
+
+## Installing Monero from a package
+
+**DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
+
+Packages are available for
+
+* Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.
+
+    snap install monero --beta
+
+Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.
+
+* Arch Linux (via [AUR](https://aur.archlinux.org/)):
+  - Stable release: [`monero`](https://aur.archlinux.org/packages/monero)
+  - Bleeding edge: [`monero-git`](https://aur.archlinux.org/packages/monero-git)
+
+* Void Linux:
+
+        xbps-install -S monero
+
+* GuixSD
+
+        guix package -i monero
+
+* Docker
+
+        # Build using all available cores
+        docker build -t monero .
+
+        # or build using a specific number of cores (reduce RAM requirement)
+        docker build --build-arg NPROC=1 -t monero .
+
+        # either run in foreground
+        docker run -it -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
+
+        # or in background
+        docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
+
+* need 3 Gb space
+* Wait one  hour or more
+
+
+Packaging for your favorite distribution would be a welcome contribution!
 
 ## Running monerod
 

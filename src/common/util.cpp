@@ -34,6 +34,17 @@
 #include <gnu/libc-version.h>
 #endif
 
+#ifdef __GLIBC__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <ustat.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+#include <ctype.h>
+#include <string>
+#endif
+
 #include "unbound.h"
 
 #include "include_base_utils.h"
@@ -43,6 +54,7 @@ using namespace epee;
 
 #include "crypto/crypto.h"
 #include "util.h"
+#include "stack_trace.h"
 #include "memwipe.h"
 #include "cryptonote_config.h"
 #include "net/http_client.h"                        // epee::net_utils::...
@@ -527,7 +539,10 @@ std::string get_nix_version_display_string()
   {
     ub_ctx *ctx = ub_ctx_create();
     if (!ctx) return false; // cheat a bit, should not happen unless OOM
-    ub_ctx_zone_add(ctx, "monero", "unbound"); // this calls ub_ctx_finalize first, then errors out with UB_SYNTAX
+    char *monero = strdup("monero"), *unbound = strdup("unbound");
+    ub_ctx_zone_add(ctx, monero, unbound); // this calls ub_ctx_finalize first, then errors out with UB_SYNTAX
+    free(unbound);
+    free(monero);
     // if no threads, bails out early with UB_NOERROR, otherwise fails with UB_AFTERFINAL id already finalized
     bool with_threads = ub_ctx_async(ctx, 1) != 0; // UB_AFTERFINAL is not defined in public headers, check any error
     ub_ctx_delete(ctx);
@@ -557,9 +572,47 @@ std::string get_nix_version_display_string()
     }
     return false;
   }
+
+#ifdef STACK_TRACE
+#ifdef _WIN32
+  // https://stackoverflow.com/questions/1992816/how-to-handle-seg-faults-under-windows
+  static LONG WINAPI windows_crash_handler(PEXCEPTION_POINTERS pExceptionInfo)
+  {
+    tools::log_stack_trace("crashing");
+    exit(1);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+  static void setup_crash_dump()
+  {
+    SetUnhandledExceptionFilter(windows_crash_handler);
+  }
+#else
+  static void posix_crash_handler(int signal)
+  {
+    tools::log_stack_trace(("crashing with fatal signal " + std::to_string(signal)).c_str());
+#ifdef NDEBUG
+    _exit(1);
+#else
+    abort();
+#endif
+  }
+  static void setup_crash_dump()
+  {
+    signal(SIGSEGV, posix_crash_handler);
+    signal(SIGBUS, posix_crash_handler);
+    signal(SIGILL, posix_crash_handler);
+    signal(SIGFPE, posix_crash_handler);
+  }
+#endif
+#else
+  static void setup_crash_dump() {}
+#endif
+
   bool on_startup()
   {
     mlog_configure("", true);
+
+    setup_crash_dump();
 
     sanitize_locale();
 
@@ -587,6 +640,65 @@ std::string get_nix_version_display_string()
 #else
     mode_t mode = strict ? 077 : 0;
     umask(mode);
+#endif
+  }
+
+  bool is_hdd(const char *path)
+  {
+#ifdef __GLIBC__
+    std::string device = "";
+    struct stat st, dst;
+    if (stat(path, &st) < 0)
+      return 0;
+
+    DIR *dir = opendir("/dev/block");
+    if (!dir)
+      return 0;
+    struct dirent *de;
+    while ((de = readdir(dir)))
+    {
+      if (strcmp(de->d_name, ".") && strcmp(de->d_name, ".."))
+      {
+        std::string dev_path = std::string("/dev/block/") + de->d_name;
+        char resolved[PATH_MAX];
+        if (realpath(dev_path.c_str(), resolved) && !strncmp(resolved, "/dev/", 5))
+        {
+          if (stat(resolved, &dst) == 0)
+          {
+            if (dst.st_rdev == st.st_dev)
+            {
+              // take out trailing digits (eg, sda1 -> sda)
+              char *ptr = resolved;
+              while (*ptr)
+                ++ptr;
+              while (ptr > resolved && isdigit(*--ptr))
+                *ptr = 0;
+              device = resolved + 5;
+              break;
+            }
+          }
+        }
+      }
+    }
+    closedir(dir);
+
+    if (device.empty())
+      return 0;
+
+    std::string sys_path = "/sys/block/" + device + "/queue/rotational";
+    FILE *f = fopen(sys_path.c_str(), "r");
+    if (!f)
+      return false;
+    char s[8];
+    char *ptr = fgets(s, sizeof(s), f);
+    fclose(f);
+    if (!ptr)
+      return 0;
+    s[sizeof(s) - 1] = 0;
+    int n = atoi(s); // returns 0 on parse error
+    return n == 1;
+#else
+    return 0;
 #endif
   }
 

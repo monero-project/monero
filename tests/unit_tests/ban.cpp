@@ -76,8 +76,10 @@ public:
   bool get_blocks(uint64_t start_offset, size_t count, std::list<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::list<cryptonote::blobdata>& txs) const { return false; }
   bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::list<cryptonote::transaction>& txs, std::list<crypto::hash>& missed_txs) const { return false; }
   bool get_block_by_hash(const crypto::hash &h, cryptonote::block &blk, bool *orphan = NULL) const { return false; }
+  uint8_t get_ideal_hard_fork_version() const { return 0; }
   uint8_t get_ideal_hard_fork_version(uint64_t height) const { return 0; }
   uint8_t get_hard_fork_version(uint64_t height) const { return 0; }
+  uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return 0; }
   cryptonote::difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return 0; }
   bool fluffy_blocks_enabled() const { return false; }
   uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes) { return 0; }
