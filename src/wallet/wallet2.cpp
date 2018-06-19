@@ -4882,7 +4882,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     return false;
   }
 
-  if (!epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + ciphertext))
+  if (!epee::file_io_utils::save_string_to_file(signed_filename, ciphertext))
   {
     LOG_PRINT_L0("Failed to save file to " << signed_filename);
     return false;
