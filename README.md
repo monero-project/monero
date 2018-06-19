@@ -194,6 +194,7 @@ library archives (`.a`).
 >build the library binary manually. This can be done with the following command:
 > 
 > ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+
 ### Cloning the repository
 
 
