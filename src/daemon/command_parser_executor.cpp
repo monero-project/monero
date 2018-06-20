@@ -320,6 +320,8 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   uint64_t threads_count = 1;
   bool do_background_mining = false;  
   bool ignore_battery = false;  
+  size_t max_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
+  
   if(args.size() > 4)
   {
     return false;
@@ -352,6 +354,11 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
   if(args.size() >= 2)
   {
     bool ok = epee::string_tools::get_xtype_from_string(threads_count, args[1]);
+    if(threads_count > max_threads_count)
+    {
+      tools::fail_msg_writer() << "Max miner threads: " << max_threads_count << std::endl;
+      return false;
+    }
     threads_count = (ok && 0 < threads_count) ? threads_count : 1;
   }
 
