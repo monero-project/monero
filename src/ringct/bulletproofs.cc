@@ -111,6 +111,15 @@ static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &poi
     ge_p1p1_to_p3(acc_p3, &p1);
 }
 
+static rct::key scalarmultKey(const ge_p3 &P, const rct::key &a)
+{
+  ge_p2 R;
+  ge_scalarmult(&R, a.bytes, &P);
+  rct::key aP;
+  ge_tobytes(aP.bytes, &R);
+  return aP;
+}
+
 static rct::key get_exponent(const rct::key &base, size_t idx)
 {
   static const std::string salt("bulletproof");
@@ -578,7 +587,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   for (size_t i = 0; i < N; ++i)
   {
     Gprime[i] = Gi[i];
-    Hprime[i] = scalarmultKey(Hi[i], yinvpow);
+    Hprime[i] = scalarmultKey(Hi_p3[i], yinvpow);
     sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
     aprime[i] = l[i];
     bprime[i] = r[i];
@@ -828,7 +837,7 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
   for (size_t i = 0; i < MN; ++i)
   {
     Gprime[i] = Gi[i];
-    Hprime[i] = scalarmultKey(Hi[i], yinvpow);
+    Hprime[i] = scalarmultKey(Hi_p3[i], yinvpow);
     sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
     aprime[i] = l[i];
     bprime[i] = r[i];
