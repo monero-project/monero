@@ -5453,7 +5453,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   local_args.push_back(amount_str);
   if (!payment_id_str.empty())
     local_args.push_back(payment_id_str);
-  message_writer() << tr("Donating ") << amount_str << " to The Aeon Project (donate.aeon.cash or "<< AEON_DONATION_ADDR <<").";
+  message_writer() << (boost::format(tr("Donating %s %s to The Aeon Project (donate.aeon.cash or %s).")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % AEON_DONATION_ADDR).str();
   transfer_new(local_args);
   return true;
 }
