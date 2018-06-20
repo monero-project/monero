@@ -1189,6 +1189,8 @@ namespace cryptonote
       }
 
       bool is_nofake_tx = false;
+      bool can_nofake_tx_be_simply_added = false;
+      bool can_nofake_tx_replace_existing_tx = false;
       if (tx.vin.size() > 0)
       {
         if (version >= 2)
@@ -1251,7 +1253,6 @@ namespace cryptonote
 
               LOG_PRINT_L2("We have currently " << nofake_txs_taken << " non-private transactions out of " << n << " transactions in the block");
 
-              bool can_nofake_tx_be_simply_added = false;
               if (nofake_txs_taken + 1 <= rational_ceil((n + 1) * NOFAKE_TXS_TO_TOTAL_TXS_PERCENT, 100))
               {
                 LOG_PRINT_L2("Checking if this tx can be simply added");
@@ -1267,7 +1268,6 @@ namespace cryptonote
                 }
               }
 
-              bool can_nofake_tx_replace_existing_tx = false;
               if (!can_nofake_tx_be_simply_added && n > nofake_txs_taken && nofake_txs_taken + 1 <= rational_ceil(n * NOFAKE_TXS_TO_TOTAL_TXS_PERCENT, 100))
               {
                 LOG_PRINT_L2("Checking if this tx can replace an already added tx");
@@ -1279,9 +1279,6 @@ namespace cryptonote
                   {
                     LOG_PRINT_L2("  replacing existing tx " << bl.tx_hashes.back() << " with this tx would increase coinbase to " << print_money(coinbase));
                     can_nofake_tx_replace_existing_tx = true;
-                    bl.tx_hashes.pop_back();
-                    tx_sizes.pop_back();
-                    tx_fees.pop_back();
                   }
                 }
               }
@@ -1349,6 +1346,16 @@ namespace cryptonote
         bl.tx_hashes.insert(bl.tx_hashes.begin(), sorted_it->second);
         tx_sizes.insert(tx_sizes.begin(), meta.blob_size);    // not really needed, just to make these two arrays in correspondence with bl.tx_hashes
         tx_fees.insert(tx_fees.begin(), meta.fee);
+
+        if (can_nofake_tx_replace_existing_tx)
+        {
+          // remove the least profitable tx at the back of the array
+          bl.tx_hashes.pop_back();
+          total_size -= tx_sizes.back();
+          fee -= tx_fees.back();
+          tx_sizes.pop_back();
+          tx_fees.pop_back();
+        }
 
         nofake_txs_taken++;
       }
