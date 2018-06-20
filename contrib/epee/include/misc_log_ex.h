@@ -34,6 +34,7 @@
 
 #define MONERO_DEFAULT_LOG_CATEGORY "default"
 #define MAX_LOG_FILE_SIZE 104850000 // 100 MB - 7600 bytes
+#define MAX_LOG_FILES 50
 
 #define MCFATAL(cat,x) CLOG(FATAL,cat) << x
 #define MCERROR(cat,x) CLOG(ERROR,cat) << x
@@ -105,7 +106,7 @@
 #endif
 
 std::string mlog_get_default_log_path(const char *default_filename);
-void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size = MAX_LOG_FILE_SIZE);
+void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size = MAX_LOG_FILE_SIZE, const std::size_t max_log_files = MAX_LOG_FILES);
 void mlog_set_categories(const char *categories);
 std::string mlog_get_categories();
 void mlog_set_log_level(int level);
