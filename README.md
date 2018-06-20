@@ -310,7 +310,21 @@ application.
   or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
   running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
+**Cloning**
+
+* To git clone, run:
+
+        git clone --recursive https://github.com/monero-project/monero.git
+
 **Building**
+
+* Change to the cloned directory, run:
+	
+        cd monero
+
+* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.12.1.0'. If you dont care about the version and just want binaries from master, skip this step:
+	
+        git checkout v0.12.1.0
 
 * If you are on a 64-bit system, run:
 
