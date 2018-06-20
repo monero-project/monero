@@ -244,14 +244,14 @@ TEST(check_for_height, Success)
   for (uint64_t h = 0; h <= 4; ++h) {
     ASSERT_TRUE(hf.check_for_height(mkblock(1, 1), h));
     ASSERT_FALSE(hf.check_for_height(mkblock(2, 2), h));  // block version is too high
-    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 
   for (uint64_t h = 5; h <= 10; ++h) {
     ASSERT_FALSE(hf.check_for_height(mkblock(1, 1), h));  // block version is too low
     ASSERT_TRUE(hf.check_for_height(mkblock(2, 2), h));
-    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 }
@@ -268,19 +268,19 @@ TEST(get, next_version)
 
   for (uint64_t h = 0; h <= 4; ++h) {
     ASSERT_EQ(2, hf.get_next_version());
-    db.add_block(mkblock(hf, h, 1), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, 1), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 
   for (uint64_t h = 5; h <= 9; ++h) {
     ASSERT_EQ(4, hf.get_next_version());
-    db.add_block(mkblock(hf, h, 2), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, 2), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 
   for (uint64_t h = 10; h <= 15; ++h) {
     ASSERT_EQ(4, hf.get_next_version());
-    db.add_block(mkblock(hf, h, 4), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, 4), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 }
@@ -536,7 +536,7 @@ TEST(voting, info)
     ASSERT_EQ(expected_thresholds[h], threshold);
     ASSERT_EQ(4, voting);
 
-    db.add_block(mkblock(hf, h, block_versions[h]), 0, 0, 0, crypto::hash());
+    db.add_block(mkblock(hf, h, block_versions[h]), 0, 0, 0, 0, crypto::hash());
     ASSERT_TRUE(hf.add(db.get_block_from_height(h), h));
   }
 }
