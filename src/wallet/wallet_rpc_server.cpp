@@ -362,6 +362,7 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
+      THROW_WALLET_EXCEPTION_IF(req.account_index >= m_wallet->get_num_subaddress_accounts(), error::account_index_outofbound);
       res.addresses.clear();
       std::vector<uint32_t> req_address_index;
       if (req.address_index.empty())
@@ -377,6 +378,7 @@ namespace tools
       m_wallet->get_transfers(transfers);
       for (uint32_t i : req_address_index)
       {
+        THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(req.account_index), error::address_index_outofbound);
         res.addresses.resize(res.addresses.size() + 1);
         auto& info = res.addresses.back();
         const cryptonote::subaddress_index index = {req.account_index, i};
