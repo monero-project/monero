@@ -4014,20 +4014,9 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
       THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
     }
     // remove old wallet file
-    r = boost::filesystem::remove(old_file);
-    if (!r) {
-      LOG_ERROR("error removing file: " << old_file);
-    }
-    // remove old keys file
-    r = boost::filesystem::remove(old_keys_file);
-    if (!r) {
-      LOG_ERROR("error removing file: " << old_keys_file);
-    }
-    // remove old address file
-    r = boost::filesystem::remove(old_address_file);
-    if (!r) {
-      LOG_ERROR("error removing file: " << old_address_file);
-    }
+    try { epee::file_io_utils::wipe_file(old_file); } catch (const std::exception &e) { /* ignore and go on */ }
+    try { epee::file_io_utils::wipe_file(old_keys_file); } catch (const std::exception &e) { /* ignore and go on */ }
+    try { epee::file_io_utils::wipe_file(old_address_file); } catch (const std::exception &e) { /* ignore and go on */ }
   } else {
     // save to new file
 #ifdef WIN32
