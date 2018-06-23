@@ -304,6 +304,7 @@ namespace hw {
                          SCARD_PCI_T0, this->buffer_send, this->length_send,
                          NULL,         this->buffer_recv, &this->length_recv);
       ASSERT_RV(rv);
+      ASSERT_T0(this->length_recv >= 2);
       ASSERT_T0(this->length_recv <= BUFFER_RECV_SIZE);
       logRESP();
 
