@@ -194,7 +194,8 @@ namespace hw {
           this->buffer_send[3],
           this->buffer_send[4]
           );
-        buffer_to_str(strbuffer+strlen(strbuffer), sizeof(strbuffer), (char*)(this->buffer_send+5), this->length_send-5);
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_send+5), this->length_send-5);
         MDEBUG( "CMD  :" << strbuffer);
       }
     }
@@ -206,7 +207,8 @@ namespace hw {
           this->buffer_recv[this->length_recv-2],
           this->buffer_recv[this->length_recv-1]
           );
-        buffer_to_str(strbuffer+strlen(strbuffer), sizeof(strbuffer), (char*)(this->buffer_recv), this->length_recv-2);
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_recv), this->length_recv-2);
         MDEBUG( "RESP :" << strbuffer);
 
       }
