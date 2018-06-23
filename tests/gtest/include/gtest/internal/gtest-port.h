@@ -368,7 +368,7 @@
 #if GTEST_LANG_CXX11
 # define GTEST_HAS_STD_TUPLE_ 1
 # if defined(__clang__)
-// Inspired by https://clang.llvm.org/docs/LanguageExtensions.html#__has_include
+// Inspired by http://clang.llvm.org/docs/LanguageExtensions.html#__has_include
 #  if defined(__has_include) && !__has_include(<tuple>)
 #   undef GTEST_HAS_STD_TUPLE_
 #  endif
@@ -379,8 +379,8 @@
 #  endif
 # elif defined(__GLIBCXX__)
 // Inspired by boost/config/stdlib/libstdcpp3.hpp,
-// https://gcc.gnu.org/gcc-4.2/changes.html and
-// https://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt01ch01.html#manual.intro.status.standard.200x
+// http://gcc.gnu.org/gcc-4.2/changes.html and
+// http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt01ch01.html#manual.intro.status.standard.200x
 #  if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 2)
 #   undef GTEST_HAS_STD_TUPLE_
 #  endif
@@ -748,7 +748,7 @@ using ::std::tuple_size;
 // Determines whether clone(2) is supported.
 // Usually it will only be available on Linux, excluding
 // Linux on the Itanium architecture.
-// Also see https://linux.die.net/man/2/clone.
+// Also see http://linux.die.net/man/2/clone.
 #ifndef GTEST_HAS_CLONE
 // The user didn't tell us, so we need to figure it out.
 
@@ -1553,10 +1553,7 @@ class GTEST_API_ Notification {
 };
 # endif  // GTEST_HAS_NOTIFICATION_
 
-// On MinGW, we can have both GTEST_OS_WINDOWS and GTEST_HAS_PTHREAD
-// defined, but we don't want to use MinGW's pthreads implementation, which
-// has conformance problems with some versions of the POSIX standard.
-# if GTEST_HAS_PTHREAD && !GTEST_OS_WINDOWS_MINGW
+# if GTEST_HAS_PTHREAD
 
 // As a C-function, ThreadFuncWithCLinkage cannot be templated itself.
 // Consequently, it cannot select a correct instantiation of ThreadWithParam
@@ -1685,7 +1682,7 @@ class GTEST_API_ Mutex {
   // Initializes owner_thread_id_ and critical_section_ in static mutexes.
   void ThreadSafeLazyInit();
 
-  // Per https://blogs.msdn.com/b/oldnewthing/archive/2004/02/23/78395.aspx,
+  // Per http://blogs.msdn.com/b/oldnewthing/archive/2004/02/23/78395.aspx,
   // we assume that 0 is an invalid value for thread IDs.
   unsigned int owner_thread_id_;
 

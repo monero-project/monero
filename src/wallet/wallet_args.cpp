@@ -82,7 +82,7 @@ namespace wallet_args
     return i18n_translate(str, "wallet_args");
   }
 
-  boost::optional<boost::program_options::variables_map> main(
+  std::pair<boost::optional<boost::program_options::variables_map>, bool> main(
     int argc, char** argv,
     const char* const usage,
     const char* const notice,
@@ -101,6 +101,7 @@ namespace wallet_args
 
     const command_line::arg_descriptor<std::string> arg_log_level = {"log-level", "0-4 or categories", ""};
     const command_line::arg_descriptor<std::size_t> arg_max_log_file_size = {"max-log-file-size", "Specify maximum log file size [B]", MAX_LOG_FILE_SIZE};
+    const command_line::arg_descriptor<std::size_t> arg_max_log_files = {"max-log-files", "Specify maximum number of rotated log files to be saved (no limit by setting to 0)", MAX_LOG_FILES};
     const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", wallet_args::tr("Max number of threads to use for a parallel job"), DEFAULT_MAX_CONCURRENCY};
     const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", wallet_args::tr("Specify log file"), ""};
     const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "", true};
@@ -119,6 +120,7 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_log_file);
     command_line::add_arg(desc_params, arg_log_level);
     command_line::add_arg(desc_params, arg_max_log_file_size);
+    command_line::add_arg(desc_params, arg_max_log_files);
     command_line::add_arg(desc_params, arg_max_concurrency);
     command_line::add_arg(desc_params, arg_config_file);
 
@@ -127,6 +129,7 @@ namespace wallet_args
     po::options_description desc_all;
     desc_all.add(desc_general).add(desc_params);
     po::variables_map vm;
+    bool should_terminate = false;
     bool r = command_line::handle_error_helper(desc_all, [&]()
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
@@ -139,12 +142,14 @@ namespace wallet_args
 												  "daemon to work correctly.") << ENDL;
         Print(print) << wallet_args::tr("Usage:") << ENDL << "  " << usage;
         Print(print) << desc_all;
-        return false;
+        should_terminate = true;
+        return true;
       }
       else if (command_line::get_arg(vm, command_line::arg_version))
       {
         Print(print) << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
-        return false;
+        should_terminate = true;
+        return true;
       }
 
       if(command_line::has_arg(vm, arg_config_file))
@@ -167,17 +172,24 @@ namespace wallet_args
       return true;
     });
     if (!r)
-      return boost::none;
+      return {boost::none, true};
+
+    if (should_terminate)
+      return {std::move(vm), should_terminate};
 
     std::string log_path;
     if (!command_line::is_arg_defaulted(vm, arg_log_file))
       log_path = command_line::get_arg(vm, arg_log_file);
     else
       log_path = mlog_get_default_log_path(default_log_name);
-    mlog_configure(log_path, log_to_console, command_line::get_arg(vm, arg_max_log_file_size));
+    mlog_configure(log_path, log_to_console, command_line::get_arg(vm, arg_max_log_file_size), command_line::get_arg(vm, arg_max_log_files));
     if (!command_line::is_arg_defaulted(vm, arg_log_level))
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
+    }
+    else if (!log_to_console)
+    {
+      mlog_set_categories("");
     }
 
     if (notice)
@@ -196,6 +208,6 @@ namespace wallet_args
 
     Print(print) << boost::format(wallet_args::tr("Logging to %s")) % log_path;
 
-    return {std::move(vm)};
+    return {std::move(vm), should_terminate};
   }
 }

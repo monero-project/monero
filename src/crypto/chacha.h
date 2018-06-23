@@ -73,14 +73,14 @@ namespace crypto {
     static_assert(sizeof(chacha_key) <= sizeof(hash), "Size of hash must be at least that of chacha_key");
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
     crypto::cn_slow_hash(data, size, pwd_hash.data(), 0/*variant*/, 0/*prehashed*/);
-    memcpy(&key, pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key_prehashed(const void *data, size_t size, chacha_key& key) {
     static_assert(sizeof(chacha_key) <= sizeof(hash), "Size of hash must be at least that of chacha_key");
     tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
     crypto::cn_slow_hash(data, size, pwd_hash.data(), 0/*variant*/, 1/*prehashed*/);
-    memcpy(&key, pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key(std::string password, chacha_key& key) {

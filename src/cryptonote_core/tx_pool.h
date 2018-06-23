@@ -499,10 +499,12 @@ namespace cryptonote
      * @brief check if a transaction is a valid candidate for inclusion in a block
      *
      * @param txd the transaction to check (and info about it)
+     * @param txblob the transaction blob to check
+     * @param tx the parsed transaction, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, transaction &tx) const;
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const cryptonote::blobdata &txblob, transaction &tx) const;
 
     /**
      * @brief mark all transactions double spending the one passed

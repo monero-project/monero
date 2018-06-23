@@ -62,13 +62,15 @@ set(unit_tests_sources
   test_tx_utils.cpp
   test_peerlist.cpp
   test_protocol_pack.cpp
+  threadpool.cpp
   hardfork.cpp
   unbound.cpp
   uri.cpp
   varint.cpp
   ringct.cpp
   output_selection.cpp
-  vercmp.cpp)
+  vercmp.cpp
+  ringdb.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
@@ -102,6 +104,8 @@ if (NOT MSVC)
     PROPERTY
       COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 endif ()
+
+SET_PROPERTY(SOURCE main.cpp PROPERTY COMPILE_FLAGS -DDEFAULT_DATA_DIR="\\"${CMAKE_SOURCE_DIR}/tests/data\\"")
 
 SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 

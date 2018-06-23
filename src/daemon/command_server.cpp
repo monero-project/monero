@@ -280,6 +280,11 @@ t_command_server::t_command_server(
     , std::bind(&t_command_parser_executor::sync_info, &m_parser, p::_1)
     , "Print information about the blockchain sync state."
     );
+    m_command_lookup.set_handler(
+      "version"
+    , std::bind(&t_command_parser_executor::version, &m_parser, p::_1)
+    , "Print version information."
+    );
 }
 
 bool t_command_server::process_command_str(const std::string& cmd)

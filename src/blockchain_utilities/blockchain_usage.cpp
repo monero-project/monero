@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
       }
     }
     return true;
-  });
+  }, true);
 
   std::unordered_map<uint64_t, uint64_t> counts;
   size_t total = 0;
@@ -243,10 +243,17 @@ int main(int argc, char* argv[])
     counts[out.second.size()]++;
     total++;
   }
-  for (const auto &c: counts)
+  if (total > 0)
   {
-    float percent = 100.f * c.second / total;
-    MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
+    for (const auto &c: counts)
+    {
+      float percent = 100.f * c.second / total;
+      MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
+    }
+  }
+  else
+  {
+    MINFO("No outputs to process");
   }
 
   LOG_PRINT_L0("Blockchain usage exported OK");

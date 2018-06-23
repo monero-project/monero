@@ -48,7 +48,7 @@ namespace epee
 
       if( (ip | 0xffffff00) == 0xffffffac)
       {
-        uint32_t second_num = (ip << 8) & 0xff000000;
+        uint32_t second_num = (ip >> 8) & 0xff;
         if(second_num >= 16 && second_num <= 31 )
           return true;
       }
