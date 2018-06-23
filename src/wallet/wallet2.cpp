@@ -7684,6 +7684,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       cryptonote::transaction test_tx;
       pending_tx test_ptx;
 
+      if (!use_rct && !dsts.empty() && tx.dsts.back().amount > ::config::BASE_REWARD_CLAMP_THRESHOLD)
+      {
+        // when the payment gets split, ensure that the partially paid amount doesn't have excessively small denominations
+        const uint64_t subtracted_amount = tx.dsts.back().amount % ::config::BASE_REWARD_CLAMP_THRESHOLD;
+        tx.dsts.back().amount -= subtracted_amount;
+        dsts[0].amount += subtracted_amount;
+      }
+
       const size_t estimated_tx_size = estimate_tx_size(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size(), extra.size(), bulletproof);
       needed_fee = calculate_fee(fee_per_kb, estimated_tx_size, fee_multiplier);
 
