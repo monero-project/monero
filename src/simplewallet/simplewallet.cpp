@@ -3245,6 +3245,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   {
     try
     {
+      m_trusted_daemon = false;
       if (tools::is_local_address(m_wallet->get_daemon_address()))
       {
         MINFO(tr("Daemon is local, assuming trusted"));
