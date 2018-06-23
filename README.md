@@ -9,7 +9,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - Forum: [forum.getmonero.org](https://forum.getmonero.org)
 - Mail: [dev@getmonero.org](mailto:dev@getmonero.org)
 - GitHub: [https://github.com/monero-project/monero](https://github.com/monero-project/monero)
-- IRC: [#monero-dev on Freenode](http://webchat.freenode.net/?randomnick=1&channels=%23monero-dev&prompt=1&uio=d4)
+- IRC: [#monero-dev on Freenode](https://webchat.freenode.net/?randomnick=1&channels=%23monero-dev&prompt=1&uio=d4)
 
 ## Vulnerability response
 
@@ -77,12 +77,12 @@ The Bitcoin donation address is: `1KTexdemPdxSBcG55heUuTjDRYqbC5ZL8H`
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
 [<img width="80" src="https://static.getmonero.org/images/sponsors/mymonero.png"/>](https://mymonero.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](http://kitware.com)
-[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](http://dome9.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](http://www.symas.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](https://kitware.com)
+[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](https://dome9.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](https://araxis.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](https://www.jetbrains.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](https://www.navicat.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](https://www.symas.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
@@ -287,14 +287,14 @@ If you are using the older Raspbian Jessie image, compiling Monero is a bit more
 #### On Windows:
 
 Binaries for Windows are built on Windows using the MinGW toolchain within
-[MSYS2 environment](http://msys2.github.io). The MSYS2 environment emulates a
+[MSYS2 environment](https://www.msys2.org). The MSYS2 environment emulates a
 POSIX system. The toolchain runs within the environment and *cross-compiles*
 binaries that can run outside of the environment as a regular Windows
 application.
 
 **Preparing the build environment**
 
-* Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
+* Download and install the [MSYS2 installer](https://www.msys2.org), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
 * Update packages using pacman:  
 
