@@ -70,7 +70,7 @@ namespace rct {
 
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
     //These are aka MG signatutes in earlier drafts of the ring ct paper
-    // c.f. http://eprint.iacr.org/2015/1098 section 2.
+    // c.f. https://eprint.iacr.org/2015/1098 section 2.
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly
@@ -80,7 +80,7 @@ namespace rct {
 
     //proveRange and verRange
     //proveRange gives C, and mask such that \sumCi = C
-    //   c.f. http://eprint.iacr.org/2015/1098 section 5.1
+    //   c.f. https://eprint.iacr.org/2015/1098 section 5.1
     //   and Ci is a commitment to either 0 or 2^i, i=0,...,63
     //   thus this proves that "amount" is in [0, 2^64]
     //   mask is a such that C = aG + bH, and b = amount
@@ -90,7 +90,7 @@ namespace rct {
 
     //Ring-ct MG sigs
     //Prove:
-    //   c.f. http://eprint.iacr.org/2015/1098 section 4. definition 10.
+    //   c.f. https://eprint.iacr.org/2015/1098 section 4. definition 10.
     //   This does the MG sig on the "dest" part of the given key matrix, and
     //   the last row is the sum of input commitments from that column - sum output commitments
     //   this shows that sum inputs = sum outputs
@@ -116,7 +116,7 @@ namespace rct {
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
     //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
-    //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
+    //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will return a random number
     rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const std::vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, const multisig_kLRki *kLRki, multisig_out *msout, unsigned int index, ctkeyV &outSk, bool bulletproof, hw::device &hwdev);
