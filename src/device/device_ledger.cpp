@@ -187,7 +187,7 @@ namespace hw {
     void device_ledger::logCMD() {
       if (apdu_verbose) {
         char  strbuffer[1024];
-        sprintf(strbuffer, "%.02x %.02x %.02x %.02x %.02x ",
+        snprintf(strbuffer, sizeof(strbuffer), "%.02x %.02x %.02x %.02x %.02x ",
           this->buffer_send[0],
           this->buffer_send[1],
           this->buffer_send[2],
@@ -203,7 +203,7 @@ namespace hw {
     void device_ledger::logRESP() {
       if (apdu_verbose) {
         char  strbuffer[1024];
-        sprintf(strbuffer, "%.02x%.02x ",
+        snprintf(strbuffer, sizeof(strbuffer), "%.02x%.02x ",
           this->buffer_recv[this->length_recv-2],
           this->buffer_recv[this->length_recv-1]
           );
@@ -295,7 +295,7 @@ namespace hw {
      
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
       LONG rv;
-      int sw;
+      unsigned int sw;
 
       ASSERT_T0(this->length_send <= BUFFER_SEND_SIZE);
       logCMD();
