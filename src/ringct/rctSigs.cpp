@@ -605,10 +605,19 @@ namespace rct {
             keyV tmp(rows + 1);
             size_t i;
             keyM M(cols, tmp);
+            ge_p3 Cp3;
+            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&Cp3, C.bytes) == 0, false, "point conv failed");
+            ge_cached Ccached;
+            ge_p3_to_cached(&Ccached, &Cp3);
+            ge_p1p1 p1;
             //create the matrix to mg sig
             for (i = 0; i < cols; i++) {
                     M[i][0] = pubs[i].dest;
-                    subKeys(M[i][1], pubs[i].mask, C);
+                    ge_p3 p3;
+                    CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&p3, pubs[i].mask.bytes) == 0, false, "point conv failed");
+                    ge_sub(&p1, &p3, &Ccached);
+                    ge_p1p1_to_p3(&p3, &p1);
+                    ge_p3_tobytes(M[i][1].bytes, &p3);
             }
             //DP(C);
             return MLSAG_Ver(message, M, mg, rows);
