@@ -499,12 +499,13 @@ namespace cryptonote
      * @brief check if a transaction is a valid candidate for inclusion in a block
      *
      * @param txd the transaction to check (and info about it)
+     * @param txid the txid of the transaction to check
      * @param txblob the transaction blob to check
      * @param tx the parsed transaction, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const cryptonote::blobdata &txblob, transaction &tx) const;
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata &txblob, transaction &tx) const;
 
     /**
      * @brief mark all transactions double spending the one passed
@@ -557,6 +558,9 @@ private:
      */
     sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
 
+    //! cache/call Blockchain::check_tx_inputs results
+    bool check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx, const crypto::hash &txid, uint64_t &max_used_block_height, crypto::hash &max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false) const;
+
     //! transactions which are unlikely to be included in blocks
     /*! These transactions are kept in RAM in case they *are* included
      *  in a block eventually, but this container is not saved to disk.
@@ -567,6 +571,8 @@ private:
 
     size_t m_txpool_max_size;
     size_t m_txpool_size;
+
+    mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
   };
 }
 
