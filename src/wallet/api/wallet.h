@@ -76,6 +76,9 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
+    bool recoverFromDevice(const std::string &path,
+                           const std::string &password,
+                           const std::string &device_name);
     bool close(bool store = true);
     std::string seed() const;
     std::string getSeedLanguage() const;
@@ -115,6 +118,8 @@ public:
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     uint64_t getRefreshFromBlockHeight() const { return m_wallet->get_refresh_from_block_height(); };
     void setRecoveringFromSeed(bool recoveringFromSeed);
+    void setRecoveringFromDevice(bool recoveringFromDevice) override;
+    void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
     bool watchOnly() const;
     bool rescanSpent();
     NetworkType nettype() const {return static_cast<NetworkType>(m_wallet->nettype());}
@@ -232,6 +237,7 @@ private:
     // so it shouldn't be considered as new and pull blocks (slow-refresh)
     // instead of pulling hashes (fast-refresh)
     std::atomic<bool>   m_recoveringFromSeed;
+    std::atomic<bool>   m_recoveringFromDevice;
     std::atomic<bool>   m_synchronized;
     std::atomic<bool>   m_rebuildWalletCache;
     // cache connection status to avoid unnecessary RPC calls

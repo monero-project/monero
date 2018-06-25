@@ -3273,6 +3273,12 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   cryptonote::block b;
   generate_genesis(b);
   m_blockchain.push_back(get_block_hash(b));
+  if (m_subaddress_lookahead_major == SUBADDRESS_LOOKAHEAD_MAJOR && m_subaddress_lookahead_minor == SUBADDRESS_LOOKAHEAD_MINOR)
+  {
+    // the default lookahead setting (50:200) is clearly too much for hardware wallet
+    m_subaddress_lookahead_major = 5;
+    m_subaddress_lookahead_minor = 20;
+  }
   add_subaddress_account(tr("Primary account"));
   if (!wallet_.empty()) {
     store();
