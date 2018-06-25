@@ -28,7 +28,7 @@
 #ifndef _FILE_IO_UTILS_H_
 #define _FILE_IO_UTILS_H_
 
-#include <iostream>
+#include <fstream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #ifdef WIN32
