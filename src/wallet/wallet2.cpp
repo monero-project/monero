@@ -1694,7 +1694,7 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t gra
 {
   size_t i = 0;
   size_t current_multiplier = 1;
-  size_t blockchain_size = std::max(m_blockchain.size() / granularity * granularity, m_blockchain.offset());
+  size_t blockchain_size = std::max((size_t)(m_blockchain.size() / granularity * granularity), m_blockchain.offset());
   size_t sz = blockchain_size - m_blockchain.offset();
   if(!sz)
   {
