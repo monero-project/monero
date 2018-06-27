@@ -3323,6 +3323,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   if(bl.prev_id != get_tail_id())
   {
     MERROR_VER("Block with id: " << id << std::endl << "has wrong prev_id: " << bl.prev_id << std::endl << "expected: " << get_tail_id());
+    bvc.m_verifivation_failed = true;
 leave:
     m_db->block_txn_stop();
     return false;
@@ -3624,6 +3625,7 @@ leave:
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
+      bvc.m_verifivation_failed = true;
       return_tx_to_pool(txs);
       return false;
     }
