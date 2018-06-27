@@ -763,6 +763,9 @@ namespace tools
     void rescan_blockchain(bool refresh = true);
     bool is_transfer_unlocked(const transfer_details& td) const;
     bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const;
+
+    uint64_t get_last_block_reward() const { return m_last_block_reward; }
+
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
@@ -864,6 +867,9 @@ namespace tools
       if(ver < 24)
         return;
       a & m_ring_history_saved;
+      if(ver < 25)
+        return;
+      a & m_last_block_reward;
     }
 
     /*!
@@ -1300,9 +1306,11 @@ namespace tools
     bool m_ring_history_saved;
     std::unique_ptr<ringdb> m_ringdb;
     boost::optional<crypto::chacha_key> m_ringdb_key;
+
+    uint64_t m_last_block_reward;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 24)
+BOOST_CLASS_VERSION(tools::wallet2, 25)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
