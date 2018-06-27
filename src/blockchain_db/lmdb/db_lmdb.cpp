@@ -1306,20 +1306,21 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   auto get_result = mdb_get(txn, m_properties, &k, &v);
   if(get_result == MDB_SUCCESS)
   {
-    if (*(const uint32_t*)v.mv_data > VERSION)
+    const uint32_t db_version = *(const uint32_t*)v.mv_data;
+    if (db_version > VERSION)
     {
-      MWARNING("Existing lmdb database was made by a later version. We don't know how it will change yet.");
+      MWARNING("Existing lmdb database was made by a later version (" << db_version << "). We don't know how it will change yet.");
       compatible = false;
     }
 #if VERSION > 0
-    else if (*(const uint32_t*)v.mv_data < VERSION)
+    else if (db_version < VERSION)
     {
       // Note that there was a schema change within version 0 as well.
       // See commit e5d2680094ee15889934fe28901e4e133cda56f2 2015/07/10
       // We don't handle the old format previous to that commit.
       txn.commit();
       m_open = true;
-      migrate(*(const uint32_t *)v.mv_data);
+      migrate(db_version);
       return;
     }
 #endif
