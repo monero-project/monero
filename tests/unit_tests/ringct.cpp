@@ -957,12 +957,20 @@ TEST(ringct, fee_burn_valid_zero_out_simple)
   EXPECT_TRUE(range_proof_test(true, NELTS(inputs), inputs, NELTS(outputs), outputs, true, true));
 }
 
+static rctSig make_sig()
+{
+  static const uint64_t inputs[] = {1000, 1000};
+  static const uint64_t outputs[] = {1000, 1000};
+  static rct::rctSig sig = make_sample_rct_sig(NELTS(inputs), inputs, NELTS(outputs), outputs, true);
+  return sig;
+}
+
 #define TEST_rctSig_elements(name, op) \
 TEST(ringct, rctSig_##name) \
 { \
   const uint64_t inputs[] = {1000, 1000}; \
   const uint64_t outputs[] = {1000, 1000}; \
-  rct::rctSig sig = make_sample_rct_sig(NELTS(inputs), inputs, NELTS(outputs), outputs, true); \
+  rct::rctSig sig = make_sig(); \
   ASSERT_TRUE(rct::verRct(sig)); \
   op; \
   ASSERT_FALSE(rct::verRct(sig)); \
@@ -994,12 +1002,18 @@ TEST_rctSig_elements(outPk_empty, sig.outPk.resize(0));
 TEST_rctSig_elements(outPk_too_many, sig.outPk.push_back(sig.outPk.back()));
 TEST_rctSig_elements(outPk_too_few, sig.outPk.pop_back());
 
+static rct::rctSig make_sig_simple()
+{
+  static const uint64_t inputs[] = {1000, 1000};
+  static const uint64_t outputs[] = {1000};
+  static rct::rctSig sig = make_sample_simple_rct_sig(NELTS(inputs), inputs, NELTS(outputs), outputs, 1000);
+  return sig;
+}
+
 #define TEST_rctSig_elements_simple(name, op) \
 TEST(ringct, rctSig_##name##_simple) \
 { \
-  const uint64_t inputs[] = {1000, 1000}; \
-  const uint64_t outputs[] = {1000}; \
-  rct::rctSig sig = make_sample_simple_rct_sig(NELTS(inputs), inputs, NELTS(outputs), outputs, 1000); \
+  rct::rctSig sig = make_sig_simple(); \
   ASSERT_TRUE(rct::verRctSimple(sig)); \
   op; \
   ASSERT_FALSE(rct::verRctSimple(sig)); \
