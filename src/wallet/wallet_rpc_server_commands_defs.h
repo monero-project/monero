@@ -1195,7 +1195,7 @@ namespace wallet_rpc
     std::string address;
     bool double_spend_seen;
     uint64_t confirmations;
-    uint64_t suggested_confirmation_threshold;
+    uint64_t suggested_confirmations_threshold;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(txid);
@@ -1211,8 +1211,8 @@ namespace wallet_rpc
       KV_SERIALIZE(subaddr_index);
       KV_SERIALIZE(address);
       KV_SERIALIZE(double_spend_seen)
-      KV_SERIALIZE_OPT(confirmations, 0)
-      KV_SERIALIZE_OPT(suggested_confirmation_threshold, 0)
+      KV_SERIALIZE_OPT(confirmations, (uint64_t)0)
+      KV_SERIALIZE_OPT(suggested_confirmations_threshold, (uint64_t)0)
     END_KV_SERIALIZE_MAP()
   };
 
