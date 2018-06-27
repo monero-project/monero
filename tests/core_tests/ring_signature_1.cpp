@@ -101,7 +101,7 @@ bool gen_ring_signature_1::check_balances_1(cryptonote::core& c, size_t ev_index
   m_bob_account = boost::get<account_base>(events[3]);
   m_alice_account = boost::get<account_base>(events[4]);
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
@@ -119,7 +119,7 @@ bool gen_ring_signature_1::check_balances_2(cryptonote::core& c, size_t ev_index
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_1::check_balances_2");
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
@@ -182,7 +182,7 @@ bool gen_ring_signature_2::check_balances_1(cryptonote::core& c, size_t ev_index
   m_bob_account = boost::get<account_base>(events[1]);
   m_alice_account = boost::get<account_base>(events[2]);
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
@@ -200,7 +200,7 @@ bool gen_ring_signature_2::check_balances_2(cryptonote::core& c, size_t ev_index
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_2::check_balances_2");
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
@@ -292,7 +292,7 @@ bool gen_ring_signature_big::check_balances_1(cryptonote::core& c, size_t ev_ind
   m_bob_account = boost::get<account_base>(events[1]);
   m_alice_account = boost::get<account_base>(events[1 + m_test_size]);
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 2 * m_test_size + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
@@ -317,7 +317,7 @@ bool gen_ring_signature_big::check_balances_2(cryptonote::core& c, size_t ev_ind
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_big::check_balances_2");
 
-  std::list<block> blocks;
+  std::vector<block> blocks;
   bool r = c.get_blocks(0, 2 * m_test_size + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 

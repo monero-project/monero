@@ -59,7 +59,7 @@ public:
     public:
     void inc();
     void dec();
-    void wait();  //! Wait for a set of tasks to finish.
+    void wait(threadpool *tpool);  //! Wait for a set of tasks to finish.
     waiter() : num(0){}
     ~waiter();
   };
@@ -67,7 +67,7 @@ public:
   // Submit a task to the pool. The waiter pointer may be
   // NULL if the caller doesn't care to wait for the
   // task to finish.
-  void submit(waiter *waiter, std::function<void()> f);
+  void submit(waiter *waiter, std::function<void()> f, bool leaf = false);
 
   unsigned int get_max_concurrency() const;
 
@@ -78,6 +78,7 @@ public:
     typedef struct entry {
       waiter *wo;
       std::function<void()> f;
+      bool leaf;
     } entry;
     std::deque<entry> queue;
     boost::condition_variable has_work;
@@ -86,7 +87,7 @@ public:
     unsigned int active;
     unsigned int max;
     bool running;
-    void run();
+    void run(bool flush = false);
 };
 
 }

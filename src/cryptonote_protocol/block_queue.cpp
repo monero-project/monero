@@ -50,10 +50,10 @@ namespace std {
 namespace cryptonote
 {
 
-void block_queue::add_blocks(uint64_t height, std::list<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, float rate, size_t size)
+void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, float rate, size_t size)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  std::list<crypto::hash> hashes;
+  std::vector<crypto::hash> hashes;
   bool has_hashes = remove_span(height, &hashes);
   blocks.insert(span(height, std::move(bcel), connection_id, rate, size));
   if (has_hashes)
@@ -97,7 +97,7 @@ void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_con
   }
 }
 
-bool block_queue::remove_span(uint64_t start_block_height, std::list<crypto::hash> *hashes)
+bool block_queue::remove_span(uint64_t start_block_height, std::vector<crypto::hash> *hashes)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   for (block_map::iterator i = blocks.begin(); i != blocks.end(); ++i)
@@ -172,7 +172,7 @@ bool block_queue::requested(const crypto::hash &hash) const
   return false;
 }
 
-std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const std::list<crypto::hash> &block_hashes, boost::posix_time::ptime time)
+std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const std::vector<crypto::hash> &block_hashes, boost::posix_time::ptime time)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
 
@@ -183,14 +183,14 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
   }
 
   uint64_t span_start_height = last_block_height - block_hashes.size() + 1;
-  std::list<crypto::hash>::const_iterator i = block_hashes.begin();
+  std::vector<crypto::hash>::const_iterator i = block_hashes.begin();
   while (i != block_hashes.end() && requested(*i))
   {
     ++i;
     ++span_start_height;
   }
   uint64_t span_length = 0;
-  std::list<crypto::hash> hashes;
+  std::vector<crypto::hash> hashes;
   while (i != block_hashes.end() && span_length < max_blocks)
   {
     hashes.push_back(*i);
@@ -230,7 +230,7 @@ std::pair<uint64_t, uint64_t> block_queue::get_start_gap_span() const
   return std::make_pair(current_height + 1, first_span_height - current_height - 1);
 }
 
-std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::list<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const
+std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   if (blocks.empty())
@@ -248,7 +248,7 @@ std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::list<
   return std::make_pair(i->start_block_height, i->nblocks);
 }
 
-void block_queue::set_span_hashes(uint64_t start_height, const boost::uuids::uuid &connection_id, std::list<crypto::hash> hashes)
+void block_queue::set_span_hashes(uint64_t start_height, const boost::uuids::uuid &connection_id, std::vector<crypto::hash> hashes)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   for (block_map::iterator i = blocks.begin(); i != blocks.end(); ++i)
@@ -264,7 +264,7 @@ void block_queue::set_span_hashes(uint64_t start_height, const boost::uuids::uui
   }
 }
 
-bool block_queue::get_next_span(uint64_t &height, std::list<cryptonote::block_complete_entry> &bcel, boost::uuids::uuid &connection_id, bool filled) const
+bool block_queue::get_next_span(uint64_t &height, std::vector<cryptonote::block_complete_entry> &bcel, boost::uuids::uuid &connection_id, bool filled) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   if (blocks.empty())
