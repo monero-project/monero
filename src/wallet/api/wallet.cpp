@@ -1966,7 +1966,7 @@ void WalletImpl::doRefresh()
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
         if (m_wallet->light_wallet() || daemonSynced()) {
-            m_wallet->refresh();
+            m_wallet->refresh(trustedDaemon());
             if (!m_synchronized) {
                 m_synchronized = true;
             }
