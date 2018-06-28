@@ -1308,6 +1308,7 @@ namespace tools
     boost::optional<crypto::chacha_key> m_ringdb_key;
 
     uint64_t m_last_block_reward;
+    std::unique_ptr<tools::file_locker> m_keys_file_locker;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 25)
