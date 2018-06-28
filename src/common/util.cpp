@@ -226,19 +226,19 @@ namespace tools
       MERROR("Failed to open " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
     }
 #else
-    m_fd = open(filename, O_RDONLY | O_CREAT, 0666);
+    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT, 0666);
     if (m_fd != -1)
     {
       if (flock(m_fd, LOCK_EX | LOCK_NB) == -1)
       {
-        MERROR("Failed to lock " << filename << ": " << std::strerr(errno));
+        MERROR("Failed to lock " << filename << ": " << std::strerror(errno));
         close(m_fd);
         m_fd = -1;
       }
     }
     else
     {
-      MERROR("Failed to open " << filename << ": " << std::strerr(errno));
+      MERROR("Failed to open " << filename << ": " << std::strerror(errno));
     }
 #endif
   }
