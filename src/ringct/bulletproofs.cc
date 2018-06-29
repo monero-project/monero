@@ -922,6 +922,19 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   for (const Bulletproof *p: proofs)
   {
     const Bulletproof &proof = *p;
+
+    // check subgroup
+    for (const rct::key &k: proof.V)
+      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
+    for (const rct::key &k: proof.L)
+      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
+    for (const rct::key &k: proof.R)
+      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
+    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.A), false, "Input point not in subgroup");
+    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.S), false, "Input point not in subgroup");
+    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T1), false, "Input point not in subgroup");
+    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T2), false, "Input point not in subgroup");
+
     CHECK_AND_ASSERT_MES(proof.V.size() >= 1, false, "V does not have at least one element");
     CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
     CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");

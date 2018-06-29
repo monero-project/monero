@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 
+#include "string_tools.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
 #include "ringct/bulletproofs.h"
@@ -192,4 +193,64 @@ TEST(bulletproofs, invalid_gamma_ff)
   memset(&gamma, 0xff, sizeof(gamma));
   rct::Bulletproof proof = bulletproof_PROVE(invalid_amount, gamma);
   ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+}
+
+static const char * const torsion_elements[] =
+{
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+  "0000000000000000000000000000000000000000000000000000000000000000",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+  "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+  "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+  "0000000000000000000000000000000000000000000000000000000000000080",
+  "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+};
+
+TEST(bulletproofs, invalid_torsion)
+{
+  rct::Bulletproof proof = bulletproof_PROVE(7329838943733, rct::skGen());
+  ASSERT_TRUE(rct::bulletproof_VERIFY(proof));
+  for (const auto &xs: torsion_elements)
+  {
+    rct::key x;
+    ASSERT_TRUE(epee::string_tools::hex_to_pod(xs, x));
+    ASSERT_FALSE(rct::isInMainSubgroup(x));
+    for (auto &k: proof.V)
+    {
+      const rct::key org_k = k;
+      rct::addKeys(k, org_k, x);
+      ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+      k = org_k;
+    }
+    for (auto &k: proof.L)
+    {
+      const rct::key org_k = k;
+      rct::addKeys(k, org_k, x);
+      ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+      k = org_k;
+    }
+    for (auto &k: proof.R)
+    {
+      const rct::key org_k = k;
+      rct::addKeys(k, org_k, x);
+      ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+      k = org_k;
+    }
+    const rct::key org_A = proof.A;
+    rct::addKeys(proof.A, org_A, x);
+    ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+    proof.A = org_A;
+    const rct::key org_S = proof.S;
+    rct::addKeys(proof.S, org_S, x);
+    ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+    proof.S = org_S;
+    const rct::key org_T1 = proof.T1;
+    rct::addKeys(proof.T1, org_T1, x);
+    ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+    proof.T1 = org_T1;
+    const rct::key org_T2 = proof.T2;
+    rct::addKeys(proof.T2, org_T2, x);
+    ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+    proof.T2 = org_T2;
+  }
 }

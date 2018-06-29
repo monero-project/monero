@@ -237,6 +237,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys2);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_addKeys3_2);
+  TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_isInMainSubgroup);
 
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 2);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 4);
