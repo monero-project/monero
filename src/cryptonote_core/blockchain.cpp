@@ -56,6 +56,7 @@
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
+#include "service_node_list.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "blockchain"
@@ -101,8 +102,9 @@ static const struct {
 } testnet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
   { 7, 1, 0, 1512211236 },
+  { 8, 50, 0, 1528768370 },
 };
-static const uint64_t testnet_hard_fork_version_1_till = 624633;
+static const uint64_t testnet_hard_fork_version_1_till = 0;
 
 static const struct {
   uint8_t version;
@@ -115,11 +117,12 @@ static const struct {
 };
 
 //------------------------------------------------------------------
-Blockchain::Blockchain(tx_memory_pool& tx_pool) :
+Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
-  m_difficulty_for_next_block(1)
+  m_difficulty_for_next_block(1),
+  m_service_node_list(service_node_list)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -452,6 +455,10 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
 
   update_next_cumulative_size_limit();
+
+  for (InitHook* hook : m_init_hooks)
+    hook->init();
+
   return true;
 }
 //------------------------------------------------------------------
@@ -785,7 +792,6 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   auto height = m_db->height();
 
   uint8_t version = get_current_hard_fork_version();
-  assert(version == 7);
   size_t difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
 
   // ND: Speedup
@@ -833,6 +839,11 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   m_difficulty_for_next_block_top_hash = top_hash;
   m_difficulty_for_next_block = diff;
   return diff;
+}
+//------------------------------------------------------------------
+uint64_t Blockchain::get_staking_requirement(uint64_t height) const
+{
+  return UINT64_C(1000000000000);
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
@@ -908,6 +919,9 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
 
   auto split_height = m_db->height();
 
+  for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
+    hook->blockchain_detached(split_height);
+
   //connecting new alternative chain
   for(auto alt_ch_iter = alt_chain.begin(); alt_ch_iter != alt_chain.end(); alt_ch_iter++)
   {
@@ -982,7 +996,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   std::vector<difficulty_type> cumulative_difficulties;
   uint8_t version = get_current_hard_fork_version();
   size_t difficulty_blocks_count;
-  assert(version==7);
+
   difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
 
   // if the alt chain isn't long enough to calculate the difficulty target
@@ -1100,6 +1114,10 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     MERROR_VER("block size " << cumulative_block_size << " is bigger than allowed for this blockchain");
     return false;
   }
+
+  for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
+    if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), get_current_hard_fork_version(), base_reward))
+      return false;
 
   if (already_generated_coins != 0)
   {
@@ -1302,7 +1320,10 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob size
   uint8_t hf_version = m_hardfork->get_current_version();
   size_t max_outs = hf_version >= 4 ? 1 : 11;
-  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype);
+
+  account_public_address service_node_address = m_service_node_list.select_winner(b.prev_id);
+
+  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, service_node_address);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1311,7 +1332,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype);
+    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, service_node_address);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
@@ -3615,6 +3636,9 @@ leave:
     LOG_ERROR("Blocks that failed verification should not reach here");
   }
 
+  for (BlockAddedHook* hook : m_block_added_hooks)
+    hook->block_added(bl, txs);
+
   TIME_MEASURE_FINISH(addblock);
 
   // do this after updating the hard fork state since the size limit may change due to fork
@@ -4561,6 +4585,26 @@ bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypt
 bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)> f) const
 {
   return m_db->for_all_outputs(amount, f);;
+}
+
+void Blockchain::hook_init(Blockchain::InitHook& init_hook)
+{
+  m_init_hooks.push_back(&init_hook);
+}
+
+void Blockchain::hook_block_added(Blockchain::BlockAddedHook& block_added_hook)
+{
+  m_block_added_hooks.push_back(&block_added_hook);
+}
+
+void Blockchain::hook_blockchain_detached(Blockchain::BlockchainDetachedHook& blockchain_detached_hook)
+{
+  m_blockchain_detached_hooks.push_back(&blockchain_detached_hook);
+}
+
+void Blockchain::hook_validate_miner_tx(Blockchain::ValidateMinerTxHook& validate_miner_tx_hook)
+{
+  m_validate_miner_tx_hooks.push_back(&validate_miner_tx_hook);
 }
 
 namespace cryptonote {

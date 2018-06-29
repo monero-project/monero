@@ -467,6 +467,26 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool add_account_public_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const cryptonote::account_public_address& address)
+  {
+    tx_extra.resize(tx_extra.size() + 1 + sizeof(cryptonote::account_public_address));
+    tx_extra[tx_extra.size() - 1 - sizeof(cryptonote::account_public_address)] = TX_EXTRA_TAG_ACCOUNT_PUBLIC_ADDRESS;
+    *reinterpret_cast<cryptonote::account_public_address*>(&tx_extra[tx_extra.size() - sizeof(cryptonote::account_public_address)]) = address;
+    return true;
+  }
+  //---------------------------------------------------------------
+  cryptonote::account_public_address get_account_public_address_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  {
+    // parse
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    // find corresponding field
+    tx_extra_account_public_address address;
+    if (!find_tx_extra_field_by_type(tx_extra_fields, address))
+      return cryptonote::account_public_address{ crypto::null_pkey, crypto::null_pkey };
+    return cryptonote::account_public_address{ address.m_spend_public_key, address.m_view_public_key };
+  }
+  //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)
   {
     if (tx_extra.empty())
