@@ -5600,15 +5600,10 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       }
 
       // get the current full reward zone
-      cryptonote::COMMAND_RPC_GET_INFO::request getinfo_req = AUTO_VAL_INIT(getinfo_req);
-      cryptonote::COMMAND_RPC_GET_INFO::response getinfo_res = AUTO_VAL_INIT(getinfo_res);
-      m_daemon_rpc_mutex.lock();
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", getinfo_req, getinfo_res, m_http_client);
-      m_daemon_rpc_mutex.unlock();
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-      const uint64_t full_reward_zone = getinfo_res.block_size_limit / 2;
+      uint64_t block_size_limit = 0;
+      const auto result = m_node_rpc_proxy.get_block_size_limit(block_size_limit);
+      throw_on_rpc_response_error(result, "get_info");
+      const uint64_t full_reward_zone = block_size_limit / 2;
 
       // get the last N block headers and sum the block sizes
       const size_t N = 10;
@@ -5622,7 +5617,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       m_daemon_rpc_mutex.lock();
       getbh_req.start_height = m_blockchain.size() - N;
       getbh_req.end_height = m_blockchain.size() - 1;
-      r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheadersrange", getbh_req, getbh_res, m_http_client, rpc_timeout);
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheadersrange", getbh_req, getbh_res, m_http_client, rpc_timeout);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
       THROW_WALLET_EXCEPTION_IF(getbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
@@ -9384,31 +9379,15 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err) const
 
 uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 {
-  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-  m_daemon_rpc_mutex.lock();
-  bool ok = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  if (ok)
+  err = "";
+  uint64_t target_height = 0;
+  const auto result = m_node_rpc_proxy.get_target_height(target_height);
+  if (result && *result != CORE_RPC_STATUS_OK)
   {
-    if (resp_t.status == CORE_RPC_STATUS_BUSY)
-    {
-      err = "daemon is busy. Please try again later.";
-    }
-    else if (resp_t.status != CORE_RPC_STATUS_OK)
-    {
-      err = resp_t.status;
-    }
-    else // success, cleaning up error message
-    {
-      err = "";
-    }
+    err= *result;
+    return 0;
   }
-  else
-  {
-    err = "possibly lost connection to daemon";
-  }
-  return resp_t.target_height;
+  return target_height;
 }
 
 uint64_t wallet2::get_approximate_blockchain_height() const
@@ -10766,15 +10745,10 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_txpool_backlog");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
 
-  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-  m_daemon_rpc_mutex.lock();
-  r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-  uint64_t full_reward_zone = resp_t.block_size_limit / 2;
+  uint64_t block_size_limit = 0;
+  const auto result = m_node_rpc_proxy.get_block_size_limit(block_size_limit);
+  throw_on_rpc_response_error(result, "get_info");
+  uint64_t full_reward_zone = block_size_limit / 2;
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
   for (const auto &fee_level: fee_levels)
