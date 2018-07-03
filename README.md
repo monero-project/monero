@@ -477,6 +477,9 @@ Then you can run make as usual.
         # Get binaries
         docker cp monero-android:/opt/android/monero/build/release/bin .
 
+
+
+
 ### Building portable statically linked binaries
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
@@ -526,6 +529,10 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
 
         # or in background
         docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
+
+* The build needs 3 GB space.
+* Wait one  hour or more
+
 
 Packaging for your favorite distribution would be a welcome contribution!
 
