@@ -17,14 +17,28 @@ RUN set -ex && \
         curl \
         libtool-bin \
         autoconf \
-        automake
+        automake \
+        bzip2
 
 WORKDIR /usr/local
 
+#Cmake
+ARG CMAKE_VERSION=3.11.4
+ARG CMAKE_VERSION_DOT=v3.11
+ARG CMAKE_HASH=8f864e9f78917de3e1483e256270daabc4a321741592c5b36af028e72bff87f5
+RUN set -ex \
+    && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
+    && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
+    && tar -xzf cmake-${CMAKE_VERSION}.tar.gz \
+    && cd cmake-${CMAKE_VERSION} \
+    && ./configure \
+    && make \
+    && make install
+
 ## Boost
-ARG BOOST_VERSION=1_66_0
-ARG BOOST_VERSION_DOT=1.66.0
-ARG BOOST_HASH=5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9
+ARG BOOST_VERSION=1_67_0
+ARG BOOST_VERSION_DOT=1.67.0
+ARG BOOST_HASH=2684c972994ee57fc5632e03bf044746f6eb45d4920c343937a465fd67a5adba
 RUN set -ex \
     && curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
     && echo "${BOOST_HASH}  boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
@@ -35,21 +49,22 @@ RUN set -ex \
 ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 
 # OpenSSL
-ARG OPENSSL_VERSION=1.0.2n
-ARG OPENSSL_HASH=370babb75f278c39e0c50e8c4e7493bc0f18db6867478341a832a982fd15a8fe
+ARG OPENSSL_VERSION=1.1.0h
+ARG OPENSSL_HASH=5835626cde9e99656585fc7aaa2302a73a7e1340bf8c14fd635a62c66802a517
 RUN set -ex \
     && curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH}  openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
     && ./Configure linux-x86_64 no-shared --static -fPIC \
-    && make build_crypto build_ssl \
+    && make build_generated \
+    && make libcrypto.a \
     && make install
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.2.3
-ARG ZMQ_HASH=3226b8ebddd9c6c738ba42986822c26418a49afb
+ARG ZMQ_VERSION=v4.2.5
+ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
 RUN set -ex \
     && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
@@ -61,9 +76,10 @@ RUN set -ex \
     && ldconfig
 
 # zmq.hpp
+ARG CPPZMQ_VERSION=v4.2.3
 ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
 RUN set -ex \
-    && git clone https://github.com/zeromq/cppzmq.git -b ${ZMQ_VERSION} \
+    && git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && mv *.hpp /usr/local/include
@@ -127,3 +143,4 @@ EXPOSE 18080
 EXPOSE 18081
 
 ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
+
