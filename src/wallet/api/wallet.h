@@ -116,8 +116,8 @@ public:
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     uint64_t getRefreshFromBlockHeight() const { return m_wallet->get_refresh_from_block_height(); };
     void setRecoveringFromSeed(bool recoveringFromSeed);
-    void setRecoveringFromDevice(bool recoveringFromDevice) override;
-    void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
+    void setRecoveringFromDevice(bool recoveringFromDevice);
+    void setSubaddressLookahead(uint32_t major, uint32_t minor);
     bool watchOnly() const;
     bool rescanSpent();
     NetworkType nettype() const {return static_cast<NetworkType>(m_wallet->nettype());}
