@@ -513,6 +513,9 @@ Packages are available for
         # or in background
         docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
 
+* The build needs 3 GB space.
+* Wait one  hour or more
+
 Packaging for your favorite distribution would be a welcome contribution!
 
 ## Running aeond
