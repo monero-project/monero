@@ -150,6 +150,7 @@ namespace
     }
 
     virtual bool close()                              { /*std::cout << "test_connection::close()" << std::endl; */return true; }
+    virtual bool send_done()                          { /*std::cout << "test_connection::send_done()" << std::endl; */return true; }
     virtual bool call_run_once_service_io()           { std::cout << "test_connection::call_run_once_service_io()" << std::endl; return true; }
     virtual bool request_callback()                   { std::cout << "test_connection::request_callback()" << std::endl; return true; }
     virtual boost::asio::io_service& get_io_service() { std::cout << "test_connection::get_io_service()" << std::endl; return m_io_service; }

@@ -22,6 +22,10 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Build
 
+### IMPORTANT 
+
+These builds are of the master branch, which is used for active development and can be either unstable or incompatible with release software. Please compile release branches.
+
 | Operating System      | Processor | Status |
 | --------------------- | -------- |--------|
 | Ubuntu 16.04          |  i686    | [![Ubuntu 16.04 i686](https://build.getmonero.org/png?builder=monero-static-ubuntu-i686)](https://build.getmonero.org/builders/monero-static-ubuntu-i686)
@@ -103,7 +107,7 @@ Dates are provided in the format YYYY-MM-DD.
 | 1220516                        | 2017-01-05 | v4                | v0.10.1                | v0.10.2.1                  | Allow normal and RingCT transactions |
 | 1288616                        | 2017-04-15 | v5                | v0.10.3.0              | v0.10.3.1                  | Adjusted minimum blocksize and fee algorithm      |
 | 1400000                        | 2017-09-16 | v6                | v0.11.0.0              | v0.11.0.0                  | Allow only RingCT transactions, allow only >= ringsize 5      |
-| 1546000                        | 2018-04-06 | v7                | v0.12.0.0              | v0.12.0.0                  | Cryptonight variant 1, ringsize >= 7, sorted inputs
+| 1546000                        | 2018-04-06 | v7                | v0.12.0.0              | v0.12.2.0                  | Cryptonight variant 1, ringsize >= 7, sorted inputs
 | XXXXXXX                        | 2018-10-XX | XX                | XXXXXXXXX              | XXXXXXXXX                  | X
 
 X's indicate that these details have not been determined as of commit date.
@@ -144,10 +148,14 @@ library archives (`.a`).
 | GTest        | 1.5           | YES      | `libgtest-dev`^    | `gtest`      | `gtest-devel`     | YES      | Test suite     |
 | Doxygen      | any           | NO       | `doxygen`          | `doxygen`    | `doxygen`         | YES      | Documentation  |
 | Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
+| pcsclite     | ?             | NO       | `libpcsclite-dev`  | ?            | `pcsc-lite pcsc-lite-devel` | NO | Ledger     |          
 
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+
+Debian / Ubuntu one liner for all dependencies  
+``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libminiupnpc-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev ```
 
 ### Cloning the repository
 
@@ -167,9 +175,10 @@ invokes cmake commands as needed.
 #### On Linux and OS X
 
 * Install the dependencies
-* Change to the root of the source code directory and build:
+* Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd monero
+        git checkout v0.12.2.0
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -179,6 +188,12 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
+    
+    *Note*: The instructions above will compile the most stable release of the
+    Monero software. If you would like to use and test the most recent software,
+    use ```git checkout master```. The master branch may contain updates that are
+    both unstable and incompatible with release software, though testing is always 
+    encouraged. 
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -225,7 +240,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.11.1.0
+	git checkout tags/v0.12.2.0
 ```
 * Build:
 ```
@@ -310,7 +325,21 @@ application.
   or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
   running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
+**Cloning**
+
+* To git clone, run:
+
+        git clone --recursive https://github.com/monero-project/monero.git
+
 **Building**
+
+* Change to the cloned directory, run:
+	
+        cd monero
+
+* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.12.1.0'. If you dont care about the version and just want binaries from master, skip this step:
+	
+        git checkout v0.12.1.0
 
 * If you are on a 64-bit system, run:
 
@@ -560,6 +589,8 @@ setting the following configuration parameters and environment variables:
    as well.
 * Do NOT pass `--detach` when running through torsocks with systemd, (see
   [utils/systemd/monerod.service](utils/systemd/monerod.service) for details).
+* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
+  then use `--untrusted-daemon` unless it is your own hidden service.
 
 Example command line to start monerod through Tor:
 

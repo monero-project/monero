@@ -32,6 +32,7 @@
 
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/optional.hpp>
 #include <system_error>
 #include <csignal>
 #include <cstdio>
@@ -88,6 +89,20 @@ namespace tools
 
     std::FILE* handle() const noexcept { return m_handle.get(); }
     const std::string& filename() const noexcept { return m_filename; }
+  };
+
+  class file_locker
+  {
+  public:
+    file_locker(const std::string &filename);
+    ~file_locker();
+    bool locked() const;
+  private:
+#ifdef WIN32
+    HANDLE m_fd;
+#else
+    int m_fd;
+#endif
   };
 
   /*! \brief Returns the default data directory.
@@ -214,4 +229,6 @@ namespace tools
   bool sha256sum(const std::string &filename, crypto::hash &hash);
 
   bool is_hdd(const char *path);
+
+  boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str);
 }

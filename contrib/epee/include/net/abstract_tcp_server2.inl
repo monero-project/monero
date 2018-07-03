@@ -56,8 +56,8 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
 
-#define DEFAULT_TIMEOUT_MS_LOCAL boost::posix_time::milliseconds(120000) // 2 minutes
-#define DEFAULT_TIMEOUT_MS_REMOTE boost::posix_time::milliseconds(10000) // 10 seconds
+#define DEFAULT_TIMEOUT_MS_LOCAL 1800000 // 30 minutes
+#define DEFAULT_TIMEOUT_MS_REMOTE 300000 // 5 minutes
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
 
 PRAGMA_WARNING_PUSH
@@ -86,7 +86,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 		m_throttle_speed_in("speed_in", "throttle_speed_in"),
 		m_throttle_speed_out("speed_out", "throttle_speed_out"),
 		m_timer(io_service),
-		m_local(false)
+		m_local(false),
+		m_ready_to_close(false)
   {
     MDEBUG("test, connection constructor set m_connection_type="<<m_connection_type);
   }
@@ -146,7 +147,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     context = boost::value_initialized<t_connection_context>();
     const unsigned long ip_{boost::asio::detail::socket_ops::host_to_network_long(remote_ep.address().to_v4().to_ulong())};
-    m_local = epee::net_utils::is_ip_loopback(ip_);
+    m_local = epee::net_utils::is_ip_loopback(ip_) || epee::net_utils::is_ip_local(ip_);
 
     // create a random uuid
     boost::uuids::uuid random_uuid;
@@ -165,9 +166,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       return false;
     }
 
+    m_host = context.m_remote_address.host_str();
+    try { host_count(m_host, 1); } catch(...) { /* ignore */ }
+
     m_protocol_handler.after_init_connection();
 
-    reset_timer(get_default_time(), false);
+    reset_timer(get_default_timeout(), false);
 
     socket_.async_read_some(boost::asio::buffer(buffer_),
       strand_.wrap(
@@ -324,6 +328,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       logger_handle_net_read(bytes_transferred);
       context.m_last_recv = time(NULL);
       context.m_recv_cnt += bytes_transferred;
+      m_ready_to_close = false;
       bool recv_res = m_protocol_handler.handle_recv(buffer_.data(), bytes_transferred);
       if(!recv_res)
       {  
@@ -356,6 +361,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         _dbg3("[sock " << socket_.native_handle() << "] Some problems at read: " << e.message() << ':' << e.value());
         shutdown();
       }
+      else
+      {
+        _dbg3("[sock " << socket_.native_handle() << "] peer closed connection");
+        if (m_ready_to_close)
+          shutdown();
+      }
+      m_ready_to_close = true;
     }
     // If an error occurs then no new asynchronous operations are started. This
     // means that all shared_ptr references to the connection object will
@@ -531,7 +543,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     if(m_send_que.size() > 1)
     { // active operation should be in progress, nothing to do, just wait last operation callback
         auto size_now = cb;
-        MDEBUG("do_send() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
+        MDEBUG("do_send_chunk() NOW just queues: packet="<<size_now<<" B, is added to queue-size="<<m_send_que.size());
         //do_send_handler_delayed( ptr , size_now ); // (((H))) // empty function
       
       LOG_TRACE_CC(context, "[sock " << socket_.native_handle() << "] Async send requested " << m_send_que.front().size());
@@ -546,12 +558,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
         }
 
         auto size_now = m_send_que.front().size();
-        MDEBUG("do_send() NOW SENSD: packet="<<size_now<<" B");
+        MDEBUG("do_send_chunk() NOW SENSD: packet="<<size_now<<" B");
         if (speed_limit_is_enabled())
 			do_send_handler_write( ptr , size_now ); // (((H)))
 
         CHECK_AND_ASSERT_MES( size_now == m_send_que.front().size(), false, "Unexpected queue size");
-        reset_timer(get_default_time(), false);
+        reset_timer(get_default_timeout(), false);
         boost::asio::async_write(socket_, boost::asio::buffer(m_send_que.front().data(), size_now ) ,
                                  //strand_.wrap(
                                  boost::bind(&connection<t_protocol_handler>::handle_write, self, _1, _2)
@@ -566,26 +578,48 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 
     return true;
 
-    CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send", false);
+    CATCH_ENTRY_L0("connection<t_protocol_handler>::do_send_chunk", false);
   } // do_send_chunk
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  boost::posix_time::milliseconds connection<t_protocol_handler>::get_default_time() const
+  boost::posix_time::milliseconds connection<t_protocol_handler>::get_default_timeout()
   {
+    unsigned count;
+    try { count = host_count(m_host); } catch (...) { count = 0; }
+    const unsigned shift = std::min(std::max(count, 1u) - 1, 8u);
+    boost::posix_time::milliseconds timeout(0);
     if (m_local)
-      return DEFAULT_TIMEOUT_MS_LOCAL;
+      timeout = boost::posix_time::milliseconds(DEFAULT_TIMEOUT_MS_LOCAL >> shift);
     else
-      return DEFAULT_TIMEOUT_MS_REMOTE;
+      timeout = boost::posix_time::milliseconds(DEFAULT_TIMEOUT_MS_REMOTE >> shift);
+    return timeout;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  boost::posix_time::milliseconds connection<t_protocol_handler>::get_timeout_from_bytes_read(size_t bytes) const
+  boost::posix_time::milliseconds connection<t_protocol_handler>::get_timeout_from_bytes_read(size_t bytes)
   {
     boost::posix_time::milliseconds ms = (boost::posix_time::milliseconds)(unsigned)(bytes * TIMEOUT_EXTRA_MS_PER_BYTE);
     ms += m_timer.expires_from_now();
-    if (ms > get_default_time())
-      ms = get_default_time();
+    if (ms > get_default_timeout())
+      ms = get_default_timeout();
     return ms;
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  unsigned int connection<t_protocol_handler>::host_count(const std::string &host, int delta)
+  {
+    static boost::mutex hosts_mutex;
+    CRITICAL_REGION_LOCAL(hosts_mutex);
+    static std::map<std::string, unsigned int> hosts;
+    unsigned int &val = hosts[host];
+    if (delta > 0)
+      MTRACE("New connection from host " << host << ": " << val);
+    else if (delta < 0)
+      MTRACE("Closed connection from host " << host << ": " << val);
+    CHECK_AND_ASSERT_THROW_MES(delta >= 0 || val >= (unsigned)-delta, "Count would go negative");
+    CHECK_AND_ASSERT_THROW_MES(delta <= 0 || val <= std::numeric_limits<unsigned int>::max() - (unsigned)delta, "Count would wrap");
+    val += delta;
+    return val;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -619,6 +653,11 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     m_timer.cancel();
     boost::system::error_code ignored_ec;
     socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+    if (!m_host.empty())
+    {
+      try { host_count(m_host, -1); } catch (...) { /* ignore */ }
+      m_host = "";
+    }
     m_was_shutdown = true;
     m_protocol_handler.release_protocol();
     return true;
@@ -642,6 +681,15 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::close", false);
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  bool connection<t_protocol_handler>::send_done()
+  {
+    if (m_ready_to_close)
+      return close();
+    m_ready_to_close = true;
+    return true;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -687,7 +735,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     }else
     {
       //have more data to send
-		reset_timer(get_default_time(), false);
+		reset_timer(get_default_timeout(), false);
 		auto size_now = m_send_que.front().size();
 		MDEBUG("handle_write() NOW SENDS: packet="<<size_now<<" B" <<", from  queue size="<<m_send_que.size());
 		if (speed_limit_is_enabled())
@@ -982,7 +1030,8 @@ POP_WARNINGS
   void boosted_tcp_server<t_protocol_handler>::handle_accept(const boost::system::error_code& e)
   {
     MDEBUG("handle_accept");
-    TRY_ENTRY();
+    try
+    {
     if (!e)
     {
 		if (m_connection_type == e_connection_type_RPC) {
@@ -1000,11 +1049,25 @@ POP_WARNINGS
 
       conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
-    }else
-    {
-      _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+      return;
     }
-    CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::handle_accept", void());
+    else
+    {
+      MERROR("Error in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e);
+    }
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Exception in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e.what());
+    }
+
+    // error path, if e or exception
+    _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+    misc_utils::sleep_no_w(100);
+    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_.async_accept(new_connection_->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+      boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
