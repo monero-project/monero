@@ -653,13 +653,13 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     m_timer.cancel();
     boost::system::error_code ignored_ec;
     socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-    m_was_shutdown = true;
-    m_protocol_handler.release_protocol();
     if (!m_host.empty())
     {
       try { host_count(m_host, -1); } catch (...) { /* ignore */ }
       m_host = "";
     }
+    m_was_shutdown = true;
+    m_protocol_handler.release_protocol();
     return true;
   }
   //---------------------------------------------------------------------------------
