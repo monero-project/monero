@@ -527,6 +527,9 @@ Installing a snap is very quick. Snaps are secure. They are isolated with all of
         # or in background
         docker run -it -d -v /monero/chain:/root/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
 
+* The build needs 3 GB space.
+* Wait one  hour or more
+
 Packaging for your favorite distribution would be a welcome contribution!
 
 ## Running monerod
