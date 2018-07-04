@@ -119,7 +119,6 @@ library archives (`.a`).
 | libzmq       | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`     | `cppzmq-devel`    | NO       | ZeroMQ library |
 | libunbound   | 1.4.16        | YES      | `libunbound-dev`   | `unbound`    | `unbound-devel`   | NO       | DNS resolver   |
 | libsodium    | ?             | NO       | `libsodium-dev`    | ?            | `libsodium-devel` | NO       | cryptography   |
-| libminiupnpc | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`  | `miniupnpc-devel` | YES      | NAT punching   |
 | libunwind    | any           | NO       | `libunwind8-dev`   | `libunwind`  | `libunwind-devel` | YES      | Stack traces   |
 | liblzma      | any           | NO       | `liblzma-dev`      | `xz`         | `xz-devel`        | YES      | For libunwind  |
 | libreadline  | 6.3.0         | NO       | `libreadline6-dev` | `readline`   | `readline-devel`  | YES      | Input editing  |
@@ -135,7 +134,7 @@ library archives (`.a`).
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
 Install all dependencies at once on Debian/Ubuntu: 
-``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libminiupnpc-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev ```
+``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev ```
 ### Cloning the repository
 
 Clone recursively to pull-in needed submodule(s):
@@ -352,7 +351,7 @@ We expect to add Aeon into the ports tree in the near future, which will aid in 
 
 This has been tested on OpenBSD 5.8.
 
-You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ miniupnpc gtest`.
+You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ gtest`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -365,7 +364,7 @@ To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/pat
 
 #### OpenBSD >= 6.2
 
-You will need to add a few packages to your system. `pkg_add cmake miniupnpc zeromq libiconv`.
+You will need to add a few packages to your system. `pkg_add cmake zeromq libiconv`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
