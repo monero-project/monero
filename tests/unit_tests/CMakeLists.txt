@@ -57,6 +57,7 @@ set(unit_tests_sources
   int-util.cpp
   multisig.cpp
   parse_amount.cpp
+  random.cpp
   serialization.cpp
   sha256.cpp
   slow_memmem.cpp
