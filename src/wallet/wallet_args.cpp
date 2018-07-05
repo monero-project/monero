@@ -179,6 +179,10 @@ namespace wallet_args
     {
       mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
     }
+    else if (!log_to_console)
+    {
+      mlog_set_categories("");
+    }
 
     if (notice)
       Print(print) << notice << ENDL;

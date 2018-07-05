@@ -104,6 +104,10 @@ bool ZmqServer::addTCPSocket(std::string address, std::string port)
 
     rep_socket->setsockopt(ZMQ_RCVTIMEO, &DEFAULT_RPC_RECV_TIMEOUT_MS, sizeof(DEFAULT_RPC_RECV_TIMEOUT_MS));
 
+    if (address.empty())
+      address = "*";
+    if (port.empty())
+      port = "*";
     std::string bind_address = addr_prefix + address + std::string(":") + port;
     rep_socket->bind(bind_address.c_str());
   }
