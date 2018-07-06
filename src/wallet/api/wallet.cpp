@@ -733,10 +733,10 @@ bool WalletImpl::close(bool store)
 
 std::string WalletImpl::seed() const
 {
-    std::string seed;
+    epee::wipeable_string seed;
     if (m_wallet)
         m_wallet->get_seed(seed);
-    return seed;
+    return std::string(seed.data(), seed.size()); // TODO
 }
 
 std::string WalletImpl::getSeedLanguage() const
