@@ -47,7 +47,7 @@ static crypto::chacha_key generate_chacha_key()
 {
   crypto::chacha_key chacha_key;
   uint64_t password = crypto::rand<uint64_t>();
-  crypto::generate_chacha_key(std::string((const char*)&password, sizeof(password)), chacha_key);
+  crypto::generate_chacha_key(std::string((const char*)&password, sizeof(password)), chacha_key, 1);
   return chacha_key;
 }
 
