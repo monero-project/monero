@@ -553,6 +553,14 @@ namespace
     }
     return true;
   }
+
+  void print_secret_key(const crypto::secret_key &k)
+  {
+    const epee::wipeable_string s = string_tools::pod_to_hex(k);
+    const char *ptr = s.data();
+    for (size_t i = 0, sz = s.size(); i < sz; ++i)
+      putchar(*ptr++);
+  }
 }
 
 bool parse_priority(const std::string& arg, uint32_t& priority)
@@ -607,7 +615,9 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
   if (m_wallet->key_on_device()) {
     std::cout << "secret: On device. Not available" << std::endl;
   } else {
-    std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << std::endl;
+    printf("secret: ");
+    print_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
+    putchar('\n');
   }
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_view_public_key) << std::endl;
 
@@ -626,7 +636,9 @@ bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vecto
   if (m_wallet->key_on_device()) {
     std::cout << "secret: On device. Not available" << std::endl;
   } else {
-    std::cout << "secret: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key) << std::endl;
+    printf("secret: ");
+    print_secret_key(m_wallet->get_account().get_keys().m_spend_secret_key);
+    putchar('\n');
   }
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key) << std::endl;
 
@@ -3507,7 +3519,9 @@ bool simple_wallet::new_wallet(const boost::program_options::variables_map& vm,
     recovery_val = m_wallet->generate(m_wallet_file, std::move(rc.second).password(), recovery_key, recover, two_random, create_address_file);
     message_writer(console_color_white, true) << tr("Generated new wallet: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
-    std::cout << tr("View key: ") << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key) << ENDL;
+    std::cout << tr("View key: ");
+    print_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
+    putchar('\n');
   }
   catch (const std::exception& e)
   {

@@ -2720,6 +2720,11 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   std::string multisig_signers;
   cryptonote::account_base account = m_account;
 
+  crypto::chacha_key key;
+  crypto::generate_chacha_key(password.data(), password.size(), key);
+
+  account.encrypt_keys(key);
+
   if (watch_only)
     account.forget_spend_key();
   bool r = epee::serialization::store_t_to_binary(account, account_data);
@@ -2838,6 +2843,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(m_subaddress_lookahead_minor);
   json.AddMember("subaddress_lookahead_minor", value2, json.GetAllocator());
 
+  value2.SetUint(1);
+  json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -2845,8 +2853,6 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   account_data = buffer.GetString();
 
   // Encrypt the entire JSON object.
-  crypto::chacha_key key;
-  crypto::generate_chacha_key(password.data(), password.size(), key);
   std::string cipher;
   cipher.resize(account_data.size());
   keys_file_data.iv = crypto::rand<crypto::chacha_iv>();
@@ -2873,6 +2879,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   rapidjson::Document json;
   wallet2::keys_file_data keys_file_data;
   std::string buf;
+  bool encrypted_secret_keys = false;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
@@ -2918,6 +2925,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_key_on_device = false;
+    encrypted_secret_keys = false;
   }
   else if(json.IsObject())
   {
@@ -3047,6 +3055,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = field_subaddress_lookahead_major;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
     m_subaddress_lookahead_minor = field_subaddress_lookahead_minor;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
+    encrypted_secret_keys = field_encrypted_secret_keys;
   }
   else
   {
@@ -3062,6 +3072,24 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     hwdev.connect();
     m_account.set_device(hwdev);
     LOG_PRINT_L0("Device inited...");
+  }
+
+  if (r)
+  {
+    if (encrypted_secret_keys)
+    {
+      m_account.decrypt_keys(key);
+    }
+    else
+    {
+      // rewrite with encrypted keys, ignore errors
+      bool saved_ret = store_keys(keys_file_name, password, m_watch_only);
+      if (!saved_ret)
+      {
+        // just moan a bit, but not fatal
+        MERROR("Error saving keys file with encrypted keys, not fatal");
+      }
+    }
   }
   const cryptonote::account_keys& keys = m_account.get_keys();
   hw::device &hwdev = m_account.get_device();
@@ -3105,6 +3133,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   rapidjson::Document json;
   wallet2::keys_file_data keys_file_data;
   std::string buf;
+  bool encrypted_secret_keys = false;
   bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
   THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
 
@@ -3128,13 +3157,18 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   {
     account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
       json["key_data"].GetStringLength());
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, encrypted_secret_keys, uint32_t, Uint, false, false);
+    encrypted_secret_keys = field_encrypted_secret_keys;
   }
 
   cryptonote::account_base account_data_check;
 
   r = epee::serialization::load_t_from_binary(account_data_check, account_data);
-  const cryptonote::account_keys& keys = account_data_check.get_keys();
 
+  if (encrypted_secret_keys)
+    account_data_check.decrypt_keys(key);
+
+  const cryptonote::account_keys& keys = account_data_check.get_keys();
   r = r && hwdev.verify_keys(keys.m_view_secret_key,  keys.m_account_address.m_view_public_key);
   if(!no_spend_key)
     r = r && hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
