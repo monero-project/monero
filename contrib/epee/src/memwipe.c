@@ -50,7 +50,7 @@
 
 void *memwipe(void *ptr, size_t n)
 {
-  if (memset_s(ptr, n, 0, n))
+  if (n > 0 && memset_s(ptr, n, 0, n))
   {
 #ifdef NDEBUG
     fprintf(stderr, "Error: memset_s failed\n");
@@ -67,7 +67,8 @@ void *memwipe(void *ptr, size_t n)
 
 void *memwipe(void *ptr, size_t n)
 {
-  explicit_bzero(ptr, n);
+  if (n > 0)
+    explicit_bzero(ptr, n);
   SCARECROW
   return ptr;
 }
@@ -105,7 +106,8 @@ static void memory_cleanse(void *ptr, size_t len)
 
 void *memwipe(void *ptr, size_t n)
 {
-  memory_cleanse(ptr, n);
+  if (n > 0)
+    memory_cleanse(ptr, n);
   SCARECROW
   return ptr;
 }
