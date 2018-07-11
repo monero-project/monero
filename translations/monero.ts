@@ -3716,7 +3716,7 @@ daemon to work correctly.</source>
     </message>
     <message>
         <location filename="../src/wallet/wallet2.cpp" line="117"/>
-        <source>Use daemon instance at port &lt;arg&gt; instead of 18081</source>
+        <source>Use daemon instance at port &lt;arg&gt; instead of 11181.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
