@@ -649,6 +649,10 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   template<class t_protocol_handler>
   bool connection<t_protocol_handler>::shutdown()
   {
+    CRITICAL_REGION_BEGIN(m_shutdown_lock);
+    if (m_was_shutdown)
+      return true;
+    m_was_shutdown = true;
     // Initiate graceful connection closure.
     m_timer.cancel();
     boost::system::error_code ignored_ec;
@@ -658,7 +662,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
       try { host_count(m_host, -1); } catch (...) { /* ignore */ }
       m_host = "";
     }
-    m_was_shutdown = true;
+    CRITICAL_REGION_END();
     m_protocol_handler.release_protocol();
     return true;
   }
@@ -667,6 +671,9 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   bool connection<t_protocol_handler>::close()
   {
     TRY_ENTRY();
+    auto self = safe_shared_from_this();
+    if(!self)
+      return false;
     //_info("[sock " << socket_.native_handle() << "] Que Shutdown called.");
     m_timer.cancel();
     size_t send_que_size = 0;
