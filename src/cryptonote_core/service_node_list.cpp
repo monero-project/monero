@@ -54,6 +54,7 @@ namespace service_nodes
     LOG_PRINT_L0("Recalculating service nodes list, scanning last 30 days");
 
     m_service_nodes_last_reward.clear();
+    m_service_nodes_keys.clear();
 
     while (!m_rollback_events.empty())
     {
@@ -91,14 +92,25 @@ namespace service_nodes
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new prevent_rollback(current_height)));
   }
 
-  std::vector<cryptonote::account_public_address> service_node_list::get_service_nodes_pubkeys()
+  std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
   {
-    std::vector<cryptonote::account_public_address> ret;
-    for (const auto& pubkey_last_reward_pair : m_service_nodes_last_reward)
-    {
-      ret.push_back(pubkey_last_reward_pair.first);
-    }
+    std::vector<crypto::public_key> ret;
+    for (const auto& iter : m_service_nodes_keys)
+      ret.push_back(iter.second);
+    std::sort(ret.begin(), ret.end(),
+        [](const crypto::public_key& a, const crypto::public_key& b) {
+          return memcmp(reinterpret_cast<const void*>(&a), reinterpret_cast<const void*>(&b), sizeof(a)) < 0;
+        });
     return ret;
+  }
+
+  bool service_node_list::is_service_node(const crypto::public_key& pubkey) const
+  {
+    // TODO: speed this up, it should just be a single lookup.
+    for (const auto& iter : m_service_nodes_keys)
+      if (iter.second == pubkey)
+        return true;
+    return false;
   }
 
   bool service_node_list::reg_tx_has_correct_unlock_time(const cryptonote::transaction& tx, uint64_t block_height) const
@@ -106,13 +118,15 @@ namespace service_nodes
     return tx.unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && tx.unlock_time >= block_height + STAKING_REQUIREMENT_LOCK_BLOCKS;
   }
 
-  bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, cryptonote::account_public_address& address, crypto::public_key& tx_pub_key) const
+  bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, cryptonote::account_public_address& address, crypto::public_key& service_node_key, crypto::public_key& tx_pub_key) const
   {
     address = cryptonote::get_account_public_address_from_tx_extra(tx.extra);
+    service_node_key = cryptonote::get_service_node_key_from_tx_extra(tx.extra);
     tx_pub_key = cryptonote::get_tx_pub_key_from_extra(tx.extra);
     return address.m_spend_public_key != crypto::null_pkey &&
       address.m_view_public_key != crypto::null_pkey &&
-      tx_pub_key != crypto::null_pkey;
+      tx_pub_key != crypto::null_pkey &&
+      service_node_key != crypto::null_pkey;
   }
 
   bool service_node_list::is_reg_tx_staking_output(const cryptonote::transaction& tx, int i, uint64_t block_height, crypto::key_derivation derivation, hw::device& hwdev) const
@@ -157,20 +171,23 @@ namespace service_nodes
   // It also sets the address argument to the public spendkey and pub viewkey of
   // the transaction.
   //
-  bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address)
+  bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, crypto::public_key& key) const
   {
     if (!reg_tx_has_correct_unlock_time(tx, block_height))
     {
       return false;
     }
 
-    crypto::public_key tx_pub_key;
+    crypto::public_key tx_pub_key, service_node_key;
     cryptonote::account_public_address service_node_address;
     
-    if (!reg_tx_extract_fields(tx, service_node_address, tx_pub_key))
+    if (!reg_tx_extract_fields(tx, service_node_address, service_node_key, tx_pub_key))
     {
       return false;
     }
+
+    if (is_service_node(service_node_key))
+      return false;
 
     cryptonote::keypair gov_key = cryptonote::get_deterministic_keypair_from_height(1);
 
@@ -184,6 +201,7 @@ namespace service_nodes
       if (is_reg_tx_staking_output(tx, i, block_height, derivation, hwdev))
       {
         address = service_node_address;
+        key = service_node_key;
         return true;
       }
     }
@@ -254,7 +272,7 @@ namespace service_nodes
     {
       m_rollback_events.push_back(
         std::unique_ptr<rollback_event>(
-          new rollback_change(block_height, winner_address, m_service_nodes_last_reward[winner_address])
+          new rollback_change(block_height, winner_address, m_service_nodes_last_reward[winner_address], m_service_nodes_keys[winner_address])
         )
       );
       m_service_nodes_last_reward[winner_address] = std::pair<uint64_t, size_t>(block_height, 0);
@@ -265,8 +283,9 @@ namespace service_nodes
       auto i = m_service_nodes_last_reward.find(address);
       if (i != m_service_nodes_last_reward.end())
       {
-        m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, address, i->second)));
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, address, i->second, m_service_nodes_keys[winner_address])));
         m_service_nodes_last_reward.erase(i);
+        m_service_nodes_keys.erase(address);
       }
     }
 
@@ -274,18 +293,22 @@ namespace service_nodes
     for (const cryptonote::transaction& tx : txs)
     {
       cryptonote::account_public_address address;
-      if (process_registration_tx(tx, block_height, address))
+      crypto::public_key key;
+      if (process_registration_tx(tx, block_height, address, key))
       {
         auto iter = m_service_nodes_last_reward.find(address);
         if (iter == m_service_nodes_last_reward.end())
         {
           m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, address)));
           m_service_nodes_last_reward[address] = std::pair<uint64_t, size_t>(block_height, index);
+          m_service_nodes_keys[address] = key;
         }
         else
         {
-          m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, address, iter->second)));
+          crypto::public_key& service_node_key = m_service_nodes_keys[address];
+          m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, address, iter->second, service_node_key)));
           iter->second = std::pair<uint64_t, size_t>(block_height, index);
+          service_node_key = key;
         }
       }
       index++;
@@ -296,7 +319,7 @@ namespace service_nodes
   {
     while (!m_rollback_events.empty() && m_rollback_events.back()->m_block_height >= height)
     {
-      if (!m_rollback_events.back()->apply(m_service_nodes_last_reward))
+      if (!m_rollback_events.back()->apply(m_service_nodes_last_reward, m_service_nodes_keys))
       {
         init();
         break;
@@ -305,7 +328,7 @@ namespace service_nodes
     }
   }
 
-  std::vector<cryptonote::account_public_address> service_node_list::get_expired_nodes(uint64_t block_height)
+  std::vector<cryptonote::account_public_address> service_node_list::get_expired_nodes(uint64_t block_height) const
   {
     std::vector<cryptonote::account_public_address> expired_nodes;
 
@@ -333,7 +356,8 @@ namespace service_nodes
     for (const cryptonote::transaction& tx : txs)
     {
       cryptonote::account_public_address address;
-      if (process_registration_tx(tx, expired_nodes_block_height, address))
+      crypto::public_key unused_key;
+      if (process_registration_tx(tx, expired_nodes_block_height, address, unused_key))
       {
         expired_nodes.push_back(address);
       }
@@ -409,12 +433,12 @@ namespace service_nodes
   {
   }
 
-  service_node_list::rollback_change::rollback_change(uint64_t block_height, cryptonote::account_public_address address, std::pair<uint64_t, size_t> height_index)
-    : service_node_list::rollback_event(block_height), m_address(address), m_height_index(height_index)
+  service_node_list::rollback_change::rollback_change(uint64_t block_height, const cryptonote::account_public_address& address, const std::pair<uint64_t, size_t>& height_index, const crypto::public_key& key)
+    : service_node_list::rollback_event(block_height), m_address(address), m_height_index(height_index), m_key(key)
   {
   }
 
-  bool service_node_list::rollback_change::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward) const
+  bool service_node_list::rollback_change::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward, std::unordered_map<cryptonote::account_public_address, crypto::public_key>& service_nodes_keys) const
   {
     auto iter = service_nodes_last_reward.find(m_address);
     if (iter == service_nodes_last_reward.end())
@@ -423,6 +447,7 @@ namespace service_nodes
       return false;
     }
     service_nodes_last_reward[m_address] = m_height_index;
+    service_nodes_keys[m_address] = m_key;
     return true;
   }
 
@@ -431,15 +456,22 @@ namespace service_nodes
   {
   }
 
-  bool service_node_list::rollback_new::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward) const
+  bool service_node_list::rollback_new::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward, std::unordered_map<cryptonote::account_public_address, crypto::public_key>& service_nodes_keys) const
   {
     auto iter = service_nodes_last_reward.find(m_address);
+    auto iter2 = service_nodes_keys.find(m_address);
     if (iter == service_nodes_last_reward.end())
     {
       MERROR("Could not find service node address in rollback new");
       return false;
     }
+    if (iter2 == service_nodes_keys.end())
+    {
+      MERROR("Could not find service node pubkey in rollback new");
+      return false;
+    }
     service_nodes_last_reward.erase(iter);
+    service_nodes_keys.erase(iter2);
     return true;
   }
 
@@ -447,7 +479,7 @@ namespace service_nodes
   {
   }
 
-  bool service_node_list::prevent_rollback::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward) const
+  bool service_node_list::prevent_rollback::apply(std::unordered_map<cryptonote::account_public_address, std::pair<uint64_t, size_t>>& service_nodes_last_reward, std::unordered_map<cryptonote::account_public_address, crypto::public_key>& service_nodes_keys) const
   {
     MERROR("Unable to rollback any further!");
     return false;

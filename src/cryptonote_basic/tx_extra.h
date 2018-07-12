@@ -174,10 +174,12 @@ namespace cryptonote
   {
     crypto::public_key m_spend_public_key;
     crypto::public_key m_view_public_key;
+    crypto::public_key m_service_node_key;
 
     BEGIN_SERIALIZE()
       FIELD(m_spend_public_key)
       FIELD(m_view_public_key)
+      FIELD(m_service_node_key)
     END_SERIALIZE()
   };
 

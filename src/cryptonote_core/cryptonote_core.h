@@ -940,6 +940,13 @@ namespace cryptonote
       */
      bool check_disk_space();
 
+     /**
+      * @brief Initializes service node key by loading or creating.
+      *
+      * @return true on success, false otherwise
+      */
+     bool init_service_node_key();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
@@ -978,6 +985,10 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
      bool m_disable_dns_checkpoints;
+
+     bool m_service_node;
+     crypto::secret_key m_service_node_key;
+     crypto::public_key m_service_node_pubkey;
 
      size_t block_sync_size;
 
