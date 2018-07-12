@@ -685,6 +685,17 @@ namespace cryptonote
   }  
   //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_uptime_proof(int command, NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_UPTIME_PROOF");
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+    if (m_core.handle_uptime_proof(arg.timestamp, arg.pubkey, arg.sig))
+      relay_uptime_proof(arg, context);
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------  
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_FLUFFY_MISSING_TX (" << arg.missing_tx_indices.size() << " txes), block hash " << arg.block_hash);
@@ -1761,6 +1772,12 @@ skip:
     for(auto tx_blob_it = arg.txs.begin(); tx_blob_it!=arg.txs.end(); ++tx_blob_it)
       m_core.on_transaction_relayed(*tx_blob_it);
     return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_uptime_proof(NOTIFY_UPTIME_PROOF::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    return relay_post_notify<NOTIFY_UPTIME_PROOF>(arg, exclude_context);
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

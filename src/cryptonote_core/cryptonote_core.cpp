@@ -172,6 +172,7 @@ namespace cryptonote
               m_mempool(m_blockchain_storage),
               m_service_node_list(m_blockchain_storage),
               m_blockchain_storage(m_mempool, m_service_node_list, m_deregister_vote_pool),
+              m_quorum_cop(*this, m_service_node_list),
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
@@ -527,6 +528,8 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
+    // NOTE: Hooks must be registered before blockchain is initialised for the blockchain init hook to occur.
+    m_service_node_list.register_hooks(m_quorum_cop);
     r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, test_options);
 
     r = m_mempool.init(max_txpool_size);
@@ -1090,6 +1093,23 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::submit_uptime_proof()
+  {
+    if (m_service_node)
+    {
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      NOTIFY_UPTIME_PROOF::request r;
+      m_quorum_cop.generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
+      get_protocol()->relay_uptime_proof(r, fake_context);
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
+  {
+    return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::on_transaction_relayed(const cryptonote::blobdata& tx_blob)
   {
     std::list<std::pair<crypto::hash, cryptonote::blobdata>> txs;
@@ -1439,6 +1459,12 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
+    if (m_service_node && m_service_node_list.is_service_node(m_service_node_pubkey))
+    {
+      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+      m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
+    }
+
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1701,6 +1727,15 @@ namespace cryptonote
     }
 
     return result;
+  }
+  bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
+  {
+    if (m_service_node)
+    {
+      pub_key = m_service_node_pubkey;
+      sec_key = m_service_node_key;
+    }
+    return m_service_node;
   }
   //-----------------------------------------------------------------------------------------------
   std::string core::prepare_registration(const std::vector<std::string>& args)

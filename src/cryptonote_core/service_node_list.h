@@ -34,10 +34,12 @@
 
 namespace service_nodes
 {
-  const size_t QUORUM_SIZE                    = 3;
-  const size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 3;
+  const size_t QUORUM_SIZE                    = 10;
+  const size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
   const size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
   const size_t MIN_NODES_TO_TEST              = 50;
+
+  class quorum_cop;
 
   struct quorum_state
   {
@@ -56,6 +58,7 @@ namespace service_nodes
     service_node_list(cryptonote::Blockchain& blockchain);
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
     void blockchain_detached(uint64_t height);
+    void register_hooks(service_nodes::quorum_cop &quorum_cop);
     void init();
     bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward);
 
@@ -100,7 +103,7 @@ namespace service_nodes
     void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
     void process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 
-    std::vector<crypto::public_key> get_service_node_pubkeys() const;
+    std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
     template<typename T>
     void block_added_generic(const cryptonote::block& block, const T& txs);
@@ -153,6 +156,7 @@ namespace service_nodes
     std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
     std::list<std::unique_ptr<rollback_event>> m_rollback_events;
     cryptonote::Blockchain& m_blockchain;
+    bool m_hooks_registered;
 
     using block_height = uint64_t;
     std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;

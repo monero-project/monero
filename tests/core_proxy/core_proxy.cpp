@@ -223,6 +223,12 @@ bool tests::proxy_core::handle_incoming_block(const cryptonote::blobdata& block_
     return true;
 }
 
+bool tests::proxy_core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
+{
+  // TODO: add tests for core uptime proof checking.
+  return false; // never relay these for tests.
+}
+
 bool tests::proxy_core::get_short_chain_history(std::list<crypto::hash>& ids) {
     build_short_history(ids, m_lastblk);
     return true;
