@@ -573,6 +573,14 @@ namespace tools
       const std::vector<crypto::secret_key> &view_keys,
       const std::vector<crypto::public_key> &spend_keys,
       uint32_t threshold);
+    std::string exchange_multisig_keys(const epee::wipeable_string &password,
+      const std::vector<std::string> &info);
+    /*!
+     * \brief Any but first round of keys exchange
+     */
+    std::string exchange_multisig_keys(const epee::wipeable_string &password,
+      std::unordered_set<crypto::public_key> pkeys,
+      std::vector<crypto::public_key> signers);
     /*!
      * \brief Finalizes creation of a multisig wallet
      */
@@ -1245,6 +1253,12 @@ namespace tools
     bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     uint64_t get_segregation_fork_height() const;
+    void unpack_multisig_info(const std::vector<std::string>& info,
+      std::vector<crypto::public_key> &public_keys,
+      std::vector<crypto::secret_key> &secret_keys) const;
+    bool unpack_extra_multisig_info(const std::vector<std::string>& info,
+      std::vector<crypto::public_key> &signers,
+      std::unordered_set<crypto::public_key> &pkeys) const;
 
     void cache_tx_data(const cryptonote::transaction& tx, const crypto::hash &txid, tx_cache_data &tx_cache_data) const;
 
@@ -1295,6 +1309,9 @@ namespace tools
     bool m_multisig; /*!< if > 1 spend secret key will not match spend public key */
     uint32_t m_multisig_threshold;
     std::vector<crypto::public_key> m_multisig_signers;
+    //in case of general M/N multisig wallet we should perform N - M + 1 key exchange rounds and remember how many rounds are passed.
+    uint32_t m_multisig_rounds_passed;
+    std::vector<crypto::public_key> m_multisig_derivations;
     bool m_always_confirm_transfers;
     bool m_print_ring_members;
     bool m_store_tx_info; /*!< request txkey to be returned in RPC, and store in the wallet cache file */

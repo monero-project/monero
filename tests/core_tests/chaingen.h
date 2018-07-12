@@ -593,7 +593,7 @@ inline bool do_replay_file(const std::string& filename)
         std::vector<crypto::public_key> spend_public_keys; \
         for (const auto &k: all_multisig_keys) \
           spend_public_keys.push_back(k); \
-        crypto::public_key spend_pkey = cryptonote::generate_multisig_N1_N_spend_public_key(spend_public_keys); \
+        crypto::public_key spend_pkey = cryptonote::generate_multisig_M_N_spend_public_key(spend_public_keys); \
         for (size_t msidx = 0; msidx < total; ++msidx) \
           account[msidx].finalize_multisig(spend_pkey); \
       } \

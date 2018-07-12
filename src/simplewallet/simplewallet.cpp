@@ -968,7 +968,7 @@ bool simple_wallet::make_multisig(const std::vector<std::string> &args)
     {
       success_msg_writer() << tr("Another step is needed");
       success_msg_writer() << multisig_extra_info;
-      success_msg_writer() << tr("Send this multisig info to all other participants, then use finalize_multisig <info1> [<info2>...] with others' multisig info");
+      success_msg_writer() << tr("Send this multisig info to all other participants, then use exchange_multisig_keys <info1> [<info2>...] with others' multisig info");
       return true;
     }
   }
@@ -1040,6 +1040,61 @@ bool simple_wallet::finalize_multisig(const std::vector<std::string> &args)
   }
 
   return true;
+}
+
+bool simple_wallet::exchange_multisig_keys(const std::vector<std::string> &args) {
+    bool ready;
+    if (m_wallet->key_on_device())
+    {
+      fail_msg_writer() << tr("command not supported by HW wallet");
+      return true;
+    }
+    if (!m_wallet->multisig(&ready))
+    {
+      fail_msg_writer() << tr("This wallet is not multisig");
+      return true;
+    }
+    if (ready)
+    {
+      fail_msg_writer() << tr("This wallet is already finalized");
+      return true;
+    }
+
+    const auto orig_pwd_container = get_and_verify_password();
+    if(orig_pwd_container == boost::none)
+    {
+      fail_msg_writer() << tr("Your original password was incorrect.");
+      return true;
+    }
+
+    if (args.size() < 2)
+    {
+      fail_msg_writer() << tr("usage: exchange_multisig_keys <multisiginfo1> [<multisiginfo2>...]");
+      return true;
+    }
+
+    try
+    {
+      std::string multisig_extra_info = m_wallet->exchange_multisig_keys(orig_pwd_container->password(), args);
+      if (!multisig_extra_info.empty())
+      {
+        message_writer() << tr("Another step is needed");
+        message_writer() << multisig_extra_info;
+        message_writer() << tr("Send this multisig info to all other participants, then use exchange_multisig_keys <info1> [<info2>...] with others' multisig info");
+        return true;
+      } else {
+        uint32_t threshold, total;
+        m_wallet->multisig(NULL, &threshold, &total);
+        success_msg_writer() << tr("Multisig wallet has been successfully created. Current wallet type: ") << threshold << "/" << total;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      fail_msg_writer() << tr("Failed to perform multisig keys exchange: ") << e.what();
+      return true;
+    }
+
+    return true;
 }
 
 bool simple_wallet::export_multisig(const std::vector<std::string> &args)
@@ -2552,6 +2607,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::finalize_multisig, this, _1),
                            tr("finalize_multisig <string> [<string>...]"),
                            tr("Turn this wallet into a multisig wallet, extra step for N-1/N wallets"));
+  m_cmd_binder.set_handler("exchange_multisig_keys",
+                           boost::bind(&simple_wallet::exchange_multisig_keys, this, _1),
+                           tr("exchange_multisig_keys <string> [<string>...]"),
+                           tr("Performs extra multisig keys exchange rounds. Needed for arbitrary M/N multisig wallets"));
   m_cmd_binder.set_handler("export_multisig_info",
                            boost::bind(&simple_wallet::export_multisig, this, _1),
                            tr("export_multisig_info <filename>"),
