@@ -249,7 +249,7 @@ namespace cryptonote
       std::set<uint32_t> index;
       std::string note;
     };
-    bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
+    bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers) const;
 
     /*!
      * \brief Prints the seed with a nice message

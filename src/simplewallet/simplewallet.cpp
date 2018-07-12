@@ -6178,7 +6178,7 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
 }
 //----------------------------------------------------------------------------------------------------
 // mutates local_args as it parses and consumes arguments
-bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers)
+bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers) const
 {
   bool in = true;
   bool out = true;
