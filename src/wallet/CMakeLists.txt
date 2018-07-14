@@ -34,7 +34,9 @@ set(wallet_sources
   wallet2.cpp
   wallet_args.cpp
   ringdb.cpp
-  node_rpc_proxy.cpp)
+  node_rpc_proxy.cpp
+  mms.cpp
+)
 
 set(wallet_private_headers
   wallet2.h
@@ -44,7 +46,8 @@ set(wallet_private_headers
   wallet_rpc_server_commands_defs.h
   wallet_rpc_server_error_codes.h
   ringdb.h
-  node_rpc_proxy.h)
+  node_rpc_proxy.h
+  mms.h)
 
 monero_private_headers(wallet
   ${wallet_private_headers})
@@ -102,6 +105,39 @@ set_property(TARGET wallet_rpc_server
     OUTPUT_NAME "monero-wallet-rpc")
 install(TARGETS wallet_rpc_server DESTINATION bin)
 
+set(messaging_daemon_sources
+  messaging_daemon.cpp)
+
+set(messaging_daemon_headers)
+
+set(messaging_daemon_private_headers
+  messaging_daemon.h)
+
+monero_private_headers(messaging_daemon
+  ${messaging_daemon_private_headers})
+monero_add_executable(messaging_daemon
+  ${messaging_daemon_sources}
+  ${messaging_daemon_headers}
+  ${messaging_daemon_private_headers})
+
+target_link_libraries(messaging_daemon
+  PRIVATE
+    epee
+    rpc_base
+    cryptonote_core
+    cncrypto
+    common
+    version
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+set_property(TARGET messaging_daemon
+  PROPERTY
+    OUTPUT_NAME "monero-messaging-daemon")
+install(TARGETS messaging_daemon DESTINATION bin)
 
 # build and install libwallet_merged only if we building for GUI
 if (BUILD_GUI_DEPS)

@@ -58,6 +58,7 @@
 #include "wallet_errors.h"
 #include "common/password.h"
 #include "node_rpc_proxy.h"
+#include "mms.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -133,7 +134,7 @@ namespace tools
     std::deque<crypto::hash> m_blockchain;
   };
 
-  class wallet2
+  class wallet2 : public i_wallet_state_provider
   {
     friend class ::Serialization_portability_wallet_Test;
   public:
@@ -1143,6 +1144,11 @@ namespace tools
     bool set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add = false);
     bool unblackball_output(const crypto::public_key &output);
     bool is_output_blackballed(const crypto::public_key &output) const;
+    
+    // MMS -------------------------------------------------------------------------------------------------
+    message_store& get_message_store() { return m_message_store; };
+    virtual void get_wallet_state(wallet_state &state) override;
+    virtual void get_num_transfer_details(size_t &num) override;
 
   private:
     /*!
@@ -1221,6 +1227,7 @@ namespace tools
     std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;
+    std::string m_mms_file;
     epee::net_utils::http::http_simple_client m_http_client;
     hashchain m_blockchain;
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
@@ -1310,6 +1317,11 @@ namespace tools
 
     uint64_t m_last_block_reward;
     std::unique_ptr<tools::file_locker> m_keys_file_locker;
+    
+    message_store m_message_store;
+    bool m_original_keys_available;
+    cryptonote::account_public_address m_original_address;
+    crypto::secret_key m_original_view_secret_key;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 25)
