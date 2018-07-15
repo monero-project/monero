@@ -2963,7 +2963,7 @@ void wallet2::setup_keys(const epee::wipeable_string &password)
   }
 
   static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
-  tools::scrubbed_arr<char, HASH_SIZE+1> cache_key_data;
+  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
   memcpy(cache_key_data.data(), &key, HASH_SIZE);
   cache_key_data[HASH_SIZE] = CACHE_KEY_TAIL;
   cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&)m_cache_key);

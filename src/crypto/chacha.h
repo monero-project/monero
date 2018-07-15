@@ -40,6 +40,7 @@
 #include <memory.h>
 
 #include "memwipe.h"
+#include "mlocker.h"
 #include "hash.h"
 
 namespace crypto {
@@ -50,7 +51,7 @@ namespace crypto {
 #if defined(__cplusplus)
   }
 
-  using chacha_key = tools::scrubbed_arr<uint8_t, CHACHA_KEY_SIZE>;
+  using chacha_key = epee::mlocked<tools::scrubbed_arr<uint8_t, CHACHA_KEY_SIZE>>;
 
 #pragma pack(push, 1)
   // MS VC 2012 doesn't interpret `class chacha_iv` as POD in spite of [9.0.10], so it is a struct
@@ -71,20 +72,20 @@ namespace crypto {
 
   inline void generate_chacha_key(const void *data, size_t size, chacha_key& key, uint64_t kdf_rounds) {
     static_assert(sizeof(chacha_key) <= sizeof(hash), "Size of hash must be at least that of chacha_key");
-    tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
+    epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE>> pwd_hash;
     crypto::cn_slow_hash(data, size, pwd_hash.data(), 0/*variant*/, 0/*prehashed*/);
     for (uint64_t n = 1; n < kdf_rounds; ++n)
       crypto::cn_slow_hash(pwd_hash.data(), pwd_hash.size(), pwd_hash.data(), 0/*variant*/, 0/*prehashed*/);
-    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(unwrap(key)), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key_prehashed(const void *data, size_t size, chacha_key& key, uint64_t kdf_rounds) {
     static_assert(sizeof(chacha_key) <= sizeof(hash), "Size of hash must be at least that of chacha_key");
-    tools::scrubbed_arr<char, HASH_SIZE> pwd_hash;
+    epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE>> pwd_hash;
     crypto::cn_slow_hash(data, size, pwd_hash.data(), 0/*variant*/, 1/*prehashed*/);
     for (uint64_t n = 1; n < kdf_rounds; ++n)
       crypto::cn_slow_hash(pwd_hash.data(), pwd_hash.size(), pwd_hash.data(), 0/*variant*/, 0/*prehashed*/);
-    memcpy(&unwrap(key), pwd_hash.data(), sizeof(key));
+    memcpy(&unwrap(unwrap(key)), pwd_hash.data(), sizeof(key));
   }
 
   inline void generate_chacha_key(std::string password, chacha_key& key, uint64_t kdf_rounds) {
