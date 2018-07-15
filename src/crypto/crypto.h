@@ -41,6 +41,7 @@
 #include "common/pod-class.h"
 #include "common/util.h"
 #include "memwipe.h"
+#include "mlocker.h"
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
@@ -65,7 +66,7 @@ namespace crypto {
     friend class crypto_ops;
   };
 
-  using secret_key = tools::scrubbed<ec_scalar>;
+  using secret_key = epee::mlocked<tools::scrubbed<ec_scalar>>;
 
   POD_CLASS public_keyV {
     std::vector<public_key> keys;
