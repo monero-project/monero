@@ -277,8 +277,8 @@ namespace crypto {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
 
-  const static crypto::public_key null_pkey = boost::value_initialized<crypto::public_key>();
-  const static crypto::secret_key null_skey = boost::value_initialized<crypto::secret_key>();
+  const extern crypto::public_key null_pkey;
+  const extern crypto::secret_key null_skey;
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
