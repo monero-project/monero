@@ -91,6 +91,17 @@ monero_private_headers(blockchain_usage
 
 
 
+set(blockchain_ancestry_sources
+  blockchain_ancestry.cpp
+  )
+
+set(blockchain_ancestry_private_headers)
+
+monero_private_headers(blockchain_ancestry
+	  ${blockchain_ancestry_private_headers})
+
+
+
 monero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers}
@@ -182,4 +193,25 @@ set_property(TARGET blockchain_usage
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-usage")
 install(TARGETS blockchain_usage DESTINATION bin)
+
+monero_add_executable(blockchain_ancestry
+  ${blockchain_ancestry_sources}
+  ${blockchain_ancestry_private_headers})
+
+target_link_libraries(blockchain_ancestry
+  PRIVATE
+    cryptonote_core
+    blockchain_db
+    version
+    epee
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+set_property(TARGET blockchain_ancestry
+	PROPERTY
+	OUTPUT_NAME "monero-blockchain-ancestry")
+install(TARGETS blockchain_ancestry DESTINATION bin)
 
