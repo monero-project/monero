@@ -185,16 +185,6 @@ TEST(bulletproofs, invalid_gamma_0)
   ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
 }
 
-TEST(bulletproofs, invalid_gamma_ff)
-{
-  rct::key invalid_amount = rct::zero();
-  invalid_amount[8] = 1;
-  rct::key gamma = rct::zero();
-  memset(&gamma, 0xff, sizeof(gamma));
-  rct::Bulletproof proof = bulletproof_PROVE(invalid_amount, gamma);
-  ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
-}
-
 static const char * const torsion_elements[] =
 {
   "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",

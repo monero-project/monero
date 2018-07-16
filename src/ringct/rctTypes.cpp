@@ -236,6 +236,7 @@ namespace rct {
     size_t n_bulletproof_amounts(const Bulletproof &proof)
     {
         CHECK_AND_ASSERT_MES(proof.L.size() >= 6, 0, "Invalid bulletproof L size");
+        CHECK_AND_ASSERT_MES(proof.L.size() <= 31, 0, "Insane bulletproof L size");
         return 1 << (proof.L.size() - 6);
     }
 
@@ -245,6 +246,7 @@ namespace rct {
         for (const Bulletproof &proof: proofs)
         {
             size_t n2 = n_bulletproof_amounts(proof);
+            CHECK_AND_ASSERT_MES(n2 < std::numeric_limits<uint32_t>::max() - n, 0, "Invalid number of bulletproofs");
             if (n2 == 0)
                 return 0;
             n += n2;

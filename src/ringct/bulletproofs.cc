@@ -74,14 +74,20 @@ static boost::mutex init_mutex;
 
 static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
 {
-  static const size_t STEP = getenv("STRAUS_STEP") ? atoi(getenv("STRAUS_STEP")) : 0;
   if (HiGi)
   {
     static_assert(128 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
-    return data.size() <= 128 ? straus(data, straus_HiGi_cache, STEP) : pippenger(data, pippenger_HiGi_cache, get_pippenger_c(data.size()));
+    return data.size() <= 128 ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, get_pippenger_c(data.size()));
   }
   else
-    return data.size() <= 64 ? straus(data, NULL, STEP) : pippenger(data, NULL, get_pippenger_c(data.size()));
+    return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, get_pippenger_c(data.size()));
+}
+
+static bool is_reduced(const rct::key &scalar)
+{
+  rct::key reduced = scalar;
+  sc_reduce32(reduced.bytes);
+  return scalar == reduced;
 }
 
 //addKeys3acc_p3
@@ -659,6 +665,10 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 {
   CHECK_AND_ASSERT_THROW_MES(sv.size() == gamma.size(), "Incompatible sizes of sv and gamma");
   CHECK_AND_ASSERT_THROW_MES(!sv.empty(), "sv is empty");
+  for (const rct::key &sve: sv)
+    CHECK_AND_ASSERT_THROW_MES(is_reduced(sve), "Invalid sv input");
+  for (const rct::key &g: gamma)
+    CHECK_AND_ASSERT_THROW_MES(is_reduced(g), "Invalid gamma input");
 
   init_exponents();
 
@@ -934,6 +944,13 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.S), false, "Input point not in subgroup");
     CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T1), false, "Input point not in subgroup");
     CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T2), false, "Input point not in subgroup");
+
+    // check scalar range
+    CHECK_AND_ASSERT_MES(is_reduced(proof.taux), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.mu), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.a), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.b), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.t), false, "Input scalar not in range");
 
     CHECK_AND_ASSERT_MES(proof.V.size() >= 1, false, "V does not have at least one element");
     CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
