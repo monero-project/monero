@@ -3707,9 +3707,8 @@ void sc_muladd(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s[31] = s11 >> 17;
 }
 
-/* Assumes that a != INT64_MIN */
 static int64_t signum(int64_t a) {
-  return (a >> 63) - ((-a) >> 63);
+  return a > 0 ? 1 : a < 0 ? -1 : 0;
 }
 
 int sc_check(const unsigned char *s) {
