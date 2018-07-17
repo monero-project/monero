@@ -1,0 +1,31 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_STRATEGY: fetch
+
+stages:
+  - build
+  - test
+
+build:linux:
+  image: registry.gitlab.com/lokiproject/loki:latest
+  tags:
+    - ubuntu
+  stage: build
+  script:
+    # print our runner distro
+    - cat /proc/version
+    # print the current commit hash
+    - echo $CI_COMMIT_SHA
+    - make -j$THREAD_COUNT release-static
+  artifacts:
+    paths:
+      - "build/release/bin"
+  # disable cache to ensure reproducible builds
+  # cache:
+  #   paths:
+  #     - "build"
+
+# test:
+#   stage: test
+#   script:
+#     - ./test/testall
