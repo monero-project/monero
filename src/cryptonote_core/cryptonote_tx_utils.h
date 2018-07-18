@@ -37,9 +37,25 @@
 namespace cryptonote
 {
   //---------------------------------------------------------------
-  bool construct_miner_tx(size_t height, size_t median_size, uint64_t already_generated_coins, size_t current_block_size, uint64_t fee, const account_public_address &miner_address, transaction& tx, const blobdata& extra_nonce = blobdata(), size_t max_outs = 999, uint8_t hard_fork_version = 1, network_type nettype = MAINNET, const account_public_address service_node_address=account_public_address());
+  bool construct_miner_tx(
+      size_t height,
+      size_t median_size,
+      uint64_t already_generated_coins,
+      size_t current_block_size,
+      uint64_t fee,
+      const account_public_address &miner_address,
+      transaction& tx,
+      const blobdata& extra_nonce = blobdata(),
+      size_t max_outs = 999,
+      uint8_t hard_fork_version = 1,
+      network_type nettype = MAINNET,
+      const crypto::public_key& service_node_key = crypto::null_pkey,
+      const std::vector<std::pair<account_public_address, uint32_t>>& service_node_info={ std::pair<account_public_address, uint32_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_SHARES) }
+  );
 
   keypair get_deterministic_keypair_from_height(uint64_t height);
+
+  uint64_t get_share_of_reward(uint32_t shares, uint64_t total_service_node_reward);
 
   uint64_t get_governance_reward(uint64_t height, uint64_t base_reward);
   uint64_t get_service_node_reward(uint64_t height, uint64_t base_reward, int hard_fork_version);

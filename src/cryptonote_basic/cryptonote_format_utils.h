@@ -71,9 +71,11 @@ namespace cryptonote
   void add_tx_pub_key_to_extra(transaction_prefix& tx, const crypto::public_key& tx_pub_key);
   void add_tx_pub_key_to_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& tx_pub_key);
   bool add_service_node_deregister_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_deregister& deregistration);
-  void add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_register& registration);
   bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register& registration);
   bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister& deregistration);
+  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, const crypto::public_key& service_node_key);
+  void add_service_node_winner_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& winner);
+  crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra);
   std::vector<crypto::public_key> get_additional_tx_pub_keys_from_extra(const std::vector<uint8_t>& tx_extra);
   std::vector<crypto::public_key> get_additional_tx_pub_keys_from_extra(const transaction_prefix& tx);
   bool add_additional_tx_pub_keys_to_extra(std::vector<uint8_t>& tx_extra, const std::vector<crypto::public_key>& additional_pub_keys);

@@ -480,7 +480,6 @@ namespace cryptonote
     binary_archive<true> ar(oss);
     bool r = ::do_serialize(ar, field);
     CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra service node deregister");
-
     std::string tx_extra_str = oss.str();
     size_t pos = tx_extra.size();
     tx_extra.resize(tx_extra.size() + tx_extra_str.size());
@@ -489,17 +488,46 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  void add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_register& registration)
-  {
-    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char*>(&registration), sizeof(registration), TX_EXTRA_TAG_SERVICE_NODE_REGISTER);
-  }
-  //---------------------------------------------------------------
   bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register &registration)
   {
     std::vector<tx_extra_field> tx_extra_fields;
     parse_tx_extra(tx_extra, tx_extra_fields);
     bool result = find_tx_extra_field_by_type(tx_extra_fields, registration);
-    return result;
+    return result && registration.m_public_spend_keys.size() == registration.m_public_view_keys.size();
+  }
+  //---------------------------------------------------------------
+  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, const crypto::public_key& service_node_key)
+  {
+    if (addresses.size() != shares.size())
+    {
+      LOG_ERROR("Tried to serialize registration with more addresses than shares, this should never happen");
+      return false;
+    }
+    std::vector<crypto::public_key> public_view_keys(addresses.size());
+    std::vector<crypto::public_key> public_spend_keys(addresses.size());
+    for (size_t i = 0; i < addresses.size(); i++)
+    {
+      public_view_keys[i] = addresses[i].m_view_public_key;
+      public_spend_keys[i] = addresses[i].m_spend_public_key;
+    }
+    // convert to variant
+    tx_extra_field field = tx_extra_service_node_register{ public_spend_keys, public_view_keys, shares, service_node_key };
+    // serialize
+    std::ostringstream oss;
+    binary_archive<true> ar(oss);
+    bool r = ::do_serialize(ar, field);
+    CHECK_AND_NO_ASSERT_MES_L1(r, false, "failed to serialize tx extra registration tx");
+    // append
+    std::string tx_extra_str = oss.str();
+    size_t pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + tx_extra_str.size());
+    memcpy(&tx_extra[pos], tx_extra_str.data(), tx_extra_str.size());
+    return true;
+  }
+  //---------------------------------------------------------------
+  void add_service_node_winner_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& winner)
+  {
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&winner), sizeof(winner), TX_EXTRA_TAG_SERVICE_NODE_WINNER);
   }
   //---------------------------------------------------------------
   bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister &deregistration)
@@ -508,6 +536,18 @@ namespace cryptonote
     parse_tx_extra(tx_extra, tx_extra_fields);
     bool result = find_tx_extra_field_by_type(tx_extra_fields, deregistration);
     return result;
+  }
+  //---------------------------------------------------------------
+  crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  {
+    // parse
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    // find corresponding field
+    tx_extra_service_node_winner winner;
+    if (!find_tx_extra_field_by_type(tx_extra_fields, winner))
+      return crypto::null_pkey;
+    return winner.m_service_node_key;
   }
   //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)

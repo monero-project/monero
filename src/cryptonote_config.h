@@ -52,6 +52,7 @@
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*31)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
+#define STAKING_SHARES                                  UINT32_MAX
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 

@@ -1324,9 +1324,10 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   uint8_t hf_version = m_hardfork->get_current_version();
   size_t max_outs = hf_version >= 4 ? 1 : 11;
 
-  account_public_address service_node_address = m_service_node_list.select_winner(b.prev_id);
+  crypto::public_key winner = m_service_node_list.select_winner(b.prev_id);
+  std::vector<std::pair<account_public_address, uint32_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_shares(b.prev_id);
 
-  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, service_node_address);
+  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, winner, service_node_addresses);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_size = txs_size + get_object_blobsize(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1335,7 +1336,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, service_node_address);
+    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, m_nettype, winner, service_node_addresses);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_blob_size = get_object_blobsize(b.miner_tx);
