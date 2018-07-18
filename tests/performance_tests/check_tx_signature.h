@@ -40,7 +40,7 @@
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_ring_size, size_t a_outputs, bool a_rct, bool a_bulletproof>
+template<size_t a_ring_size, size_t a_outputs, bool a_rct, rct::RangeProofType range_proof_type = rct::RangeProofBorromean>
 class test_check_tx_signature : private multi_tx_test_base<a_ring_size>
 {
   static_assert(0 < a_ring_size, "ring_size must be greater than 0");
@@ -50,7 +50,6 @@ public:
   static const size_t ring_size = a_ring_size;
   static const size_t outputs = a_outputs;
   static const bool rct = a_rct;
-  static const bool bulletproof = a_bulletproof;
 
   typedef multi_tx_test_base<a_ring_size> base_class;
 
@@ -72,7 +71,7 @@ public:
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, bulletproof ? rct::RangeProofMultiOutputBulletproof : rct::RangeProofBorromean))
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, range_proof_type))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
@@ -136,7 +135,7 @@ public:
     m_txes.resize(a_num_txes + (extra_outs > 0 ? 1 : 0));
     for (size_t n = 0; n < a_num_txes; ++n)
     {
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, true, rct::RangeProofMultiOutputBulletproof))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, true, rct::RangeProofPaddedBulletproof))
         return false;
     }
 

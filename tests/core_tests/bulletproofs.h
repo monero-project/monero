@@ -81,8 +81,8 @@ struct gen_bp_tx_validation_base : public test_chain_unit_base
     return true;
   }
 
-  bool generate_with(std::vector<test_event_entry>& events, const int *out_idx, int mixin,
-      size_t n_txes, const uint64_t *amounts_paid, bool valid, const bool *multi_out,
+  bool generate_with(std::vector<test_event_entry>& events, size_t mixin,
+      size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RangeProofType *range_proof_type,
       const std::function<bool(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations, size_t)> &pre_tx,
       const std::function<bool(cryptonote::transaction &tx, size_t)> &post_tx) const;
 
@@ -95,7 +95,7 @@ private:
 
 template<>
 struct get_test_options<gen_bp_tx_validation_base> {
-  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(8, 69), std::make_pair(0, 0)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(8, 73), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };
@@ -120,17 +120,29 @@ struct gen_bp_tx_valid_2 : public gen_bp_tx_validation_base
 };
 template<> struct get_test_options<gen_bp_tx_valid_2>: public get_test_options<gen_bp_tx_validation_base> {};
 
-struct gen_bp_tx_valid_4_2_1 : public gen_bp_tx_validation_base
+struct gen_bp_tx_valid_3 : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_bp_tx_valid_4_2_1>: public get_test_options<gen_bp_tx_validation_base> {};
+template<> struct get_test_options<gen_bp_tx_valid_3>: public get_test_options<gen_bp_tx_validation_base> {};
 
-struct gen_bp_tx_valid_16_16 : public gen_bp_tx_validation_base
+struct gen_bp_tx_valid_16 : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_bp_tx_valid_16_16>: public get_test_options<gen_bp_tx_validation_base> {};
+template<> struct get_test_options<gen_bp_tx_valid_16>: public get_test_options<gen_bp_tx_validation_base> {};
+
+struct gen_bp_tx_invalid_4_2_1 : public gen_bp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bp_tx_invalid_4_2_1>: public get_test_options<gen_bp_tx_validation_base> {};
+
+struct gen_bp_tx_invalid_16_16 : public gen_bp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bp_tx_invalid_16_16>: public get_test_options<gen_bp_tx_validation_base> {};
 
 struct gen_bp_txs_valid_2_and_2 : public gen_bp_tx_validation_base
 {
@@ -138,11 +150,11 @@ struct gen_bp_txs_valid_2_and_2 : public gen_bp_tx_validation_base
 };
 template<> struct get_test_options<gen_bp_txs_valid_2_and_2>: public get_test_options<gen_bp_tx_validation_base> {};
 
-struct gen_bp_txs_valid_2_and_8_2_and_16_16_1 : public gen_bp_tx_validation_base
+struct gen_bp_txs_invalid_2_and_8_2_and_16_16_1 : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_bp_txs_valid_2_and_8_2_and_16_16_1>: public get_test_options<gen_bp_tx_validation_base> {};
+template<> struct get_test_options<gen_bp_txs_invalid_2_and_8_2_and_16_16_1>: public get_test_options<gen_bp_tx_validation_base> {};
 
 struct gen_bp_tx_invalid_not_enough_proofs : public gen_bp_tx_validation_base
 {
@@ -162,9 +174,8 @@ struct gen_bp_tx_invalid_wrong_amount : public gen_bp_tx_validation_base
 };
 template<> struct get_test_options<gen_bp_tx_invalid_wrong_amount>: public get_test_options<gen_bp_tx_validation_base> {};
 
-struct gen_bp_tx_invalid_switched : public gen_bp_tx_validation_base
+struct gen_bp_tx_invalid_borromean_type : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_bp_tx_invalid_switched>: public get_test_options<gen_bp_tx_validation_base> {};
-
+template<> struct get_test_options<gen_bp_tx_invalid_borromean_type>: public get_test_options<gen_bp_tx_validation_base> {};

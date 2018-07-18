@@ -95,7 +95,7 @@ namespace cryptonote
     {
       block   bl; //!< the block
       uint64_t height; //!< the height of the block in the blockchain
-      size_t block_cumulative_size; //!< the size (in bytes) of the block
+      size_t block_cumulative_weight; //!< the weight of the block
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
@@ -579,46 +579,57 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
 
     /**
-     * @brief get dynamic per kB fee for a given block size
+     * @brief get fee quantization mask
      *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB.
+     * The dynamic fee may be quantized, to mask out the last decimal places
      *
-     * @param block_reward the current block reward
-     * @param median_block_size the median blob's size in the past window
-     * @param version hard fork version for rules and constants to use
-     *
-     * @return the per kB fee
+     * @return the fee quantized mask
      */
-    static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size, uint8_t version);
+    static uint64_t get_fee_quantization_mask();
 
     /**
-     * @brief get dynamic per kB fee estimate for the next few blocks
+     * @brief get dynamic per kB or byte fee for a given block weight
      *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB. This function
-     * calculates an estimate for a dynamic fee which will be valid for
-     * the next grace_blocks
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed by kB before v8, and
+     * per byte from v8.
+     *
+     * @param block_reward the current block reward
+     * @param median_block_weight the median block weight in the past window
+     * @param version hard fork version for rules and constants to use
+     *
+     * @return the fee
+     */
+    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t version);
+
+    /**
+     * @brief get dynamic per kB or byte fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed by kB before v8, and
+     * per byte from v8.
+     * This function calculates an estimate for a dynamic fee which will be
+     * valid for the next grace_blocks
      *
      * @param grace_blocks number of blocks we want the fee to be valid for
      *
-     * @return the per kB fee estimate
+     * @return the fee estimate
      */
-    uint64_t get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const;
+    uint64_t get_dynamic_base_fee_estimate(uint64_t grace_blocks) const;
 
     /**
      * @brief validate a transaction's fee
      *
      * This function validates the fee is enough for the transaction.
-     * This is based on the size of the transaction blob, and, after a
-     * height threshold, on the average size of transaction in a past window
+     * This is based on the weight of the transaction, and, after a
+     * height threshold, on the average weight of transaction in a past window
      *
-     * @param blob_size the transaction blob's size
+     * @param tx_weight the transaction weight
      * @param fee the fee
      *
      * @return true if the fee is enough, false otherwise
      */
-    bool check_fee(size_t blob_size, uint64_t fee) const;
+    bool check_fee(size_t tx_weight, uint64_t fee) const;
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -635,18 +646,18 @@ namespace cryptonote
     bool check_tx_outputs(const transaction& tx, tx_verification_context &tvc);
 
     /**
-     * @brief gets the blocksize limit based on recent blocks
+     * @brief gets the block weight limit based on recent blocks
      *
      * @return the limit
      */
-    uint64_t get_current_cumulative_blocksize_limit() const;
+    uint64_t get_current_cumulative_block_weight_limit() const;
 
     /**
-     * @brief gets the blocksize median based on recent blocks (same window as for the limit)
+     * @brief gets the block weight median based on recent blocks (same window as for the limit)
      *
      * @return the median
      */
-    uint64_t get_current_cumulative_blocksize_median() const;
+    uint64_t get_current_cumulative_block_weight_median() const;
 
     /**
      * @brief gets the difficulty of the block with a given height
@@ -1001,8 +1012,8 @@ namespace cryptonote
 
     // main chain
     transactions_container m_transactions;
-    size_t m_current_block_cumul_sz_limit;
-    size_t m_current_block_cumul_sz_median;
+    size_t m_current_block_cumul_weight_limit;
+    size_t m_current_block_cumul_weight_median;
 
     // metadata containers
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
@@ -1225,7 +1236,7 @@ namespace cryptonote
      * and that his miner transaction totals reward + fee.
      *
      * @param b the block containing the miner transaction to be validated
-     * @param cumulative_block_size the block's size
+     * @param cumulative_block_weight the block's weight
      * @param fee the total fees collected in the block
      * @param base_reward return-by-reference the new block's generated coins
      * @param already_generated_coins the amount of currency generated prior to this block
@@ -1234,7 +1245,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1251,14 +1262,14 @@ namespace cryptonote
     bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
 
     /**
-     * @brief gets recent block sizes for median calculation
+     * @brief gets recent block weights for median calculation
      *
-     * get the block sizes of the last <count> blocks, and return by reference <sz>.
+     * get the block weights of the last <count> blocks, and return by reference <sz>.
      *
-     * @param sz return-by-reference the list of sizes
-     * @param count the number of blocks to get sizes for
+     * @param sz return-by-reference the list of weights
+     * @param count the number of blocks to get weights for
      */
-    void get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const;
+    void get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const;
 
     /**
      * @brief adds the given output to the requested set of random outputs
@@ -1373,11 +1384,11 @@ namespace cryptonote
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
 
     /**
-     * @brief calculate the block size limit for the next block to be added
+     * @brief calculate the block weight limit for the next block to be added
      *
      * @return true
      */
-    bool update_next_cumulative_size_limit();
+    bool update_next_cumulative_weight_limit();
     void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**

@@ -84,7 +84,7 @@ namespace cryptonote
    *
    * This handling includes:
    *   storing the transactions
-   *   organizing the transactions by fee per size
+   *   organizing the transactions by fee per weight unit
    *   taking/giving transactions to and from various other components
    *   saving the transactions to disk on shutdown
    *   helping create a new block template by choosing transactions for it
@@ -105,9 +105,9 @@ namespace cryptonote
      * @copydoc add_tx(transaction&, tx_verification_context&, bool, bool, uint8_t)
      *
      * @param id the transaction's hash
-     * @param blob_size the transaction's size
+     * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -133,7 +133,7 @@ namespace cryptonote
      *
      * @param id the hash of the transaction
      * @param tx return-by-reference the transaction taken
-     * @param blob_size return-by-reference the transaction's size
+     * @param tx_weight return-by-reference the transaction's weight
      * @param fee the transaction fee
      * @param relayed return-by-reference was transaction relayed to us by the network?
      * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
@@ -141,7 +141,7 @@ namespace cryptonote
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, size_t& blob_size, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
+    bool take_tx(const crypto::hash &id, transaction &tx, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
@@ -198,11 +198,11 @@ namespace cryptonote
     /**
      * @brief loads pool state (if any) from disk, and initializes pool
      *
-     * @param max_txpool_size the max size in bytes
+     * @param max_txpool_weight the max weight in bytes
      *
      * @return true
      */
-    bool init(size_t max_txpool_size = 0);
+    bool init(size_t max_txpool_weight = 0);
 
     /**
      * @brief attempts to save the transaction pool state to disk
@@ -219,16 +219,16 @@ namespace cryptonote
      * @brief Chooses transactions for a block to include
      *
      * @param bl return-by-reference the block to fill in with transactions
-     * @param median_size the current median block size
+     * @param median_weight the current median block weight
      * @param already_generated_coins the current total number of coins "minted"
-     * @param total_size return-by-reference the total size of the new block
+     * @param total_weight return-by-reference the total weight of the new block
      * @param fee return-by-reference the total of fees from the included transactions
      * @param expected_reward return-by-reference the total reward awarded to the miner finding this block, including transaction fees
      * @param version hard fork version to use for consensus rules
      *
      * @return true
      */
-    bool fill_block_template(block &bl, size_t median_size, uint64_t already_generated_coins, size_t &total_size, uint64_t &fee, uint64_t &expected_reward, uint8_t version);
+    bool fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version);
 
     /**
      * @brief get a list of all transactions in the pool
@@ -249,7 +249,7 @@ namespace cryptonote
     void get_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const;
 
     /**
-     * @brief get (size, fee, receive time) for all transaction in the pool
+     * @brief get (weight, fee, receive time) for all transaction in the pool
      *
      * @param txs return-by-reference that data
      * @param include_unrelayed_txes include unrelayed txes in the result
@@ -370,21 +370,21 @@ namespace cryptonote
     uint64_t cookie() const { return m_cookie; }
 
     /**
-     * @brief get the cumulative txpool size in bytes
+     * @brief get the cumulative txpool weight in bytes
      *
-     * @return the cumulative txpool size in bytes
+     * @return the cumulative txpool weight in bytes
      */
-    size_t get_txpool_size() const;
+    size_t get_txpool_weight() const;
 
     /**
-     * @brief set the max cumulative txpool size in bytes
+     * @brief set the max cumulative txpool weight in bytes
      *
-     * @param bytes the max cumulative txpool size in bytes
+     * @param bytes the max cumulative txpool weight in bytes
      */
-    void set_txpool_max_size(size_t bytes);
+    void set_txpool_max_weight(size_t bytes);
 
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
-#define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    12
+#define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    13
 
     /**
      * @brief information about a single transaction
@@ -393,6 +393,7 @@ namespace cryptonote
     {
       transaction tx;  //!< the transaction
       size_t blob_size;  //!< the transaction's size
+      size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
       crypto::hash max_used_block_id;  //!< the hash of the highest block referenced by an input
       uint64_t max_used_block_height;  //!< the height of the highest block referenced by an input
@@ -522,7 +523,7 @@ namespace cryptonote
     /**
      * @brief prune lowest fee/byte txes till we're not above bytes
      *
-     * if bytes is 0, use m_txpool_max_size
+     * if bytes is 0, use m_txpool_max_weight
      */
     void prune(size_t bytes = 0);
 
@@ -578,8 +579,8 @@ private:
 
     Blockchain& m_blockchain;  //!< reference to the Blockchain object
 
-    size_t m_txpool_max_size;
-    size_t m_txpool_size;
+    size_t m_txpool_max_weight;
+    size_t m_txpool_weight;
 
     mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
   };
@@ -608,6 +609,9 @@ namespace boost
       if (version < 12)
         return;
       ar & td.do_not_relay;
+      if (version < 13)
+        return;
+      ar & td.weight;
     }
   }
 }

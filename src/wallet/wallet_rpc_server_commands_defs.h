@@ -865,7 +865,6 @@ namespace wallet_rpc
     bool spent;
     uint64_t global_index;
     std::string tx_hash;
-    uint64_t tx_size;
     uint32_t subaddr_index;
     std::string key_image;
 
@@ -874,7 +873,6 @@ namespace wallet_rpc
       KV_SERIALIZE(spent)
       KV_SERIALIZE(global_index)
       KV_SERIALIZE(tx_hash)
-      KV_SERIALIZE(tx_size)
       KV_SERIALIZE(subaddr_index)
       KV_SERIALIZE(key_image)
     END_KV_SERIALIZE_MAP()

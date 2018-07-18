@@ -788,12 +788,12 @@ namespace cryptonote
       *
       * @param tx_hash the transaction's hash
       * @param tx_prefix_hash the transaction prefix' hash
-      * @param blob_size the size of the transaction
+      * @param tx_weight the weight of the transaction
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool

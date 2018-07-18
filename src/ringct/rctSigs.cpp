@@ -758,7 +758,20 @@ namespace rct {
             std::vector<uint64_t> proof_amounts;
             size_t n_amounts = outamounts.size();
             size_t amounts_proved = 0;
-            while (amounts_proved < n_amounts)
+            if (range_proof_type == RangeProofPaddedBulletproof)
+            {
+                rct::keyV C, masks;
+                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts));
+                #ifdef DBG
+                CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
+                #endif
+                for (i = 0; i < outamounts.size(); ++i)
+                {
+                    rv.outPk[i].mask = C[i];
+                    outSk[i].mask = masks[i];
+                }
+            }
+            else while (amounts_proved < n_amounts)
             {
                 size_t batch_size = 1;
                 if (range_proof_type == RangeProofMultiOutputBulletproof)

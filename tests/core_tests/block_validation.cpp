@@ -586,11 +586,11 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   block blk_test;
   std::vector<crypto::hash> tx_hashes;
   tx_hashes.push_back(get_transaction_hash(tx_0));
-  size_t txs_size = get_object_blobsize(tx_0);
+  size_t txs_weight = get_transaction_weight(tx_0);
   diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
   if (!generator.construct_block_manually(blk_test, blk_last, miner_account,
     test_generator::bf_diffic | test_generator::bf_timestamp | test_generator::bf_tx_hashes, 0, 0, blk_last.timestamp,
-    crypto::hash(), diffic, transaction(), tx_hashes, txs_size))
+    crypto::hash(), diffic, transaction(), tx_hashes, txs_weight))
     return false;
 
   blobdata blob = t_serializable_object_to_blob(blk_test);
