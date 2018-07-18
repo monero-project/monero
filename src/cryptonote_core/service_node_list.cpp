@@ -27,10 +27,12 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <functional>
+#include <random>
 
 #include "ringct/rctSigs.h"
 #include "wallet/wallet2.h"
 #include "cryptonote_tx_utils.h"
+#include "cryptonote_basic/tx_extra.h"
 
 #include "service_node_list.h"
 
@@ -39,6 +41,7 @@
 
 namespace service_nodes
 {
+
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
     : m_blockchain(blockchain)
   {
@@ -67,6 +70,7 @@ namespace service_nodes
     {
       start_height = current_height - STAKING_REQUIREMENT_LOCK_BLOCKS - STAKING_RELOCK_WINDOW_BLOCKS;
     }
+
     for (uint64_t height = start_height; height <= current_height; height += 1000)
     {
       std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
@@ -75,6 +79,7 @@ namespace service_nodes
         LOG_ERROR("Unable to initialize service nodes list");
         return;
       }
+
       for (const auto& block_pair : blocks)
       {
         const cryptonote::block& block = block_pair.second;
@@ -85,6 +90,7 @@ namespace service_nodes
           LOG_ERROR("Unable to get transactions for block " << block.hash);
           return;
         }
+
         block_added_generic(block, txs);
       }
     }
@@ -92,16 +98,33 @@ namespace service_nodes
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new prevent_rollback(current_height)));
   }
 
-  std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
+  std::vector<crypto::public_key> service_node_list::get_service_node_pubkeys() const
   {
-    std::vector<crypto::public_key> ret;
+    std::vector<crypto::public_key> result;
     for (const auto& iter : m_service_nodes_keys)
-      ret.push_back(iter.second);
-    std::sort(ret.begin(), ret.end(),
-        [](const crypto::public_key& a, const crypto::public_key& b) {
-          return memcmp(reinterpret_cast<const void*>(&a), reinterpret_cast<const void*>(&b), sizeof(a)) < 0;
-        });
-    return ret;
+      result.push_back(iter.second);
+
+    std::sort(result.begin(), result.end(),
+      [](const crypto::public_key &a, const crypto::public_key &b) {
+        return memcmp(reinterpret_cast<const void*>(&a), reinterpret_cast<const void*>(&b), sizeof(a)) < 0;
+      });
+    return result;
+  }
+
+  const std::shared_ptr<quorum_state> service_node_list::get_quorum_state(uint64_t height) const
+  {
+    std::shared_ptr<service_nodes::quorum_state> result;
+    const auto &it = m_quorum_states.find(height);
+    if (it == m_quorum_states.end())
+    {
+      // TODO(loki): Not being able to find the quorum is going to be a fatal error.
+    }
+    else
+    {
+      result = it->second;
+    }
+
+    return result;
   }
 
   bool service_node_list::is_service_node(const crypto::public_key& pubkey) const
@@ -120,8 +143,20 @@ namespace service_nodes
 
   bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, cryptonote::account_public_address& address, crypto::public_key& service_node_key, crypto::public_key& tx_pub_key) const
   {
-    address = cryptonote::get_account_public_address_from_tx_extra(tx.extra);
-    service_node_key = cryptonote::get_service_node_key_from_tx_extra(tx.extra);
+    cryptonote::tx_extra_service_node_register register_;
+    if (cryptonote::get_service_node_register_from_tx_extra(tx.extra, register_))
+    {
+      address.m_spend_public_key = register_.public_spend_key;
+      address.m_view_public_key = register_.public_view_key;
+      service_node_key = register_.service_node_key;
+    }
+    else
+    {
+      address.m_spend_public_key = crypto::null_pkey;
+      address.m_view_public_key = crypto::null_pkey;
+      service_node_key = crypto::null_pkey;
+    }
+
     tx_pub_key = cryptonote::get_tx_pub_key_from_extra(tx.extra);
     return address.m_spend_public_key != crypto::null_pkey &&
       address.m_view_public_key != crypto::null_pkey &&
@@ -167,11 +202,52 @@ namespace service_nodes
     return money_transferred >= m_blockchain.get_staking_requirement(block_height);
   }
 
+  bool service_node_list::is_deregistration_tx(const cryptonote::transaction& tx, cryptonote::account_public_address &address) const
+  {
+    if (tx.version != cryptonote::transaction::version_3_deregister_tx)
+    {
+        return false;
+    }
+
+    cryptonote::tx_extra_service_node_deregister deregister;
+    if (!cryptonote::get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    {
+      LOG_ERROR("Transaction deregister did not have deregister data in tx extra, possibly corrupt tx in blockchain");
+      return false;
+    }
+
+    if (const std::shared_ptr<quorum_state> state = get_quorum_state(deregister.block_height))
+    {
+      if (deregister.service_node_index >= state->nodes_to_test.size())
+      {
+          LOG_ERROR("Service node index to vote off has become invalid, quorum rules have changed without a hardfork.");
+          return false;
+      }
+
+      const crypto::public_key &snode_pubkey = state->nodes_to_test[deregister.service_node_index];
+      for (const auto& key_it : m_service_nodes_keys)
+      {
+        if (key_it.second == snode_pubkey)
+        {
+          address = key_it.first;
+          return true;
+        }
+      }
+    }
+    else
+    {
+      // TODO(loki): Not being able to find a quorum is fatal! We want better caching abilities.
+      LOG_ERROR("Quorum state for height: " << deregister.block_height << ", was not stored by the daemon");
+    }
+
+    return false;
+  }
+
   // This function takes a tx and returns true if it is a staking transaction.
   // It also sets the address argument to the public spendkey and pub viewkey of
   // the transaction.
   //
-  bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, crypto::public_key& key) const
+  bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, crypto::public_key& key) const
   {
     if (!reg_tx_has_correct_unlock_time(tx, block_height))
     {
@@ -251,6 +327,7 @@ namespace service_nodes
     return null_address;
   }
 
+
   template<typename T>
   void service_node_list::block_added_generic(const cryptonote::block& block, const T& txs)
   {
@@ -294,7 +371,7 @@ namespace service_nodes
     {
       cryptonote::account_public_address address;
       crypto::public_key key;
-      if (process_registration_tx(tx, block_height, address, key))
+      if (is_registration_tx(tx, block_height, address, key))
       {
         auto iter = m_service_nodes_last_reward.find(address);
         if (iter == m_service_nodes_last_reward.end())
@@ -311,7 +388,37 @@ namespace service_nodes
           service_node_key = key;
         }
       }
+      else if (is_deregistration_tx(tx, address))
+      {
+        auto iter = m_service_nodes_last_reward.find(address);
+        if (iter != m_service_nodes_last_reward.end())
+        {
+          crypto::public_key& service_node_key = m_service_nodes_keys[address];
+          m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, address, iter->second, service_node_key)));
+          m_service_nodes_last_reward.erase(iter);
+          m_service_nodes_keys.erase(address);
+        }
+        else
+        {
+          MWARNING("Tried to kick off a service node that is no longer registered");
+        }
+      }
       index++;
+    }
+
+    const uint64_t curr_height           = m_blockchain.get_current_blockchain_height();
+
+    const size_t QUORUM_LIFETIME         = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+    const size_t cache_state_from_height = (curr_height < QUORUM_LIFETIME) ? 0 : curr_height - QUORUM_LIFETIME;
+
+    if (block_height >= cache_state_from_height)
+    {
+      store_quorum_state_from_rewards_list(block_height);
+
+      while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
+      {
+        m_quorum_states.erase(m_quorum_states.begin());
+      }
     }
   }
 
@@ -325,6 +432,11 @@ namespace service_nodes
         break;
       }
       m_rollback_events.pop_back();
+    }
+
+    while (!m_quorum_states.empty() && (--m_quorum_states.end())->first >= height)
+    {
+      m_quorum_states.erase(--m_quorum_states.end());
     }
   }
 
@@ -357,7 +469,7 @@ namespace service_nodes
     {
       cryptonote::account_public_address address;
       crypto::public_key unused_key;
-      if (process_registration_tx(tx, expired_nodes_block_height, address, unused_key))
+      if (is_registration_tx(tx, expired_nodes_block_height, address, unused_key))
       {
         expired_nodes.push_back(address);
       }
@@ -427,6 +539,67 @@ namespace service_nodes
     return true;
   }
 
+  void service_node_list::store_quorum_state_from_rewards_list(uint64_t height)
+  {
+    const crypto::hash block_hash = m_blockchain.get_block_id_by_height(height);
+    if (block_hash == crypto::null_hash)
+    {
+      MERROR("Block height: " << height << " returned null hash");
+      return;
+    }
+
+    std::vector<crypto::public_key> full_node_list = get_service_node_pubkeys();
+    std::vector<size_t>                              pub_keys_indexes(full_node_list.size());
+    {
+      size_t index = 0;
+      for (size_t i = 0; i < full_node_list.size(); i++) { pub_keys_indexes[i] = i; }
+
+      // Shuffle indexes
+      uint64_t seed = 0;
+      std::memcpy(&seed, block_hash.data, std::min(sizeof(seed), sizeof(block_hash.data)));
+
+      std::mt19937_64 mersenne_twister(seed);
+      std::shuffle(pub_keys_indexes.begin(), pub_keys_indexes.end(), mersenne_twister);
+    }
+
+    // Assign indexes from shuffled list into quorum and list of nodes to test
+    if (!m_quorum_states[height])
+      m_quorum_states[height] = std::shared_ptr<quorum_state>(new quorum_state());
+
+    std::shared_ptr<quorum_state> state = m_quorum_states[height];
+    state->clear();
+    {
+      std::vector<crypto::public_key>& quorum = state->quorum_nodes;
+      {
+        quorum.clear();
+        quorum.resize(std::min(full_node_list.size(), QUORUM_SIZE));
+        for (size_t i = 0; i < quorum.size(); i++)
+        {
+          size_t node_index                   = pub_keys_indexes[i];
+          const crypto::public_key &key = full_node_list[node_index];
+          quorum[i] = key;
+        }
+      }
+
+      std::vector<crypto::public_key>& nodes_to_test = state->nodes_to_test;
+      {
+        size_t num_remaining_nodes = pub_keys_indexes.size() - quorum.size();
+        size_t num_nodes_to_test   = std::max(num_remaining_nodes/NTH_OF_THE_NETWORK_TO_TEST,
+                                              std::min(MIN_NODES_TO_TEST, num_remaining_nodes));
+
+        nodes_to_test.clear();
+        nodes_to_test.resize(num_nodes_to_test);
+
+        const int pub_keys_offset = quorum.size();
+        for (size_t i = 0; i < nodes_to_test.size(); i++)
+        {
+          size_t node_index             = pub_keys_indexes[pub_keys_offset + i];
+          const crypto::public_key &key = full_node_list[node_index];
+          nodes_to_test[i]              = key;
+        }
+      }
+    }
+  }
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   service_node_list::rollback_event::rollback_event(uint64_t block_height) : m_block_height(block_height)

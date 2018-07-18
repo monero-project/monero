@@ -40,6 +40,7 @@
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_core/service_node_deregister.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
 #include "misc_language.h"
@@ -56,6 +57,7 @@
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
+#include "service_node_deregister.h"
 #include "service_node_list.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
@@ -117,12 +119,13 @@ static const struct {
 };
 
 //------------------------------------------------------------------
-Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list) :
+Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, loki::deregister_vote_pool& deregister_vote_pool):
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
-  m_service_node_list(service_node_list)
+  m_service_node_list(service_node_list),
+  m_deregister_vote_pool(deregister_vote_pool)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -2651,7 +2654,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
   // if one output cannot mix with 2 others, we accept at most 1 output that can mix
-  if (hf_version >= 2)
+  if (hf_version >= 2 && tx.version != transaction::version_3_deregister_tx)
   {
     size_t n_unmixable = 0, n_mixable = 0;
     size_t mixin = std::numeric_limits<size_t>::max();
@@ -2860,7 +2863,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
   }
-  else
+  else if (tx.version == transaction::version_2)
   {
     if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys))
     {
@@ -3000,6 +3003,68 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     default:
       MERROR_VER("Unsupported rct type: " << rv.type);
       return false;
+    }
+  }
+  else if (tx.version == transaction::version_3_deregister_tx)
+  {
+    // Check the inputs (votes) of the transaction have not been already been
+    // submitted to the blockchain under another transaction using a different
+    // combination of votes.
+    tx_extra_service_node_deregister deregister;
+    if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    {
+      MERROR_VER("TX version deregister did not have the deregister metadata in the tx_extra");
+      return false;
+    }
+
+    std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(deregister.block_height);
+    if (!quorum_state)
+    {
+      MERROR_VER("TX version 3 deregister_tx could not get quorum for height: " << deregister.block_height);
+      return false;
+    }
+
+    if (!loki::service_node_deregister::verify_deregister(deregister, tvc.m_vote_ctx, *quorum_state))
+    {
+      tvc.m_verifivation_failed = true;
+      MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified.");
+      return false;
+    }
+
+    const uint64_t height            = deregister.block_height;
+    const size_t num_blocks_to_check = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+
+    std::list<std::pair<cryptonote::blobdata,block>> blocks;
+    std::list<cryptonote::blobdata> txs;
+    if (get_blocks(height, num_blocks_to_check, blocks, txs))
+    {
+      for (blobdata const &blob : txs)
+      {
+        transaction existing_tx;
+        if (!parse_and_validate_tx_from_blob(blob, existing_tx))
+        {
+          MERROR_VER("tx could not be validated from blob, possibly corrupt blockchain");
+          continue;
+        }
+
+        if (existing_tx.version != transaction::version_3_deregister_tx)
+          continue;
+
+        tx_extra_service_node_deregister existing_deregister;
+        if (!get_service_node_deregister_from_tx_extra(existing_tx.extra, existing_deregister))
+        {
+          MERROR_VER("could not get service node deregister from tx extra, possibly corrupt tx");
+          continue;
+        }
+
+        if (existing_deregister.block_height       == deregister.block_height &&
+            existing_deregister.service_node_index == deregister.service_node_index)
+        {
+          tvc.m_double_spend = true;
+          return false;
+        }
+
+      }
     }
   }
   return true;
@@ -3659,6 +3724,8 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  m_deregister_vote_pool.remove_expired_votes(new_height);
+  m_deregister_vote_pool.remove_used_votes(txs);
 
   return true;
 }

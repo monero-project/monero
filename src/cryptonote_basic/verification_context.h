@@ -34,6 +34,18 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+  struct vote_verification_context
+  {
+    bool m_verification_failed;
+    bool m_invalid_block_height;
+    bool m_voters_quorum_index_out_of_bounds;
+    bool m_service_node_index_out_of_bounds;
+    bool m_signature_not_valid;
+    bool m_added_to_pool;
+    bool m_full_tx_deregister_made;
+    bool m_not_enough_votes;
+  };
+
   struct tx_verification_context
   {
     bool m_should_be_relayed;
@@ -48,6 +60,8 @@ namespace cryptonote
     bool m_overspend;
     bool m_fee_too_low;
     bool m_not_rct;
+
+    vote_verification_context m_vote_ctx;
   };
 
   struct block_verification_context

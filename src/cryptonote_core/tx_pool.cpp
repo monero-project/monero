@@ -108,13 +108,49 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
+  bool tx_memory_pool::have_deregister_tx_already(transaction const &tx) const
+  {
+    if (tx.version != transaction::version_3_deregister_tx)
+      return false;
+
+    tx_extra_service_node_deregister deregister;
+    if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    {
+      MERROR("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
+      return false;
+    }
+
+    std::list<transaction> pool_txs;
+    get_transactions(pool_txs);
+    for (const transaction& pool_tx : pool_txs)
+    {
+      if (pool_tx.version != transaction::version_3_deregister_tx)
+        continue;
+
+      tx_extra_service_node_deregister pool_tx_deregister;
+      if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+      {
+        MERROR("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
+        continue;
+      }
+
+      if ((pool_tx_deregister.block_height       == deregister.block_height) &&
+          (pool_tx_deregister.service_node_index == deregister.service_node_index))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+  //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t blob_size, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     // this should already be called with that lock, but let's make it explicit for clarity
     CRITICAL_REGION_LOCAL(m_transactions_lock);
 
     PERF_TIMER(add_tx);
-    if (tx.version == 0)
+    if (tx.version == transaction::version_0)
     {
       // v0 never accepted
       LOG_PRINT_L1("transaction version 0 is invalid");
@@ -142,7 +178,7 @@ namespace cryptonote
     // fee per kilobyte, size rounded up.
     uint64_t fee;
 
-    if (tx.version == 1)
+    if (tx.version == transaction::version_1)
     {
       uint64_t inputs_amount = 0;
       if(!get_inputs_money_amount(tx, inputs_amount))
@@ -174,7 +210,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && !m_blockchain.check_fee(blob_size, fee))
+    if (!kept_by_block && !m_blockchain.check_fee(blob_size, fee) && tx.version != transaction::version_3_deregister_tx)
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -201,6 +237,49 @@ namespace cryptonote
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
         tvc.m_double_spend = true;
+        return false;
+      }
+    }
+
+    if (have_deregister_tx_already(tx))
+    {
+      mark_double_spend(tx);
+      LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
+      tvc.m_verifivation_failed = true;
+      tvc.m_double_spend = true;
+      return false;
+    }
+
+    if (tx.version == transaction::version_3_deregister_tx)
+    {
+      tx_extra_service_node_deregister deregister;
+      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      {
+        LOG_PRINT_L1("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
+        return false;
+      }
+
+      const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
+      if (deregister.block_height >= curr_height)
+      {
+        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+                     << " and service node: "              << deregister.service_node_index
+                     << ", is newer than current height: " << curr_height
+                     << " blocks and has been rejected.");
+        tvc.m_vote_ctx.m_invalid_block_height = true;
+        tvc.m_verifivation_failed             = true;
+        return false;
+      }
+
+      uint64_t delta_height = curr_height - deregister.block_height;
+      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      {
+        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+                     << " and service node: "     << deregister.service_node_index
+                     << ", is older than: "       << loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
+                     << " blocks and has been rejected.");
+        tvc.m_vote_ctx.m_invalid_block_height = true;
+        tvc.m_verifivation_failed             = true;
         return false;
       }
     }
@@ -298,7 +377,7 @@ namespace cryptonote
       }
       tvc.m_added_to_pool = true;
 
-      if(meta.fee > 0 && !do_not_relay)
+      if((meta.fee > 0 || tx.version == 3) && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
@@ -563,8 +642,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
     m_blockchain.for_all_txpool_txes([this, now, &txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *){
-      // 0 fee transactions are never relayed
-      if(meta.fee > 0 && !meta.do_not_relay && now - meta.last_relayed_time > get_relay_delay(now, meta.receive_time))
+      if(!meta.do_not_relay && now - meta.last_relayed_time > get_relay_delay(now, meta.receive_time))
       {
         // if the tx is older than half the max lifetime, we don't re-relay it, to avoid a problem
         // mentioned by smooth where nodes would flush txes at slightly different times, causing
@@ -575,6 +653,16 @@ namespace cryptonote
           try
           {
             cryptonote::blobdata bd = m_blockchain.get_txpool_tx_blob(txid);
+            if (meta.fee == 0)
+            {
+              cryptonote::transaction tx;
+              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx) &&
+                  tx.version != transaction::version_3_deregister_tx)
+              {
+                  return true;
+              }
+            }
+
             txs.push_back(std::make_pair(txid, bd));
           }
           catch (const std::exception &e)

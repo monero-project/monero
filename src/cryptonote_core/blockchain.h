@@ -60,6 +60,11 @@ namespace service_nodes
   class service_node_list;
 };
 
+namespace loki
+{
+  class deregister_vote_pool;
+};
+
 namespace cryptonote
 {
   class tx_memory_pool;
@@ -134,7 +139,7 @@ namespace cryptonote
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-    Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list);
+    Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, loki::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Initialize the Blockchain state
@@ -1026,6 +1031,7 @@ namespace cryptonote
     tx_memory_pool& m_tx_pool;
 
     service_nodes::service_node_list& m_service_node_list;
+    loki::deregister_vote_pool& m_deregister_vote_pool;
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 

@@ -34,6 +34,18 @@
 
 namespace service_nodes
 {
+  const size_t QUORUM_SIZE                    = 3;
+  const size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 3;
+  const size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
+  const size_t MIN_NODES_TO_TEST              = 50;
+
+  struct quorum_state
+  {
+    void clear() { quorum_nodes.clear(); nodes_to_test.clear(); }
+    std::vector<crypto::public_key> quorum_nodes;
+    std::vector<crypto::public_key> nodes_to_test;
+  };
+
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
       public cryptonote::Blockchain::BlockchainDetachedHook,
@@ -50,12 +62,15 @@ namespace service_nodes
     std::vector<cryptonote::account_public_address> get_expired_nodes(uint64_t block_height) const;
     cryptonote::account_public_address select_winner(const crypto::hash& prev_id);
 
-    std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
-
     bool is_service_node(const crypto::public_key& pubkey) const;
+    const std::shared_ptr<quorum_state> get_quorum_state(uint64_t height) const;
 
   private:
-    bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, crypto::public_key& key) const;
+
+    bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, crypto::public_key& key) const;
+    bool is_deregistration_tx(const cryptonote::transaction& tx, cryptonote::account_public_address& address) const;
+
+    std::vector<crypto::public_key> get_service_node_pubkeys() const;
     template<typename T>
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
@@ -64,6 +79,8 @@ namespace service_nodes
     bool is_reg_tx_staking_output(const cryptonote::transaction& tx, int i, uint64_t block_height, crypto::key_derivation derivation, hw::device& hwdev) const;
 
     cryptonote::account_public_address find_service_node_from_miner_tx(const cryptonote::transaction& miner_tx, uint64_t block_height) const;
+
+    void store_quorum_state_from_rewards_list(uint64_t height);
 
     class rollback_event
     {
@@ -110,6 +127,8 @@ namespace service_nodes
     std::list<std::unique_ptr<rollback_event>> m_rollback_events;
     cryptonote::Blockchain& m_blockchain;
 
+    using block_height = uint64_t;
+    std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;
   };
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };

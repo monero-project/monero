@@ -157,6 +157,14 @@ namespace cryptonote
   {
 
   public:
+    enum version
+    {
+      version_0 = 0,
+      version_1,
+      version_2,
+      version_3_deregister_tx,
+    };
+
     // tx information
     size_t   version;
     uint64_t unlock_time;  //number of block (or time), used as a limitation like: spend this tx not early then block/time

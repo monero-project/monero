@@ -759,7 +759,51 @@ namespace cryptonote
     post_notify<NOTIFY_NEW_FLUFFY_BLOCK>(fluffy_response, context);    
     return 1;        
   }
-  //------------------------------------------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------------------------------------------------  
+  template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_new_deregister_vote(int command, NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_NEW_DEREGISTER_VOTE (" << arg.votes.size() << " txes)");
+
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+
+    if(!is_synchronized())
+    {
+      LOG_DEBUG_CC(context, "Received new deregister vote while syncing, ignored");
+      return 1;
+    }
+
+    for(auto it = arg.votes.begin(); it != arg.votes.end();)
+    {
+      cryptonote::vote_verification_context vvc = {};
+      m_core.add_deregister_vote(*it, vvc);
+
+      if (vvc.m_verification_failed)
+      {
+        LOG_PRINT_CCONTEXT_L1("Deregister vote verification failed, dropping connection");
+        drop_connection(context, true /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
+        return 1;
+      }
+
+      if (vvc.m_added_to_pool)
+      {
+        it++;
+      }
+      else
+      {
+        it = arg.votes.erase(it);
+      }
+    }
+
+    if (arg.votes.size())
+    {
+      relay_deregister_votes(arg, context);
+    }
+
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------  
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
@@ -1700,6 +1744,14 @@ skip:
     m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, fullBlob, fullConnections);
 
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::relay_deregister_votes(NOTIFY_NEW_DEREGISTER_VOTE::request& arg, cryptonote_connection_context& exclude_context)
+  {
+    bool result = relay_post_notify<NOTIFY_NEW_DEREGISTER_VOTE>(arg, exclude_context);
+    m_core.set_deregister_votes_relayed(arg.votes);
+    return result;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

@@ -4583,7 +4583,29 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
   }
   return payment_id;
 }
+//----------------------------------------------------------------------------------------------------
+void wallet2::commit_deregister_vote(loki::service_node_deregister::vote& vote)
+{
+  if (m_light_wallet)
+  {
+    LOG_PRINT_L1("Deregister vote can not be sent in a light wallet.");
+  }
+  else
+  {
+    COMMAND_RPC_SEND_DEREGISTER_VOTE::request req;
+    req.vote = vote;
 
+    COMMAND_RPC_SEND_DEREGISTER_VOTE::response resp;
+
+    m_daemon_rpc_mutex.lock();
+    bool r = epee::net_utils::invoke_http_json("/submit_deregister_vote", req, resp, m_http_client, rpc_timeout);
+    m_daemon_rpc_mutex.unlock();
+
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "submit_deregister_vote");
+    THROW_WALLET_EXCEPTION_IF(resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "submit_deregister_vote");
+    THROW_WALLET_EXCEPTION_IF(resp.status != CORE_RPC_STATUS_OK, error::vote_rejected, resp.status, resp.reason);
+  }
+}
 //----------------------------------------------------------------------------------------------------
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)

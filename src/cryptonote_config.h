@@ -41,7 +41,7 @@
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            30
-#define CURRENT_TRANSACTION_VERSION                     2
+#define CURRENT_TRANSACTION_VERSION                     3
 #define CURRENT_BLOCK_MAJOR_VERSION                     6
 #define CURRENT_BLOCK_MINOR_VERSION                     6
 #define CURRENT_BLOCK_MAJOR_VERSION_TESTNET             7
@@ -49,6 +49,7 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
+#define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*31)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 

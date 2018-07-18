@@ -53,6 +53,7 @@
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include "cryptonote_core/service_node_deregister.h"
 #include "simplewallet.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "storages/http_abstract_invoke.h"
@@ -4710,19 +4711,12 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
     return true;
   }
 
-  crypto::public_key service_node_key;
-  if (!epee::string_tools::hex_to_pod(local_args[0], service_node_key))
-  {
-    fail_msg_writer() << tr("failed to parse service node pubkey");
-    return true;
-  }
-
   priority = m_wallet->adjust_priority(priority);
 
   size_t mixins = DEFAULT_MIX;
 
   uint64_t unlock_block = 0;
-  uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS;
+  uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err;
   uint64_t bc_height = get_daemon_blockchain_height(err);
@@ -4737,11 +4731,15 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
 
   std::vector<uint8_t> extra;
 
-  if (!add_account_public_address_to_tx_extra(extra, address, service_node_key))
+  tx_extra_service_node_register register_;
+  register_.public_view_key = address.m_view_public_key;
+  register_.public_spend_key = address.m_spend_public_key;
+  if (!epee::string_tools::hex_to_pod(local_args[0], register_.service_node_key))
   {
-    fail_msg_writer() << tr("failed to add account public address to tx extra");
+    fail_msg_writer() << tr("failed to parse service node pubkey");
     return true;
   }
+  add_service_node_register_to_tx_extra(extra, register_);
 
   LOCK_IDLE_SCOPE();
 
@@ -4782,8 +4780,8 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
       return true;
     if (ptx_vector.size() > 1) {
       prompt << boost::format(tr("Staking %s for %u blocks in %llu transactions for a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
-        locked_blocks %
         print_money(total_sent) %
+        locked_blocks %
         ((unsigned long long)ptx_vector.size()) %
         print_money(total_fee);
     }
@@ -4846,7 +4844,6 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-
 bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 {
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }

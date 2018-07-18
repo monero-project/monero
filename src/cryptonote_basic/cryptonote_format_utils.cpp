@@ -399,22 +399,27 @@ namespace cryptonote
     return get_tx_pub_key_from_extra(tx.extra, pk_index);
   }
   //---------------------------------------------------------------
-  bool add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key)
+  static void add_data_to_tx_extra(std::vector<uint8_t>& tx_extra, char const *data, size_t data_size, uint8_t tag)
   {
-    return add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
+    size_t pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + sizeof(tag) + data_size);
+    tx_extra[pos++] = tag;
+    std::memcpy(&tx_extra[pos], data, data_size);
   }
   //---------------------------------------------------------------
-  bool add_tx_pub_key_to_extra(transaction_prefix& tx, const crypto::public_key& tx_pub_key)
+  void add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key)
   {
-    return add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
+    add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
   }
   //---------------------------------------------------------------
-  bool add_tx_pub_key_to_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& tx_pub_key)
+  void add_tx_pub_key_to_extra(transaction_prefix& tx, const crypto::public_key& tx_pub_key)
   {
-    tx_extra.resize(tx_extra.size() + 1 + sizeof(crypto::public_key));
-    tx_extra[tx_extra.size() - 1 - sizeof(crypto::public_key)] = TX_EXTRA_TAG_PUBKEY;
-    *reinterpret_cast<crypto::public_key*>(&tx_extra[tx_extra.size() - sizeof(crypto::public_key)]) = tx_pub_key;
-    return true;
+    add_tx_pub_key_to_extra(tx.extra, tx_pub_key);
+  }
+  //---------------------------------------------------------------
+  void add_tx_pub_key_to_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& tx_pub_key)
+  {
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&tx_pub_key), sizeof(tx_pub_key), TX_EXTRA_TAG_PUBKEY);
   }
   //---------------------------------------------------------------
   std::vector<crypto::public_key> get_additional_tx_pub_keys_from_extra(const std::vector<uint8_t>& tx_extra)
@@ -467,37 +472,42 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool add_account_public_address_to_tx_extra(std::vector<uint8_t>& tx_extra, const cryptonote::account_public_address& address, const crypto::public_key& service_node_key)
+  bool add_service_node_deregister_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_deregister& deregistration)
   {
-    tx_extra.resize(tx_extra.size() + 1 + sizeof(cryptonote::account_public_address) + sizeof(crypto::public_key));
-    tx_extra[tx_extra.size() - 1 - sizeof(cryptonote::account_public_address) - sizeof(crypto::public_key)] = TX_EXTRA_TAG_ACCOUNT_PUBLIC_ADDRESS;
-    *reinterpret_cast<cryptonote::account_public_address*>(&tx_extra[tx_extra.size() - sizeof(cryptonote::account_public_address) - sizeof(crypto::public_key)]) = address;
-    *reinterpret_cast<crypto::public_key*>(&tx_extra[tx_extra.size() - sizeof(crypto::public_key)]) = service_node_key;
+    tx_extra_field field = tx_extra_service_node_deregister{deregistration.block_height, deregistration.service_node_index, deregistration.votes};
+
+    std::ostringstream oss;
+    binary_archive<true> ar(oss);
+    bool r = ::do_serialize(ar, field);
+    CHECK_AND_ASSERT_MES(r, false, "failed to serialize tx extra service node deregister");
+
+    std::string tx_extra_str = oss.str();
+    size_t pos = tx_extra.size();
+    tx_extra.resize(tx_extra.size() + tx_extra_str.size());
+    memcpy(&tx_extra[pos], tx_extra_str.data(), tx_extra_str.size());
+
     return true;
   }
   //---------------------------------------------------------------
-  cryptonote::account_public_address get_account_public_address_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  void add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_register& registration)
   {
-    // parse
-    std::vector<tx_extra_field> tx_extra_fields;
-    parse_tx_extra(tx_extra, tx_extra_fields);
-    // find corresponding field
-    tx_extra_account_public_address address;
-    if (!find_tx_extra_field_by_type(tx_extra_fields, address))
-      return cryptonote::account_public_address{ crypto::null_pkey, crypto::null_pkey };
-    return cryptonote::account_public_address{ address.m_spend_public_key, address.m_view_public_key };
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char*>(&registration), sizeof(registration), TX_EXTRA_TAG_SERVICE_NODE_REGISTER);
   }
   //---------------------------------------------------------------
-  crypto::public_key get_service_node_key_from_tx_extra(const std::vector<uint8_t>& tx_extra)
+  bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register &registration)
   {
-    // parse
     std::vector<tx_extra_field> tx_extra_fields;
     parse_tx_extra(tx_extra, tx_extra_fields);
-    // find corresponding field
-    tx_extra_account_public_address address;
-    if (!find_tx_extra_field_by_type(tx_extra_fields, address))
-      return crypto::null_pkey;
-    return address.m_service_node_key;
+    bool result = find_tx_extra_field_by_type(tx_extra_fields, registration);
+    return result;
+  }
+  //---------------------------------------------------------------
+  bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister &deregistration)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    bool result = find_tx_extra_field_by_type(tx_extra_fields, deregistration);
+    return result;
   }
   //---------------------------------------------------------------
   bool remove_field_from_tx_extra(std::vector<uint8_t>& tx_extra, const std::type_info &type)

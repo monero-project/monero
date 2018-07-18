@@ -34,6 +34,8 @@
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "cryptonote_core/service_node_deregister.h"
+
 namespace cryptonote
 {
 
@@ -280,5 +282,21 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   }; 
+
+  /************************************************************************/
+  /*                                                                      */
+  /************************************************************************/
+  struct NOTIFY_NEW_DEREGISTER_VOTE
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 10;
+
+    struct request
+    {
+      std::vector<loki::service_node_deregister::vote> votes;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
     
 }

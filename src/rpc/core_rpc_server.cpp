@@ -782,6 +782,19 @@ namespace cryptonote
         add_reason(res.reason, "fee too low");
       if ((res.not_rct = tvc.m_not_rct))
         add_reason(res.reason, "tx is not ringct");
+
+      const vote_verification_context &vvc = tvc.m_vote_ctx;
+      if ((res.invalid_block_height = vvc.m_invalid_block_height))
+        add_reason(res.reason, "block height was invalid");
+      if ((res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds))
+        add_reason(res.reason, "voters quorum index specified out of bounds");
+      if ((res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds))
+        add_reason(res.reason, "service node index specified out of bounds");
+      if ((res.signature_not_valid = vvc.m_signature_not_valid))
+        add_reason(res.reason, "signature was not valid");
+      if ((res.not_enough_votes = vvc.m_not_enough_votes))
+        add_reason(res.reason, "not enough votes");
+
       const std::string punctuation = res.reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
@@ -806,6 +819,7 @@ namespace cryptonote
     NOTIFY_NEW_TRANSACTIONS::request r;
     r.txs.push_back(tx_blob);
     m_core.get_protocol()->relay_transactions(r, fake_context);
+
     //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -1977,6 +1991,88 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res)
+  {
+    PERF_TIMER(on_get_quorum_state);
+    bool r;
+
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON, "/get_quorum_state", req, res, r))
+    {
+      return r;
+    }
+
+    const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_core.get_quorum_state(req.height);
+    r = (quorum_state != nullptr);
+    if (r)
+    {
+      res.status = CORE_RPC_STATUS_OK;
+      res.quorum_nodes.reserve (quorum_state->quorum_nodes.size());
+      res.nodes_to_test.reserve(quorum_state->nodes_to_test.size());
+
+      for (const auto &key : quorum_state->quorum_nodes)
+        res.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
+
+      for (const auto &key : quorum_state->nodes_to_test)
+        res.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
+    }
+    else
+    {
+      res.status  = "Block height: " + req.height;
+      res.status += ", returned null hash or failed to derive quorum list";
+    }
+
+    return r;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_submit_deregister_vote(const COMMAND_RPC_SEND_DEREGISTER_VOTE::request& req, COMMAND_RPC_SEND_DEREGISTER_VOTE::response &resp)
+  {
+    PERF_TIMER(on_submit_deregister_vote);
+
+    vote_verification_context vvc = {};
+    if(!m_core.add_deregister_vote(req.vote, vvc))
+    {
+      resp.status = "Failed";
+      resp.reason = "";
+
+      if ((resp.invalid_block_height = vvc.m_invalid_block_height))
+        add_reason(resp.reason, "could not get quorum for block height");
+
+      if ((resp.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds))
+        add_reason(resp.reason, "quorum index was not in bounds of quorum");
+
+      if ((resp.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds))
+        add_reason(resp.reason, "service node index was not in bounds of the service node list");
+
+      if ((resp.signature_not_valid = vvc.m_signature_not_valid))
+        add_reason(resp.reason, "signature could not be verified with the voter's key");
+
+      const std::string punctuation = resp.reason.empty() ? "" : ": ";
+
+      if (vvc.m_verification_failed)
+      {
+        LOG_PRINT_L0("[on_submit_deregister_vote]: deregister vote verification failed" << punctuation << resp.reason);
+      }
+      else
+      {
+        LOG_PRINT_L0("[on_submit_deregister_vote]: Failed to process deregister vote" << punctuation << resp.reason);
+      }
+
+      return true;
+    }
+
+    if (vvc.m_added_to_pool)
+    {
+      NOTIFY_NEW_DEREGISTER_VOTE::request r;
+      r.votes.push_back(req.vote);
+
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      m_core.get_protocol()->relay_deregister_votes(r, fake_context);
+    }
+
+    resp.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_relay_tx);
@@ -2163,6 +2259,30 @@ namespace cryptonote
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_quorum_state_json(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_get_quorum_list_json);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON_RPC, "get_quorum_list", req, res, r))
+    {
+      return r;
+    }
+
+    r = on_get_quorum_state(req, res);
+
+    if (r)
+    {
+      res.status = CORE_RPC_STATUS_OK;
+    }
+    else
+    {
+      error_resp.code    = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
+      error_resp.message = res.status;
+    }
+
+    return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
 
