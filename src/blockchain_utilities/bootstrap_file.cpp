@@ -236,11 +236,11 @@ void BootstrapFile::write_block(block& block)
   bool include_extra_block_data = true;
   if (include_extra_block_data)
   {
-    size_t block_size = m_blockchain_storage->get_db().get_block_size(block_height);
+    size_t block_weight = m_blockchain_storage->get_db().get_block_weight(block_height);
     difficulty_type cumulative_difficulty = m_blockchain_storage->get_db().get_block_cumulative_difficulty(block_height);
     uint64_t coins_generated = m_blockchain_storage->get_db().get_block_already_generated_coins(block_height);
 
-    bp.block_size = block_size;
+    bp.block_weight = block_weight;
     bp.cumulative_difficulty = cumulative_difficulty;
     bp.coins_generated = coins_generated;
   }

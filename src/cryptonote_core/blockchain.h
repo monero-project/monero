@@ -98,7 +98,7 @@ namespace cryptonote
     {
       block   bl; //!< the block
       uint64_t height; //!< the height of the block in the blockchain
-      size_t block_cumulative_size; //!< the size (in bytes) of the block
+      size_t block_cumulative_weight; //!< the weight of the block
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
@@ -542,15 +542,15 @@ namespace cryptonote
      * @brief validate a transaction's fee
      *
      * This function validates the fee is enough for the transaction.
-     * This is based on the size of the transaction blob, and, after a
-     * height threshold, on the average size of transaction in a past window
+     * This is based on the weight of the transaction, and, after a
+     * height threshold, on the average weight of transaction in a past window
      *
-     * @param blob_size the transaction blob's size
+     * @param tx_weight the transaction weight
      * @param fee the fee
      *
      * @return true if the fee is enough, false otherwise
      */
-    bool check_fee(size_t blob_size, uint64_t fee) const;
+    bool check_fee(size_t tx_weight, uint64_t fee) const;
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -567,25 +567,25 @@ namespace cryptonote
     bool check_tx_outputs(const transaction& tx, tx_verification_context &tvc);
 
     /**
-     * @brief gets the blocksize limit based on recent blocks
+     * @brief gets the block weight limit based on recent blocks
      *
      * @return the limit
      */
-    uint64_t get_current_cumulative_blocksize_limit() const;
+    uint64_t get_current_cumulative_block_weight_limit() const;
 
     /**
-     * @brief gets the long term block size for a new block
+     * @brief gets the long term block weight for a new block
      *
-     * @return the long term block size
+     * @return the long term block weight
      */
-    uint64_t get_next_long_term_block_size(uint64_t block_size) const;
+    uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
 
     /**
-     * @brief gets the blocksize median based on recent blocks (same window as for the limit)
+     * @brief gets the block weight median based on recent blocks (same window as for the limit)
      *
      * @return the median
      */
-    uint64_t get_current_cumulative_blocksize_median() const;
+    uint64_t get_current_cumulative_block_weight_median() const;
 
     /**
      * @brief gets the difficulty of the block with a given height
@@ -954,8 +954,8 @@ namespace cryptonote
 
     // main chain
     transactions_container m_transactions;
-    size_t m_current_block_cumul_sz_limit;
-    size_t m_current_block_cumul_sz_median;
+    size_t m_current_block_cumul_weight_limit;
+    size_t m_current_block_cumul_weight_median;
 
     // metadata containers
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
@@ -981,10 +981,10 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
-    uint64_t m_long_term_block_sizes_window;
-    uint64_t m_long_term_effective_median_block_size;
-    mutable crypto::hash m_long_term_block_sizes_cache_tip_hash;
-    mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_sizes_cache_rolling_median;
+    uint64_t m_long_term_block_weights_window;
+    uint64_t m_long_term_effective_median_block_weight;
+    mutable crypto::hash m_long_term_block_weights_cache_tip_hash;
+    mutable epee::misc_utils::rolling_median_t<uint64_t> m_long_term_block_weights_cache_rolling_median;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1187,7 +1187,7 @@ namespace cryptonote
      * and that his miner transaction totals reward + fee.
      *
      * @param b the block containing the miner transaction to be validated
-     * @param cumulative_block_size the block's size
+     * @param cumulative_block_weight the block's weight
      * @param fee the total fees collected in the block
      * @param base_reward return-by-reference the new block's generated coins
      * @param already_generated_coins the amount of currency generated prior to this block
@@ -1197,7 +1197,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, uint64_t height);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, uint64_t height);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1214,28 +1214,26 @@ namespace cryptonote
     bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
 
     /**
-     * @brief gets recent block sizes for median calculation
+     * @brief gets recent block weights for median calculation
      *
-     * get the block sizes of the last <count> blocks, and return by reference <sz>.
+     * get the block weights of the last <count> blocks, and return by reference <sz>.
      *
-     * @param sz return-by-reference the list of sizes
-     * @param count the number of blocks to get sizes for
+     * @param sz return-by-reference the list of weights
+     * @param count the number of blocks to get weights for
      */
-    void get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count) const;
+    void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
 
     /**
-     * @brief gets block long term size median
-     * @brief gets block long term size median
+     * @brief gets block long term weight median
      *
-     * get the block long term size median of <count> blocks starting at <start_height>
-     * get the block long term size median of <count> blocks starting at <start_height>
+     * get the block long term weight median of <count> blocks starting at <start_height>
      *
      * @param start_height the block height of the first block to query
-     * @param count the number of blocks to get sizes for
+     * @param count the number of blocks to get weights for
      *
-     * @return the long term median block size
+     * @return the long term median block weight
      */
-    uint64_t get_long_term_block_size_median(uint64_t start_height, size_t count) const;
+    uint64_t get_long_term_block_weight_median(uint64_t start_height, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
@@ -1332,13 +1330,13 @@ namespace cryptonote
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
 
     /**
-     * @brief calculate the block size limit for the next block to be added
+     * @brief calculate the block weight limit for the next block to be added
      *
-     * @param long_term_effective_median_block_size optionally return that value
+     * @param long_term_effective_median_block_weight optionally return that value
      *
      * @return true
      */
-    bool update_next_cumulative_size_limit(uint64_t *long_term_effective_median_block_size = NULL);
+    bool update_next_cumulative_weight_limit(uint64_t *long_term_effective_median_block_weight = NULL);
     void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**

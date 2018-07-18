@@ -54,7 +54,7 @@ set(unit_tests_sources
   hashchain.cpp
   http.cpp
   keccak.cpp
-  long_term_block_size.cpp
+  long_term_block_weight.cpp
   main.cpp
   memwipe.cpp
   mlocker.cpp

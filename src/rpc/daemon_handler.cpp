@@ -436,7 +436,8 @@ namespace rpc
     res.info.stagenet = m_core.get_nettype() == STAGENET;
     res.info.wide_cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.info.height - 1);
     res.info.cumulative_difficulty = (res.info.wide_cumulative_difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
-    res.info.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
+    res.info.block_size_limit = res.info.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
+    res.info.block_size_median = res.info.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
     res.info.start_time = (uint64_t)m_core.get_start_time();
 
     res.status = Message::STATUS_OK;

@@ -35,7 +35,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/testdb.h"
 
-#define LONG_TERM_BLOCK_SIZE_WINDOW 5000
+#define LONG_TERM_BLOCK_WEIGHT_WINDOW 5000
 
 enum test_t
 {
@@ -52,36 +52,36 @@ class TestDB: public cryptonote::BaseTestDB
 private:
   struct block_t
   {
-    size_t size;
-    uint64_t long_term_size;
+    size_t weight;
+    uint64_t long_term_weight;
   };
 
 public:
   TestDB() { m_open = true; }
 
   virtual void add_block( const cryptonote::block& blk
-                        , const size_t& block_size
-                        , uint64_t long_term_block_size
+                        , size_t block_weight
+                        , uint64_t long_term_block_weight
                         , const cryptonote::difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
                         ) override {
-    blocks.push_back({block_size, long_term_block_size});
+    blocks.push_back({block_weight, long_term_block_weight});
   }
   virtual uint64_t height() const override { return blocks.size(); }
-  virtual size_t get_block_size(const uint64_t &h) const override { return blocks[h].size; }
-  virtual uint64_t get_block_long_term_size(const uint64_t &h) const override { return blocks[h].long_term_size; }
-  virtual std::vector<uint64_t> get_block_sizes(uint64_t start_height, size_t count) const override {
+  virtual size_t get_block_weight(const uint64_t &h) const override { return blocks[h].weight; }
+  virtual uint64_t get_block_long_term_weight(const uint64_t &h) const override { return blocks[h].long_term_weight; }
+  virtual std::vector<uint64_t> get_block_weights(uint64_t start_height, size_t count) const override {
     std::vector<uint64_t> ret;
     ret.reserve(count);
-    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].size);
+    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].weight);
     return ret;
   }
-  virtual std::vector<uint64_t> get_long_term_block_sizes(uint64_t start_height, size_t count) const override {
+  virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const override {
     std::vector<uint64_t> ret;
     ret.reserve(count);
-    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].long_term_size);
+    while (count-- && start_height < blocks.size()) ret.push_back(blocks[start_height++].long_term_weight);
     return ret;
   }
   virtual crypto::hash get_block_hash_from_height(const uint64_t &height) const override {
@@ -117,7 +117,7 @@ private:
       hard_forks, \
       window, \
     }; \
-    get_test_options(): hard_forks{{1, (uint64_t)0, 0}, {(uint8_t)hf_version, (uint64_t)LONG_TERM_BLOCK_SIZE_WINDOW, 0}, {(uint8_t)0, (uint64_t)0, 0}} {} \
+    get_test_options(): hard_forks{{1, (uint64_t)0, 0}, {(uint8_t)hf_version, (uint64_t)LONG_TERM_BLOCK_WEIGHT_WINDOW, 0}, {(uint8_t)0, (uint64_t)0, 0}} {} \
   } opts; \
   cryptonote::Blockchain *blockchain = bc.get(); \
   bool r = blockchain->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0); \
@@ -127,7 +127,7 @@ private:
     exit(1); \
   }
 
-#define PREFIX(hf_version) PREFIX_WINDOW(hf_version, LONG_TERM_BLOCK_SIZE_WINDOW)
+#define PREFIX(hf_version) PREFIX_WINDOW(hf_version, LONG_TERM_BLOCK_WEIGHT_WINDOW)
 
 static uint32_t lcg_seed = 0;
 
@@ -141,15 +141,15 @@ static void test(test_t t, uint64_t blocks)
 {
   PREFIX(8);
 
-  for (uint64_t h = 0; h < LONG_TERM_BLOCK_SIZE_WINDOW; ++h)
+  for (uint64_t h = 0; h < LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
     cryptonote::block b;
     b.major_version = 1;
     b.minor_version = 1;
     bc->get_db().add_block(b, 20000, 20000, bc->get_db().height(), bc->get_db().height(), {});
-    if (!bc->update_next_cumulative_size_limit())
+    if (!bc->update_next_cumulative_weight_limit())
     {
-      fprintf(stderr, "Failed to update cumulative size limit 1\n");
+      fprintf(stderr, "Failed to update cumulative weight limit 1\n");
       exit(1);
     }
   }
@@ -157,7 +157,7 @@ static void test(test_t t, uint64_t blocks)
   for (uint64_t h = 0; h < blocks; ++h)
   {
     uint64_t w;
-    uint64_t effective_block_size_median = bc->get_current_cumulative_blocksize_median();
+    uint64_t effective_block_weight_median = bc->get_current_cumulative_block_weight_median();
     switch (t)
     {
       case test_lcg:
@@ -168,7 +168,7 @@ static void test(test_t t, uint64_t blocks)
         break;
       }
       case test_max:
-        w = bc->get_current_cumulative_blocksize_limit();
+        w = bc->get_current_cumulative_block_weight_limit();
         break;
       case test_min:
         w = 240;
@@ -176,26 +176,26 @@ static void test(test_t t, uint64_t blocks)
       default:
         exit(1);
     }
-    uint64_t ltw = bc->get_next_long_term_block_size(w);
+    uint64_t ltw = bc->get_next_long_term_block_weight(w);
     cryptonote::block b;
     b.major_version = 8;
     b.minor_version = 8;
     bc->get_db().add_block(std::move(b), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
 
-    if (!bc->update_next_cumulative_size_limit())
+    if (!bc->update_next_cumulative_weight_limit())
     {
-      fprintf(stderr, "Failed to update cumulative size limit\n");
+      fprintf(stderr, "Failed to update cumulative weight limit\n");
       exit(1);
     }
-    std::cout << "H " << h << ", BW " << w << ", EMBW " << effective_block_size_median << ", LTBW " << ltw << std::endl;
+    std::cout << "H " << h << ", BW " << w << ", EMBW " << effective_block_weight_median << ", LTBW " << ltw << std::endl;
   }
 }
 
 int main()
 {
-  mlog_configure(mlog_get_default_log_path("block_size.log"), true);
-  test(test_max, 2 * LONG_TERM_BLOCK_SIZE_WINDOW);
-  test(test_lcg, 9 * LONG_TERM_BLOCK_SIZE_WINDOW);
-  test(test_min, 1 * LONG_TERM_BLOCK_SIZE_WINDOW);
+  mlog_configure(mlog_get_default_log_path("block_weight.log"), true);
+  test(test_max, 2 * LONG_TERM_BLOCK_WEIGHT_WINDOW);
+  test(test_lcg, 9 * LONG_TERM_BLOCK_WEIGHT_WINDOW);
+  test(test_min, 1 * LONG_TERM_BLOCK_WEIGHT_WINDOW);
   return 0;
 }

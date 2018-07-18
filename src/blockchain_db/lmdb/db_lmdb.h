@@ -205,9 +205,9 @@ public:
 
   virtual uint64_t get_top_block_timestamp() const;
 
-  virtual size_t get_block_size(const uint64_t& height) const;
+  virtual size_t get_block_weight(const uint64_t& height) const;
 
-  virtual std::vector<uint64_t> get_block_sizes(uint64_t start_height, size_t count) const;
+  virtual std::vector<uint64_t> get_block_weights(uint64_t start_height, size_t count) const;
 
   virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const;
 
@@ -215,9 +215,9 @@ public:
 
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const;
 
-  virtual uint64_t get_block_long_term_size(const uint64_t& height) const;
+  virtual uint64_t get_block_long_term_weight(const uint64_t& height) const;
 
-  virtual std::vector<uint64_t> get_long_term_block_sizes(uint64_t start_height, size_t count) const;
+  virtual std::vector<uint64_t> get_long_term_block_weights(uint64_t start_height, size_t count) const;
 
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const;
 
@@ -279,8 +279,8 @@ public:
   virtual bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const;
 
   virtual uint64_t add_block( const block& blk
-                            , const size_t& block_size
-                            , uint64_t long_term_block_size
+                            , size_t block_weight
+                            , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
@@ -324,8 +324,8 @@ private:
   uint64_t get_estimated_batch_size(uint64_t batch_num_blocks, uint64_t batch_bytes) const;
 
   virtual void add_block( const block& blk
-                , const size_t& block_size
-                , uint64_t long_term_block_size
+                , size_t block_weight
+                , uint64_t long_term_block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs

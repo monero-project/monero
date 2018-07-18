@@ -26,20 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(block_size_sources
-  block_size.cpp)
+set(block_weight_sources
+  block_weight.cpp)
 
-set(block_size_headers)
+set(block_weight_headers)
 
-add_executable(block_size
-  ${block_size_sources}
-  ${block_size_headers})
-target_link_libraries(block_size
+add_executable(block_weight
+  ${block_weight_sources}
+  ${block_weight_headers})
+target_link_libraries(block_weight
   PRIVATE
     cryptonote_core
     blockchain_db
     ${EXTRA_LIBRARIES})
 
 add_test(
-  NAME    block_size
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/compare.py ${CMAKE_CURRENT_SOURCE_DIR}/block_size.py ${CMAKE_CURRENT_BINARY_DIR}/block_size)
+  NAME    block_weight
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/compare.py ${CMAKE_CURRENT_SOURCE_DIR}/block_weight.py ${CMAKE_CURRENT_BINARY_DIR}/block_weight)

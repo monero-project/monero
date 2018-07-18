@@ -5550,6 +5550,11 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
       fail_msg_writer() << tr("Ring size must not be 2");
       return true;
     }
+    else if (ring_size == 0)
+    {
+      fail_msg_writer() << tr("Ring size must not be 0");
+      return true;
+    }
     else
     {
       local_args.erase(local_args.begin());

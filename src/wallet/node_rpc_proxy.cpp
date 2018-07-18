@@ -52,7 +52,7 @@ void NodeRPCProxy::invalidate()
     m_earliest_height[n] = 0;
   m_rpc_version = 0;
   m_target_height = 0;
-  m_block_size_limit = 0;
+  m_block_weight_limit = 0;
   m_get_info_time = 0;
   m_height_time = 0;
 }
@@ -98,7 +98,7 @@ boost::optional<std::string> NodeRPCProxy::get_info() const
     CHECK_AND_ASSERT_MES(resp_t.status == CORE_RPC_STATUS_OK, resp_t.status, "Failed to get target blockchain height");
     m_height = resp_t.height;
     m_target_height = resp_t.target_height;
-    m_block_size_limit = resp_t.block_size_limit;
+    m_block_weight_limit = resp_t.block_weight_limit ? resp_t.block_weight_limit : resp_t.block_size_limit;
     m_get_info_time = now;
     m_height_time = now;
   }
@@ -130,12 +130,12 @@ boost::optional<std::string> NodeRPCProxy::get_target_height(uint64_t &height) c
   return boost::optional<std::string>();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_block_size_limit(uint64_t &block_size_limit) const
+boost::optional<std::string> NodeRPCProxy::get_block_weight_limit(uint64_t &block_weight_limit) const
 {
   auto res = get_info();
   if (res)
     return res;
-  block_size_limit = m_block_size_limit;
+  block_weight_limit = m_block_weight_limit;
   return boost::optional<std::string>();
 }
 

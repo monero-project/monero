@@ -86,6 +86,7 @@ namespace rpc
     cryptonote::transaction tx;
     crypto::hash tx_hash;
     uint64_t blob_size;
+    uint64_t weight;
     uint64_t fee;
     crypto::hash max_used_block_hash;
     uint64_t max_used_block_height;
@@ -189,6 +190,9 @@ namespace rpc
     cryptonote::difficulty_type wide_cumulative_difficulty;
     uint64_t cumulative_difficulty;
     uint64_t block_size_limit;
+    uint64_t block_weight_limit;
+    uint64_t block_size_median;
+    uint64_t block_weight_median;
     uint64_t start_time;
   };
 

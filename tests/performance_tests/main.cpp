@@ -154,27 +154,31 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 2, false, true);
   TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 10, false, true);
 
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 1, 2, false, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 1, 2, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 2, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 10, 2, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 100, 2, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, false, false);
 
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 1, 2, true, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, true, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, true, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, true, false, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, true, false, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 1, 2, true, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 2, true, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 10, 2, true, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 100, 2, true, false);
+  TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, true, false);
 
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, true, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, true, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, true, false);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, true, false);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, true, rct::RangeProofBorromean);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, true, rct::RangeProofBorromean);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, true, rct::RangeProofBorromean);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, true, rct::RangeProofBorromean);
 
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, true, true);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, true, true);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, true, true);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, true, true);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, false, true, rct::RangeProofMultiOutputBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, false, true, rct::RangeProofMultiOutputBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, false, true, rct::RangeProofMultiOutputBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, false, true, rct::RangeProofMultiOutputBulletproof);
 
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 1, 0, 1);
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff);
