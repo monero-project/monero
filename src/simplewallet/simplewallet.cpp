@@ -4292,12 +4292,7 @@ uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
   {
     throw std::runtime_error("simple_wallet null wallet");
   }
-
-  COMMAND_RPC_GET_HEIGHT::request req;
-  COMMAND_RPC_GET_HEIGHT::response res = boost::value_initialized<COMMAND_RPC_GET_HEIGHT::response>();
-  bool r = m_wallet->invoke_http_json("/getheight", req, res);
-  err = interpret_rpc_response(r, res.status);
-  return res.height;
+  return m_wallet->get_daemon_blockchain_height(err);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_blockchain_height(const std::vector<std::string>& args)
