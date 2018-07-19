@@ -4969,10 +4969,14 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &args_)
 {
-  // sweep_all [index=<N1>[,<N2>,...]] [<ring_size>] <address> [<payment_id>]
+  auto print_usage = [below]()
+  {
+    fail_msg_writer() << boost::format(tr("usage: %s [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]")) % (below ? "sweep_below" : "sweep_all");
+  };
   if (args_.size() == 0)
   {
     fail_msg_writer() << tr("No address given");
+    print_usage();
     return true;
   }
 
@@ -4986,7 +4990,10 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
   {
     if (!parse_subaddress_indices(local_args[0], subaddr_indices))
+    {
+      print_usage();
       return true;
+    }
     local_args.erase(local_args.begin());
   }
 
@@ -5054,6 +5061,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
     if(!r && local_args.size() == 3)
     {
       fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
+      print_usage();
       return true;
     }
     if (payment_id_seen)
@@ -5064,6 +5072,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[0], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
+    print_usage();
     return true;
   }
 
