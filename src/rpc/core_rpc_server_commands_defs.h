@@ -2117,12 +2117,16 @@ namespace cryptonote
       uint64_t height;
       uint64_t length;
       uint64_t difficulty;
+      std::vector<std::string> block_hashes;
+      std::string main_chain_parent_block;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(block_hash)
         KV_SERIALIZE(height)
         KV_SERIALIZE(length)
         KV_SERIALIZE(difficulty)
+        KV_SERIALIZE(block_hashes)
+        KV_SERIALIZE(main_chain_parent_block)
       END_KV_SERIALIZE_MAP()
     };
 
