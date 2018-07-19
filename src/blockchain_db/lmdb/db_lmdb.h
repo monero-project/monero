@@ -380,6 +380,8 @@ private:
 
   virtual bool is_read_only() const;
 
+  virtual uint64_t get_database_size() const;
+
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 
