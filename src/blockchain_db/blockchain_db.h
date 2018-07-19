@@ -655,6 +655,20 @@ public:
    */
   virtual std::vector<std::string> get_filenames() const = 0;
 
+  /**
+   * @brief remove file(s) storing the database
+   *
+   * This function is for resetting the database (for core tests, functional tests, etc).
+   * The function reset() is not usable because it needs to open the database file first
+   * which can fail if the existing database file is in an incompatible format.
+   * As such, this function needs to be called before calling open().
+   *
+   * @param folder    The path of the folder containing the database file(s) which must not end with slash '/'.
+   *
+   * @return          true if the operation is succesfull
+   */
+  virtual bool remove_data_file(const std::string& folder) const = 0;
+
   // return the name of the folder the db's file(s) should reside in
   /**
    * @brief gets the name of the folder the BlockchainDB's file(s) should be in

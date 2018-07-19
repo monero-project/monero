@@ -166,7 +166,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=false);
+  BlockchainLMDB(bool batch_transactions=true);
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -180,6 +180,8 @@ public:
   virtual void reset();
 
   virtual std::vector<std::string> get_filenames() const;
+
+  virtual bool remove_data_file(const std::string& folder) const;
 
   virtual std::string get_db_name() const;
 
