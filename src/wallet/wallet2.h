@@ -260,12 +260,12 @@ namespace tools
       uint64_t m_block_height;
       uint64_t m_unlock_time;
       uint64_t m_timestamp;
+      bool m_coinbase;
       cryptonote::subaddress_index m_subaddr_index;
     };
 
     struct address_tx : payment_details
     {
-      bool m_coinbase;
       bool m_mempool;
       bool m_incoming;
     };
@@ -1317,7 +1317,7 @@ BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 9)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::payment_details, 3)
+BOOST_CLASS_VERSION(tools::wallet2::payment_details, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
@@ -1584,16 +1584,24 @@ namespace boost
       a & x.m_timestamp;
       if (ver < 2)
       {
+        x.m_coinbase = false;
         x.m_subaddr_index = {};
         return;
       }
       a & x.m_subaddr_index;
       if (ver < 3)
       {
+        x.m_coinbase = false;
         x.m_fee = 0;
         return;
       }
       a & x.m_fee;
+      if (ver < 4)
+      {
+        x.m_coinbase = false;
+        return;
+      }
+      a & x.m_coinbase;
     }
 
     template <class Archive>
