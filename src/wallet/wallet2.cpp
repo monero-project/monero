@@ -2055,8 +2055,8 @@ void wallet2::update_pool_state(bool refreshed)
   MDEBUG("update_pool_state start");
 
   // get the pool state
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::request req;
-  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::response res;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN::request req;
+  cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN::response res;
   m_daemon_rpc_mutex.lock();
   bool r = epee::net_utils::invoke_http_json("/get_transaction_pool_hashes.bin", req, res, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
