@@ -35,8 +35,8 @@
 #include "wallet/wallet2.h"
 
 #include <string>
+#include <thread>
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/thread/condition_variable.hpp>
 
 
@@ -232,7 +232,7 @@ private:
     // synchronizing  sync and async refresh
     boost::mutex        m_refreshMutex2;
     boost::condition_variable m_refreshCV;
-    boost::thread       m_refreshThread;
+    std::thread       m_refreshThread;
     // flag indicating wallet is recovering from seed
     // so it shouldn't be considered as new and pull blocks (slow-refresh)
     // instead of pulling hashes (fast-refresh)
