@@ -6262,17 +6262,17 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
       std::string destination = m_wallet->get_subaddress_as_str({m_current_subaddress_account, pd.m_subaddr_index.minor});
       transfers.push_back({
-        .block = pd.m_block_height,
-        .timestamp = pd.m_timestamp,
-        .direction = "in",
-        .confirmed = true,
-        .amount = pd.m_amount,
-        .hash = pd.m_tx_hash,
-        .payment_id = payment_id,
-        .fee = 0,
-        .outputs = {{destination, pd.m_amount}},
-        .index = {pd.m_subaddr_index.minor},
-        .note = note
+        pd.m_block_height,
+        pd.m_timestamp,
+        "in",
+        true,
+        pd.m_amount,
+        pd.m_tx_hash,
+        payment_id,
+        0,
+        {{destination, pd.m_amount}},
+        {pd.m_subaddr_index.minor},
+        note
       });
     }
   }
@@ -6293,17 +6293,17 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         payment_id = payment_id.substr(0,16);
       std::string note = m_wallet->get_tx_note(i->first);
       transfers.push_back({
-        .block = pd.m_block_height,
-        .timestamp = pd.m_timestamp,
-        .direction = "out",
-        .confirmed = true,
-        .amount = pd.m_amount_in - change - fee,
-        .hash = i->first,
-        .payment_id = payment_id,
-        .fee = fee,
-        .outputs = destinations,
-        .index = pd.m_subaddr_indices,
-        .note = note
+        pd.m_block_height,
+        pd.m_timestamp,
+        "out",
+        true,
+        pd.m_amount_in - change - fee,
+        i->first,
+        payment_id,
+        fee,
+        destinations,
+        pd.m_subaddr_indices,
+        note
       });
     }
   }
@@ -6325,17 +6325,17 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
           double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
         
         transfers.push_back({
-          .block = tr("pool"),
-          .timestamp = pd.m_timestamp,
-          .direction = "in",
-          .confirmed = false,
-          .amount = pd.m_amount,
-          .hash = pd.m_tx_hash,
-          .payment_id = payment_id,
-          .fee = 0,
-          .outputs = {{"-", pd.m_amount}},
-          .index = {pd.m_subaddr_index.minor},
-          .note = note + double_spend_note
+          tr("pool"),
+          pd.m_timestamp,
+          "in",
+          false,
+          pd.m_amount,
+          pd.m_tx_hash,
+          payment_id,
+          0,
+          {{"-", pd.m_amount}},
+          {pd.m_subaddr_index.minor},
+          note + double_spend_note
         });
       }
     }
@@ -6364,17 +6364,17 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
       if ((failed && is_failed) || (!is_failed && pending)) {
         transfers.push_back({
-          .block = (is_failed ? tr("failed") : tr("pending")),
-          .timestamp = pd.m_timestamp,
-          .direction = "out",
-          .confirmed = false,
-          .amount = amount - pd.m_change - fee,
-          .hash = i->first,
-          .payment_id = payment_id,
-          .fee = fee,
-          .outputs = destinations,
-          .index = pd.m_subaddr_indices,
-          .note = note
+          (is_failed ? tr("failed") : tr("pending")),
+          pd.m_timestamp,
+          "out",
+          false,
+          amount - pd.m_change - fee,
+          i->first,
+          payment_id,
+          fee,
+          destinations,
+          pd.m_subaddr_indices,
+          note
         });
       }
     }

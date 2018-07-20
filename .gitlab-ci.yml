@@ -6,6 +6,29 @@ stages:
   - build
   - test
 
+build:windows:
+  tags:
+    - windows
+  stage: build
+  script:
+    - cat /proc/version
+    - make release-static-win64
+  artifacts:
+    paths:
+      - "build/release/bin"
+
+build:osx:
+  tags:
+    - osx
+  stage: build
+  script:
+    - sw_vers
+    - source ~/Builds/loki_env.sh
+    - make -j4 release-static-mac-x86_64
+  artifacts:
+    paths:
+      - "build/release/bin"
+
 build:linux:
   image: registry.gitlab.com/lokiproject/loki:latest
   tags:
