@@ -47,6 +47,8 @@ using namespace epee;
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "cn"
 
+double pow(double, double);
+
 namespace cryptonote {
 
   struct integrated_address {
@@ -87,7 +89,7 @@ namespace cryptonote {
     return CRYPTONOTE_MAX_TX_SIZE;
   }
   //-----------------------------------------------------------------------------------------------
-  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward, uint8_t version) {
+  bool get_block_reward(size_t median_size, size_t current_block_size, uint64_t already_generated_coins, uint64_t &reward, uint8_t version, uint64_t height) {
 
     //premine reward
     if (already_generated_coins == 0)
@@ -106,11 +108,8 @@ namespace cryptonote {
       base_reward = 0;
     }
 
-    uint64_t minimum_reward = already_generated_coins / (720 * 365 * YEARLY_INFLATION_INVERSE);
-    if (base_reward < minimum_reward)
-    {
-      base_reward = minimum_reward;
-    }
+    if (version >= 8)
+      base_reward = 28000000000 + 100000000000 / pow(2.0, height / (720.0 * 90.0)); // halve every 90 days.
 
     uint64_t full_reward_zone = get_min_block_size(version);
 

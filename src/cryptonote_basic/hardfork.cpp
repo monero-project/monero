@@ -55,10 +55,9 @@ static uint8_t get_block_version(const cryptonote::block &b)
   return b.major_version;
 }
 
-HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
+HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
   original_version(original_version),
-  original_version_till_height(original_version_till_height),
   forked_time(forked_time),
   update_time(update_time),
   window_size(window_size),
@@ -209,9 +208,6 @@ void HardFork::init()
 
 uint8_t HardFork::get_block_version(uint64_t height) const
 {
-  if (height <= original_version_till_height)
-    return original_version;
-
   const cryptonote::block &block = db.get_block_from_height(height);
   return ::get_block_version(block);
 }
