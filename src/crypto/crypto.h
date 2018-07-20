@@ -34,7 +34,6 @@
 #include <iostream>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
-#include <boost/utility/value_init.hpp>
 #include <boost/optional.hpp>
 #include <type_traits>
 #include <vector>
