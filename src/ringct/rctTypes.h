@@ -60,7 +60,7 @@ extern "C" {
 #define DP(x)
 #endif
 
-//atomic units of moneros
+//atomic units of xcashs
 #define ATOMS 64
 
 //for printing large ints
@@ -129,7 +129,7 @@ namespace rct {
         BEGIN_SERIALIZE_OBJECT()
           FIELD(mask)
           FIELD(amount)
-          // FIELD(senderPk) // not serialized, as we do not use it in monero currently
+          // FIELD(senderPk) // not serialized, as we do not use it in xcash currently
         END_SERIALIZE()
     };
 
@@ -150,7 +150,7 @@ namespace rct {
     };
     
     //just contains the necessary keys to represent MLSAG sigs
-    //c.f. https://eprint.iacr.org/2015/1098
+    //c.f. http://eprint.iacr.org/2015/1098
     struct mgSig {
         keyM ss;
         key cc;

@@ -34,10 +34,10 @@ set(multisig_headers)
 set(multisig_private_headers
   multisig.h)
 
-monero_private_headers(multisig
+xcash_private_headers(multisig
   ${multisig_private_headers})
 
-monero_add_library(multisig
+xcash_add_library(multisig
   ${multisig_sources}
   ${multisig_headers}
   ${multisig_private_headers})

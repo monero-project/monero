@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -100,11 +100,7 @@ namespace cryptonote
   bool get_transaction_hash(const transaction& t, crypto::hash& res);
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t& blob_size);
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size);
-  bool calculate_transaction_prunable_hash(const transaction& t, crypto::hash& res);
-  crypto::hash get_transaction_prunable_hash(const transaction& t);
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size);
-  crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash);
-
   blobdata get_block_hashing_blob(const block& b);
   bool calculate_block_hash(const block& b, crypto::hash& res);
   bool get_block_hash(const block& b, crypto::hash& res);

@@ -28,12 +28,11 @@
 #ifndef _FILE_IO_UTILS_H_
 #define _FILE_IO_UTILS_H_
 
-#include <fstream>
+#include <iostream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #ifdef WIN32
 #include <windows.h>
-#include "string_tools.h"
 #endif
 
 // On Windows there is a problem with non-ASCII characters in path and file names
@@ -48,7 +47,7 @@
 // Microsoft Visual C/C++ Runtime Library, and this method does NOT offer any
 // Unicode support.
 
-// Monero code that would want to continue to use the normal file stream classes
+// XCash code that would want to continue to use the normal file stream classes
 // but WITH Unicode support could therefore not solve this problem on its own,
 // but 2 different projects from 2 different maintaining groups would need changes
 // in this particular direction - something probably difficult to achieve and
@@ -73,9 +72,11 @@ namespace file_io_utils
 		bool save_string_to_file(const std::string& path_to_file, const std::string& str)
 	{
 #ifdef WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (file_handle == INVALID_HANDLE_VALUE)
                     return false;
                 DWORD bytes_written;
@@ -127,16 +128,18 @@ namespace file_io_utils
 
 
 	inline
-		bool load_file_to_string(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000)
+		bool load_file_to_string(const std::string& path_to_file, std::string& target_str)
 	{
 #ifdef WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (file_handle == INVALID_HANDLE_VALUE)
                     return false;
                 DWORD file_size = GetFileSize(file_handle, NULL);
-                if ((file_size == INVALID_FILE_SIZE) || (uint64_t)file_size > (uint64_t)max_size) {
+                if ((file_size == INVALID_FILE_SIZE) || (file_size > 1000000000)) {
                     CloseHandle(file_handle);
                     return false;
                 }
@@ -156,7 +159,7 @@ namespace file_io_utils
 
 			std::ifstream::pos_type file_size = fstream.tellg();
 			
-			if((uint64_t)file_size > (uint64_t)max_size) // ensure a large domain for comparison, and negative -> too large
+			if(file_size > 1000000000)
 				return false;//don't go crazy
 			size_t file_size_t = static_cast<size_t>(file_size);
 
@@ -178,7 +181,7 @@ namespace file_io_utils
 	inline
 		bool append_string_to_file(const std::string& path_to_file, const std::string& str)
 	{
-                // No special Windows implementation because so far not used in Monero code
+                // No special Windows implementation because so far not used in XCash code
 		try
 		{
 			std::ofstream fstream;
@@ -199,9 +202,11 @@ namespace file_io_utils
 		bool get_file_size(const std::string& path_to_file, uint64_t &size)
 	{
 #ifdef WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                WCHAR wide_path[1000];
+                int chars = MultiByteToWideChar(CP_UTF8, 0, path_to_file.c_str(), path_to_file.size() + 1, wide_path, 1000);
+                if (chars == 0)
+                    return false;
+                HANDLE file_handle = CreateFileW(wide_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (file_handle == INVALID_HANDLE_VALUE)
                     return false;
                 LARGE_INTEGER file_size;

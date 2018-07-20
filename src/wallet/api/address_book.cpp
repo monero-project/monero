@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -37,7 +37,7 @@
 
 #include <vector>
 
-namespace Monero {
+namespace XCash {
   
 AddressBook::~AddressBook() {}
   
@@ -178,4 +178,4 @@ AddressBookImpl::~AddressBookImpl()
 
 } // namespace
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;

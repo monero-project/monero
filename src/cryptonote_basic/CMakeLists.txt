@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 #
 # All rights reserved.
 #
@@ -57,9 +57,9 @@ set(cryptonote_basic_private_headers
   tx_extra.h
   verification_context.h)
 
-monero_private_headers(cryptonote_basic
+xcash_private_headers(cryptonote_basic
   ${cryptonote_basic_private_headers})
-monero_add_library(cryptonote_basic
+xcash_add_library(cryptonote_basic
   ${cryptonote_basic_sources}
   ${cryptonote_basic_headers}
   ${cryptonote_basic_private_headers})

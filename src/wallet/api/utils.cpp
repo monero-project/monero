@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -35,7 +35,7 @@
 
 using namespace std;
 
-namespace Monero {
+namespace XCash {
 namespace Utils {
 
 bool isAddressLocal(const std::string &address)
@@ -58,4 +58,4 @@ void onStartup()
 
 } // namespace
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;

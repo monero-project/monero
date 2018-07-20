@@ -43,8 +43,8 @@
 #include "wallet/api/unsigned_transaction.h"
 #include "wallet/api/pending_transaction.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "debugtools.objectsizes"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "debugtools.objectsizes"
 
 class size_logger
 {
@@ -94,11 +94,6 @@ int main(int argc, char* argv[])
   SL(nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>);
   SL(nodetool::p2p_connection_context_t<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>::connection_context>);
   SL(nodetool::network_address_old);
-  SL(nodetool::peerlist_entry_base<nodetool::network_address_old>);
-
-  SL(nodetool::network_config);
-  SL(nodetool::basic_node_data);
-  SL(cryptonote::CORE_SYNC_DATA);
 
   SL(tools::wallet2::transfer_details);
   SL(tools::wallet2::payment_details);
@@ -109,12 +104,12 @@ int main(int argc, char* argv[])
   SL(tools::wallet2::unsigned_tx_set);
   SL(tools::wallet2::signed_tx_set);
 
-  SL(Monero::WalletImpl);
-  SL(Monero::AddressBookRow);
-  SL(Monero::TransactionInfoImpl);
-  SL(Monero::TransactionHistoryImpl);
-  SL(Monero::PendingTransactionImpl);
-  SL(Monero::UnsignedTransactionImpl);
+  SL(XCash::WalletImpl);
+  SL(XCash::AddressBookRow);
+  SL(XCash::TransactionInfoImpl);
+  SL(XCash::TransactionHistoryImpl);
+  SL(XCash::PendingTransactionImpl);
+  SL(XCash::UnsignedTransactionImpl);
 
   return 0;
 }

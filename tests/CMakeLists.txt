@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -73,8 +73,8 @@ file(COPY
   data/wallet_9svHk1.keys
   data/wallet_9svHk1
   data/outputs
-  data/unsigned_monero_tx
-  data/signed_monero_tx
+  data/unsigned_xcash_tx
+  data/signed_xcash_tx
   DESTINATION data)
 
 add_subdirectory(core_tests)

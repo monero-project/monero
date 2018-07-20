@@ -1,5 +1,5 @@
 /// @file
-/// @author rfree (current maintainer in monero.cc project)
+/// @author rfree (current maintainer in xcash.cc project)
 /// @brief base for connection, contains e.g. the ratelimit hooks
 
 // ! This file might contain variable names same as in template class connection<> 
@@ -8,7 +8,7 @@
 // ! (how ever if in some wonderful juristdictions that is not the case, then why not make another sub-class withat that members and licence it as epee part)
 // ! Working on above premise, IF this is valid in your juristdictions, then consider this code as released as:
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -127,7 +127,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 
 		// handlers and sleep
 		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?)
-		static void save_limit_to_file(int limit); ///< for dr-monero
+		static void save_limit_to_file(int limit); ///< for dr-xcash
 		static double get_sleep_time(size_t cb);
 		
 		static void set_save_graph(bool save_graph);

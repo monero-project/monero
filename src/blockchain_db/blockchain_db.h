@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -148,7 +148,6 @@ struct txpool_tx_meta_t
   uint8_t relayed;
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
-  uint8_t bf_padding: 7;
 
   uint8_t padding[76]; // till 192 bytes
 };
@@ -367,7 +366,6 @@ private:
                 , const size_t& block_size
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
-                , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
                 ) = 0;
 
@@ -400,10 +398,9 @@ private:
    * @param blk_hash the hash of the block containing the transaction
    * @param tx the transaction to be added
    * @param tx_hash the hash of the transaction
-   * @param tx_prunable_hash the hash of the prunable part of the transaction
    * @return the transaction ID
    */
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) = 0;
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash& tx_hash) = 0;
 
   /**
    * @brief remove data about a transaction
@@ -529,9 +526,8 @@ protected:
    * @param blk_hash hash of the block which has the transaction
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
-   * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -655,20 +651,6 @@ public:
    * @return a list of filenames
    */
   virtual std::vector<std::string> get_filenames() const = 0;
-
-  /**
-   * @brief remove file(s) storing the database
-   *
-   * This function is for resetting the database (for core tests, functional tests, etc).
-   * The function reset() is not usable because it needs to open the database file first
-   * which can fail if the existing database file is in an incompatible format.
-   * As such, this function needs to be called before calling open().
-   *
-   * @param folder    The path of the folder containing the database file(s) which must not end with slash '/'.
-   *
-   * @return          true if the operation is succesfull
-   */
-  virtual bool remove_data_file(const std::string& folder) const = 0;
 
   // return the name of the folder the db's file(s) should reside in
   /**
@@ -907,20 +889,6 @@ public:
   virtual uint64_t get_block_timestamp(const uint64_t& height) const = 0;
 
   /**
-   * @brief fetch a block's cumulative number of rct outputs
-   *
-   * The subclass should return the numer of rct outputs in the blockchain
-   * up to the block with the given height (inclusive).
-   *
-   * If the block does not exist, the subclass should throw BLOCK_DNE
-   *
-   * @param height the height requested
-   *
-   * @return the cumulative number of rct outputs
-   */
-  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const = 0;
-
-  /**
    * @brief fetch the top block's timestamp
    *
    * The subclass should return the timestamp of the most recent block.
@@ -1150,33 +1118,6 @@ public:
    * @return true iff the transaction was found
    */
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
-
-  /**
-   * @brief fetches the pruned transaction blob with the given hash
-   *
-   * The subclass should return the pruned transaction stored which has the given
-   * hash.
-   *
-   * If the transaction does not exist, the subclass should return false.
-   *
-   * @param h the hash to look for
-   *
-   * @return true iff the transaction was found
-   */
-  virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
-
-  /**
-   * @brief fetches the prunable transaction hash
-   *
-   * The subclass should return the hash of the prunable transaction data.
-   *
-   * If the transaction hash does not exist, the subclass should return false.
-   *
-   * @param h the tx hash to look for
-   *
-   * @return true iff the transaction was found
-   */
-  virtual bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const = 0;
 
   /**
    * @brief fetches the total number of transactions ever
@@ -1485,11 +1426,10 @@ public:
    * not found.  Current implementations simply return false.
    *
    * @param std::function fn the function to run
-   * @param bool pruned whether to only get pruned tx data, or the whole
    *
    * @return false if the function returns false for any transaction, otherwise true
    */
-  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const = 0;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>) const = 0;
 
   /**
    * @brief runs a function over all outputs stored
@@ -1550,13 +1490,10 @@ public:
    * @param amounts optional set of amounts to lookup
    * @param unlocked whether to restrict count to unlocked outputs
    * @param recent_cutoff timestamp to determine whether an output is recent
-   * @param min_count return only amounts with at least that many instances
    *
    * @return a set of amount/instances
    */
-  virtual std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff, uint64_t min_count) const = 0;
-
-  virtual bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const = 0;
+  virtual std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff) const = 0;
 
   /**
    * @brief is BlockchainDB in read-only mode?
@@ -1565,19 +1502,9 @@ public:
    */
   virtual bool is_read_only() const = 0;
 
-  /**
-   * @brief get disk space requirements
-   *
-   * @return the size required
-   */
-  virtual uint64_t get_database_size() const = 0;
-
   // TODO: this should perhaps be (or call) a series of functions which
   // progressively update through version updates
-  /**
-   * @brief fix up anything that may be wrong due to past bugs
-   */
-  virtual void fixup();
+  
 
   /**
    * @brief set whether or not to automatically remove logs

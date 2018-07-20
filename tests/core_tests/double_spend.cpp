@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -73,7 +73,7 @@ bool gen_double_spend_in_different_chains::check_double_spend(cryptonote::core& 
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_double_spend_in_different_chains::check_double_spend");
 
-  std::vector<block> block_list;
+  std::list<block> block_list;
   bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, block_list);
   CHECK_TEST_CONDITION(r);
 

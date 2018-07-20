@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 #
 # All rights reserved.
 #
@@ -34,9 +34,9 @@ set(simplewallet_headers)
 set(simplewallet_private_headers
   simplewallet.h)
 
-monero_private_headers(simplewallet
+xcash_private_headers(simplewallet
   ${simplewallet_private_headers})
-monero_add_executable(simplewallet
+xcash_add_executable(simplewallet
   ${simplewallet_sources}
   ${simplewallet_headers}
   ${simplewallet_private_headers})
@@ -48,6 +48,7 @@ target_link_libraries(simplewallet
     cncrypto
     common
     mnemonics
+    epee
     ${EPEE_READLINE}
     version
     ${Boost_CHRONO_LIBRARY}
@@ -60,5 +61,5 @@ target_link_libraries(simplewallet
     ${EXTRA_LIBRARIES})
 set_property(TARGET simplewallet
   PROPERTY
-    OUTPUT_NAME "monero-wallet-cli")
+    OUTPUT_NAME "xcash-wallet-cli")
 install(TARGETS simplewallet DESTINATION bin)

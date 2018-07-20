@@ -32,9 +32,8 @@
 
 #include "easylogging++.h"
 
-#define MONERO_DEFAULT_LOG_CATEGORY "default"
+#define XCASH_DEFAULT_LOG_CATEGORY "default"
 #define MAX_LOG_FILE_SIZE 104850000 // 100 MB - 7600 bytes
-#define MAX_LOG_FILES 50
 
 #define MCFATAL(cat,x) CLOG(FATAL,cat) << x
 #define MCERROR(cat,x) CLOG(ERROR,cat) << x
@@ -53,20 +52,20 @@
 #define MCLOG_MAGENTA(level,cat,x) MCLOG_COLOR(level,cat,"35",x)
 #define MCLOG_CYAN(level,cat,x) MCLOG_COLOR(level,cat,"36",x)
 
-#define MLOG_RED(level,x) MCLOG_RED(level,MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG_GREEN(level,x) MCLOG_GREEN(level,MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG_YELLOW(level,x) MCLOG_YELLOW(level,MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG_BLUE(level,x) MCLOG_BLUE(level,MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG_MAGENTA(level,x) MCLOG_MAGENTA(level,MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG_CYAN(level,x) MCLOG_CYAN(level,MONERO_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_RED(level,x) MCLOG_RED(level,XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_GREEN(level,x) MCLOG_GREEN(level,XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_YELLOW(level,x) MCLOG_YELLOW(level,XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_BLUE(level,x) MCLOG_BLUE(level,XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_MAGENTA(level,x) MCLOG_MAGENTA(level,XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG_CYAN(level,x) MCLOG_CYAN(level,XCASH_DEFAULT_LOG_CATEGORY,x)
 
-#define MFATAL(x) MCFATAL(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MERROR(x) MCERROR(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MWARNING(x) MCWARNING(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MINFO(x) MCINFO(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MDEBUG(x) MCDEBUG(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MTRACE(x) MCTRACE(MONERO_DEFAULT_LOG_CATEGORY,x)
-#define MLOG(level,x) MCLOG(level,MONERO_DEFAULT_LOG_CATEGORY,x)
+#define MFATAL(x) MCFATAL(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MERROR(x) MCERROR(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MWARNING(x) MCWARNING(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MINFO(x) MCINFO(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MDEBUG(x) MCDEBUG(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MTRACE(x) MCTRACE(XCASH_DEFAULT_LOG_CATEGORY,x)
+#define MLOG(level,x) MCLOG(level,XCASH_DEFAULT_LOG_CATEGORY,x)
 
 #define MGINFO(x) MCINFO("global",x)
 #define MGINFO_RED(x) MCLOG_RED(el::Level::Info, "global",x)
@@ -106,7 +105,7 @@
 #endif
 
 std::string mlog_get_default_log_path(const char *default_filename);
-void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size = MAX_LOG_FILE_SIZE, const std::size_t max_log_files = MAX_LOG_FILES);
+void mlog_configure(const std::string &filename_base, bool console, const std::size_t max_log_file_size = MAX_LOG_FILE_SIZE);
 void mlog_set_categories(const char *categories);
 std::string mlog_get_categories();
 void mlog_set_log_level(int level);

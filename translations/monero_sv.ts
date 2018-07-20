@@ -2,7 +2,7 @@
 <!DOCTYPE TS>
 <TS version="2.1">
 <context>
-    <name>Monero::AddressBookImpl</name>
+    <name>XCash::AddressBookImpl</name>
     <message>
         <location filename="../src/wallet/api/address_book.cpp" line="53"/>
         <source>Invalid destination address</source>
@@ -25,7 +25,7 @@
     </message>
 </context>
 <context>
-    <name>Monero::PendingTransactionImpl</name>
+    <name>XCash::PendingTransactionImpl</name>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="90"/>
         <source>Attempting to save transaction to file, but specified file(s) exist. Exiting to not risk overwriting. File:</source>
@@ -68,7 +68,7 @@
     </message>
 </context>
 <context>
-    <name>Monero::UnsignedTransactionImpl</name>
+    <name>XCash::UnsignedTransactionImpl</name>
     <message>
         <location filename="../src/wallet/api/unsigned_transaction.cpp" line="75"/>
         <source>This is a watch only wallet</source>
@@ -122,7 +122,7 @@
     </message>
 </context>
 <context>
-    <name>Monero::WalletImpl</name>
+    <name>XCash::WalletImpl</name>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="1111"/>
         <source>payment id has invalid format, expected 16 or 64 character hex string: </source>
@@ -461,7 +461,7 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="105"/>
-        <source> requires RPC server password --</source>
+        <source> requires RFC server password --</source>
         <translation> kräver lösenord till RPC-server --</translation>
     </message>
 </context>
@@ -1147,8 +1147,8 @@ Denna transaktion låses upp vid block %llu, om ungefär %s dagar (förutsatt en
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="679"/>
-        <source>Current fee is %s monero per kB</source>
-        <translation>Aktuell avgift är %s monero per kB</translation>
+        <source>Current fee is %s xcash per kB</source>
+        <translation>Aktuell avgift är %s xcash per kB</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="695"/>
@@ -1559,8 +1559,8 @@ Denna transaktion låses upp vid block %llu, om ungefär %s dagar (förutsatt en
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1622"/>
-        <source>Donate &lt;amount&gt; to the development team (donate.getmonero.org).</source>
-        <translation>Donera &lt;belopp&gt; till utvecklingsteamet (donate.getmonero.org).</translation>
+        <source>Donate &lt;amount&gt; to the development team (donate.getxcash.org).</source>
+        <translation>Donera &lt;belopp&gt; till utvecklingsteamet (donate.getxcash.org).</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1625"/>
@@ -1699,11 +1699,11 @@ Om argumentet &quot;tag_description&quot; anges, så tilldelas taggen &lt;taggna
  refresh-type &lt;full|optimize-coinbase|no-coinbase|default>
    Set the wallet&apos;s refresh behaviour.
  priority [0|1|2|3|4]
-   Set the fee to default/unimportant/normal/elevated/priority.
+   Set the fee too default/unimportant/normal/elevated/priority.
  confirm-missing-payment-id &lt;1|0>
  ask-password &lt;1|0>
- unit &lt;monero|millinero|micronero|nanonero|piconero>
-   Set the default monero (sub-)unit.
+ unit &lt;xcash|millinero|micronero|nanonero|piconero>
+   Set the default xcash (sub-)unit.
  min-outputs-count [n]
    Try to keep at least that many outputs of value at least min-outputs-value.
  min-outputs-value [n]
@@ -1737,8 +1737,8 @@ Om argumentet &quot;tag_description&quot; anges, så tilldelas taggen &lt;taggna
    Sätt avgiften till default/unimportant/normal/elevated/priority.
  confirm-missing-payment-id &lt;1|0>
  ask-password &lt;1|0>
- unit &lt;monero|millinero|micronero|nanonero|piconero>
-   Ange standardvärde för moneroenhet.
+ unit &lt;xcash|millinero|micronero|nanonero|piconero>
+   Ange standardvärde för xcashenhet.
  min-outputs-count [n]
    Försök att behålla åtminstone så många utgångar med åtminstone värdet min-outputs-value.
  min-outputs-value [n]
@@ -2205,7 +2205,7 @@ Annars bevisar du reserven för det minsta möjliga belopp över &lt;belopp&gt; 
 To start synchronizing with the daemon, use the &quot;refresh&quot; command.
 Use the &quot;help&quot; command to see the list of available commands.
 Use &quot;help &lt;command>&quot; to see a command&apos;s documentation.
-Always use the &quot;exit&quot; command when closing monero-wallet-cli to save 
+Always use the &quot;exit&quot; command when closing xcash-wallet-cli to save 
 your current session&apos;s state. Otherwise, you might need to synchronize 
 your wallet again (your wallet keys are NOT at risk in any case).
 </source>
@@ -2213,7 +2213,7 @@ your wallet again (your wallet keys are NOT at risk in any case).
 Använd kommandot &quot;refresh&quot; för att starta synkronisering med daemonen.
 Använd kommandot &quot;help&quot; för att visa en lista över tillgängliga kommandon.
 Använd &quot;help &lt;kommando>&quot; för att visa dokumentation för kommandot.
-Använd alltid kommandot &quot;exit&quot; när du stänger monero-wallet-cli så att ditt aktuella sessionstillstånd sparas. Annars kan du bli tvungen att synkronisera
+Använd alltid kommandot &quot;exit&quot; när du stänger xcash-wallet-cli så att ditt aktuella sessionstillstånd sparas. Annars kan du bli tvungen att synkronisera
 din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som helst).
 </translation>
     </message>
@@ -2609,8 +2609,8 @@ Varning: Några ingångsnycklar som spenderas kommer från </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1923"/>
-        <source>monero, millinero, micronero, nanonero, piconero</source>
-        <translation>monero, millinero, micronero, nanonero, piconero</translation>
+        <source>xcash, millinero, micronero, nanonero, piconero</source>
+        <translation>xcash, millinero, micronero, nanonero, piconero</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1975"/>
@@ -3759,8 +3759,8 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="129"/>
-        <source>The newly created transaction will not be relayed to the monero network</source>
-        <translation>Den nyss skapade transaktionen kommer inte att skickas vidare till monero-nätverket</translation>
+        <source>The newly created transaction will not be relayed to the xcash network</source>
+        <translation>Den nyss skapade transaktionen kommer inte att skickas vidare till xcash-nätverket</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="171"/>
@@ -3779,9 +3779,9 @@ Utgångar per *: </translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="6787"/>
-        <source>This is the command line monero wallet. It needs to connect to a monero
+        <source>This is the command line xcash wallet. It needs to connect to a xcash
 daemon to work correctly.</source>
-        <translation>Detta är kommandoradsplånboken för Monero. Den måste ansluta till en Monero-
+        <translation>Detta är kommandoradsplånboken för XCash. Den måste ansluta till en XCash-
 daemon för att fungera korrekt.</translation>
     </message>
     <message>
@@ -4023,9 +4023,9 @@ daemon för att fungera korrekt.</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_rpc_server.cpp" line="2870"/>
-        <source>This is the RPC monero wallet. It needs to connect to a monero
+        <source>This is the RPC xcash wallet. It needs to connect to a xcash
 daemon to work correctly.</source>
-        <translation>Detta är RPC-plånboken för monero. Den måste ansluta till en Monero-
+        <translation>Detta är RPC-plånboken för xcash. Den måste ansluta till en XCash-
 daemon för att fungera korrekt.</translation>
     </message>
     <message>
@@ -4132,9 +4132,9 @@ daemon för att fungera korrekt.</translation>
     </message>
     <message>
         <location filename="../src/wallet/wallet_args.cpp" line="138"/>
-        <source>This is the command line monero wallet. It needs to connect to a monero
+        <source>This is the command line xcash wallet. It needs to connect to a xcash
 daemon to work correctly.</source>
-        <translation>Detta är kommandoradsplånboken för Monero. Den måste ansluta till en Monero-
+        <translation>Detta är kommandoradsplånboken för XCash. Den måste ansluta till en XCash-
 daemon för att fungera korrekt.</translation>
     </message>
     <message>

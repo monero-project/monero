@@ -2,7 +2,7 @@
 
 if [ ! -d "$SNAP_USER_DATA/etc" ]; then
   mkdir $SNAP_USER_DATA/etc/
-  cp -R $SNAP/etc/monerod.conf $SNAP_USER_DATA/etc/monerod.conf
+  cp -R $SNAP/etc/xcashd.conf $SNAP_USER_DATA/etc/xcashd.conf
 fi
 
-exec "$SNAP/bin/monerod" "$@"
+exec "$SNAP/bin/xcashd" "$@"

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -52,8 +52,8 @@
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "misc_language.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "tests.core"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "tests.core"
 
 
 
@@ -481,7 +481,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
     MERROR("Failed to flush txpool");
     return false;
   }
-  c.get_blockchain_storage().flush_txes_from_pool(pool_txs);
+  c.get_blockchain_storage().flush_txes_from_pool(std::list<crypto::hash>(pool_txs.begin(), pool_txs.end()));
 
   t_test_class validator;
   bool ret = replay_events_through_core<t_test_class>(c, events, validator);

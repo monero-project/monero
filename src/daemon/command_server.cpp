@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,8 +32,8 @@
 #include "string_tools.h"
 #include "daemon/command_server.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -205,12 +205,12 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "start_save_graph"
     , std::bind(&t_command_parser_executor::start_save_graph, &m_parser, p::_1)
-    , "Start saving data for dr monero."
+    , "Start saving data for dr xcash."
     );
     m_command_lookup.set_handler(
       "stop_save_graph"
     , std::bind(&t_command_parser_executor::stop_save_graph, &m_parser, p::_1)
-    , "Stop saving data for dr monero."
+    , "Stop saving data for dr xcash."
     );
     m_command_lookup.set_handler(
       "hard_fork_info"
@@ -255,7 +255,6 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "alt_chain_info"
     , std::bind(&t_command_parser_executor::alt_chain_info, &m_parser, p::_1)
-    , "alt_chain_info [blockhash]"
     , "Print the information about alternative chains."
     );
     m_command_lookup.set_handler(
@@ -280,11 +279,6 @@ t_command_server::t_command_server(
       "sync_info"
     , std::bind(&t_command_parser_executor::sync_info, &m_parser, p::_1)
     , "Print information about the blockchain sync state."
-    );
-    m_command_lookup.set_handler(
-      "version"
-    , std::bind(&t_command_parser_executor::version, &m_parser, p::_1)
-    , "Print version information."
     );
 }
 
@@ -335,7 +329,7 @@ bool t_command_server::help(const std::vector<std::string>& args)
 std::string t_command_server::get_commands_str()
 {
   std::stringstream ss;
-  ss << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
+  ss << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << std::endl;
   ss << "Commands: " << std::endl;
   std::string usage = m_command_lookup.get_usage();
   boost::replace_all(usage, "\n", "\n  ");

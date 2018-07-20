@@ -34,8 +34,8 @@
 using namespace crypto;
 using namespace std;
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "ringct"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "ringct"
 
 #define CHECK_AND_ASSERT_THROW_MES_L1(expr, message) {if(!(expr)) {MWARNING(message); throw std::runtime_error(message);}}
 
@@ -134,9 +134,12 @@ namespace rct {
     }
     
     key zeroCommit(xmr_amount amount) {
+        key mask = identity();
+        mask = scalarmultBase(mask);
         key am = d2h(amount);
         key bH = scalarmultH(am);
-        return addKeys(G, bH);
+        addKeys(mask, mask, bH);
+        return mask;
     }
 
     key commit(xmr_amount amount, const key &mask) {

@@ -34,7 +34,7 @@
 
 #include <vector>
 
-namespace Monero {
+namespace XCash {
   
 SubaddressAccount::~SubaddressAccount() {}
   

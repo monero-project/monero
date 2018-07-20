@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -52,7 +52,7 @@ namespace cryptonote
     };
 
     state m_state;
-    std::vector<crypto::hash> m_needed_objects;
+    std::list<crypto::hash> m_needed_objects;
     std::unordered_set<crypto::hash> m_requested_objects;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
@@ -67,15 +67,15 @@ namespace cryptonote
     switch (s)
     {
     case cryptonote_connection_context::state_before_handshake:
-      return "before_handshake";
+      return "state_before_handshake";
     case cryptonote_connection_context::state_synchronizing:
-      return "synchronizing";
+      return "state_synchronizing";
     case cryptonote_connection_context::state_standby:
-      return "standby";
+      return "state_standby";
     case cryptonote_connection_context::state_idle:
-      return "idle";
+      return "state_idle";
     case cryptonote_connection_context::state_normal:
-      return "normal";
+      return "state_normal";
     default:
       return "unknown";
     }    

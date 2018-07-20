@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -39,7 +39,7 @@
 #include <iostream>
 
 //  Public interface for libwallet library
-namespace Monero {
+namespace XCash {
 
 enum NetworkType : uint8_t {
     MAINNET = 0,
@@ -100,30 +100,6 @@ struct PendingTransaction
     virtual uint64_t txCount() const = 0;
     virtual std::vector<uint32_t> subaddrAccount() const = 0;
     virtual std::vector<std::set<uint32_t>> subaddrIndices() const = 0;
-
-    /**
-     * @brief multisigSignData
-     * @return encoded multisig transaction with signers' keys.
-     *         Transfer this data to another wallet participant to sign it.
-     *         Assumed use case is:
-     *         1. Initiator:
-     *              auto data = pendingTransaction->multisigSignData();
-     *         2. Signer1:
-     *              pendingTransaction = wallet->restoreMultisigTransaction(data);
-     *              pendingTransaction->signMultisigTx();
-     *              auto signed = pendingTransaction->multisigSignData();
-     *         3. Signer2:
-     *              pendingTransaction = wallet->restoreMultisigTransaction(signed);
-     *              pendingTransaction->signMultisigTx();
-     *              pendingTransaction->commit();
-     */
-    virtual std::string multisigSignData() = 0;
-    virtual void signMultisigTx() = 0;
-    /**
-     * @brief signersKeys
-     * @return vector of base58-encoded signers' public keys
-     */
-    virtual std::vector<std::string> signersKeys() const = 0;
 };
 
 /**
@@ -315,15 +291,6 @@ struct SubaddressAccount
     virtual void refresh() = 0;
 };
 
-struct MultisigState {
-    MultisigState() : isMultisig(false), isReady(false), threshold(0), total(0) {}
-
-    bool isMultisig;
-    bool isReady;
-    uint32_t threshold;
-    uint32_t total;
-};
-
 struct WalletListener
 {
     virtual ~WalletListener() = 0;
@@ -391,11 +358,9 @@ struct Wallet
     virtual std::string getSeedLanguage() const = 0;
     virtual void setSeedLanguage(const std::string &arg) = 0;
     //! returns wallet status (Status_Ok | Status_Error)
-    virtual int status() const = 0; //deprecated: use safe alternative statusWithErrorString
+    virtual int status() const = 0;
     //! in case error status, returns error string
-    virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
-    //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
-    virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
+    virtual std::string errorString() const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
@@ -444,12 +409,6 @@ struct Wallet
     virtual std::string publicSpendKey() const = 0;
 
     /*!
-     * \brief publicMultisigSignerKey - returns public signer key
-     * \return                        - public multisignature signer key or empty string if wallet is not multisig
-     */
-    virtual std::string publicMultisigSignerKey() const = 0;
-
-    /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
@@ -475,7 +434,7 @@ struct Wallet
      * \param upper_transaction_size_limit
      * \param daemon_username
      * \param daemon_password
-     * \param lightWallet - start wallet in light mode, connect to a openmonero compatible server.
+     * \param lightWallet - start wallet in light mode, connect to a openxcash compatible server.
      * \return  - true on success
      */
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false) = 0;
@@ -508,21 +467,6 @@ struct Wallet
     * \param recoveringFromSeed - true/false
     */
     virtual void setRecoveringFromSeed(bool recoveringFromSeed) = 0;
-
-   /*!
-    * \brief setRecoveringFromDevice - set state to recovering from device
-    *
-    * \param recoveringFromDevice - true/false
-    */
-    virtual void setRecoveringFromDevice(bool recoveringFromDevice) = 0;
-
-    /*!
-     * \brief setSubaddressLookahead - set size of subaddress lookahead
-     *
-     * \param major - size fot the major index
-     * \param minor - size fot the minor index
-     */
-    virtual void setSubaddressLookahead(uint32_t major, uint32_t minor) = 0;
 
     /**
      * @brief connectToDaemon - connects to the daemon. TODO: check if it can be removed
@@ -612,8 +556,7 @@ struct Wallet
     }
     static uint64_t maximumAllowedAmount();
     // Easylogger wrapper
-    static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
-    static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
+    static void init(const char *argv0, const char *default_log_base_name);
     static void debug(const std::string &category, const std::string &str);
     static void info(const std::string &category, const std::string &str);
     static void warning(const std::string &category, const std::string &str);
@@ -685,48 +628,6 @@ struct Wallet
      */
     virtual void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label) = 0;
 
-    /**
-     * @brief multisig - returns current state of multisig wallet creation process
-     * @return MultisigState struct
-     */
-    virtual MultisigState multisig() const = 0;
-    /**
-     * @brief getMultisigInfo
-     * @return serialized and signed multisig info string
-     */
-    virtual std::string getMultisigInfo() const = 0;
-    /**
-     * @brief makeMultisig - switches wallet in multisig state. The one and only creation phase for N / N wallets
-     * @param info - vector of multisig infos from other participants obtained with getMulitisInfo call
-     * @param threshold - number of required signers to make valid transaction. Must be equal to number of participants (N) or N - 1
-     * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
-     */
-    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
-    /**
-     * @brief finalizeMultisig - finalizes N - 1 / N multisig wallets creation
-     * @param extraMultisigInfo - wallet participants' extra multisig info obtained with makeMultisig call
-     * @return true if success
-     */
-    virtual bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) = 0;
-    /**
-     * @brief exportMultisigImages - exports transfers' key images
-     * @param images - output paramter for hex encoded array of images
-     * @return true if success
-     */
-    virtual bool exportMultisigImages(std::string& images) = 0;
-    /**
-     * @brief importMultisigImages - imports other participants' multisig images
-     * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
-     * @return number of imported images
-     */
-    virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
-
-    /**
-     * @brief restoreMultisigTransaction creates PendingTransaction from signData
-     * @param signData encrypted unsigned transaction. Obtained with PendingTransaction::multisigSignData
-     * @return PendingTransaction
-     */
-    virtual PendingTransaction*  restoreMultisigTransaction(const std::string& signData) = 0;
     /*!
      * \brief createTransaction creates transaction. if dst_addr is an integrated address, payment_id is ignored
      * \param dst_addr          destination address as string
@@ -845,21 +746,6 @@ struct Wallet
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
-
-    /*!
-     * \brief signMultisigParticipant   signs given message with the multisig public signer key
-     * \param message                   message to sign
-     * \return                          signature in case of success. Sets status to Error and return empty string in case of error
-     */
-    virtual std::string signMultisigParticipant(const std::string &message) const = 0;
-    /*!
-     * \brief verifyMessageWithPublicKey verifies that message was signed with the given public key
-     * \param message                    message
-     * \param publicKey                  hex encoded public key
-     * \param signature                  signature of the message
-     * \return                           true if the signature is correct. false and sets error state in case of error
-     */
-    virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const = 0;
 
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) = 0;
 
@@ -1030,23 +916,6 @@ struct WalletManager
     }
 
     /*!
-     * \brief  creates wallet using hardware device.
-     * \param  path                 Name of wallet file to be created
-     * \param  password             Password of wallet file
-     * \param  nettype              Network type
-     * \param  deviceName           Device name
-     * \param  restoreHeight        restore from start height (0 sets to current height)
-     * \param  subaddressLookahead  Size of subaddress lookahead (empty sets to some default low value)
-     * \return                      Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
-     */
-    virtual Wallet * createWalletFromDevice(const std::string &path,
-                                            const std::string &password,
-                                            NetworkType nettype,
-                                            const std::string &deviceName,
-                                            uint64_t restoreHeight = 0,
-                                            const std::string &subaddressLookahead = "") = 0;
-
-    /*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted
      * \param wallet        previously opened / created wallet instance
      * \return              None
@@ -1087,25 +956,25 @@ struct WalletManager
     virtual void setDaemonAddress(const std::string &address) = 0;
 
     //! returns whether the daemon can be reached, and its version number
-    virtual bool connected(uint32_t *version = NULL) = 0;
+    virtual bool connected(uint32_t *version = NULL) const = 0;
 
     //! returns current blockchain height
-    virtual uint64_t blockchainHeight() = 0;
+    virtual uint64_t blockchainHeight() const = 0;
 
     //! returns current blockchain target height
-    virtual uint64_t blockchainTargetHeight() = 0;
+    virtual uint64_t blockchainTargetHeight() const = 0;
 
     //! returns current network difficulty
-    virtual uint64_t networkDifficulty() = 0;
+    virtual uint64_t networkDifficulty() const = 0;
 
     //! returns current mining hash rate (0 if not mining)
-    virtual double miningHashRate() = 0;
+    virtual double miningHashRate() const = 0;
 
     //! returns current block target
-    virtual uint64_t blockTarget() = 0;
+    virtual uint64_t blockTarget() const = 0;
 
     //! returns true iff mining
-    virtual bool isMining() = 0;
+    virtual bool isMining() const = 0;
 
     //! starts mining with the set number of threads
     virtual bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) = 0;
@@ -1113,7 +982,7 @@ struct WalletManager
     //! stops mining
     virtual bool stopMining() = 0;
 
-    //! resolves an OpenAlias address to a monero address
+    //! resolves an OpenAlias address to a xcash address
     virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
 
     //! checks for an update and returns version, hash and url
@@ -1143,5 +1012,5 @@ struct WalletManagerFactory
 
 }
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;
 

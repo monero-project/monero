@@ -40,8 +40,8 @@ extern "C"
 #include "rctOps.h"
 #include "bulletproofs.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bulletproofs"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "bulletproofs"
 
 //#define DEBUG_BP
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -164,7 +164,7 @@ namespace
     while (true)
     {
       if (message)
-        std::cout << message <<": " << std::flush;
+        std::cout << message <<": ";
       if (!read_from_tty(pass1))
         return false;
       if (verify)

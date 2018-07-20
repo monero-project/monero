@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -73,7 +73,7 @@ public:
 #if defined(_MSC_VER)
     , m_oss(std::move(rhs.m_oss))
 #else
-      // GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
+      // GCC bug: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
     , m_oss(rhs.m_oss.str(), std::ios_base::out | std::ios_base::ate)
 #endif
     , m_color(std::move(rhs.m_color))

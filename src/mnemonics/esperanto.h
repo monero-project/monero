@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -37,7 +37,7 @@
  * Sources:
  *   Baza Radikaro Oficiala
  *   Reta Vortaro (http://www.reta-vortaro.de/revo/)
- *   Esperanto Panorama - Esperanto-English Dictionary (https://www.esperanto-panorama.net/vortaro/eoen.htm)
+ *   Esperanto Panorama - Esperanto-English Dictionary (http://www.esperanto-panorama.net/vortaro/eoen.htm)
  *   ESPDIC - Paul Denisowski (http://www.denisowski.org/Esperanto/ESPDIC/espdic.txt)
  */
 
@@ -1094,7 +1094,7 @@ namespace Language
       "mokadi",
       "molaro",
       "momento",
-      "monero",
+      "xcash",
       "mopso",
       "mordi",
       "moskito",

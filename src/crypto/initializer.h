@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -43,8 +43,8 @@
 #elif defined(_MSC_VER)
 #include <assert.h>
 #include <stdlib.h>
-// https://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
-// https://msdn.microsoft.com/en-us/library/bb918180.aspx
+// http://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
+// http://msdn.microsoft.com/en-us/library/bb918180.aspx
 #pragma section(".CRT$XCT", read)
 #define INITIALIZER(name) \
   static void __cdecl name(void); \

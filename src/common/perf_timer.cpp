@@ -30,8 +30,8 @@
 #include "misc_os_dependent.h"
 #include "perf_timer.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "perf"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "perf"
 
 namespace
 {

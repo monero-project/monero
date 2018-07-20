@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -66,9 +66,6 @@
 #include "english_old.h"
 #include "language_base.h"
 #include "singleton.h"
-
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "mnemonic"
 
 namespace
 {
@@ -155,7 +152,6 @@ namespace
       if (full_match)
       {
         *language = *it1;
-        MINFO("Full match for language " << (*language)->get_english_language_name());
         return true;
       }
       // Some didn't match. Clear the index array.
@@ -168,11 +164,9 @@ namespace
     if (fallback)
     {
       *language = fallback;
-      MINFO("Fallback match for language " << (*language)->get_english_language_name());
       return true;
     }
 
-    MINFO("No match found");
     return false;
   }
 
@@ -223,9 +217,7 @@ namespace
       checksum;
     std::string trimmed_last_word = last_word.length() > unique_prefix_length ? Language::utf8prefix(last_word, unique_prefix_length) :
       last_word;
-    bool ret = trimmed_checksum == trimmed_last_word;
-    MINFO("Checksum is %s" << (ret ? "valid" : "invalid"));
-    return ret;
+    return trimmed_checksum == trimmed_last_word;
   }
 }
 
@@ -261,10 +253,7 @@ namespace crypto
       boost::split(seed, words, boost::is_any_of(" "), boost::token_compress_on);
 
       if (len % 4)
-      {
-        MERROR("Invalid seed: not a multiple of 4");
         return false;
-      }
 
       bool has_checksum = true;
       if (len)
@@ -274,7 +263,6 @@ namespace crypto
         if (seed.size() != expected/2 && seed.size() != expected &&
           seed.size() != expected + 1)
         {
-          MERROR("Invalid seed: unexpected number of words");
           return false;
         }
 
@@ -286,7 +274,6 @@ namespace crypto
       Language::Base *language;
       if (!find_seed_language(seed, has_checksum, matched_indices, &language))
       {
-        MERROR("Invalid seed: language not found");
         return false;
       }
       language_name = language->get_language_name();
@@ -297,7 +284,6 @@ namespace crypto
         if (!checksum_test(seed, language->get_unique_prefix_length()))
         {
           // Checksum fail
-          MERROR("Invalid seed: invalid checksum");
           return false;
         }
         seed.pop_back();
@@ -314,11 +300,7 @@ namespace crypto
         val = w1 + word_list_length * (((word_list_length - w1) + w2) % word_list_length) +
           word_list_length * word_list_length * (((word_list_length - w2) + w3) % word_list_length);
 
-        if (!(val % word_list_length == w1))
-        {
-          MERROR("Invalid seed: mumble mumble");
-          return false;
-        }
+        if (!(val % word_list_length == w1)) return false;
 
         dst.append((const char*)&val, 4);  // copy 4 bytes to position
       }
@@ -350,15 +332,9 @@ namespace crypto
     {
       std::string s;
       if (!words_to_bytes(words, s, sizeof(dst), true, language_name))
-      {
-        MERROR("Invalid seed: failed to convert words to bytes");
         return false;
-      }
       if (s.size() != sizeof(dst))
-      {
-        MERROR("Invalid seed: wrong output size");
         return false;
-      }
       dst = *(const crypto::secret_key*)s.data();
       return true;
     }

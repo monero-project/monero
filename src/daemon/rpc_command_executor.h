@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -45,8 +45,8 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "rpc/core_rpc_server.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace daemonize {
 
@@ -143,7 +143,7 @@ public:
 
   bool print_coinbase_tx_sum(uint64_t height, uint64_t count);
 
-  bool alt_chain_info(const std::string &tip);
+  bool alt_chain_info();
 
   bool print_blockchain_dynamic_stats(uint64_t nblocks);
 

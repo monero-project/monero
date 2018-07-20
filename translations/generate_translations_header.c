@@ -11,13 +11,13 @@
 //      cc -o generate-translations-header generate-translations-header.c
 //
 //   2. Convert list of files into single header:
-//      ./generate-translations-header monero_fr.qm monero_it.qm > translations_files.h
+//      ./generate-translations-header xcash_fr.qm xcash_it.qm > translations_files.h
 //
 //   3. In your application code, include translations_files.h, then you can
 //      access the files using this function:
 //      static bool find_embedded_file(const std::string &file_name, std::string &data);
 //      std::string data;
-//      find_embedded_file("monero_fr.qm", data);
+//      find_embedded_file("xcash_fr.qm", data);
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -37,8 +37,8 @@
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace po = boost::program_options;
 using namespace epee;
@@ -129,12 +129,12 @@ int main(int argc, char* argv[])
 
   if (command_line::get_arg(vm, command_line::arg_help))
   {
-    std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+    std::cout << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << ENDL << ENDL;
     std::cout << desc_options << std::endl;
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-usage.log"), true);
+  mlog_configure(mlog_get_default_log_path("xcash-blockchain-usage.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
       }
     }
     return true;
-  }, true);
+  });
 
   std::unordered_map<uint64_t, uint64_t> counts;
   size_t total = 0;
@@ -243,17 +243,10 @@ int main(int argc, char* argv[])
     counts[out.second.size()]++;
     total++;
   }
-  if (total > 0)
+  for (const auto &c: counts)
   {
-    for (const auto &c: counts)
-    {
-      float percent = 100.f * c.second / total;
-      MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
-    }
-  }
-  else
-  {
-    MINFO("No outputs to process");
+    float percent = 100.f * c.second / total;
+    MINFO(std::to_string(c.second) << " outputs used " << c.first << " times (" << percent << "%)");
   }
 
   LOG_PRINT_L0("Blockchain usage exported OK");

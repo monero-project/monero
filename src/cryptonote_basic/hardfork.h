@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -220,14 +220,6 @@ namespace cryptonote
      */
     uint64_t get_window_size() const { return window_size; }
 
-    struct Params {
-      uint8_t version;
-      uint8_t threshold;
-      uint64_t height;
-      time_t time;
-      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time): version(version), threshold(threshold), height(height), time(time) {}
-    };
-
   private:
 
     uint8_t get_block_version(uint64_t height) const;
@@ -252,6 +244,13 @@ namespace cryptonote
     uint8_t original_version;
     uint64_t original_version_till_height;
 
+    struct Params {
+      uint8_t version;
+      uint8_t threshold;
+      uint64_t height;
+      time_t time;
+      Params(uint8_t version, uint64_t height, uint8_t threshold, time_t time): version(version), threshold(threshold), height(height), time(time) {}
+    };
     std::vector<Params> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */

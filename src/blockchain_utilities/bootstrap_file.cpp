@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -32,8 +32,8 @@
 
 #include "bootstrap_file.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace po = boost::program_options;
 
@@ -43,7 +43,7 @@ using namespace epee;
 namespace
 {
   // This number was picked by taking the leading 4 bytes from this output:
-  // echo Monero bootstrap file | sha1sum
+  // echo XCash bootstrap file | sha1sum
   const uint32_t blockchain_raw_magic = 0x28721586;
   const uint32_t header_size = 1024;
 
@@ -400,18 +400,18 @@ uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks,
     {
       std::cout << refresh_string;
       MWARNING("WARNING: chunk_size " << chunk_size << " > BUFFER_SIZE " << BUFFER_SIZE
-          << "  height: " << h-1 << ", offset " << bytes_read);
+          << "  height: " << h-1);
       throw std::runtime_error("Aborting: chunk size exceeds buffer size");
     }
     if (chunk_size > CHUNK_SIZE_WARNING_THRESHOLD)
     {
       std::cout << refresh_string;
       MDEBUG("NOTE: chunk_size " << chunk_size << " > " << CHUNK_SIZE_WARNING_THRESHOLD << " << height: "
-          << h-1 << ", offset " << bytes_read);
+          << h-1);
     }
     else if (chunk_size <= 0) {
       std::cout << refresh_string;
-      MDEBUG("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h-1 << ", offset " << bytes_read);
+      MDEBUG("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h-1);
       throw std::runtime_error("Aborting");
     }
     // skip to next expected block size value

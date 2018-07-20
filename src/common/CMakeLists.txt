@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 #
 # All rights reserved.
 #
@@ -69,15 +69,16 @@ set(common_private_headers
   threadpool.h
   updates.h)
 
-monero_private_headers(common
+xcash_private_headers(common
   ${common_private_headers})
-monero_add_library(common
+xcash_add_library(common
   ${common_sources}
   ${common_headers}
   ${common_private_headers}
   DEPENDS generate_translations_header)
 target_link_libraries(common
   PUBLIC
+    epee
     cncrypto
     ${UNBOUND_LIBRARY}
     ${LIBUNWIND_LIBRARIES}
@@ -86,10 +87,9 @@ target_link_libraries(common
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
-    ${Boost_CHRONO_LIBRARY}
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
 
-#monero_install_headers(common
+#xcash_install_headers(common
 #  ${common_headers})

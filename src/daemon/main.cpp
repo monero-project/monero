@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -50,8 +50,8 @@
 #include "common/stack_trace.h"
 #endif // STACK_TRACE
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "daemon"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "daemon"
 
 namespace po = boost::program_options;
 namespace bf = boost::filesystem;
@@ -84,7 +84,6 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_log_file);
       command_line::add_arg(core_settings, daemon_args::arg_log_level);
       command_line::add_arg(core_settings, daemon_args::arg_max_log_file_size);
-      command_line::add_arg(core_settings, daemon_args::arg_max_log_files);
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_ip);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_port);
@@ -119,16 +118,16 @@ int main(int argc, char const * argv[])
 
     if (command_line::get_arg(vm, command_line::arg_help))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+      std::cout << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << ENDL << ENDL;
       std::cout << "Usage: " + std::string{argv[0]} + " [options|settings] [daemon_command...]" << std::endl << std::endl;
       std::cout << visible_options << std::endl;
       return 0;
     }
 
-    // Monero Version
+    // XCash Version
     if (command_line::get_arg(vm, command_line::arg_version))
     {
-      std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL;
+      std::cout << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << ENDL;
       return 0;
     }
 
@@ -139,34 +138,11 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
-    boost::filesystem::path config_path(config);
-    boost::system::error_code ec;
-    if (bf::exists(config_path, ec))
-    {
-      try
-      {
-        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
-      }
-      catch (const std::exception &e)
-      {
-        // log system isn't initialized yet
-        std::cerr << "Error parsing config file: " << e.what() << std::endl;
-        throw;
-      }
-    }
-    else if (!command_line::is_arg_defaulted(vm, daemon_args::arg_config_file))
-    {
-      std::cerr << "Can't find config file " << config << std::endl;
-      return 1;
-    }
-
     const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     const bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-    const bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
-    if (testnet + stagenet + regtest > 1)
+    if (testnet && stagenet)
     {
-      std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
+      std::cerr << "Can't specify more than one of --tesnet and --stagenet" << ENDL;
       return 1;
     }
 
@@ -181,7 +157,7 @@ int main(int argc, char const * argv[])
     }
 
     // data_dir
-    //   default: e.g. ~/.bitmonero/ or ~/.bitmonero/testnet
+    //   default: e.g. ~/.bitxcash/ or ~/.bitxcash/testnet
     //   if data-dir argument given:
     //     absolute path
     //     relative path: relative to cwd
@@ -194,6 +170,29 @@ int main(int argc, char const * argv[])
     //bf::path relative_path_base = daemonizer::get_relative_path_base(vm);
     bf::path relative_path_base = data_dir;
 
+    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
+
+    boost::filesystem::path data_dir_path(data_dir);
+    boost::filesystem::path config_path(config);
+    if (!config_path.has_parent_path())
+    {
+      config_path = data_dir / config_path;
+    }
+
+    boost::system::error_code ec;
+    if (bf::exists(config_path, ec))
+    {
+      try
+      {
+        po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      }
+      catch (const std::exception &e)
+      {
+        // log system isn't initialized yet
+        std::cerr << "Error parsing config file: " << e.what() << std::endl;
+        throw;
+      }
+    }
     po::notify(vm);
 
     // log_file_path
@@ -205,7 +204,7 @@ int main(int argc, char const * argv[])
     if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_file))
       log_file_path = command_line::get_arg(vm, daemon_args::arg_log_file);
     log_file_path = bf::absolute(log_file_path, relative_path_base);
-    mlog_configure(log_file_path.string(), true, command_line::get_arg(vm, daemon_args::arg_max_log_file_size), command_line::get_arg(vm, daemon_args::arg_max_log_files));
+    mlog_configure(log_file_path.string(), true, command_line::get_arg(vm, daemon_args::arg_max_log_file_size));
 
     // Set log level
     if (!command_line::is_arg_defaulted(vm, daemon_args::arg_log_level))
@@ -264,9 +263,6 @@ int main(int argc, char const * argv[])
         }
         else
         {
-#ifdef HAVE_READLINE
-          rdln::suspend_readline pause_readline;
-#endif
           std::cerr << "Unknown command: " << command.front() << std::endl;
           return 1;
         }
@@ -281,7 +277,7 @@ int main(int argc, char const * argv[])
       tools::set_max_concurrency(command_line::get_arg(vm, daemon_args::arg_max_concurrency));
 
     // logging is now set up
-    MGINFO("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
+    MGINFO("XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")");
 
     MINFO("Moving from main() into the daemonize now.");
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,7 +31,7 @@
  * The blake256_* and blake224_* functions are largely copied from
  * blake256_light.c and blake224_light.c from the BLAKE website:
  *
- *     https://131002.net/blake/
+ *     http://131002.net/blake/
  *
  * The hmac_* functions implement HMAC-BLAKE-256 and HMAC-BLAKE-224.
  * HMAC is specified by RFC 2104.

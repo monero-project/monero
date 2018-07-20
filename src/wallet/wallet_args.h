@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -44,11 +44,8 @@ namespace wallet_args
   concurrency. Log file and concurrency arguments are handled, along with basic
   global init for the wallet process.
 
-  \return
-    pair.first: The list of parsed options, iff there are no errors.
-    pair.second: Should the execution terminate succesfully without actually launching the application
-  */
-  std::pair<boost::optional<boost::program_options::variables_map>, bool> main(
+  \return The list of parsed options, iff there are no errors.*/
+  boost::optional<boost::program_options::variables_map> main(
     int argc, char** argv,
     const char* const usage,
     const char* const notice,

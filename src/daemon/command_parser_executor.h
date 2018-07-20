@@ -6,7 +6,7 @@
 
 */
 
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -138,8 +138,6 @@ public:
   bool relay_tx(const std::vector<std::string>& args);
 
   bool sync_info(const std::vector<std::string>& args);
-
-  bool version(const std::vector<std::string>& args);
 };
 
 } // namespace daemonize

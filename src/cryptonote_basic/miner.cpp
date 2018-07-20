@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -69,8 +69,8 @@
 #include <unistd.h>
 #endif
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "miner"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "miner"
 
 using namespace epee;
 
@@ -328,11 +328,6 @@ namespace cryptonote
       LOG_PRINT_L0("Background mining controller thread started" );
     }
 
-    if(get_ignore_battery())
-    {
-      MINFO("Ignoring battery");
-    }
-
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -490,7 +485,7 @@ namespace cryptonote
       {
         //we lucky!
         ++m_config.current_extra_message_index;
-        MGINFO_GREEN("Found block " << get_block_hash(b) << " at height " << height << " for difficulty: " << local_diff);
+        MGINFO_GREEN("Found block for difficulty: " << local_diff);
         if(!m_phandler->handle_block_found(b))
         {
           --m_config.current_extra_message_index;

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,7 +31,7 @@
 #include "wallet/api/wallet2_api.h"
 #include <boost/thread/shared_mutex.hpp>
 
-namespace Monero {
+namespace XCash {
 
 class WalletImpl;
 
@@ -56,5 +56,5 @@ private:
 
 }
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;
 

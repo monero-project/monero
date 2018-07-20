@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y unzip automake build-essential curl fil
 
 WORKDIR /opt/android
 ## INSTALL ANDROID SDK
-RUN curl -s -O https://dl.google.com/android/android-sdk_r24.4.1-linux.tgz \
+RUN curl -s -O http://dl.google.com/android/android-sdk_r24.4.1-linux.tgz \
     && tar --no-same-owner -xzf android-sdk_r24.4.1-linux.tgz \
     && rm -f android-sdk_r24.4.1-linux.tgz
 
@@ -51,7 +51,7 @@ ENV PATH /usr/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
 
 # download, configure and make Zlib
 ENV ZLIB_VERSION 1.2.11
-RUN curl -s -O https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz \
+RUN curl -s -O http://zlib.net/zlib-${ZLIB_VERSION}.tar.gz \
     && tar -xzf zlib-${ZLIB_VERSION}.tar.gz \
     && rm zlib-${ZLIB_VERSION}.tar.gz \
     && mv zlib-${ZLIB_VERSION} zlib \
@@ -81,8 +81,8 @@ RUN git clone https://github.com/zeromq/zeromq4-1.git \
 
 RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a ${TOOLCHAIN_DIR}/aarch64-linux-android/lib
 
-RUN git clone https://github.com/monero-project/monero.git \
-    && cd monero \
+RUN git clone https://github.com/xcash-project/xcash.git \
+    && cd xcash \
     && mkdir -p build/release \
     && cd build/release \
     && CC=clang CXX=clang++ \

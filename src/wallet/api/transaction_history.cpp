@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -42,7 +42,7 @@
 
 using namespace epee;
 
-namespace Monero {
+namespace XCash {
 
 TransactionHistory::~TransactionHistory() {}
 
@@ -245,4 +245,4 @@ void TransactionHistoryImpl::refresh()
 
 } // namespace
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;

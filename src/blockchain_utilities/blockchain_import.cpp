@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -33,7 +33,6 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
-#include <unistd.h>
 #include "misc_log_ex.h"
 #include "bootstrap_file.h"
 #include "bootstrap_serialization.h"
@@ -44,8 +43,8 @@
 #include "blockchain_db/db_types.h"
 #include "cryptonote_core/cryptonote_core.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace
 {
@@ -165,7 +164,7 @@ int pop_blocks(cryptonote::core& core, int num_blocks)
   return num_blocks;
 }
 
-int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &blocks, bool force)
+int check_flush(cryptonote::core &core, std::list<block_complete_entry> &blocks, bool force)
 {
   if (blocks.empty())
     return 0;
@@ -177,7 +176,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   if (!force && new_height % HASH_OF_HASHES_STEP)
     return 0;
 
-  std::vector<crypto::hash> hashes;
+  std::list<crypto::hash> hashes;
   for (const auto &b: blocks)
   {
     cryptonote::block block;
@@ -313,7 +312,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   MINFO("Reading blockchain from bootstrap file...");
   std::cout << ENDL;
 
-  std::vector<block_complete_entry> blocks;
+  std::list<block_complete_entry> blocks;
 
   // Skip to start_height before we start adding.
   {
@@ -438,7 +437,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
         {
           cryptonote::blobdata block;
           cryptonote::block_to_blob(bp.block, block);
-          std::vector<cryptonote::blobdata> txs;
+          std::list<cryptonote::blobdata> txs;
           for (const auto &tx: bp.txs)
           {
             txs.push_back(cryptonote::blobdata());
@@ -594,8 +593,8 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_database = {
     "database", available_dbs.c_str(), default_db_type
   };
-  const command_line::arg_descriptor<bool> arg_noverify =  {"dangerous-unverified-import",
-    "Blindly trust the import file and use potentially malicious blocks and transactions during import (only enable if you exported the file yourself)", false};
+  const command_line::arg_descriptor<bool> arg_verify =  {"guard-against-pwnage",
+    "Verify blocks and transactions during import (only disable if you exported the file yourself)", true};
   const command_line::arg_descriptor<bool> arg_batch  =  {"batch",
     "Batch transactions for faster import", true};
   const command_line::arg_descriptor<bool> arg_resume =  {"resume",
@@ -615,7 +614,7 @@ int main(int argc, char* argv[])
   // call add_options() directly for these arguments since
   // command_line helpers support only boolean switch, not boolean argument
   desc_cmd_sett.add_options()
-    (arg_noverify.name, make_semantic(arg_noverify), arg_noverify.description)
+    (arg_verify.name, make_semantic(arg_verify), arg_verify.description)
     (arg_batch.name,  make_semantic(arg_batch),  arg_batch.description)
     (arg_resume.name, make_semantic(arg_resume), arg_resume.description)
     ;
@@ -634,7 +633,7 @@ int main(int argc, char* argv[])
   if (! r)
     return 1;
 
-  opt_verify    = !command_line::get_arg(vm, arg_noverify);
+  opt_verify    = command_line::get_arg(vm, arg_verify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
   block_stop    = command_line::get_arg(vm, arg_block_stop);
@@ -642,7 +641,7 @@ int main(int argc, char* argv[])
 
   if (command_line::get_arg(vm, command_line::arg_help))
   {
-    std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+    std::cout << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << ENDL << ENDL;
     std::cout << desc_options << std::endl;
     return 1;
   }
@@ -680,7 +679,7 @@ int main(int argc, char* argv[])
   m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
   db_arg_str = command_line::get_arg(vm, arg_database);
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
+  mlog_configure(mlog_get_default_log_path("xcash-blockchain-import.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -738,18 +737,6 @@ int main(int argc, char* argv[])
 
   MINFO("bootstrap file path: " << import_file_path);
   MINFO("database path:       " << m_config_folder);
-
-  if (!opt_verify)
-  {
-    MCLOG_RED(el::Level::Warning, "global", "\n"
-      "Import is set to proceed WITHOUT VERIFICATION.\n"
-      "This is a DANGEROUS operation: if the file was tampered with in transit, or obtained from a malicious source,\n"
-      "you could end up with a compromised database. It is recommended to NOT use " << arg_noverify.name << ".\n"
-      "*****************************************************************************************\n"
-      "You have 90 seconds to press ^C or terminate this program before unverified import starts\n"
-      "*****************************************************************************************");
-    sleep(90);
-  }
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core core(&pr);

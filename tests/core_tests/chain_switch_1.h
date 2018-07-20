@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -45,12 +45,12 @@ public:
   bool check_split_switched(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 
 private:
-  std::vector<cryptonote::block> m_chain_1;
+  std::list<cryptonote::block> m_chain_1;
 
   cryptonote::account_base m_recipient_account_1;
   cryptonote::account_base m_recipient_account_2;
   cryptonote::account_base m_recipient_account_3;
   cryptonote::account_base m_recipient_account_4;
 
-  std::vector<cryptonote::transaction> m_tx_pool;
+  std::list<cryptonote::transaction> m_tx_pool;
 };

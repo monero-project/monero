@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -127,10 +127,16 @@ namespace nodetool
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
   private:
     const std::vector<std::string> m_seed_nodes_list =
-    { "seeds.moneroseeds.se"
-    , "seeds.moneroseeds.ae.org"
-    , "seeds.moneroseeds.ch"
-    , "seeds.moneroseeds.li"
+    {  "euseed1.x-cash.org:18280"
+    ,  "euseed2.x-cash.org:18280"
+    ,  "euseed3.x-cash.org:18280"
+    ,  "euseed4.x-cash.org:18280"
+    ,  "euseed5.x-cash.org:18280"
+    ,  "usseed1.x-cash.org:18280"
+    ,  "usseed2.x-cash.org:18280"
+    ,  "asiaseed1.x-cash.org:18280"
+    ,  "asiaseed2.x-cash.org:18280"
+    ,  "asiaseed3.x-cash.org:18280"
     };
 
     bool islimitup=false;
@@ -244,7 +250,6 @@ namespace nodetool
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
-    bool check_incoming_connections();
 
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
@@ -308,7 +313,6 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
-    epee::math_helper::once_a_time_seconds<900, false> m_incoming_connections_interval;
 
     std::string m_bind_ip;
     std::string m_port;
@@ -318,7 +322,6 @@ namespace nodetool
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
     std::vector<epee::net_utils::network_address> m_seed_nodes;
-    bool m_fallback_seed_nodes_added;
     std::list<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
@@ -337,8 +340,8 @@ namespace nodetool
     cryptonote::network_type m_nettype;
   };
 
-    const int64_t default_limit_up = 2048;    // kB/s
-    const int64_t default_limit_down = 8192;  // kB/s
+    const int64_t default_limit_up = 2048;
+    const int64_t default_limit_down = 8192;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;

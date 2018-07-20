@@ -55,10 +55,10 @@ else()
   set(Blocks "")
 endif()
 
-monero_private_headers(device
+xcash_private_headers(device
   ${device_private_headers})
 
-monero_add_library(device
+xcash_add_library(device
   ${device_sources}
   ${device_headers}
   ${device_private_headers})

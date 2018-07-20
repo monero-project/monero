@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -69,7 +69,3 @@
 #define WALLET_RPC_ERROR_CODE_MULTISIG_SUBMISSION    -36
 #define WALLET_RPC_ERROR_CODE_NOT_ENOUGH_UNLOCKED_MONEY -37
 #define WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION   -38
-#define WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA   -39
-#define WALLET_RPC_ERROR_CODE_BAD_SIGNED_TX_DATA     -40
-#define WALLET_RPC_ERROR_CODE_SIGNED_SUBMISSION      -41
-#define WALLET_RPC_ERROR_CODE_SIGN_UNSIGNED          -42

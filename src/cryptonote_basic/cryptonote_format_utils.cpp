@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,8 +42,8 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "cn"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "cn"
 
 #define ENCRYPTED_PAYMENT_ID_TAIL 0x8d
 
@@ -64,7 +64,7 @@ static const uint64_t valid_decomposed_outputs[] = {
   (uint64_t)1000000000, (uint64_t)2000000000, (uint64_t)3000000000, (uint64_t)4000000000, (uint64_t)5000000000, (uint64_t)6000000000, (uint64_t)7000000000, (uint64_t)8000000000, (uint64_t)9000000000,
   (uint64_t)10000000000, (uint64_t)20000000000, (uint64_t)30000000000, (uint64_t)40000000000, (uint64_t)50000000000, (uint64_t)60000000000, (uint64_t)70000000000, (uint64_t)80000000000, (uint64_t)90000000000,
   (uint64_t)100000000000, (uint64_t)200000000000, (uint64_t)300000000000, (uint64_t)400000000000, (uint64_t)500000000000, (uint64_t)600000000000, (uint64_t)700000000000, (uint64_t)800000000000, (uint64_t)900000000000,
-  (uint64_t)1000000000000, (uint64_t)2000000000000, (uint64_t)3000000000000, (uint64_t)4000000000000, (uint64_t)5000000000000, (uint64_t)6000000000000, (uint64_t)7000000000000, (uint64_t)8000000000000, (uint64_t)9000000000000, // 1 monero
+  (uint64_t)1000000000000, (uint64_t)2000000000000, (uint64_t)3000000000000, (uint64_t)4000000000000, (uint64_t)5000000000000, (uint64_t)6000000000000, (uint64_t)7000000000000, (uint64_t)8000000000000, (uint64_t)9000000000000, // 1 xcash
   (uint64_t)10000000000000, (uint64_t)20000000000000, (uint64_t)30000000000000, (uint64_t)40000000000000, (uint64_t)50000000000000, (uint64_t)60000000000000, (uint64_t)70000000000000, (uint64_t)80000000000000, (uint64_t)90000000000000,
   (uint64_t)100000000000000, (uint64_t)200000000000000, (uint64_t)300000000000000, (uint64_t)400000000000000, (uint64_t)500000000000000, (uint64_t)600000000000000, (uint64_t)700000000000000, (uint64_t)800000000000000, (uint64_t)900000000000000,
   (uint64_t)1000000000000000, (uint64_t)2000000000000000, (uint64_t)3000000000000000, (uint64_t)4000000000000000, (uint64_t)5000000000000000, (uint64_t)6000000000000000, (uint64_t)7000000000000000, (uint64_t)8000000000000000, (uint64_t)9000000000000000,
@@ -124,40 +124,6 @@ namespace cryptonote
     return h;
   }
   //---------------------------------------------------------------
-  bool expand_transaction_1(transaction &tx, bool base_only)
-  {
-    if (tx.version >= 2 && !is_coinbase(tx))
-    {
-      rct::rctSig &rv = tx.rct_signatures;
-      if (rv.outPk.size() != tx.vout.size())
-      {
-        LOG_PRINT_L1("Failed to parse transaction from blob, bad outPk size in tx " << get_transaction_hash(tx));
-        return false;
-      }
-      for (size_t n = 0; n < tx.rct_signatures.outPk.size(); ++n)
-        rv.outPk[n].dest = rct::pk2rct(boost::get<txout_to_key>(tx.vout[n].target).key);
-
-      if (!base_only)
-      {
-        const bool bulletproof = rv.type == rct::RCTTypeFullBulletproof || rv.type == rct::RCTTypeSimpleBulletproof;
-        if (bulletproof)
-        {
-          if (rv.p.bulletproofs.size() != tx.vout.size())
-          {
-            LOG_PRINT_L1("Failed to parse transaction from blob, bad bulletproofs size in tx " << get_transaction_hash(tx));
-            return false;
-          }
-          for (size_t n = 0; n < rv.outPk.size(); ++n)
-          {
-            rv.p.bulletproofs[n].V.resize(1);
-            rv.p.bulletproofs[n].V[0] = rv.outPk[n].mask;
-          }
-        }
-      }
-    }
-    return true;
-  }
-  //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata& tx_blob, transaction& tx)
   {
     std::stringstream ss;
@@ -165,7 +131,6 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     return true;
   }
@@ -177,7 +142,6 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, true), false, "Failed to expand transaction data");
     return true;
   }
   //---------------------------------------------------------------
@@ -188,7 +152,6 @@ namespace cryptonote
     binary_archive<false> ba(ss);
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
-    CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     //TODO: validate tx
 
@@ -732,7 +695,7 @@ namespace cryptonote
     switch (std::atomic_load(&default_decimal_point))
     {
       case 12:
-        return "monero";
+        return "xcash";
       case 9:
         return "millinero";
       case 6:
@@ -779,61 +742,6 @@ namespace cryptonote
     return get_transaction_hash(t, res, NULL);
   }
   //---------------------------------------------------------------
-  bool calculate_transaction_prunable_hash(const transaction& t, crypto::hash& res)
-  {
-    if (t.version == 1)
-      return false;
-    transaction &tt = const_cast<transaction&>(t);
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
-    const size_t inputs = t.vin.size();
-    const size_t outputs = t.vout.size();
-    const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
-    bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
-    cryptonote::get_blob_hash(ss.str(), res);
-    return true;
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_transaction_prunable_hash(const transaction& t)
-  {
-    crypto::hash res;
-    CHECK_AND_ASSERT_THROW_MES(calculate_transaction_prunable_hash(t, res), "Failed to calculate tx prunable hash");
-    return res;
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash)
-  {
-    // v1 transactions hash the entire blob
-    CHECK_AND_ASSERT_THROW_MES(t.version > 1, "Hash for pruned v1 tx cannot be calculated");
-
-    // v2 transactions hash different parts together, than hash the set of those hashes
-    crypto::hash hashes[3];
-
-    // prefix
-    get_transaction_prefix_hash(t, hashes[0]);
-
-    transaction &tt = const_cast<transaction&>(t);
-
-    // base rct
-    {
-      std::stringstream ss;
-      binary_archive<true> ba(ss);
-      const size_t inputs = t.vin.size();
-      const size_t outputs = t.vout.size();
-      bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
-      CHECK_AND_ASSERT_THROW_MES(r, "Failed to serialize rct signatures base");
-      cryptonote::get_blob_hash(ss.str(), hashes[1]);
-    }
-
-    // prunable rct
-    hashes[2] = pruned_data_hash;
-
-    // the tx hash is the hash of the 3 hashes
-    crypto::hash res = cn_fast_hash(hashes, sizeof(hashes));
-    return res;
-  }
-  //---------------------------------------------------------------
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
   {
     // v1 transactions hash the entire blob
@@ -869,7 +777,14 @@ namespace cryptonote
     }
     else
     {
-      CHECK_AND_ASSERT_MES(calculate_transaction_prunable_hash(t, hashes[2]), false, "Failed to get tx prunable hash");
+      std::stringstream ss;
+      binary_archive<true> ba(ss);
+      const size_t inputs = t.vin.size();
+      const size_t outputs = t.vout.size();
+      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
+      cryptonote::get_blob_hash(ss.str(), hashes[2]);
     }
 
     // the tx hash is the hash of the 3 hashes
@@ -931,31 +846,12 @@ namespace cryptonote
   }
   //---------------------------------------------------------------
   bool calculate_block_hash(const block& b, crypto::hash& res)
-  {
-    // EXCEPTION FOR BLOCK 202612
-    const std::string correct_blob_hash_202612 = "3a8a2b3a29b50fc86ff73dd087ea43c6f0d6b8f936c849194d5c84c737903966";
-    const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
-    crypto::hash block_blob_hash = get_blob_hash(block_to_blob(b));
 
-    if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
-    {
-      string_tools::hex_to_pod(existing_block_id_202612, res);
-      return true;
-    }
-    bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
+ {
 
-    if (hash_result)
-    {
-      // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
-      if (string_tools::pod_to_hex(res) == existing_block_id_202612)
-      {
-        LOG_ERROR("Block with block id for 202612 but incorrect block blob hash found!");
-        res = null_hash;
-        return false;
-      }
-    }
-    return hash_result;
-  }
+   return get_object_hash(get_block_hashing_blob(b), res);
+
+ }
   //---------------------------------------------------------------
   bool get_block_hash(const block& b, crypto::hash& res)
   {
@@ -985,19 +881,18 @@ namespace cryptonote
   }
   //---------------------------------------------------------------
   bool get_block_longhash(const block& b, crypto::hash& res, uint64_t height)
-  {
-    // block 202612 bug workaround
-    const std::string longhash_202612 = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
-    if (height == 202612)
-    {
-      string_tools::hex_to_pod(longhash_202612, res);
-      return true;
-    }
-    blobdata bd = get_block_hashing_blob(b);
-    const int cn_variant = b.major_version >= 7 ? b.major_version - 6 : 0;
-    crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
-    return true;
-  }
+
+ {
+
+   blobdata bd = get_block_hashing_blob(b);
+
+   const int cn_variant = b.major_version >= 7 ? b.major_version - 6 : 0;
+
+   crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_variant);
+
+   return true;
+
+ }
   //---------------------------------------------------------------
   std::vector<uint64_t> relative_output_offsets_to_absolute(const std::vector<uint64_t>& off)
   {

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -35,7 +35,7 @@
 #include <vector>
 
 
-namespace Monero {
+namespace XCash {
 
 class WalletImpl;
 class PendingTransactionImpl : public PendingTransaction
@@ -43,21 +43,17 @@ class PendingTransactionImpl : public PendingTransaction
 public:
     PendingTransactionImpl(WalletImpl &wallet);
     ~PendingTransactionImpl();
-    int status() const override;
-    std::string errorString() const override;
-    bool commit(const std::string &filename = "", bool overwrite = false) override;
-    uint64_t amount() const override;
-    uint64_t dust() const override;
-    uint64_t fee() const override;
-    std::vector<std::string> txid() const override;
-    uint64_t txCount() const override;
-    std::vector<uint32_t> subaddrAccount() const override;
-    std::vector<std::set<uint32_t>> subaddrIndices() const override;
+    int status() const;
+    std::string errorString() const;
+    bool commit(const std::string &filename = "", bool overwrite = false);
+    uint64_t amount() const;
+    uint64_t dust() const;
+    uint64_t fee() const;
+    std::vector<std::string> txid() const;
+    uint64_t txCount() const;
+    std::vector<uint32_t> subaddrAccount() const;
+    std::vector<std::set<uint32_t>> subaddrIndices() const;
     // TODO: continue with interface;
-
-    std::string multisigSignData() override;
-    void signMultisigTx() override;
-    std::vector<std::string> signersKeys() const override;
 
 private:
     friend class WalletImpl;
@@ -66,10 +62,9 @@ private:
     int  m_status;
     std::string m_errorString;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
-    std::unordered_set<crypto::public_key> m_signers;
 };
 
 
 }
 
-namespace Bitmonero = Monero;
+namespace Bitxcash = XCash;

@@ -36,8 +36,8 @@
 #include "serialization/keyvalue_serialization.h"
 #include "misc_log_ex.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "net"
 
 #ifndef MAKE_IP
 #define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(a4<<24))
@@ -281,7 +281,6 @@ namespace net_utils
 	{
 		virtual bool do_send(const void* ptr, size_t cb)=0;
     virtual bool close()=0;
-    virtual bool send_done()=0;
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;
     virtual boost::asio::io_service& get_io_service()=0;

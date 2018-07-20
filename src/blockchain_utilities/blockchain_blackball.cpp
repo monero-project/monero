@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -28,13 +28,8 @@
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/archive/portable_binary_iarchive.hpp>
-#include <boost/archive/portable_binary_oarchive.hpp>
-#include "common/unordered_containers_boost_serialization.h"
 #include "common/command_line.h"
 #include "common/varint.h"
-#include "serialization/crypto.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
@@ -43,8 +38,8 @@
 #include "wallet/ringdb.h"
 #include "version.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace po = boost::program_options;
 using namespace epee;
@@ -54,17 +49,9 @@ struct output_data
 {
   uint64_t amount;
   uint64_t index;
-  output_data(): amount(0), index(0) {}
   output_data(uint64_t a, uint64_t i): amount(a), index(i) {}
   bool operator==(const output_data &other) const { return other.amount == amount && other.index == index; }
-  template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
-  {
-    a & amount;
-    a & index;
-  }
 };
-BOOST_CLASS_VERSION(output_data, 0)
-
 namespace std
 {
   template<> struct hash<output_data>
@@ -77,48 +64,18 @@ namespace std
       return reinterpret_cast<const std::size_t &>(h);
     }
   };
-  template<> struct hash<std::vector<uint64_t>>
-  {
-    size_t operator()(const std::vector<uint64_t> &v) const
-    {
-      crypto::hash h;
-      crypto::cn_fast_hash(v.data(), v.size() * sizeof(uint64_t), h);
-      return reinterpret_cast<const std::size_t &>(h);
-    }
-  };
 }
-
-struct blackball_state_t
-{
-  std::unordered_map<crypto::key_image, std::vector<uint64_t>> relative_rings;
-  std::unordered_map<output_data, std::unordered_set<crypto::key_image>> outputs;
-  std::unordered_map<std::string, uint64_t> processed_heights;
-  std::unordered_set<output_data> spent;
-  std::unordered_map<std::vector<uint64_t>, size_t> ring_instances;
-
-  template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
-  {
-    a & relative_rings;
-    a & outputs;
-    a & processed_heights;
-    a & spent;
-    if (ver < 1)
-      return;
-    a & ring_instances;
-  }
-};
-BOOST_CLASS_VERSION(blackball_state_t, 1)
 
 static std::string get_default_db_path()
 {
   boost::filesystem::path dir = tools::get_default_data_dir();
-  // remove .bitmonero, replace with .shared-ringdb
+  // remove .bitxcash, replace with .shared-ringdb
   dir = dir.remove_filename();
   dir /= ".shared-ringdb";
   return dir.string();
 }
 
-static bool for_all_transactions(const std::string &filename, uint64_t &start_idx, const std::function<bool(const cryptonote::transaction_prefix&)> &f)
+static bool for_all_transactions(const std::string &filename, const std::function<bool(const cryptonote::transaction_prefix&)> &f)
 {
   MDB_env *env;
   MDB_dbi dbi;
@@ -152,9 +109,7 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   MDB_val v;
   bool fret = true;
 
-  k.mv_size = sizeof(uint64_t);
-  k.mv_data = &start_idx;
-  MDB_cursor_op op = MDB_SET;
+  MDB_cursor_op op = MDB_FIRST;
   while (1)
   {
     int ret = mdb_cursor_get(cur, &k, &v, op);
@@ -163,12 +118,6 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
       break;
     if (ret)
       throw std::runtime_error("Failed to enumerate transactions: " + std::string(mdb_strerror(ret)));
-
-    if (k.mv_size != sizeof(uint64_t))
-      throw std::runtime_error("Bad key size");
-    const uint64_t idx = *(uint64_t*)k.mv_data;
-    if (idx < start_idx)
-      continue;
 
     cryptonote::transaction_prefix tx;
     blobdata bd;
@@ -179,7 +128,6 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
     bool r = do_serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
 
-    start_idx = *(uint64_t*)k.mv_data;
     if (!f(tx)) {
       fret = false;
       break;
@@ -192,24 +140,6 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   mdb_dbi_close(env, dbi);
   mdb_env_close(env);
   return fret;
-}
-
-static std::vector<uint64_t> canonicalize(const std::vector<uint64_t> &v)
-{
-  std::vector<uint64_t> c;
-  c.reserve(v.size());
-  c.push_back(v[0]);
-  for (size_t n = 1; n < v.size(); ++n)
-  {
-    if (v[n] != 0)
-      c.push_back(v[n]);
-  }
-  if (c.size() < v.size())
-  {
-    MINFO("Ring has duplicate member(s): " <<
-        boost::join(v | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " "));
-  }
-  return c;
 }
 
 int main(int argc, char* argv[])
@@ -235,7 +165,7 @@ int main(int argc, char* argv[])
       "blackball-db-dir", "Specify blackball database directory",
       get_default_db_path(),
       {{ &arg_testnet_on, &arg_stagenet_on }},
-      [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
+      [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val) {
         if (testnet_stagenet[0])
           return (boost::filesystem::path(val) / "testnet").string();
         else if (testnet_stagenet[1])
@@ -248,7 +178,7 @@ int main(int argc, char* argv[])
     "database", available_dbs.c_str(), default_db_type
   };
   const command_line::arg_descriptor<bool> arg_rct_only  = {"rct-only", "Only work on ringCT outputs", false};
-  const command_line::arg_descriptor<std::vector<std::string> > arg_inputs = {"inputs", "Path to Monero DB, and path to any fork DBs"};
+  const command_line::arg_descriptor<std::vector<std::string> > arg_inputs = {"inputs", "Path to XCash DB, and path to any fork DBs"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
@@ -278,12 +208,12 @@ int main(int argc, char* argv[])
 
   if (command_line::get_arg(vm, command_line::arg_help))
   {
-    std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+    std::cout << "XCash '" << XCASH_RELEASE_NAME << "' (v" << XCASH_VERSION_FULL << ")" << ENDL << ENDL;
     std::cout << desc_options << std::endl;
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-blackball.log"), true);
+  mlog_configure(mlog_get_default_log_path("xcash-blockchain-blackball.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -323,8 +253,7 @@ int main(int argc, char* argv[])
     return 1;
   }
   std::vector<std::unique_ptr<Blockchain>> core_storage(inputs.size());
-  Blockchain *blockchain = NULL;
-  tx_memory_pool m_mempool(*blockchain);
+  tx_memory_pool m_mempool(*(Blockchain*)NULL);
   for (size_t n = 0; n < inputs.size(); ++n)
   {
     core_storage[n].reset(new Blockchain(m_mempool));
@@ -378,41 +307,17 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Scanning for blackballable outputs...");
 
   size_t done = 0;
-  blackball_state_t state;
-  std::unordered_set<output_data> newly_spent;
-  const std::string state_file_path = (boost::filesystem::path(output_file_path) / "blackball-state.bin").string();
-
-  LOG_PRINT_L0("Loading state data from " << state_file_path);
-  std::ifstream state_data_in;
-  state_data_in.open(state_file_path, std::ios_base::binary | std::ios_base::in);
-  if (!state_data_in.fail())
-  {
-    try
-    {
-      boost::archive::portable_binary_iarchive a(state_data_in);
-      a >> state;
-    }
-    catch (const std::exception &e)
-    {
-      MERROR("Failed to load state data from " << state_file_path << ", restarting from scratch");
-      state = blackball_state_t();
-    }
-    state_data_in.close();
-  }
-  uint64_t start_blackballed_outputs = state.spent.size();
+  std::unordered_map<crypto::key_image, std::vector<uint64_t>> relative_rings;
+  std::unordered_map<output_data, std::unordered_set<crypto::key_image>> outputs;
+  std::unordered_set<output_data> spent, newly_spent;
 
   cryptonote::block b = core_storage[0]->get_db().get_block_from_height(0);
   tools::ringdb ringdb(output_file_path.string(), epee::string_tools::pod_to_hex(get_block_hash(b)));
 
   for (size_t n = 0; n < inputs.size(); ++n)
   {
-    const std::string canonical = boost::filesystem::canonical(inputs[n]).string();
-    uint64_t start_idx = 0;
-    auto it = state.processed_heights.find(canonical);
-    if (it != state.processed_heights.end())
-      start_idx = it->second;
-    LOG_PRINT_L0("Reading blockchain from " << inputs[n] << " from " << start_idx);
-    for_all_transactions(inputs[n], start_idx, [&](const cryptonote::transaction_prefix &tx)->bool
+    LOG_PRINT_L0("Reading blockchain from " << inputs[n]);
+    for_all_transactions(inputs[n], [&](const cryptonote::transaction_prefix &tx)->bool
     {
       for (const auto &in: tx.vin)
       {
@@ -425,39 +330,27 @@ int main(int argc, char* argv[])
         const std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
         if (n == 0)
           for (uint64_t out: absolute)
-            state.outputs[output_data(txin.amount, out)].insert(txin.k_image);
+            outputs[output_data(txin.amount, out)].insert(txin.k_image);
 
-        std::vector<uint64_t> new_ring = canonicalize(txin.key_offsets);
+        std::vector<uint64_t> new_ring = txin.key_offsets;
         const uint32_t ring_size = txin.key_offsets.size();
-        state.ring_instances[new_ring] += 1;
         if (ring_size == 1)
         {
-          const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[0]);
+          const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, txin.key_offsets[0]);
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
           ringdb.blackball(pkey);
-          newly_spent.insert(output_data(txin.amount, absolute[0]));
-          state.spent.insert(output_data(txin.amount, absolute[0]));
+          newly_spent.insert(output_data(txin.amount, txin.key_offsets[0]));
+          spent.insert(output_data(txin.amount, txin.key_offsets[0]));
         }
-        else if (state.ring_instances[new_ring] == new_ring.size())
-        {
-          for (size_t o = 0; o < new_ring.size(); ++o)
-          {
-            const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[o]);
-            MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
-            ringdb.blackball(pkey);
-            newly_spent.insert(output_data(txin.amount, absolute[o]));
-            state.spent.insert(output_data(txin.amount, absolute[o]));
-          }
-        }
-        else if (state.relative_rings.find(txin.k_image) != state.relative_rings.end())
+        else if (relative_rings.find(txin.k_image) != relative_rings.end())
         {
           MINFO("Key image " << txin.k_image << " already seen: rings " <<
-              boost::join(state.relative_rings[txin.k_image] | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " ") <<
+              boost::join(relative_rings[txin.k_image] | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " ") <<
               ", " << boost::join(txin.key_offsets | boost::adaptors::transformed([](uint64_t out){return std::to_string(out);}), " "));
-          if (state.relative_rings[txin.k_image] != txin.key_offsets)
+          if (relative_rings[txin.k_image] != txin.key_offsets)
           {
             MINFO("Rings are different");
-            const std::vector<uint64_t> r0 = cryptonote::relative_output_offsets_to_absolute(state.relative_rings[txin.k_image]);
+            const std::vector<uint64_t> r0 = cryptonote::relative_output_offsets_to_absolute(relative_rings[txin.k_image]);
             const std::vector<uint64_t> r1 = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
             std::vector<uint64_t> common;
             for (uint64_t out: r0)
@@ -475,7 +368,7 @@ int main(int argc, char* argv[])
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
               ringdb.blackball(pkey);
               newly_spent.insert(output_data(txin.amount, common[0]));
-              state.spent.insert(output_data(txin.amount, common[0]));
+              spent.insert(output_data(txin.amount, common[0]));
             }
             else
             {
@@ -487,11 +380,10 @@ int main(int argc, char* argv[])
             }
           }
         }
-        state.relative_rings[txin.k_image] = new_ring;
+        relative_rings[txin.k_image] = new_ring;
       }
       return true;
     });
-    state.processed_heights[canonical] = start_idx;
   }
 
   while (!newly_spent.empty())
@@ -502,15 +394,15 @@ int main(int argc, char* argv[])
 
     for (const output_data &od: work_spent)
     {
-      for (const crypto::key_image &ki: state.outputs[od])
+      for (const crypto::key_image &ki: outputs[od])
       {
-        std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(state.relative_rings[ki]);
+        std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(relative_rings[ki]);
         size_t known = 0;
         uint64_t last_unknown = 0;
         for (uint64_t out: absolute)
         {
           output_data new_od(od.amount, out);
-          if (state.spent.find(new_od) != state.spent.end())
+          if (spent.find(new_od) != spent.end())
             ++known;
           else
             last_unknown = out;
@@ -522,31 +414,12 @@ int main(int argc, char* argv[])
               absolute.size() << "-ring where all other outputs are known to be spent");
           ringdb.blackball(pkey);
           newly_spent.insert(output_data(od.amount, last_unknown));
-          state.spent.insert(output_data(od.amount, last_unknown));
+          spent.insert(output_data(od.amount, last_unknown));
         }
       }
     }
   }
 
-  LOG_PRINT_L0("Saving state data to " << state_file_path);
-  std::ofstream state_data_out;
-  state_data_out.open(state_file_path, std::ios_base::binary | std::ios_base::out | std::ios::trunc);
-  if (!state_data_out.fail())
-  {
-    try
-    {
-      boost::archive::portable_binary_oarchive a(state_data_out);
-      a << state;
-    }
-    catch (const std::exception &e)
-    {
-      MERROR("Failed to save state data to " << state_file_path);
-    }
-    state_data_out.close();
-  }
-
-  uint64_t diff = state.spent.size() - start_blackballed_outputs;
-  LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << state.spent.size() << " total outputs blackballed");
   LOG_PRINT_L0("Blockchain blackball data exported OK");
   return 0;
 

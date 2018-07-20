@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 //
 // All rights reserved.
 //
@@ -35,7 +35,7 @@
 /*
  * Word list authored by: sorpaas
  * Sources:
- *   lo gimste jo'u lo ma'oste (https://guskant.github.io/lojbo/gismu-cmavo.html)
+ *   lo gimste jo'u lo ma'oste (http://guskant.github.io/lojbo/gismu-cmavo.html)
  *   N-grams of Lojban corpus (https://mw.lojban.org/papri/N-grams_of_Lojban_corpus)
  */
 

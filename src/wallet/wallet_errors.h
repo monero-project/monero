@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -70,7 +70,6 @@ namespace tools
     //         get_out_indexes_error
     //         tx_parse_error
     //         get_tx_pool_error
-    //         out_of_hashchain_bounds_error
     //       transfer_error *
     //         get_random_outs_general_error
     //         not_enough_unlocked_money
@@ -393,16 +392,6 @@ namespace tools
     {
       explicit get_tx_pool_error(std::string&& loc)
         : refresh_error(std::move(loc), "error getting transaction pool")
-      {
-      }
-
-      std::string to_string() const { return refresh_error::to_string(); }
-    };
-    //----------------------------------------------------------------------------------------------------
-    struct out_of_hashchain_bounds_error : public refresh_error
-    {
-      explicit out_of_hashchain_bounds_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
       {
       }
 

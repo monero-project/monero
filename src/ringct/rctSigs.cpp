@@ -39,10 +39,8 @@
 using namespace crypto;
 using namespace std;
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "ringct"
-
-#define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
+#undef XCASH_DEFAULT_LOG_CATEGORY
+#define XCASH_DEFAULT_LOG_CATEGORY "ringct"
 
 namespace rct {
     bool is_simple(int type)
@@ -137,8 +135,8 @@ namespace rct {
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2) {
       ge_p3 P1_p3[64], P2_p3[64];
       for (size_t i = 0 ; i < 64 ; ++i) {
-        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P1_p3[i], P1[i].bytes) == 0, false, "point conv failed");
-        CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
+        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P1_p3[i], P1[i].bytes) == 0, false, "point conv failed");
+        CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&P2_p3[i], P2[i].bytes) == 0, false, "point conv failed");
       }
       return verifyBorromean(bb, P1_p3, P2_p3);
     }
@@ -147,7 +145,7 @@ namespace rct {
     //This is a just slghtly more efficient version than the ones described below
     //(will be explained in more detail in Ring Multisig paper
     //These are aka MG signatutes in earlier drafts of the ring ct paper
-    // c.f. https://eprint.iacr.org/2015/1098 section 2. 
+    // c.f. http://eprint.iacr.org/2015/1098 section 2. 
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly        
@@ -244,7 +242,7 @@ namespace rct {
     //This is a just slghtly more efficient version than the ones described below
     //(will be explained in more detail in Ring Multisig paper
     //These are aka MG signatutes in earlier drafts of the ring ct paper
-    // c.f. https://eprint.iacr.org/2015/1098 section 2. 
+    // c.f. http://eprint.iacr.org/2015/1098 section 2. 
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
     // Ver verifies that the MG sig was created correctly            
@@ -307,7 +305,7 @@ namespace rct {
 
     //proveRange and verRange
     //proveRange gives C, and mask such that \sumCi = C
-    //   c.f. https://eprint.iacr.org/2015/1098 section 5.1
+    //   c.f. http://eprint.iacr.org/2015/1098 section 5.1
     //   and Ci is a commitment to either 0 or 2^i, i=0,...,63
     //   thus this proves that "amount" is in [0, 2^64]
     //   mask is a such that C = aG + bH, and b = amount
@@ -339,7 +337,7 @@ namespace rct {
 
     //proveRange and verRange
     //proveRange gives C, and mask such that \sumCi = C
-    //   c.f. https://eprint.iacr.org/2015/1098 section 5.1
+    //   c.f. http://eprint.iacr.org/2015/1098 section 5.1
     //   and Ci is a commitment to either 0 or 2^i, i=0,...,63
     //   thus this proves that "amount" is in [0, 2^64]
     //   mask is a such that C = aG + bH, and b = amount
@@ -358,9 +356,9 @@ namespace rct {
             ge_cached cached;
             ge_p3 p3;
             ge_p1p1 p1;
-            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
+            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&p3, H2[i].bytes) == 0, false, "point conv failed");
             ge_p3_to_cached(&cached, &p3);
-            CHECK_AND_ASSERT_MES_L1(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
+            CHECK_AND_ASSERT_MES(ge_frombytes_vartime(&asCi[i], as.Ci[i].bytes) == 0, false, "point conv failed");
             ge_sub(&p1, &asCi[i], &cached);
             ge_p3_to_cached(&cached, &asCi[i]);
             ge_p1p1_to_p3(&CiH[i], &p1);
@@ -441,7 +439,7 @@ namespace rct {
 
     //Ring-ct MG sigs
     //Prove: 
-    //   c.f. https://eprint.iacr.org/2015/1098 section 4. definition 10. 
+    //   c.f. http://eprint.iacr.org/2015/1098 section 4. definition 10. 
     //   This does the MG sig on the "dest" part of the given key matrix, and 
     //   the last row is the sum of input commitments from that column - sum output commitments
     //   this shows that sum inputs = sum outputs
@@ -527,7 +525,7 @@ namespace rct {
 
     //Ring-ct MG sigs
     //Prove: 
-    //   c.f. https://eprint.iacr.org/2015/1098 section 4. definition 10. 
+    //   c.f. http://eprint.iacr.org/2015/1098 section 4. definition 10. 
     //   This does the MG sig on the "dest" part of the given key matrix, and 
     //   the last row is the sum of input commitments from that column - sum output commitments
     //   this shows that sum inputs = sum outputs
@@ -650,7 +648,7 @@ namespace rct {
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
     //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
-    //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
+    //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
@@ -828,7 +826,7 @@ namespace rct {
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
     //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
-    //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
+    //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     bool verRct(const rctSig & rv, bool semantics) {
@@ -862,9 +860,9 @@ namespace rct {
                   results[i] = verBulletproof(rv.p.bulletproofs[i]);
                 else
                   results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-              }, true);
+              });
             }
-            waiter.wait(&tpool);
+            waiter.wait();
 
             for (size_t i = 0; i < rv.outPk.size(); ++i) {
               if (!results[i]) {
@@ -970,9 +968,9 @@ namespace rct {
                 results[i] = verBulletproof(rv.p.bulletproofs[i]);
               else
                 results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]);
-            }, true);
+            });
           }
-          waiter.wait(&tpool);
+          waiter.wait();
 
           for (size_t i = 0; i < results.size(); ++i) {
             if (!results[i]) {
@@ -989,9 +987,9 @@ namespace rct {
           for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
             tpool.submit(&waiter, [&, i] {
                 results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
-            }, true);
+            });
           }
-          waiter.wait(&tpool);
+          waiter.wait();
 
           for (size_t i = 0; i < results.size(); ++i) {
             if (!results[i]) {
@@ -1023,7 +1021,7 @@ namespace rct {
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
     //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
-    //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
+    //decodeRct: (c.f. http://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev) {

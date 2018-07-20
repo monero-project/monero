@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2018 X-CASH Project, Derived from 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -42,6 +42,5 @@
 #define CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB_SIZE  -10
 #define CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC       -11
 #define CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS  -12
-#define CORE_RPC_ERROR_CODE_REGTEST_REQUIRED      -13
 
 
