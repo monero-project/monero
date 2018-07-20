@@ -1255,7 +1255,39 @@ namespace tools
         }
       }
 
-      res.integrated_address = m_wallet->get_integrated_address_as_str(payment_id);
+      if (req.standard_address.empty())
+      {
+        res.integrated_address = m_wallet->get_integrated_address_as_str(payment_id);
+      }
+      else
+      {
+        cryptonote::address_parse_info info;
+        if(!get_account_address_from_str(info, m_wallet->nettype(), req.standard_address))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+          er.message = "Invalid address";
+          return false;
+        }
+        if (info.is_subaddress)
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+          er.message = "Subaddress shouldn't be used";
+          return false;
+        }
+        if (info.has_payment_id)
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_ADDRESS;
+          er.message = "Already integrated address";
+          return false;
+        }
+        if (req.payment_id.empty())
+        {
+          er.code = WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID;
+          er.message = "Payment ID shouldn't be left unspecified";
+          return false;
+        }
+        res.integrated_address = get_account_integrated_address_as_str(m_wallet->nettype(), info.address, payment_id);
+      }
       res.payment_id = epee::string_tools::pod_to_hex(payment_id);
       return true;
     }
