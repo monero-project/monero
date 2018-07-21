@@ -43,9 +43,9 @@ If you want to help out, see [CONTRIBUTING](CONTRIBUTING.md) for a set of guidel
 | ------------------------------ | -----------| ----------------- | ---------------------------------------------------------------------------------- |
 | 0                       | 22-07-2018 | v1                 |  Genesis block       |
 | 1                       | 22-07-2018 | v7                 |  Start of the blockchain       |
-| 62690                       | 01-09-2018 | v8                 | Adding Public transactions (transactions with mixin 0)       |
+| 62690                       | 01-09-2018 | v8                 | Adding public transactions (transactions with mixin 0)       |
 
-Note future releases block height and dates may change, so make sure to frequently check github, our website, the forums, etc. for the most up to date information.
+Note future releases block heights and dates may change, so make sure to frequently check github, our website, the forums, etc. for the most up to date information.
 
 ## Compiling X-CASH from source
 
@@ -205,7 +205,7 @@ By default, in either dynamically or statically linked builds, binaries target t
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
 
-## Running xcashdd
+## Running xcashd
 
 The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in
