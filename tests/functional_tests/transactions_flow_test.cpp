@@ -138,7 +138,7 @@ bool transactions_flow_test(std::string& working_folder,
     return false;
   }
 
-  w1.init(daemon_addr_a);
+  w1.init(true, daemon_addr_a);
 
   uint64_t blocks_fetched = 0;
   bool received_money;
@@ -149,7 +149,7 @@ bool transactions_flow_test(std::string& working_folder,
     return false;
   }
 
-  w2.init(daemon_addr_b);
+  w2.init(true, daemon_addr_b);
 
   MGINFO_GREEN("Using wallets: " << ENDL
     << "Source:  " << w1.get_account().get_public_address_str(MAINNET) << ENDL << "Path: " << working_folder + "/" + path_source_wallet << ENDL

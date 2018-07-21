@@ -733,10 +733,10 @@ bool WalletImpl::close(bool store)
 
 std::string WalletImpl::seed() const
 {
-    std::string seed;
+    epee::wipeable_string seed;
     if (m_wallet)
         m_wallet->get_seed(seed);
-    return seed;
+    return std::string(seed.data(), seed.size()); // TODO
 }
 
 std::string WalletImpl::getSeedLanguage() const
@@ -2032,7 +2032,8 @@ bool WalletImpl::isNewWallet() const
 
 bool WalletImpl::doInit(const string &daemon_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, upper_transaction_size_limit, ssl))
+    // claim RPC so there's no in-memory encryption for now
+    if (!m_wallet->init(true, daemon_address, m_daemon_login, upper_transaction_size_limit, ssl))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
