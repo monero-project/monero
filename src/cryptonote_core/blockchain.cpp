@@ -4041,6 +4041,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   TIME_MEASURE_START(prepare);
   bool stop_batch;
   uint64_t bytes = 0;
+  size_t total_txs = 0;
 
   // Order of locking must be:
   //  m_incoming_tx_lock (optional)
@@ -4069,6 +4070,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     {
       bytes += tx_blob.size();
     }
+    total_txs += entry.txs.size();
   }
   while (!(stop_batch = m_db->batch_start(blocks_entry.size(), bytes))) {
     m_blockchain_lock.unlock();
@@ -4128,7 +4130,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
           break;
         }
 
-        blocks[i].push_back(block);
+        blocks[i].push_back(std::move(block));
         std::advance(it, 1);
       }
     }
@@ -4149,7 +4151,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         break;
       }
 
-      blocks[i].push_back(block);
+      blocks[i].push_back(std::move(block));
       std::advance(it, 1);
     }
 
@@ -4205,6 +4207,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::map<uint64_t, std::vector<uint64_t>> offset_map;
   // [output] stores all output_data_t for each absolute_offset
   std::map<uint64_t, std::vector<output_data_t>> tx_map;
+  std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
 #define SCAN_TABLE_QUIT(m) \
         do { \
@@ -4214,6 +4217,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         } while(0); \
 
   // generate sorted tables for all amounts and absolute offsets
+  size_t tx_index = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
@@ -4221,12 +4225,15 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
     for (const auto &tx_blob : entry.txs)
     {
-      crypto::hash tx_hash = null_hash;
-      crypto::hash tx_prefix_hash = null_hash;
-      transaction tx;
+      if (tx_index >= txes.size())
+        SCAN_TABLE_QUIT("tx_index is out of sync");
+      transaction &tx = txes[tx_index].first;
+      crypto::hash &tx_prefix_hash = txes[tx_index].second;
+      ++tx_index;
 
-      if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
+      if (!parse_and_validate_tx_base_from_blob(tx_blob, tx))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
+      cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its != m_scan_table.end())
@@ -4312,9 +4319,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     }
   }
 
-  int total_txs = 0;
-
   // now generate a table for each tx_prefix and k_image hashes
+  tx_index = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
@@ -4322,14 +4328,12 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
     for (const auto &tx_blob : entry.txs)
     {
-      crypto::hash tx_hash = null_hash;
-      crypto::hash tx_prefix_hash = null_hash;
-      transaction tx;
+      if (tx_index >= txes.size())
+        SCAN_TABLE_QUIT("tx_index is out of sync");
+      const transaction &tx = txes[tx_index].first;
+      const crypto::hash &tx_prefix_hash = txes[tx_index].second;
+      ++tx_index;
 
-      if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, tx_prefix_hash))
-        SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
-
-      ++total_txs;
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its == m_scan_table.end())
         SCAN_TABLE_QUIT("Tx not found on scan table from incoming blocks.");
