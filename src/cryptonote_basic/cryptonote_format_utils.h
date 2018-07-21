@@ -73,7 +73,7 @@ namespace cryptonote
   bool add_service_node_deregister_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_deregister& deregistration);
   bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register& registration);
   bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister& deregistration);
-  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, const crypto::public_key& service_node_key);
+  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, uint64_t expiration_timestamp, const crypto::public_key& service_node_key, const crypto::signature& signature);
   void add_service_node_winner_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& winner);
   crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra);
   std::vector<crypto::public_key> get_additional_tx_pub_keys_from_extra(const std::vector<uint8_t>& tx_extra);
@@ -103,6 +103,8 @@ namespace cryptonote
   void get_blob_hash(const blobdata& blob, crypto::hash& res);
   crypto::hash get_blob_hash(const blobdata& blob);
   std::string short_hash_str(const crypto::hash& h);
+
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, uint64_t expiration_timestamp, crypto::hash& hash);
 
   crypto::hash get_transaction_hash(const transaction& t);
   bool get_transaction_hash(const transaction& t, crypto::hash& res);

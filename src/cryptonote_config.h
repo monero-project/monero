@@ -54,6 +54,8 @@
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 #define STAKING_SHARES                                  UINT32_MAX
 
+#define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2) // 2 weeks
+
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 
 // MONEY_SUPPLY - total number coins to be generated

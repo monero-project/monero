@@ -84,7 +84,7 @@ namespace service_nodes
       std::vector<uint32_t> shares;
     };
 
-    bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_height, int index, crypto::public_key& key, service_node_info& info) const;
+    bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index, crypto::public_key& key, service_node_info& info) const;
     bool is_deregistration_tx(const cryptonote::transaction& tx, crypto::public_key& address) const;
 
     std::vector<crypto::public_key> get_service_node_pubkeys() const;
@@ -93,7 +93,7 @@ namespace service_nodes
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
     bool reg_tx_has_correct_unlock_time(const cryptonote::transaction& tx, uint64_t block_height) const;
-    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares, crypto::public_key& service_node_key, crypto::public_key& tx_pub_key) const;
+    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
     uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
 
     crypto::public_key find_service_node_from_miner_tx(const cryptonote::transaction& miner_tx, uint64_t block_height) const;
@@ -142,6 +142,8 @@ namespace service_nodes
     using block_height = uint64_t;
     std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;
   };
+
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares);
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 }

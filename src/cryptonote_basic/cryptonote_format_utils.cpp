@@ -35,6 +35,7 @@ using namespace epee;
 #include <atomic>
 #include <boost/algorithm/string.hpp>
 #include "wipeable_string.h"
+#include "common/i18n.h"
 #include "string_tools.h"
 #include "serialization/string.h"
 #include "cryptonote_format_utils.h"
@@ -496,7 +497,13 @@ namespace cryptonote
     return result && registration.m_public_spend_keys.size() == registration.m_public_view_keys.size();
   }
   //---------------------------------------------------------------
-  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, const crypto::public_key& service_node_key)
+  bool add_service_node_register_to_tx_extra(
+      std::vector<uint8_t>& tx_extra,
+      const std::vector<cryptonote::account_public_address>& addresses,
+      const std::vector<uint32_t>& shares,
+      uint64_t expiration_timestamp,
+      const crypto::public_key& service_node_key,
+      const crypto::signature& service_node_signature)
   {
     if (addresses.size() != shares.size())
     {
@@ -511,7 +518,15 @@ namespace cryptonote
       public_spend_keys[i] = addresses[i].m_spend_public_key;
     }
     // convert to variant
-    tx_extra_field field = tx_extra_service_node_register{ public_spend_keys, public_view_keys, shares, service_node_key };
+    tx_extra_field field =
+      tx_extra_service_node_register{
+        public_spend_keys,
+        public_view_keys,
+        shares,
+        expiration_timestamp,
+        service_node_key,
+        service_node_signature
+      };
     // serialize
     std::ostringstream oss;
     binary_archive<true> ar(oss);
@@ -966,6 +981,43 @@ namespace cryptonote
     if (blob_size)
       *blob_size = get_object_blobsize(t);
 
+    return true;
+  }
+  //---------------------------------------------------------------
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, uint64_t expiration_timestamp, crypto::hash& hash)
+  {
+    if (addresses.size() != shares.size())
+    {
+      LOG_ERROR("get_registration_hash addresses.size() != shares.size()");
+      return false;
+    }
+    uint64_t total_shares = 0;
+    for (uint32_t share : shares)
+      total_shares += share;
+    if (total_shares < STAKING_SHARES)
+    {
+      LOG_ERROR(tr("Your registration has less than ") << STAKING_SHARES << tr(" shares, the remainder will go to the miner"));
+    }
+    else if (total_shares > STAKING_SHARES)
+    {
+      LOG_ERROR(tr("Your registration has more than ") << STAKING_SHARES << tr(" shares, this registration is invalid!"));
+      return false;
+    }
+    size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint32_t)) + sizeof(uint64_t);
+    char* buffer = new char[size];
+    char* buffer_iter = buffer;
+    for (size_t i = 0; i < addresses.size(); i++)
+    {
+      memcpy(buffer_iter, &addresses[i], sizeof(cryptonote::account_public_address));
+      buffer_iter += sizeof(cryptonote::account_public_address);
+      memcpy(buffer_iter, &shares[i], sizeof(uint32_t));
+      buffer_iter += sizeof(uint32_t);
+    }
+    memcpy(buffer_iter, &expiration_timestamp, sizeof(expiration_timestamp));
+    buffer_iter += sizeof(expiration_timestamp);
+    assert(buffer + size == buffer_iter);
+    crypto::cn_fast_hash(buffer, size, hash);
+    delete buffer;
     return true;
   }
   //---------------------------------------------------------------

@@ -797,6 +797,17 @@ namespace cryptonote
       */
      bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
 
+     /**
+      * @brief Prepare a registration tx using the service node keys for this
+      * daemon. This function is intended to be called without being core
+      * initialized with core::init; for use when generating txs from the shell
+      *
+      * @param vm The command line variable map.
+
+      * @return whether or not the command was able to prepare the registration.
+      */
+     bool cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args);
+
    private:
 
      /**
@@ -976,6 +987,16 @@ namespace cryptonote
       * @return true on success, false otherwise
       */
      bool init_service_node_key();
+
+     /**
+      * @brief Prepare a registration tx using the service node keys for this
+      * daemon.
+      *
+      * @param args The arguments, as a string. <address1> <shares1> [<address2> <shares2> [...]]
+      *
+      * @return whether or not the command was able to prepare the registration.
+      */
+     std::string prepare_registration(const std::vector<std::string>& args);
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 

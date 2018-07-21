@@ -54,6 +54,7 @@
 #include "common/scoped_message_writer.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_core/service_node_deregister.h"
+#include "cryptonote_core/service_node_list.h"
 #include "simplewallet.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "storages/http_abstract_invoke.h"
@@ -4705,19 +4706,6 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
-  if (local_args.empty())
-  {
-    fail_msg_writer() << tr("Usage: stake_all [index=<N1>[,<N2>,...]] [priority] <service node pubkey>");
-    return true;
-  }
-
-  crypto::public_key service_node_key;
-  if (!epee::string_tools::hex_to_pod(local_args[0], service_node_key))
-  {
-    fail_msg_writer() << tr("failed to parse service node pubkey");
-    return true;
-  }
-
   priority = m_wallet->adjust_priority(priority);
 
   size_t mixins = DEFAULT_MIX;
@@ -4736,12 +4724,66 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
 
   cryptonote::account_public_address address = m_wallet->get_address();
 
-  std::vector<cryptonote::account_public_address> addresses = { address };
-  std::vector<uint32_t> shares = { STAKING_SHARES };
+  if (local_args.size() % 2 == 0 || local_args.size() < 5)
+  {
+    fail_msg_writer() << tr("Usage: stake_all [index=<N1>[,<N2>,...]] [priority] <address1> <shares1> [<address2> <shares2> [...]] <expiration timestamp> <service node pubkey> <signature>");
+    fail_msg_writer() << tr("");
+    fail_msg_writer() << tr("Prepare this command with the service node using:");
+    fail_msg_writer() << tr("");
+    fail_msg_writer() << tr("./lokid --prepare-registration <address> <shares> [<address2> <shares2> [...]]");
+    fail_msg_writer() << tr("");
+    fail_msg_writer() << tr("This command must be run from the daemon that will be acting as a service node");
+    return true;
+  }
+
+  if (local_args.size() > 5)
+  {
+    fail_msg_writer() << tr("Multiple address registration tx construction not supported yet");
+    return true;
+  }
+
+  std::vector<std::string> address_shares_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
+  std::vector<cryptonote::account_public_address> addresses;
+  std::vector<uint32_t> shares;
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_shares_args, addresses, shares))
+  {
+    fail_msg_writer() << tr("Could not convert registration args");
+    return true;
+  }
+
+  size_t timestamp_index = local_args.size() - 3;
+  size_t key_index = local_args.size() - 2;
+  size_t signature_index = local_args.size() - 1;
+
+  uint64_t expiration_timestamp = 0;
+
+  try
+  {
+    expiration_timestamp = boost::lexical_cast<uint64_t>(local_args[timestamp_index]);
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Invalid timestamp");
+    return true;
+  }
+
+  crypto::public_key service_node_key;
+  if (!epee::string_tools::hex_to_pod(local_args[key_index], service_node_key))
+  {
+    fail_msg_writer() << tr("failed to parse service node pubkey");
+    return true;
+  }
+
+  crypto::signature signature;
+  if (!epee::string_tools::hex_to_pod(local_args[signature_index], signature))
+  {
+    fail_msg_writer() << tr("failed to parse service node pubkey");
+    return true;
+  }
 
   std::vector<uint8_t> extra;
 
-  if (!add_service_node_register_to_tx_extra(extra, addresses, shares, service_node_key))
+  if (!add_service_node_register_to_tx_extra(extra, addresses, shares, expiration_timestamp, service_node_key, signature))
   {
     fail_msg_writer() << tr("failed to serialize service node registration tx extra");
     return true;
