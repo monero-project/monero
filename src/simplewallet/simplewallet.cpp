@@ -3344,14 +3344,16 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
  */
 std::string simple_wallet::get_mnemonic_language()
 {
-  std::vector<std::string> language_list;
+  std::vector<std::string> language_list_self, language_list_english;
+  const std::vector<std::string> &language_list = m_use_english_language_names ? language_list_english : language_list_self;
   std::string language_choice;
   int language_number = -1;
-  crypto::ElectrumWords::get_language_list(language_list, m_use_english_language_names);
+  crypto::ElectrumWords::get_language_list(language_list_self, false);
+  crypto::ElectrumWords::get_language_list(language_list_english, true);
   std::cout << tr("List of available languages for your wallet's seed:") << std::endl;
   std::cout << tr("If your display freezes, exit blind with ^C, then run again with --use-english-language-names") << std::endl;
   int ii;
-  std::vector<std::string>::iterator it;
+  std::vector<std::string>::const_iterator it;
   for (it = language_list.begin(), ii = 0; it != language_list.end(); it++, ii++)
   {
     std::cout << ii << " : " << *it << std::endl;
@@ -3375,7 +3377,7 @@ std::string simple_wallet::get_mnemonic_language()
       fail_msg_writer() << tr("invalid language choice entered. Please try again.\n");
     }
   }
-  return language_list[language_number];
+  return language_list_self[language_number];
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
