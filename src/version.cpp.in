@@ -1,6 +1,6 @@
 #define DEF_XCASH_VERSION_TAG "@VERSIONTAG@"
-#define DEF_XCASH_VERSION "0.12.0.0-master"
-#define DEF_XCASH_RELEASE_NAME "Lithium Luna"
+#define DEF_XCASH_VERSION "1.0.0-master"
+#define DEF_XCASH_RELEASE_NAME ""
 #define DEF_XCASH_VERSION_FULL DEF_XCASH_VERSION "-" DEF_XCASH_VERSION_TAG
 
 #include "version.h"
