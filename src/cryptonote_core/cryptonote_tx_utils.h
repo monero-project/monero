@@ -46,7 +46,6 @@ namespace cryptonote
       const account_public_address &miner_address,
       transaction& tx,
       const blobdata& extra_nonce = blobdata(),
-      size_t max_outs = 999,
       uint8_t hard_fork_version = 1,
       network_type nettype = MAINNET,
       const crypto::public_key& service_node_key = crypto::null_pkey,

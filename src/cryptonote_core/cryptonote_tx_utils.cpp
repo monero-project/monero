@@ -177,7 +177,6 @@ namespace cryptonote
       const account_public_address &miner_address,
       transaction& tx,
       const blobdata& extra_nonce,
-      size_t max_outs /* unused */,
       uint8_t hard_fork_version,
       network_type nettype,
       const crypto::public_key& service_node_key,

@@ -185,7 +185,6 @@ public:
     bf_miner_tx  = 1 << 4,
     bf_tx_hashes = 1 << 5,
     bf_diffic    = 1 << 6,
-    bf_max_outs  = 1 << 7,
     bf_hf_version= 1 << 8
   };
 
@@ -207,8 +206,7 @@ public:
     const cryptonote::account_base& miner_acc, int actual_params = bf_none, uint8_t major_ver = 0,
     uint8_t minor_ver = 0, uint64_t timestamp = 0, const crypto::hash& prev_id = crypto::hash(),
     const cryptonote::difficulty_type& diffic = 1, const cryptonote::transaction& miner_tx = cryptonote::transaction(),
-    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 999,
-    uint8_t hf_version = 1);
+    const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, uint8_t hf_version = 1);
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
 
