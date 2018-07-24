@@ -9422,6 +9422,8 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
         hwdev.ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
         const rct::key C = tx.rct_signatures.outPk[n].mask;
         rct::key Ctmp;
+        THROW_WALLET_EXCEPTION_IF(sc_check(ecdh_info.mask.bytes) != 0, error::wallet_internal_error, "Bad ECDH input mask");
+        THROW_WALLET_EXCEPTION_IF(sc_check(ecdh_info.amount.bytes) != 0, error::wallet_internal_error, "Bad ECDH input amount");
         rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
         if (rct::equalKeys(C, Ctmp))
           amount = rct::h2d(ecdh_info.amount);

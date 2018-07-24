@@ -1108,6 +1108,8 @@ namespace rct {
         DP("C");
         DP(C);
         key Ctmp;
+        CHECK_AND_ASSERT_THROW_MES(sc_check(mask.bytes) == 0, "warning, bad ECDH mask");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(amount.bytes) == 0, "warning, bad ECDH amount");
         addKeys2(Ctmp, mask, amount, H);
         DP("Ctmp");
         DP(Ctmp);
@@ -1136,6 +1138,8 @@ namespace rct {
         DP("C");
         DP(C);
         key Ctmp;
+        CHECK_AND_ASSERT_THROW_MES(sc_check(mask.bytes) == 0, "warning, bad ECDH mask");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(amount.bytes) == 0, "warning, bad ECDH amount");
         addKeys2(Ctmp, mask, amount, H);
         DP("Ctmp");
         DP(Ctmp);
