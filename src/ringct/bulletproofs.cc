@@ -473,6 +473,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   CHECK_AND_ASSERT_THROW_MES(test_aR == v_test, "test_aR failed");
 #endif
 
+try_again:
   PERF_TIMER_START_BP(PROVE_step1);
   // PAPER LINES 38-39
   rct::key alpha = rct::skGen();
@@ -489,7 +490,19 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   // PAPER LINES 43-45
   rct::key y = hash_cache_mash(hash_cache, A, S);
+  if (y == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("y is 0, trying again");
+    goto try_again;
+  }
   rct::key z = hash_cache = rct::hash_to_scalar(y);
+  if (z == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("z is 0, trying again");
+    goto try_again;
+  }
 
   // Polynomial construction before PAPER LINE 46
   rct::key t0 = rct::zero();
@@ -552,6 +565,12 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
+  if (x == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step2);
+    MINFO("x is 0, trying again");
+    goto try_again;
+  }
 
   // PAPER LINES 52-53
   rct::key taux = rct::zero();
@@ -625,6 +644,12 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
+    if (w[round] == rct::zero())
+    {
+      PERF_TIMER_STOP(PROVE_step4);
+      MINFO("w[round] is 0, trying again");
+      goto try_again;
+    }
 
     // PAPER LINES 24-25
     const rct::key winv = invert(w[round]);
@@ -713,8 +738,6 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
   }
   PERF_TIMER_STOP(PROVE_aLaR);
 
-  rct::key hash_cache = rct::hash_to_scalar(V);
-
   // DEBUG: Test to ensure this recovers the value
 #ifdef DEBUG_BP
   for (size_t j = 0; j < M; ++j)
@@ -735,6 +758,9 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
   }
 #endif
 
+try_again:
+  rct::key hash_cache = rct::hash_to_scalar(V);
+
   PERF_TIMER_START_BP(PROVE_step1);
   // PAPER LINES 38-39
   rct::key alpha = rct::skGen();
@@ -751,7 +777,19 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   // PAPER LINES 43-45
   rct::key y = hash_cache_mash(hash_cache, A, S);
+  if (y == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("y is 0, trying again");
+    goto try_again;
+  }
   rct::key z = hash_cache = rct::hash_to_scalar(y);
+  if (z == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("z is 0, trying again");
+    goto try_again;
+  }
 
   // Polynomial construction by coefficients
   const auto zMN = vector_dup(z, MN);
@@ -799,6 +837,12 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
+  if (x == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step2);
+    MINFO("x is 0, trying again");
+    goto try_again;
+  }
 
   // PAPER LINES 52-53
   rct::key taux;
@@ -835,6 +879,12 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   // PAPER LINES 32-33
   rct::key x_ip = hash_cache_mash(hash_cache, x, taux, mu, t);
+  if (x_ip == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step3);
+    MINFO("x_ip is 0, trying again");
+    goto try_again;
+  }
 
   // These are used in the inner product rounds
   size_t nprime = MN;
@@ -879,6 +929,12 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
+    if (w[round] == rct::zero())
+    {
+      PERF_TIMER_STOP(PROVE_step4);
+      MINFO("w[round] is 0, trying again");
+      goto try_again;
+    }
 
     // PAPER LINES 24-25
     const rct::key winv = invert(w[round]);
@@ -985,9 +1041,13 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     PERF_TIMER_START_BP(VERIFY_start);
     rct::key hash_cache = rct::hash_to_scalar(proof.V);
     rct::key y = hash_cache_mash(hash_cache, proof.A, proof.S);
+    CHECK_AND_ASSERT_MES(!(y == rct::zero()), false, "y == 0");
     rct::key z = hash_cache = rct::hash_to_scalar(y);
+    CHECK_AND_ASSERT_MES(!(z == rct::zero()), false, "z == 0");
     rct::key x = hash_cache_mash(hash_cache, z, proof.T1, proof.T2);
+    CHECK_AND_ASSERT_MES(!(x == rct::zero()), false, "x == 0");
     rct::key x_ip = hash_cache_mash(hash_cache, x, proof.taux, proof.mu, proof.t);
+    CHECK_AND_ASSERT_MES(!(x_ip == rct::zero()), false, "x_ip == 0");
     PERF_TIMER_STOP(VERIFY_start);
 
     PERF_TIMER_START_BP(VERIFY_line_61);
@@ -1082,6 +1142,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     for (size_t i = 0; i < rounds; ++i)
     {
       w[i] = hash_cache_mash(hash_cache, proof.L[i], proof.R[i]);
+      CHECK_AND_ASSERT_MES(!(w[i] == rct::zero()), false, "w[i] == 0");
     }
     PERF_TIMER_STOP(VERIFY_line_21_22);
 
