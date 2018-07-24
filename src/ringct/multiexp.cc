@@ -222,17 +222,21 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   points = heap.size();
   if (points == 0)
     return rct::identity();
+
+  auto Comp = [&](size_t e0, size_t e1) { return data[e0].scalar < data[e1].scalar; };
+  std::make_heap(heap.begin(), heap.end(), Comp);
+
   if (points < 2)
   {
+    std::pop_heap(heap.begin(), heap.end(), Comp);
+    size_t index1 = heap.back();
     ge_p2 p2;
-    ge_scalarmult(&p2, data[0].scalar.bytes, &data[0].point);
+    ge_scalarmult(&p2, data[index1].scalar.bytes, &data[index1].point);
     rct::key res;
     ge_tobytes(res.bytes, &p2);
     return res;
   }
 
-  auto Comp = [&](size_t e0, size_t e1) { return data[e0].scalar < data[e1].scalar; };
-  std::make_heap(heap.begin(), heap.end(), Comp);
   MULTIEXP_PERF(PERF_TIMER_STOP(setup));
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(loop, 1000000));
