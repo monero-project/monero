@@ -116,7 +116,7 @@ namespace crypto {
     do
     {
       generate_random_bytes_thread_safe(32, bytes);
-    } while (!less32(bytes, limit)); // should be good about 15/16 of the time
+    } while (!sc_isnonzero(bytes) && !less32(bytes, limit)); // should be good about 15/16 of the time
     sc_reduce32(bytes);
   }
   /* generate a random 32-byte (256-bit) integer and copy it to res */
