@@ -122,6 +122,7 @@
     if(!ps.load_from_json(query_info.m_body)) \
     { \
        boost::value_initialized<epee::json_rpc::error_response> rsp; \
+       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
        static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
        static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
        epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
