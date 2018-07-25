@@ -649,6 +649,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool check_outs_valid(const transaction& tx)
   {
+    if (tx.version == transaction::version_3_deregister_tx)
+    {
+      CHECK_AND_NO_ASSERT_MES(tx.vout.size() == 0, false, "tx version deregister must have 0 outputs, received: " << tx.vout.size() << ", id=" << get_transaction_hash(tx));
+    }
+
     for(const tx_out& out: tx.vout)
     {
       CHECK_AND_ASSERT_MES(out.target.type() == typeid(txout_to_key), false, "wrong variant type: "

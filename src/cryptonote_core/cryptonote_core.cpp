@@ -823,7 +823,15 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_semantic(const transaction& tx, bool keeped_by_block) const
   {
-    if(!tx.vin.size() && tx.version != transaction::version_3_deregister_tx)
+    if (tx.version == transaction::version_3_deregister_tx)
+    {
+      if (tx.vin.size() != 0)
+      {
+        MERROR_VER("tx version deregister must have 0 inputs, received: " << tx.vin.size() << ", rejected for tx id = " << get_transaction_hash(tx));
+        return false;
+      }
+    }
+    else if (!tx.vin.size())
     {
       MERROR_VER("tx with empty inputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
