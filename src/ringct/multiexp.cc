@@ -605,7 +605,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       maxscalar = data[i].scalar;
   }
   size_t groups = 0;
-  while (groups < 256 && pow2(groups) < maxscalar)
+  while (groups < 256 && !(maxscalar < pow2(groups)))
     ++groups;
   groups = (groups + c - 1) / c;
 
