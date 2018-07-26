@@ -162,6 +162,12 @@ struct gen_bp_tx_invalid_not_enough_proofs : public gen_bp_tx_validation_base
 };
 template<> struct get_test_options<gen_bp_tx_invalid_not_enough_proofs>: public get_test_options<gen_bp_tx_validation_base> {};
 
+struct gen_bp_tx_invalid_empty_proofs : public gen_bp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bp_tx_invalid_empty_proofs>: public get_test_options<gen_bp_tx_validation_base> {};
+
 struct gen_bp_tx_invalid_too_many_proofs : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
