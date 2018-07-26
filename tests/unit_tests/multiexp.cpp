@@ -32,8 +32,10 @@
 #include "ringct/rctOps.h"
 #include "ringct/multiexp.h"
 
-static const rct::key TESTSCALAR = rct::H;
-static const rct::key TESTPOINT = rct::scalarmultBase(rct::H);
+static const rct::key TESTSCALAR = rct::skGen();
+static const rct::key TESTPOW2SCALAR = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
+static const rct::key TESTSMALLSCALAR = {{5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
+static const rct::key TESTPOINT = rct::scalarmultBase(rct::skGen());
 
 static rct::key basic(const std::vector<rct::MultiexpData> &data)
 {
@@ -78,6 +80,54 @@ TEST(multiexp, pippenger_empty)
 {
   std::vector<rct::MultiexpData> data;
   data.push_back({rct::zero(), get_p3(rct::identity())});
+  ASSERT_TRUE(basic(data) == pippenger(data));
+}
+
+TEST(multiexp, bos_coster_zero_and_non_zero)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({rct::zero(), get_p3(TESTPOINT)});
+  data.push_back({TESTSCALAR, get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == bos_coster_heap_conv_robust(data));
+}
+
+TEST(multiexp, straus_zero_and_non_zero)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({rct::zero(), get_p3(TESTPOINT)});
+  data.push_back({TESTSCALAR, get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == straus(data));
+}
+
+TEST(multiexp, pippenger_zero_and_non_zero)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({rct::zero(), get_p3(TESTPOINT)});
+  data.push_back({TESTSCALAR, get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == pippenger(data));
+}
+
+TEST(multiexp, bos_coster_pow2_scalar)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({TESTPOW2SCALAR, get_p3(TESTPOINT)});
+  data.push_back({TESTSMALLSCALAR, get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == bos_coster_heap_conv_robust(data));
+}
+
+TEST(multiexp, straus_pow2_scalar)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({TESTPOW2SCALAR, get_p3(TESTPOINT)});
+  data.push_back({TESTSMALLSCALAR, get_p3(TESTPOINT)});
+  ASSERT_TRUE(basic(data) == straus(data));
+}
+
+TEST(multiexp, pippenger_pow2_scalar)
+{
+  std::vector<rct::MultiexpData> data;
+  data.push_back({TESTPOW2SCALAR, get_p3(TESTPOINT)});
+  data.push_back({TESTSMALLSCALAR, get_p3(TESTPOINT)});
   ASSERT_TRUE(basic(data) == pippenger(data));
 }
 
