@@ -297,6 +297,19 @@ bool gen_bp_tx_invalid_not_enough_proofs::generate(std::vector<test_event_entry>
   });
 }
 
+bool gen_bp_tx_invalid_empty_proofs::generate(std::vector<test_event_entry>& events) const
+{
+  DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_empty_proofs");
+  const size_t mixin = 10;
+  const uint64_t amounts_paid[] = {50000, 50000, (uint64_t)-1};
+  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
+  return generate_with(events, mixin, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t idx){
+    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
+    tx.rct_signatures.p.bulletproofs.clear();
+    return true;
+  });
+}
+
 bool gen_bp_tx_invalid_too_many_proofs::generate(std::vector<test_event_entry>& events) const
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_too_many_proofs");
