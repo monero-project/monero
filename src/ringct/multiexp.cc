@@ -216,7 +216,7 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   heap.reserve(points);
   for (size_t n = 0; n < points; ++n)
   {
-    if (!(data[n].scalar == rct::zero()) && memcmp(&data[n].point, &ge_p3_identity, sizeof(ge_p3)))
+    if (!(data[n].scalar == rct::zero()) && !ge_p3_is_point_at_infinity(&data[n].point))
       heap.push_back(n);
   }
   points = heap.size();
@@ -442,7 +442,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(skip, 1000000));
   std::vector<uint8_t> skip(data.size());
   for (size_t i = 0; i < data.size(); ++i)
-    skip[i] = data[i].scalar == rct::zero() || !memcmp(&data[i].point, &ge_p3_identity, sizeof(ge_p3));
+    skip[i] = data[i].scalar == rct::zero() || ge_p3_is_point_at_infinity(&data[i].point);
   MULTIEXP_PERF(PERF_TIMER_STOP(skip));
 #endif
 
@@ -611,7 +611,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
 
   for (size_t k = groups; k-- > 0; )
   {
-    if (memcmp(&result, &ge_p3_identity, sizeof(ge_p3)))
+    if (!ge_p3_is_point_at_infinity(&result))
     {
       ge_p2 p2;
       ge_p3_to_p2(&p2, &result);
@@ -638,7 +638,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       if (bucket == 0)
         continue;
       CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
-      if (memcmp(&buckets[bucket], &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&buckets[bucket]))
       {
         add(buckets[bucket], local_cache->cached[i]);
       }
@@ -650,9 +650,9 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
     ge_p3 pail = ge_p3_identity;
     for (size_t i = (1<<c)-1; i > 0; --i)
     {
-      if (memcmp(&buckets[i], &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&buckets[i]))
         add(pail, buckets[i]);
-      if (memcmp(&pail, &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&pail))
         add(result, pail);
     }
   }
