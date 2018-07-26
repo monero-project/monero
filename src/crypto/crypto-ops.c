@@ -3729,3 +3729,16 @@ int sc_isnonzero(const unsigned char *s) {
     s[18] | s[19] | s[20] | s[21] | s[22] | s[23] | s[24] | s[25] | s[26] |
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
 }
+
+int ge_p3_is_point_at_infinity(const ge_p3 *p) {
+  // X = 0 and Y == Z
+  int n;
+  for (n = 0; n < 10; ++n)
+  {
+    if (p->X[n] | p->T[n])
+      return 0;
+    if (p->Y[n] != p->Z[n])
+      return 0;
+  }
+  return 1;
+}
