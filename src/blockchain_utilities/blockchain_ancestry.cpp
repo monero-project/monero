@@ -30,8 +30,12 @@
 #include <unordered_set>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/archive/portable_binary_oarchive.hpp>
+#include "common/unordered_containers_boost_serialization.h"
 #include "common/command_line.h"
 #include "common/varint.h"
+#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
@@ -46,13 +50,22 @@ namespace po = boost::program_options;
 using namespace epee;
 using namespace cryptonote;
 
+static bool stop_requested = false;
+
 struct ancestor
 {
   uint64_t amount;
   uint64_t offset;
 
   bool operator==(const ancestor &other) const { return amount == other.amount && offset == other.offset; }
+
+  template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
+  {
+    a & amount;
+    a & offset;
+  }
 };
+BOOST_CLASS_VERSION(ancestor, 0)
 
 namespace std
 {
@@ -66,6 +79,25 @@ namespace std
     }
   };
 }
+
+struct ancestry_state_t
+{
+  uint64_t height;
+  std::unordered_map<crypto::hash, std::unordered_set<ancestor>> ancestry;
+  std::unordered_map<ancestor, crypto::hash> output_cache;
+  std::unordered_map<crypto::hash, cryptonote::transaction> tx_cache;
+  std::unordered_map<uint64_t, cryptonote::block> block_cache;
+
+  template <typename t_archive> void serialize(t_archive &a, const unsigned int ver)
+  {
+    a & height;
+    a & ancestry;
+    a & output_cache;
+    a & tx_cache;
+    a & block_cache;
+  }
+};
+BOOST_CLASS_VERSION(ancestry_state_t, 0)
 
 static void add_ancestor(std::unordered_map<ancestor, unsigned int> &ancestry, uint64_t amount, uint64_t offset)
 {
@@ -274,13 +306,34 @@ int main(int argc, char* argv[])
   if (opt_all)
   {
     uint64_t cached_txes = 0, cached_blocks = 0, cached_outputs = 0, total_txes = 0, total_blocks = 0, total_outputs = 0;
-    std::unordered_map<crypto::hash, std::unordered_set<ancestor>> ancestry;
-    std::unordered_map<ancestor, crypto::hash> output_cache;
-    std::unordered_map<crypto::hash, cryptonote::transaction> tx_cache;
-    std::map<uint64_t, cryptonote::block> block_cache;
+    ancestry_state_t state;
 
+    const std::string state_file_path = (boost::filesystem::path(opt_data_dir) / "ancestry-state.bin").string();
+    LOG_PRINT_L0("Loading state data from " << state_file_path);
+    std::ifstream state_data_in;
+    state_data_in.open(state_file_path, std::ios_base::binary | std::ios_base::in);
+    if (!state_data_in.fail())
+    {
+      try
+      {
+        boost::archive::portable_binary_iarchive a(state_data_in);
+        a >> state;
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to load state data from " << state_file_path << ", restarting from scratch");
+        state = ancestry_state_t();
+      }
+      state_data_in.close();
+    }
+
+    tools::signal_handler::install([](int type) {
+      stop_requested = true;
+    });
+
+    MINFO("Starting from height " << state.height);
     const uint64_t db_height = db->height();
-    for (uint64_t h = 0; h < db_height; ++h)
+    for (uint64_t h = state.height; h < db_height; ++h)
     {
       size_t block_ancestry_size = 0;
       const crypto::hash block_hash = db->get_block_hash_from_height(h);
@@ -293,7 +346,7 @@ int main(int argc, char* argv[])
         return 1;
       }
       if (opt_cache_blocks)
-        block_cache.insert(std::make_pair(h, b));
+        state.block_cache.insert(std::make_pair(h, b));
       std::vector<crypto::hash> txids;
       txids.reserve(1 + b.tx_hashes.size());
       if (opt_include_coinbase)
@@ -305,9 +358,9 @@ int main(int argc, char* argv[])
         printf("%lu/%lu               \r", (unsigned long)h, (unsigned long)db_height);
         fflush(stdout);
         cryptonote::transaction tx;
-        std::unordered_map<crypto::hash, cryptonote::transaction>::const_iterator i = tx_cache.find(txid);
+        std::unordered_map<crypto::hash, cryptonote::transaction>::const_iterator i = state.tx_cache.find(txid);
         ++total_txes;
-        if (i != tx_cache.end())
+        if (i != state.tx_cache.end())
         {
           ++cached_txes;
           tx = i->second;
@@ -326,12 +379,12 @@ int main(int argc, char* argv[])
             return 1;
           }
           if (opt_cache_txes)
-            tx_cache.insert(std::make_pair(txid, tx));
+            state.tx_cache.insert(std::make_pair(txid, tx));
         }
         const bool coinbase = tx.vin.size() == 1 && tx.vin[0].type() == typeid(cryptonote::txin_gen);
         if (coinbase)
         {
-          add_ancestry(ancestry, txid, std::unordered_set<ancestor>());
+          add_ancestry(state.ancestry, txid, std::unordered_set<ancestor>());
         }
         else
         {
@@ -345,11 +398,11 @@ int main(int argc, char* argv[])
               for (uint64_t offset: absolute_offsets)
               {
                 const output_data_t od = db->get_output_key(amount, offset);
-                add_ancestry(ancestry, txid, ancestor{amount, offset});
+                add_ancestry(state.ancestry, txid, ancestor{amount, offset});
                 cryptonote::block b;
-                auto iblock = block_cache.find(od.height);
+                auto iblock = state.block_cache.find(od.height);
                 ++total_blocks;
-                if (iblock != block_cache.end())
+                if (iblock != state.block_cache.end())
                 {
                   ++cached_blocks;
                   b = iblock->second;
@@ -364,16 +417,16 @@ int main(int argc, char* argv[])
                     return 1;
                   }
                   if (opt_cache_blocks)
-                    block_cache.insert(std::make_pair(od.height, b));
+                    state.block_cache.insert(std::make_pair(od.height, b));
                 }
                 // find the tx which created this output
                 bool found = false;
-                std::unordered_map<ancestor, crypto::hash>::const_iterator i = output_cache.find({amount, offset});
+                std::unordered_map<ancestor, crypto::hash>::const_iterator i = state.output_cache.find({amount, offset});
                 ++total_outputs;
-                if (i != output_cache.end())
+                if (i != state.output_cache.end())
                 {
                   ++cached_outputs;
-                  add_ancestry(ancestry, txid, get_ancestry(ancestry, i->second));
+                  add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, i->second));
                   found = true;
                 }
                 else for (size_t out = 0; out < b.miner_tx.vout.size(); ++out)
@@ -384,9 +437,9 @@ int main(int argc, char* argv[])
                     if (txout.key == od.pubkey)
                     {
                       found = true;
-                      add_ancestry(ancestry, txid, get_ancestry(ancestry, cryptonote::get_transaction_hash(b.miner_tx)));
+                      add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, cryptonote::get_transaction_hash(b.miner_tx)));
                       if (opt_cache_outputs)
-                        output_cache.insert(std::make_pair(ancestor{amount, offset}, cryptonote::get_transaction_hash(b.miner_tx)));
+                        state.output_cache.insert(std::make_pair(ancestor{amount, offset}, cryptonote::get_transaction_hash(b.miner_tx)));
                       break;
                     }
                   }
@@ -401,9 +454,9 @@ int main(int argc, char* argv[])
                   if (found)
                     break;
                   cryptonote::transaction tx2;
-                  std::unordered_map<crypto::hash, cryptonote::transaction>::const_iterator i = tx_cache.find(block_txid);
+                  std::unordered_map<crypto::hash, cryptonote::transaction>::const_iterator i = state.tx_cache.find(block_txid);
                   ++total_txes;
-                  if (i != tx_cache.end())
+                  if (i != state.tx_cache.end())
                   {
                     ++cached_txes;
                     tx2 = i->second;
@@ -422,7 +475,7 @@ int main(int argc, char* argv[])
                       return 1;
                     }
                     if (opt_cache_txes)
-                      tx_cache.insert(std::make_pair(block_txid, tx2));
+                      state.tx_cache.insert(std::make_pair(block_txid, tx2));
                   }
                   for (size_t out = 0; out < tx2.vout.size(); ++out)
                   {
@@ -432,9 +485,9 @@ int main(int argc, char* argv[])
                       if (txout.key == od.pubkey)
                       {
                         found = true;
-                        add_ancestry(ancestry, txid, get_ancestry(ancestry, block_txid));
+                        add_ancestry(state.ancestry, txid, get_ancestry(state.ancestry, block_txid));
                         if (opt_cache_outputs)
-                          output_cache.insert(std::make_pair(ancestor{amount, offset}, block_txid));
+                          state.output_cache.insert(std::make_pair(ancestor{amount, offset}, block_txid));
                         break;
                       }
                     }
@@ -459,7 +512,7 @@ int main(int argc, char* argv[])
             }
           }
         }
-        const size_t ancestry_size = get_ancestry(ancestry, txid).size();
+        const size_t ancestry_size = get_ancestry(state.ancestry, txid).size();
         block_ancestry_size += ancestry_size;
         MINFO(txid << ": " << ancestry_size);
       }
@@ -472,7 +525,28 @@ int main(int argc, char* argv[])
               + std::to_string(cached_outputs*100./total_outputs);
         MINFO("Height " << h << ": " << (block_ancestry_size / txids.size()) << " average over " << txids.size() << stats_msg);
       }
+      state.height = h;
+      if (stop_requested)
+        break;
     }
+
+    LOG_PRINT_L0("Saving state data to " << state_file_path);
+    std::ofstream state_data_out;
+    state_data_out.open(state_file_path, std::ios_base::binary | std::ios_base::out | std::ios::trunc);
+    if (!state_data_out.fail())
+    {
+      try
+      {
+        boost::archive::portable_binary_oarchive a(state_data_out);
+        a << state;
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to save state data to " << state_file_path);
+      }
+      state_data_out.close();
+    }
+
     goto done;
   }
 
