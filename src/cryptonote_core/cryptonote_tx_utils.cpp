@@ -218,12 +218,14 @@ namespace cryptonote
     //TODO: declining governance reward schedule
     uint64_t governance_reward = 0;
     uint64_t total_service_node_reward = 0;
+    uint64_t total_paid_service_node_reward = 0;
     if (already_generated_coins != 0)
     {
       governance_reward = get_governance_reward(height, block_reward);
       total_service_node_reward = get_service_node_reward(height, block_reward, hard_fork_version);
+      total_paid_service_node_reward = calculate_sum_of_shares(service_node_info, total_service_node_reward);
       block_reward -= governance_reward;
-      block_reward -= calculate_sum_of_shares(service_node_info, total_service_node_reward);
+      block_reward -= total_paid_service_node_reward;
     }
 
     block_reward += fee;
@@ -308,7 +310,7 @@ namespace cryptonote
       tx.vout.push_back(out);
     }
 
-    CHECK_AND_ASSERT_MES(summary_amounts == (block_reward + governance_reward + total_service_node_reward), false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << (block_reward + governance_reward + total_service_node_reward));
+    CHECK_AND_ASSERT_MES(summary_amounts == (block_reward + governance_reward + total_paid_service_node_reward), false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << (block_reward + governance_reward + total_paid_service_node_reward));
 
     tx.version = 2;
 

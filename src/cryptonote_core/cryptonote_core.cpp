@@ -1718,7 +1718,7 @@ namespace cryptonote
     crypto::generate_signature(hash, m_service_node_pubkey, m_service_node_key, signature);
     std::stringstream ss;
     ss << tr("Run this command in the wallet that will fund this registration:\n\n");
-    ss << "stake_all ";
+    ss << "register_service_node ";
     ss << std::setprecision(17);
     for (size_t i = 0; i < addresses.size(); i++)
       ss << get_account_address_as_str(m_nettype, false, addresses[i]) << " " << (shares[i]/(double)STAKING_SHARES) << " ";

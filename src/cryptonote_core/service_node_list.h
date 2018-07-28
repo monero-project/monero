@@ -53,6 +53,8 @@ namespace service_nodes
       public cryptonote::Blockchain::ValidateMinerTxHook
   {
   public:
+    const size_t MAX_NUMBER_OF_SHAREHOLDERS = 10;
+
     service_node_list(cryptonote::Blockchain& blockchain);
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
     void blockchain_detached(uint64_t height);
@@ -71,6 +73,11 @@ namespace service_nodes
 
     struct service_node_info
     {
+      struct contribution {
+        uint64_t amount;
+        cryptonote::account_public_address address;
+      };
+
       // block_height and transaction_index are to record when the service node
       // is registered or when it last received a reward.
       //
@@ -78,14 +85,22 @@ namespace service_nodes
       // block height it wins on, with transaction index=-1
       // (hence transaction_index is signed)
 
-      uint64_t block_height;
-      int transaction_index;
+      uint64_t last_reward_block_height;
+      int last_reward_transaction_index;
       std::vector<cryptonote::account_public_address> addresses;
       std::vector<uint32_t> shares;
+      std::vector<contribution> contributions;
+      uint64_t total_contributions;
+      uint64_t staking_requirement;
+
+      bool is_fully_funded() const { return total_contributions >= staking_requirement; }
     };
 
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index, crypto::public_key& key, service_node_info& info) const;
-    bool is_deregistration_tx(const cryptonote::transaction& tx, crypto::public_key& address) const;
+
+    void process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index);
+    void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, int index);
+    void process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 
     std::vector<crypto::public_key> get_service_node_pubkeys() const;
 
@@ -95,6 +110,8 @@ namespace service_nodes
     bool reg_tx_has_correct_unlock_time(const cryptonote::transaction& tx, uint64_t block_height) const;
     bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
     uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
+
+    uint64_t get_min_contribution(uint64_t height) const;
 
     crypto::public_key find_service_node_from_miner_tx(const cryptonote::transaction& miner_tx, uint64_t block_height) const;
 

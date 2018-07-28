@@ -67,6 +67,8 @@
 
 using namespace crypto;
 
+double pow(double, double);
+
 //#include "serialization/json_archive.h"
 
 /* TODO:
@@ -846,7 +848,13 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 //------------------------------------------------------------------
 uint64_t Blockchain::get_staking_requirement(uint64_t height) const
 {
-  return UINT64_C(1000000000000);
+  if (m_nettype == TESTNET)
+    return COIN * 1000;
+  return
+    std::max(
+      10000*COIN+(uint64_t)(35000*COIN/pow(2.0, (height-129600.0)/129600.0)),
+      height < 3628800 ? 5 * COIN * height / 2592 + 8000 : 15000 * COIN
+    );
 }
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the

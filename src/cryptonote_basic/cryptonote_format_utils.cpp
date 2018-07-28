@@ -489,6 +489,41 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  void add_service_node_pubkey_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& pubkey)
+  {
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&pubkey), sizeof(pubkey), TX_EXTRA_TAG_SERVICE_NODE_PUBKEY);
+  }
+  //---------------------------------------------------------------
+  bool get_service_node_pubkey_from_tx_extra(const std::vector<uint8_t>& tx_extra, crypto::public_key& pubkey)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    tx_extra_service_node_pubkey service_node_pubkey;
+    bool result = find_tx_extra_field_by_type(tx_extra_fields, service_node_pubkey);
+    if (!result)
+      return false;
+    pubkey = service_node_pubkey.m_service_node_key;
+    return true;
+  }
+  //---------------------------------------------------------------
+  void add_service_node_contributor_to_tx_extra(std::vector<uint8_t>& tx_extra, const cryptonote::account_public_address& address)
+  {
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&address), sizeof(address), TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR);
+  }
+  //---------------------------------------------------------------
+  bool get_service_node_contributor_from_tx_extra(const std::vector<uint8_t>& tx_extra, cryptonote::account_public_address& address)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    tx_extra_service_node_contributor contributor;
+    bool result = find_tx_extra_field_by_type(tx_extra_fields, contributor);
+    if (!result)
+      return false;
+    address.m_spend_public_key = contributor.m_spend_public_key;
+    address.m_view_public_key = contributor.m_view_public_key;
+    return true;
+  }
+  //---------------------------------------------------------------
   bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register &registration)
   {
     std::vector<tx_extra_field> tx_extra_fields;
@@ -502,7 +537,6 @@ namespace cryptonote
       const std::vector<cryptonote::account_public_address>& addresses,
       const std::vector<uint32_t>& shares,
       uint64_t expiration_timestamp,
-      const crypto::public_key& service_node_key,
       const crypto::signature& service_node_signature)
   {
     if (addresses.size() != shares.size())
@@ -524,7 +558,6 @@ namespace cryptonote
         public_view_keys,
         shares,
         expiration_timestamp,
-        service_node_key,
         service_node_signature
       };
     // serialize
@@ -994,11 +1027,7 @@ namespace cryptonote
     uint64_t total_shares = 0;
     for (uint32_t share : shares)
       total_shares += share;
-    if (total_shares < STAKING_SHARES)
-    {
-      LOG_ERROR(tr("Your registration has less than ") << STAKING_SHARES << tr(" shares, the remainder will go to the miner"));
-    }
-    else if (total_shares > STAKING_SHARES)
+    if (total_shares > STAKING_SHARES)
     {
       LOG_ERROR(tr("Your registration has more than ") << STAKING_SHARES << tr(" shares, this registration is invalid!"));
       return false;
