@@ -383,7 +383,6 @@ namespace nodetool
     }
     else if (nettype == cryptonote::STAGENET)
     {
-      full_addrs.insert("euseed1.x-cash.org:18280");
       full_addrs.insert("euseed2.x-cash.org:18280");
       full_addrs.insert("euseed3.x-cash.org:18280");
       full_addrs.insert("euseed4.x-cash.org:18280");
@@ -396,7 +395,6 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("euseed1.x-cash.org:18280");
       full_addrs.insert("euseed2.x-cash.org:18280");
       full_addrs.insert("euseed3.x-cash.org:18280");
       full_addrs.insert("euseed4.x-cash.org:18280");
