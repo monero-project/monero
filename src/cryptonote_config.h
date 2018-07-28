@@ -79,6 +79,8 @@
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
 
+// Premine code
+// You can read more about the premine structure at https://x-cash.org/
 #define PREMINE_BLOCK_HEIGHT								1
 #define PREMINE_BLOCK_REWARD							((uint64_t)(40000000000000000))
 
@@ -138,7 +140,7 @@
 #define HF_VERSION_ENFORCE_RCT                  6
 
 #define DEFAULT_MIXIN                           1
-#define MAXIMUM_MIXIN                           11
+#define MAXIMUM_MIXIN                           10
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 
