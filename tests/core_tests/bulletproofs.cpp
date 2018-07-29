@@ -282,6 +282,15 @@ bool gen_bp_txs_invalid_2_and_8_2_and_16_16_1::generate(std::vector<test_event_e
   return generate_with(events, mixin, 3, amounts_paid, false, range_proof_type, NULL, NULL);
 }
 
+bool gen_bp_txs_valid_2_and_3_and_2_and_4::generate(std::vector<test_event_entry>& events) const
+{
+  const size_t mixin = 10;
+  const uint64_t amounts_paid[] = {11111115000, 11111115000, (uint64_t)-1, 11111115000, 11111115000, 11111115001, (uint64_t)-1, 11111115000, 11111115002, (uint64_t)-1, 11111115000, 11111115000, 11111115000, 11111115003, (uint64_t)-1};
+  const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof};
+  const size_t bp_sizes[] = {2, (size_t)-1, 4, (size_t)-1, 2, (size_t)-1, 4, (size_t)-1};
+  return generate_with(events, mixin, 4, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx) { return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_and_3_and_2_and_4"); });
+}
+
 bool gen_bp_tx_invalid_not_enough_proofs::generate(std::vector<test_event_entry>& events) const
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_not_enough_proofs");

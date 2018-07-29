@@ -156,6 +156,12 @@ struct gen_bp_txs_invalid_2_and_8_2_and_16_16_1 : public gen_bp_tx_validation_ba
 };
 template<> struct get_test_options<gen_bp_txs_invalid_2_and_8_2_and_16_16_1>: public get_test_options<gen_bp_tx_validation_base> {};
 
+struct gen_bp_txs_valid_2_and_3_and_2_and_4 : public gen_bp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bp_txs_valid_2_and_3_and_2_and_4>: public get_test_options<gen_bp_tx_validation_base> {};
+
 struct gen_bp_tx_invalid_not_enough_proofs : public gen_bp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
