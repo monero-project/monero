@@ -233,6 +233,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_bp_tx_invalid_16_16);
     GENERATE_AND_PLAY(gen_bp_txs_valid_2_and_2);
     GENERATE_AND_PLAY(gen_bp_txs_invalid_2_and_8_2_and_16_16_1);
+    GENERATE_AND_PLAY(gen_bp_txs_valid_2_and_3_and_2_and_4);
     GENERATE_AND_PLAY(gen_bp_tx_invalid_not_enough_proofs);
     GENERATE_AND_PLAY(gen_bp_tx_invalid_empty_proofs);
     GENERATE_AND_PLAY(gen_bp_tx_invalid_too_many_proofs);
