@@ -237,6 +237,7 @@ namespace tools
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
       bool m_trusted_daemon;
+      bool m_restricted;
       const boost::program_options::variables_map *m_vm;
   };
 }
