@@ -91,13 +91,13 @@ namespace cryptonote
     //! \return Prompts user for password and verifies against local file. Logs on error and returns `none`
     boost::optional<tools::password_container> get_and_verify_password() const;
 
-    bool new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, const std::string &old_language);
-    bool new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
-    bool new_wallet(const boost::program_options::variables_map& vm,
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
         const std::string &multisig_keys, const std::string &old_language);
-    bool new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
