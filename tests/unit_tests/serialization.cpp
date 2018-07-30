@@ -671,8 +671,7 @@ TEST(Serialization, serializes_ringct_types)
 TEST(Serialization, portability_wallet)
 {
   const cryptonote::network_type nettype = cryptonote::MAINNET;
-  const bool restricted = false;
-  tools::wallet2 w(nettype, restricted);
+  tools::wallet2 w(nettype);
   const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_WmsMW3";
   string password = "test";
   bool r = false;
