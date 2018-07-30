@@ -243,7 +243,6 @@ public:
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);
-  virtual output_data_t get_output_key(const uint64_t& global_index) const;
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false);
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
