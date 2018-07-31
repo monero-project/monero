@@ -238,7 +238,7 @@ namespace service_nodes
     m_service_nodes_infos.erase(iter);
   }
 
-  bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index, crypto::public_key& key, service_node_info& info) const
+  bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
   {
     crypto::public_key tx_pub_key, service_node_key;
     std::vector<cryptonote::account_public_address> service_node_addresses;
@@ -280,7 +280,7 @@ namespace service_nodes
     return true;
   }
 
-  void service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index)
+  void service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
   {
     crypto::public_key key;
     service_node_info info;
@@ -297,7 +297,7 @@ namespace service_nodes
     m_service_nodes_infos[key] = info;
   }
 
-  void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, int index)
+  void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
   {
     // TODO: move unlock time check from here to below, when unlock time is done per output.
     if (!reg_tx_has_correct_unlock_time(tx, block_height))
@@ -376,9 +376,9 @@ namespace service_nodes
           new rollback_change(block_height, winner_pubkey, m_service_nodes_infos[winner_pubkey])
         )
       );
-      // set the winner as though it was re-registering at transaction index=-1 for this block
+      // set the winner as though it was re-registering at transaction index=UINT32_MAX for this block
       m_service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
-      m_service_nodes_infos[winner_pubkey].last_reward_transaction_index = -1;
+      m_service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
     }
 
     for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
@@ -393,7 +393,7 @@ namespace service_nodes
       // expiration doesn't mean the node is in the list.
     }
 
-    int index = 0;
+    uint32_t index = 0;
     for (const cryptonote::transaction& tx : txs)
     {
       crypto::public_key key;
@@ -467,7 +467,7 @@ namespace service_nodes
       return expired_nodes;
     }
 
-    int index = 0;
+    uint32_t index = 0;
     for (const cryptonote::transaction& tx : txs)
     {
       crypto::public_key key;
@@ -484,7 +484,7 @@ namespace service_nodes
 
   uint64_t service_node_list::get_min_contribution(uint64_t staking_requirement) const
   {
-    return staking_requirement / 10;
+    return staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS;
   }
 
   std::vector<std::pair<cryptonote::account_public_address, uint32_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id) const
@@ -527,7 +527,7 @@ namespace service_nodes
 
   crypto::public_key service_node_list::select_winner(const crypto::hash& prev_id) const
   {
-    auto oldest_waiting = std::pair<uint64_t, int>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<int>::max());
+    auto oldest_waiting = std::pair<uint64_t, uint32_t>(std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint32_t>::max());
     crypto::public_key key = crypto::null_pkey;
     for (const auto& info : m_service_nodes_infos)
       if (info.second.is_fully_funded())

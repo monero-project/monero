@@ -4847,8 +4847,8 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     }
     else {
       prompt << boost::format(tr("Staking %s for %u blocks a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
-        locked_blocks %
         print_money(total_sent) %
+        locked_blocks %
         print_money(total_fee);
     }
     std::string accepted = input_line(prompt.str());
@@ -5015,8 +5015,8 @@ bool simple_wallet::stake_all(const std::vector<std::string> &args_)
     }
     else {
       prompt << boost::format(tr("Staking %s for %u blocks a total fee of %s.  Is this okay?  (Y/Yes/N/No): ")) %
-        locked_blocks %
         print_money(total_sent) %
+        locked_blocks %
         print_money(total_fee);
     }
     std::string accepted = input_line(prompt.str());

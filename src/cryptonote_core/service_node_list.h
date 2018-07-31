@@ -84,7 +84,7 @@ namespace service_nodes
       // (hence transaction_index is signed)
 
       uint64_t last_reward_block_height;
-      int last_reward_transaction_index;
+      uint32_t last_reward_transaction_index;
       std::vector<cryptonote::account_public_address> addresses;
       std::vector<uint32_t> portions;
       std::vector<contribution> contributions;
@@ -94,10 +94,10 @@ namespace service_nodes
       bool is_fully_funded() const { return total_contributions >= staking_requirement; }
     };
 
-    bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index, crypto::public_key& key, service_node_info& info) const;
+    bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
 
-    void process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, int index);
-    void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, int index);
+    void process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
+    void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
     void process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 
     std::vector<crypto::public_key> get_service_node_pubkeys() const;
