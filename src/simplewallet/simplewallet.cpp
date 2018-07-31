@@ -2024,7 +2024,7 @@ simple_wallet::simple_wallet()
                            tr("Send all unlocked balance to an address and lock it for <lockblocks> (max. 1000000). If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the sweep. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
   m_cmd_binder.set_handler("register_service_node",
                            boost::bind(&simple_wallet::register_service_node, this, _1),
-                           tr("register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <shares1> [<address2> <shares2> [...]]] <expiration timestamp> <pubkey> <signature>"),
+                           tr("register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <fraction1> [<address2> <fraction2> [...]]] <expiration timestamp> <pubkey> <signature>"),
                            tr("Send all unlocked balance to the same address. Lock it for [lockblocks] (max. 1000000). If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet stakes outputs received by those address indices. <priority> is the priority of the stake. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
   m_cmd_binder.set_handler("stake_all",
                            boost::bind(&simple_wallet::stake_all, this, _1),
@@ -4726,20 +4726,20 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   if (local_args.size() < 3)
   {
-    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <shares1> [<address2> <shares2> [...]]] <expiration timestamp> <service node pubkey> <signature>");
+    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <fraction1> [<address2> <fraction2> [...]]] <expiration timestamp> <service node pubkey> <signature>");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("Prepare this command with the service node using:");
     fail_msg_writer() << tr("");
-    fail_msg_writer() << tr("./lokid --prepare-registration <address> <shares> [<address2> <shares2> [...]]");
+    fail_msg_writer() << tr("./lokid --prepare-registration <address> <fraction> [<address2> <fraction2> [...]]");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("This command must be run from the daemon that will be acting as a service node");
     return true;
   }
 
-  std::vector<std::string> address_shares_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
+  std::vector<std::string> address_portions_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
   std::vector<cryptonote::account_public_address> addresses;
-  std::vector<uint32_t> shares;
-  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_shares_args, addresses, shares))
+  std::vector<uint32_t> portions;
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions))
   {
     fail_msg_writer() << tr("Could not convert registration args");
     return true;
@@ -4785,7 +4785,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
-  if (!add_service_node_register_to_tx_extra(extra, addresses, shares, expiration_timestamp, signature))
+  if (!add_service_node_register_to_tx_extra(extra, addresses, portions, expiration_timestamp, signature))
   {
     fail_msg_writer() << tr("failed to serialize service node registration tx extra");
     return true;

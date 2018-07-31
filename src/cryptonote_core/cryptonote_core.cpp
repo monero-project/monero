@@ -1706,13 +1706,13 @@ namespace cryptonote
   std::string core::prepare_registration(const std::vector<std::string>& args)
   {
     std::vector<cryptonote::account_public_address> addresses;
-    std::vector<uint32_t> shares;
-    bool r = service_nodes::convert_registration_args(m_nettype, args, addresses, shares);
+    std::vector<uint32_t> portions;
+    bool r = service_nodes::convert_registration_args(m_nettype, args, addresses, portions);
     CHECK_AND_ASSERT_MES(r, "", tr("Failed to convert registration args"));
-    assert(addresses.size() == shares.size());
+    assert(addresses.size() == portions.size());
     uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
     crypto::hash hash;
-    r = cryptonote::get_registration_hash(addresses, shares, exp_timestamp, hash);
+    r = cryptonote::get_registration_hash(addresses, portions, exp_timestamp, hash);
     CHECK_AND_ASSERT_MES(r, "", tr("Failed to get the registration hash"));
     crypto::signature signature;
     crypto::generate_signature(hash, m_service_node_pubkey, m_service_node_key, signature);
@@ -1721,7 +1721,7 @@ namespace cryptonote
     ss << "register_service_node ";
     ss << std::setprecision(17);
     for (size_t i = 0; i < addresses.size(); i++)
-      ss << get_account_address_as_str(m_nettype, false, addresses[i]) << " " << (shares[i]/(double)STAKING_SHARES) << " ";
+      ss << get_account_address_as_str(m_nettype, false, addresses[i]) << " " << (portions[i]/(double)STAKING_PORTIONS) << " ";
     ss << exp_timestamp << " " << epee::string_tools::pod_to_hex(m_service_node_pubkey) << " " << epee::string_tools::pod_to_hex(signature) << "\n\n";
     time_t tt = exp_timestamp;
     struct tm tm;

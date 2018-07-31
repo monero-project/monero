@@ -535,13 +535,13 @@ namespace cryptonote
   bool add_service_node_register_to_tx_extra(
       std::vector<uint8_t>& tx_extra,
       const std::vector<cryptonote::account_public_address>& addresses,
-      const std::vector<uint32_t>& shares,
+      const std::vector<uint32_t>& portions,
       uint64_t expiration_timestamp,
       const crypto::signature& service_node_signature)
   {
-    if (addresses.size() != shares.size())
+    if (addresses.size() != portions.size())
     {
-      LOG_ERROR("Tried to serialize registration with more addresses than shares, this should never happen");
+      LOG_ERROR("Tried to serialize registration with more addresses than portions, this should never happen");
       return false;
     }
     std::vector<crypto::public_key> public_view_keys(addresses.size());
@@ -556,7 +556,7 @@ namespace cryptonote
       tx_extra_service_node_register{
         public_spend_keys,
         public_view_keys,
-        shares,
+        portions,
         expiration_timestamp,
         service_node_signature
       };
@@ -1017,19 +1017,19 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& shares, uint64_t expiration_timestamp, crypto::hash& hash)
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash)
   {
-    if (addresses.size() != shares.size())
+    if (addresses.size() != portions.size())
     {
-      LOG_ERROR("get_registration_hash addresses.size() != shares.size()");
+      LOG_ERROR("get_registration_hash addresses.size() != portions.size()");
       return false;
     }
-    uint64_t total_shares = 0;
-    for (uint32_t share : shares)
-      total_shares += share;
-    if (total_shares > STAKING_SHARES)
+    uint64_t total_portions = 0;
+    for (uint32_t portion : portions)
+      total_portions += portion;
+    if (total_portions > STAKING_PORTIONS)
     {
-      LOG_ERROR(tr("Your registration has more than ") << STAKING_SHARES << tr(" shares, this registration is invalid!"));
+      LOG_ERROR(tr("Your registration has more than ") << STAKING_PORTIONS << tr(" portions, this registration is invalid!"));
       return false;
     }
     size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint32_t)) + sizeof(uint64_t);
@@ -1039,7 +1039,7 @@ namespace cryptonote
     {
       memcpy(buffer_iter, &addresses[i], sizeof(cryptonote::account_public_address));
       buffer_iter += sizeof(cryptonote::account_public_address);
-      memcpy(buffer_iter, &shares[i], sizeof(uint32_t));
+      memcpy(buffer_iter, &portions[i], sizeof(uint32_t));
       buffer_iter += sizeof(uint32_t);
     }
     memcpy(buffer_iter, &expiration_timestamp, sizeof(expiration_timestamp));

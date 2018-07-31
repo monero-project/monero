@@ -52,7 +52,9 @@
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*31)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
-#define STAKING_SHARES                                  UINT32_MAX
+#define STAKING_PORTIONS                                UINT32_MAX
+
+#define MAX_NUMBER_OF_CONTRIBUTORS                      10
 
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2) // 2 weeks
 

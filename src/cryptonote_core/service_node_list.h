@@ -53,8 +53,6 @@ namespace service_nodes
       public cryptonote::Blockchain::ValidateMinerTxHook
   {
   public:
-    const size_t MAX_NUMBER_OF_SHAREHOLDERS = 10;
-
     service_node_list(cryptonote::Blockchain& blockchain);
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
     void blockchain_detached(uint64_t height);
@@ -63,7 +61,7 @@ namespace service_nodes
 
     std::vector<crypto::public_key> get_expired_nodes(uint64_t block_height) const;
 
-    std::vector<std::pair<cryptonote::account_public_address, uint32_t>> get_winner_addresses_and_shares(const crypto::hash& prev_id) const;
+    std::vector<std::pair<cryptonote::account_public_address, uint32_t>> get_winner_addresses_and_portions(const crypto::hash& prev_id) const;
     crypto::public_key select_winner(const crypto::hash& prev_id) const;
 
     bool is_service_node(const crypto::public_key& pubkey) const;
@@ -88,7 +86,7 @@ namespace service_nodes
       uint64_t last_reward_block_height;
       int last_reward_transaction_index;
       std::vector<cryptonote::account_public_address> addresses;
-      std::vector<uint32_t> shares;
+      std::vector<uint32_t> portions;
       std::vector<contribution> contributions;
       uint64_t total_contributions;
       uint64_t staking_requirement;
@@ -108,7 +106,7 @@ namespace service_nodes
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
     bool reg_tx_has_correct_unlock_time(const cryptonote::transaction& tx, uint64_t block_height) const;
-    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
+    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
     uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
 
     uint64_t get_min_contribution(uint64_t height) const;
@@ -160,7 +158,7 @@ namespace service_nodes
     std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;
   };
 
-  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& shares);
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions);
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 }

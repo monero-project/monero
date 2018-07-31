@@ -107,19 +107,19 @@ namespace cryptonote
     return hard_fork_version >= 9 ? base_reward / 2 : 0;
   }
 
-  uint64_t get_share_of_reward(uint32_t shares, uint64_t total_service_node_reward)
+  uint64_t get_portion_of_reward(uint32_t portions, uint64_t total_service_node_reward)
   {
     uint64_t hi, lo, rewardhi, rewardlo;
-    lo = mul128(total_service_node_reward, shares, &hi);
-    div128_32(hi, lo, STAKING_SHARES, &rewardhi, &rewardlo);
+    lo = mul128(total_service_node_reward, portions, &hi);
+    div128_32(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
     return rewardlo;
   }
 
-  static uint64_t calculate_sum_of_shares(const std::vector<std::pair<cryptonote::account_public_address, uint32_t>>& shares, uint64_t total_service_node_reward)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint32_t>>& portions, uint64_t total_service_node_reward)
   {
     uint64_t reward = 0;
-    for (size_t i = 0; i < shares.size(); i++)
-      reward += get_share_of_reward(shares[i].second, total_service_node_reward);
+    for (size_t i = 0; i < portions.size(); i++)
+      reward += get_portion_of_reward(portions[i].second, total_service_node_reward);
     return reward;
   }
 
@@ -223,7 +223,7 @@ namespace cryptonote
     {
       governance_reward = get_governance_reward(height, block_reward);
       total_service_node_reward = get_service_node_reward(height, block_reward, hard_fork_version);
-      total_paid_service_node_reward = calculate_sum_of_shares(service_node_info, total_service_node_reward);
+      total_paid_service_node_reward = calculate_sum_of_portions(service_node_info, total_service_node_reward);
       block_reward -= governance_reward;
       block_reward -= total_paid_service_node_reward;
     }
@@ -265,7 +265,7 @@ namespace cryptonote
         tk.key = out_eph_public_key;
 
         tx_out out;
-        summary_amounts += out.amount = get_share_of_reward(service_node_info[i].second, total_service_node_reward);
+        summary_amounts += out.amount = get_portion_of_reward(service_node_info[i].second, total_service_node_reward);
         out.target = tk;
         tx.vout.push_back(out);
       }

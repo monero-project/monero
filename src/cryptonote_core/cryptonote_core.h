@@ -992,7 +992,7 @@ namespace cryptonote
       * @brief Prepare a registration tx using the service node keys for this
       * daemon.
       *
-      * @param args The arguments, as a string. <address1> <shares1> [<address2> <shares2> [...]]
+      * @param args The arguments, as a string. <address1> <fraction1> [<address2> <fraction2> [...]]
       *
       * @return whether or not the command was able to prepare the registration.
       */
