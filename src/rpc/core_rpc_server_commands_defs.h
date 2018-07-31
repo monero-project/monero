@@ -2303,36 +2303,27 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_SEND_DEREGISTER_VOTE
+  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
   {
-      struct request
-      {
-        loki::service_node_deregister::vote vote;
+    struct request
+    {
+      std::vector<std::string> args;
+      bool make_friendly; // Provide information about how to use the command in the result
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(args)
+        KV_SERIALIZE(make_friendly)
+      END_KV_SERIALIZE_MAP()
+    };
 
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE_VAL_POD_AS_BLOB(vote)
-        END_KV_SERIALIZE_MAP()
-      };
+    struct response
+    {
+      std::string status;
+      std::string registration_cmd;
 
-      struct response
-      {
-        std::string status;
-        std::string reason;
-
-        bool invalid_block_height;
-        bool voters_quorum_index_out_of_bounds;
-        bool service_node_index_out_of_bounds;
-        bool signature_not_valid;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(status)
-          KV_SERIALIZE(reason)
-          KV_SERIALIZE(invalid_block_height)
-          KV_SERIALIZE(voters_quorum_index_out_of_bounds)
-          KV_SERIALIZE(service_node_index_out_of_bounds)
-          KV_SERIALIZE(signature_not_valid)
-        END_KV_SERIALIZE_MAP()
-      };
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(registration_cmd)
+      END_KV_SERIALIZE_MAP()
+    };
   };
-
 }

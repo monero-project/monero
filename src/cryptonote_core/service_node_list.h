@@ -163,6 +163,8 @@ namespace service_nodes
   };
 
   bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions);
+  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
+                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 }

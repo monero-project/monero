@@ -1739,47 +1739,17 @@ namespace cryptonote
     return m_service_node;
   }
   //-----------------------------------------------------------------------------------------------
-  std::string core::prepare_registration(const std::vector<std::string>& args)
-  {
-    std::vector<cryptonote::account_public_address> addresses;
-    std::vector<uint32_t> portions;
-    bool r = service_nodes::convert_registration_args(m_nettype, args, addresses, portions);
-    CHECK_AND_ASSERT_MES(r, "", tr("Failed to convert registration args"));
-    assert(addresses.size() == portions.size());
-    uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
-    crypto::hash hash;
-    r = cryptonote::get_registration_hash(addresses, portions, exp_timestamp, hash);
-    CHECK_AND_ASSERT_MES(r, "", tr("Failed to get the registration hash"));
-    crypto::signature signature;
-    crypto::generate_signature(hash, m_service_node_pubkey, m_service_node_key, signature);
-    std::stringstream ss;
-    ss << tr("Run this command in the wallet that will fund this registration:\n\n");
-    ss << "register_service_node ";
-    ss << std::setprecision(17);
-    for (size_t i = 0; i < addresses.size(); i++)
-      ss << get_account_address_as_str(m_nettype, false, addresses[i]) << " " << (portions[i]/(double)STAKING_PORTIONS) << " ";
-    ss << exp_timestamp << " " << epee::string_tools::pod_to_hex(m_service_node_pubkey) << " " << epee::string_tools::pod_to_hex(signature) << "\n\n";
-    time_t tt = exp_timestamp;
-    struct tm tm;
-#ifdef WIN32
-    gmtime_s(&tm, &tt);
-#else
-    gmtime_r(&tt, &tm);
-#endif
-    char buffer[128];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %I:%M:%S %p", &tm);
-    ss << tr("This registration expires at ") << buffer << tr(". This should be in about 2 weeks. If it isn't, check this computer's clock") << std::endl;
-    ss << tr("Please submit your registration into the blockchain before this time or it will be invalid.");
-    return ss.str();
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
   {
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Unable to parse command line arguments");
+
     r = init_service_node_key();
     CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
-    std::string registration = prepare_registration(args);
+
+    std::string registration;
+    r = service_nodes::make_registration_cmd(get_nettype(), args, m_service_node_pubkey, m_service_node_key, registration, true /*make_friendly*/);
+    CHECK_AND_ASSERT_MES(r, "", tr("Failed to make registration command"));
     std::cout << registration << std::endl;
     return true;
   }

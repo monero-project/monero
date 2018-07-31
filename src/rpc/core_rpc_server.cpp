@@ -2025,55 +2025,6 @@ namespace cryptonote
     return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_submit_deregister_vote(const COMMAND_RPC_SEND_DEREGISTER_VOTE::request& req, COMMAND_RPC_SEND_DEREGISTER_VOTE::response &resp)
-  {
-    PERF_TIMER(on_submit_deregister_vote);
-
-    vote_verification_context vvc = {};
-    if(!m_core.add_deregister_vote(req.vote, vvc))
-    {
-      resp.status = "Failed";
-      resp.reason = "";
-
-      if ((resp.invalid_block_height = vvc.m_invalid_block_height))
-        add_reason(resp.reason, "could not get quorum for block height");
-
-      if ((resp.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds))
-        add_reason(resp.reason, "quorum index was not in bounds of quorum");
-
-      if ((resp.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds))
-        add_reason(resp.reason, "service node index was not in bounds of the service node list");
-
-      if ((resp.signature_not_valid = vvc.m_signature_not_valid))
-        add_reason(resp.reason, "signature could not be verified with the voter's key");
-
-      const std::string punctuation = resp.reason.empty() ? "" : ": ";
-
-      if (vvc.m_verification_failed)
-      {
-        LOG_PRINT_L0("[on_submit_deregister_vote]: deregister vote verification failed" << punctuation << resp.reason);
-      }
-      else
-      {
-        LOG_PRINT_L0("[on_submit_deregister_vote]: Failed to process deregister vote" << punctuation << resp.reason);
-      }
-
-      return true;
-    }
-
-    if (vvc.m_added_to_pool)
-    {
-      NOTIFY_NEW_DEREGISTER_VOTE::request r;
-      r.votes.push_back(req.vote);
-
-      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
-      m_core.get_protocol()->relay_deregister_votes(r, fake_context);
-    }
-
-    resp.status = CORE_RPC_STATUS_OK;
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_relay_tx);
@@ -2284,6 +2235,32 @@ namespace cryptonote
     }
 
     return r;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req,
+                                                             COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::response& res,
+                                                             epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_get_service_node_registration_cmd);
+
+    crypto::public_key service_node_pubkey;
+    crypto::secret_key service_node_key;
+    if (!m_core.get_service_node_keys(service_node_pubkey, service_node_key))
+    {
+      error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Daemon has not been started in service node mode, please relaunch with --service-node flag.";
+      return false;
+    }
+
+    if (!service_nodes::make_registration_cmd(m_core.get_nettype(), req.args, service_node_pubkey, service_node_key, res.registration_cmd, req.make_friendly))
+    {
+      error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "Failed to make registration command";
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
 

@@ -779,6 +779,69 @@ namespace service_nodes
       MERROR(tr("If it looks correct,  this may be because of rounding. Try reducing one of the portionholders portions by a very tiny amount"));
       return false;
     }
+
+    return true;
+  }
+
+  bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
+                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly)
+  {
+
+    std::vector<cryptonote::account_public_address> addresses;
+    std::vector<uint32_t> shares;
+    if (!convert_registration_args(nettype, args, addresses, shares))
+    {
+      MERROR(tr("Could not convert registration args"));
+      return false;
+    }
+
+    uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
+
+    crypto::hash hash;
+    bool hashed = cryptonote::get_registration_hash(addresses, shares, exp_timestamp, hash);
+    if (!hashed)
+    {
+      MERROR(tr("Could not make registration hash from addresses and shares"));
+      return false;
+    }
+
+    crypto::signature signature;
+    crypto::generate_signature(hash, service_node_pubkey, service_node_key, signature);
+
+    std::stringstream stream;
+    if (make_friendly)
+    {
+      stream << tr("Run this command in the wallet that will fund this registration:\n\n");
+    }
+
+    stream << "register_service_node";
+    for (size_t i = 0; i < args.size(); ++i)
+    {
+      stream << " " << args[i];
+    }
+
+    stream << " " << exp_timestamp << " ";
+    stream << epee::string_tools::pod_to_hex(service_node_pubkey) << " ";
+    stream << epee::string_tools::pod_to_hex(signature);
+
+    if (make_friendly)
+    {
+      stream << "\n\n";
+      time_t tt = exp_timestamp;
+      struct tm tm;
+#ifdef WIN32
+      gmtime_s(&tm, &tt);
+#else
+      gmtime_r(&tt, &tm);
+#endif
+
+      char buffer[128];
+      strftime(buffer, sizeof(buffer), "%Y-%m-%d %I:%M:%S %p", &tm);
+      stream << tr("This registration expires at ") << buffer << tr(". This should be in about 2 weeks. If it isn't, check this computer's clock") << std::endl;
+      stream << tr("Please submit your registration into the blockchain before this time or it will be invalid.");
+    }
+
+    cmd = stream.str();
     return true;
   }
 }

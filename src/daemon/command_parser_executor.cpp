@@ -143,6 +143,17 @@ bool t_command_parser_executor::print_quorum_state(const std::vector<std::string
   return m_executor.print_quorum_state(height);
 }
 
+bool t_command_parser_executor::get_service_node_registration_cmd(const std::vector<std::string>& args)
+{
+  if (args.empty() || args.size() % 2 != 0)
+  {
+    std::cout << "Invalid number of arguments received, expected an even number of arguments and > 0, received: " << args.size() << std::endl;
+    return false;
+  }
+
+  bool result = m_executor.get_service_node_registration_cmd(args);
+  return result;
+}
 
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {

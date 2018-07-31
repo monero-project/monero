@@ -753,12 +753,12 @@ namespace cryptonote
       * @return the number of blocks to sync in one go
       */
      std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
-     
+
      /**
       * @brief get the network type we're on
       *
       * @return which network are we on?
-      */     
+      */
      network_type get_nettype() const { return m_nettype; };
 
      /**
@@ -1015,16 +1015,6 @@ namespace cryptonote
       * @return true on success, false otherwise
       */
      bool init_service_node_key();
-
-     /**
-      * @brief Prepare a registration tx using the service node keys for this
-      * daemon.
-      *
-      * @param args The arguments, as a string. <address1> <fraction1> [<address2> <fraction2> [...]]
-      *
-      * @return whether or not the command was able to prepare the registration.
-      */
-     std::string prepare_registration(const std::vector<std::string>& args);
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
