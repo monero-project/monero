@@ -10843,6 +10843,7 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   const auto result = m_node_rpc_proxy.get_block_size_limit(block_size_limit);
   throw_on_rpc_response_error(result, "get_info");
   uint64_t full_reward_zone = block_size_limit / 2;
+  THROW_WALLET_EXCEPTION_IF(full_reward_zone == 0, error::wallet_internal_error, "Invalid block size limit from daemon");
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
   for (const auto &fee_level: fee_levels)
