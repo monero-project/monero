@@ -156,7 +156,7 @@ static const struct {
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
-  m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_blocks_per_sync(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_cancel(false),
+  m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1)
 {
@@ -3877,11 +3877,13 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
         store_blockchain();
       m_sync_counter = 0;
     }
-    else if (m_db_blocks_per_sync && m_sync_counter >= m_db_blocks_per_sync)
+    else if (m_db_sync_threshold && ((m_db_sync_on_blocks && m_sync_counter >= m_db_sync_threshold) || (!m_db_sync_on_blocks && m_bytes_to_sync >= m_db_sync_threshold)))
     {
+      MDEBUG("Sync threshold met, syncing");
       if(m_db_sync_mode == db_async)
       {
         m_sync_counter = 0;
+        m_bytes_to_sync = 0;
         m_async_service.dispatch(boost::bind(&Blockchain::store_blockchain, this));
       }
       else if(m_db_sync_mode == db_sync)
@@ -4071,6 +4073,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       bytes += tx_blob.size();
     }
   }
+  m_bytes_to_sync += bytes;
   while (!(stop_batch = m_db->batch_start(blocks_entry.size(), bytes))) {
     m_blockchain_lock.unlock();
     m_tx_pool.unlock();
@@ -4419,7 +4422,7 @@ bool Blockchain::for_all_txpool_txes(std::function<bool(const crypto::hash&, con
   return m_db->for_all_txpool_txes(f, include_blob, include_unrelayed_txes);
 }
 
-void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync, blockchain_db_sync_mode sync_mode, bool fast_sync)
+void Blockchain::set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint64_t sync_threshold, blockchain_db_sync_mode sync_mode, bool fast_sync)
 {
   if (sync_mode == db_defaultsync)
   {
@@ -4428,7 +4431,8 @@ void Blockchain::set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
   }
   m_db_sync_mode = sync_mode;
   m_fast_sync = fast_sync;
-  m_db_blocks_per_sync = blocks_per_sync;
+  m_db_sync_on_blocks = sync_on_blocks;
+  m_db_sync_threshold = sync_threshold;
   m_max_prepare_blocks_threads = maxthreads;
 }
 
