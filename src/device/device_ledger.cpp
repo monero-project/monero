@@ -185,41 +185,8 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    void device_ledger::logCMD() {
-      if (apdu_verbose) {
-        char  strbuffer[1024];
-        snprintf(strbuffer, sizeof(strbuffer), "%.02x %.02x %.02x %.02x %.02x ",
-          this->buffer_send[0],
-          this->buffer_send[1],
-          this->buffer_send[2],
-          this->buffer_send[3],
-          this->buffer_send[4]
-          );
-        const size_t len = strlen(strbuffer);
-        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_send+5), this->length_send-5);
-        MDEBUG( "CMD  :" << strbuffer);
-      }
-    }
-
-    void device_ledger::logRESP() {
-      if (apdu_verbose) {
-        char  strbuffer[1024];
-        snprintf(strbuffer, sizeof(strbuffer), "%.02x%.02x ",
-          this->buffer_recv[this->length_recv-2],
-          this->buffer_recv[this->length_recv-1]
-          );
-        const size_t len = strlen(strbuffer);
-        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_recv), this->length_recv-2);
-        MDEBUG( "RESP :" << strbuffer);
-
-      }
-    }
-
-    /* -------------------------------------------------------------- */
-    device_ledger::device_ledger() {
+    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 10000) {
       this->id = device_id++;
-      this->hCard   = 0;
-      this->hContext = 0;
       this->reset_buffer();      
       this->mode = NONE;
       this->has_view_key = false;
@@ -272,10 +239,39 @@ namespace hw {
       MDEBUG( "Device "<<this->name << " UNLOCKed");
     }
 
+  
     /* ======================================================================= */
-    /*                                   MISC                                  */
+    /*                                     IO                                  */
     /* ======================================================================= */
-    int device_ledger::set_command_header(BYTE ins, BYTE p1, BYTE p2) {
+
+      void device_ledger::logCMD() {
+      if (apdu_verbose) {
+        char  strbuffer[1024];
+        snprintf(strbuffer, sizeof(strbuffer), "%.02x %.02x %.02x %.02x %.02x ",
+          this->buffer_send[0],
+          this->buffer_send[1],
+          this->buffer_send[2],
+          this->buffer_send[3],
+          this->buffer_send[4]
+          );
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_send+5), this->length_send-5);
+        MDEBUG( "CMD  : " << strbuffer);
+      }
+    }
+
+    void device_ledger::logRESP() {
+      if (apdu_verbose) {
+        char  strbuffer[1024];
+        snprintf(strbuffer, sizeof(strbuffer), "%.04x ", this->sw);
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_recv), this->length_recv);
+        MDEBUG( "RESP : " << strbuffer);
+
+      }
+    }
+
+    int device_ledger::set_command_header(unsigned char ins, unsigned char p1, unsigned char p2) {
       reset_buffer();
       int offset = 0;
       this->buffer_send[0] = 0x00;
@@ -286,7 +282,7 @@ namespace hw {
       return 5;
     }
 
-    int device_ledger::set_command_header_noopt(BYTE ins, BYTE p1, BYTE p2) {
+    int device_ledger::set_command_header_noopt(unsigned char ins, unsigned char p1, unsigned char p2) {
       int offset = set_command_header(ins, p1, p2);
       //options
       this->buffer_send[offset++] = 0;
@@ -294,7 +290,7 @@ namespace hw {
       return offset;
     }
 
-    void device_ledger::send_simple(BYTE ins, BYTE p1) {
+    void device_ledger::send_simple(unsigned char ins, unsigned char p1) {
       this->length_send = set_command_header_noopt(ins, p1);
       this->exchange();
     }
@@ -305,23 +301,17 @@ namespace hw {
     }
      
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
-      LONG rv;
-      unsigned int sw;
-
-      ASSERT_T0(this->length_send <= BUFFER_SEND_SIZE);
       logCMD();
-      this->length_recv = BUFFER_RECV_SIZE;
-      rv = SCardTransmit(this->hCard,
-                         SCARD_PCI_T0, this->buffer_send, this->length_send,
-                         NULL,         this->buffer_recv, &this->length_recv);
-      ASSERT_RV(rv);
-      ASSERT_T0(this->length_recv >= 2);
-      ASSERT_T0(this->length_recv <= BUFFER_RECV_SIZE);
-      logRESP();
 
-      sw = (this->buffer_recv[this->length_recv-2]<<8) | this->buffer_recv[this->length_recv-1];
-      ASSERT_SW(sw,ok,msk);
-      return sw;
+      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE);
+      ASSERT_X(this->length_recv>=2, "Communication error, less than tow bytes received");
+
+      this->length_recv -= 2;
+      this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
+      ASSERT_SW(this->sw,ok,msk);
+
+      logRESP();
+      return this->sw;
     }
 
     void device_ledger::reset_buffer() {
@@ -341,101 +331,25 @@ namespace hw {
     }
 
     const std::string device_ledger::get_name() const {
-      if (this->full_name.empty() || (this->hCard == 0)) {
+      if (this->full_name.empty() || !this->connected()) {
         return std::string("<disconnected:").append(this->name).append(">");
       }
-      return this->full_name;
+      return this->name;
     }
 
     bool device_ledger::init(void) {
       #ifdef DEBUG_HWDEVICE
       this->controle_device = &hw::get_device("default");
       #endif
-      LONG  rv;
       this->release();
-      rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM,0,0, &this->hContext);
-      ASSERT_RV(rv);
-      MDEBUG( "Device "<<this->id <<" SCardContext created: hContext="<<this->hContext);
-      this->hCard = 0;
-      return true;
-    }
-
-    bool device_ledger::release() {
-      this->disconnect();
-      if (this->hContext) {
-        SCardReleaseContext(this->hContext);
-        MDEBUG( "Device "<<this->id <<" SCardContext released: hContext="<<this->hContext);
-        this->hContext = 0;
-        this->full_name.clear();
-      }
+      hw_device.init();      
+      MDEBUG( "Device "<<this->id <<" HIDUSB inited");
       return true;
     }
 
     bool device_ledger::connect(void) {
-      BYTE  pbAtr[MAX_ATR_SIZE];
-      LPSTR mszReaders;
-      DWORD dwReaders;
-      LONG  rv;
-      DWORD dwState, dwProtocol, dwAtrLen, dwReaderLen;
-
       this->disconnect();
-#ifdef SCARD_AUTOALLOCATE
-      dwReaders = SCARD_AUTOALLOCATE;
-      rv = SCardListReaders(this->hContext, NULL, (LPSTR)&mszReaders, &dwReaders);
-#else
-      dwReaders = 0;
-      rv = SCardListReaders(this->hContext, NULL, NULL, &dwReaders);
-      if (rv != SCARD_S_SUCCESS)
-        return false;
-      mszReaders = (LPSTR)calloc(dwReaders, sizeof(char));
-      rv = SCardListReaders(this->hContext, NULL, mszReaders, &dwReaders);
-#endif
-      if (rv == SCARD_S_SUCCESS) {
-        char* p;
-        const char* prefix = this->name.c_str();
-
-        p = mszReaders;
-        MDEBUG( "Looking for " << std::string(prefix));
-        while (*p) {
-          MDEBUG( "Device Found: " <<  std::string(p));
-          if ((strncmp(prefix, p, strlen(prefix))==0)) {
-            MDEBUG( "Device Match: " <<  std::string(p));
-            if ((rv = SCardConnect(this->hContext,
-                                   p, SCARD_SHARE_EXCLUSIVE, SCARD_PROTOCOL_T0,
-                                   &this->hCard, &dwProtocol))!=SCARD_S_SUCCESS) {
-              break;
-            }
-            MDEBUG( "Device "<<this->id <<" Connected: hCard="<<this->hCard);
-            dwAtrLen = sizeof(pbAtr);
-            if ((rv = SCardStatus(this->hCard, NULL, &dwReaderLen, &dwState, &dwProtocol, pbAtr, &dwAtrLen))!=SCARD_S_SUCCESS) {
-              break;
-            }
-            MDEBUG( "Device "<<this->id <<" Status OK");
-            rv = SCARD_S_SUCCESS ;
-            this->full_name = std::string(p);
-            break;
-          }
-          p += strlen(p) +1;
-        }
-      }
-
-      if (rv == SCARD_S_SUCCESS && mszReaders) {
-        #ifdef SCARD_AUTOALLOCATE
-        SCardFreeMemory(this->hContext, mszReaders);
-        #else
-        free(mszReaders);
-        #endif
-        mszReaders = NULL;
-      }
-      if (rv != SCARD_S_SUCCESS) {
-        if ( hCard) {
-          SCardDisconnect(this->hCard, SCARD_UNPOWER_CARD);
-          MDEBUG( "Device "<<this->id <<" disconnected: hCard="<<this->hCard);
-          this->hCard = 0;
-        }
-      }
-      ASSERT_RV(rv);
-
+      hw_device.connect(0x2c97,0x0001, 0, 0xffa0, hw_device.OR_SELECT);
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
@@ -445,15 +359,21 @@ namespace hw {
       crypto::secret_key skey;
       this->get_secret_keys(vkey,skey);
 
-      return rv==SCARD_S_SUCCESS;
+      return true;
+    }
+
+    bool device_ledger::connected(void) const {
+      return hw_device.connected();
     }
 
     bool device_ledger::disconnect() {
-      if (this->hCard) {
-        SCardDisconnect(this->hCard, SCARD_UNPOWER_CARD);
-        MDEBUG( "Device "<<this->id <<" disconnected: hCard="<<this->hCard); 
-        this->hCard = 0;
-      }
+      hw_device.disconnect();
+      return true;
+    }
+
+    bool device_ledger::release() {
+      this->disconnect();
+      hw_device.release();
       return true;
     }
 

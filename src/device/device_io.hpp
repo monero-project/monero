@@ -27,44 +27,30 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
+
+
+
 #pragma once
 
-#include <cstddef>
-#include <string>
-
-#include "ringct/rctOps.h"
-#include "crypto/crypto.h"
-#include "cryptonote_basic/account.h"
-
-#include "device.hpp"
 
 namespace hw {
+  namespace io {
 
-    void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) ;
-    void log_hexbuffer(const std::string &msg,  const char* buff, size_t len);
-    void log_message(const std::string &msg, const std::string &info );
+    class device_io {
 
-    #ifdef WITH_DEVICE_LEDGER    
-    namespace ledger {
+    public:
 
-        #ifdef DEBUG_HWDEVICE
-        #define TRACK printf("file %s:%d\n",__FILE__, __LINE__)
-        //#define TRACK MCDEBUG("ledger"," At file " << __FILE__ << ":" << __LINE__)
-        //#define TRACK while(0);
+      device_io()   {};
+      ~device_io() {};
 
-        void decrypt(char* buf, size_t len) ;
-        crypto::key_derivation decrypt(const crypto::key_derivation &derivation) ;
-        cryptonote::account_keys decrypt(const cryptonote::account_keys& keys) ;
-        crypto::secret_key decrypt(const crypto::secret_key &sec) ;
-        rct::key  decrypt(const rct::key &sec);
-        crypto::ec_scalar decrypt(const crypto::ec_scalar &res);
-        rct::keyV decrypt(const rct::keyV &keys);
+      virtual void init()  = 0;
+      virtual void release() = 0;
 
-        void check32(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted=false);
-        void check8(const std::string &msg, const std::string &info, const char *h, const char *d,  bool crypted=false);
+      virtual void connect(void *parms) = 0;
+      virtual void disconnect() = 0;
+      virtual bool connected() const = 0;
 
-        void set_check_verbose(bool verbose);
-        #endif
-    }
-    #endif
-}
+      virtual int  exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len) = 0;
+    };
+  };
+};
