@@ -2160,15 +2160,15 @@ simple_wallet::simple_wallet()
                            tr("Show the blockchain height."));
   m_cmd_binder.set_handler("transfer_original",
                            boost::bind(&simple_wallet::transfer, this, _1),
-                           tr("transfer_original [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"),
-                           tr("Transfer <amount> to <address> using an older transaction building algorithm. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("transfer_original [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]"),
+                           tr("Transfer <amount> to <address> using an older transaction building algorithm. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::transfer_new, this, _1),
-                           tr("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"),
-                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]"),
+                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
   m_cmd_binder.set_handler("locked_transfer",
                            boost::bind(&simple_wallet::locked_transfer, this, _1),
-                           tr("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <addr> <amount> <lockblocks> [<payment_id>]"),
-                           tr("Transfer <amount> to <address> and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <addr> <amount>) <lockblocks> [<payment_id>]"),
+                           tr("Transfer <amount> to <address> and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
   m_cmd_binder.set_handler("locked_sweep_all",
                            boost::bind(&simple_wallet::locked_sweep_all, this, _1),
                            tr("locked_sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <lockblocks> [<payment_id>]"),
@@ -4543,7 +4543,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     return true;
   }
 
-  const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
+  const size_t min_args = (transfer_type == TransferLocked) ? 2 : 1;
   if(local_args.size() < min_args)
   {
      fail_msg_writer() << tr("wrong number of arguments");
@@ -4552,39 +4552,38 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
-  bool expect_even = (transfer_type == TransferLocked);
-  if ((expect_even ? 0 : 1) == local_args.size() % 2)
+  if (!local_args.empty())
   {
     std::string payment_id_str = local_args.back();
-    local_args.pop_back();
-
     crypto::hash payment_id;
-    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
-    if(r)
+    bool r = true;
+    if (tools::wallet2::parse_long_payment_id(payment_id_str, payment_id))
     {
       std::string extra_nonce;
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      local_args.pop_back();
+      payment_id_seen = true;
+      message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
     }
     else
     {
       crypto::hash8 payment_id8;
-      r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
-      if(r)
+      if (tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8))
       {
         std::string extra_nonce;
         set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
         r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+        local_args.pop_back();
+        payment_id_seen = true;
       }
     }
 
     if(!r)
     {
-      fail_msg_writer() << tr("payment id has invalid format, expected 16 or 64 character hex string: ") << payment_id_str;
+      fail_msg_writer() << tr("payment id failed to encode");
       return true;
     }
-    payment_id_seen = true;
-    message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
   }
 
   uint64_t locked_blocks = 0;
@@ -4609,11 +4608,54 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   vector<cryptonote::tx_destination_entry> dsts;
   size_t num_subaddresses = 0;
-  for (size_t i = 0; i < local_args.size(); i += 2)
+  for (size_t i = 0; i < local_args.size(); )
   {
-    cryptonote::address_parse_info info;
     cryptonote::tx_destination_entry de;
-    if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[i], oa_prompter))
+    cryptonote::address_parse_info info;
+    bool r = true;
+
+    // check for a URI
+    std::string address_uri, payment_id_uri, tx_description, recipient_name, error;
+    std::vector<std::string> unknown_parameters;
+    uint64_t amount = 0;
+    bool has_uri = m_wallet->parse_uri(local_args[i], address_uri, payment_id_uri, amount, tx_description, recipient_name, unknown_parameters, error);
+    if (has_uri)
+    {
+      r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), address_uri, oa_prompter);
+      if (payment_id_uri.size() == 16)
+      {
+        if (!tools::wallet2::parse_short_payment_id(payment_id_uri, info.payment_id))
+        {
+          fail_msg_writer() << tr("failed to parse short payment ID from URI");
+          return true;
+        }
+        info.has_payment_id = true;
+      }
+      de.amount = amount;
+      ++i;
+    }
+    else if (i + 1 < local_args.size())
+    {
+      r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[i], oa_prompter);
+      bool ok = cryptonote::parse_amount(de.amount, local_args[i + 1]);
+      if(!ok || 0 == de.amount)
+      {
+        fail_msg_writer() << tr("amount is wrong: ") << local_args[i] << ' ' << local_args[i + 1] <<
+          ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
+        return true;
+      }
+      i += 2;
+    }
+    else
+    {
+      if (boost::starts_with(local_args[i], "monero:"))
+        fail_msg_writer() << tr("Invalid last argument: ") << local_args.back() << ": " << error;
+      else
+        fail_msg_writer() << tr("Invalid last argument: ") << local_args.back();
+      return true;
+    }
+
+    if (!r)
     {
       fail_msg_writer() << tr("failed to parse address");
       return true;
@@ -4622,16 +4664,30 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     de.is_subaddress = info.is_subaddress;
     num_subaddresses += info.is_subaddress;
 
-    if (info.has_payment_id)
+    if (info.has_payment_id || !payment_id_uri.empty())
     {
       if (payment_id_seen)
       {
-        fail_msg_writer() << tr("a single transaction cannot use more than one payment id: ") << local_args[i];
+        fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
         return true;
       }
 
+      crypto::hash payment_id;
       std::string extra_nonce;
-      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+      if (info.has_payment_id)
+      {
+        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+      }
+      else if (tools::wallet2::parse_payment_id(payment_id_uri, payment_id))
+      {
+        set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+        message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
+      }
+      else
+      {
+        fail_msg_writer() << tr("failed to parse payment id, though it was detected");
+        return true;
+      }
       bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       if(!r)
       {
@@ -4639,14 +4695,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         return true;
       }
       payment_id_seen = true;
-    }
-
-    bool ok = cryptonote::parse_amount(de.amount, local_args[i + 1]);
-    if(!ok || 0 == de.amount)
-    {
-      fail_msg_writer() << tr("amount is wrong: ") << local_args[i] << ' ' << local_args[i + 1] <<
-        ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
-      return true;
     }
 
     dsts.push_back(de);
