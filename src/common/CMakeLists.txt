@@ -36,6 +36,8 @@ set(common_sources
   download.cpp
   util.cpp
   i18n.cpp
+  exp2.cpp
+  round.cpp
   password.cpp
   perf_timer.cpp
   threadpool.cpp
@@ -55,6 +57,8 @@ set(common_private_headers
   common_fwd.h
   dns_utils.h
   download.h
+  exp2.h
+  round.h
   http_connection.h
   int-util.h
   pod-class.h

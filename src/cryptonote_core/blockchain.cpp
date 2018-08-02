@@ -49,6 +49,7 @@
 #include "common/int-util.h"
 #include "common/threadpool.h"
 #include "common/boost_serialization_helper.h"
+#include "common/exp2.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
@@ -66,8 +67,6 @@
 #define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
 
 using namespace crypto;
-
-double pow(double, double);
 
 //#include "serialization/json_archive.h"
 
@@ -850,12 +849,14 @@ uint64_t Blockchain::get_staking_requirement(uint64_t height) const
 {
   if (m_nettype == TESTNET)
     return COIN * 1000;
-  return
-    std::max(
-      10000*COIN+(uint64_t)(35000*COIN/pow(2.0, (height-129600.0)/129600.0)),
-      height < 3628800 ? 5 * COIN * height / 2592 + 8000 : 15000 * COIN
-    );
+  uint64_t height_adjusted = height-129600;
+  uint64_t base = 10000 * COIN;
+  uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
+  uint64_t linear_up = 5 * COIN * height / 2592;
+  uint64_t flat = 15000 * COIN;
+  return std::max(base + variable, height < 3628800 ? linear_up : flat);
 }
+
 //------------------------------------------------------------------
 // This function removes blocks from the blockchain until it gets to the
 // position where the blockchain switch started and then re-adds the blocks
