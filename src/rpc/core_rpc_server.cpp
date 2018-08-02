@@ -2017,7 +2017,8 @@ namespace cryptonote
     }
     else
     {
-      res.status  = "Block height: " + req.height;
+      res.status  = "Block height: ";
+      res.status += std::to_string(req.height);
       res.status += ", returned null hash or failed to derive quorum list";
     }
 

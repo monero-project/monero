@@ -1046,7 +1046,7 @@ namespace cryptonote
     buffer_iter += sizeof(expiration_timestamp);
     assert(buffer + size == buffer_iter);
     crypto::cn_fast_hash(buffer, size, hash);
-    delete buffer;
+    delete[] buffer;
     return true;
   }
   //---------------------------------------------------------------
