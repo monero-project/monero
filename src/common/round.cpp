@@ -36,7 +36,7 @@
 # pragma fenv_access (off)
 #endif
 
-static_assert(std::numeric_limits<double>::is_iec559);
+static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 double
 loki_round (double x)

@@ -34,7 +34,10 @@
 /* Best possible approximation of 256/log(2) as a 'double'.  */
 #define LOG2_BY_256_INVERSE 369.329930467574632284140718336484387181
 
-static_assert(std::numeric_limits<double>::is_iec559);
+// TODO(loki): This is temporary until we switch to integer math for calculating
+// block rewards. We provide the specific implementation to minimise the risk of
+// different results from math functions across different std libraries.
+static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 double
 loki_exp2 (double x)
