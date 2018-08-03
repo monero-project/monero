@@ -54,7 +54,7 @@ namespace service_nodes
 
   void service_node_list::register_hooks(service_nodes::quorum_cop &quorum_cop)
   {
-    if (m_hooks_registered)
+    if (!m_hooks_registered)
     {
       m_hooks_registered = true;
       m_blockchain.hook_block_added(*this);
