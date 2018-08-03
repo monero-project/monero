@@ -717,14 +717,19 @@ namespace service_nodes
     return false;
   }
 
-  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions)
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& initial_contribution)
   {
-    if (args.size() % 2 != 0)
+    if (args.size() % 2 == 0)
     {
-      MERROR(tr("Expected an even number of arguments: [<address> <fraction> [<address> <fraction> [...]]]"));
+      MERROR(tr("Expected an odd number of arguments: [<address> <fraction> [<address> <fraction> [...]]] <initial contribution>"));
       return false;
     }
-    if (args.size() / 2 > MAX_NUMBER_OF_CONTRIBUTORS)
+    if (args.size() < 1)
+    {
+      MERROR(tr("Missing <initial contribution>"));
+      return false;
+    }
+    if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
     {
       MERROR(tr("Exceeds the maximum number of contributors, which is ") << MAX_NUMBER_OF_CONTRIBUTORS);
       return false;
@@ -732,7 +737,7 @@ namespace service_nodes
     addresses.clear();
     portions.clear();
     uint64_t total_portions = 0;
-    for (size_t i = 0; i < args.size(); i += 2)
+    for (size_t i = 0; i < args.size()-1; i += 2)
     {
       cryptonote::address_parse_info info;
       if (!cryptonote::get_account_address_from_str(info, nettype, args[i]))
@@ -773,6 +778,13 @@ namespace service_nodes
         return false;
       }
     }
+    if (!cryptonote::parse_amount(initial_contribution, args.back()) || initial_contribution == 0)
+    {
+      MERROR(tr("amount is wrong: ") << args.back() <<
+        ", " << tr("expected number from ") << cryptonote::print_money(1) <<
+        " to " << cryptonote::print_money(std::numeric_limits<uint64_t>::max()));
+      return true;
+    }
     if (total_portions > (uint64_t)STAKING_PORTIONS)
     {
       MERROR(tr("Invalid portion amounts, portions must sum to at most 1."));
@@ -789,7 +801,8 @@ namespace service_nodes
 
     std::vector<cryptonote::account_public_address> addresses;
     std::vector<uint32_t> shares;
-    if (!convert_registration_args(nettype, args, addresses, shares))
+    uint64_t initial_contribution;
+    if (!convert_registration_args(nettype, args, addresses, shares, initial_contribution))
     {
       MERROR(tr("Could not convert registration args"));
       return false;
@@ -822,7 +835,8 @@ namespace service_nodes
 
     stream << " " << exp_timestamp << " ";
     stream << epee::string_tools::pod_to_hex(service_node_pubkey) << " ";
-    stream << epee::string_tools::pod_to_hex(signature);
+    stream << epee::string_tools::pod_to_hex(signature) << " ";
+    stream << cryptonote::print_money(initial_contribution);
 
     if (make_friendly)
     {

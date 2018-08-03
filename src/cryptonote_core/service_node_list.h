@@ -162,7 +162,7 @@ namespace service_nodes
     std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;
   };
 
-  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions);
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& initial_contribution);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
 

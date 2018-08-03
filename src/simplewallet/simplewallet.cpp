@@ -4726,11 +4726,11 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   if (local_args.size() < 4)
   {
-    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <fraction1> [<address2> <fraction2> [...]]] <expiration timestamp> <service node pubkey> <signature> <amount>");
+    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <fraction1> [<address2> <fraction2> [...]]] <amount> <expiration timestamp> <service node pubkey> <signature>");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("Prepare this command with the service node using:");
     fail_msg_writer() << tr("");
-    fail_msg_writer() << tr("./lokid --prepare-registration <address> <fraction> [<address2> <fraction2> [...]]");
+    fail_msg_writer() << tr("./lokid --prepare-registration [<address> <fraction> [<address2> <fraction2> [...]]] <initial contribution amount>");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("This command must be run from the daemon that will be acting as a service node");
     return true;
@@ -4739,16 +4739,16 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   std::vector<std::string> address_portions_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
   std::vector<cryptonote::account_public_address> addresses;
   std::vector<uint32_t> portions;
-  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions))
+  uint64_t amount;
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, amount))
   {
     fail_msg_writer() << tr("Could not convert registration args");
     return true;
   }
 
-  size_t timestamp_index = local_args.size() - 4;
-  size_t key_index = local_args.size() - 3;
-  size_t signature_index = local_args.size() - 2;
-  size_t amount_index = local_args.size() - 1;
+  size_t timestamp_index = local_args.size() - 3;
+  size_t key_index = local_args.size() - 2;
+  size_t signature_index = local_args.size() - 1;
 
   uint64_t expiration_timestamp = 0;
 
@@ -4779,14 +4779,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   if (!epee::string_tools::hex_to_pod(local_args[signature_index], signature))
   {
     fail_msg_writer() << tr("failed to parse service node signature");
-    return true;
-  }
-
-  uint64_t amount;
-  if (!cryptonote::parse_amount(amount, local_args[amount_index]) || amount == 0)
-  {
-    fail_msg_writer() << tr("amount is wrong: ") << local_args[amount_index] <<
-      ", " << tr("expected number from ") << print_money(1) << " to " << print_money(std::numeric_limits<uint64_t>::max());
     return true;
   }
 
