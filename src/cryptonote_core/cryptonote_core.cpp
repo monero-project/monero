@@ -1715,7 +1715,7 @@ namespace cryptonote
     bool result = m_deregister_vote_pool.add_vote(vote, vvc, *quorum_state, deregister_tx);
     if (result && vvc.m_full_tx_deregister_made)
     {
-      tx_verification_context tvc;
+      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       blobdata const tx_blob = tx_to_blob(deregister_tx);
 
       result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);

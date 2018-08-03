@@ -3613,7 +3613,7 @@ leave:
 #endif
     {
       // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
+      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       if(!check_tx_inputs(tx, tvc))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
