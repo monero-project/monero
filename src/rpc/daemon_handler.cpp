@@ -381,6 +381,11 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "tx is not ringct";
       }
+      if (tvc.m_invalid_version)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx is not version 2 or later";
+      }
       if (res.error_details.empty())
       {
         res.error_details = "an unknown issue was found with the transaction";
