@@ -110,7 +110,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_deregister_tx_already(transaction const &tx) const
   {
-    if (tx.version != transaction::version_3_deregister_tx)
+    if (!tx.is_deregister_tx())
       return false;
 
     tx_extra_service_node_deregister deregister;
@@ -124,7 +124,7 @@ namespace cryptonote
     get_transactions(pool_txs);
     for (const transaction& pool_tx : pool_txs)
     {
-      if (pool_tx.version != transaction::version_3_deregister_tx)
+      if (!tx.is_deregister_tx())
         continue;
 
       tx_extra_service_node_deregister pool_tx_deregister;
@@ -210,7 +210,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && !m_blockchain.check_fee(blob_size, fee) && tx.version != transaction::version_3_deregister_tx)
+    if (!kept_by_block && !m_blockchain.check_fee(blob_size, fee) && !tx.is_deregister_tx())
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -250,7 +250,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version == transaction::version_3_deregister_tx)
+    if (tx.is_deregister_tx())
     {
       tx_extra_service_node_deregister deregister;
       if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
@@ -377,7 +377,7 @@ namespace cryptonote
       }
       tvc.m_added_to_pool = true;
 
-      if((meta.fee > 0 || tx.version == 3) && !do_not_relay)
+      if((meta.fee > 0 || tx.is_deregister_tx()) && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
@@ -656,8 +656,7 @@ namespace cryptonote
             if (meta.fee == 0)
             {
               cryptonote::transaction tx;
-              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx) &&
-                  tx.version != transaction::version_3_deregister_tx)
+              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx) && !tx.is_deregister_tx())
               {
                   return true;
               }

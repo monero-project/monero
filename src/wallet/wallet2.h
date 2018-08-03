@@ -1241,6 +1241,8 @@ namespace tools
     std::string m_ring_database;
     bool m_ring_history_saved;
     std::unique_ptr<ringdb> m_ringdb;
+
+    bool m_per_output_unlock;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 24)

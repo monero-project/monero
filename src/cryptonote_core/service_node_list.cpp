@@ -148,9 +148,14 @@ namespace service_nodes
     return m_service_nodes_infos.find(pubkey) != m_service_nodes_infos.end();
   }
 
-  bool service_node_list::reg_tx_has_correct_unlock_time(const cryptonote::transaction& tx, uint64_t block_height) const
+  bool service_node_list::contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const
   {
-    return tx.unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && tx.unlock_time >= block_height + STAKING_REQUIREMENT_LOCK_BLOCKS;
+    uint64_t unlock_time = tx.unlock_time;
+
+    if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
+      unlock_time = tx.output_unlock_times[i];
+
+    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + STAKING_REQUIREMENT_LOCK_BLOCKS;
   }
 
   bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
@@ -214,7 +219,7 @@ namespace service_nodes
 
   void service_node_list::process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height)
   {
-    if (tx.version != cryptonote::transaction::version_3_deregister_tx)
+    if (!tx.is_deregister_tx())
       return;
 
     cryptonote::tx_extra_service_node_deregister deregister;
@@ -313,9 +318,6 @@ namespace service_nodes
   void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
   {
     // TODO: move unlock time check from here to below, when unlock time is done per output.
-    if (!reg_tx_has_correct_unlock_time(tx, block_height))
-      return;
-
     crypto::public_key pubkey;
     cryptonote::account_public_address address;
 
@@ -340,10 +342,8 @@ namespace service_nodes
 
     uint64_t transferred = 0;
     for (size_t i = 0; i < tx.vout.size(); i++)
-    {
-      // TODO: check if output has correct unlock time here, when unlock time is done per output.
-      transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
-    }
+      if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
+        transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
 
     if (transferred < get_min_contribution(iter->second.staking_requirement))
       return;

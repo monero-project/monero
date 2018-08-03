@@ -251,13 +251,11 @@ namespace loki
           deregister.votes.push_back(tx_vote);
         }
 
-        vvc.m_full_tx_deregister_made = true;
-        tx.version = cryptonote::transaction::version_3_deregister_tx;
-
         vvc.m_full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
         if (vvc.m_full_tx_deregister_made)
         {
-          tx.version = cryptonote::transaction::version_3_deregister_tx;
+          tx.version       = cryptonote::transaction::version_3_per_output_unlock_times;
+          tx.is_deregister = true;
         }
         else
         {
@@ -274,7 +272,7 @@ namespace loki
     CRITICAL_REGION_LOCAL(m_lock);
     for (const cryptonote::transaction &tx : txs)
     {
-      if (tx.version != cryptonote::transaction::version_3_deregister_tx)
+      if (!tx.is_deregister_tx())
         continue;
 
       cryptonote::tx_extra_service_node_deregister deregister;

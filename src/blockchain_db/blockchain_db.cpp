@@ -177,6 +177,16 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   // we need the index
   for (uint64_t i = 0; i < tx.vout.size(); ++i)
   {
+    uint64_t unlock_time = 0;
+    if (tx.version > 2)
+    {
+      unlock_time = tx.output_unlock_times[i];
+    }
+    else
+    {
+      unlock_time = tx.unlock_time;
+    }
+
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
     if (miner_tx && tx.version == 2)
@@ -184,12 +194,12 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      amount_output_indices.push_back(add_output(tx_hash, vout, i, tx.unlock_time,
+      amount_output_indices.push_back(add_output(tx_hash, vout, i, unlock_time,
         &commitment));
     }
     else
     {
-      amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+      amount_output_indices.push_back(add_output(tx_hash, tx.vout[i], i, unlock_time,
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL));
     }
   }
@@ -323,6 +333,13 @@ transaction BlockchainDB::get_tx(const crypto::hash& h) const
   if (!get_tx(h, tx))
     throw TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
   return tx;
+}
+
+uint64_t BlockchainDB::get_output_unlock_time(const uint64_t amount, const uint64_t amount_index) const
+{
+  output_data_t odata = get_output_key(amount, amount_index);
+
+  return odata.unlock_time;
 }
 
 void BlockchainDB::reset_stats()

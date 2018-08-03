@@ -1307,16 +1307,16 @@ namespace cryptonote
     void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
 
     /**
-     * @brief checks if a transaction is unlocked (its outputs spendable)
+     * @brief checks if an output is unlocked (spendable)
      *
-     * This function checks to see if a transaction is unlocked.
+     * This function checks to see if an output is unlocked.
      * unlock_time is either a block index or a unix time.
      *
      * @param unlock_time the unlock parameter (height or time)
      *
      * @return true if spendable, otherwise false
      */
-    bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
+    bool is_output_spendtime_unlocked(uint64_t unlock_time) const;
 
     /**
      * @brief stores an invalid block in a separate container
