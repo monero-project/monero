@@ -849,7 +849,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
 uint64_t Blockchain::get_staking_requirement(uint64_t height) const
 {
   if (m_nettype == TESTNET)
-    return COIN * 1000;
+    return COIN * 100;
   uint64_t height_adjusted = height-129600;
   uint64_t base = 10000 * COIN;
   uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
