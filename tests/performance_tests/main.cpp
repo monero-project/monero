@@ -132,6 +132,18 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_construct_tx, 100, 2, true);
   TEST_PERFORMANCE3(filter, p, test_construct_tx, 100, 10, true);
 
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 1, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 2, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 2, 10, true, rct::RangeProofPaddedBulletproof);
+
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 1, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 2, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 10, 10, true, rct::RangeProofPaddedBulletproof);
+
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 1, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 2, true, rct::RangeProofPaddedBulletproof);
+  TEST_PERFORMANCE4(filter, p, test_construct_tx, 100, 10, true, rct::RangeProofPaddedBulletproof);
+
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature, 1, 2, false);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature, 2, 2, false);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature, 10, 2, false);
