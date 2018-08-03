@@ -4808,7 +4808,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_2(dsts, mixins, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted());
+    auto ptx_vector = m_wallet->create_transactions_2(dsts, mixins, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted(), true);
 
     if (ptx_vector.empty())
     {
@@ -4829,8 +4829,8 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();
+      total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
     }
-    total_sent -= total_fee;
 
     std::ostringstream prompt;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
@@ -4991,7 +4991,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_2(dsts, mixins, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted());
+    auto ptx_vector = m_wallet->create_transactions_2(dsts, mixins, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, is_daemon_trusted(), true);
 
     if (ptx_vector.empty())
     {
@@ -5012,8 +5012,8 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();
+      total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
     }
-    total_sent -= total_fee;
 
     std::ostringstream prompt;
     for (size_t n = 0; n < ptx_vector.size(); ++n)

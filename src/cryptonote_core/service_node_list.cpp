@@ -204,13 +204,13 @@ namespace service_nodes
         money_transferred = rct::decodeRct(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
         break;
       default:
-        LOG_ERROR("Unsupported rct type: " << tx.rct_signatures.type);
+        LOG_PRINT_L0("Unsupported rct type: " << tx.rct_signatures.type);
         return 0;
       }
     }
     catch (const std::exception &e)
     {
-      LOG_ERROR("Failed to decode input " << i);
+      LOG_PRINT_L0("Failed to decode input " << i);
       return 0;
     }
 
@@ -835,8 +835,7 @@ namespace service_nodes
 
     stream << " " << exp_timestamp << " ";
     stream << epee::string_tools::pod_to_hex(service_node_pubkey) << " ";
-    stream << epee::string_tools::pod_to_hex(signature) << " ";
-    stream << cryptonote::print_money(initial_contribution);
+    stream << epee::string_tools::pod_to_hex(signature);
 
     if (make_friendly)
     {
