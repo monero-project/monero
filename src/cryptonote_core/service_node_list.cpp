@@ -320,10 +320,13 @@ namespace service_nodes
     // TODO: move unlock time check from here to below, when unlock time is done per output.
     crypto::public_key pubkey;
     cryptonote::account_public_address address;
+    crypto::secret_key gov_key;
 
     if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, pubkey))
       return;
     if (!cryptonote::get_service_node_contributor_from_tx_extra(tx.extra, address))
+      return;
+    if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, gov_key))
       return;
 
     auto iter = m_service_nodes_infos.find(pubkey);
@@ -333,9 +336,8 @@ namespace service_nodes
     if (iter->second.is_fully_funded())
       return;
 
-    cryptonote::keypair gov_key = cryptonote::get_deterministic_keypair_from_height(1);
     crypto::key_derivation derivation;
-    if (!crypto::generate_key_derivation(address.m_view_public_key, gov_key.sec, derivation))
+    if (!crypto::generate_key_derivation(address.m_view_public_key, gov_key, derivation))
       return;
 
     hw::device& hwdev = hw::get_device("default");

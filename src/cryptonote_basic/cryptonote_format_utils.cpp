@@ -511,6 +511,23 @@ namespace cryptonote
     add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&address), sizeof(address), TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR);
   }
   //---------------------------------------------------------------
+  bool get_tx_secret_key_from_tx_extra(const std::vector<uint8_t>& tx_extra, crypto::secret_key& key)
+  {
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx_extra, tx_extra_fields);
+    tx_extra_tx_secret_key seckey;
+    bool result = find_tx_extra_field_by_type(tx_extra_fields, seckey);
+    if (!result)
+      return false;
+    key = seckey.key;
+    return true;
+  }
+  //---------------------------------------------------------------
+  void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::secret_key& key)
+  {
+    add_data_to_tx_extra(tx_extra, reinterpret_cast<const char *>(&key), sizeof(key), TX_EXTRA_TAG_TX_SECRET_KEY);
+  }
+  //---------------------------------------------------------------
   bool get_service_node_contributor_from_tx_extra(const std::vector<uint8_t>& tx_extra, cryptonote::account_public_address& address)
   {
     std::vector<tx_extra_field> tx_extra_fields;

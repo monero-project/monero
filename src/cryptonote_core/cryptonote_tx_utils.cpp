@@ -782,10 +782,7 @@ namespace cryptonote
     hwdev.open_tx(tx_key);
 
     if (is_staking_tx)
-    {
-      // quietly override the tx key.
-      tx_key = get_deterministic_keypair_from_height(1).sec;
-    }
+      add_tx_secret_key_to_tx_extra(extra, tx_key);
 
     // figure out if we need to make additional tx pubkeys
     size_t num_stdaddresses = 0;
