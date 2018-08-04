@@ -1976,9 +1976,11 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
   {
     drop_from_short_history(short_chain_history, 3);
 
+    THROW_WALLET_EXCEPTION_IF(prev_blocks.size() != prev_parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
+
     // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
     std::vector<parsed_block>::const_reverse_iterator i = prev_parsed_blocks.rbegin();
-    for (size_t n = 0; n < std::min((size_t)3, prev_blocks.size()); ++n)
+    for (size_t n = 0; n < std::min((size_t)3, prev_parsed_blocks.size()); ++n)
     {
       short_chain_history.push_front(i->hash);
       ++i;
