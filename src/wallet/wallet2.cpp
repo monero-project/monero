@@ -2292,6 +2292,7 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     while (missing_blocks-- > 0)
       m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
     m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
+    m_blockchain.trim(checkpoint_height);
     short_chain_history.clear();
     get_short_chain_history(short_chain_history);
   }
