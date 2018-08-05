@@ -383,6 +383,18 @@ namespace service_nodes
       m_rollback_events.pop_front();
     }
 
+    for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
+    {
+      auto i = m_service_nodes_infos.find(pubkey);
+      if (i != m_service_nodes_infos.end())
+      {
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, i->second)));
+        m_service_nodes_infos.erase(i);
+      }
+      // Service nodes may expire early if they double staked by accident, so
+      // expiration doesn't mean the node is in the list.
+    }
+
     crypto::public_key winner_pubkey = cryptonote::get_service_node_winner_from_tx_extra(block.miner_tx.extra);
     if (m_service_nodes_infos.count(winner_pubkey) == 1)
     {
@@ -394,18 +406,6 @@ namespace service_nodes
       // set the winner as though it was re-registering at transaction index=UINT32_MAX for this block
       m_service_nodes_infos[winner_pubkey].last_reward_block_height = block_height;
       m_service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
-    }
-
-    for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
-    {
-      auto i = m_service_nodes_infos.find(pubkey);
-      if (i != m_service_nodes_infos.end())
-      {
-        m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, i->second)));
-        m_service_nodes_infos.erase(i);
-      }
-      // Service nodes may expire early if they double staked by accident, so
-      // expiration doesn't mean the node is in the list.
     }
 
     uint32_t index = 0;
