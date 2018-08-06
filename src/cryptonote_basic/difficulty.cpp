@@ -154,7 +154,7 @@ namespace cryptonote {
 
     size_t N = DIFFICULTY_WINDOW_V2 - 1;
 
-    // Return a difficulty of 1 for first 3 blocks if it's the start of the chain.
+    // Return a difficulty of 1 for first 4 blocks if it's the start of the chain.
     if (timestamps.size() < 4) {
       return 1;
     }
