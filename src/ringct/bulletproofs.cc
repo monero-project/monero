@@ -92,21 +92,6 @@ static bool is_reduced(const rct::key &scalar)
   return scalar == reduced;
 }
 
-//addKeys3acc_p3
-//aAbB += a*A + b*B where a, b are scalars, A, B are curve points
-//A and B must be input after applying "precomp"
-static void addKeys3acc_p3(ge_p3 *aAbB, const key &a, const ge_dsmp A, const key &b, const ge_dsmp B)
-{
-    ge_p3 rv;
-    ge_p1p1 p1;
-    ge_p2 p2;
-    ge_double_scalarmult_precomp_vartime2_p3(&rv, a.bytes, A, b.bytes, B);
-    ge_cached cached;
-    ge_p3_to_cached(&cached, aAbB);
-    ge_add(&p1, &rv, &cached);
-    ge_p1p1_to_p3(aAbB, &p1);
-}
-
 static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &point)
 {
     ge_p3 p3;
@@ -116,6 +101,28 @@ static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &poi
     ge_p3_to_cached(&cached, acc_p3);
     ge_p1p1 p1;
     ge_add(&p1, &p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
+static void add_acc_p3(ge_p3 *acc_p3, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_cached cached;
+    ge_p3_to_cached(&cached, &p3);
+    ge_p1p1 p1;
+    ge_add(&p1, acc_p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
+static void sub_acc_p3(ge_p3 *acc_p3, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_cached cached;
+    ge_p3_to_cached(&cached, &p3);
+    ge_p1p1 p1;
+    ge_sub(&p1, acc_p3, &cached);
     ge_p1p1_to_p3(acc_p3, &p1);
 }
 
@@ -1087,9 +1094,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
       sc_mul(tmp.bytes, zpow[j+2].bytes, EIGHT.bytes);
       multiexp_data.emplace_back(tmp, proof.V[j]);
     }
-    rct::key temp = multiexp(multiexp_data, false);
-
-    rct::addKeys(Y2, Y2, rct::scalarmultKey(temp, weight));
+    rct::addKeys(Y2, Y2, rct::scalarmultKey(multiexp(multiexp_data, false), weight));
     rct::key weight8;
     sc_mul(weight8.bytes, weight.bytes, EIGHT.bytes);
     sc_mul(tmp.bytes, x.bytes, weight8.bytes);
@@ -1103,7 +1108,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     PERF_TIMER_START_BP(VERIFY_line_62);
     // PAPER LINE 62
     sc_mul(tmp.bytes, x.bytes, EIGHT.bytes);
-    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmultKey(proof.A, EIGHT), rct::scalarmultKey(proof.S, tmp)), weight));
+    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmult8(proof.A), rct::scalarmultKey(proof.S, tmp)), weight));
     PERF_TIMER_STOP(VERIFY_line_62);
 
     // Compute the number of rounds for the inner product
@@ -1202,23 +1207,22 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
   // now check all proofs at once
   PERF_TIMER_START_BP(VERIFY_step2_check);
-  rct::key check1 = rct::identity();
-  rct::addKeys(check1, check1, rct::scalarmultBase(y0));
-  rct::addKeys(check1, check1, rct::scalarmultH(y1));
-  rct::subKeys(check1, check1, Y2);
-  rct::subKeys(check1, check1, Y3);
-  rct::subKeys(check1, check1, Y4);
-  if (!(check1 == rct::identity()))
+  ge_p3 check1;
+  ge_scalarmult_base(&check1, y0.bytes);
+  addKeys_acc_p3(&check1, y1, rct::H);
+  sub_acc_p3(&check1, Y2);
+  sub_acc_p3(&check1, Y3);
+  sub_acc_p3(&check1, Y4);
+  if (!ge_p3_is_point_at_infinity(&check1))
   {
     MERROR("Verification failure at step 1");
     return false;
   }
-  rct::key check2 = rct::identity();
-  rct::addKeys(check2, check2, Z0);
+  ge_p3 check2;
   sc_sub(tmp.bytes, rct::zero().bytes, z1.bytes);
-  rct::addKeys(check2, check2, rct::scalarmultBase(tmp));
-  rct::addKeys(check2, check2, Z2);
-  rct::addKeys(check2, check2, rct::scalarmultH(z3));
+  ge_double_scalarmult_base_vartime_p3(&check2, z3.bytes, &ge_p3_H, tmp.bytes);
+  add_acc_p3(&check2, Z0);
+  add_acc_p3(&check2, Z2);
 
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(2 * maxMN);
@@ -1229,10 +1233,10 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     sc_sub(tmp.bytes, rct::zero().bytes, z5[i].bytes);
     multiexp_data.emplace_back(tmp, Hi_p3[i]);
   }
-  rct::addKeys(check2, check2, multiexp(multiexp_data, true));
+  add_acc_p3(&check2, multiexp(multiexp_data, true));
   PERF_TIMER_STOP(VERIFY_step2_check);
 
-  if (!(check2 == rct::identity()))
+  if (!ge_p3_is_point_at_infinity(&check2))
   {
     MERROR("Verification failure at step 2");
     return false;

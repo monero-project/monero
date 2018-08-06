@@ -122,6 +122,8 @@ namespace rct {
     key scalarmultKey(const key &P, const key &a);
     //Computes aH where H= toPoint(cn_fast_hash(G)), G the basepoint
     key scalarmultH(const key & a);
+    // multiplies a point by 8
+    key scalarmult8(const key & P);
     // checks a is in the main subgroup (ie, not a small one)
     bool isInMainSubgroup(const key & a);
 
