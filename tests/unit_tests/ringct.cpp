@@ -1093,6 +1093,13 @@ TEST(ringct, H)
   ASSERT_EQ(memcmp(&p3, &ge_p3_H, sizeof(ge_p3)), 0);
 }
 
+TEST(ringct, mul8)
+{
+  ASSERT_EQ(rct::scalarmult8(rct::identity()), rct::identity());
+  ASSERT_EQ(rct::scalarmult8(rct::H), rct::scalarmultKey(rct::H, rct::EIGHT));
+  ASSERT_EQ(rct::scalarmultKey(rct::scalarmultKey(rct::H, rct::INV_EIGHT), rct::EIGHT), rct::H);
+}
+
 TEST(ringct, aggregated)
 {
   static const size_t N_PROOFS = 16;
