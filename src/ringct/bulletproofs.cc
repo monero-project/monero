@@ -1029,6 +1029,8 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   rct::key Z2 = rct::identity();
   rct::key z3 = rct::zero();
   rct::keyV z4(maxMN, rct::zero()), z5(maxMN, rct::zero());
+  rct::key Y2 = rct::identity(), Y3 = rct::identity(), Y4 = rct::identity();
+  rct::key y0 = rct::zero(), y1 = rct::zero();
   for (const Bulletproof *p: proofs)
   {
     const Bulletproof &proof = *p;
@@ -1054,8 +1056,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
     PERF_TIMER_START_BP(VERIFY_line_61);
     // PAPER LINE 61
-    rct::key L61Left, L61Right;
-    rct::addKeys2(L61Left, proof.taux, proof.t, rct::H);
+    sc_muladd(y0.bytes, proof.taux.bytes, weight.bytes, y0.bytes);
 
     const rct::keyV zpow = vector_powers(z, M+3);
 
@@ -1069,64 +1070,26 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     }
     PERF_TIMER_STOP(VERIFY_line_61);
 
-    // bos coster is slower for small numbers of calcs, straus seems not
-    if (1)
+    PERF_TIMER_START_BP(VERIFY_line_61rl_new);
+    sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
+    std::vector<MultiexpData> multiexp_data;
+    multiexp_data.reserve(proof.V.size());
+    sc_sub(tmp.bytes, proof.t.bytes, tmp.bytes);
+    sc_muladd(y1.bytes, tmp.bytes, weight.bytes, y1.bytes);
+    for (size_t j = 0; j < proof.V.size(); j++)
     {
-      PERF_TIMER_START_BP(VERIFY_line_61rl_new);
-      sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
-      std::vector<MultiexpData> multiexp_data;
-      multiexp_data.reserve(3+proof.V.size());
-      multiexp_data.emplace_back(tmp, ge_p3_H);
-      for (size_t j = 0; j < proof.V.size(); j++)
-      {
-        multiexp_data.emplace_back(zpow[j+2], proof.V[j]);
-      }
-      multiexp_data.emplace_back(x, proof.T1);
-      rct::key xsq;
-      sc_mul(xsq.bytes, x.bytes, x.bytes);
-      multiexp_data.emplace_back(xsq, proof.T2);
-      L61Right = multiexp(multiexp_data, false);
-      PERF_TIMER_STOP(VERIFY_line_61rl_new);
+      multiexp_data.emplace_back(zpow[j+2], proof.V[j]);
     }
-    else
-    {
-      PERF_TIMER_START_BP(VERIFY_line_61rl_old);
-      sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
-      L61Right = rct::scalarmultH(tmp);
-      ge_p3 L61Right_p3;
-      CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&L61Right_p3, L61Right.bytes) == 0, "ge_frombytes_vartime failed");
-      for (size_t j = 0; j+1 < proof.V.size(); j += 2)
-      {
-        CHECK_AND_ASSERT_MES(j+2+1 < zpow.size(), false, "invalid zpow index");
-        ge_dsmp precomp0, precomp1;
-        rct::precomp(precomp0, j < proof.V.size() ? proof.V[j] : rct::identity());
-        rct::precomp(precomp1, j+1 < proof.V.size() ? proof.V[j+1] : rct::identity());
-        rct::addKeys3acc_p3(&L61Right_p3, zpow[j+2], precomp0, zpow[j+2+1], precomp1);
-      }
-      for (size_t j = proof.V.size() & 0xfffffffe; j < M; j++)
-      {
-        CHECK_AND_ASSERT_MES(j+2 < zpow.size(), false, "invalid zpow index");
-        // faster equivalent to:
-        // tmp = rct::scalarmultKey(j < proof.V.size() ? proof.V[j] : rct::identity(), zpow[j+2]);
-        // rct::addKeys(L61Right, L61Right, tmp);
-        if (j < proof.V.size())
-          addKeys_acc_p3(&L61Right_p3, zpow[j+2], proof.V[j]);
-      }
+    rct::key temp = multiexp(multiexp_data, false);
 
-      addKeys_acc_p3(&L61Right_p3, x, proof.T1);
-
-      rct::key xsq;
-      sc_mul(xsq.bytes, x.bytes, x.bytes);
-      addKeys_acc_p3(&L61Right_p3, xsq, proof.T2);
-      ge_p3_tobytes(L61Right.bytes, &L61Right_p3);
-      PERF_TIMER_STOP(VERIFY_line_61rl_old);
-    }
-
-    if (!(L61Right == L61Left))
-    {
-      MERROR("Verification failure at step 1");
-      return false;
-    }
+    rct::addKeys(Y2, Y2, rct::scalarmultKey(temp, weight));
+    sc_mul(tmp.bytes, x.bytes, weight.bytes);
+    rct::addKeys(Y3, Y3, rct::scalarmultKey(proof.T1, tmp));
+    rct::key xsq;
+    sc_mul(xsq.bytes, x.bytes, x.bytes);
+    sc_mul(tmp.bytes, xsq.bytes, weight.bytes);
+    rct::addKeys(Y4, Y4, rct::scalarmultKey(proof.T2, tmp));
+    PERF_TIMER_STOP(VERIFY_line_61rl_new);
 
     PERF_TIMER_START_BP(VERIFY_line_62);
     // PAPER LINE 62
@@ -1206,7 +1169,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
     // PAPER LINE 26
     PERF_TIMER_START_BP(VERIFY_line_26_new);
-    std::vector<MultiexpData> multiexp_data;
+    multiexp_data.clear();
     multiexp_data.reserve(2*rounds);
 
     sc_muladd(z1.bytes, proof.mu.bytes, weight.bytes, z1.bytes);
@@ -1227,11 +1190,23 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
   // now check all proofs at once
   PERF_TIMER_START_BP(VERIFY_step2_check);
-  rct::key Y = Z0;
+  rct::key check1 = rct::identity();
+  rct::addKeys(check1, check1, rct::scalarmultBase(y0));
+  rct::addKeys(check1, check1, rct::scalarmultH(y1));
+  rct::subKeys(check1, check1, Y2);
+  rct::subKeys(check1, check1, Y3);
+  rct::subKeys(check1, check1, Y4);
+  if (!(check1 == rct::identity()))
+  {
+    MERROR("Verification failure at step 1");
+    return false;
+  }
+  rct::key check2 = rct::identity();
+  rct::addKeys(check2, check2, Z0);
   sc_sub(tmp.bytes, rct::zero().bytes, z1.bytes);
-  rct::addKeys(Y, Y, rct::scalarmultBase(tmp));
-  rct::addKeys(Y, Y, Z2);
-  rct::addKeys(Y, Y, rct::scalarmultH(z3));
+  rct::addKeys(check2, check2, rct::scalarmultBase(tmp));
+  rct::addKeys(check2, check2, Z2);
+  rct::addKeys(check2, check2, rct::scalarmultH(z3));
 
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(2 * maxMN);
@@ -1242,10 +1217,10 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     sc_sub(tmp.bytes, rct::zero().bytes, z5[i].bytes);
     multiexp_data.emplace_back(tmp, Hi_p3[i]);
   }
-  rct::addKeys(Y, Y, multiexp(multiexp_data, true));
+  rct::addKeys(check2, check2, multiexp(multiexp_data, true));
   PERF_TIMER_STOP(VERIFY_step2_check);
 
-  if (!(Y == rct::identity()))
+  if (!(check2 == rct::identity()))
   {
     MERROR("Verification failure at step 2");
     return false;
