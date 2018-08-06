@@ -74,9 +74,12 @@ namespace service_nodes
 
     struct service_node_info
     {
-      struct contribution {
+      struct contribution
+      {
         uint64_t amount;
-        cryptonote::account_public_address address;
+        uint64_t reserved;
+        uint8_t order;
+        contribution() : amount(0), reserved(0), order(0) { }
       };
 
       // block_height and transaction_index are to record when the service node
@@ -88,16 +91,19 @@ namespace service_nodes
 
       uint64_t last_reward_block_height;
       uint32_t last_reward_transaction_index;
-      std::vector<cryptonote::account_public_address> addresses;
-      std::vector<uint32_t> portions;
-      std::vector<contribution> contributions;
-      uint64_t total_contributions;
+
+      std::unordered_map<cryptonote::account_public_address, contribution> contributors;
+      uint64_t total_contributed;
+      uint64_t total_reserved;
       uint64_t staking_requirement;
 
-      bool is_fully_funded() const { return total_contributions >= staking_requirement; }
+      bool is_fully_funded() const { return total_contributed >= staking_requirement; }
+      // the minimum contribution to start a new contributor
+      uint64_t get_min_contribution() const { return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS); }
     };
 
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
+    bool get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const;
 
     void process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
     void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
@@ -111,8 +117,6 @@ namespace service_nodes
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
     bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
     uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
-
-    uint64_t get_min_contribution(uint64_t height) const;
 
     crypto::public_key find_service_node_from_miner_tx(const cryptonote::transaction& miner_tx, uint64_t block_height) const;
 

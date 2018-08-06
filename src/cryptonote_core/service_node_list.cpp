@@ -269,11 +269,19 @@ namespace service_nodes
 
     assert(service_node_portions.size() == service_node_addresses.size());
 
+    // check the portions
+
     uint64_t total = 0;
     for (size_t i = 0; i < service_node_portions.size(); i++)
+    {
+      if (service_node_portions[i] < MIN_PORTIONS)
+        return false;
       total += service_node_portions[i];
+    }
     if (total > STAKING_PORTIONS)
       return false;
+
+    // check the signature is all good
 
     crypto::hash hash;
     if (!get_registration_hash(service_node_addresses, service_node_portions, expiration_timestamp, hash))
@@ -283,17 +291,44 @@ namespace service_nodes
     if (expiration_timestamp < block_timestamp)
       return false;
 
-    if (service_node_addresses.size() > MAX_NUMBER_OF_CONTRIBUTORS)
+    // check the initial contribution exists
+
+    info.staking_requirement = m_blockchain.get_staking_requirement(block_height);
+
+    cryptonote::account_public_address address;
+    uint64_t transferred = 0;
+    if (!get_contribution(tx, block_height, address, transferred))
       return false;
+    if (transferred < info.staking_requirement)
+      return false;
+    int is_this_a_new_address = 0;
+    if (std::find(service_node_addresses.begin(), service_node_addresses.end(), address) == service_node_addresses.end())
+      is_this_a_new_address = 1;
+    if (service_node_addresses.size() + is_this_a_new_address > MAX_NUMBER_OF_CONTRIBUTORS)
+      return false;
+
+    // don't actually process this contribution now, do it when we fall through later.
 
     key = service_node_key;
 
     info.last_reward_block_height = block_height;
     info.last_reward_transaction_index = index;
-    info.addresses = service_node_addresses;
-    info.portions = service_node_portions;
-    info.total_contributions = 0;
-    info.staking_requirement = m_blockchain.get_staking_requirement(block_height);
+    info.total_contributed = 0;
+    info.total_reserved = 0;
+    info.contributors.clear();
+
+    for (size_t i = 0; i < service_node_addresses.size(); i++)
+    {
+      if (info.contributors.count(service_node_addresses[i]))
+        return false;
+      auto& contributor = info.contributors[service_node_addresses[i]];
+      contributor.order = (uint8_t)i;
+      uint64_t hi, lo, resulthi, resultlo;
+      lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
+      div128_32(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+      contributor.reserved = resultlo;
+      contributor.amount = 0;
+    }
 
     return true;
   }
@@ -315,45 +350,80 @@ namespace service_nodes
     m_service_nodes_infos[key] = info;
   }
 
+  bool service_node_list::get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const
+  {
+    crypto::secret_key tx_key;
+
+    if (!cryptonote::get_service_node_contributor_from_tx_extra(tx.extra, address))
+      return false;
+    if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, tx_key))
+      return false;
+
+    crypto::key_derivation derivation;
+    if (!crypto::generate_key_derivation(address.m_view_public_key, tx_key, derivation))
+      return false;
+
+    hw::device& hwdev = hw::get_device("default");
+
+    transferred = 0;
+    for (size_t i = 0; i < tx.vout.size(); i++)
+      if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
+        transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
+
+    return true;
+  }
+
   void service_node_list::process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index)
   {
-    // TODO: move unlock time check from here to below, when unlock time is done per output.
     crypto::public_key pubkey;
     cryptonote::account_public_address address;
-    crypto::secret_key gov_key;
+    uint64_t transferred;
 
     if (!cryptonote::get_service_node_pubkey_from_tx_extra(tx.extra, pubkey))
       return;
-    if (!cryptonote::get_service_node_contributor_from_tx_extra(tx.extra, address))
-      return;
-    if (!cryptonote::get_tx_secret_key_from_tx_extra(tx.extra, gov_key))
+    if (!get_contribution(tx, block_height, address, transferred))
       return;
 
     auto iter = m_service_nodes_infos.find(pubkey);
     if (iter == m_service_nodes_infos.end())
       return;
 
-    if (iter->second.is_fully_funded())
+    service_node_info& info = iter->second;
+
+    if (info.is_fully_funded())
       return;
 
-    crypto::key_derivation derivation;
-    if (!crypto::generate_key_derivation(address.m_view_public_key, gov_key, derivation))
+    auto& contributors = info.contributors;
+
+    // Only create a new contributor if they stake at least a quarter
+    // and if we don't already have the maximum
+    if (contributors.count(address) == 0 &&
+      (contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS ||
+       transferred < info.get_min_contribution()))
       return;
 
-    hw::device& hwdev = hw::get_device("default");
+    m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, info)));
 
-    uint64_t transferred = 0;
-    for (size_t i = 0; i < tx.vout.size(); i++)
-      if (contribution_tx_output_has_correct_unlock_time(tx, i, block_height))
-        transferred += get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
+    const uint8_t order = (uint8_t)contributors.size();
+    if (contributors.count(address) == 0)
+      contributors[address].order = order;
 
-    if (transferred < get_min_contribution(iter->second.staking_requirement))
-      return;
+    service_node_info::contribution& contributor = contributors[address];
 
-    m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, iter->second)));
+    // In this action, we cannot
+    // increase total_reserved so much that it is >= staking_requirement
+    uint64_t can_increase_reserved_by = info.staking_requirement - info.total_reserved;
+    uint64_t max_amount = contributor.reserved + can_increase_reserved_by;
+    transferred = std::min(max_amount - contributor.amount, transferred);
 
-    iter->second.contributions.push_back(service_node_info::contribution{ transferred, address });
-    iter->second.total_contributions += transferred;
+    contributor.amount += transferred;
+    info.total_contributed += transferred;
+
+    if (contributor.amount > contributor.reserved)
+    {
+      info.total_reserved += contributor.amount - contributor.reserved;
+      contributor.reserved = contributor.amount;
+    }
 
     iter->second.last_reward_block_height = block_height;
     iter->second.last_reward_transaction_index = index;
@@ -497,18 +567,17 @@ namespace service_nodes
     return expired_nodes;
   }
 
-  uint64_t service_node_list::get_min_contribution(uint64_t staking_requirement) const
-  {
-    return staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS;
-  }
-
   std::vector<std::pair<cryptonote::account_public_address, uint32_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id) const
   {
     crypto::public_key key = select_winner(prev_id);
     if (key == crypto::null_pkey)
       return { std::make_pair(null_address, STAKING_PORTIONS) };
+
     std::vector<std::pair<cryptonote::account_public_address, uint32_t>> winners;
     uint64_t remaining_portions = STAKING_PORTIONS;
+
+    /*
+     * TODO Process the fee for the service node here.
     auto add_to_winners = [&winners](cryptonote::account_public_address address, uint64_t amount_of_portions) {
       if (amount_of_portions == 0) return;
       auto iter = std::find_if(std::begin(winners), std::end(winners),
@@ -525,17 +594,26 @@ namespace service_nodes
       add_to_winners(m_service_nodes_infos.at(key).addresses[i], m_service_nodes_infos.at(key).portions[i]);
       remaining_portions -= m_service_nodes_infos.at(key).portions[i];
     }
-    uint64_t remaining_staking_requirement = m_service_nodes_infos.at(key).staking_requirement;
-    for (const auto& contribution : m_service_nodes_infos.at(key).contributions)
+    */
+
+    // sort contributors in order of the "order" field
+    const service_node_info& info = m_service_nodes_infos.at(key);
+    std::vector<cryptonote::account_public_address> addresses;
+    for (const auto& iter : info.contributors)
+      addresses.push_back(iter.first);
+    std::sort(addresses.begin(), addresses.end(),
+        [&info](const cryptonote::account_public_address& a, const cryptonote::account_public_address& b) {
+          return info.contributors.at(a).order < info.contributors.at(b).order;
+        });
+
+    // Add contributors and their portions to winners.
+    for (const auto& address : addresses)
     {
-      uint64_t actual_contribution = std::min(remaining_staking_requirement, contribution.amount);
-      remaining_staking_requirement -= actual_contribution;
-
       uint64_t hi, lo, resulthi, resultlo;
-      lo = mul128(actual_contribution, remaining_portions, &hi);
-      div128_64(hi, lo, m_service_nodes_infos.at(key).staking_requirement, &resulthi, &resultlo);
+      lo = mul128(info.contributors.at(address).amount, remaining_portions, &hi);
+      div128_64(hi, lo, info.staking_requirement, &resulthi, &resultlo);
 
-      add_to_winners(contribution.address, resultlo);
+      winners.push_back(std::make_pair(address, resultlo));
     }
     return winners;
   }
@@ -765,9 +843,9 @@ namespace service_nodes
       try
       {
         double portion_fraction = boost::lexical_cast<double>(args[i+1]);
-        if (portion_fraction <= 0 || portion_fraction > 1)
+        if (portion_fraction < 0.25 || portion_fraction > 1)
         {
-          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be more than 0 and no greater than 1"));
+          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least 0.25 and no more than 1"));
           return false;
         }
         uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
@@ -776,7 +854,7 @@ namespace service_nodes
       }
       catch (const std::exception &e)
       {
-        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be more than 0 and no greater than 1"));
+        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least 0.25 and no more than 1"));
         return false;
       }
     }
