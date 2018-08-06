@@ -768,7 +768,7 @@ namespace rct {
                 #endif
                 for (i = 0; i < outamounts.size(); ++i)
                 {
-                    rv.outPk[i].mask = C[i];
+                    rv.outPk[i].mask = rct::scalarmultKey(C[i], EIGHT);
                     outSk[i].mask = masks[i];
                 }
             }
@@ -788,7 +788,7 @@ namespace rct {
             #endif
                 for (i = 0; i < batch_size; ++i)
                 {
-                  rv.outPk[i + amounts_proved].mask = C[i];
+                  rv.outPk[i + amounts_proved].mask = rct::scalarmultKey(C[i], EIGHT);
                   outSk[i + amounts_proved].mask = masks[i];
                 }
                 amounts_proved += batch_size;

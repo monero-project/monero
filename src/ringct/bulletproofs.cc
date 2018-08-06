@@ -67,6 +67,8 @@ static ge_p3 Hi_p3[maxN*maxM], Gi_p3[maxN*maxM];
 static std::shared_ptr<straus_cached_data> straus_HiGi_cache;
 static std::shared_ptr<pippenger_cached_data> pippenger_HiGi_cache;
 static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
+static const rct::key MINUS_ONE = { { 0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 } };
+static const rct::key MINUS_INV_EIGHT = { { 0x74, 0xa4, 0x19, 0x7a, 0xf0, 0x7d, 0x0b, 0xf7, 0x05, 0xc2, 0xda, 0x25, 0x2b, 0x5c, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a } };
 static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
@@ -440,6 +442,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   PERF_TIMER_START_BP(PROVE_v);
   rct::addKeys2(V, gamma, sv, rct::H);
+  V = rct::scalarmultKey(V, INV_EIGHT);
   PERF_TIMER_STOP(PROVE_v);
 
   PERF_TIMER_START_BP(PROVE_aLaR);
@@ -482,6 +485,7 @@ try_again:
   rct::key ve = vector_exponent(aL, aR);
   rct::key A;
   rct::addKeys(A, ve, rct::scalarmultBase(alpha));
+  A = rct::scalarmultKey(A, INV_EIGHT);
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(N), sR = rct::skvGen(N);
@@ -489,6 +493,7 @@ try_again:
   ve = vector_exponent(sL, sR);
   rct::key S;
   rct::addKeys(S, ve, rct::scalarmultBase(rho));
+  S = rct::scalarmultKey(S, INV_EIGHT);
 
   // PAPER LINES 43-45
   rct::key y = hash_cache_mash(hash_cache, A, S);
@@ -563,7 +568,9 @@ try_again:
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
   rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  T1 = rct::scalarmultKey(T1, INV_EIGHT);
   rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
+  T2 = rct::scalarmultKey(T2, INV_EIGHT);
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -640,9 +647,11 @@ try_again:
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
     rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
+    L[round] = rct::scalarmultKey(L[round], INV_EIGHT);
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
     rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
+    R[round] = rct::scalarmultKey(R[round], INV_EIGHT);
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
@@ -715,7 +724,10 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   PERF_TIMER_START_BP(PROVE_v);
   for (size_t i = 0; i < sv.size(); ++i)
+  {
     rct::addKeys2(V[i], gamma[i], sv[i], rct::H);
+    V[i] = rct::scalarmultKey(V[i], INV_EIGHT);
+  }
   PERF_TIMER_STOP(PROVE_v);
 
   PERF_TIMER_START_BP(PROVE_aLaR);
@@ -769,6 +781,7 @@ try_again:
   rct::key ve = vector_exponent(aL, aR);
   rct::key A;
   rct::addKeys(A, ve, rct::scalarmultBase(alpha));
+  A = rct::scalarmultKey(A, INV_EIGHT);
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(MN), sR = rct::skvGen(MN);
@@ -776,6 +789,7 @@ try_again:
   ve = vector_exponent(sL, sR);
   rct::key S;
   rct::addKeys(S, ve, rct::scalarmultBase(rho));
+  S = rct::scalarmultKey(S, INV_EIGHT);
 
   // PAPER LINES 43-45
   rct::key y = hash_cache_mash(hash_cache, A, S);
@@ -835,7 +849,9 @@ try_again:
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
   rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  T1 = rct::scalarmultKey(T1, INV_EIGHT);
   rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
+  T2 = rct::scalarmultKey(T2, INV_EIGHT);
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -925,9 +941,11 @@ try_again:
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
     rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
+    L[round] = rct::scalarmultKey(L[round], INV_EIGHT);
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
     rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
+    R[round] = rct::scalarmultKey(R[round], INV_EIGHT);
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
@@ -990,18 +1008,6 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   for (const Bulletproof *p: proofs)
   {
     const Bulletproof &proof = *p;
-
-    // check subgroup
-    for (const rct::key &k: proof.V)
-      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
-    for (const rct::key &k: proof.L)
-      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
-    for (const rct::key &k: proof.R)
-      CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(k), false, "Input point not in subgroup");
-    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.A), false, "Input point not in subgroup");
-    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.S), false, "Input point not in subgroup");
-    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T1), false, "Input point not in subgroup");
-    CHECK_AND_ASSERT_MES(rct::isInMainSubgroup(proof.T2), false, "Input point not in subgroup");
 
     // check scalar range
     CHECK_AND_ASSERT_MES(is_reduced(proof.taux), false, "Input scalar not in range");
@@ -1078,22 +1084,26 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     sc_muladd(y1.bytes, tmp.bytes, weight.bytes, y1.bytes);
     for (size_t j = 0; j < proof.V.size(); j++)
     {
-      multiexp_data.emplace_back(zpow[j+2], proof.V[j]);
+      sc_mul(tmp.bytes, zpow[j+2].bytes, EIGHT.bytes);
+      multiexp_data.emplace_back(tmp, proof.V[j]);
     }
     rct::key temp = multiexp(multiexp_data, false);
 
     rct::addKeys(Y2, Y2, rct::scalarmultKey(temp, weight));
-    sc_mul(tmp.bytes, x.bytes, weight.bytes);
+    rct::key weight8;
+    sc_mul(weight8.bytes, weight.bytes, EIGHT.bytes);
+    sc_mul(tmp.bytes, x.bytes, weight8.bytes);
     rct::addKeys(Y3, Y3, rct::scalarmultKey(proof.T1, tmp));
     rct::key xsq;
     sc_mul(xsq.bytes, x.bytes, x.bytes);
-    sc_mul(tmp.bytes, xsq.bytes, weight.bytes);
+    sc_mul(tmp.bytes, xsq.bytes, weight8.bytes);
     rct::addKeys(Y4, Y4, rct::scalarmultKey(proof.T2, tmp));
     PERF_TIMER_STOP(VERIFY_line_61rl_new);
 
     PERF_TIMER_START_BP(VERIFY_line_62);
     // PAPER LINE 62
-    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(proof.A, rct::scalarmultKey(proof.S, x)), weight));
+    sc_mul(tmp.bytes, x.bytes, EIGHT.bytes);
+    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmultKey(proof.A, EIGHT), rct::scalarmultKey(proof.S, tmp)), weight));
     PERF_TIMER_STOP(VERIFY_line_62);
 
     // Compute the number of rounds for the inner product
@@ -1176,8 +1186,10 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     for (size_t i = 0; i < rounds; ++i)
     {
       sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
+      sc_mul(tmp.bytes, tmp.bytes, EIGHT.bytes);
       multiexp_data.emplace_back(tmp, proof.L[i]);
       sc_mul(tmp.bytes, winv[i].bytes, winv[i].bytes);
+      sc_mul(tmp.bytes, tmp.bytes, EIGHT.bytes);
       multiexp_data.emplace_back(tmp, proof.R[i]);
     }
     rct::key acc = multiexp(multiexp_data, false);
