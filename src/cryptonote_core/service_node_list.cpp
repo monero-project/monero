@@ -820,9 +820,9 @@ namespace service_nodes
       try
       {
         double portion_fraction = boost::lexical_cast<double>(args[i+1]);
-        if (portion_fraction < 0.25 || portion_fraction > 1)
+        if (portion_fraction < 1.0 / MAX_NUMBER_OF_CONTRIBUTORS || portion_fraction > 1)
         {
-          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least 0.25 and no more than 1"));
+          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
           return false;
         }
         uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
@@ -831,7 +831,7 @@ namespace service_nodes
       }
       catch (const std::exception &e)
       {
-        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least 0.25 and no more than 1"));
+        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
         return false;
       }
     }
