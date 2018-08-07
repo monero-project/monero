@@ -321,7 +321,7 @@ namespace service_nodes
     {
       // Check for duplicates
       auto iter = std::find(service_node_addresses.begin(), service_node_addresses.begin() + i, service_node_addresses[i]);
-      if (iter != service_node_addresses.end())
+      if (iter != service_node_addresses.begin() + i)
         return false;
       uint64_t hi, lo, resulthi, resultlo;
       lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
