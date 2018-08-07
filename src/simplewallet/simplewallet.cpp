@@ -4795,7 +4795,14 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   LOCK_IDLE_SCOPE();
 
-  cryptonote::account_public_address address = m_wallet->get_address();
+  cryptonote::account_public_address address = addresses[0];
+
+  if (!m_wallet->contains_address(address))
+  {
+    fail_msg_writer() << tr("The first reserved address for this registration does not belong to this wallet.");
+    fail_msg_writer() << tr("Service node operator must specify an address owned by this wallet for service node registration.");
+    return true;
+  }
 
   add_service_node_contributor_to_tx_extra(extra, address);
 
@@ -4990,6 +4997,12 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   }
 
   cryptonote::account_public_address address = info.address;
+
+  if (!m_wallet->contains_address(address))
+  {
+    fail_msg_writer() << tr("The specified address is not owned by this wallet.");
+    return true;
+  }
 
   add_service_node_contributor_to_tx_extra(extra, address);
 
