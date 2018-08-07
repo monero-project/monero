@@ -1138,41 +1138,60 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
       winv[i] = invert(w[i]);
     PERF_TIMER_STOP(VERIFY_line_24_25_invert);
 
+    // precalc
+    PERF_TIMER_START_BP(VERIFY_line_24_25_precalc);
+    rct::keyV w_cache(1<<rounds);
+    w_cache[0] = winv[0];
+    w_cache[1] = w[0];
+    for (size_t j = 1; j < rounds; ++j)
+    {
+      const size_t slots = 1<<(j+1);
+      for (size_t s = slots; s-- > 0; --s)
+      {
+        sc_mul(w_cache[s].bytes, w_cache[s/2].bytes, w[j].bytes);
+        sc_mul(w_cache[s-1].bytes, w_cache[s/2].bytes, winv[j].bytes);
+      }
+    }
+    PERF_TIMER_STOP(VERIFY_line_24_25_precalc);
+
     for (size_t i = 0; i < MN; ++i)
     {
-      // Convert the index to binary IN REVERSE and construct the scalar exponent
       rct::key g_scalar = proof.a;
       rct::key h_scalar;
-      sc_mul(h_scalar.bytes, proof.b.bytes, yinvpow.bytes);
+      if (i == 0)
+        h_scalar = proof.b;
+      else
+        sc_mul(h_scalar.bytes, proof.b.bytes, yinvpow.bytes);
 
-      for (size_t j = rounds; j-- > 0; )
-      {
-        size_t J = w.size() - j - 1;
-
-        if ((i & (((size_t)1)<<j)) == 0)
-        {
-          sc_mul(g_scalar.bytes, g_scalar.bytes, winv[J].bytes);
-          sc_mul(h_scalar.bytes, h_scalar.bytes, w[J].bytes);
-        }
-        else
-        {
-          sc_mul(g_scalar.bytes, g_scalar.bytes, w[J].bytes);
-          sc_mul(h_scalar.bytes, h_scalar.bytes, winv[J].bytes);
-        }
-      }
+      // Convert the index to binary IN REVERSE and construct the scalar exponent
+      sc_mul(g_scalar.bytes, g_scalar.bytes, w_cache[i].bytes);
+      sc_mul(h_scalar.bytes, h_scalar.bytes, w_cache[(~i) & (MN-1)].bytes);
 
       // Adjust the scalars using the exponents from PAPER LINE 62
       sc_add(g_scalar.bytes, g_scalar.bytes, z.bytes);
       CHECK_AND_ASSERT_MES(2+i/N < zpow.size(), false, "invalid zpow index");
       CHECK_AND_ASSERT_MES(i%N < twoN.size(), false, "invalid twoN index");
       sc_mul(tmp.bytes, zpow[2+i/N].bytes, twoN[i%N].bytes);
-      sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
-      sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
+      if (i == 0)
+      {
+        sc_add(tmp.bytes, tmp.bytes, z.bytes);
+        sc_sub(h_scalar.bytes, h_scalar.bytes, tmp.bytes);
+      }
+      else
+      {
+        sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
+        sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
+      }
 
       sc_muladd(z4[i].bytes, g_scalar.bytes, weight.bytes, z4[i].bytes);
       sc_muladd(z5[i].bytes, h_scalar.bytes, weight.bytes, z5[i].bytes);
 
-      if (i != MN-1)
+      if (i == 0)
+      {
+        yinvpow = yinv;
+        ypow = y;
+      }
+      else if (i != MN-1)
       {
         sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
         sc_mul(ypow.bytes, ypow.bytes, y.bytes);
