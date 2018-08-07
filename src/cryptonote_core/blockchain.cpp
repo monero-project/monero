@@ -96,6 +96,7 @@ static const struct {
   // version 7 from the start of the blockchain, inhereted from Monero mainnet
   { 7, 1, 0, 1503046577 },
   { 8, 64324, 0, 1533006000 },
+  { 9, 101250, 0, 1537444800 },
 };
 
 static const struct {
@@ -105,8 +106,9 @@ static const struct {
   time_t time;
 } testnet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { 7, 1, 0, 1512211236 },
-  { 8, 54867, 0, 1532328024 },
+  { 7, 1, 0, 1533631121 },
+  { 8, 2, 0, 1533631122 },
+  { 9, 3, 0, 1533631123 },
 };
 
 static const struct {
@@ -118,6 +120,7 @@ static const struct {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
   { 7, 1, 0, 1341378000 },
   { 8, 64324, 0, 1533006000 },
+  { 9, 96210, 0, 1536840000 },
 };
 
 //------------------------------------------------------------------
