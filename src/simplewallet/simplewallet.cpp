@@ -4953,7 +4953,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   if (local_args.size() < 2)
   {
-    fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <amount>");
+    fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <address> <amount>");
     return true;
   }
 
@@ -4965,9 +4965,9 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   }
 
   uint64_t amount;
-  if (!cryptonote::parse_amount(amount, local_args[1]) || amount == 0)
+  if (!cryptonote::parse_amount(amount, local_args[2]) || amount == 0)
   {
-    fail_msg_writer() << tr("amount is wrong: ") << local_args[1] <<
+    fail_msg_writer() << tr("amount is wrong: ") << local_args[2] <<
       ", " << tr("expected number from ") << print_money(1) << " to " << print_money(std::numeric_limits<uint64_t>::max());
     return true;
   }
@@ -4976,7 +4976,20 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
-  cryptonote::account_public_address address = m_wallet->get_address();
+  cryptonote::address_parse_info info;
+  if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[1], oa_prompter))
+  {
+    fail_msg_writer() << tr("failed to parse address");
+    return true;
+  }
+
+  if (info.has_payment_id)
+  {
+    fail_msg_writer() << tr("Do not use payment ids for staking");
+    return true;
+  }
+
+  cryptonote::account_public_address address = info.address;
 
   add_service_node_contributor_to_tx_extra(extra, address);
 
