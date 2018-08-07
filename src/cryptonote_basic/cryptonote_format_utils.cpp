@@ -552,6 +552,7 @@ namespace cryptonote
   bool add_service_node_register_to_tx_extra(
       std::vector<uint8_t>& tx_extra,
       const std::vector<cryptonote::account_public_address>& addresses,
+      uint32_t portions_for_operator,
       const std::vector<uint32_t>& portions,
       uint64_t expiration_timestamp,
       const crypto::signature& service_node_signature)
@@ -573,6 +574,7 @@ namespace cryptonote
       tx_extra_service_node_register{
         public_spend_keys,
         public_view_keys,
+        portions_for_operator,
         portions,
         expiration_timestamp,
         service_node_signature
@@ -1039,7 +1041,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, const std::vector<uint32_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash)
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint32_t operator_portions, const std::vector<uint32_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash)
   {
     if (addresses.size() != portions.size())
     {
@@ -1054,9 +1056,11 @@ namespace cryptonote
       LOG_ERROR(tr("Your registration has more than ") << STAKING_PORTIONS << tr(" portions, this registration is invalid!"));
       return false;
     }
-    size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint32_t)) + sizeof(uint64_t);
+    size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint32_t)) + sizeof(uint32_t) + sizeof(uint64_t);
     char* buffer = new char[size];
     char* buffer_iter = buffer;
+    memcpy(buffer_iter, &operator_portions, sizeof(operator_portions));
+    buffer_iter += sizeof(operator_portions);
     for (size_t i = 0; i < addresses.size(); i++)
     {
       memcpy(buffer_iter, &addresses[i], sizeof(cryptonote::account_public_address));

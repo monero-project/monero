@@ -4726,11 +4726,11 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   if (local_args.size() < 4)
   {
-    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [<address1> <fraction1> [<address2> <fraction2> [...]]] <amount> <expiration timestamp> <service node pubkey> <signature>");
+    fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <amount> <expiration timestamp> <service node pubkey> <signature>");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("Prepare this command with the service node using:");
     fail_msg_writer() << tr("");
-    fail_msg_writer() << tr("./lokid --prepare-registration [<address> <fraction> [<address2> <fraction2> [...]]] <initial contribution amount>");
+    fail_msg_writer() << tr("./lokid --prepare-registration <operator cut> <address> <fraction> [<address2> <fraction2> [...]] <initial contribution amount>");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("This command must be run from the daemon that will be acting as a service node");
     return true;
@@ -4739,8 +4739,9 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   std::vector<std::string> address_portions_args(local_args.begin(), local_args.begin() + local_args.size() - 3);
   std::vector<cryptonote::account_public_address> addresses;
   std::vector<uint32_t> portions;
+  uint32_t portions_for_operator;
   uint64_t amount;
-  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, amount))
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, amount))
   {
     fail_msg_writer() << tr("Could not convert registration args");
     return true;
@@ -4786,7 +4787,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
-  if (!add_service_node_register_to_tx_extra(extra, addresses, portions, expiration_timestamp, signature))
+  if (!add_service_node_register_to_tx_extra(extra, addresses, portions_for_operator, portions, expiration_timestamp, signature))
   {
     fail_msg_writer() << tr("failed to serialize service node registration tx extra");
     return true;

@@ -97,6 +97,8 @@ namespace service_nodes
       uint64_t total_contributed;
       uint64_t total_reserved;
       uint64_t staking_requirement;
+      uint32_t portions_for_operator;
+      cryptonote::account_public_address operator_address;
 
       bool is_fully_funded() const { return total_contributed >= staking_requirement; }
       // the minimum contribution to start a new contributor
@@ -116,7 +118,7 @@ namespace service_nodes
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
-    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
+    bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint32_t& portions_for_operator, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const;
     uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
 
     crypto::public_key find_service_node_from_miner_tx(const cryptonote::transaction& miner_tx, uint64_t block_height) const;
@@ -167,7 +169,7 @@ namespace service_nodes
     std::map<block_height, std::shared_ptr<quorum_state>> m_quorum_states;
   };
 
-  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint64_t& initial_contribution);
+  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint32_t& portions_for_operator, uint64_t& initial_contribution);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
 
