@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  double cumulative_depth = 0.0;
+  std::vector<uint64_t> depths;
   for (const crypto::hash &start_txid: start_txids)
   {
     uint64_t depth = 0;
@@ -335,10 +335,14 @@ int main(int argc, char* argv[])
     }
 done:
     LOG_PRINT_L0("Min depth for txid " << start_txid << ": " << depth);
-    cumulative_depth += depth;
+    depths.push_back(depth);
   }
 
-  LOG_PRINT_L0("Average min depth for " << start_txids.size() << " transaction(s): " << cumulative_depth/start_txids.size());
+  uint64_t cumulative_depth = 0;
+  for (uint64_t depth: depths)
+    cumulative_depth += depth;
+  LOG_PRINT_L0("Average min depth for " << start_txids.size() << " transaction(s): " << cumulative_depth/(float)depths.size());
+  LOG_PRINT_L0("Median min depth for " << start_txids.size() << " transaction(s): " << epee::misc_utils::median(depths));
 
   core_storage->deinit();
   return 0;
