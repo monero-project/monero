@@ -423,6 +423,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   rct::key V;
   rct::keyV aL(N), aR(N);
+  rct::keyV aL8(N), aR8(N);
   rct::key tmp, tmp2;
 
   PERF_TIMER_START_BP(PROVE_v);
@@ -438,12 +439,15 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
     if (sv[i/8] & (((uint64_t)1)<<(i%8)))
     {
       aL[i] = rct::identity();
+      aL8[i] = INV_EIGHT;
+      aR[i] = aR8[i] = rct::zero();
     }
     else
     {
-      aL[i] = rct::zero();
+      aL[i] = aL8[i] = rct::zero();
+      aR[i] = MINUS_ONE;
+      aR8[i] = MINUS_INV_EIGHT;
     }
-    sc_sub(aR[i].bytes, aL[i].bytes, rct::identity().bytes);
   }
   PERF_TIMER_STOP(PROVE_aLaR);
 
@@ -469,10 +473,10 @@ try_again:
   PERF_TIMER_START_BP(PROVE_step1);
   // PAPER LINES 38-39
   rct::key alpha = rct::skGen();
-  rct::key ve = vector_exponent(aL, aR);
+  rct::key ve = vector_exponent(aL8, aR8);
   rct::key A;
-  rct::addKeys(A, ve, rct::scalarmultBase(alpha));
-  A = rct::scalarmultKey(A, INV_EIGHT);
+  sc_mul(tmp.bytes, alpha.bytes, INV_EIGHT.bytes);
+  rct::addKeys(A, ve, rct::scalarmultBase(tmp));
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(N), sR = rct::skvGen(N);
@@ -711,6 +715,7 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   rct::keyV V(sv.size());
   rct::keyV aL(MN), aR(MN);
+  rct::keyV aL8(MN), aR8(MN);
   rct::key tmp, tmp2;
 
   PERF_TIMER_START_BP(PROVE_v);
@@ -728,19 +733,18 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
   {
     for (size_t i = N; i-- > 0; )
     {
-      if (j >= sv.size())
-      {
-        aL[j*N+i] = rct::zero();
-      }
-      else if (sv[j][i/8] & (((uint64_t)1)<<(i%8)))
+      if (j < sv.size() && (sv[j][i/8] & (((uint64_t)1)<<(i%8))))
       {
         aL[j*N+i] = rct::identity();
+        aL8[j*N+i] = INV_EIGHT;
+        aR[j*N+i] = aR8[j*N+i] = rct::zero();
       }
       else
       {
-        aL[j*N+i] = rct::zero();
+        aL[j*N+i] = aL8[j*N+i] = rct::zero();
+        aR[j*N+i] = MINUS_ONE;
+        aR8[j*N+i] = MINUS_INV_EIGHT;
       }
-      sc_sub(aR[j*N+i].bytes, aL[j*N+i].bytes, rct::identity().bytes);
     }
   }
   PERF_TIMER_STOP(PROVE_aLaR);
@@ -771,10 +775,10 @@ try_again:
   PERF_TIMER_START_BP(PROVE_step1);
   // PAPER LINES 38-39
   rct::key alpha = rct::skGen();
-  rct::key ve = vector_exponent(aL, aR);
+  rct::key ve = vector_exponent(aL8, aR8);
   rct::key A;
-  rct::addKeys(A, ve, rct::scalarmultBase(alpha));
-  A = rct::scalarmultKey(A, INV_EIGHT);
+  sc_mul(tmp.bytes, alpha.bytes, INV_EIGHT.bytes);
+  rct::addKeys(A, ve, rct::scalarmultBase(tmp));
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(MN), sR = rct::skvGen(MN);
