@@ -4712,17 +4712,29 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   size_t mixins = DEFAULT_MIX;
 
-  uint64_t unlock_block = 0;
   uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err;
-  uint64_t bc_height = get_daemon_blockchain_height(err);
-  if (!err.empty())
+  uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
+
+  if (!m_wallet->is_synced() || !err.empty() || bc_height < 10)
   {
-    fail_msg_writer() << tr("failed to get blockchain height: ") << err;
-    return true;
+    if (!m_wallet->is_synced())
+      err = tr("daemon not finished syncing");
+    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << err;
+    std::string height = input_line(tr("Please enter the current network block height: "));
+    try
+    {
+      bc_height = boost::lexical_cast<uint64_t>(height);
+    }
+    catch (const std::exception &e)
+    {
+      fail_msg_writer() << tr("Invalid block height");
+      return true;
+    }
   }
-  unlock_block = bc_height + locked_blocks;
+
+  uint64_t unlock_block = bc_height + locked_blocks;
 
   if (local_args.size() < 4)
   {
@@ -4790,6 +4802,19 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   if (!add_service_node_register_to_tx_extra(extra, addresses, portions_for_operator, portions, expiration_timestamp, signature))
   {
     fail_msg_writer() << tr("failed to serialize service node registration tx extra");
+    return true;
+  }
+
+  uint64_t expected_staking_requirement = std::max(
+      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height),
+      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height+STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS)
+      );
+
+  if (amount < expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS)
+  {
+    fail_msg_writer() << tr("This staking amount is not enough and cannot be used for a registration");
+    fail_msg_writer() << tr("If it looks correct, please send a little bit extra to ensure that it is still correct when it makes it into a block");
+    fail_msg_writer() << tr("Please send at least: ") << print_money(expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
     return true;
   }
 
@@ -4946,17 +4971,29 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   size_t mixins = DEFAULT_MIX;
 
-  uint64_t unlock_block = 0;
   uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err;
-  uint64_t bc_height = get_daemon_blockchain_height(err);
-  if (!err.empty())
+  uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
+
+  if (!m_wallet->is_synced() || !err.empty() || bc_height < 10)
   {
-    fail_msg_writer() << tr("failed to get blockchain height: ") << err;
-    return true;
+    if (!m_wallet->is_synced())
+      err = tr("daemon not finished syncing");
+    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << err;
+    std::string height = input_line(tr("Please enter the current network block height: "));
+    try
+    {
+      bc_height = boost::lexical_cast<uint64_t>(height);
+    }
+    catch (const std::exception &e)
+    {
+      fail_msg_writer() << tr("Invalid block height");
+      return true;
+    }
   }
-  unlock_block = bc_height + locked_blocks;
+
+  uint64_t unlock_block = bc_height + locked_blocks;
 
   if (local_args.size() < 2)
   {
@@ -4979,6 +5016,33 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     return true;
   }
 
+  uint64_t expected_staking_requirement = std::max(
+      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height),
+      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height+STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS)
+      );
+
+  if (amount < expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS)
+  {
+    std::stringstream prompt;
+    prompt << tr("This staking amount is not enough and cannot be used to stake") << '\n';
+    prompt << tr("If it looks correct, please send a little bit extra to ensure that it is still correct when it makes it into a block") << '\n';
+    prompt << tr("This warning was triggered because you sent less than: ") << print_money(expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS) << tr(" loki\n");
+    prompt << tr("") << '\n';
+    prompt << tr("If this is not the first time you are making a contribution to this service node") << '\n';
+    prompt << tr("then it should be okay to top-up the amount you are contributing. This is also true") << '\n';
+    prompt << tr("if this address was specified in the service node registration.") << '\n';
+    prompt << tr("") << '\n';
+    prompt << tr("Most likely this is not the right amount to send. Only continue if you know what you are doing.") << '\n';
+    prompt << tr("\nDo you want to continue?");
+    std::string accepted = input_line(prompt.str());
+    if (std::cin.eof())
+      return true;
+    if (!command_line::is_yes(accepted))
+    {
+      fail_msg_writer() << tr("transaction cancelled.");
+      return true;
+    }
+  }
   std::vector<uint8_t> extra;
 
   add_service_node_pubkey_to_tx_extra(extra, service_node_key);

@@ -321,13 +321,6 @@ namespace cryptonote
     difficulty_type get_difficulty_for_next_block();
 
     /**
-     * @brief returns the staking requirement for the block at height
-     *
-     * @return the target
-     */
-    uint64_t get_staking_requirement(uint64_t height) const;
-
-    /**
      * @brief adds a block to the blockchain
      *
      * Adds a new block to the blockchain.  If the block's parent is not the
@@ -780,6 +773,12 @@ namespace cryptonote
      * @brief Put DB in safe sync mode
      */
     void safesyncmode(const bool onoff);
+
+    /**
+     * @brief Get the nettype
+     * @return the nettype
+     */
+    network_type nettype() const { return m_nettype; }
 
     /**
      * @brief set whether or not to show/print time statistics

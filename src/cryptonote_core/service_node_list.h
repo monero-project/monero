@@ -258,6 +258,8 @@ namespace service_nodes
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
 
+  uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
+
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 }
 

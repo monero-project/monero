@@ -38,6 +38,7 @@
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
 #include "quorum_cop.h"
+#include "common/exp2.h"
 
 #include "service_node_list.h"
 
@@ -298,7 +299,7 @@ namespace service_nodes
 
     // check the initial contribution exists
 
-    info.staking_requirement = m_blockchain.get_staking_requirement(block_height);
+    info.staking_requirement = get_staking_requirement(m_blockchain.nettype(), block_height);
 
     cryptonote::account_public_address address;
     uint64_t transferred = 0;
@@ -1087,6 +1088,16 @@ namespace service_nodes
     cmd = stream.str();
     return true;
   }
-
+  uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
+  {
+    if (m_nettype == cryptonote::TESTNET)
+      return COIN * 100;
+    uint64_t height_adjusted = height-129600;
+    uint64_t base = 10000 * COIN;
+    uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
+    uint64_t linear_up = 5 * COIN * height / 2592;
+    uint64_t flat = 15000 * COIN;
+    return std::min(30000 * COIN, std::max(base + variable, height < 3628800 ? linear_up : flat));
+  }
 }
 
