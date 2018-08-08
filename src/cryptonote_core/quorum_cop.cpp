@@ -32,6 +32,9 @@
 #include "cryptonote_core.h"
 #include "quorum_cop.h"
 
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "quorum_cop"
+
 namespace service_nodes
 {
   quorum_cop::quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list)
@@ -98,7 +101,7 @@ namespace service_nodes
         const crypto::public_key &node_key = state->nodes_to_test[node_index];
 
         CRITICAL_REGION_LOCAL(m_lock);
-        bool vote_off_node = (m_uptime_proof_seen.find(node_key) != m_uptime_proof_seen.end());
+        bool vote_off_node = (m_uptime_proof_seen.find(node_key) == m_uptime_proof_seen.end());
 
         if (!vote_off_node)
           continue;
