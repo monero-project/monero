@@ -93,18 +93,6 @@ static bool is_reduced(const rct::key &scalar)
   return scalar == reduced;
 }
 
-static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &point)
-{
-    ge_p3 p3;
-    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
-    ge_scalarmult_p3(&p3, a.bytes, &p3);
-    ge_cached cached;
-    ge_p3_to_cached(&cached, acc_p3);
-    ge_p1p1 p1;
-    ge_add(&p1, &p3, &cached);
-    ge_p1p1_to_p3(acc_p3, &p1);
-}
-
 static void add_acc_p3(ge_p3 *acc_p3, const rct::key &point)
 {
     ge_p3 p3;
@@ -435,10 +423,13 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   rct::key V;
   rct::keyV aL(N), aR(N);
+  rct::key tmp, tmp2;
 
   PERF_TIMER_START_BP(PROVE_v);
-  rct::addKeys2(V, gamma, sv, rct::H);
-  V = rct::scalarmultKey(V, INV_EIGHT);
+  rct::key gamma8, sv8;
+  sc_mul(gamma8.bytes, gamma.bytes, INV_EIGHT.bytes);
+  sc_mul(sv8.bytes, sv.bytes, INV_EIGHT.bytes);
+  rct::addKeys2(V, gamma8, sv8, rct::H);
   PERF_TIMER_STOP(PROVE_v);
 
   PERF_TIMER_START_BP(PROVE_aLaR);
@@ -515,7 +506,6 @@ try_again:
   const auto yN = vector_powers(y, N);
 
   rct::key ip1y = vector_sum(yN);
-  rct::key tmp;
   sc_muladd(t0.bytes, z.bytes, ip1y.bytes, t0.bytes);
 
   rct::key zsq;
@@ -563,10 +553,16 @@ try_again:
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
-  T1 = rct::scalarmultKey(T1, INV_EIGHT);
-  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
-  T2 = rct::scalarmultKey(T2, INV_EIGHT);
+  rct::key T1, T2;
+  ge_p3 p3;
+  sc_mul(tmp.bytes, t1.bytes, INV_EIGHT.bytes);
+  sc_mul(tmp2.bytes, tau1.bytes, INV_EIGHT.bytes);
+  ge_double_scalarmult_base_vartime_p3(&p3, tmp.bytes, &ge_p3_H, tmp2.bytes);
+  ge_p3_tobytes(T1.bytes, &p3);
+  sc_mul(tmp.bytes, t2.bytes, INV_EIGHT.bytes);
+  sc_mul(tmp2.bytes, tau2.bytes, INV_EIGHT.bytes);
+  ge_double_scalarmult_base_vartime_p3(&p3, tmp.bytes, &ge_p3_H, tmp2.bytes);
+  ge_p3_tobytes(T2.bytes, &p3);
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -671,7 +667,7 @@ try_again:
   PERF_TIMER_STOP(PROVE_step4);
 
   // PAPER LINE 58 (with inclusions from PAPER LINE 8 and PAPER LINE 20)
-  return Bulletproof(V, A, S, T1, T2, taux, mu, L, R, aprime[0], bprime[0], t);
+  return Bulletproof(V, A, S, T1, T2, taux, mu, std::move(L), std::move(R), aprime[0], bprime[0], t);
 }
 
 Bulletproof bulletproof_PROVE(uint64_t v, const rct::key &gamma)
@@ -715,13 +711,15 @@ Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
 
   rct::keyV V(sv.size());
   rct::keyV aL(MN), aR(MN);
-  rct::key tmp;
+  rct::key tmp, tmp2;
 
   PERF_TIMER_START_BP(PROVE_v);
   for (size_t i = 0; i < sv.size(); ++i)
   {
-    rct::addKeys2(V[i], gamma[i], sv[i], rct::H);
-    V[i] = rct::scalarmultKey(V[i], INV_EIGHT);
+    rct::key gamma8, sv8;
+    sc_mul(gamma8.bytes, gamma[i].bytes, INV_EIGHT.bytes);
+    sc_mul(sv8.bytes, sv[i].bytes, INV_EIGHT.bytes);
+    rct::addKeys2(V[i], gamma8, sv8, rct::H);
   }
   PERF_TIMER_STOP(PROVE_v);
 
@@ -843,10 +841,16 @@ try_again:
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
-  T1 = rct::scalarmultKey(T1, INV_EIGHT);
-  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
-  T2 = rct::scalarmultKey(T2, INV_EIGHT);
+  rct::key T1, T2;
+  ge_p3 p3;
+  sc_mul(tmp.bytes, t1.bytes, INV_EIGHT.bytes);
+  sc_mul(tmp2.bytes, tau1.bytes, INV_EIGHT.bytes);
+  ge_double_scalarmult_base_vartime_p3(&p3, tmp.bytes, &ge_p3_H, tmp2.bytes);
+  ge_p3_tobytes(T1.bytes, &p3);
+  sc_mul(tmp.bytes, t2.bytes, INV_EIGHT.bytes);
+  sc_mul(tmp2.bytes, tau2.bytes, INV_EIGHT.bytes);
+  ge_double_scalarmult_base_vartime_p3(&p3, tmp.bytes, &ge_p3_H, tmp2.bytes);
+  ge_p3_tobytes(T2.bytes, &p3);
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
@@ -972,7 +976,7 @@ try_again:
   PERF_TIMER_STOP(PROVE_step4);
 
   // PAPER LINE 58 (with inclusions from PAPER LINE 8 and PAPER LINE 20)
-  return Bulletproof(V, A, S, T1, T2, taux, mu, L, R, aprime[0], bprime[0], t);
+  return Bulletproof(std::move(V), A, S, T1, T2, taux, mu, std::move(L), std::move(R), aprime[0], bprime[0], t);
 }
 
 Bulletproof bulletproof_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma)
@@ -1034,10 +1038,10 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   // setup weighted aggregates
   rct::key Z0 = rct::identity();
   rct::key z1 = rct::zero();
-  rct::key Z2 = rct::identity();
+  rct::key &Z2 = Z0;
   rct::key z3 = rct::zero();
   rct::keyV z4(maxMN, rct::zero()), z5(maxMN, rct::zero());
-  rct::key Y2 = rct::identity(), Y3 = rct::identity(), Y4 = rct::identity();
+  rct::key Y2 = rct::identity(), &Y3 = Y2, &Y4 = Y2;
   rct::key y0 = rct::zero(), y1 = rct::zero();
   for (const Bulletproof *p: proofs)
   {
@@ -1224,11 +1228,8 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   // now check all proofs at once
   PERF_TIMER_START_BP(VERIFY_step2_check);
   ge_p3 check1;
-  ge_scalarmult_base(&check1, y0.bytes);
-  addKeys_acc_p3(&check1, y1, rct::H);
+  ge_double_scalarmult_base_vartime_p3(&check1, y1.bytes, &ge_p3_H, y0.bytes);
   sub_acc_p3(&check1, Y2);
-  sub_acc_p3(&check1, Y3);
-  sub_acc_p3(&check1, Y4);
   if (!ge_p3_is_point_at_infinity(&check1))
   {
     MERROR("Verification failure at step 1");
@@ -1238,18 +1239,15 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   sc_sub(tmp.bytes, rct::zero().bytes, z1.bytes);
   ge_double_scalarmult_base_vartime_p3(&check2, z3.bytes, &ge_p3_H, tmp.bytes);
   add_acc_p3(&check2, Z0);
-  add_acc_p3(&check2, Z2);
 
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(2 * maxMN);
   for (size_t i = 0; i < maxMN; ++i)
   {
-    sc_sub(tmp.bytes, rct::zero().bytes, z4[i].bytes);
-    multiexp_data.emplace_back(tmp, Gi_p3[i]);
-    sc_sub(tmp.bytes, rct::zero().bytes, z5[i].bytes);
-    multiexp_data.emplace_back(tmp, Hi_p3[i]);
+    multiexp_data.emplace_back(z4[i], Gi_p3[i]);
+    multiexp_data.emplace_back(z5[i], Hi_p3[i]);
   }
-  add_acc_p3(&check2, multiexp(multiexp_data, true));
+  sub_acc_p3(&check2, multiexp(multiexp_data, true));
   PERF_TIMER_STOP(VERIFY_step2_check);
 
   if (!ge_p3_is_point_at_infinity(&check2))
