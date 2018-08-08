@@ -49,7 +49,7 @@ namespace service_nodes
 {
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
-    : m_blockchain(blockchain), m_hooks_registered(false)
+    : m_blockchain(blockchain), m_hooks_registered(false), m_height(0)
   {
   }
 
@@ -936,7 +936,6 @@ namespace service_nodes
       m_db->block_txn_stop();
     }
 
-    // not currently done in init(), so maybe don't?
     m_quorum_states.clear();
     m_height = 0;
   }
