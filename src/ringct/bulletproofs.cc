@@ -86,11 +86,9 @@ static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi
     return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, get_pippenger_c(data.size()));
 }
 
-static bool is_reduced(const rct::key &scalar)
+static inline bool is_reduced(const rct::key &scalar)
 {
-  rct::key reduced = scalar;
-  sc_reduce32(reduced.bytes);
-  return scalar == reduced;
+  return sc_check(scalar.bytes) == 0;
 }
 
 static void add_acc_p3(ge_p3 *acc_p3, const rct::key &point)
@@ -139,8 +137,8 @@ static void init_exponents()
     Gi[i] = get_exponent(rct::H, i * 2 + 1);
     CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi[i].bytes) == 0, "ge_frombytes_vartime failed");
 
-    data.push_back({rct::zero(), Gi[i]});
-    data.push_back({rct::zero(), Hi[i]});
+    data.push_back({rct::zero(), Gi_p3[i]});
+    data.push_back({rct::zero(), Hi_p3[i]});
   }
 
   straus_HiGi_cache = straus_init_cache(data, STRAUS_SIZE_LIMIT);
