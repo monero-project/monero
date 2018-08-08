@@ -1097,7 +1097,7 @@ namespace service_nodes
     uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
     uint64_t linear_up = 5 * COIN * height / 2592;
     uint64_t flat = 15000 * COIN;
-    return std::min(30000 * COIN, std::max(base + variable, height < 3628800 ? linear_up : flat));
+    return std::max(base + variable, height < 3628800 ? linear_up : flat);
   }
 }
 
