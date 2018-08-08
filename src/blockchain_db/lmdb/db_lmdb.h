@@ -62,8 +62,6 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_txpool_blob;
 
   MDB_cursor *m_txc_hf_versions;
-
-  MDB_cursor *m_txc_service_node_data;
 } mdb_txn_cursors;
 
 #define m_cur_blocks	m_cursors->m_txc_blocks
@@ -81,7 +79,6 @@ typedef struct mdb_txn_cursors
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
-#define m_cur_service_node_data	m_cursors->m_txc_service_node_data
 
 typedef struct mdb_rflags
 {
@@ -101,7 +98,6 @@ typedef struct mdb_rflags
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_hf_versions;
-  bool m_rf_service_node_data;
 } mdb_rflags;
 
 typedef struct mdb_threadinfo
@@ -393,11 +389,6 @@ private:
 
   void cleanup_batch();
 
-
-  virtual void set_service_node_data(const std::string& data);
-  virtual bool get_service_node_data(std::string& data);
-  virtual void clear_service_node_data();
-
 private:
   MDB_env* m_env;
 
@@ -422,8 +413,6 @@ private:
 
   MDB_dbi m_hf_starting_heights;
   MDB_dbi m_hf_versions;
-
-  MDB_dbi m_service_node_data;
 
   MDB_dbi m_properties;
 
