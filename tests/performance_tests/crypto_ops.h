@@ -47,6 +47,7 @@ enum test_op
   op_scalarmultKey,
   op_scalarmultH,
   op_scalarmult8,
+  op_ge_dsm_precomp,
   op_ge_double_scalarmult_base_vartime,
   op_ge_double_scalarmult_precomp_vartime,
   op_ge_double_scalarmult_precomp_vartime2,
@@ -84,6 +85,7 @@ public:
     ge_cached tmp_cached;
     ge_p1p1 tmp_p1p1;
     ge_p2 tmp_p2;
+    ge_dsmp dsmp;
     switch (op)
     {
       case op_sc_add: sc_add(key.bytes, scalar0.bytes, scalar1.bytes); break;
@@ -101,6 +103,7 @@ public:
       case op_scalarmultKey: rct::scalarmultKey(point0, scalar0); break;
       case op_scalarmultH: rct::scalarmultH(scalar0); break;
       case op_scalarmult8: rct::scalarmult8(point0); break;
+      case op_ge_dsm_precomp: ge_dsm_precomp(dsmp, &p3_0); break;
       case op_ge_double_scalarmult_base_vartime: ge_double_scalarmult_base_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes); break;
       case op_ge_double_scalarmult_precomp_vartime: ge_double_scalarmult_precomp_vartime(&tmp_p2, scalar0.bytes, &p3_0, scalar1.bytes, precomp0); break;
       case op_ge_double_scalarmult_precomp_vartime2: ge_double_scalarmult_precomp_vartime2(&tmp_p2, scalar0.bytes, precomp0, scalar1.bytes, precomp1); break;
