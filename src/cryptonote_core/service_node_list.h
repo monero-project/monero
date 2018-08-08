@@ -136,6 +136,8 @@ namespace service_nodes
 
     std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
+    uint64_t get_staking_requirement_lock_blocks() const;
+
     template<typename T>
     void block_added_generic(const cryptonote::block& block, const T& txs);
 

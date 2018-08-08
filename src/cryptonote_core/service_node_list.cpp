@@ -82,14 +82,15 @@ namespace service_nodes
 
     if (!loaded || m_height > current_height) clear(true);
 
-    uint64_t start_height = m_height;
-    if (current_height >= STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_RELOCK_WINDOW_BLOCKS)
-      start_height = std::max(start_height, current_height - STAKING_REQUIREMENT_LOCK_BLOCKS - STAKING_RELOCK_WINDOW_BLOCKS);
+    uint64_t lock_blocks = get_staking_requirement_lock_blocks();
 
-    for (uint64_t height = start_height; height < current_height; height += 1000)
+    if (current_height >= lock_blocks)
+      m_height = std::max(m_height, current_height - lock_blocks);
+
+    while (m_height < current_height)
     {
       std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
-      if (!m_blockchain.get_blocks(height, 1000, blocks))
+      if (!m_blockchain.get_blocks(m_height, 1000, blocks))
       {
         LOG_ERROR("Unable to initialize service nodes list");
         return;
@@ -155,7 +156,7 @@ namespace service_nodes
     if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
       unlock_time = tx.output_unlock_times[i];
 
-    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + STAKING_REQUIREMENT_LOCK_BLOCKS;
+    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks();
   }
 
   bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint32_t& portions_for_operator, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
@@ -547,10 +548,12 @@ namespace service_nodes
   {
     std::vector<crypto::public_key> expired_nodes;
 
-    if (block_height < STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_RELOCK_WINDOW_BLOCKS)
+    const uint64_t lock_blocks = get_staking_requirement_lock_blocks();
+
+    if (block_height < lock_blocks)
       return expired_nodes;
 
-    const uint64_t expired_nodes_block_height = block_height - STAKING_REQUIREMENT_LOCK_BLOCKS - STAKING_RELOCK_WINDOW_BLOCKS;
+    const uint64_t expired_nodes_block_height = block_height - lock_blocks;
 
     std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
     if (!m_blockchain.get_blocks(expired_nodes_block_height, 1, blocks))
@@ -745,6 +748,12 @@ namespace service_nodes
       }
     }
   }
+
+  uint64_t service_node_list::get_staking_requirement_lock_blocks() const
+  {
+    return m_blockchain.nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
+  }
+
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   service_node_list::rollback_event::rollback_event(uint64_t block_height) : m_block_height(block_height)
