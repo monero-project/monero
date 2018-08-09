@@ -4712,7 +4712,8 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   size_t mixins = DEFAULT_MIX;
 
-  uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
+  uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
+  uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err;
   uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
@@ -4971,7 +4972,8 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   size_t mixins = DEFAULT_MIX;
 
-  uint64_t locked_blocks = STAKING_REQUIREMENT_LOCK_BLOCKS + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
+  uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
+  uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err;
   uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
