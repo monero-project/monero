@@ -86,6 +86,8 @@ public:
 
   bool print_blockchain_info(uint64_t start_block_index, uint64_t end_block_index);
 
+  bool print_quorum_state(uint64_t height);
+
   bool set_log_level(int8_t level);
 
   bool set_log_categories(const std::string &categories);
@@ -153,6 +155,8 @@ public:
   bool relay_tx(const std::string &txid);
 
   bool sync_info();
+
+  bool get_service_node_registration_cmd(const std::vector<std::string> &args);
 };
 
 } // namespace daemonize

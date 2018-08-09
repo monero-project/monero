@@ -104,6 +104,10 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_LOWER)
 
+# On Darwin, ensure the user-defined paths are used to find PCSC
+# before falling back to the system frameworks.
+set(CMAKE_FIND_FRAMEWORK "LAST")
+
 # ARCH defines the target architecture, either by an explicit identifier or
 # one of the following two keywords. By default, ARCH a value of 'native':
 # target arch = host arch, binary is not portable. When ARCH is set to the
@@ -396,7 +400,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
 endif ()
 
 if (APPLE AND NOT IOS)
-  if (NOT OpenSSL_DIR)
+  if (NOT OpenSSL_DIR AND NOT DEFINED ENV{OpenSSL_DIR})
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
         OUTPUT_VARIABLE OPENSSL_ROOT_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE)

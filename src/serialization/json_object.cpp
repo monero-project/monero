@@ -219,6 +219,8 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::transaction& tx, ra
 
   INSERT_INTO_JSON_OBJECT(val, doc, version, tx.version);
   INSERT_INTO_JSON_OBJECT(val, doc, unlock_time, tx.unlock_time);
+  INSERT_INTO_JSON_OBJECT(val, doc, output_unlock_times, tx.output_unlock_times);
+  INSERT_INTO_JSON_OBJECT(val, doc, is_deregister, tx.is_deregister);
   INSERT_INTO_JSON_OBJECT(val, doc, vin, tx.vin);
   INSERT_INTO_JSON_OBJECT(val, doc, vout, tx.vout);
   INSERT_INTO_JSON_OBJECT(val, doc, extra, tx.extra);
@@ -236,6 +238,8 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::transaction& tx)
 
   GET_FROM_JSON_OBJECT(val, tx.version, version);
   GET_FROM_JSON_OBJECT(val, tx.unlock_time, unlock_time);
+  GET_FROM_JSON_OBJECT(val, tx.output_unlock_times, output_unlock_times);
+  GET_FROM_JSON_OBJECT(val, tx.is_deregister, is_deregister);
   GET_FROM_JSON_OBJECT(val, tx.vin, vin);
   GET_FROM_JSON_OBJECT(val, tx.vout, vout);
   GET_FROM_JSON_OBJECT(val, tx.extra, extra);

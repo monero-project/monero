@@ -77,6 +77,7 @@ namespace tools
     //         tx_not_possible
     //         not_enough_outs_to_mix
     //         tx_not_constructed
+    //         vote_rejected
     //         tx_rejected
     //         tx_sum_overflow
     //         tx_too_big
@@ -616,6 +617,34 @@ namespace tools
 
     private:
       cryptonote::transaction m_tx;
+      std::string m_status;
+      std::string m_reason;
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct vote_rejected : public transfer_error
+    {
+      explicit vote_rejected(std::string&& loc, const std::string& status, const std::string& reason)
+        : transfer_error(std::move(loc), "vote was rejected by daemon")
+        , m_status(status)
+        , m_reason(reason)
+      {
+      }
+
+      const std::string& status() const { return m_status; }
+      const std::string& reason() const { return m_reason; }
+
+      std::string to_string() const
+      {
+        std::ostringstream ss;
+        ss << transfer_error::to_string() << ", status = " << m_status;
+        if (!m_reason.empty())
+        {
+          ss << " (" << m_reason << ")";
+        }
+        return ss.str();
+      }
+
+    private:
       std::string m_status;
       std::string m_reason;
     };

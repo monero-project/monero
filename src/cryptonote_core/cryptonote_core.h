@@ -41,8 +41,11 @@
 #include "common/download.h"
 #include "common/threadpool.h"
 #include "common/command_line.h"
+#include "service_node_deregister.h"
 #include "tx_pool.h"
 #include "blockchain.h"
+#include "service_node_list.h"
+#include "quorum_cop.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
@@ -103,6 +106,15 @@ namespace cryptonote
       * @return true
       */
      bool on_idle();
+
+     /**
+      * @brief handles an incoming uptime proof
+      *
+      * Parses an incoming uptime proof
+      *
+      * @return true if we haven't seen it before and thus need to relay.
+      */
+     bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
 
      /**
       * @brief handles an incoming transaction
@@ -209,6 +221,10 @@ namespace cryptonote
       */
      virtual void on_transaction_relayed(const cryptonote::blobdata& tx);
 
+     /**
+      * @brief mark the deregister vote as having been relayed in the vote pool
+      */
+     virtual void set_deregister_votes_relayed(const std::vector<loki::service_node_deregister::vote>& votes);
 
      /**
       * @brief gets the miner instance
@@ -737,12 +753,12 @@ namespace cryptonote
       * @return the number of blocks to sync in one go
       */
      std::pair<uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
-     
+
      /**
       * @brief get the network type we're on
       *
       * @return which network are we on?
-      */     
+      */
      network_type get_nettype() const { return m_nettype; };
 
      /**
@@ -772,6 +788,53 @@ namespace cryptonote
       * @return whether the core is running offline
       */
      bool offline() const { return m_offline; }
+
+     /**
+      * @brief Get the deterministic list of service node's public keys for quorum testing
+      *
+      * @param height Block height to deterministically recreate the quorum list from
+
+      * @return Null shared ptr if quorum has not been determined yet for height
+      */
+     const std::shared_ptr<service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
+
+     /**
+      * @brief Add a vote to deregister a service node from network
+      *
+      * @param vote The vote for deregistering a service node.
+
+      * @return Whether the vote was added to the partial deregister pool
+      */
+     bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
+
+     /**
+      * @brief Prepare a registration tx using the service node keys for this
+      * daemon. This function is intended to be called without being core
+      * initialized with core::init; for use when generating txs from the shell
+      *
+      * @param vm The command line variable map.
+
+      * @return whether or not the command was able to prepare the registration.
+      */
+     bool cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args);
+
+     /**
+      * @brief Return the account associated to this service node.
+
+      * @param pub_key The public key for the service node, unmodified if not a service node
+
+      * @param sec_key The secret key for the service node, unmodified if not a service node
+
+      * @return True if we are a service node
+      */
+     bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+
+     /**
+      * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
+      *
+      * @return true
+      */
+     bool submit_uptime_proof();
 
    private:
 
@@ -926,6 +989,13 @@ namespace cryptonote
      bool relay_txpool_transactions();
 
      /**
+      * @brief attempt to relay the pooled deregister votes
+      *
+      * @return true, necessary for binding this function to a periodic invoker
+      */
+     bool relay_deregister_votes();
+
+     /**
       * @brief checks DNS versions
       *
       * @return true on success, false otherwise
@@ -939,12 +1009,22 @@ namespace cryptonote
       */
      bool check_disk_space();
 
+     /**
+      * @brief Initializes service node key by loading or creating.
+      *
+      * @return true on success, false otherwise
+      */
+     bool init_service_node_key();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
+     loki::deregister_vote_pool m_deregister_vote_pool;
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
+     service_nodes::service_node_list m_service_node_list;
+     service_nodes::quorum_cop m_quorum_cop;
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 
@@ -961,8 +1041,11 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*60*12, false> m_store_blockchain_interval; //!< interval for manual storing of Blockchain, if enabled
      epee::math_helper::once_a_time_seconds<60*60*2, true> m_fork_moaner; //!< interval for checking HardFork status
      epee::math_helper::once_a_time_seconds<60*2, false> m_txpool_auto_relayer; //!< interval for checking re-relaying txpool transactions
+     epee::math_helper::once_a_time_seconds<60*2, false> m_deregisters_auto_relayer; //!< interval for checking re-relaying deregister votes
      epee::math_helper::once_a_time_seconds<60*60*12, true> m_check_updates_interval; //!< interval for checking for new versions
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
+     epee::math_helper::once_a_time_seconds<UPTIME_PROOF_FREQUENCY_IN_SECONDS, true> m_submit_uptime_proof_interval; //!< interval for submitting uptime proof
+     epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -976,6 +1059,10 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
      bool m_disable_dns_checkpoints;
+
+     bool m_service_node;
+     crypto::secret_key m_service_node_key;
+     crypto::public_key m_service_node_pubkey;
 
      size_t block_sync_size;
 

@@ -449,6 +449,14 @@ namespace cryptonote
     bool have_tx_keyimg_as_spent(const crypto::key_image& key_im) const;
 
     /**
+     * @brief check if the deregistration tx already exists in the pool.
+
+     * @return true if it already exists
+     *
+     */
+    bool have_deregister_tx_already(transaction const &tx) const;
+
+    /**
      * @brief check if any spent key image in a transaction is in the pool
      *
      * Checks if any of the spent key images in a given transaction are present

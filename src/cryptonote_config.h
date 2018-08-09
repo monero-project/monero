@@ -41,7 +41,7 @@
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            30
-#define CURRENT_TRANSACTION_VERSION                     2
+#define CURRENT_TRANSACTION_VERSION                     3
 #define CURRENT_BLOCK_MAJOR_VERSION                     6
 #define CURRENT_BLOCK_MINOR_VERSION                     6
 #define CURRENT_BLOCK_MAJOR_VERSION_TESTNET             7
@@ -49,7 +49,24 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
+#define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
+#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*30)
+#define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
+#define STAKING_PORTIONS                                0xfffffffc
+#define MAX_NUMBER_OF_CONTRIBUTORS                      4
+#define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
+
+static_assert(STAKING_PORTIONS % MAX_NUMBER_OF_CONTRIBUTORS == 0, "Use a multiple of four, so that it divides easily by max number of contributors.");
+static_assert(STAKING_PORTIONS % 2 == 0, "Use a multiple of two, so that it divides easily by two contributors.");
+static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it divides easily by three contributors.");
+
+#define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2) // 2 weeks
+
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
+
+#define UPTIME_PROOF_BUFFER_IN_SECONDS                  (5*60)
+#define UPTIME_PROOF_FREQUENCY_IN_SECONDS               (60*60)
+#define UPTIME_PROOF_MAX_TIME_IN_SECONDS                (UPTIME_PROOF_FREQUENCY_IN_SECONDS + (2 * UPTIME_PROOF_BUFFER_IN_SECONDS))
 
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(-1))
@@ -77,7 +94,6 @@
 #define DYNAMIC_FEE_PER_KB_BASE_FEE_V5                  ((uint64_t)2000000000 * (uint64_t)CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 / CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
-
 
 #define DIFFICULTY_TARGET_V2                            120  // seconds
 #define DIFFICULTY_WINDOW_V2                            60
@@ -177,12 +193,12 @@ namespace config
     uint16_t const RPC_DEFAULT_PORT = 38151;
     uint16_t const ZMQ_RPC_DEFAULT_PORT = 38152;
     boost::uuids::uuid const NETWORK_ID = { {
-        0x44, 0xb3, 0xe9, 0xef, 0x80, 0xc0, 0x08, 0x19, 0xb4, 0x2c, 0x83, 0xec, 0xef, 0x59, 0x24, 0xfd
+        0x44, 0xb3, 0xe9, 0xef, 0x80, 0xc0, 0x08, 0x19, 0xb4, 0x2c, 0x83, 0xfc, 0xef, 0x09, 0x24, 0xfd
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "021e01ff000380808d93f5d77102036a65eb633efc8d73133cce56de1fbc4478f62a2d3f74f4e18c6ed14b0212358080b4ccd4dfc6030217f5a14c129669199643d3890b0c575d4e6048807c1ae7b2fe9468f755383e17808088fccdbcc32302d1137109f8fa24e3cfb224dc0ce594eabf9e976640a9e6ca78656936677d9af82101ab8b15dea6402670113dc2ff59653d3b2e859e2d56af7f7c2773f9dcac8385d200";
+    std::string const GENESIS_TX = "03011e001e01ff00018080c9db97f4fb27021a88381764999fa47a0f16c3e16fe37b2b6199053c1777e473d5a2ecd088e119420126615e4627bb9590a1facd240caf9e533f5f6ed7df30b95257338564a3d8382f72000000000000000000000000000000000000000000000000000000000000000000";
     uint32_t const GENESIS_NONCE = 10001;
 
-    std::string const GOVERNANCE_WALLET_ADDRESS = "T6U5dnmhyw1XsDryZUZL4hAwkNDYahFLEbhyfipTJ2ZZLV1Epm5zHTf6SQzxre9V8R9zjSPN6WWiT9adBQYt7Wut2xjon6dgT";
+    std::string const GOVERNANCE_WALLET_ADDRESS = "T6SUprTYE5rQpep9iQFxyPcKVd91DFR1fQ1Qsyqp5eYLiFc8XuYd3reRE71qDL8c3DXioUbDEpDFdaUpetnL37NS1R3rzoKxi";
   }
 
   namespace stagenet

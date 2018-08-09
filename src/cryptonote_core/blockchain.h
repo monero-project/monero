@@ -55,6 +55,16 @@
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
+namespace service_nodes
+{
+  class service_node_list;
+};
+
+namespace loki
+{
+  class deregister_vote_pool;
+};
+
 namespace cryptonote
 {
   class tx_memory_pool;
@@ -100,12 +110,36 @@ namespace cryptonote
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
 
+    class BlockAddedHook
+    {
+    public:
+      virtual void block_added(const block& block, const std::vector<transaction>& txs) = 0;
+    };
+
+    class BlockchainDetachedHook
+    {
+    public:
+      virtual void blockchain_detached(uint64_t height) = 0;
+    };
+
+    class InitHook
+    {
+    public:
+      virtual void init() = 0;
+    };
+
+    class ValidateMinerTxHook
+    {
+    public:
+      virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward) = 0;
+    };
+
     /**
      * @brief Blockchain constructor
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-    Blockchain(tx_memory_pool& tx_pool);
+    Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, loki::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Initialize the Blockchain state
@@ -741,6 +775,12 @@ namespace cryptonote
     void safesyncmode(const bool onoff);
 
     /**
+     * @brief Get the nettype
+     * @return the nettype
+     */
+    network_type nettype() const { return m_nettype; }
+
+    /**
      * @brief set whether or not to show/print time statistics
      *
      * @param stats the new time stats setting
@@ -959,6 +999,14 @@ namespace cryptonote
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
 
+    /**
+     * @brief add a hook for processing new blocks and rollbacks for reorgs
+     */
+    void hook_block_added(BlockAddedHook& block_added_hook);
+    void hook_blockchain_detached(BlockchainDetachedHook& blockchain_detached_hook);
+    void hook_init(InitHook& init_hook);
+    void hook_validate_miner_tx(ValidateMinerTxHook& validate_miner_tx_hook);
+
   private:
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
@@ -980,6 +1028,9 @@ namespace cryptonote
     BlockchainDB* m_db;
 
     tx_memory_pool& m_tx_pool;
+
+    service_nodes::service_node_list& m_service_node_list;
+    loki::deregister_vote_pool& m_deregister_vote_pool;
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
@@ -1025,6 +1076,10 @@ namespace cryptonote
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
 
+    std::vector<BlockAddedHook*> m_block_added_hooks;
+    std::vector<BlockchainDetachedHook*> m_blockchain_detached_hooks;
+    std::vector<InitHook*> m_init_hooks;
+    std::vector<ValidateMinerTxHook*> m_validate_miner_tx_hooks;
 
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
@@ -1251,16 +1306,16 @@ namespace cryptonote
     void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
 
     /**
-     * @brief checks if a transaction is unlocked (its outputs spendable)
+     * @brief checks if an output is unlocked (spendable)
      *
-     * This function checks to see if a transaction is unlocked.
+     * This function checks to see if an output is unlocked.
      * unlock_time is either a block index or a unix time.
      *
      * @param unlock_time the unlock parameter (height or time)
      *
      * @return true if spendable, otherwise false
      */
-    bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
+    bool is_output_spendtime_unlocked(uint64_t unlock_time) const;
 
     /**
      * @brief stores an invalid block in a separate container

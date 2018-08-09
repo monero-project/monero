@@ -80,6 +80,7 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
       command_line::add_arg(visible_options, daemon_args::arg_config_file);
+      command_line::add_arg(visible_options, daemon_args::arg_prepare_registration);
 
       // Settings
       command_line::add_arg(core_settings, daemon_args::arg_log_file);
@@ -167,6 +168,13 @@ int main(int argc, char const * argv[])
     {
       std::cerr << "Can't specify more than one of --tesnet and --stagenet" << ENDL;
       return 1;
+    }
+
+    if (command_line::get_arg(vm, daemon_args::arg_prepare_registration))
+    {
+      cryptonote::core core(nullptr);
+      auto args = command_line::get_arg(vm, daemon_args::arg_command);
+      return core.cmd_prepare_registration(vm, args) ? 0 : 1;
     }
 
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);

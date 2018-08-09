@@ -152,6 +152,11 @@ namespace boost
   inline void serialize(Archive &a, cryptonote::transaction_prefix &x, const boost::serialization::version_type ver)
   {
     a & x.version;
+    if (x.version >= 3)
+    {
+      a & x.output_unlock_times;
+      a & x.is_deregister;
+    }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
@@ -162,6 +167,11 @@ namespace boost
   inline void serialize(Archive &a, cryptonote::transaction &x, const boost::serialization::version_type ver)
   {
     a & x.version;
+    if (x.version >= 3)
+    {
+      a & x.output_unlock_times;
+      a & x.is_deregister;
+    }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;

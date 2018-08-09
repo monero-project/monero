@@ -36,6 +36,8 @@
 using namespace epee;
 
 #include <unordered_set>
+#include <iomanip>
+
 #include "cryptonote_core.h"
 #include "common/command_line.h"
 #include "common/util.h"
@@ -55,6 +57,8 @@ using namespace epee;
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
 #include "version.h"
+#include "wipeable_string.h"
+#include "common/i18n.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "cn"
@@ -158,11 +162,17 @@ namespace cryptonote
   , "Set maximum txpool size in bytes."
   , DEFAULT_TXPOOL_MAX_SIZE
   };
+  static const command_line::arg_descriptor<bool> arg_service_node  = {
+    "service-node"
+  , "Run as a service node"
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
               m_mempool(m_blockchain_storage),
-              m_blockchain_storage(m_mempool),
+              m_service_node_list(m_blockchain_storage),
+              m_blockchain_storage(m_mempool, m_service_node_list, m_deregister_vote_pool),
+              m_quorum_cop(*this, m_service_node_list),
               m_miner(this),
               m_miner_address(boost::value_initialized<account_public_address>()),
               m_starter_message_showed(false),
@@ -265,6 +275,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_size);
+    command_line::add_arg(desc, arg_service_node);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -309,6 +320,8 @@ namespace cryptonote
 
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
+
+    m_service_node = command_line::get_arg(vm, arg_service_node);
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
@@ -392,6 +405,12 @@ namespace cryptonote
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
     size_t max_txpool_size = command_line::get_arg(vm, arg_max_txpool_size);
+
+    if (m_service_node)
+    {
+      r = init_service_node_key();
+      CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
+    }
 
     boost::filesystem::path folder(m_config_folder);
     if (m_nettype == FAKECHAIN)
@@ -509,6 +528,8 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
+    // NOTE: Hooks must be registered before blockchain is initialised for the blockchain init hook to occur.
+    m_service_node_list.register_hooks(m_quorum_cop);
     r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, test_options);
 
     r = m_mempool.init(max_txpool_size);
@@ -548,6 +569,40 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
 
     return load_state_data();
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::init_service_node_key()
+  {
+    std::string keypath = m_config_folder + "/key";
+    if (epee::file_io_utils::is_file_exist(keypath))
+    {
+      std::string keystr;
+      bool r = epee::file_io_utils::load_file_to_string(keypath, keystr);
+      memcpy(&unwrap(m_service_node_key), keystr.data(), sizeof(m_service_node_key));
+      wipeable_string wipe(keystr);
+      CHECK_AND_ASSERT_MES(r, false, "failed to load service node key from file");
+
+      r = crypto::secret_key_to_public_key(m_service_node_key, m_service_node_pubkey);
+      CHECK_AND_ASSERT_MES(r, false, "failed to generate pubkey from secret key");
+    }
+    else
+    {
+      cryptonote::keypair keypair = keypair::generate(hw::get_device("default"));
+      m_service_node_pubkey = keypair.pub;
+      m_service_node_key = keypair.sec;
+
+      std::string keystr(reinterpret_cast<const char *>(&m_service_node_key), sizeof(m_service_node_key));
+      bool r = epee::file_io_utils::save_string_to_file(keypath, keystr);
+      wipeable_string wipe(keystr);
+      CHECK_AND_ASSERT_MES(r, false, "failed to save service node key to file");
+
+      using namespace boost::filesystem;
+      permissions(keypath, owner_read);
+    }
+
+    MGINFO_YELLOW("Service node pubkey is " << epee::string_tools::pod_to_hex(m_service_node_pubkey));
+
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::set_genesis_block(const block& b)
@@ -631,11 +686,13 @@ namespace cryptonote
     }
     bad_semantics_txes_lock.unlock();
 
-    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    const size_t max_tx_version = version == 1 ? 1 : 2;
+    int version = m_blockchain_storage.get_current_hard_fork_version();
+    unsigned int max_tx_version = (version == 1) ? 1 : (version < 9)
+      ? transaction::version_2
+      : transaction::version_3_per_output_unlock_times;
+
     if (tx.version == 0 || tx.version > max_tx_version)
     {
-      // v2 is the latest one we know
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -769,11 +826,18 @@ namespace cryptonote
     st_inf.top_block_id_str = epee::string_tools::pod_to_hex(m_blockchain_storage.get_tail_id());
     return true;
   }
-
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_semantic(const transaction& tx, bool keeped_by_block) const
   {
-    if(!tx.vin.size())
+    if (tx.is_deregister_tx())
+    {
+      if (tx.vin.size() != 0)
+      {
+        MERROR_VER("tx version deregister must have 0 inputs, received: " << tx.vin.size() << ", rejected for tx id = " << get_transaction_hash(tx));
+        return false;
+      }
+    }
+    else if (!tx.vin.size())
     {
       MERROR_VER("tx with empty inputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
@@ -790,7 +854,8 @@ namespace cryptonote
       MERROR_VER("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
-    if (tx.version > 1)
+
+    if (tx.version >= transaction::version_2)
     {
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
       {
@@ -805,7 +870,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version == 1)
+    if (tx.version == transaction::version_1)
     {
       uint64_t amount_in = 0;
       get_inputs_money_amount(tx, amount_in);
@@ -817,7 +882,6 @@ namespace cryptonote
         return false;
       }
     }
-    // for version > 1, ringct signatures check verifies amounts match
 
     if(!keeped_by_block && get_object_blobsize(tx) >= m_blockchain_storage.get_current_cumulative_blocksize_limit() - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE)
     {
@@ -825,7 +889,6 @@ namespace cryptonote
       return false;
     }
 
-    //check if tx use different key images
     if(!check_tx_inputs_keyimages_diff(tx))
     {
       MERROR_VER("tx uses a single key image more than once");
@@ -844,7 +907,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version >= 2)
+    if (tx.version >= transaction::version_2 && !tx.is_deregister_tx()) // ringct signatures check verifies amounts match
     {
       const rct::rctSig &rv = tx.rct_signatures;
       switch (rv.type) {
@@ -860,6 +923,7 @@ namespace cryptonote
             return false;
           }
           break;
+
         case rct::RCTTypeFull:
         case rct::RCTTypeFullBulletproof:
           if (!rct::verRct(rv, true))
@@ -873,7 +937,6 @@ namespace cryptonote
           return false;
       }
     }
-
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -1031,6 +1094,23 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::submit_uptime_proof()
+  {
+    if (m_service_node)
+    {
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      NOTIFY_UPTIME_PROOF::request r;
+      m_quorum_cop.generate_uptime_proof_request(m_service_node_pubkey, m_service_node_key, r);
+      get_protocol()->relay_uptime_proof(r, fake_context);
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
+  {
+    return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::on_transaction_relayed(const cryptonote::blobdata& tx_blob)
   {
     std::list<std::pair<crypto::hash, cryptonote::blobdata>> txs;
@@ -1041,8 +1121,27 @@ namespace cryptonote
       LOG_ERROR("Failed to parse relayed transaction");
       return;
     }
+
     txs.push_back(std::make_pair(tx_hash, std::move(tx_blob)));
     m_mempool.set_relayed(txs);
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::set_deregister_votes_relayed(const std::vector<loki::service_node_deregister::vote>& votes)
+  {
+    m_deregister_vote_pool.set_relayed(votes);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::relay_deregister_votes()
+  {
+    NOTIFY_NEW_DEREGISTER_VOTE::request req;
+    req.votes = m_deregister_vote_pool.get_relayable_votes();
+    if (!req.votes.empty())
+    {
+      cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
+      get_protocol()->relay_deregister_votes(req, fake_context);
+    }
+
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce)
@@ -1358,8 +1457,15 @@ namespace cryptonote
 
     m_fork_moaner.do_call(boost::bind(&core::check_fork_time, this));
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
+    m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
+    if (m_service_node && m_service_node_list.is_service_node(m_service_node_pubkey))
+    {
+      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+      m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
+    }
+
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1559,6 +1665,93 @@ namespace cryptonote
     boost::filesystem::path path(m_config_folder);
     boost::filesystem::space_info si = boost::filesystem::space(path);
     return si.available;
+  }
+  //-----------------------------------------------------------------------------------------------
+  const std::shared_ptr<service_nodes::quorum_state> core::get_quorum_state(uint64_t height) const
+  {
+    const std::shared_ptr<service_nodes::quorum_state> result = m_service_node_list.get_quorum_state(height);
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc)
+  {
+    {
+      uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+      uint64_t delta_height = latest_block_height - vote.block_height;
+
+      if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+      {
+        LOG_ERROR("Received vote for height: " << vote.block_height
+                  << " and service node: "     << vote.service_node_index
+                  << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+                  << " blocks and has been rejected.");
+        vvc.m_invalid_block_height = true;
+      }
+      else if (vote.block_height > latest_block_height)
+      {
+        LOG_ERROR("Received vote for height: " << vote.block_height
+                  << " and service node: "     << vote.service_node_index
+                  << ", is newer than: "       << latest_block_height
+                  << " (latest block height) and has been rejected.");
+        vvc.m_invalid_block_height = true;
+      }
+
+      if (vvc.m_invalid_block_height)
+      {
+        vvc.m_verification_failed = true;
+        return false;
+      }
+    }
+
+    const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(vote.block_height);
+    if (!quorum_state)
+    {
+      vvc.m_verification_failed  = true;
+      vvc.m_invalid_block_height = true;
+      LOG_ERROR("Could not get quorum state for height: " << vote.block_height);
+      return false;
+    }
+
+    cryptonote::transaction deregister_tx;
+    bool result = m_deregister_vote_pool.add_vote(vote, vvc, *quorum_state, deregister_tx);
+    if (result && vvc.m_full_tx_deregister_made)
+    {
+      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+      blobdata const tx_blob = tx_to_blob(deregister_tx);
+
+      result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
+      if (!result || tvc.m_verifivation_failed)
+      {
+        LOG_ERROR("A full deregister tx for height: " << vote.block_height << " and service node: " 
+                  << vote.service_node_index << " could not be verified and was not added to the memory pool.");
+      }
+    }
+
+    return result;
+  }
+  bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
+  {
+    if (m_service_node)
+    {
+      pub_key = m_service_node_pubkey;
+      sec_key = m_service_node_key;
+    }
+    return m_service_node;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
+  {
+    bool r = handle_command_line(vm);
+    CHECK_AND_ASSERT_MES(r, false, "Unable to parse command line arguments");
+
+    r = init_service_node_key();
+    CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
+
+    std::string registration;
+    r = service_nodes::make_registration_cmd(get_nettype(), args, m_service_node_pubkey, m_service_node_key, registration, true /*make_friendly*/);
+    CHECK_AND_ASSERT_MES(r, "", tr("Failed to make registration command"));
+    std::cout << registration << std::endl;
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

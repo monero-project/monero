@@ -450,7 +450,7 @@ namespace nodetool
     };
   };
   
-#endif
+#endif /* ALLOW_DEBUG_COMMANDS */
 
 
   inline crypto::hash get_proof_of_trust_hash(const nodetool::proof_of_trust& pot)
