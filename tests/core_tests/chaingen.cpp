@@ -571,7 +571,7 @@ transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const b
                                   const account_base& acc_from, const account_base& acc_to, uint64_t amount, uint64_t fee)
 {
   transaction tx;
-  construct_tx_to_key(events, tx, blk_head, acc_from, acc_to, amount, fee, 0);
+  construct_tx_to_key(events, tx, blk_head, acc_from, acc_to, amount, fee, 9);
   events.push_back(tx);
   return tx;
 }

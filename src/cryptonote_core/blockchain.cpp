@@ -1140,7 +1140,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       case TESTNET:
         governance_wallet_address_str = ::config::testnet::GOVERNANCE_WALLET_ADDRESS;
         break;
-      case MAINNET:
+      case FAKECHAIN: case MAINNET:
         governance_wallet_address_str = ::config::GOVERNANCE_WALLET_ADDRESS;
         break;
       default:

@@ -153,7 +153,7 @@ namespace cryptonote
       case TESTNET:
         cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::TESTNET, governance_wallet_address_str);
         break;
-      case MAINNET:
+      case FAKECHAIN: case MAINNET:
         cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, governance_wallet_address_str);
         break;
       default:

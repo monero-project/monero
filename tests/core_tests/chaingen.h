@@ -441,7 +441,7 @@ struct get_test_options {
   const cryptonote::test_options test_options = {
     hard_forks
   };
-  get_test_options():hard_forks{std::make_pair((uint8_t)1, (uint64_t)0), std::make_pair((uint8_t)0, (uint64_t)0)}{}
+  get_test_options():hard_forks{std::make_pair((uint8_t)7, (uint64_t)0), std::make_pair((uint8_t)0, (uint64_t)0)}{}
 };
 
 //--------------------------------------------------------------------------
