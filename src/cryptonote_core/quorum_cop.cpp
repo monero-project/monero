@@ -75,7 +75,7 @@ namespace service_nodes
     }
 
     uint64_t const height        = cryptonote::get_block_height(block);
-    uint64_t const latest_height = m_core.get_current_blockchain_height();
+    uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
     if (latest_height < loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
       return;
