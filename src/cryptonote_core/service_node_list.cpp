@@ -64,6 +64,7 @@ namespace service_nodes
       m_blockchain.hook_validate_miner_tx(*this);
 
       // NOTE: There is an implicit dependency on service node lists hooks
+      m_blockchain.hook_init(quorum_cop);
       m_blockchain.hook_block_added(quorum_cop);
       m_blockchain.hook_blockchain_detached(quorum_cop);
     }
@@ -751,7 +752,7 @@ namespace service_nodes
 
   uint64_t service_node_list::get_staking_requirement_lock_blocks() const
   {
-    return m_blockchain.nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
+    return m_blockchain.nettype() == cryptonote::TESTNET || m_blockchain.nettype() == cryptonote::FAKECHAIN ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -956,7 +957,7 @@ namespace service_nodes
   }
   uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
   {
-    if (m_nettype == cryptonote::TESTNET)
+    if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
     uint64_t height_adjusted = height-129600;
     uint64_t base = 10000 * COIN;

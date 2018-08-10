@@ -629,6 +629,9 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   m_db->reset();
   m_hardfork->init();
 
+  for (InitHook* hook : m_init_hooks)
+    hook->init();
+
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
   update_next_cumulative_size_limit();

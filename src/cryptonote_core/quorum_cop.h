@@ -45,12 +45,16 @@ namespace service_nodes
 {
   class quorum_cop
     : public cryptonote::Blockchain::BlockAddedHook,
-      public cryptonote::Blockchain::BlockchainDetachedHook
+      public cryptonote::Blockchain::BlockchainDetachedHook,
+      public cryptonote::Blockchain::InitHook
   {
   public:
     quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list);
+
+    void init();
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
     void blockchain_detached(uint64_t height);
+
     bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
     void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req) const;
 

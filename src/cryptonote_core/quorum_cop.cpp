@@ -40,6 +40,13 @@ namespace service_nodes
   quorum_cop::quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list)
     : m_core(core), m_service_node_list(service_node_list), m_last_height(0)
   {
+    init();
+  }
+
+  void quorum_cop::init()
+  {
+    m_last_height = 0;
+    m_uptime_proof_seen.clear();
   }
 
   void quorum_cop::blockchain_detached(uint64_t height)
