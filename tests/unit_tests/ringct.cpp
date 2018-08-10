@@ -1061,3 +1061,13 @@ TEST(ringct, key_ostream)
     out.str()
   );
 }
+
+TEST(ringct, zeroCommmit)
+{
+  static const uint64_t amount = crypto::rand<uint64_t>();
+  const rct::key z = rct::zeroCommit(amount);
+  const rct::key a = rct::scalarmultBase(rct::identity());
+  const rct::key b = rct::scalarmultH(rct::d2h(amount));
+  const rct::key manual = rct::addKeys(a, b);
+  ASSERT_EQ(z, manual);
+}

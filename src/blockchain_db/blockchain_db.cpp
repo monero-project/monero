@@ -121,10 +121,10 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
-  crypto::hash tx_hash;
+  crypto::hash tx_hash, tx_prunable_hash;
   if (!tx_hash_ptr)
   {
     // should only need to compute hash for miner transactions
@@ -134,6 +134,13 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   else
   {
     tx_hash = *tx_hash_ptr;
+  }
+  if (tx.version >= 2)
+  {
+    if (!tx_prunable_hash_ptr)
+      tx_prunable_hash = get_transaction_prunable_hash(tx);
+    else
+      tx_prunable_hash = *tx_prunable_hash_ptr;
   }
 
   for (const txin_v& tx_input : tx.vin)
@@ -161,7 +168,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     }
   }
 
-  uint64_t tx_id = add_transaction_data(blk_hash, tx, tx_hash);
+  uint64_t tx_id = add_transaction_data(blk_hash, tx, tx_hash, tx_prunable_hash);
 
   std::vector<uint64_t> amount_output_indices;
 

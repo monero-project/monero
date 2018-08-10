@@ -320,6 +320,7 @@ namespace tools
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
       bool use_rct;
+      bool use_bulletproofs;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
@@ -332,6 +333,7 @@ namespace tools
         FIELD(extra)
         FIELD(unlock_time)
         FIELD(use_rct)
+        FIELD(use_bulletproofs)
         FIELD(dests)
         FIELD(subaddr_account)
         FIELD(subaddr_indices)
@@ -477,21 +479,23 @@ namespace tools
       bool two_random = false, bool create_address_file = false);
     /*!
      * \brief Creates a wallet from a public address and a spend/view secret key pair.
-     * \param  wallet_              Name of wallet file
-     * \param  password             Password of wallet file
-     * \param  viewkey              view secret key
-     * \param  spendkey             spend secret key
-     * \param  create_address_file  Whether to create an address file
+     * \param  wallet_                 Name of wallet file
+     * \param  password                Password of wallet file
+     * \param  account_public_address  The account's public address
+     * \param  spendkey                spend secret key
+     * \param  viewkey                 view secret key
+     * \param  create_address_file     Whether to create an address file
      */
     void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
       const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool create_address_file = false);
     /*!
      * \brief Creates a watch only wallet from a public address and a view secret key.
-     * \param  wallet_              Name of wallet file
-     * \param  password             Password of wallet file
-     * \param  viewkey              view secret key
-     * \param  create_address_file  Whether to create an address file
+     * \param  wallet_                 Name of wallet file
+     * \param  password                Password of wallet file
+     * \param  account_public_address  The account's public address
+     * \param  viewkey                 view secret key
+     * \param  create_address_file     Whether to create an address file
      */
     void generate(const std::string& wallet, const epee::wipeable_string& password,
       const cryptonote::account_public_address &account_public_address,
@@ -561,9 +565,9 @@ namespace tools
     void load(const std::string& wallet, const epee::wipeable_string& password);
     void store();
     /*!
-     * \brief store_to - stores wallet to another file(s), deleting old ones
-     * \param path     - path to the wallet file (keys and address filenames will be generated based on this filename)
-     * \param password - password to protect new wallet (TODO: probably better save the password in the wallet object?)
+     * \brief store_to  Stores wallet to another file(s), deleting old ones
+     * \param path      Path to the wallet file (keys and address filenames will be generated based on this filename)
+     * \param password  Password to protect new wallet (TODO: probably better save the password in the wallet object?)
      */
     void store_to(const std::string &path, const epee::wipeable_string &password);
 
@@ -653,6 +657,7 @@ namespace tools
     bool watch_only() const { return m_watch_only; }
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
+    bool has_unknown_key_images() const;
     bool get_multisig_seed(std::string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;
     bool key_on_device() const { return m_key_on_device; }
 
@@ -682,17 +687,23 @@ namespace tools
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     bool save_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename) const;
+    std::string dump_tx_to_str(const std::vector<pending_tx> &ptx_vector) const;
     std::string save_multisig_tx(multisig_tx_set txs);
     bool save_multisig_tx(const multisig_tx_set &txs, const std::string &filename);
     std::string save_multisig_tx(const std::vector<pending_tx>& ptx_vector);
     bool save_multisig_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename);
+    multisig_tx_set make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const;
     // load unsigned tx from file and sign it. Takes confirmation callback as argument. Used by the cli wallet
     bool sign_tx(const std::string &unsigned_filename, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx, std::function<bool(const unsigned_tx_set&)> accept_func = NULL, bool export_raw = false);
     // sign unsigned tx. Takes unsigned_tx_set as argument. Used by GUI
     bool sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_filename, std::vector<wallet2::pending_tx> &ptx, bool export_raw = false);
+    bool sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &ptx, signed_tx_set &signed_txs);
+    std::string sign_tx_dump_to_str(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &ptx, signed_tx_set &signed_txes);
     // load unsigned_tx_set from file. 
     bool load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs) const;
+    bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
+    bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func);
     std::vector<pending_tx> create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, bool trusted_daemon);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);     // pass subaddr_indices by value on purpose
     std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, size_t ring_size, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, bool trusted_daemon);
@@ -961,16 +972,34 @@ namespace tools
     /*!
      * \brief  Set the label of the given tag.
      * \param  tag            Tag's name (which must be non-empty).
-     * \param  label          Tag's description.
+     * \param  description    Tag's description.
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
     std::string sign(const std::string &data) const;
     bool verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
+    /*!
+     * \brief sign_multisig_participant signs given message with the multisig public signer key
+     * \param data                      message to sign
+     * \throws                          if wallet is not multisig
+     * \return                          signature
+     */
+    std::string sign_multisig_participant(const std::string& data) const;
+    /*!
+     * \brief verify_with_public_key verifies message was signed with given public key
+     * \param data                   message
+     * \param public_key             public key to check signature
+     * \param signature              signature of the message
+     * \return                       true if the signature is correct
+     */
+    bool verify_with_public_key(const std::string &data, const crypto::public_key &public_key, const std::string &signature) const;
+
     // Import/Export wallet data
     std::vector<tools::wallet2::transfer_details> export_outputs() const;
+    std::string export_outputs_to_str() const;
     size_t import_outputs(const std::vector<tools::wallet2::transfer_details> &outputs);
+    size_t import_outputs_from_str(const std::string &outputs_st);
     payment_container export_payments() const;
     void import_payments(const payment_container &payments);
     void import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments);
@@ -1252,7 +1281,7 @@ BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 2)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 3)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
@@ -1599,6 +1628,9 @@ namespace boost
       if (ver < 2)
         return;
       a & x.selected_transfers;
+      if (ver < 3)
+        return;
+      a & x.use_bulletproofs;
     }
 
     template <class Archive>
@@ -1884,6 +1916,7 @@ namespace tools
     ptx.construction_data.extra = tx.extra;
     ptx.construction_data.unlock_time = unlock_time;
     ptx.construction_data.use_rct = false;
+    ptx.construction_data.use_bulletproofs = false;
     ptx.construction_data.dests = dsts;
     // record which subaddress indices are being used as inputs
     ptx.construction_data.subaddr_account = subaddr_account;

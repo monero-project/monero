@@ -72,6 +72,11 @@ namespace daemon_args
   , "Specify maximum log file size [B]"
   , MAX_LOG_FILE_SIZE
   };
+  const command_line::arg_descriptor<std::size_t> arg_max_log_files = {
+    "max-log-files"
+  , "Specify maximum number of rotated log files to be saved (no limit by setting to 0)"
+  , MAX_LOG_FILES
+  };
   const command_line::arg_descriptor<std::string> arg_log_level = {
     "log-level"
   , ""

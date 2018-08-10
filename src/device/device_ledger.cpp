@@ -48,6 +48,15 @@ namespace hw {
     /* ===================================================================== */
     /* ===                           Debug                              ==== */
     /* ===================================================================== */
+    #ifdef WIN32
+    static char *pcsc_stringify_error(LONG rv) {
+     static __thread char out[20];
+     sprintf_s(out, sizeof(out), "0x%08lX", rv);
+
+     return out;
+    }
+    #endif
+
     void set_apdu_verbose(bool verbose) {
       apdu_verbose = verbose;
     }
@@ -127,7 +136,8 @@ namespace hw {
     }
 
     bool operator==(const crypto::key_derivation &d0, const crypto::key_derivation &d1) {
-      return !memcmp(&d0, &d1, sizeof(d0));
+      static_assert(sizeof(crypto::key_derivation) == 32, "key_derivation must be 32 bytes");
+      return !crypto_verify_32((const unsigned char*)&d0, (const unsigned char*)&d1);
     }
 
     /* ===================================================================== */
@@ -396,7 +406,7 @@ namespace hw {
         }
       }
 
-      if (mszReaders) {
+      if (rv == SCARD_S_SUCCESS && mszReaders) {
         #ifdef SCARD_AUTOALLOCATE
         SCardFreeMemory(this->hContext, mszReaders);
         #else

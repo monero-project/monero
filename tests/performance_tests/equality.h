@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,36 +30,43 @@
 
 #pragma once
 
-#include "wallet/wallet2.h"
-#include "ringct/rctOps.h"
+#include <string.h>
+#include <sodium/crypto_verify_32.h>
 
-#include "single_tx_test_base.h"
+struct memcmp32
+{
+  static const size_t loop_count = 1000000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return memcmp(k0, k1, 32); }
+};
 
-template<size_t Major, size_t Minor>
-class test_wallet2_expand_subaddresses : public single_tx_test_base
+struct verify32
+{
+  static const size_t loop_count = 10000000;
+  static int call(const unsigned char *k0, const unsigned char *k1){ return crypto_verify_32(k0, k1); }
+};
+
+template<typename f, bool equal>
+class test_equality
 {
 public:
-  static const size_t loop_count = 1;
-  static const size_t major = Major;
-  static const size_t minor = Minor;
+  static const size_t loop_count = f::loop_count;
 
   bool init()
   {
-    if (!single_tx_test_base::init())
-      return false;
-    wallet.set_subaddress_lookahead(1, 1);
-    crypto::secret_key spendkey = rct::rct2sk(rct::skGen());
-    wallet.generate("", "", spendkey, true, false);
-    wallet.set_subaddress_lookahead(major, minor);
+    for (int n = 0; n < 32; ++n)
+      k0[n] = n;
+    for (int n = 0; n < 32; ++n)
+      k1[n] = equal ? n : n + 1;
     return true;
   }
 
   bool test()
   {
-    wallet.expand_subaddresses({1, 0});
-    return true;
+    return equal == !f::call(k0, k1);
   }
 
 private:
-  tools::wallet2 wallet;
+  unsigned char k0[32];
+  unsigned char k1[32];
 };
+

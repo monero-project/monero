@@ -79,50 +79,7 @@ Dates are provided in the format YYYY-MM-DD.
 | Software upgrade block height | Date       | Fork version | Minimum Aeon version | Recommended Aeon version | Details                                                                            |  
 | ------------------------------ | -----------| ----------------- | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
 | 592000                        | 2015-08-04 | v1 (exceptional, version not bumped)      | v0.9.0.0                 | v0.9.14.0                     | blocktime = 240 seconds, CryptoNight-Lite, lower mining priority for ringsize < 3       |
-| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.0.0                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
-
-## Installing Aeon from a package
-
-Packages are available for
-
-* (**TODO**) ~Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.~
-
-        snap install aeon --beta
-
-~Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.~
-
-* (**TODO**) ~Arch Linux (via [AUR](https://aur.archlinux.org/)):~
-  - ~Stable release: [`aeon`](https://aur.archlinux.org/packages/aeon)~
-  - ~Bleeding edge: [`aeon-git`](https://aur.archlinux.org/packages/aeon-git)~
-
-* (**TODO**) ~Void Linux:~
-
-        xbps-install -S aeon
-
-* (**TODO**) ~GuixSD~
-
-        guix package -i aeon
-
-* OS X via [Homebrew](http://brew.sh)
-
-        brew tap sammy007/aeon
-        brew install aeon -v
-
-* (**TODO**) ~Docker~
-
-        # Build using all available cores
-        docker build -t aeon .
-
-        # or build using a specific number of cores (reduce RAM requirement)
-        docker build --build-arg NPROC=1 -t aeon .
-     
-        # either run in foreground
-        docker run -it -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
-
-        # or in background
-        docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
-
-Packaging for your favorite distribution would be a welcome contribution!
+| 963500                        | 2018-06-03 | v7                | v0.12.0.0                 | v0.12.2.1                    | Rebase to Monero's latest codebase with RingCT disabled, CryptoNight-Lite variant 1, limited use of ringsize 1, ban ringsize 2   |
 
 ## Compiling Aeon from source
 
@@ -146,7 +103,7 @@ library archives (`.a`).
 | OpenSSL      | basically any | NO       | `libssl-dev`       | `openssl`    | `openssl-devel`   | NO       | sha256 sum     |
 | libzmq       | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`     | `cppzmq-devel`    | NO       | ZeroMQ library |
 | libunbound   | 1.4.16        | YES      | `libunbound-dev`   | `unbound`    | `unbound-devel`   | NO       | DNS resolver   |
-| libsodium    | ?             | NO       | `libsodium-dev`    | ?            | `libsodium-devel` | NO       | libsodium      |
+| libsodium    | ?             | NO       | `libsodium-dev`    | ?            | `libsodium-devel` | NO       | cryptography   |
 | libminiupnpc | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`  | `miniupnpc-devel` | YES      | NAT punching   |
 | libunwind    | any           | NO       | `libunwind8-dev`   | `libunwind`  | `libunwind-devel` | YES      | Stack traces   |
 | liblzma      | any           | NO       | `liblzma-dev`      | `xz`         | `xz-devel`        | YES      | For libunwind  |
@@ -156,6 +113,7 @@ library archives (`.a`).
 | GTest        | 1.5           | YES      | `libgtest-dev`^    | `gtest`      | `gtest-devel`     | YES      | Test suite     |
 | Doxygen      | any           | NO       | `doxygen`          | `doxygen`    | `doxygen`         | YES      | Documentation  |
 | Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
+| pcsclite     | ?             | NO       | `libpcsclite-dev`  | ?            | `pcsc-lite pcsc-lite-devel` | NO | Ledger     |          
 
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
@@ -181,9 +139,10 @@ invokes cmake commands as needed.
 #### On Linux and OS X
 
 * Install the dependencies
-* Change to the root of the source code directory and build:
+* Change to the root of the source code directory, change to the most recent release tag, and build:
 
         cd aeon
+        git checkout v0.12.2.1
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -193,6 +152,12 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
+    
+    *Note*: The instructions above will compile the most stable release of the
+    Aeon software. If you would like to use and test the most recent software,
+    use ```git checkout master```. The master branch may contain updates that are
+    both unstable and incompatible with release software, though testing is always 
+    encouraged. 
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -239,7 +204,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/aeonix/aeon.git
 	cd aeon
-	git checkout tags/v0.12.0.0
+	git checkout tags/v0.12.2.1
 ```
 * Build:
 ```
@@ -324,7 +289,21 @@ application.
   or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
   running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
+**Cloning**
+
+* To git clone, run:
+
+        git clone --recursive https://github.com/aeonix/aeon.git
+
 **Building**
+
+* Change to the cloned directory, run:
+	
+        cd aeon
+
+* If you would like a specific [version/tag](https://github.com/aeonix/aeon/tags), do a git checkout for that version. eg. 'v0.12.1.0'. If you dont care about the version and just want binaries from master, skip this step:
+	
+        git checkout v0.12.1.0
 
 * If you are on a 64-bit system, run:
 
@@ -335,6 +314,16 @@ application.
         make release-static-win32
 
 * The resulting executables can be found in `build/release/bin`
+
+* **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
+
+        make debug-static-win64
+	
+* **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
+
+        make debug-static-win32
+
+* The resulting executables can be found in `build/debug/bin`
 
 ### On FreeBSD:
 
@@ -466,6 +455,51 @@ By default, in either dynamically or statically linked builds, binaries target t
 * ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
 * ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
 
+## Installing Aeon from a package
+
+**DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
+
+Packages are available for
+
+* (**TODO**) ~Ubuntu and [snap supported](https://snapcraft.io/docs/core/install) systems, via a community contributed build.~
+
+        snap install aeon --beta
+
+~Installing a snap is very quick. Snaps are secure. They are isolated with all of their dependencies. Snaps also auto update when a new version is released.~
+
+* (**TODO**) ~Arch Linux (via [AUR](https://aur.archlinux.org/)):~
+  - ~Stable release: [`aeon`](https://aur.archlinux.org/packages/aeon)~
+  - ~Bleeding edge: [`aeon-git`](https://aur.archlinux.org/packages/aeon-git)~
+
+* (**TODO**) ~Void Linux:~
+
+        xbps-install -S aeon
+
+* (**TODO**) ~GuixSD~
+
+        guix package -i aeon
+
+* OS X via [Homebrew](http://brew.sh)
+
+        brew tap sammy007/aeon
+        brew install aeon -v
+
+* (**TODO**) ~Docker~
+
+        # Build using all available cores
+        docker build -t aeon .
+
+        # or build using a specific number of cores (reduce RAM requirement)
+        docker build --build-arg NPROC=1 -t aeon .
+     
+        # either run in foreground
+        docker run -it -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
+
+        # or in background
+        docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
+
+Packaging for your favorite distribution would be a welcome contribution!
+
 ## Running aeond
 
 The build places the binary in `bin/` sub-directory within the build directory
@@ -519,6 +553,8 @@ setting the following configuration parameters and environment variables:
    as well.
 * Do NOT pass `--detach` when running through torsocks with systemd, (see
   [utils/systemd/aeond.service](utils/systemd/aeond.service) for details).
+* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
+  then use `--untrusted-daemon` unless it is your own hidden service.
 
 Example command line to start aeond through Tor:
 

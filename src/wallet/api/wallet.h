@@ -76,6 +76,9 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
+    bool recoverFromDevice(const std::string &path,
+                           const std::string &password,
+                           const std::string &device_name);
     bool close(bool store = true);
     std::string seed() const;
     std::string getSeedLanguage() const;
@@ -83,6 +86,7 @@ public:
     // void setListener(Listener *) {}
     int status() const;
     std::string errorString() const;
+    void statusWithErrorString(int& status, std::string& errorString) const override;
     bool setPassword(const std::string &password);
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const;
     std::string integratedAddress(const std::string &payment_id) const;
@@ -90,6 +94,7 @@ public:
     std::string publicViewKey() const;
     std::string secretSpendKey() const;
     std::string publicSpendKey() const;
+    std::string publicMultisigSignerKey() const;
     std::string path() const;
     bool store(const std::string &path);
     std::string filename() const;
@@ -113,6 +118,8 @@ public:
     void setRefreshFromBlockHeight(uint64_t refresh_from_block_height);
     uint64_t getRefreshFromBlockHeight() const { return m_wallet->get_refresh_from_block_height(); };
     void setRecoveringFromSeed(bool recoveringFromSeed);
+    void setRecoveringFromDevice(bool recoveringFromDevice) override;
+    void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
     bool watchOnly() const;
     bool rescanSpent();
     NetworkType nettype() const {return static_cast<NetworkType>(m_wallet->nettype());}
@@ -125,6 +132,14 @@ public:
     void addSubaddress(uint32_t accountIndex, const std::string& label);
     std::string getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const;
     void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label);
+
+    MultisigState multisig() const override;
+    std::string getMultisigInfo() const override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
+    bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
+    bool exportMultisigImages(std::string& images) override;
+    size_t importMultisigImages(const std::vector<std::string>& images) override;
+    PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t ring_size,
@@ -157,6 +172,8 @@ public:
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const;
     virtual std::string signMessage(const std::string &message);
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const;
+    virtual std::string signMultisigParticipant(const std::string &message) const;
+    virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const;
     virtual void startRefresh();
     virtual void pauseRefresh();
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
@@ -174,6 +191,9 @@ public:
 
 private:
     void clearStatus() const;
+    void setStatusError(const std::string& message) const;
+    void setStatusCritical(const std::string& message) const;
+    void setStatus(int status, const std::string& message) const;
     void refreshThreadFunc();
     void doRefresh();
     bool daemonSynced() const;
@@ -191,7 +211,8 @@ private:
     friend class SubaddressAccountImpl;
 
     tools::wallet2 * m_wallet;
-    mutable std::atomic<int>  m_status;
+    mutable boost::mutex m_statusMutex;
+    mutable int m_status;
     mutable std::string m_errorString;
     std::string m_password;
     TransactionHistoryImpl * m_history;
@@ -216,6 +237,7 @@ private:
     // so it shouldn't be considered as new and pull blocks (slow-refresh)
     // instead of pulling hashes (fast-refresh)
     std::atomic<bool>   m_recoveringFromSeed;
+    std::atomic<bool>   m_recoveringFromDevice;
     std::atomic<bool>   m_synchronized;
     std::atomic<bool>   m_rebuildWalletCache;
     // cache connection status to avoid unnecessary RPC calls

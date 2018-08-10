@@ -33,14 +33,19 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
+#include <sodium/crypto_verify_32.h>
 
 #define CRYPTO_MAKE_COMPARABLE(type) \
 namespace crypto { \
   inline bool operator==(const type &_v1, const type &_v2) { \
-    return std::memcmp(&_v1, &_v2, sizeof(type)) == 0; \
+    if (sizeof(_v1) == 32) \
+      return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) == 0; \
+    if (sizeof(_v1) == 8) \
+      return (const uint64_t&)_v1 == (const uint64_t&)_v2; \
+    return !memcmp(&_v1, &_v2, sizeof(_v1)); \
   } \
   inline bool operator!=(const type &_v1, const type &_v2) { \
-    return std::memcmp(&_v1, &_v2, sizeof(type)) != 0; \
+    return !operator==(_v1, _v2); \
   } \
 }
 

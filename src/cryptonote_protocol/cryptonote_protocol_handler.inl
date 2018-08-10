@@ -308,7 +308,8 @@ namespace cryptonote
       << " [Your node is " << abs_diff << " blocks (" << ((abs_diff - diff_v2) / (24 * 60 * 60 / DIFFICULTY_TARGET_V1)) + (diff_v2 / (24 * 60 * 60 / DIFFICULTY_TARGET_V2)) << " days) "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");
-      m_core.safesyncmode(false);
+      if (hshd.current_height >= m_core.get_current_blockchain_height() + 5) // don't switch to unsafe mode just for a few blocks
+        m_core.safesyncmode(false);
     }
     LOG_PRINT_L1("Remote blockchain height: " << hshd.current_height << ", id: " << hshd.top_id);
     context.m_state = cryptonote_connection_context::state_synchronizing;
@@ -1629,10 +1630,10 @@ skip:
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids);
-    if (n_use_blocks == 0)
+    if (n_use_blocks + HASH_OF_HASHES_STEP <= arg.m_block_ids.size())
     {
-      LOG_ERROR_CCONTEXT("Peer yielded no usable blocks, dropping connection");
-      drop_connection(context, false, false);
+      LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
+      drop_connection(context, true, false);
       return 1;
     }
 
@@ -1711,6 +1712,9 @@ skip:
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans)
   {
+    LOG_DEBUG_CC(context, "dropping connection id " << context.m_connection_id <<
+        ", add_fail " << add_fail << ", flush_all_spans " << flush_all_spans);
+
     if (add_fail)
       m_p2p->add_host_fail(context.m_remote_address);
 
