@@ -688,6 +688,26 @@ namespace service_nodes
     return true;
   }
 
+  static uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
+  {
+    uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
+    uint64_t x;
+    do x = mersenne_twister(); while (x >= secureMax);
+    return  x / (secureMax / n);
+  }
+
+  static void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
+  {
+    if (a.size() <= 1) return;
+    std::mt19937_64 mersenne_twister(seed);
+    for (size_t i = 1; i < a.size(); i++)
+    {
+      size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i+1);
+      if (i != j)
+        std::swap(a[i], a[j]);
+    }
+  }
+
   void service_node_list::store_quorum_state_from_rewards_list(uint64_t height)
   {
     const crypto::hash block_hash = m_blockchain.get_block_id_by_height(height);
@@ -707,8 +727,7 @@ namespace service_nodes
       uint64_t seed = 0;
       std::memcpy(&seed, block_hash.data, std::min(sizeof(seed), sizeof(block_hash.data)));
 
-      std::mt19937_64 mersenne_twister(seed);
-      std::shuffle(pub_keys_indexes.begin(), pub_keys_indexes.end(), mersenne_twister);
+      loki_shuffle(pub_keys_indexes, seed);
     }
 
     // Assign indexes from shuffled list into quorum and list of nodes to test
