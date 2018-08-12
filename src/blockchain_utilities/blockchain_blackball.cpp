@@ -60,7 +60,6 @@ static MDB_dbi dbi_outputs;
 static MDB_dbi dbi_processed_txidx;
 static MDB_dbi dbi_spent;
 static MDB_dbi dbi_ring_instances;
-static MDB_dbi dbi_newly_spent;
 static MDB_dbi dbi_stats;
 static MDB_env *env = NULL;
 
@@ -79,7 +78,6 @@ struct output_data
 // processed_txidx: string -> uint64_t
 // spent: 128 bits, zerokval
 // ring_instances: vector<uint64_t> -> uint64_t
-// newly_spent: 128 bits, zerokval
 // stats: string -> arbitrary
 //
 
@@ -240,7 +238,7 @@ static void init(std::string cache_filename)
 
   dbr = mdb_env_create(&env);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
-  dbr = mdb_env_set_maxdbs(env, 7);
+  dbr = mdb_env_set_maxdbs(env, 6);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = get_cache_filename(cache_filename); 
   dbr = mdb_env_open(env, actual_filename.c_str(), flags, 0664);
@@ -270,10 +268,6 @@ static void init(std::string cache_filename)
   dbr = mdb_dbi_open(txn, "ring_instances", MDB_CREATE, &dbi_ring_instances);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
 
-  dbr = mdb_dbi_open(txn, "newly_spent", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_newly_spent);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
-  mdb_set_dupsort(txn, dbi_newly_spent, compare_double64);
-
   dbr = mdb_dbi_open(txn, "stats", MDB_CREATE, &dbi_stats);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
 
@@ -291,7 +285,6 @@ static void close()
     mdb_dbi_close(env, dbi_processed_txidx);
     mdb_dbi_close(env, dbi_spent);
     mdb_dbi_close(env, dbi_ring_instances);
-    mdb_dbi_close(env, dbi_newly_spent);
     mdb_dbi_close(env, dbi_stats);
     mdb_env_close(env);
     env = NULL;
@@ -423,7 +416,7 @@ static std::vector<uint64_t> canonicalize(const std::vector<uint64_t> &v)
   return c;
 }
 
-static uint64_t get_num_spent_outputs(bool newly)
+static uint64_t get_num_spent_outputs()
 {
   MDB_txn *txn;
   bool tx_active = false;
@@ -434,7 +427,7 @@ static uint64_t get_num_spent_outputs(bool newly)
   tx_active = true;
 
   MDB_cursor *cur;
-  dbr = mdb_cursor_open(txn, newly ? dbi_newly_spent : dbi_spent, &cur);
+  dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
   mdb_size_t count = 0;
@@ -454,10 +447,10 @@ static uint64_t get_num_spent_outputs(bool newly)
   return count;
 }
 
-static void add_spent_output(MDB_txn *txn, const output_data &od, bool newly)
+static void add_spent_output(MDB_txn *txn, const output_data &od)
 {
   MDB_cursor *cur;
-  int dbr = mdb_cursor_open(txn, newly ? dbi_newly_spent : dbi_spent, &cur);
+  int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val v = {sizeof(od), (void*)&od};
   dbr = mdb_cursor_put(cur, (MDB_val *)&zerokval, &v, MDB_NODUPDATA);
@@ -465,10 +458,10 @@ static void add_spent_output(MDB_txn *txn, const output_data &od, bool newly)
   mdb_cursor_close(cur);
 }
 
-static bool is_output_spent(MDB_txn *txn, const output_data &od, bool newly)
+static bool is_output_spent(MDB_txn *txn, const output_data &od)
 {
   MDB_cursor *cur;
-  int dbr = mdb_cursor_open(txn, newly ? dbi_newly_spent : dbi_spent, &cur);
+  int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val v = {sizeof(od), (void*)&od};
   dbr = mdb_cursor_get(cur, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
@@ -478,10 +471,10 @@ static bool is_output_spent(MDB_txn *txn, const output_data &od, bool newly)
   return spent;
 }
 
-static std::vector<output_data> get_spent_outputs(MDB_txn *txn, bool newly)
+static std::vector<output_data> get_spent_outputs(MDB_txn *txn)
 {
   MDB_cursor *cur;
-  int dbr = mdb_cursor_open(txn, newly ? dbi_newly_spent : dbi_spent, &cur);
+  int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
   uint64_t count = 0;
@@ -505,12 +498,6 @@ static std::vector<output_data> get_spent_outputs(MDB_txn *txn, bool newly)
   }
   mdb_cursor_close(cur);
   return outs;
-}
-
-static void clear_spent_outputs(MDB_txn *txn, bool newly)
-{
-  int dbr = mdb_drop(txn, newly ? dbi_newly_spent : dbi_spent, 0);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to clear spent outputs: " + std::string(mdb_strerror(dbr)));
 }
 
 static uint64_t get_processed_txidx(const std::string &name)
@@ -899,7 +886,7 @@ int main(int argc, char* argv[])
 
   size_t done = 0;
 
-  const uint64_t start_blackballed_outputs = get_num_spent_outputs(false);
+  const uint64_t start_blackballed_outputs = get_num_spent_outputs();
 
   tools::ringdb ringdb(output_file_path.string(), epee::string_tools::pod_to_hex(get_genesis_block_hash(inputs[0])));
 
@@ -958,7 +945,7 @@ int main(int argc, char* argv[])
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
           std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           blackballs.push_back(pkey);
-          add_spent_output(txn, output_data(txin.amount, absolute[0]), true);
+          add_spent_output(txn, output_data(txin.amount, absolute[0]));
           inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
         else if (n == 0 && instances == new_ring.size())
@@ -969,7 +956,7 @@ int main(int argc, char* argv[])
             MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             blackballs.push_back(pkey);
-            add_spent_output(txn, output_data(txin.amount, absolute[o]), true);
+            add_spent_output(txn, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
@@ -1002,7 +989,7 @@ int main(int argc, char* argv[])
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               blackballs.push_back(pkey);
-              add_spent_output(txn, output_data(txin.amount, common[0]), true);
+              add_spent_output(txn, output_data(txin.amount, common[0]));
               inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
             else
@@ -1024,7 +1011,7 @@ int main(int argc, char* argv[])
         ringdb.blackball(blackballs);
         blackballs.clear();
       }
-      set_processed_txidx(txn, canonical, start_idx);
+      set_processed_txidx(txn, canonical, start_idx+1);
 
       ++records;
       if (records >= records_per_sync)
@@ -1052,9 +1039,19 @@ int main(int argc, char* argv[])
       break;
   }
 
-  while (get_num_spent_outputs(true) != 0)
+  std::vector<output_data> work_spent;
+  if (get_num_spent_outputs() > start_blackballed_outputs)
   {
-    LOG_PRINT_L0("Secondary pass due to " << get_num_spent_outputs(true) << " newly found spent outputs");
+    MDB_txn *txn;
+    dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    work_spent = get_spent_outputs(txn);
+    mdb_txn_abort(txn);
+  }
+
+  while (!work_spent.empty())
+  {
+    LOG_PRINT_L0("Secondary pass on " << work_spent.size() << " spent outputs");
 
     int dbr = resize_env(cache_dir.c_str());
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to resize LMDB database: " + std::string(mdb_strerror(dbr)));
@@ -1063,14 +1060,10 @@ int main(int argc, char* argv[])
     dbr = mdb_txn_begin(env, NULL, 0, &txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
 
-    std::vector<output_data> work_spent = get_spent_outputs(txn, true);
-    clear_spent_outputs(txn, true);
-
-    for (const auto &od: work_spent)
-      add_spent_output(txn, od, false);
-
     std::vector<crypto::public_key> blackballs;
-    for (const output_data &od: work_spent)
+    std::vector<output_data> scan_spent = std::move(work_spent);
+    work_spent.clear();
+    for (const output_data &od: scan_spent)
     {
       std::vector<crypto::key_image> key_images = get_key_images(txn, od);
       for (const crypto::key_image &ki: key_images)
@@ -1083,18 +1076,19 @@ int main(int argc, char* argv[])
         for (uint64_t out: absolute)
         {
           output_data new_od(od.amount, out);
-          if (is_output_spent(txn, new_od, false))
+          if (is_output_spent(txn, new_od))
             ++known;
           else
             last_unknown = out;
         }
-        if (known == absolute.size() - 1 && !is_output_spent(txn, output_data(od.amount, last_unknown), false) && !is_output_spent(txn, output_data(od.amount, last_unknown), true))
+        if (known == absolute.size() - 1 && !is_output_spent(txn, output_data(od.amount, last_unknown)))
         {
           const crypto::public_key pkey = get_output_key(cur0, od.amount, last_unknown);
           MINFO("Blackballing output " << pkey << ", due to being used in a " <<
               absolute.size() << "-ring where all other outputs are known to be spent");
           blackballs.push_back(pkey);
-          add_spent_output(txn, output_data(od.amount, last_unknown), true);
+          add_spent_output(txn, output_data(od.amount, last_unknown));
+          work_spent.push_back(output_data(od.amount, last_unknown));
           inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
       }
@@ -1108,8 +1102,8 @@ int main(int argc, char* argv[])
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
   }
 
-  uint64_t diff = get_num_spent_outputs(false) - start_blackballed_outputs;
-  LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs(false) << " total outputs blackballed");
+  uint64_t diff = get_num_spent_outputs() - start_blackballed_outputs;
+  LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs() << " total outputs blackballed");
 
   MDB_txn *txn;
   dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
