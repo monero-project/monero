@@ -61,6 +61,7 @@ static MDB_dbi dbi_processed_txidx;
 static MDB_dbi dbi_spent;
 static MDB_dbi dbi_ring_instances;
 static MDB_dbi dbi_newly_spent;
+static MDB_dbi dbi_stats;
 static MDB_env *env = NULL;
 
 struct output_data
@@ -79,6 +80,7 @@ struct output_data
 // spent: 128 bits, zerokval
 // ring_instances: vector<uint64_t> -> uint64_t
 // newly_spent: 128 bits, zerokval
+// stats: string -> arbitrary
 //
 
 static bool parse_db_sync_mode(std::string db_sync_mode)
@@ -238,7 +240,7 @@ static void init(std::string cache_filename)
 
   dbr = mdb_env_create(&env);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
-  dbr = mdb_env_set_maxdbs(env, 6);
+  dbr = mdb_env_set_maxdbs(env, 7);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = get_cache_filename(cache_filename); 
   dbr = mdb_env_open(env, actual_filename.c_str(), flags, 0664);
@@ -272,6 +274,9 @@ static void init(std::string cache_filename)
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
   mdb_set_dupsort(txn, dbi_newly_spent, compare_double64);
 
+  dbr = mdb_dbi_open(txn, "stats", MDB_CREATE, &dbi_stats);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+
   dbr = mdb_txn_commit(txn);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
@@ -287,6 +292,7 @@ static void close()
     mdb_dbi_close(env, dbi_spent);
     mdb_dbi_close(env, dbi_ring_instances);
     mdb_dbi_close(env, dbi_newly_spent);
+    mdb_dbi_close(env, dbi_stats);
     mdb_env_close(env);
     env = NULL;
   }
@@ -641,6 +647,40 @@ static void add_key_image(MDB_txn *txn, const output_data &od, const crypto::key
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set outputs: " + std::string(mdb_strerror(dbr)));
 }
 
+static bool get_stat(MDB_txn *txn, const char *key, uint64_t &data)
+{
+  MDB_val k, v;
+  k.mv_data = (void*)key;
+  k.mv_size = strlen(key);
+  int dbr = mdb_get(txn, dbi_stats, &k, &v);
+  if (dbr == MDB_NOTFOUND)
+    return false;
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to get stat record");
+  CHECK_AND_ASSERT_THROW_MES(v.mv_size == sizeof(uint64_t), "Unexpected record size");
+  data = *(const uint64_t*)v.mv_data;
+  return true;
+}
+
+static void set_stat(MDB_txn *txn, const char *key, uint64_t data)
+{
+  MDB_val k, v;
+  k.mv_data = (void*)key;
+  k.mv_size = strlen(key);
+  v.mv_data = (void*)&data;
+  v.mv_size = sizeof(uint64_t);
+  int dbr = mdb_put(txn, dbi_stats, &k, &v, 0);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set stat record");
+}
+
+static void inc_stat(MDB_txn *txn, const char *key)
+{
+  uint64_t data;
+  if (!get_stat(txn, key, data))
+    data = 0;
+  ++data;
+  set_stat(txn, key, data);
+}
+
 static void open_db(const std::string &filename, MDB_env **env, MDB_txn **txn, MDB_cursor **cur, MDB_dbi *dbi)
 {
   tools::create_directories_if_necessary(filename);
@@ -686,6 +726,30 @@ static crypto::public_key get_output_key(MDB_cursor *cur, uint64_t amount, uint6
   int dbr = mdb_cursor_get(cur, &k, &v, MDB_GET_BOTH);
   if (dbr) throw std::runtime_error("Output key not found: " + std::string(mdb_strerror(dbr)));
   return *(const crypto::public_key*)(((const char*)v.mv_data) + sizeof(uint64_t) * 2);
+}
+
+static void get_num_outputs(MDB_txn *txn, MDB_cursor *cur, MDB_dbi dbi, uint64_t &pre_rct, uint64_t &rct)
+{
+  uint64_t amount = 0;
+  MDB_val k = { sizeof(amount), (void*)&amount }, v;
+  int dbr = mdb_cursor_get(cur, &k, &v, MDB_SET);
+  if (dbr == MDB_NOTFOUND)
+  {
+    rct = 0;
+  }
+  else
+  {
+    if (dbr) throw std::runtime_error("Record 0 not found: " + std::string(mdb_strerror(dbr)));
+    mdb_size_t count = 0;
+    dbr = mdb_cursor_count(cur, &count);
+    if (dbr) throw std::runtime_error("Failed to count records: " + std::string(mdb_strerror(dbr)));
+    rct = count;
+  }
+  MDB_stat s;
+  dbr = mdb_stat(txn, dbi, &s);
+  if (dbr) throw std::runtime_error("Failed to count records: " + std::string(mdb_strerror(dbr)));
+  if (s.ms_entries < rct) throw std::runtime_error("Inconsistent records: " + std::string(mdb_strerror(dbr)));
+  pre_rct = s.ms_entries - rct;
 }
 
 static crypto::hash get_genesis_block_hash(const std::string &filename)
@@ -891,6 +955,7 @@ int main(int argc, char* argv[])
           std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           blackballs.push_back(pkey);
           add_spent_output(txn, output_data(txin.amount, absolute[0]), true);
+          inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
         else if (n == 0 && instances == new_ring.size())
         {
@@ -901,6 +966,7 @@ int main(int argc, char* argv[])
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             blackballs.push_back(pkey);
             add_spent_output(txn, output_data(txin.amount, absolute[o]), true);
+            inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
         else if (n > 0 && get_relative_ring(txn, txin.k_image, relative_ring))
@@ -933,6 +999,7 @@ int main(int argc, char* argv[])
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               blackballs.push_back(pkey);
               add_spent_output(txn, output_data(txin.amount, common[0]), true);
+              inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
             else
             {
@@ -1017,13 +1084,14 @@ int main(int argc, char* argv[])
           else
             last_unknown = out;
         }
-        if (known == absolute.size() - 1)
+        if (known == absolute.size() - 1 && !is_output_spent(txn, output_data(od.amount, last_unknown), false) && !is_output_spent(txn, output_data(od.amount, last_unknown), true))
         {
           const crypto::public_key pkey = get_output_key(cur0, od.amount, last_unknown);
           MINFO("Blackballing output " << pkey << ", due to being used in a " <<
               absolute.size() << "-ring where all other outputs are known to be spent");
           blackballs.push_back(pkey);
           add_spent_output(txn, output_data(od.amount, last_unknown), true);
+          inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
       }
     }
@@ -1038,6 +1106,30 @@ int main(int argc, char* argv[])
 
   uint64_t diff = get_num_spent_outputs(false) - start_blackballed_outputs;
   LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs(false) << " total outputs blackballed");
+
+  MDB_txn *txn;
+  dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  uint64_t pre_rct = 0, rct = 0;
+  get_num_outputs(txn0, cur0, dbi0, pre_rct, rct);
+  MINFO("Total pre-rct outputs: " << pre_rct);
+  MINFO("Total rct outputs: " << rct);
+  static const struct { const char *key; uint64_t base; } stat_keys[] = {
+    { "pre-rct-ring-size-1", pre_rct }, { "rct-ring-size-1", rct },
+    { "pre-rct-duplicate-rings", pre_rct }, { "rct-duplicate-rings", rct },
+    { "pre-rct-key-image-attack", pre_rct }, { "rct-key-image-attack", rct },
+    { "pre-rct-chain-reaction", pre_rct }, { "rct-chain-reaction", rct },
+  };
+  for (const auto &key: stat_keys)
+  {
+    uint64_t data;
+    if (!get_stat(txn, key.key, data))
+      data = 0;
+    float percent = key.base ? 100.0f * data / key.base : 0.0f;
+    MINFO(key.key << ": " << data << " (" << percent << "%)");
+  }
+  mdb_txn_abort(txn);
+
   LOG_PRINT_L0("Blockchain blackball data exported OK");
   close_db(env0, txn0, cur0, dbi0);
   close();
