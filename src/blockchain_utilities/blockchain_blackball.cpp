@@ -341,7 +341,7 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   if (dbr) throw std::runtime_error("Failed to open rings database file '"
       + actual_filename + "': " + std::string(mdb_strerror(dbr)));
 
-  dbr = mdb_txn_begin(env, NULL, 0, &txn);
+  dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
   if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
