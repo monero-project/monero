@@ -50,12 +50,13 @@ namespace tools
     bool set_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
 
     bool blackball(const crypto::public_key &output);
+    bool blackball(const std::vector<crypto::public_key> &outputs);
     bool unblackball(const crypto::public_key &output);
     bool blackballed(const crypto::public_key &output);
     bool clear_blackballs();
 
   private:
-    bool blackball_worker(const crypto::public_key &output, int op);
+    bool blackball_worker(const std::vector<crypto::public_key> &outputs, int op);
 
   private:
     std::string filename;
