@@ -417,6 +417,7 @@ int main(int argc, char* argv[])
     if (it != state.processed_heights.end())
       start_idx = it->second;
     LOG_PRINT_L0("Reading blockchain from " << inputs[n] << " from " << start_idx);
+    std::vector<crypto::public_key> blackballs;
     for_all_transactions(inputs[n], start_idx, [&](const cryptonote::transaction_prefix &tx)->bool
     {
       for (const auto &in: tx.vin)
@@ -439,7 +440,7 @@ int main(int argc, char* argv[])
         {
           const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[0]);
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
-          ringdb.blackball(pkey);
+          blackballs.push_back(pkey);
           newly_spent.insert(output_data(txin.amount, absolute[0]));
         }
         else if (state.ring_instances[new_ring] == new_ring.size())
@@ -448,7 +449,7 @@ int main(int argc, char* argv[])
           {
             const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, absolute[o]);
             MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
-            ringdb.blackball(pkey);
+            blackballs.push_back(pkey);
             newly_spent.insert(output_data(txin.amount, absolute[o]));
           }
         }
@@ -476,7 +477,7 @@ int main(int argc, char* argv[])
             {
               const crypto::public_key pkey = core_storage[n]->get_output_key(txin.amount, common[0]);
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
-              ringdb.blackball(pkey);
+              blackballs.push_back(pkey);
               newly_spent.insert(output_data(txin.amount, common[0]));
             }
             else
@@ -490,6 +491,11 @@ int main(int argc, char* argv[])
           }
         }
         state.relative_rings[txin.k_image] = new_ring;
+        if (!blackballs.empty())
+        {
+          ringdb.blackball(blackballs);
+          blackballs.clear();
+        }
       }
       if (stop_requested)
       {
@@ -513,6 +519,7 @@ int main(int argc, char* argv[])
     for (const auto &e: work_spent)
       state.spent.insert(e);
 
+    std::vector<crypto::public_key> blackballs;
     for (const output_data &od: work_spent)
     {
       for (const crypto::key_image &ki: state.outputs[od])
@@ -533,11 +540,17 @@ int main(int argc, char* argv[])
           const crypto::public_key pkey = core_storage[0]->get_output_key(od.amount, last_unknown);
           MINFO("Blackballing output " << pkey << ", due to being used in a " <<
               absolute.size() << "-ring where all other outputs are known to be spent");
-          ringdb.blackball(pkey);
+          blackballs.push_back(pkey);
           newly_spent.insert(output_data(od.amount, last_unknown));
         }
       }
     }
+  }
+
+  if (!blackballs.empty())
+  {
+    ringdb.blackball(blackballs);
+    blackballs.clear();
   }
 
   LOG_PRINT_L0("Saving state data to " << state_file_path);

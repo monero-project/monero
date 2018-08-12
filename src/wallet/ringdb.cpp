@@ -146,7 +146,7 @@ static int resize_env(MDB_env *env, const char *db_path, size_t needed)
   MDB_stat mst;
   int ret;
 
-  needed = std::max(needed, (size_t)(2ul * 1024 * 1024)); // at least 2 MB
+  needed = std::max(needed, (size_t)(100ul * 1024 * 1024)); // at least 100 MB
 
   ret = mdb_env_info(env, &mei);
   if (ret)
@@ -374,7 +374,7 @@ bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_im
   return true;
 }
 
-bool ringdb::blackball_worker(const crypto::public_key &output, int op)
+bool ringdb::blackball_worker(const std::vector<crypto::public_key> &outputs, int op)
 {
   MDB_txn *txn;
   MDB_cursor *cursor;
@@ -382,7 +382,9 @@ bool ringdb::blackball_worker(const crypto::public_key &output, int op)
   bool tx_active = false;
   bool ret = true;
 
-  dbr = resize_env(env, filename.c_str(), 32 * 2); // a pubkey, and some slack
+  THROW_WALLET_EXCEPTION_IF(outputs.size() > 1 && op == BLACKBALL_QUERY, tools::error::wallet_internal_error, "Blackball query only makes sense for a single output");
+
+  dbr = resize_env(env, filename.c_str(), 32 * 2 * outputs.size()); // a pubkey, and some slack
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set env map size: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_txn_begin(env, NULL, 0, &txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
@@ -391,40 +393,49 @@ bool ringdb::blackball_worker(const crypto::public_key &output, int op)
 
   MDB_val key = zerokeyval;
   MDB_val data;
-  data.mv_data = (void*)&output;
-  data.mv_size = sizeof(output);
 
-  switch (op)
+  for (const crypto::public_key &output: outputs)
   {
-    case BLACKBALL_BLACKBALL:
-      MDEBUG("Blackballing output " << output);
-      dbr = mdb_put(txn, dbi_blackballs, &key, &data, MDB_NODUPDATA);
-      if (dbr == MDB_KEYEXIST)
-        dbr = 0;
-      break;
-    case BLACKBALL_UNBLACKBALL:
-      MDEBUG("Unblackballing output " << output);
-      dbr = mdb_del(txn, dbi_blackballs, &key, &data);
-      if (dbr == MDB_NOTFOUND)
-        dbr = 0;
-      break;
-    case BLACKBALL_QUERY:
-      dbr = mdb_cursor_open(txn, dbi_blackballs, &cursor);
-      THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create cursor for blackballs table: " + std::string(mdb_strerror(dbr)));
-      dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
-      THROW_WALLET_EXCEPTION_IF(dbr && dbr != MDB_NOTFOUND, tools::error::wallet_internal_error, "Failed to lookup in blackballs table: " + std::string(mdb_strerror(dbr)));
-      ret = dbr != MDB_NOTFOUND;
-      if (dbr == MDB_NOTFOUND)
-        dbr = 0;
-      mdb_cursor_close(cursor);
-      break;
-    case BLACKBALL_CLEAR:
-      dbr = mdb_drop(txn, dbi_blackballs, 0);
-      break;
-    default:
-      THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, "Invalid blackball op");
+    data.mv_data = (void*)&output;
+    data.mv_size = sizeof(output);
+
+    switch (op)
+    {
+      case BLACKBALL_BLACKBALL:
+        MDEBUG("Blackballing output " << output);
+        dbr = mdb_put(txn, dbi_blackballs, &key, &data, MDB_NODUPDATA);
+        if (dbr == MDB_KEYEXIST)
+          dbr = 0;
+        break;
+      case BLACKBALL_UNBLACKBALL:
+        MDEBUG("Unblackballing output " << output);
+        dbr = mdb_del(txn, dbi_blackballs, &key, &data);
+        if (dbr == MDB_NOTFOUND)
+          dbr = 0;
+        break;
+      case BLACKBALL_QUERY:
+        dbr = mdb_cursor_open(txn, dbi_blackballs, &cursor);
+        THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create cursor for blackballs table: " + std::string(mdb_strerror(dbr)));
+        dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
+        THROW_WALLET_EXCEPTION_IF(dbr && dbr != MDB_NOTFOUND, tools::error::wallet_internal_error, "Failed to lookup in blackballs table: " + std::string(mdb_strerror(dbr)));
+        ret = dbr != MDB_NOTFOUND;
+        if (dbr == MDB_NOTFOUND)
+          dbr = 0;
+        mdb_cursor_close(cursor);
+        break;
+      case BLACKBALL_CLEAR:
+        break;
+      default:
+        THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, "Invalid blackball op");
+    }
+    THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to query blackballs table: " + std::string(mdb_strerror(dbr)));
   }
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to query blackballs table: " + std::string(mdb_strerror(dbr)));
+
+  if (op == BLACKBALL_CLEAR)
+  {
+    dbr = mdb_drop(txn, dbi_blackballs, 0);
+    THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to clear blackballs table: " + std::string(mdb_strerror(dbr)));
+  }
 
   dbr = mdb_txn_commit(txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn blackballing output to database: " + std::string(mdb_strerror(dbr)));
@@ -432,24 +443,32 @@ bool ringdb::blackball_worker(const crypto::public_key &output, int op)
   return ret;
 }
 
+bool ringdb::blackball(const std::vector<crypto::public_key> &outputs)
+{
+  return blackball_worker(outputs, BLACKBALL_BLACKBALL);
+}
+
 bool ringdb::blackball(const crypto::public_key &output)
 {
-  return blackball_worker(output, BLACKBALL_BLACKBALL);
+  std::vector<crypto::public_key> outputs(1, output);
+  return blackball_worker(outputs, BLACKBALL_BLACKBALL);
 }
 
 bool ringdb::unblackball(const crypto::public_key &output)
 {
-  return blackball_worker(output, BLACKBALL_UNBLACKBALL);
+  std::vector<crypto::public_key> outputs(1, output);
+  return blackball_worker(outputs, BLACKBALL_UNBLACKBALL);
 }
 
 bool ringdb::blackballed(const crypto::public_key &output)
 {
-  return blackball_worker(output, BLACKBALL_QUERY);
+  std::vector<crypto::public_key> outputs(1, output);
+  return blackball_worker(outputs, BLACKBALL_QUERY);
 }
 
 bool ringdb::clear_blackballs()
 {
-  return blackball_worker(crypto::public_key(), BLACKBALL_CLEAR);
+  return blackball_worker(std::vector<crypto::public_key>(), BLACKBALL_CLEAR);
 }
 
 }

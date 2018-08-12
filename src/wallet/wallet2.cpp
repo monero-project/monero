@@ -6238,8 +6238,7 @@ bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &out
     bool ret = true;
     if (!add)
       ret &= m_ringdb->clear_blackballs();
-    for (const auto &output: outputs)
-      ret &= m_ringdb->blackball(output);
+    ret &= m_ringdb->blackball(outputs);
     return ret;
   }
   catch (const std::exception &e) { return false; }
