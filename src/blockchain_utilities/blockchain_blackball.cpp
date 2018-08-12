@@ -298,12 +298,16 @@ static void close()
   }
 }
 
-static std::string compress_ring(const std::vector<uint64_t> &ring)
+static std::string compress_ring(const std::vector<uint64_t> &ring, std::string s = "")
 {
-  std::string s;
   for (uint64_t out: ring)
     s += tools::get_varint_data(out);
   return s;
+}
+
+static std::string compress_ring(uint64_t amount, const std::vector<uint64_t> &ring)
+{
+  return compress_ring(ring, tools::get_varint_data(amount));
 }
 
 static std::vector<uint64_t> decompress_ring(const std::string &s)
@@ -583,9 +587,9 @@ static std::string keep_under_511(const std::string &s)
   return std::string((const char*)&hash, 32);
 }
 
-static uint64_t get_ring_instances(MDB_txn *txn, const std::vector<uint64_t> &ring)
+static uint64_t get_ring_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring)
 {
-  const std::string sring = keep_under_511(compress_ring(ring));
+  const std::string sring = keep_under_511(compress_ring(amount, ring));
   MDB_val k, v;
   k.mv_data = (void*)sring.data();
   k.mv_size = sring.size();
@@ -596,9 +600,9 @@ static uint64_t get_ring_instances(MDB_txn *txn, const std::vector<uint64_t> &ri
   return *(const uint64_t*)v.mv_data;
 }
 
-static void set_ring_instances(MDB_txn *txn, const std::vector<uint64_t> &ring, uint64_t count)
+static void set_ring_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring, uint64_t count)
 {
-  const std::string sring = keep_under_511(compress_ring(ring));
+  const std::string sring = keep_under_511(compress_ring(amount, ring));
   MDB_val k, v;
   k.mv_data = (void*)sring.data();
   k.mv_size = sring.size();
@@ -945,9 +949,9 @@ int main(int argc, char* argv[])
         std::vector<uint64_t> relative_ring;
         std::vector<uint64_t> new_ring = canonicalize(txin.key_offsets);
         const uint32_t ring_size = txin.key_offsets.size();
-        uint64_t instances = get_ring_instances(txn, new_ring);
+        uint64_t instances = get_ring_instances(txn, txin.amount, new_ring);
         ++instances;
-        set_ring_instances(txn, new_ring, instances);
+        set_ring_instances(txn, txin.amount, new_ring, instances);
         if (n == 0 && ring_size == 1)
         {
           const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[0]);
