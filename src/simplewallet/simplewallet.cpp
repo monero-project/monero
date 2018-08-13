@@ -445,7 +445,7 @@ namespace
       LOG_ERROR("RPC error: " << e.to_string());
       fail_msg_writer() << tr("RPC error: ") << e.what();
     }
-    catch (const tools::error::get_random_outs_error &e)
+    catch (const tools::error::get_outs_error &e)
     {
       fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
     }
@@ -4856,15 +4856,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         unlock_block = bc_height + locked_blocks;
         ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
+      default:
+        LOG_ERROR("Unknown transfer method, using default");
+        /* FALLTHRU */
       case TransferNew:
         ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
-      default:
-        LOG_ERROR("Unknown transfer method, using original");
-        /* FALLTHRU */
-      case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra);
-        break;
     }
 
     if (ptx_vector.empty())
