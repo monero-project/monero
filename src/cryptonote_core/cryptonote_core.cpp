@@ -1681,7 +1681,7 @@ namespace cryptonote
 
       if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
       {
-        LOG_ERROR("Received vote for height: " << vote.block_height
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height
                   << " and service node: "     << vote.service_node_index
                   << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
                   << " blocks and has been rejected.");
@@ -1689,7 +1689,7 @@ namespace cryptonote
       }
       else if (vote.block_height > latest_block_height)
       {
-        LOG_ERROR("Received vote for height: " << vote.block_height
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height
                   << " and service node: "     << vote.service_node_index
                   << ", is newer than: "       << latest_block_height
                   << " (latest block height) and has been rejected.");
