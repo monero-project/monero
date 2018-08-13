@@ -4754,9 +4754,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <amount> <expiration timestamp> <service node pubkey> <signature>");
     fail_msg_writer() << tr("");
-    fail_msg_writer() << tr("Prepare this command with the service node using:");
-    fail_msg_writer() << tr("");
-    fail_msg_writer() << tr("./lokid --prepare-registration <operator cut> <address> <fraction> [<address2> <fraction2> [...]] <initial contribution amount>");
+    fail_msg_writer() << tr("Prepare this command in the daemon with the prepare_registration command");
     fail_msg_writer() << tr("");
     fail_msg_writer() << tr("This command must be run from the daemon that will be acting as a service node");
     return true;

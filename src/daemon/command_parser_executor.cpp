@@ -162,6 +162,12 @@ bool t_command_parser_executor::get_service_node_key(const std::vector<std::stri
   return result;
 }
 
+bool t_command_parser_executor::prepare_registration()
+{
+  bool result = m_executor.prepare_registration();
+  return result;
+}
+
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {
   if(args.size() > 1)

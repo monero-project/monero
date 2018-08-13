@@ -81,6 +81,8 @@ public:
 
   bool get_service_node_key(const std::vector<std::string>& args);
 
+  bool prepare_registration();
+
   bool set_log_level(const std::vector<std::string>& args);
 
   bool set_log_categories(const std::vector<std::string>& args);

@@ -829,17 +829,16 @@ namespace service_nodes
     portions.clear();
     try
     {
-      double portion_fraction = boost::lexical_cast<double>(args[0]);
-      if (portion_fraction < 0 || portion_fraction > 1)
+      portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
+      if (portions_for_operator > STAKING_PORTIONS)
       {
-        MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and 1"));
+        MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
         return false;
       }
-      portions_for_operator = STAKING_PORTIONS * portion_fraction;
     }
     catch (const std::exception &e)
     {
-      MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and 1"));
+      MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
       return false;
     }
     uint64_t portions_left = STAKING_PORTIONS;
@@ -868,8 +867,7 @@ namespace service_nodes
 
       try
       {
-        double portion_fraction = boost::lexical_cast<double>(args[i+1]);
-        uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
+        uint32_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
         uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
         if (num_portions < min_portions || num_portions > portions_left)
         {
