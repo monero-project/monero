@@ -320,7 +320,7 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   return res;
 }
 
-static constexpr unsigned int STRAUS_C = 4;
+#define STRAUS_C 4
 
 struct straus_cached_data
 {
@@ -447,26 +447,23 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
 #endif
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(digits, 1000000));
+#if STRAUS_C==4
+  std::unique_ptr<uint8_t[]> digits{new uint8_t[64 * data.size()]};
+#else
   std::unique_ptr<uint8_t[]> digits{new uint8_t[256 * data.size()]};
+#endif
   for (size_t j = 0; j < data.size(); ++j)
   {
     unsigned char bytes33[33];
     memcpy(bytes33,  data[j].scalar.bytes, 32);
     bytes33[32] = 0;
     const unsigned char *bytes = bytes33;
-#if 1
-    static_assert(STRAUS_C == 4, "optimized version needs STRAUS_C == 4");
+#if STRAUS_C==4
     unsigned int i;
-    for (i = 0; i < 256; i += 8, bytes++)
+    for (i = 0; i < 64; i += 2, bytes++)
     {
-      digits[j*256+i] = bytes[0] & 0xf;
-      digits[j*256+i+1] = (bytes[0] >> 1) & 0xf;
-      digits[j*256+i+2] = (bytes[0] >> 2) & 0xf;
-      digits[j*256+i+3] = (bytes[0] >> 3) & 0xf;
-      digits[j*256+i+4] = ((bytes[0] >> 4) | (bytes[1]<<4)) & 0xf;
-      digits[j*256+i+5] = ((bytes[0] >> 5) | (bytes[1]<<3)) & 0xf;
-      digits[j*256+i+6] = ((bytes[0] >> 6) | (bytes[1]<<2)) & 0xf;
-      digits[j*256+i+7] = ((bytes[0] >> 7) | (bytes[1]<<1)) & 0xf;
+      digits[j*64+i] = bytes[0] & 0xf;
+      digits[j*64+i+1] = bytes[0] >> 4;
     }
 #elif 1
     for (size_t i = 0; i < 256; ++i)
@@ -521,7 +518,11 @@ skipfirst:
         if (skip[j])
           continue;
 #endif
+#if STRAUS_C==4
+        const uint8_t digit = digits[j*64+i/4];
+#else
         const uint8_t digit = digits[j*256+i];
+#endif
         if (digit)
         {
           ge_add(&p1, &band_p3, &CACHE_OFFSET(local_cache, j, digit));
