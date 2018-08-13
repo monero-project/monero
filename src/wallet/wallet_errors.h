@@ -73,7 +73,7 @@ namespace tools
     //         get_tx_pool_error
     //         out_of_hashchain_bounds_error
     //       transfer_error *
-    //         get_random_outs_general_error
+    //         get_outs_general_error
     //         not_enough_unlocked_money
     //         not_enough_money
     //         tx_not_possible
@@ -128,7 +128,7 @@ namespace tools
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
-      get_random_outs_error_message_index
+      get_outs_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -427,7 +427,7 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    typedef failed_rpc_request<transfer_error, get_random_outs_error_message_index> get_random_outs_error;
+    typedef failed_rpc_request<transfer_error, get_outs_error_message_index> get_outs_error;
     //----------------------------------------------------------------------------------------------------
     struct not_enough_unlocked_money : public transfer_error
     {
