@@ -587,6 +587,25 @@ static uint64_t get_ring_instances(MDB_txn *txn, uint64_t amount, const std::vec
   return *(const uint64_t*)v.mv_data;
 }
 
+static uint64_t get_ring_subset_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring)
+{
+  uint64_t instances = get_ring_instances(txn, amount, ring);
+  if (ring.size() > 11)
+    return instances;
+
+  uint64_t extra = 0;
+  for (uint64_t mask = 1; mask < (1u << ring.size()) - 1; ++mask)
+  {
+    std::vector<uint64_t> subset;
+    subset.reserve(ring.size());
+    for (size_t i = 0; i < ring.size(); ++i)
+      if ((mask >> i) & 1)
+        subset.push_back(ring[i]);
+    extra += get_ring_instances(txn, amount, subset);
+  }
+  return instances + extra;
+}
+
 static void set_ring_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring, uint64_t count)
 {
   const std::string sring = keep_under_511(compress_ring(amount, ring));
@@ -808,6 +827,7 @@ int main(int argc, char* argv[])
     "database", available_dbs.c_str(), default_db_type
   };
   const command_line::arg_descriptor<bool> arg_rct_only  = {"rct-only", "Only work on ringCT outputs", false};
+  const command_line::arg_descriptor<bool> arg_check_subsets  = {"check-subsets", "Check ring subsets (very expensive)", false};
   const command_line::arg_descriptor<std::vector<std::string> > arg_inputs = {"inputs", "Path to Monero DB, and path to any fork DBs"};
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
     "db-sync-mode"
@@ -819,6 +839,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_rct_only);
+  command_line::add_arg(desc_cmd_sett, arg_check_subsets);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
@@ -857,6 +878,7 @@ int main(int argc, char* argv[])
 
   output_file_path = command_line::get_arg(vm, arg_blackball_db_dir);
   bool opt_rct_only = command_line::get_arg(vm, arg_rct_only);
+  bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
   if (!cryptonote::blockchain_valid_db_type(db_type))
@@ -958,6 +980,18 @@ int main(int argc, char* argv[])
             blackballs.push_back(pkey);
             add_spent_output(txn, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
+          }
+        }
+        else if (n == 0 && opt_check_subsets && get_ring_subset_instances(txn, txin.amount, new_ring) >= new_ring.size())
+        {
+          for (size_t o = 0; o < new_ring.size(); ++o)
+          {
+            const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[o]);
+            MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
+            std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            blackballs.push_back(pkey);
+            add_spent_output(txn, output_data(txin.amount, absolute[o]));
+            inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
           }
         }
         else if (n > 0 && get_relative_ring(txn, txin.k_image, relative_ring))
@@ -1115,6 +1149,7 @@ int main(int argc, char* argv[])
   static const struct { const char *key; uint64_t base; } stat_keys[] = {
     { "pre-rct-ring-size-1", pre_rct }, { "rct-ring-size-1", rct },
     { "pre-rct-duplicate-rings", pre_rct }, { "rct-duplicate-rings", rct },
+    { "pre-rct-subset-rings", pre_rct }, { "rct-subset-rings", rct },
     { "pre-rct-key-image-attack", pre_rct }, { "rct-key-image-attack", rct },
     { "pre-rct-chain-reaction", pre_rct }, { "rct-chain-reaction", rct },
   };
