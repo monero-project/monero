@@ -968,10 +968,11 @@ namespace service_nodes
   {
     if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
-    uint64_t height_adjusted = height-129600;
+    uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
+    uint64_t height_adjusted = height - hardfork_height;
     uint64_t base = 10000 * COIN;
     uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
-    uint64_t linear_up = 5 * COIN * height / 2592;
+    uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
     uint64_t flat = 15000 * COIN;
     return std::max(base + variable, height < 3628800 ? linear_up : flat);
   }
