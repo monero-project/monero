@@ -73,7 +73,7 @@ namespace service_nodes
   void service_node_list::init()
   {
     // TODO: Save this calculation, only do it if it's not here.
-    LOG_PRINT_L0("Recalculating service nodes list, scanning last 30 days");
+    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain");
 
     m_height = 0;
     m_service_nodes_infos.clear();
@@ -84,11 +84,6 @@ namespace service_nodes
     }
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-
-    uint64_t lock_blocks = get_staking_requirement_lock_blocks();
-
-    if (current_height >= lock_blocks)
-      m_height = std::max(m_height, current_height - lock_blocks);
 
     while (m_height < current_height)
     {
@@ -509,19 +504,14 @@ namespace service_nodes
       index++;
     }
 
-    const uint64_t curr_height           = m_blockchain.get_current_blockchain_height();
-
     const size_t QUORUM_LIFETIME         = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
-    const size_t cache_state_from_height = (curr_height < QUORUM_LIFETIME) ? 0 : curr_height - QUORUM_LIFETIME;
+    const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
-    if (block_height >= cache_state_from_height)
+    store_quorum_state_from_rewards_list(block_height);
+
+    while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
     {
-      store_quorum_state_from_rewards_list(block_height);
-
-      while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
-      {
-        m_quorum_states.erase(m_quorum_states.begin());
-      }
+      m_quorum_states.erase(m_quorum_states.begin());
     }
   }
 
