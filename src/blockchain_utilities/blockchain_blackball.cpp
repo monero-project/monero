@@ -1061,7 +1061,7 @@ int main(int argc, char* argv[])
 
       if (stop_requested)
       {
-        MINFO("Stopping scan, secondary passes will still happen...");
+        MINFO("Stopping scan...");
         return false;
       }
       return true;
@@ -1074,6 +1074,10 @@ int main(int argc, char* argv[])
   }
 
   std::vector<output_data> work_spent;
+
+  if (stop_requested)
+    goto skip_secondary_passes;
+
   if (get_num_spent_outputs() > start_blackballed_outputs)
   {
     MDB_txn *txn;
@@ -1126,6 +1130,12 @@ int main(int argc, char* argv[])
           inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
       }
+
+      if (stop_requested)
+      {
+        MINFO("Stopping secondary passes. Secondary passes are not incremental, they will re-run fully.");
+        return false;
+      }
     }
     if (!blackballs.empty())
     {
@@ -1136,6 +1146,7 @@ int main(int argc, char* argv[])
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
   }
 
+skip_secondary_passes:
   uint64_t diff = get_num_spent_outputs() - start_blackballed_outputs;
   LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs() << " total outputs blackballed");
 
