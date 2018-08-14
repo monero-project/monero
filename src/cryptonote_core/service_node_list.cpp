@@ -291,7 +291,7 @@ namespace service_nodes
     crypto::hash hash;
     if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash))
       return false;
-    if (!crypto::check_signature(hash, service_node_key, signature))
+    if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature))
       return false;
     if (expiration_timestamp < block_timestamp)
       return false;
