@@ -2652,6 +2652,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   if (hf_version >= 2 && !tx.is_deregister_tx())
   {
     size_t n_unmixable = 0, n_mixable = 0;
+    // TODO(jcktm) - remove mixin var if safe after fork
     size_t mixin = std::numeric_limits<size_t>::max();
     const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_9 ? 9 : 2;
     for (const auto& txin : tx.vin)
@@ -2678,11 +2679,19 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           else
             ++n_mixable;
         }
+        // TODO(jcktm) - remove branch if safe after fork
         if (in_to_key.key_offsets.size() - 1 < mixin)
           mixin = in_to_key.key_offsets.size() - 1;
+        if (hf_version >= 9 && in_to_key.key_offsets.size() - 1 != min_mixin)
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has incorrect ring size (" << in_to_key.key_offsets.size() - 1 << ")");
+          tvc.m_low_mixin = true;
+          return false;
+        }
       }
     }
 
+    // TODO(jcktm) - remove branch if safe after fork
     if (mixin != min_mixin)
     {
       if (n_unmixable == 0)
@@ -2700,9 +2709,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
 
     // min/max tx version based on HF, and we accept v1 txes if having a non mixable
-    const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < 9)
-      ? transaction::version_2
-      : transaction::version_3_per_output_unlock_times;
+    const size_t max_tx_version = (hf_version < 9) ? transaction::version_2 : transaction::version_3_per_output_unlock_times;
 
     if (tx.version > max_tx_version)
     {
