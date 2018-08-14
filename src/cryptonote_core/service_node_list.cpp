@@ -273,15 +273,14 @@ namespace service_nodes
 
     // check the portions
 
-    uint64_t total = 0;
+    uint64_t portions_left = STAKING_PORTIONS;
     for (size_t i = 0; i < service_node_portions.size(); i++)
     {
-      if (service_node_portions[i] < MIN_PORTIONS)
+      uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+      if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
         return false;
-      total += service_node_portions[i];
+      portions_left -= service_node_portions[i];
     }
-    if (total > STAKING_PORTIONS)
-      return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
       return false;
@@ -843,7 +842,7 @@ namespace service_nodes
       MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and 1"));
       return false;
     }
-    uint64_t total_portions = 0;
+    uint64_t portions_left = STAKING_PORTIONS;
     for (size_t i = 1; i < args.size()-1; i += 2)
     {
       cryptonote::address_parse_info info;
@@ -870,18 +869,19 @@ namespace service_nodes
       try
       {
         double portion_fraction = boost::lexical_cast<double>(args[i+1]);
-        if (portion_fraction < 1.0 / MAX_NUMBER_OF_CONTRIBUTORS || portion_fraction > 1)
+        uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
+        uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+        if (num_portions < min_portions || num_portions > portions_left)
         {
-          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
+          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
           return false;
         }
-        uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
+        portions_left -= num_portions;
         portions.push_back(num_portions);
-        total_portions += num_portions;
       }
       catch (const std::exception &e)
       {
-        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
+        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
         return false;
       }
     }
@@ -891,12 +891,6 @@ namespace service_nodes
         ", " << tr("expected number from ") << cryptonote::print_money(1) <<
         " to " << cryptonote::print_money(std::numeric_limits<uint64_t>::max()));
       return true;
-    }
-    if (total_portions > (uint64_t)STAKING_PORTIONS)
-    {
-      MERROR(tr("Invalid portion amounts, portions must sum to at most 1."));
-      MERROR(tr("If it looks correct,  this may be because of rounding. Try reducing one of the portionholders portions by a very tiny amount"));
-      return false;
     }
 
     return true;
