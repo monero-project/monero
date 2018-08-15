@@ -155,10 +155,10 @@ bool t_command_parser_executor::get_service_node_registration_cmd(const std::vec
   return result;
 }
 
-bool t_command_parser_executor::get_service_node_key(const std::vector<std::string>& args)
+bool t_command_parser_executor::print_sn_key(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
-  bool result = m_executor.get_service_node_key();
+  bool result = m_executor.print_sn_key();
   return result;
 }
 

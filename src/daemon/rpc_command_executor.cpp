@@ -2127,7 +2127,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     return true;
 }
 
-bool t_rpc_command_executor::get_service_node_key()
+bool t_rpc_command_executor::print_sn_key()
 {
   cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request req = {};
   cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response res = {};
