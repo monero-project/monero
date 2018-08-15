@@ -731,6 +731,8 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE_LIST_STATE::response get_service_node_list();
+
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     void rescan_spent();
     void rescan_blockchain(bool refresh = true);

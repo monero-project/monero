@@ -4688,6 +4688,21 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
   return sweep_main(0, true, args_);
 }
 //----------------------------------------------------------------------------------------------------
+static cryptonote::account_public_address string_to_address(const std::string& s)
+{
+  cryptonote::account_public_address address;
+  if (!epee::string_tools::hex_to_pod(s, address))
+    return service_nodes::null_address;
+  return address;
+}
+static crypto::public_key string_to_public_key(const std::string& s)
+{
+  crypto::public_key key;
+  if (!epee::string_tools::hex_to_pod(s, key))
+    return crypto::null_pkey;
+  return key;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 {
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
@@ -4838,6 +4853,25 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << tr("The first reserved address for this registration does not belong to this wallet.");
     fail_msg_writer() << tr("Service node operator must specify an address owned by this wallet for service node registration.");
+    return true;
+  }
+
+  try
+  {
+    const auto& response = m_wallet->get_service_node_list();
+    bool found = false;
+    for (const auto& snode_info : response.service_node_states)
+    {
+      if (string_to_public_key(snode_info.service_node_pubkey) == service_node_key)
+      {
+        fail_msg_writer() << tr("This service node is already registered");
+        return true;
+      }
+    }
+  }
+  catch (const std::exception& e)
+  {
+    fail_msg_writer() << e.what();
     return true;
   }
 
@@ -5021,7 +5055,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   uint64_t unlock_block = bc_height + locked_blocks;
 
-  if (local_args.size() < 2)
+  if (local_args.size() < 3)
   {
     fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <address> <amount>");
     return true;
@@ -5041,37 +5075,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       ", " << tr("expected number from ") << print_money(1) << " to " << print_money(std::numeric_limits<uint64_t>::max());
     return true;
   }
-
-  uint64_t expected_staking_requirement = std::max(
-      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height),
-      service_nodes::get_staking_requirement(m_wallet->nettype(), bc_height+STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS)
-      );
-
-  if (amount < expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS)
-  {
-    std::stringstream prompt;
-    prompt << tr("This staking amount is not enough and cannot be used to stake") << '\n';
-    prompt << tr("If it looks correct, please send a little bit extra to ensure that it is still correct when it makes it into a block") << '\n';
-    prompt << tr("This warning was triggered because you sent less than: ") << print_money(expected_staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS) << tr(" loki\n");
-    prompt << tr("") << '\n';
-    prompt << tr("If this is not the first time you are making a contribution to this service node") << '\n';
-    prompt << tr("then it should be okay to top-up the amount you are contributing. This is also true") << '\n';
-    prompt << tr("if this address was specified in the service node registration.") << '\n';
-    prompt << tr("") << '\n';
-    prompt << tr("Most likely this is not the right amount to send. Only continue if you know what you are doing.") << '\n';
-    prompt << tr("\nDo you want to continue?");
-    std::string accepted = input_line(prompt.str());
-    if (std::cin.eof())
-      return true;
-    if (!command_line::is_yes(accepted))
-    {
-      fail_msg_writer() << tr("transaction cancelled.");
-      return true;
-    }
-  }
-  std::vector<uint8_t> extra;
-
-  add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
   cryptonote::address_parse_info info;
   if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[1], oa_prompter))
@@ -5093,6 +5096,72 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("The specified address is not owned by this wallet.");
     return true;
   }
+
+  try
+  {
+    const auto& response = m_wallet->get_service_node_list();
+    bool found = false;
+    bool full = false;
+    uint64_t can_contrib_total = 0;
+    uint64_t must_contrib_total = 0;
+    for (const auto& snode_info : response.service_node_states)
+    {
+      if (string_to_public_key(snode_info.service_node_pubkey) == service_node_key)
+      {
+        found = true;
+        if (snode_info.contributors.size() < MAX_NUMBER_OF_CONTRIBUTORS)
+          can_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
+        else
+          full = true;
+        for (const auto& contributor : snode_info.contributors)
+        {
+          if (string_to_address(contributor.address) == address)
+          {
+            uint64_t max_increase_reserve = snode_info.staking_requirement - snode_info.total_reserved;
+            uint64_t max_increase_amount_to = contributor.reserved + max_increase_reserve;
+            can_contrib_total = max_increase_amount_to - contributor.amount;
+            must_contrib_total = contributor.reserved - contributor.amount;
+            full = false;
+          }
+        }
+        break;
+      }
+    }
+    if (!found)
+    {
+      fail_msg_writer() << tr("Could not find service node in service node list, please make sure it is registered first.");
+      return true;
+    }
+    if (full)
+    {
+      fail_msg_writer() << tr("This service node already has the maximum number of participants, and the specified address is not one of them");
+      return true;
+    }
+    if (can_contrib_total == 0)
+    {
+      fail_msg_writer() << tr("You may not contribute any more to this service node");
+      return true;
+    }
+    if (amount > can_contrib_total)
+    {
+      fail_msg_writer() << tr("You may only contribute up to ") << print_money(can_contrib_total) << tr(" more loki to this service node");
+      return true;
+    }
+    if (amount < must_contrib_total)
+    {
+      fail_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" loki to meet your registration requirements for this service node");
+      fail_msg_writer() << tr("You have only specified " << print_money(amount));
+    }
+  }
+  catch (const std::exception& e)
+  {
+    fail_msg_writer() << e.what();
+    return true;
+  }
+
+  std::vector<uint8_t> extra;
+
+  add_service_node_pubkey_to_tx_extra(extra, service_node_key);
 
   add_service_node_contributor_to_tx_extra(extra, address);
 
