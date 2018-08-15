@@ -333,7 +333,15 @@ namespace service_nodes
       lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
       div128_32(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
       info.contributors.push_back(service_node_info::contribution(resultlo, service_node_addresses[i]));
-      info.total_reserved += resultlo;
+
+      if (m_blockchain.nettype() == cryptonote::TESTNET && block_height < 5500)
+      {
+        // do nothing. remove this branch in the next testnet launch.
+      }
+      else
+      {
+        info.total_reserved += resultlo;
+      }
     }
 
     return true;
