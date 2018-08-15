@@ -24,8 +24,8 @@
 find_path(Readline_ROOT_DIR
     NAMES include/readline/readline.h
     HINTS ENV READLINE_ROOT_DIR
-    PATHS /opt/local/ /usr/local/ /usr/ ${CMAKE_FIND_ROOT_PATH}
-    NO_CMAKE_FIND_ROOT_PATH NO_DEFAULT_PATH
+    PATHS /opt/local/ /usr/local/ /usr/
+    NO_DEFAULT_PATH
 )
 
 find_path(Readline_INCLUDE_DIR
@@ -41,7 +41,7 @@ find_library(Readline_LIBRARY
 )
 
 find_library(Termcap_LIBRARY
-  NAMES tinfo termcap ncursesw ncurses cursesw curses
+  NAMES ncurses tinfo termcap ncursesw cursesw curses
 )
 
 if(Readline_INCLUDE_DIR AND Readline_LIBRARY)
