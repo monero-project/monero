@@ -27,7 +27,7 @@ cd $WORKING_DIR
 curl --header 'PRIVATE-TOKEN: '"$TOKEN" "https://gitlab.com/api/v4/projects/7515512/jobs" |
   sed 's/},{/\n/g' |
   grep $pipeline |
-  sed 's/"id":\([0-9]*\).*name":"build:\([^"]*\)".*/\1 \2/g' |
+  sed 's/.*"id":\([0-9]*\).*name":"build:\([^"]*\)".*/\1 \2/g' |
   while read line
   do
     id=$(echo $line | cut -d' ' -f1)
