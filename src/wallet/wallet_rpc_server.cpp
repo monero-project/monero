@@ -355,14 +355,20 @@ namespace tools
       std::map<uint32_t, uint64_t> unlocked_balance_per_subaddress = m_wallet->unlocked_balance_per_subaddress(req.account_index);
       std::vector<tools::wallet2::transfer_details> transfers;
       m_wallet->get_transfers(transfers);
-      for (const auto& i : balance_per_subaddress)
+      std::set<uint32_t> address_indices = req.address_indices;
+      if (address_indices.empty())
+      {
+        for (const auto& i : balance_per_subaddress)
+          address_indices.insert(i.first);
+      }
+      for (uint32_t i : address_indices)
       {
         wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
-        info.address_index = i.first;
+        info.address_index = i;
         cryptonote::subaddress_index index = {req.account_index, info.address_index};
         info.address = m_wallet->get_subaddress_as_str(index);
-        info.balance = i.second;
-        info.unlocked_balance = unlocked_balance_per_subaddress[i.first];
+        info.balance = balance_per_subaddress[i];
+        info.unlocked_balance = unlocked_balance_per_subaddress[i];
         info.label = m_wallet->get_subaddress_label(index);
         info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
         res.per_subaddress.push_back(info);

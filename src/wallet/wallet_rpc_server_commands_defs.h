@@ -62,8 +62,10 @@ namespace wallet_rpc
     struct request
     {
       uint32_t account_index;
+      std::set<uint32_t> address_indices;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
+        KV_SERIALIZE(address_indices)
       END_KV_SERIALIZE_MAP()
     };
 
