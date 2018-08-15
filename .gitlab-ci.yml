@@ -34,6 +34,8 @@ build:linux:
   tags:
     - ubuntu
   stage: build
+  before_script:
+    - apt-get update -qq && apt-get install -y libncurses5-dev libncursesw5-dev
   script:
     # print our runner distro
     - cat /proc/version

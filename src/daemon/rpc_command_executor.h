@@ -158,7 +158,7 @@ public:
 
   bool get_service_node_registration_cmd(const std::vector<std::string> &args);
 
-  bool get_service_node_key();
+  bool print_sn_key();
 
   bool prepare_registration();
 

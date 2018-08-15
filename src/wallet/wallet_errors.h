@@ -129,7 +129,7 @@ namespace tools
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
       get_random_outs_error_message_index,
-      get_service_node_list_error_message_index
+      get_service_nodes_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -371,7 +371,7 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_blocks_error_message_index> get_blocks_error;
     //----------------------------------------------------------------------------------------------------
-    typedef failed_rpc_request<refresh_error, get_service_node_list_error_message_index> get_service_node_list_error;
+    typedef failed_rpc_request<refresh_error, get_service_nodes_error_message_index> get_service_nodes_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_hashes_error_message_index> get_hashes_error;
     //----------------------------------------------------------------------------------------------------
