@@ -628,7 +628,7 @@ bool simple_wallet::print_seed(bool encrypted)
   epee::wipeable_string seed_pass;
   if (encrypted)
   {
-    auto pwd_container = password_prompter(tr("Enter optional seed encryption passphrase, empty to see raw seed"), true);
+    auto pwd_container = password_prompter(tr("Enter optional seed offset passphrase, empty to see raw seed"), true);
     if (std::cin.eof() || !pwd_container)
       return true;
     seed_pass = pwd_container->password();
@@ -2794,7 +2794,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         }
       }
 
-      auto pwd_container = password_prompter(tr("Enter seed encryption passphrase, empty if none"), false);
+      auto pwd_container = password_prompter(tr("Enter seed offset passphrase, empty if none"), false);
       if (std::cin.eof() || !pwd_container)
         return false;
       epee::wipeable_string seed_pass = pwd_container->password();
