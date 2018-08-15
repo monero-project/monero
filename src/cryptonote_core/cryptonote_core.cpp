@@ -1736,8 +1736,10 @@ namespace cryptonote
       result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
       if (!result || tvc.m_verifivation_failed)
       {
-        LOG_ERROR("A full deregister tx for height: " << vote.block_height << " and service node: " 
-                  << vote.service_node_index << " could not be verified and was not added to the memory pool.");
+        LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
+                     " and service node: " << vote.service_node_index <<
+                     " could not be verified and was not added to the memory pool, reason: " <<
+                     print_tx_verification_context(tvc, &deregister_tx));
       }
     }
 

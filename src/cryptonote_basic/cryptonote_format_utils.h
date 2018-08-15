@@ -43,8 +43,12 @@ namespace epee
   class wipeable_string;
 }
 
+namespace loki { namespace service_node_deregister { struct vote; } }
+
 namespace cryptonote
 {
+  struct tx_verification_context;
+  struct vote_verification_context;
   //---------------------------------------------------------------
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
   crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx);
@@ -144,6 +148,9 @@ namespace cryptonote
   unsigned int get_default_decimal_point();
   std::string get_unit(unsigned int decimal_point = -1);
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
+
+  char const *print_tx_verification_context  (tx_verification_context const &tvc, transaction const *tx = nullptr);
+  char const *print_vote_verification_context(vote_verification_context const &vvc, loki::service_node_deregister::vote const *vote = nullptr);
   //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_to_blob(const t_object& to, blobdata& b_blob)

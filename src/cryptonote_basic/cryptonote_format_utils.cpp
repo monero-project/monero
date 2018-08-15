@@ -43,6 +43,8 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "cryptonote_basic/verification_context.h"
+#include "cryptonote_core/service_node_deregister.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "cn"
@@ -917,6 +919,51 @@ namespace cryptonote
     if (decimal_point > 0)
       s.insert(s.size() - decimal_point, ".");
     return s;
+  }
+  //---------------------------------------------------------------
+  char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx)
+  {
+    static char buf[1024];
+    buf[0] = 0;
+    char *bufPtr = buf;
+    char *bufEnd = buf + sizeof(buf);
+
+    if (tvc.m_verifivation_failed)     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification failed, connection should be dropped, "); //bad tx, should drop connection
+    if (tvc.m_verifivation_impossible) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification impossible, related to alt chain, "); //the transaction is related with an alternative blockchain
+    if (tvc.m_should_be_relayed)       bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX should be relayed, ");
+    if (tvc.m_added_to_pool)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX added to pool, ");
+    if (tvc.m_low_mixin)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Insufficient mixin, ");
+    if (tvc.m_double_spend)            bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Double spend TX, ");
+    if (tvc.m_invalid_input)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid inputs, ");
+    if (tvc.m_invalid_output)          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid outputs, ");
+    if (tvc.m_too_big)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX too big, ");
+    if (tvc.m_overspend)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Overspend, ");
+    if (tvc.m_fee_too_low)             bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Fee too low, ");
+    if (tvc.m_not_rct)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX is not a valid RCT TX., ");
+    if (tvc.m_invalid_version)         bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX has invalid version, ");
+
+    if (tx) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX Version: %d", (int)tx->version);
+
+    return buf;
+  }
+  //---------------------------------------------------------------
+  char const *print_vote_verification_context(vote_verification_context const &vvc, loki::service_node_deregister::vote const *vote)
+  {
+      static char buf[1024];
+      buf[0] = 0;
+
+      char *bufPtr = buf;
+      char *bufEnd = buf + sizeof(buf);
+      if (vvc.m_invalid_block_height)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",              vote ? std::to_string(vote->block_height).c_str() : "??");
+      if (vvc.m_duplicate_voters)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index was duplicated: %s, ",vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
+      if (vvc.m_voters_quorum_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index out of bounds: %s, ", vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
+      if (vvc.m_service_node_index_out_of_bounds)  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Service node index out of bounds: %s, ",  vote ? std::to_string(vote->service_node_index).c_str() : "??");
+      if (vvc.m_signature_not_valid)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
+      if (vvc.m_added_to_pool)                     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
+      if (vvc.m_full_tx_deregister_made)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Full TX deregister made, ");
+      if (vvc.m_not_enough_votes)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");
+
+      return buf;
   }
   //---------------------------------------------------------------
   crypto::hash get_blob_hash(const blobdata& blob)
