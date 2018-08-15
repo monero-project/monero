@@ -10000,6 +10000,17 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   std::unordered_set<crypto::hash> spent_txids;   // For each spent key image, search for a tx in m_transfers that uses it as input.
   std::vector<size_t> swept_transfers;            // If such a spending tx wasn't found in m_transfers, this means the spending tx 
                                                   // was created by sweep_all, so we can't know the spent height and other detailed info.
+  std::unordered_map<crypto::key_image, crypto::hash> spent_key_images;
+
+  for (const transfer_details &td: m_transfers)
+  {
+    for (const cryptonote::txin_v& in : td.m_tx.vin)
+    {
+      if (in.type() == typeid(cryptonote::txin_to_key))
+        spent_key_images.insert(std::make_pair(boost::get<cryptonote::txin_to_key>(in).k_image, td.m_txid));
+    }
+  }
+
   for(size_t i = 0; i < signed_key_images.size(); ++i)
   {
     transfer_details &td = m_transfers[i];
@@ -10013,28 +10024,11 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 
     if (i < daemon_resp.spent_status.size() && daemon_resp.spent_status[i] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN)
     {
-      bool is_spent_tx_found = false;
-      for (auto it = m_transfers.rbegin(); &(*it) != &td; ++it)
-      {
-        bool is_spent_tx = false;
-        for(const cryptonote::txin_v& in : it->m_tx.vin)
-        {
-          if(in.type() == typeid(cryptonote::txin_to_key) && td.m_key_image == boost::get<cryptonote::txin_to_key>(in).k_image)
-          {
-            is_spent_tx = true;
-            break;
-          }
-        }
-        if (is_spent_tx)
-        {
-          is_spent_tx_found = true;
-          spent_txids.insert(it->m_txid);
-          break;
-        }
-      }
-
-      if (!is_spent_tx_found)
+      const std::unordered_map<crypto::key_image, crypto::hash>::const_iterator skii = spent_key_images.find(td.m_key_image);
+      if (skii == spent_key_images.end())
         swept_transfers.push_back(i);
+      else
+        spent_txids.insert(skii->second);
     }
   }
   MDEBUG("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
