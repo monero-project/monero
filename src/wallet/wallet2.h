@@ -1215,7 +1215,7 @@ namespace tools
     void cache_ringdb_key();
     void clear_ringdb_key();
 
-    bool get_output_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
+    bool get_rct_distribution(uint64_t &start_height, std::vector<uint64_t> &distribution);
 
     uint64_t get_segregation_fork_height() const;
 
