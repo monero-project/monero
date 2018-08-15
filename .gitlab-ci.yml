@@ -12,7 +12,7 @@ build:windows:
   stage: build
   script:
     - cat /proc/version
-    - make -j2 release-static-win64
+    - make release-static-win64
   artifacts:
     paths:
       - "build/release/bin"
