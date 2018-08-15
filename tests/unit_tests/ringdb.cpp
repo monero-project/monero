@@ -39,25 +39,29 @@
 #include "crypto/crypto.h"
 #include "crypto/random.h"
 #include "crypto/chacha.h"
+#include "ringct/rctOps.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "wallet/ringdb.h"
 
 static crypto::chacha_key generate_chacha_key()
 {
-  uint8_t key[CHACHA_KEY_SIZE];
-  crypto::rand(CHACHA_KEY_SIZE, key);
   crypto::chacha_key chacha_key;
-  memcpy(&chacha_key, key, CHACHA_KEY_SIZE);
+  uint64_t password = crypto::rand<uint64_t>();
+  crypto::generate_chacha_key(std::string((const char*)&password, sizeof(password)), chacha_key);
   return chacha_key;
 }
 
 static crypto::key_image generate_key_image()
 {
-  return crypto::rand<crypto::key_image>();
+  crypto::key_image key_image;
+  cryptonote::keypair keypair = cryptonote::keypair::generate(hw::get_device("default"));
+  crypto::generate_key_image(keypair.pub, keypair.sec, key_image);
+  return key_image;
 }
 
 static crypto::public_key generate_output()
 {
-  return crypto::rand<crypto::public_key>();
+  return rct::rct2pk(rct::scalarmultBase(rct::skGen()));
 }
 
 
