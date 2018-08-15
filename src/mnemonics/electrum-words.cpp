@@ -70,6 +70,14 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "mnemonic"
 
+namespace crypto
+{
+  namespace ElectrumWords
+  {
+    std::vector<const Language::Base*> get_language_list();
+  }
+}
+
 namespace
 {
   uint32_t create_checksum_index(const std::vector<std::string> &word_list,
@@ -376,56 +384,14 @@ namespace crypto
 
       if (len % 4 != 0 || len == 0) return false;
 
-      Language::Base *language;
-      if (language_name == "English")
+      const Language::Base *language = NULL;
+      const std::vector<const Language::Base*> language_list = crypto::ElectrumWords::get_language_list();
+      for (const Language::Base *l: language_list)
       {
-        language = Language::Singleton<Language::English>::instance();
+        if (language_name == l->get_language_name() || language_name == l->get_english_language_name())
+          language = l;
       }
-      else if (language_name == "Nederlands")
-      {
-        language = Language::Singleton<Language::Dutch>::instance();
-      }
-      else if (language_name == "Français")
-      {
-        language = Language::Singleton<Language::French>::instance();
-      }
-      else if (language_name == "Español")
-      {
-        language = Language::Singleton<Language::Spanish>::instance();
-      }
-      else if (language_name == "Português")
-      {
-        language = Language::Singleton<Language::Portuguese>::instance();
-      }
-      else if (language_name == "日本語")
-      {
-        language = Language::Singleton<Language::Japanese>::instance();
-      }
-      else if (language_name == "Italiano")
-      {
-        language = Language::Singleton<Language::Italian>::instance();
-      }
-      else if (language_name == "Deutsch")
-      {
-        language = Language::Singleton<Language::German>::instance();
-      }
-      else if (language_name == "русский язык")
-      {
-        language = Language::Singleton<Language::Russian>::instance();
-      }
-      else if (language_name == "简体中文 (中国)")
-      {
-        language = Language::Singleton<Language::Chinese_Simplified>::instance();
-      }
-      else if (language_name == "Esperanto")
-      {
-        language = Language::Singleton<Language::Esperanto>::instance();
-      }
-      else if (language_name == "Lojban")
-      {
-        language = Language::Singleton<Language::Lojban>::instance();
-      }
-      else
+      if (!language)
       {
         return false;
       }
