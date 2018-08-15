@@ -2303,6 +2303,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::get_tx_key, this, _1),
                            tr("get_tx_key <txid>"),
                            tr("Get the transaction key (r) for a given <txid>."));
+  m_cmd_binder.set_handler("set_tx_key",
+                           boost::bind(&simple_wallet::set_tx_key, this, _1),
+                           tr("set_tx_key <txid> <tx_key>"),
+                           tr("Set the transaction key (r) for a given <txid> in case the tx was made by some other device or 3rd party wallet."));
   m_cmd_binder.set_handler("check_tx_key",
                            boost::bind(&simple_wallet::check_tx_key, this, _1),
                            tr("check_tx_key <txid> <txkey> <address>"),
@@ -5829,6 +5833,64 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("no tx keys found for this txid");
     return true;
   }
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::set_tx_key(const std::vector<std::string> &args_)
+{
+  std::vector<std::string> local_args = args_;
+
+  if(local_args.size() != 2) {
+    fail_msg_writer() << tr("usage: set_tx_key <txid> <tx_key>");
+    return true;
+  }
+
+  crypto::hash txid;
+  if (!epee::string_tools::hex_to_pod(local_args[0], txid))
+  {
+    fail_msg_writer() << tr("failed to parse txid");
+    return true;
+  }
+
+  crypto::secret_key tx_key;
+  std::vector<crypto::secret_key> additional_tx_keys;
+  try
+  {
+    if (!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), tx_key))
+    {
+      fail_msg_writer() << tr("failed to parse tx_key");
+      return true;
+    }
+    while(true)
+    {
+      local_args[1] = local_args[1].substr(64);
+      if (local_args[1].empty())
+        break;
+      additional_tx_keys.resize(additional_tx_keys.size() + 1);
+      if (!epee::string_tools::hex_to_pod(local_args[1].substr(0, 64), additional_tx_keys.back()))
+      {
+        fail_msg_writer() << tr("failed to parse tx_key");
+        return true;
+      }
+    }
+  }
+  catch (const std::out_of_range &e)
+  {
+    fail_msg_writer() << tr("failed to parse tx_key");
+    return true;
+  }
+
+  LOCK_IDLE_SCOPE();
+
+  try
+  {
+    m_wallet->set_tx_key(txid, tx_key, additional_tx_keys);
+    success_msg_writer() << tr("Tx key successfully stored.");
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to store tx key: ") << e.what();
+  }
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
