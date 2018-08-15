@@ -4976,6 +4976,8 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     else
     {
       commit_or_save(ptx_vector, m_do_not_relay);
+      success_msg_writer(false) << tr("Wait for transaction to be included in a block before registration is complete.");
+      success_msg_writer(false) << tr("Use the print_sn command in the daemon to check the status.");
     }
   }
   catch (const std::exception& e)
