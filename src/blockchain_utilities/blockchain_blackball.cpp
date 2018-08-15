@@ -441,7 +441,6 @@ int main(int argc, char* argv[])
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
           ringdb.blackball(pkey);
           newly_spent.insert(output_data(txin.amount, absolute[0]));
-          state.spent.insert(output_data(txin.amount, absolute[0]));
         }
         else if (state.ring_instances[new_ring] == new_ring.size())
         {
@@ -451,7 +450,6 @@ int main(int argc, char* argv[])
             MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
             ringdb.blackball(pkey);
             newly_spent.insert(output_data(txin.amount, absolute[o]));
-            state.spent.insert(output_data(txin.amount, absolute[o]));
           }
         }
         else if (state.relative_rings.find(txin.k_image) != state.relative_rings.end())
@@ -480,7 +478,6 @@ int main(int argc, char* argv[])
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
               ringdb.blackball(pkey);
               newly_spent.insert(output_data(txin.amount, common[0]));
-              state.spent.insert(output_data(txin.amount, common[0]));
             }
             else
             {
@@ -513,6 +510,9 @@ int main(int argc, char* argv[])
     std::unordered_set<output_data> work_spent = std::move(newly_spent);
     newly_spent.clear();
 
+    for (const auto &e: work_spent)
+      state.spent.insert(e);
+
     for (const output_data &od: work_spent)
     {
       for (const crypto::key_image &ki: state.outputs[od])
@@ -535,7 +535,6 @@ int main(int argc, char* argv[])
               absolute.size() << "-ring where all other outputs are known to be spent");
           ringdb.blackball(pkey);
           newly_spent.insert(output_data(od.amount, last_unknown));
-          state.spent.insert(output_data(od.amount, last_unknown));
         }
       }
     }
