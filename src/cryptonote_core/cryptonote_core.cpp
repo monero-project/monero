@@ -1106,6 +1106,12 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_uptime_proof(const crypto::public_key &key) const
+  {
+    uint64_t result = m_quorum_cop.get_uptime_proof(key);
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
   {
     return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
@@ -1673,6 +1679,12 @@ namespace cryptonote
     return result;
   }
   //-----------------------------------------------------------------------------------------------
+  std::vector<service_nodes::service_node_pubkey_info> core::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
+  {
+    std::vector<service_nodes::service_node_pubkey_info> result = m_service_node_list.get_service_node_list_state(service_node_pubkeys);
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc)
   {
     {
@@ -1681,7 +1693,7 @@ namespace cryptonote
 
       if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
       {
-        LOG_ERROR("Received vote for height: " << vote.block_height
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height
                   << " and service node: "     << vote.service_node_index
                   << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
                   << " blocks and has been rejected.");
@@ -1689,7 +1701,7 @@ namespace cryptonote
       }
       else if (vote.block_height > latest_block_height)
       {
-        LOG_ERROR("Received vote for height: " << vote.block_height
+        LOG_PRINT_L1("Received vote for height: " << vote.block_height
                   << " and service node: "     << vote.service_node_index
                   << ", is newer than: "       << latest_block_height
                   << " (latest block height) and has been rejected.");

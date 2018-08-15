@@ -340,12 +340,12 @@ bool init_output_indices(map_output_idx_t& outs, std::map<uint64_t, std::vector<
                 output_index oi(out.target, out.amount, boost::get<txin_gen>(*blk.miner_tx.vin.begin()).height, i, j, &blk, vtx[i]);
 
                 if (2 == out.target.which()) { // out_to_key
-                    outs[out.amount].push_back(oi);
-                    size_t tx_global_idx = outs[out.amount].size() - 1;
-                    outs[out.amount][tx_global_idx].idx = tx_global_idx;
+                    outs[0].push_back(oi);
+                    size_t tx_global_idx = outs[0].size() - 1;
+                    outs[0][tx_global_idx].idx = tx_global_idx;
                     // Is out to me?
                     if (is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j)) {
-                        outs_mine[out.amount].push_back(tx_global_idx);
+                        outs_mine[0].push_back(tx_global_idx);
                     }
                 }
             }
@@ -359,7 +359,7 @@ bool init_spent_output_indices(map_output_idx_t& outs, map_output_t& outs_mine, 
 
     BOOST_FOREACH (const map_output_t::value_type &o, outs_mine) {
         for (size_t i = 0; i < o.second.size(); ++i) {
-            output_index &oi = outs[o.first][o.second[i]];
+            output_index &oi = outs[0][o.second[i]];
 
             // construct key image for this output
             crypto::key_image img;
@@ -448,7 +448,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
         for (size_t i = 0; i < o.second.size() && !sources_found; ++i)
         {
             size_t sender_out = o.second[i];
-            const output_index& oi = outs[o.first][sender_out];
+            const output_index& oi = outs[0][sender_out];
             if (oi.spent)
                 continue;
 
@@ -457,7 +457,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             ts.real_output_in_tx_index = oi.out_no;
             ts.real_out_tx_key = get_tx_pub_key_from_extra(*oi.p_tx); // incoming tx public key
             size_t realOutput;
-            if (!fill_output_entries(outs[o.first], sender_out, nmix, realOutput, ts.outputs))
+            if (!fill_output_entries(outs[0], sender_out, nmix, realOutput, ts.outputs))
               continue;
 
             ts.real_output = realOutput;
@@ -571,7 +571,7 @@ transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const b
                                   const account_base& acc_from, const account_base& acc_to, uint64_t amount, uint64_t fee)
 {
   transaction tx;
-  construct_tx_to_key(events, tx, blk_head, acc_from, acc_to, amount, fee, 0);
+  construct_tx_to_key(events, tx, blk_head, acc_from, acc_to, amount, fee, 9);
   events.push_back(tx);
   return tx;
 }
@@ -592,10 +592,10 @@ uint64_t get_balance(const cryptonote::account_base& addr, const std::vector<cry
 
     BOOST_FOREACH (const map_output_t::value_type &o, outs_mine) {
         for (size_t i = 0; i < o.second.size(); ++i) {
-            if (outs[o.first][o.second[i]].spent)
+            if (outs[0][o.second[i]].spent)
                 continue;
 
-            res += outs[o.first][o.second[i]].amount;
+            res += outs[0][o.second[i]].amount;
         }
     }
 

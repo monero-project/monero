@@ -153,7 +153,7 @@ namespace cryptonote
       case TESTNET:
         cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::TESTNET, governance_wallet_address_str);
         break;
-      case MAINNET:
+      case FAKECHAIN: case MAINNET:
         cryptonote::get_account_address_from_str(governance_wallet_address, cryptonote::MAINNET, governance_wallet_address_str);
         break;
       default:
@@ -819,7 +819,7 @@ namespace cryptonote
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, NULL);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true, false, NULL);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

@@ -157,6 +157,12 @@ public:
   bool sync_info();
 
   bool get_service_node_registration_cmd(const std::vector<std::string> &args);
+
+  bool get_service_node_key();
+
+  bool prepare_registration();
+
+  bool print_sn(const std::vector<std::string> &args);
 };
 
 } // namespace daemonize

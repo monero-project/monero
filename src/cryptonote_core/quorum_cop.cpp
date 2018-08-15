@@ -40,6 +40,13 @@ namespace service_nodes
   quorum_cop::quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list)
     : m_core(core), m_service_node_list(service_node_list), m_last_height(0)
   {
+    init();
+  }
+
+  void quorum_cop::init()
+  {
+    m_last_height = 0;
+    m_uptime_proof_seen.clear();
   }
 
   void quorum_cop::blockchain_detached(uint64_t height)
@@ -68,7 +75,7 @@ namespace service_nodes
     }
 
     uint64_t const height        = cryptonote::get_block_height(block);
-    uint64_t const latest_height = m_core.get_current_blockchain_height();
+    uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
     if (latest_height < loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
       return;
@@ -190,5 +197,16 @@ namespace service_nodes
     }
 
     return true;
+  }
+
+  uint64_t quorum_cop::get_uptime_proof(const crypto::public_key &pubkey) const
+  {
+    const auto& it = m_uptime_proof_seen.find(pubkey);
+    if (it == m_uptime_proof_seen.end())
+    {
+      return 0;
+    }
+
+    return (*it).second;
   }
 }

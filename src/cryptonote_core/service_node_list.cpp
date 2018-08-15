@@ -64,6 +64,7 @@ namespace service_nodes
       m_blockchain.hook_validate_miner_tx(*this);
 
       // NOTE: There is an implicit dependency on service node lists hooks
+      m_blockchain.hook_init(quorum_cop);
       m_blockchain.hook_block_added(quorum_cop);
       m_blockchain.hook_blockchain_detached(quorum_cop);
     }
@@ -72,7 +73,7 @@ namespace service_nodes
   void service_node_list::init()
   {
     // TODO: Save this calculation, only do it if it's not here.
-    LOG_PRINT_L0("Recalculating service nodes list, scanning last 30 days");
+    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain");
 
     m_height = 0;
     m_service_nodes_infos.clear();
@@ -83,11 +84,6 @@ namespace service_nodes
     }
 
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-
-    uint64_t lock_blocks = get_staking_requirement_lock_blocks();
-
-    if (current_height >= lock_blocks)
-      m_height = std::max(m_height, current_height - lock_blocks);
 
     while (m_height < current_height)
     {
@@ -141,6 +137,41 @@ namespace service_nodes
     else
     {
       result = it->second;
+    }
+
+    return result;
+  }
+
+  std::vector<service_node_pubkey_info> service_node_list::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
+  {
+    std::vector<service_node_pubkey_info> result;
+
+    if (service_node_pubkeys.empty())
+    {
+      result.reserve(m_service_nodes_infos.size());
+
+      for (const auto &it : m_service_nodes_infos)
+      {
+        service_node_pubkey_info entry = {};
+        entry.pubkey                   = it.first;
+        entry.info                     = it.second;
+        result.push_back(entry);
+      }
+    }
+    else
+    {
+      result.reserve(service_node_pubkeys.size());
+      for (const auto &it : service_node_pubkeys)
+      {
+        const auto &find_it = m_service_nodes_infos.find(it);
+        if (find_it == m_service_nodes_infos.end())
+          continue;
+
+        service_node_pubkey_info entry = {};
+        entry.pubkey                   = (*find_it).first;
+        entry.info                     = (*find_it).second;
+        result.push_back(entry);
+      }
     }
 
     return result;
@@ -277,15 +308,14 @@ namespace service_nodes
 
     // check the portions
 
-    uint64_t total = 0;
+    uint64_t portions_left = STAKING_PORTIONS;
     for (size_t i = 0; i < service_node_portions.size(); i++)
     {
-      if (service_node_portions[i] < MIN_PORTIONS)
+      uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+      if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
         return false;
-      total += service_node_portions[i];
+      portions_left -= service_node_portions[i];
     }
-    if (total > STAKING_PORTIONS)
-      return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
       return false;
@@ -295,7 +325,7 @@ namespace service_nodes
     crypto::hash hash;
     if (!get_registration_hash(service_node_addresses, portions_for_operator, service_node_portions, expiration_timestamp, hash))
       return false;
-    if (!crypto::check_signature(hash, service_node_key, signature))
+    if (!crypto::check_key(service_node_key) || !crypto::check_signature(hash, service_node_key, signature))
       return false;
     if (expiration_timestamp < block_timestamp)
       return false;
@@ -338,6 +368,15 @@ namespace service_nodes
       lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
       div128_32(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
       info.contributors.push_back(service_node_info::contribution(resultlo, service_node_addresses[i]));
+
+      if (m_blockchain.nettype() == cryptonote::TESTNET && block_height < 5500)
+      {
+        // do nothing. remove this branch in the next testnet launch.
+      }
+      else
+      {
+        info.total_reserved += resultlo;
+      }
     }
 
     return true;
@@ -508,19 +547,14 @@ namespace service_nodes
       index++;
     }
 
-    const uint64_t curr_height           = m_blockchain.get_current_blockchain_height();
-
     const size_t QUORUM_LIFETIME         = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
-    const size_t cache_state_from_height = (curr_height < QUORUM_LIFETIME) ? 0 : curr_height - QUORUM_LIFETIME;
+    const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
-    if (block_height >= cache_state_from_height)
+    store_quorum_state_from_rewards_list(block_height);
+
+    while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
     {
-      store_quorum_state_from_rewards_list(block_height);
-
-      while (!m_quorum_states.empty() && m_quorum_states.begin()->first < cache_state_from_height)
-      {
-        m_quorum_states.erase(m_quorum_states.begin());
-      }
+      m_quorum_states.erase(m_quorum_states.begin());
     }
   }
 
@@ -770,7 +804,7 @@ namespace service_nodes
 
   uint64_t service_node_list::get_staking_requirement_lock_blocks() const
   {
-    return m_blockchain.nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
+    return m_blockchain.nettype() == cryptonote::TESTNET || m_blockchain.nettype() == cryptonote::FAKECHAIN ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -838,20 +872,19 @@ namespace service_nodes
     portions.clear();
     try
     {
-      double portion_fraction = boost::lexical_cast<double>(args[0]);
-      if (portion_fraction < 0 || portion_fraction > 1)
+      portions_for_operator = boost::lexical_cast<uint64_t>(args[0]);
+      if (portions_for_operator > STAKING_PORTIONS)
       {
-        MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and 1"));
+        MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
         return false;
       }
-      portions_for_operator = STAKING_PORTIONS * portion_fraction;
     }
     catch (const std::exception &e)
     {
-      MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and 1"));
+      MERROR(tr("Invalid portion amount: ") << args[0] << tr(". ") << tr("Must be between 0 and ") << STAKING_PORTIONS);
       return false;
     }
-    uint64_t total_portions = 0;
+    uint64_t portions_left = STAKING_PORTIONS;
     for (size_t i = 1; i < args.size()-1; i += 2)
     {
       cryptonote::address_parse_info info;
@@ -877,19 +910,19 @@ namespace service_nodes
 
       try
       {
-        double portion_fraction = boost::lexical_cast<double>(args[i+1]);
-        if (portion_fraction < 1.0 / MAX_NUMBER_OF_CONTRIBUTORS || portion_fraction > 1)
+        uint32_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
+        uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+        if (num_portions < min_portions || num_portions > portions_left)
         {
-          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
+          MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
           return false;
         }
-        uint32_t num_portions = STAKING_PORTIONS * portion_fraction;
+        portions_left -= num_portions;
         portions.push_back(num_portions);
-        total_portions += num_portions;
       }
       catch (const std::exception &e)
       {
-        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("Must be at least ") << (1.0 / MAX_NUMBER_OF_CONTRIBUTORS) << " and no more than 1");
+        MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
         return false;
       }
     }
@@ -899,12 +932,6 @@ namespace service_nodes
         ", " << tr("expected number from ") << cryptonote::print_money(1) <<
         " to " << cryptonote::print_money(std::numeric_limits<uint64_t>::max()));
       return true;
-    }
-    if (total_portions > (uint64_t)STAKING_PORTIONS)
-    {
-      MERROR(tr("Invalid portion amounts, portions must sum to at most 1."));
-      MERROR(tr("If it looks correct,  this may be because of rounding. Try reducing one of the portionholders portions by a very tiny amount"));
-      return false;
     }
 
     return true;
@@ -975,12 +1002,13 @@ namespace service_nodes
   }
   uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
   {
-    if (m_nettype == cryptonote::TESTNET)
+    if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
-    uint64_t height_adjusted = height-129600;
+    uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
+    uint64_t height_adjusted = height - hardfork_height;
     uint64_t base = 10000 * COIN;
     uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
-    uint64_t linear_up = 5 * COIN * height / 2592;
+    uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
     uint64_t flat = 15000 * COIN;
     return std::max(base + variable, height < 3628800 ? linear_up : flat);
   }

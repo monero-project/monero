@@ -2025,6 +2025,28 @@ namespace cryptonote
     return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp)
+  {
+    PERF_TIMER(on_get_service_node_key);
+
+    crypto::public_key pubkey;
+    crypto::secret_key seckey;
+    bool result = m_core.get_service_node_keys(pubkey, seckey);
+    if (result)
+    {
+      res.service_node_pubkey = string_tools::pod_to_hex(pubkey);
+    }
+    else
+    {
+      error_resp.code    = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = "Daemon queried is not a service node or did not launch with --service-node";
+      return false;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_relay_tx);
@@ -2260,6 +2282,58 @@ namespace cryptonote
     }
 
     res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_node(const COMMAND_RPC_GET_SERVICE_NODE::request& req, COMMAND_RPC_GET_SERVICE_NODE::response& res, epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_get_sn);
+
+    std::vector<crypto::public_key> pubkeys(req.service_node_pubkeys.size());
+    for (size_t i = 0; i < req.service_node_pubkeys.size(); i++)
+    {
+      if (!string_tools::hex_to_pod(req.service_node_pubkeys[i], pubkeys[i]))
+      {
+        error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message = "Could not convert to a public key, arg: ";
+        error_resp.message += std::to_string(i);
+        error_resp.message += " which is pubkey: ";
+        error_resp.message += req.service_node_pubkeys[i];
+        return false;
+      }
+    }
+
+    std::vector<service_nodes::service_node_pubkey_info> pubkey_info_list = m_core.get_service_node_list_state(pubkeys);
+
+    res.status = CORE_RPC_STATUS_OK;
+    res.service_node_states.reserve(pubkey_info_list.size());
+    for (const auto &pubkey_info : pubkey_info_list)
+    {
+      COMMAND_RPC_GET_SERVICE_NODE::response::entry entry = {};
+      entry.service_node_pubkey           = string_tools::pod_to_hex(pubkey_info.pubkey);
+      entry.last_reward_block_height      = pubkey_info.info.last_reward_block_height;
+      entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
+      entry.last_uptime_proof             = m_core.get_uptime_proof(pubkey_info.pubkey);
+
+      entry.contributors.reserve(pubkey_info.info.contributors.size());
+      for (service_nodes::service_node_info::contribution const &contributor : pubkey_info.info.contributors)
+      {
+        COMMAND_RPC_GET_SERVICE_NODE::response::contribution new_contributor = {};
+        new_contributor.amount   = contributor.amount;
+        new_contributor.reserved = contributor.reserved;
+        new_contributor.address  = string_tools::pod_to_hex(contributor.address);
+        entry.contributors.push_back(new_contributor);
+      }
+
+      entry.total_contributed             = pubkey_info.info.total_contributed;
+      entry.total_reserved                = pubkey_info.info.total_reserved;
+      entry.staking_requirement           = pubkey_info.info.staking_requirement;
+      entry.portions_for_operator         = pubkey_info.info.portions_for_operator;
+      entry.operator_address              = string_tools::pod_to_hex(pubkey_info.info.operator_address);
+
+      res.service_node_states.push_back(entry);
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
