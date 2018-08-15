@@ -10526,16 +10526,18 @@ bool wallet2::contains_address(const cryptonote::account_public_address& address
   return false;
 }
 //----------------------------------------------------------------------------------------------------
-cryptonote::COMMAND_RPC_GET_SERVICE_NODE_LIST_STATE::response wallet2::get_service_node_list()
+cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response wallet2::get_service_nodes(std::vector<std::string> const &pubkeys)
 {
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_LIST_STATE::response res;
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_LIST_STATE::request req;
+  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::request req = {};
+  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response res = {};
+  req.service_node_pubkeys = pubkeys;
+
   m_daemon_rpc_mutex.lock();
-  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_service_node_list_state", req, res, m_http_client, rpc_timeout);
+  bool r = epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_service_nodes", req, res, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_service_node_list_state");
-  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_service_node_list_state");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_service_node_list_error, res.status);
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_service_nodes");
+  THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_service_nodes");
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_service_nodes_error, res.status);
   return res;
 }
 }

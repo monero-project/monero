@@ -2346,7 +2346,7 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE
+  struct COMMAND_RPC_GET_SERVICE_NODES
   {
     struct request
     {

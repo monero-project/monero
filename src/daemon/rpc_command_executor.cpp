@@ -1998,7 +1998,7 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
     return true;
 }
 
-static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> list)
+static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
 {
   const char indent1[] = "    ";
   const char indent2[] = "        ";
@@ -2006,7 +2006,7 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
 
   for (size_t i = 0; i < list.size(); ++i)
   {
-    const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry &entry = *list[i];
+    const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry &entry = *list[i];
 
     bool is_registered = entry.total_contributed >= entry.staking_requirement;
     epee::console_colors color = is_registered ? console_color_green : epee::console_color_yellow;
@@ -2037,7 +2037,7 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
     tools::msg_writer() << "";
     for (size_t j = 0; j < entry.contributors.size(); ++j)
     {
-      const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::contribution &contributor = entry.contributors[j];
+      const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &contributor = entry.contributors[j];
       tools::msg_writer() << indent2 << "[" << j << "] Contributor: " << contributor.address;
       tools::msg_writer() << indent3 << "Amount / Reserved: "         << cryptonote::print_money(contributor.amount) << " / " << cryptonote::print_money(contributor.reserved);
     }
@@ -2048,8 +2048,8 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
 
 bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 {
-    cryptonote::COMMAND_RPC_GET_SERVICE_NODE::request req = {};
-    cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response res = {};
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODES::request req = {};
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response res = {};
     std::string fail_message = "Unsuccessful";
     epee::json_rpc::error error_resp;
     req.service_node_pubkeys = args;
@@ -2064,14 +2064,14 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     }
     else
     {
-      if (!m_rpc_server->on_get_service_node(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+      if (!m_rpc_server->on_get_service_nodes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
       {
           tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
           return true;
       }
 
-      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> unregistered;
-      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> registered;
+      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> unregistered;
+      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> registered;
       registered.reserve  (res.service_node_states.size());
       unregistered.reserve(res.service_node_states.size() * 0.5f);
 
@@ -2088,7 +2088,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
       }
 
       std::sort(unregistered.begin(), unregistered.end(),
-          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *b) {
+          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
           uint64_t a_remaining = a->staking_requirement - a->total_reserved;
           uint64_t b_remaining = b->staking_requirement - b->total_reserved;
 
@@ -2099,7 +2099,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
       });
 
       std::stable_sort(registered.begin(), registered.end(),
-          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *b) {
+          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
           if (a->last_reward_block_height == b->last_reward_block_height)
             return a->last_reward_transaction_index < b->last_reward_transaction_index;
 
