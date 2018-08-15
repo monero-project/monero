@@ -404,6 +404,11 @@ int main(int argc, char* argv[])
   cryptonote::block b = core_storage[0]->get_db().get_block_from_height(0);
   tools::ringdb ringdb(output_file_path.string(), epee::string_tools::pod_to_hex(get_block_hash(b)));
 
+  bool stop_requested = false;
+  tools::signal_handler::install([&stop_requested](int type) {
+    stop_requested = true;
+  });
+
   for (size_t n = 0; n < inputs.size(); ++n)
   {
     const std::string canonical = boost::filesystem::canonical(inputs[n]).string();
@@ -489,9 +494,17 @@ int main(int argc, char* argv[])
         }
         state.relative_rings[txin.k_image] = new_ring;
       }
+      if (stop_requested)
+      {
+        MINFO("Stopping scan, secondary passes will still happen...");
+        return false;
+      }
       return true;
     });
+    LOG_PRINT_L0("blockchain from " << inputs[n] << " processed still height " << start_idx);
     state.processed_heights[canonical] = start_idx;
+    if (stop_requested)
+      break;
   }
 
   while (!newly_spent.empty())
