@@ -4715,23 +4715,36 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
-  std::string err;
-  uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
+  std::string err, err2;
+  uint64_t bc_height = std::max(m_wallet->get_daemon_blockchain_height(err),
+                                m_wallet->get_daemon_blockchain_target_height(err2));
 
-  if (!m_wallet->is_synced() || !err.empty() || bc_height < 10)
+  if (!err.empty() || !err2.empty())
   {
-    if (!m_wallet->is_synced())
-      err = tr("daemon not finished syncing");
-    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << err;
-    std::string height = input_line(tr("Please enter the current network block height: "));
-    try
-    {
-      bc_height = boost::lexical_cast<uint64_t>(height);
-    }
-    catch (const std::exception &e)
-    {
-      fail_msg_writer() << tr("Invalid block height");
+    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << (err.empty() ? err2 : err);
+    return true;
+  }
+
+  if (!m_wallet->is_synced() || bc_height < 10)
+  {
+    fail_msg_writer() << tr("Wallet not synced. Best guess for the height is ") << bc_height;
+    std::string accepted = input_line("Is this correct [y/yes/n/no]? ");
+    if (std::cin.eof())
       return true;
+    if (!command_line::is_yes(accepted))
+    {
+      std::string height = input_line(tr("Please enter the current network block height (0 to cancel): "));
+      try
+      {
+        bc_height = boost::lexical_cast<uint64_t>(height);
+      }
+      catch (const std::exception &e)
+      {
+        fail_msg_writer() << tr("Invalid block height");
+        return true;
+      }
+      if (bc_height == 0)
+        return true;
     }
   }
 
@@ -4975,23 +4988,36 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
-  std::string err;
-  uint64_t bc_height = m_wallet->get_daemon_blockchain_height(err);
+  std::string err, err2;
+  uint64_t bc_height = std::max(m_wallet->get_daemon_blockchain_height(err),
+                                m_wallet->get_daemon_blockchain_target_height(err2));
 
-  if (!m_wallet->is_synced() || !err.empty() || bc_height < 10)
+  if (!err.empty() || !err2.empty())
   {
-    if (!m_wallet->is_synced())
-      err = tr("daemon not finished syncing");
-    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << err;
-    std::string height = input_line(tr("Please enter the current network block height: "));
-    try
-    {
-      bc_height = boost::lexical_cast<uint64_t>(height);
-    }
-    catch (const std::exception &e)
-    {
-      fail_msg_writer() << tr("Invalid block height");
+    fail_msg_writer() << tr("unable to get network blockchain height from daemon: ") << (err.empty() ? err2 : err);
+    return true;
+  }
+
+  if (!m_wallet->is_synced() || bc_height < 10)
+  {
+    fail_msg_writer() << tr("Wallet not synced. Best guess for the height is ") << bc_height;
+    std::string accepted = input_line("Is this correct [y/yes/n/no]? ");
+    if (std::cin.eof())
       return true;
+    if (!command_line::is_yes(accepted))
+    {
+      std::string height = input_line(tr("Please enter the current network block height (0 to cancel): "));
+      try
+      {
+        bc_height = boost::lexical_cast<uint64_t>(height);
+      }
+      catch (const std::exception &e)
+      {
+        fail_msg_writer() << tr("Invalid block height");
+        return true;
+      }
+      if (bc_height == 0)
+        return true;
     }
   }
 
