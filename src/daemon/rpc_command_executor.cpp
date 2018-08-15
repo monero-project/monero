@@ -1991,9 +1991,139 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
           tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
           return true;
       }
+
+      tools::success_msg_writer() << res.registration_cmd;
     }
 
-    tools::success_msg_writer() << res.registration_cmd;
+    return true;
+}
+
+static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> list)
+{
+  const char indent1[] = "    ";
+  const char indent2[] = "        ";
+  const char indent3[] = "            ";
+
+  for (size_t i = 0; i < list.size(); ++i)
+  {
+    const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry &entry = *list[i];
+
+    bool is_registered = entry.total_contributed >= entry.staking_requirement;
+    epee::console_colors color = is_registered ? console_color_green : epee::console_color_yellow;
+
+    tools::msg_writer(color) << indent1 << "[" << i << "] Service Node: "              << entry.service_node_pubkey;
+    tools::msg_writer(color) << indent2 << "Total Contributed / Staking Requirement: " << cryptonote::print_money(entry.total_contributed) << " / " << cryptonote::print_money(entry.staking_requirement);
+
+    tools::msg_writer() << indent2 << "Total Reserved    / Staking Requirement: " << cryptonote::print_money(entry.total_reserved) << " / " << cryptonote::print_money(entry.staking_requirement);
+
+    if (is_registered)
+    {
+      tools::msg_writer() << indent2 << "Last Reward At (Block Height/TX Index): "  << entry.last_reward_block_height << " / " << entry.last_reward_transaction_index;
+    }
+
+    tools::msg_writer() << indent2 << "Operator Cut (\% Of Reward): "             << ((entry.portions_for_operator / (double)STAKING_PORTIONS) * 100.0) << "%";
+    tools::msg_writer() << indent2 << "Operator Address: "                        << entry.operator_address;
+
+    epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
+
+    if (is_registered)
+    {
+      if (entry.last_uptime_proof == 0)
+        tools::msg_writer(uptime_proof_color) << indent2 << "Last Uptime Proof Received: Not Received Yet";
+      else
+        tools::msg_writer(uptime_proof_color) << indent2 << "Last Uptime Proof Received: "            << get_human_time_ago(entry.last_uptime_proof, time(nullptr));
+    }
+
+    tools::msg_writer() << "";
+    for (size_t j = 0; j < entry.contributors.size(); ++j)
+    {
+      const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::contribution &contributor = entry.contributors[j];
+      tools::msg_writer() << indent2 << "[" << j << "] Contributor: " << contributor.address;
+      tools::msg_writer() << indent3 << "Amount / Reserved: "         << cryptonote::print_money(contributor.amount) << " / " << cryptonote::print_money(contributor.reserved);
+    }
+
+    tools::msg_writer() << "";
+  }
+}
+
+bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
+{
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE::request req = {};
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response res = {};
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+    req.service_node_pubkeys = args;
+
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->json_rpc_request(req, res, "get_service_node", fail_message.c_str()))
+      {
+          tools::fail_msg_writer() << make_error(fail_message, res.status);
+          return true;
+      }
+    }
+    else
+    {
+      if (!m_rpc_server->on_get_service_node(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+      {
+          tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+          return true;
+      }
+
+      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> unregistered;
+      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *> registered;
+      registered.reserve  (res.service_node_states.size());
+      unregistered.reserve(res.service_node_states.size() * 0.5f);
+
+      for (auto &entry : res.service_node_states)
+      {
+        if (entry.total_contributed == entry.staking_requirement)
+        {
+          registered.push_back(&entry);
+        }
+        else
+        {
+          unregistered.push_back(&entry);
+        }
+      }
+
+      std::sort(unregistered.begin(), unregistered.end(),
+          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *b) {
+          uint64_t a_remaining = a->staking_requirement - a->total_reserved;
+          uint64_t b_remaining = b->staking_requirement - b->total_reserved;
+
+          if (b_remaining == a_remaining)
+            return b->portions_for_operator < a->portions_for_operator;
+
+          return b_remaining < a_remaining;
+      });
+
+      std::stable_sort(registered.begin(), registered.end(),
+          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODE::response::entry *b) {
+          if (a->last_reward_block_height == b->last_reward_block_height)
+            return a->last_reward_transaction_index < b->last_reward_transaction_index;
+
+          return a->last_reward_block_height < b->last_reward_block_height;
+      });
+
+      if (unregistered.size() > 0)
+      {
+        tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size()<< "]";
+        print_service_node_list_state(unregistered);
+      }
+
+      if (registered.size() > 0)
+      {
+        tools::msg_writer() << "Service Node Registration State[" << registered.size()<< "]";
+        print_service_node_list_state(registered);
+      }
+
+      if (unregistered.size() == 0 && registered.size() == 0)
+      {
+        tools::msg_writer() << "No service node is currently known on the network";
+      }
+    }
+
     return true;
 }
 

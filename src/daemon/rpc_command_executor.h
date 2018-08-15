@@ -161,6 +161,8 @@ public:
   bool get_service_node_key();
 
   bool prepare_registration();
+
+  bool print_sn(const std::vector<std::string> &args);
 };
 
 } // namespace daemonize

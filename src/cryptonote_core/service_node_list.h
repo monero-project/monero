@@ -48,6 +48,39 @@ namespace service_nodes
     std::vector<crypto::public_key> nodes_to_test;
   };
 
+  struct service_node_info // registration information
+  {
+    struct contribution
+    {
+      uint64_t amount;
+      uint64_t reserved;
+      cryptonote::account_public_address address;
+      contribution(uint64_t _reserved, const cryptonote::account_public_address& _address)
+        : amount(0), reserved(_reserved), address(_address) { }
+    };
+
+    // block_height and transaction_index are to record when the service node is registered or when it last received a reward.
+    uint64_t last_reward_block_height;
+    uint32_t last_reward_transaction_index;
+
+    std::vector<contribution> contributors;
+    uint64_t total_contributed;
+    uint64_t total_reserved;
+    uint64_t staking_requirement;
+    uint32_t portions_for_operator;
+    cryptonote::account_public_address operator_address;
+
+    bool is_fully_funded() const { return total_contributed >= staking_requirement; }
+    // the minimum contribution to start a new contributor
+    uint64_t get_min_contribution() const { return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS); }
+  };
+
+  struct service_node_pubkey_info
+  {
+    crypto::public_key pubkey;
+    service_node_info  info;
+  };
+
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
       public cryptonote::Blockchain::BlockchainDetachedHook,
@@ -69,42 +102,9 @@ namespace service_nodes
 
     bool is_service_node(const crypto::public_key& pubkey) const;
     const std::shared_ptr<quorum_state> get_quorum_state(uint64_t height) const;
+    std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
 
   private:
-
-    struct service_node_info
-    {
-      struct contribution
-      {
-        uint64_t amount;
-        uint64_t reserved;
-        cryptonote::account_public_address address;
-        contribution(uint64_t _reserved, const cryptonote::account_public_address& _address)
-          : amount(0), reserved(_reserved), address(_address) { }
-      };
-
-      // block_height and transaction_index are to record when the service node
-      // is registered or when it last received a reward.
-      //
-      // set the winning service node as though it was re-registering at the
-      // block height it wins on, with transaction index=-1
-      // (hence transaction_index is signed)
-
-      uint64_t last_reward_block_height;
-      uint32_t last_reward_transaction_index;
-
-      std::vector<contribution> contributors;
-      uint64_t total_contributed;
-      uint64_t total_reserved;
-      uint64_t staking_requirement;
-      uint32_t portions_for_operator;
-      cryptonote::account_public_address operator_address;
-
-      bool is_fully_funded() const { return total_contributed >= staking_requirement; }
-      // the minimum contribution to start a new contributor
-      uint64_t get_min_contribution() const { return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS); }
-    };
-
     bool is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const;
     bool get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const;
 

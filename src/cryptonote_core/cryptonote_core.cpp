@@ -1106,6 +1106,12 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_uptime_proof(const crypto::public_key &key) const
+  {
+    uint64_t result = m_quorum_cop.get_uptime_proof(key);
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
   {
     return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
@@ -1670,6 +1676,12 @@ namespace cryptonote
   const std::shared_ptr<service_nodes::quorum_state> core::get_quorum_state(uint64_t height) const
   {
     const std::shared_ptr<service_nodes::quorum_state> result = m_service_node_list.get_quorum_state(height);
+    return result;
+  }
+  //-----------------------------------------------------------------------------------------------
+  std::vector<service_nodes::service_node_pubkey_info> core::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
+  {
+    std::vector<service_nodes::service_node_pubkey_info> result = m_service_node_list.get_service_node_list_state(service_node_pubkeys);
     return result;
   }
   //-----------------------------------------------------------------------------------------------

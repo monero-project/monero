@@ -83,6 +83,8 @@ public:
 
   bool prepare_registration();
 
+  bool print_sn(const std::vector<std::string>& args);
+
   bool set_log_level(const std::vector<std::string>& args);
 
   bool set_log_categories(const std::vector<std::string>& args);

@@ -63,6 +63,8 @@ namespace service_nodes
                   "Safety buffer should always be less than the vote lifetime");
     bool prune_uptime_proof();
 
+    uint64_t get_uptime_proof(const crypto::public_key &pubkey) const;
+
   private:
 
     cryptonote::core& m_core;

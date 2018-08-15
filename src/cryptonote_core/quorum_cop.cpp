@@ -198,4 +198,15 @@ namespace service_nodes
 
     return true;
   }
+
+  uint64_t quorum_cop::get_uptime_proof(const crypto::public_key &pubkey) const
+  {
+    const auto& it = m_uptime_proof_seen.find(pubkey);
+    if (it == m_uptime_proof_seen.end())
+    {
+      return 0;
+    }
+
+    return (*it).second;
+  }
 }
