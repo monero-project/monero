@@ -49,7 +49,16 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "stacktrace"
 
-#define ST_LOG(x) CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x
+#define ST_LOG(x) \
+  do { \
+    auto elpp = ELPP; \
+    if (elpp) { \
+      CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x; \
+    } \
+    else { \
+      std::cout << x << std::endl; \
+    } \
+  } while(0)
 
 // from https://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
 
