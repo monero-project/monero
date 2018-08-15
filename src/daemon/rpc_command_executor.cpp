@@ -1974,22 +1974,51 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
     req.make_friendly = !m_is_rpc;
     if (m_is_rpc)
     {
-        if (!m_rpc_client->json_rpc_request(req, res, "get_service_node_registration_cmd", fail_message.c_str()))
-        {
-            tools::fail_msg_writer() << make_error(fail_message, res.status);
-            return true;
-        }
+      if (!m_rpc_client->json_rpc_request(req, res, "get_service_node_registration_cmd", fail_message.c_str()))
+      {
+          tools::fail_msg_writer() << make_error(fail_message, res.status);
+          return true;
+      }
     }
     else
     {
-        if (!m_rpc_server->on_get_service_node_registration_cmd(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
-        {
-            tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
-            return true;
-        }
+      if (!m_rpc_server->on_get_service_node_registration_cmd(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+      {
+          tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+          return true;
+      }
     }
 
     tools::success_msg_writer() << res.registration_cmd;
     return true;
 }
+
+bool t_rpc_command_executor::get_service_node_key()
+{
+  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request req = {};
+  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response res = {};
+  std::string fail_message = "Unsuccessful";
+  epee::json_rpc::error error_resp;
+
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "get_service_node_key", fail_message.c_str()))
+    {
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_get_service_node_key(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+      return true;
+    }
+  }
+
+  tools::success_msg_writer() << "Service Node Public Key: " << res.service_node_pubkey;
+  return true;
+}
+
 }// namespace daemonize

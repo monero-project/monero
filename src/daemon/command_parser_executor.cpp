@@ -155,6 +155,13 @@ bool t_command_parser_executor::get_service_node_registration_cmd(const std::vec
   return result;
 }
 
+bool t_command_parser_executor::get_service_node_key(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+  bool result = m_executor.get_service_node_key();
+  return result;
+}
+
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {
   if(args.size() > 1)
