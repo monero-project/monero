@@ -28,6 +28,8 @@
 
 #pragma once 
 
+#include <algorithm>
+
 namespace epee 
 {
 namespace misc_utils
@@ -36,8 +38,12 @@ namespace misc_utils
   {
     inline std::string transform_to_escape_sequence(const std::string& src)
     {
-      //std::stringstream res;
+      static const char escaped[] = "\b\f\n\r\t\v\"\\/";
+      if (std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped)) == src.end())
+        return src;
+
       std::string res;
+      res.reserve(2 * src.size());
       for(std::string::const_iterator it = src.begin(); it!=src.end(); ++it)
       {
         switch(*it)
@@ -84,6 +90,7 @@ namespace misc_utils
       inline void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
       {
         val.clear();
+        val.reserve(std::distance(star_end_string, buf_end));
         bool escape_mode = false;
         std::string::const_iterator it = star_end_string;
         ++it;
