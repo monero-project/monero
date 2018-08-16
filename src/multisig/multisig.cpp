@@ -47,9 +47,12 @@ namespace cryptonote
   crypto::secret_key get_multisig_blinded_secret_key(const crypto::secret_key &key)
   {
     rct::keyV data;
+    data.reserve(2);
     data.push_back(rct::sk2rct(key));
     data.push_back(multisig_salt);
-    return rct::rct2sk(rct::hash_to_scalar(data));
+    crypto::secret_key result = rct::rct2sk(rct::hash_to_scalar(data));
+    memwipe(&data[0], sizeof(rct::key));
+    return result;
   }
   //-----------------------------------------------------------------
   void generate_multisig_N_N(const account_keys &keys, const std::vector<crypto::public_key> &spend_keys, std::vector<crypto::secret_key> &multisig_keys, rct::key &spend_skey, rct::key &spend_pkey)
