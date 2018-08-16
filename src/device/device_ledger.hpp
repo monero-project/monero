@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <string>
 #include "device.hpp"
+#ifndef HAVE_MONERUJO
 #ifdef WIN32
 #include <winscard.h>
 #define MAX_ATR_SIZE            33
@@ -40,6 +41,10 @@
 #include <PCSC/winscard.h>
 #include <PCSC/wintypes.h>
 #endif
+#else
+#include "monerujo_ledger.h"
+#endif
+
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
 

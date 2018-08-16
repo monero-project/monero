@@ -62,7 +62,12 @@ namespace hw {
     }
 
     #define TRACKD MTRACE("hw")
+
+#ifndef HAVE_MONERUJO
     #define ASSERT_RV(rv)        CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
+#else
+    #define ASSERT_RV(rv)        CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ")");
+#endif
     #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), "Wrong Device Status : SW=" << std::hex << (sw) << " (EXPECT=" << std::hex << (ok) << ", MASK=" << std::hex << (mask) << ")") ;
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
@@ -310,9 +315,14 @@ namespace hw {
       ASSERT_T0(this->length_send <= BUFFER_SEND_SIZE);
       logCMD();
       this->length_recv = BUFFER_RECV_SIZE;
+#ifndef HAVE_MONERUJO
       rv = SCardTransmit(this->hCard,
                          SCARD_PCI_T0, this->buffer_send, this->length_send,
                          NULL,         this->buffer_recv, &this->length_recv);
+#else
+      rv = LedgerExchange(this->buffer_send, this->length_send,
+                         this->buffer_recv, &this->length_recv);
+#endif
       ASSERT_RV(rv);
       ASSERT_T0(this->length_recv >= 2);
       ASSERT_T0(this->length_recv <= BUFFER_RECV_SIZE);
@@ -347,6 +357,7 @@ namespace hw {
     }
 
     bool device_ledger::init(void) {
+#ifndef HAVE_MONERUJO
       #ifdef DEBUG_HWDEVICE
       this->controle_device = &hw::get_device("default");
       #endif
@@ -354,15 +365,20 @@ namespace hw {
       this->release();
       rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM,0,0, &this->hContext);
       ASSERT_RV(rv);
-      MDEBUG( "Device "<<this->id <<" SCardContext created: hContext="<<this->hContext);
       this->hCard = 0;
+#else
+      this->hCard = 1;
+#endif
+      MDEBUG( "Device "<<this->id <<" SCardContext created: hContext="<<this->hContext);
       return true;
     }
 
     bool device_ledger::release() {
       this->disconnect();
       if (this->hContext) {
+#ifndef HAVE_MONERUJO
         SCardReleaseContext(this->hContext);
+#endif
         MDEBUG( "Device "<<this->id <<" SCardContext released: hContext="<<this->hContext);
         this->hContext = 0;
         this->full_name.clear();
@@ -371,13 +387,19 @@ namespace hw {
     }
 
     bool device_ledger::connect(void) {
+#ifndef HAVE_MONERUJO
       BYTE  pbAtr[MAX_ATR_SIZE];
       LPSTR mszReaders;
       DWORD dwReaders;
       LONG  rv;
       DWORD dwState, dwProtocol, dwAtrLen, dwReaderLen;
+#else
+      LONG  rv;
+#endif
 
       this->disconnect();
+
+#ifndef HAVE_MONERUJO
 #ifdef SCARD_AUTOALLOCATE
       dwReaders = SCARD_AUTOALLOCATE;
       rv = SCardListReaders(this->hContext, NULL, (LPSTR)&mszReaders, &dwReaders);
@@ -433,6 +455,28 @@ namespace hw {
           this->hCard = 0;
         }
       }
+#else
+      const char* prefix = this->name.c_str();
+      char p[200];
+      int found = LedgerFind(p, 200);
+
+      MDEBUG( "Looking for " << std::string(prefix));
+      if (found == 0) {
+        MDEBUG( "Device Found: " <<  std::string(p));
+        if (strncmp(prefix, p, strlen(prefix))==0) {
+          this->hCard = 1;
+          MDEBUG( "Device Match: " <<  std::string(p));
+          MDEBUG( "Device "<<this->id <<" Connected: hCard="<<this->hCard);
+          MDEBUG( "Device "<<this->id <<" Status OK");
+          rv = SCARD_S_SUCCESS;
+          this->full_name = std::string(p);
+        } else {
+          rv = SCARD_E_NO_READERS_AVAILABLE;
+        }
+      } else {
+          rv = SCARD_E_NO_READERS_AVAILABLE;
+      }
+#endif
       ASSERT_RV(rv);
 
       this->reset();
@@ -449,7 +493,11 @@ namespace hw {
 
     bool device_ledger::disconnect() {
       if (this->hCard) {
+#ifndef HAVE_MONERUJO
         SCardDisconnect(this->hCard, SCARD_UNPOWER_CARD);
+#else
+        // connect/disconnect is handled by Monerujo
+#endif
         MDEBUG( "Device "<<this->id <<" disconnected: hCard="<<this->hCard); 
         this->hCard = 0;
       }

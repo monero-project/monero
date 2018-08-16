@@ -427,7 +427,10 @@ if(STATIC AND NOT IOS)
   endif()
 endif()
 
-find_package(PCSC)
+option(MONERUJO_PCSC "PCSC is handled by Monerujo" OFF)
+if(NOT MONERUJO_PCSC)
+  find_package(PCSC)
+endif()
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
 add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
