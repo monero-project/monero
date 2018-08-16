@@ -1971,14 +1971,25 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
 
   MDB_val v;
 
+  uint64_t prev_height = heights[0];
   for (uint64_t height: heights)
   {
-    MDB_val_set(v, height);
-    result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+    if (height == prev_height + 1)
+    {
+      MDB_val k2;
+      result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT);
+    }
+    else
+    {
+      v.mv_size = sizeof(uint64_t);
+      v.mv_data = (void*)&height;
+      result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+    }
     if (result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
     const mdb_block_info *bi = (const mdb_block_info *)v.mv_data;
     res.push_back(bi->bi_cum_rct);
+    prev_height = height;
   }
 
   TXN_POSTFIX_RDONLY();
