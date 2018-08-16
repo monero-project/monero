@@ -886,6 +886,7 @@ namespace cryptonote
 
       bool invalid_block_height;
       bool voters_quorum_index_out_of_bounds;
+      bool duplicate_voters;
       bool service_node_index_out_of_bounds;
       bool signature_not_valid;
       bool not_enough_votes;
@@ -906,6 +907,7 @@ namespace cryptonote
 
         KV_SERIALIZE(invalid_block_height)
         KV_SERIALIZE(voters_quorum_index_out_of_bounds)
+        KV_SERIALIZE(duplicate_voters)
         KV_SERIALIZE(service_node_index_out_of_bounds)
         KV_SERIALIZE(signature_not_valid)
         KV_SERIALIZE(not_enough_votes)

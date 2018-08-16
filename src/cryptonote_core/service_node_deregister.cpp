@@ -89,7 +89,7 @@ namespace loki
     return true;
   }
 
-  static bool verify_votes_helper(const cryptonote::tx_extra_service_node_deregister& deregister,
+  static bool verify_votes_helper(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
                                   cryptonote::vote_verification_context &vvc,
                                   const service_nodes::quorum_state &quorum_state)
   {
@@ -101,6 +101,7 @@ namespace loki
     }
 
     const std::vector<crypto::public_key>& quorum = quorum_state.quorum_nodes;
+    std::vector<int8_t> quorum_set;
 
     std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs;
     for (const cryptonote::tx_extra_service_node_deregister::vote& vote : deregister.votes)
@@ -110,6 +111,21 @@ namespace loki
         vvc.m_voters_quorum_index_out_of_bounds = true;
         LOG_PRINT_L1("Voter's index in deregister vote was out of bounds:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
         return false;
+      }
+
+      if (nettype == cryptonote::TESTNET && deregister.block_height < 6200)
+      {
+        // TODO(doyle): Remove on next testnet re-launch, also. Can remove nettype param until next fork I guess.
+      }
+      else
+      {
+        quorum_set.resize(quorum.size());
+        if (++quorum_set[vote.voters_quorum_index] > 1)
+        {
+          vvc.m_duplicate_voters = true;
+          LOG_PRINT_L1("Voter quorum index is duplicated:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+          return false;
+        }
       }
 
       keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
@@ -125,7 +141,7 @@ namespace loki
     return r;
   }
 
-  bool service_node_deregister::verify_deregister(const cryptonote::tx_extra_service_node_deregister& deregister,
+  bool service_node_deregister::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
                                                   cryptonote::vote_verification_context &vvc,
                                                   const service_nodes::quorum_state &quorum_state)
   {
@@ -136,18 +152,18 @@ namespace loki
       return false;
     }
 
-    bool result = verify_votes_helper(deregister, vvc, quorum_state);
+    bool result = verify_votes_helper(nettype, deregister, vvc, quorum_state);
     return result;
   }
 
-  bool service_node_deregister::verify_vote(const vote& v, cryptonote::vote_verification_context &vvc,
+  bool service_node_deregister::verify_vote(cryptonote::network_type nettype, const vote& v, cryptonote::vote_verification_context &vvc,
                                             const service_nodes::quorum_state &quorum_state)
   {
     cryptonote::tx_extra_service_node_deregister deregister;
     deregister.block_height = v.block_height;
     deregister.service_node_index = v.service_node_index;
     deregister.votes.push_back(cryptonote::tx_extra_service_node_deregister::vote{ v.signature, v.voters_quorum_index });
-    return verify_votes_helper(deregister, vvc, quorum_state);
+    return verify_votes_helper(nettype, deregister, vvc, quorum_state);
   }
 
   void deregister_vote_pool::set_relayed(const std::vector<service_node_deregister::vote>& votes)
@@ -207,7 +223,7 @@ namespace loki
                                       const service_nodes::quorum_state &quorum_state,
                                       cryptonote::transaction &tx)
   {
-    if (!service_node_deregister::verify_vote(new_vote, vvc, quorum_state))
+    if (!service_node_deregister::verify_vote(m_nettype, new_vote, vvc, quorum_state))
     {
       LOG_PRINT_L1("Signature verification failed for deregister vote");
       return false;
@@ -248,8 +264,8 @@ namespace loki
         for (const auto& entry : *deregister_votes)
         {
           cryptonote::tx_extra_service_node_deregister::vote tx_vote = {};
-          tx_vote.signature           = new_vote.signature;
-          tx_vote.voters_quorum_index = new_vote.voters_quorum_index;
+          tx_vote.signature           = entry.signature;
+          tx_vote.voters_quorum_index = entry.voters_quorum_index;
           deregister.votes.push_back(tx_vote);
         }
 

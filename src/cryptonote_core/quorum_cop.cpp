@@ -126,7 +126,10 @@ namespace service_nodes
             LOG_ERROR("block height was invalid: " << vote.block_height);
 
           if (vvc.m_voters_quorum_index_out_of_bounds)
-            LOG_ERROR("voters quorum index specified out of bounds: " << vote.voters_quorum_index);
+            LOG_ERROR("voters quorum index specified was out of bounds: " << vote.voters_quorum_index);
+
+          if (vvc.m_duplicate_voters)
+            LOG_ERROR("voters index was duplicated: " << vote.voters_quorum_index);
 
           if (vvc.m_service_node_index_out_of_bounds)
             LOG_ERROR("service node index specified out of bounds: " << vote.service_node_index);

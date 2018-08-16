@@ -786,6 +786,8 @@ namespace cryptonote
       const vote_verification_context &vvc = tvc.m_vote_ctx;
       if ((res.invalid_block_height = vvc.m_invalid_block_height))
         add_reason(res.reason, "block height was invalid");
+      if ((res.duplicate_voters = vvc.m_duplicate_voters))
+        add_reason(res.reason, "voters index was duplicated");
       if ((res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds))
         add_reason(res.reason, "voters quorum index specified out of bounds");
       if ((res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds))

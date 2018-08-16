@@ -67,11 +67,11 @@ namespace loki
     bool verify_vote_signature (uint64_t block_height, uint32_t service_node_index, crypto::public_key p, crypto::signature s);
     bool verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs);
 
-    bool verify_deregister(const cryptonote::tx_extra_service_node_deregister& deregister,
+    bool verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
                            cryptonote::vote_verification_context& vvc,
                            const service_nodes::quorum_state &quorum);
 
-    bool verify_vote(const vote& v, cryptonote::vote_verification_context &vvc,
+    bool verify_vote(cryptonote::network_type nettype, const vote& v, cryptonote::vote_verification_context &vvc,
                      const service_nodes::quorum_state &quorum);
   };
 
@@ -91,6 +91,8 @@ namespace loki
       void                                       remove_expired_votes(uint64_t height);
       void                                       remove_used_votes   (std::vector<cryptonote::transaction> const &txs);
       std::vector<service_node_deregister::vote> get_relayable_votes () const;
+
+      cryptonote::network_type m_nettype = cryptonote::UNDEFINED;
 
     private:
       struct deregister
