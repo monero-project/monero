@@ -999,19 +999,21 @@ namespace service_nodes
     m_height = 0;
   }
 
-  bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint32_t& portions_for_operator, uint64_t& initial_contribution)
+  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint32_t& portions_for_operator, bool& autostake)
   {
-    if (args.size() % 2 == 1)
+    autostake = false;
+    if (!args.empty() && args[0] == "auto")
     {
-      MERROR(tr("Expected an even number of arguments: <operator cut> <address> <fraction> [<address> <fraction> [...]]] <initial contribution>"));
+      autostake = true;
+      args.erase(args.begin());
+    }
+
+    if (args.size() % 2 == 0 || args.size() < 3)
+    {
+      MERROR(tr("Usage: [auto] <operator cut> <address> <fraction> [<address> <fraction> [...]]]"));
       return false;
     }
-    if (args.size() < 4)
-    {
-      MERROR(tr("Usage: <operator cut> <address> <fraction> [<address> <fraction> [...]]] <initial contribution>"));
-      return false;
-    }
-    if ((args.size()-2)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
+    if ((args.size()-1)/ 2 > MAX_NUMBER_OF_CONTRIBUTORS)
     {
       MERROR(tr("Exceeds the maximum number of contributors, which is ") << MAX_NUMBER_OF_CONTRIBUTORS);
       return false;
@@ -1033,7 +1035,7 @@ namespace service_nodes
       return false;
     }
     uint64_t portions_left = STAKING_PORTIONS;
-    for (size_t i = 1; i < args.size()-1; i += 2)
+    for (size_t i = 1; i < args.size(); i += 2)
     {
       cryptonote::address_parse_info info;
       if (!cryptonote::get_account_address_from_str(info, nettype, args[i]))
@@ -1074,14 +1076,6 @@ namespace service_nodes
         return false;
       }
     }
-    if (!cryptonote::parse_amount(initial_contribution, args.back()) || initial_contribution == 0)
-    {
-      MERROR(tr("amount is wrong: ") << args.back() <<
-        ", " << tr("expected number from ") << cryptonote::print_money(1) <<
-        " to " << cryptonote::print_money(std::numeric_limits<uint64_t>::max()));
-      return true;
-    }
-
     return true;
   }
 
@@ -1091,15 +1085,15 @@ namespace service_nodes
 
     std::vector<cryptonote::account_public_address> addresses;
     std::vector<uint32_t> portions;
-    uint64_t initial_contribution;
     uint32_t operator_portions;
-    if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, initial_contribution))
+    bool autostake;
+    if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, autostake))
     {
       MERROR(tr("Could not convert registration args"));
       return false;
     }
 
-    uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
+    uint64_t exp_timestamp = time(nullptr) + (autostake ? STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE : STAKING_AUTHORIZATION_EXPIRATION_WINDOW);
 
     crypto::hash hash;
     bool hashed = cryptonote::get_registration_hash(addresses, operator_portions, portions, exp_timestamp, hash);
@@ -1141,7 +1135,9 @@ namespace service_nodes
 
       char buffer[128];
       strftime(buffer, sizeof(buffer), "%Y-%m-%d %I:%M:%S %p", &tm);
-      stream << tr("This registration expires at ") << buffer << tr(". This should be in about 2 weeks. If it isn't, check this computer's clock") << std::endl;
+      stream << tr("This registration expires at ") << buffer << tr(".\n");
+      stream << tr("This should be in about 2 weeks, or two years for autostaking.\n");
+      stream << tr("If it isn't, check this computer's clock.\n");
       stream << tr("Please submit your registration into the blockchain before this time or it will be invalid.");
     }
 

@@ -817,17 +817,6 @@ namespace cryptonote
      bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
 
      /**
-      * @brief Prepare a registration tx using the service node keys for this
-      * daemon. This function is intended to be called without being core
-      * initialized with core::init; for use when generating txs from the shell
-      *
-      * @param vm The command line variable map.
-
-      * @return whether or not the command was able to prepare the registration.
-      */
-     bool cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args);
-
-     /**
       * @brief Return the account associated to this service node.
 
       * @param pub_key The public key for the service node, unmodified if not a service node

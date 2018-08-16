@@ -39,17 +39,15 @@ static __thread int depth = 0;
 
 namespace tools
 {
-threadpool::threadpool() : running(true), active(0) {
-  boost::thread::attributes attrs;
-  attrs.set_stack_size(THREAD_STACK_SIZE);
-  max = tools::get_max_concurrency();
-  size_t i = max;
-  while(i--) {
-    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this)));
-  }
+threadpool::threadpool() {
+  start();
 }
 
 threadpool::~threadpool() {
+  stop();
+}
+
+void threadpool::stop() {
   {
     const boost::unique_lock<boost::mutex> lock(mutex);
     running = false;
@@ -57,6 +55,20 @@ threadpool::~threadpool() {
   }
   for (size_t i = 0; i<threads.size(); i++) {
     threads[i].join();
+  }
+  threads.clear();
+  queue.clear();
+}
+
+void threadpool::start() {
+  running = true;
+  active = 0;
+  boost::thread::attributes attrs;
+  attrs.set_stack_size(THREAD_STACK_SIZE);
+  max = tools::get_max_concurrency();
+  size_t i = max;
+  while(i--) {
+    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this)));
   }
 }
 
