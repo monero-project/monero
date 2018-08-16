@@ -516,6 +516,7 @@ namespace cryptonote
 
       uint64_t amount_in = 0, amount_out = 0;
       rct::ctkeyV inSk;
+      inSk.reserve(sources.size());
       // mixRing indexing is done the other way round for simple
       rct::ctkeyM mixRing(use_simple_rct ? sources.size() : n_total_outs);
       rct::keyV destinations;
@@ -532,6 +533,7 @@ namespace cryptonote
         ctkey.dest = rct::sk2rct(in_contexts[i].in_ephemeral.sec);
         ctkey.mask = sources[i].mask;
         inSk.push_back(ctkey);
+        memwipe(&ctkey, sizeof(rct::ctkey));
         // inPk: (public key, commitment)
         // will be done when filling in mixRing
         if (msout)
@@ -590,6 +592,7 @@ namespace cryptonote
         tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, msout ? &kLRki : NULL, msout, index, outSk, bulletproof, hwdev);
       else
         tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, amount_keys, msout ? &kLRki[0] : NULL, msout, sources[0].real_output, outSk, bulletproof, hwdev); // same index assumption
+      memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));
 
       CHECK_AND_ASSERT_MES(tx.vout.size() == outSk.size(), false, "outSk size does not match vout");
 
