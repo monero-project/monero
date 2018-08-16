@@ -189,6 +189,7 @@ namespace tools
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds);
+    static bool query_device(hw::device::device_type& device_type, const std::string& keys_file_name, const epee::wipeable_string& password, uint64_t kdf_rounds = 1);
 
     wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false);
     ~wallet2();
@@ -709,7 +710,8 @@ namespace tools
     bool has_multisig_partial_key_images() const;
     bool has_unknown_key_images() const;
     bool get_multisig_seed(epee::wipeable_string& seed, const epee::wipeable_string &passphrase = std::string(), bool raw = true) const;
-    bool key_on_device() const { return m_key_on_device; }
+    bool key_on_device() const { return get_device_type() != hw::device::device_type::SOFTWARE; }
+    hw::device::device_type get_device_type() const { return m_key_device_type; }
     bool reconnect_device();
 
     // locked & unlocked balance of given or current subaddress account
@@ -1284,7 +1286,7 @@ namespace tools
 
     bool m_trusted_daemon;
     i_wallet2_callback* m_callback;
-    bool m_key_on_device;
+    hw::device::device_type m_key_device_type;
     cryptonote::network_type m_nettype;
     uint64_t m_kdf_rounds;
     std::string seed_language; /*!< Language of the mnemonics (seed). */

@@ -79,6 +79,7 @@ public:
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
+    Device getDeviceType() const;
     bool close(bool store = true);
     std::string seed() const override;
     std::string getSeedLanguage() const override;
