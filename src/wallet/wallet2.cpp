@@ -794,7 +794,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_light_wallet_connected(false),
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
-  m_key_on_device(false),
+  m_key_device_type(hw::device::device_type::SOFTWARE),
   m_ring_history_saved(false),
   m_ringdb(),
   m_last_block_reward(0),
@@ -2908,7 +2908,7 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
 
   rapidjson::Value value2(rapidjson::kNumberType);
 
-  value2.SetInt(m_key_on_device?1:0);
+  value2.SetInt(m_key_device_type);
   json.AddMember("key_on_device", value2, json.GetAllocator());
 
   value2.SetInt(watch_only ? 1 :0); // WTF ? JSON has different true and false types, and not boolean ??
@@ -3121,7 +3121,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_device_name = "";
-    m_key_on_device = false;
+    m_key_device_type = hw::device::device_type::SOFTWARE;
     encrypted_secret_keys = false;
   }
   else if(json.IsObject())
@@ -3141,8 +3141,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
 
     if (json.HasMember("key_on_device"))
     {
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_on_device, int, Int, false, false);
-      m_key_on_device = field_key_on_device;
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_on_device, int, Int, false, hw::device::device_type::SOFTWARE);
+      m_key_device_type = static_cast<hw::device::device_type>(field_key_on_device);
     }
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_language, std::string, String, false, std::string());
@@ -3269,7 +3269,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   }
 
   r = epee::serialization::load_t_from_binary(m_account, account_data);
-  if (r && m_key_on_device) {
+  THROW_WALLET_EXCEPTION_IF(!r, error::invalid_password);
+  if (m_key_device_type == hw::device::device_type::LEDGER) {
     LOG_PRINT_L0("Account on device. Initing device...");
     hw::device &hwdev = hw::get_device(m_device_name);
     hwdev.set_name(m_device_name);
@@ -3277,6 +3278,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     hwdev.connect();
     m_account.set_device(hwdev);
     LOG_PRINT_L0("Device inited...");
+  } else if (key_on_device()) {
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "hardware device not supported");
   }
 
   if (r)
@@ -3445,6 +3448,59 @@ void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, cons
 
 
 /*!
+ * \brief determine the key storage for the specified wallet file
+ * \param device_type     (OUT) wallet backend as enumerated in hw::device::device_type
+ * \param keys_file_name  Keys file to verify password for
+ * \param password        Password to verify
+ * \return                true if password correct, else false
+ *
+ * for verification only - determines key storage hardware
+ *
+ */
+bool wallet2::query_device(hw::device::device_type& device_type, const std::string& keys_file_name, const epee::wipeable_string& password, uint64_t kdf_rounds)
+{
+  rapidjson::Document json;
+  wallet2::keys_file_data keys_file_data;
+  std::string buf;
+  bool r = epee::file_io_utils::load_file_to_string(keys_file_name, buf);
+  THROW_WALLET_EXCEPTION_IF(!r, error::file_read_error, keys_file_name);
+
+  // Decrypt the contents
+  r = ::serialization::parse_binary(buf, keys_file_data);
+  THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "internal error: failed to deserialize \"" + keys_file_name + '\"');
+  crypto::chacha_key key;
+  crypto::generate_chacha_key(password.data(), password.size(), key, kdf_rounds);
+  std::string account_data;
+  account_data.resize(keys_file_data.account_data.size());
+  crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
+  if (json.Parse(account_data.c_str()).HasParseError() || !json.IsObject())
+    crypto::chacha8(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
+
+  // The contents should be JSON if the wallet follows the new format.
+  if (json.Parse(account_data.c_str()).HasParseError())
+  {
+    // old format before JSON wallet key file format
+  }
+  else
+  {
+    account_data = std::string(json["key_data"].GetString(), json["key_data"].GetString() +
+      json["key_data"].GetStringLength());
+
+    if (json.HasMember("key_on_device"))
+    {
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_on_device, int, Int, false, hw::device::device_type::SOFTWARE);
+      device_type = static_cast<hw::device::device_type>(field_key_on_device);
+    }
+  }
+
+  cryptonote::account_base account_data_check;
+
+  r = epee::serialization::load_t_from_binary(account_data_check, account_data);
+  if (!r) return false;
+  return true;
+}
+
+/*!
  * \brief  Generates a wallet or restores one.
  * \param  wallet_              Name of wallet file
  * \param  password             Password of wallet file
@@ -3518,7 +3574,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = true;
   m_multisig_threshold = threshold;
   m_multisig_signers = multisig_signers;
-  m_key_on_device = false;
+  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
@@ -3558,7 +3614,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
-  m_key_on_device = false;
+  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
   // calculate a starting refresh height
@@ -3646,7 +3702,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
-  m_key_on_device = false;
+  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
   create_keys_file(wallet_, true, password, m_nettype != MAINNET || create_address_file);
@@ -3686,7 +3742,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
-  m_key_on_device = false;
+  m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
   create_keys_file(wallet_, false, password, create_address_file);
@@ -3713,12 +3769,12 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
     THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
     THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
   }
-  m_key_on_device = true;
 
   auto &hwdev = hw::get_device(device_name);
   hwdev.set_name(device_name);
 
   m_account.create_from_device(hwdev);
+  m_key_device_type = m_account.get_device().get_type();
   m_account_public_address = m_account.get_keys().m_account_address;
   m_watch_only = false;
   m_multisig = false;
@@ -3815,7 +3871,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   m_watch_only = false;
   m_multisig = true;
   m_multisig_threshold = threshold;
-  m_key_on_device = false;
+  m_key_device_type = hw::device::device_type::SOFTWARE;
 
   if (threshold == spend_keys.size() + 1)
   {

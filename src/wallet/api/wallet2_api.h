@@ -373,6 +373,10 @@ struct WalletListener
  */
 struct Wallet
 {
+    enum Device {
+        Device_Software = 0,
+        Device_Ledger = 1
+    };
 
     enum Status {
         Status_Ok,
@@ -911,6 +915,12 @@ struct Wallet
     virtual bool unlockKeysFile() = 0;
     //! returns true if the keys file is locked
     virtual bool isKeysFileLocked() = 0;
+
+    /*!
+     * \brief Queries backing device for wallet keys
+     * \return Device they are on
+     */
+    virtual Device getDeviceType() const = 0;
 };
 
 /**
@@ -1095,6 +1105,18 @@ struct WalletManager
      * In this case, Wallet::unlockKeysFile() and Wallet::lockKeysFile() need to be called before and after the call to this function, respectively.
      */
     virtual bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key, uint64_t kdf_rounds = 1) const = 0;
+
+    /*!
+     * \brief determine the key storage for the specified wallet file
+     * \param device_type     (OUT) wallet backend as enumerated in Wallet::Device
+     * \param keys_file_name  Keys file to verify password for
+     * \param password        Password to verify
+     * \return                true if password correct, else false
+     *
+     * for verification only - determines key storage hardware
+     *
+     */
+    virtual bool queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds = 1) const = 0;
 
     /*!
      * \brief findWallets - searches for the wallet files by given path name recursively
