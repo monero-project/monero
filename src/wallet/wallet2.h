@@ -167,7 +167,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds);
 
-    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, bool restricted = false, uint64_t kdf_rounds = 1);
+    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1);
     ~wallet2();
 
     struct multisig_info
@@ -687,7 +687,6 @@ namespace tools
     RefreshType get_refresh_type() const { return m_refresh_type; }
 
     cryptonote::network_type nettype() const { return m_nettype; }
-    bool restricted() const { return m_restricted; }
     bool watch_only() const { return m_watch_only; }
     bool multisig(bool *ready = NULL, uint32_t *threshold = NULL, uint32_t *total = NULL) const;
     bool has_multisig_partial_key_images() const;
@@ -1259,7 +1258,6 @@ namespace tools
     i_wallet2_callback* m_callback;
     bool m_key_on_device;
     cryptonote::network_type m_nettype;
-    bool m_restricted;
     uint64_t m_kdf_rounds;
     std::string seed_language; /*!< Language of the mnemonics (seed). */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
