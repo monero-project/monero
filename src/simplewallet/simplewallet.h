@@ -44,6 +44,7 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/wallet2.h"
 #include "console_handler.h"
+#include "wipeable_string.h"
 #include "common/i18n.h"
 #include "common/password.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
@@ -96,7 +97,7 @@ namespace cryptonote
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const cryptonote::account_public_address& address,
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
-        const std::string &multisig_keys, const std::string &old_language);
+        const epee::wipeable_string &multisig_keys, const std::string &old_language);
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
@@ -238,7 +239,7 @@ namespace cryptonote
      * \brief Prints the seed with a nice message
      * \param seed seed to print
      */
-    void print_seed(std::string seed);
+    void print_seed(const epee::wipeable_string &seed);
 
     /*!
      * \brief Gets the word seed language from the user.
@@ -329,7 +330,7 @@ namespace cryptonote
     std::string m_import_path;
     std::string m_subaddress_lookahead;
 
-    std::string m_electrum_seed;  // electrum-style seed parameter
+    epee::wipeable_string m_electrum_seed;  // electrum-style seed parameter
 
     crypto::secret_key m_recovery_key;  // recovery key (used as random for wallet gen)
     bool m_restore_deterministic_wallet;  // recover flag
