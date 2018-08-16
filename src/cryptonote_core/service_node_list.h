@@ -70,7 +70,9 @@ namespace service_nodes
       END_SERIALIZE()
     };
 
-    // block_height and transaction_index are to record when the service node is registered or when it last received a reward.
+    uint64_t registration_height;
+
+    // block_height and transaction_index are to record when the service node last received a reward.
     uint64_t last_reward_block_height;
     uint32_t last_reward_transaction_index;
 
@@ -89,6 +91,7 @@ namespace service_nodes
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
+      VARINT_FIELD(registration_height)
       VARINT_FIELD(last_reward_block_height)
       VARINT_FIELD(last_reward_transaction_index)
       FIELD(contributors)

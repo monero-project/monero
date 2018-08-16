@@ -347,6 +347,7 @@ namespace service_nodes
 
     info.operator_address = service_node_addresses[0];
     info.portions_for_operator = portions_for_operator;
+    info.registration_height = block_height;
     info.last_reward_block_height = block_height;
     info.last_reward_transaction_index = index;
     info.total_contributed = 0;
