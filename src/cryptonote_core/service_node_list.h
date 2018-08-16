@@ -168,7 +168,7 @@ namespace service_nodes
       };
 
       rollback_event() = default;
-      rollback_event(uint64_t block_height);
+      rollback_event(uint64_t block_height, rollback_type type);
       virtual ~rollback_event() { }
       virtual bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const = 0;
 
