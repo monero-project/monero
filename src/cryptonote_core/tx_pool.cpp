@@ -124,7 +124,7 @@ namespace cryptonote
     get_transactions(pool_txs);
     for (const transaction& pool_tx : pool_txs)
     {
-      if (!tx.is_deregister_tx())
+      if (!pool_tx.is_deregister_tx())
         continue;
 
       tx_extra_service_node_deregister pool_tx_deregister;
