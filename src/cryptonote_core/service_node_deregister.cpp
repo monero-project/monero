@@ -264,8 +264,8 @@ namespace loki
         for (const auto& entry : *deregister_votes)
         {
           cryptonote::tx_extra_service_node_deregister::vote tx_vote = {};
-          tx_vote.signature           = entry.signature;
-          tx_vote.voters_quorum_index = entry.voters_quorum_index;
+          tx_vote.signature           = entry.m_vote.signature;
+          tx_vote.voters_quorum_index = entry.m_vote.voters_quorum_index;
           deregister.votes.push_back(tx_vote);
         }
 
