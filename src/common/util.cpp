@@ -37,7 +37,6 @@
 #ifdef __GLIBC__
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <ustat.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
