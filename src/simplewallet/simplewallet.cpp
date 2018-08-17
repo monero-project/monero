@@ -5158,7 +5158,6 @@ bool simple_wallet::stake_main(
 
     uint64_t can_contrib_total = 0;
     uint64_t must_contrib_total = 0;
-    uint64_t already_contributed = 0;
 
     if (snode_info.contributors.size() < MAX_NUMBER_OF_CONTRIBUTORS)
       can_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
@@ -5173,7 +5172,6 @@ bool simple_wallet::stake_main(
         uint64_t max_increase_amount_to = contributor.reserved + max_increase_reserve;
         can_contrib_total = max_increase_amount_to - contributor.amount;
         must_contrib_total = contributor.reserved - contributor.amount;
-        already_contributed = contributor.amount;
         full = false;
       }
     }
@@ -5205,10 +5203,13 @@ bool simple_wallet::stake_main(
         amount = must_contrib_total;
       }
       else if (autostake)
-        return true;
+      {
+        if (amount == 0)
+          amount = must_contrib_total;
+        else
+          return true;
+      }
     }
-    if (autostake && already_contributed >= amount)
-      return true;
   }
   catch(const std::exception &e)
   {
@@ -5377,9 +5378,9 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     local_args.erase(local_args.begin());
   }
 
-  if (local_args.size() < 3)
+  if (local_args.size() < 2)
   {
-    fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] [auto] <service node pubkey> <address> <amount|percent%>");
+    fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] [auto] <service node pubkey> <address> [<amount|percent%>]");
     return true;
   }
 
@@ -5392,7 +5393,12 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   uint64_t amount;
   double amount_fraction;
-  if (local_args[2].back() == '%')
+  if (local_args.size() < 3)
+  {
+    amount = 0;
+    amount_fraction = 0;
+  }
+  else if (local_args[2].back() == '%')
   {
     local_args[2].pop_back();
     amount = 0;
