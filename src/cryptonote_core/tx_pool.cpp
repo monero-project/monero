@@ -1179,7 +1179,7 @@ namespace cryptonote
     LockedTXN lock(m_blockchain);
 
     auto sorted_it = m_txs_by_fee_and_receive_time.begin();
-    while (true)
+    for (; true; ++sorted_it)
     {
       if (sorted_it == m_txs_by_fee_and_receive_time.end())
       {
@@ -1202,7 +1202,6 @@ namespace cryptonote
       if (max_total_size < total_size + meta.blob_size)
       {
         LOG_PRINT_L2("  would exceed maximum block size");
-        sorted_it++;
         continue;
       }
 
@@ -1217,14 +1216,12 @@ namespace cryptonote
           if(!get_block_reward(median_size, total_size + meta.blob_size, already_generated_coins, block_reward, version, height))
           {
             LOG_PRINT_L2("  would exceed maximum block size");
-            sorted_it++;
             continue;
           }
           coinbase = block_reward + fee + meta.fee;
           if (coinbase < template_accept_threshold(best_coinbase))
           {
             LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
-            sorted_it++;
             continue;
           }
         }
@@ -1298,7 +1295,6 @@ namespace cryptonote
           if (mixin == 1)
           {
             LOG_PRINT_L2("This tx has ring size 2, which is disallowed");
-            sorted_it++;
             continue;
           }
 
@@ -1317,7 +1313,6 @@ namespace cryptonote
               {
                 LOG_PRINT_L2("Will check this tx again in the second pass");
                 ++nofake_txs_in_pool;
-                sorted_it++;
                 continue;
               }
 
@@ -1356,7 +1351,6 @@ namespace cryptonote
               if (!can_nofake_tx_be_simply_added && !can_nofake_tx_replace_existing_tx)
               {
                 LOG_PRINT_L2("Adding this tx would decrease coinbase");
-                sorted_it++;
                 continue;
               }
             }
@@ -1368,7 +1362,6 @@ namespace cryptonote
           // discourage < 3-way-mix transactions by mining them only as the first tx in an empty block
           if (n > 0 && itk.key_offsets.size() < 3)
           {
-            sorted_it++;
             continue;
           }
         }
@@ -1389,19 +1382,16 @@ namespace cryptonote
       if (!ready)
       {
         LOG_PRINT_L2("  not ready to go");
-        sorted_it++;
         continue;
       }
       if (have_key_images(k_images, tx))
       {
         LOG_PRINT_L2("  key images already seen");
-        sorted_it++;
         continue;
       }
       if (second_pass && !is_nofake_tx)
       {
         LOG_PRINT_L2("Skipping this tx in the second pass since it's not non-private");
-        sorted_it++;
         continue;
       }
 
@@ -1434,7 +1424,6 @@ namespace cryptonote
       fee += meta.fee;
       best_coinbase = coinbase;
       append_key_images(k_images, tx);
-      sorted_it++;
       n++;
       LOG_PRINT_L2("  added, new block size " << total_size << "/" << max_total_size << ", coinbase " << print_money(best_coinbase));
     }
