@@ -72,18 +72,13 @@ namespace service_nodes
 
   void service_node_list::init()
   {
-    // TODO: Save this calculation, only do it if it's not here.
-    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain");
-
-    m_height = 0;
-    m_service_nodes_infos.clear();
-
-    while (!m_rollback_events.empty())
-    {
-      m_rollback_events.pop_front();
-    }
-
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
+
+    bool loaded = load();
+
+    if (loaded && m_height == current_height) return;
+
+    if (!loaded || m_height > current_height) clear(true);
 
     while (m_height < current_height)
     {
@@ -352,6 +347,7 @@ namespace service_nodes
 
     info.operator_address = service_node_addresses[0];
     info.portions_for_operator = portions_for_operator;
+    info.registration_height = block_height;
     info.last_reward_block_height = block_height;
     info.last_reward_transaction_index = index;
     info.total_contributed = 0;
@@ -393,7 +389,7 @@ namespace service_nodes
     if (iter != m_service_nodes_infos.end())
       return;
 
-    MGINFO("New service node registered: " << key);
+    MGINFO("New service node registered: " << key << " at block height: " << block_height);
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
     m_service_nodes_infos[key] = info;
@@ -490,6 +486,7 @@ namespace service_nodes
   void service_node_list::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
     block_added_generic(block, txs);
+    store();
   }
 
 
@@ -576,6 +573,8 @@ namespace service_nodes
     }
 
     m_height = height;
+
+    store();
   }
 
   std::vector<crypto::public_key> service_node_list::get_expired_nodes(uint64_t block_height) const
@@ -809,12 +808,12 @@ namespace service_nodes
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  service_node_list::rollback_event::rollback_event(uint64_t block_height) : m_block_height(block_height)
+  service_node_list::rollback_event::rollback_event(uint64_t block_height, rollback_type type) : m_block_height(block_height), type(type)
   {
   }
 
   service_node_list::rollback_change::rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info)
-    : service_node_list::rollback_event(block_height), m_key(key), m_info(info)
+    : service_node_list::rollback_event(block_height, change_type), m_key(key), m_info(info)
   {
   }
 
@@ -825,7 +824,7 @@ namespace service_nodes
   }
 
   service_node_list::rollback_new::rollback_new(uint64_t block_height, const crypto::public_key& key)
-    : service_node_list::rollback_event(block_height), m_key(key)
+    : service_node_list::rollback_event(block_height, new_type), m_key(key)
   {
   }
 
@@ -841,7 +840,7 @@ namespace service_nodes
     return true;
   }
 
-  service_node_list::prevent_rollback::prevent_rollback(uint64_t block_height) : service_node_list::rollback_event(block_height)
+  service_node_list::prevent_rollback::prevent_rollback(uint64_t block_height) : service_node_list::rollback_event(block_height, prevent_type)
   {
   }
 
@@ -849,6 +848,152 @@ namespace service_nodes
   {
     MERROR("Unable to rollback any further!");
     return false;
+  }
+
+  bool service_node_list::store()
+  {
+    CHECK_AND_ASSERT_MES(m_db != nullptr, false, "Failed to store service node info, m_db == nullptr");
+    data_members_for_serialization data_to_store;
+
+    node_info_for_serialization info;
+    for (const auto& kv_pair : m_service_nodes_infos)
+    {
+      info.key = kv_pair.first;
+      info.info = kv_pair.second;
+      data_to_store.infos.push_back(info);
+    }
+
+    rollback_event_variant event;
+    for (const auto& event_ptr : m_rollback_events)
+    {
+      switch (event_ptr->type)
+      {
+        case rollback_event::change_type:
+          event = *reinterpret_cast<rollback_change *>(event_ptr.get());
+          data_to_store.events.push_back(*reinterpret_cast<rollback_change *>(event_ptr.get()));
+          break;
+        case rollback_event::new_type:
+          event = *reinterpret_cast<rollback_new *>(event_ptr.get());
+          data_to_store.events.push_back(*reinterpret_cast<rollback_new *>(event_ptr.get()));
+          break;
+        case rollback_event::prevent_type:
+          event = *reinterpret_cast<prevent_rollback *>(event_ptr.get());
+          data_to_store.events.push_back(*reinterpret_cast<prevent_rollback *>(event_ptr.get()));
+          break;
+        default:
+          MERROR("On storing service node data, unknown rollback event type encountered");
+          return false;
+      }
+    }
+
+    data_to_store.height = m_height;
+
+    std::stringstream ss;
+    binary_archive<true> ba(ss);
+
+    bool r = ::serialization::serialize(ba, data_to_store);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to store service node info: failed to serialize data");
+
+    std::string blob = ss.str();
+    m_db->block_txn_start(false/*readonly*/);
+    m_db->set_service_node_data(blob);
+    m_db->block_txn_stop();
+
+    return true;
+  }
+
+  bool service_node_list::load()
+  {
+    LOG_PRINT_L1("service_node_list::load()");
+    clear(false);
+    if (!m_db)
+    {
+      return false;
+    }
+    std::stringstream ss;
+
+    data_members_for_serialization data_in;
+    std::string blob;
+
+    m_db->block_txn_start(true/*readonly*/);
+    if (!m_db->get_service_node_data(blob))
+    {
+      m_db->block_txn_stop();
+      return false;
+    }
+    m_db->block_txn_stop();
+
+    ss << blob;
+    binary_archive<false> ba(ss);
+    bool r = ::serialization::serialize(ba, data_in);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to parse service node data from blob");
+
+    m_height = data_in.height;
+
+    for (const auto& info : data_in.infos)
+    {
+      m_service_nodes_infos[info.key] = info.info;
+    }
+
+    for (const auto& event : data_in.events)
+    {
+      if (event.type() == typeid(rollback_change))
+      {
+        rollback_change *i = new rollback_change();
+        const rollback_change& from = boost::get<rollback_change>(event);
+        i->m_block_height = from.m_block_height;
+        i->m_key = from.m_key;
+        i->m_info = from.m_info;
+        i->type = rollback_event::change_type;
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
+        break;
+      }
+      else if (event.type() == typeid(rollback_new))
+      {
+        rollback_new *i = new rollback_new();
+        const rollback_new& from = boost::get<rollback_new>(event);
+        i->m_block_height = from.m_block_height;
+        i->m_key = from.m_key;
+        i->type = rollback_event::new_type;
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
+        break;
+      }
+      else if (event.type() == typeid(prevent_rollback))
+      {
+        prevent_rollback *i = new prevent_rollback();
+        const prevent_rollback& from = boost::get<prevent_rollback>(event);
+        i->m_block_height = from.m_block_height;
+        i->type = rollback_event::prevent_type;
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
+        break;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
+    LOG_PRINT_L0("Service node data loaded successfully, m_height: " << m_height);
+    LOG_PRINT_L0(m_service_nodes_infos.size() << " nodes and " << m_rollback_events.size() << " rollback events loaded.");
+
+    LOG_PRINT_L1("service_node_list::load() returning success");
+    return true;
+  }
+
+  void service_node_list::clear(bool delete_db_entry)
+  {
+    m_service_nodes_infos.clear();
+    m_rollback_events.clear();
+
+    if (m_db && delete_db_entry)
+    {
+      m_db->block_txn_start(false/*readonly*/);
+      m_db->clear_service_node_data();
+      m_db->block_txn_stop();
+    }
+
+    m_quorum_states.clear();
+    m_height = 0;
   }
 
   bool convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint32_t& portions_for_operator, uint64_t& initial_contribution)

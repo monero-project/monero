@@ -206,6 +206,7 @@ const char* const LMDB_TXPOOL_BLOB = "txpool_blob";
 
 const char* const LMDB_HF_STARTING_HEIGHTS = "hf_starting_heights";
 const char* const LMDB_HF_VERSIONS = "hf_versions";
+const char* const LMDB_SERVICE_NODE_DATA = "service_node_data";
 
 const char* const LMDB_PROPERTIES = "properties";
 
@@ -1270,6 +1271,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   lmdb_db_open(txn, LMDB_HF_VERSIONS, MDB_INTEGERKEY | MDB_CREATE, m_hf_versions, "Failed to open db handle for m_hf_versions");
 
+  lmdb_db_open(txn, LMDB_SERVICE_NODE_DATA, MDB_INTEGERKEY | MDB_CREATE, m_service_node_data, "Failed to open db handle for m_service_node_data");
+
   lmdb_db_open(txn, LMDB_PROPERTIES, MDB_CREATE, m_properties, "Failed to open db handle for m_properties");
 
   mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
@@ -1436,6 +1439,8 @@ void BlockchainLMDB::reset()
   (void)mdb_drop(txn, m_hf_starting_heights, 0); // this one is dropped in new code
   if (auto result = mdb_drop(txn, m_hf_versions, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_service_node_data, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_service_node_data: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_properties, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_properties: ", result).c_str()));
 
@@ -4127,6 +4132,72 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
   default:
     ;
   }
+}
+
+
+void BlockchainLMDB::set_service_node_data(const std::string& data)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(service_node_data);
+
+  const uint64_t key = 1;
+  MDB_val_set(k, key);
+
+  MDB_val_copy<blobdata> blob(data);
+  int result;
+  result = mdb_cursor_put(m_cur_service_node_data, &k, &blob, 0);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to add service node data to db transaction: ", result).c_str()));
+}
+
+bool BlockchainLMDB::get_service_node_data(std::string& data)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+
+  RCURSOR(service_node_data);
+
+  const uint64_t key = 1;
+  MDB_val_set(k, key);
+  MDB_val v;
+
+  int result;
+  result = mdb_cursor_get(m_cur_service_node_data, &k, &v, MDB_FIRST);
+
+  if (result == MDB_NOTFOUND)
+  {
+    return false;
+  }
+  else if (result)
+  {
+    throw0(DB_ERROR(lmdb_error("DB error attempting to get service node data", result).c_str()));
+  }
+
+  data.assign(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
+  return true;
+}
+
+void BlockchainLMDB::clear_service_node_data()
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+  CURSOR(service_node_data);
+
+  const uint64_t key = 1;
+  MDB_val_set(k, key);
+
+  int result;
+  if ((result = mdb_cursor_get(m_cur_service_node_data, &k, NULL, MDB_SET)))
+    return;
+  if ((result = mdb_cursor_del(m_cur_service_node_data, 0)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of service node data to db transaction: ", result).c_str()));
 }
 
 }  // namespace cryptonote
