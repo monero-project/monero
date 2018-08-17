@@ -80,6 +80,9 @@ namespace service_nodes
 
     if (!loaded || m_height > current_height) clear(true);
 
+    LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_height);
+    LOG_PRINT_L0("This may take some time...");
+
     while (m_height < current_height)
     {
       std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
