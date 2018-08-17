@@ -113,7 +113,7 @@ namespace loki
         return false;
       }
 
-      if (nettype == cryptonote::TESTNET && deregister.block_height < 6200)
+      if (nettype == cryptonote::TESTNET && deregister.block_height < 8670)
       {
         // TODO(doyle): Remove on next testnet re-launch, also. Can remove nettype param until next fork I guess.
       }
