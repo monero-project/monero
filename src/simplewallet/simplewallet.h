@@ -225,6 +225,9 @@ namespace cryptonote
     bool blackballed(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
 
+    bool register_service_node_main(const std::vector<std::string>& service_node_key_as_str, uint64_t expiration_timestamp, const cryptonote::account_public_address& address, uint32_t priority, const std::vector<uint32_t>& portions, const std::vector<uint8_t>& extra, std::set<uint32_t>& subaddr_indices, bool autostake);
+    bool stake_main(const crypto::public_key& service_node_key, const cryptonote::account_public_address& address, uint32_t priority, std::set<uint32_t>& subaddr_indices, uint64_t amount, double amount_fraction, bool autostake);
+
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);
     bool ask_wallet_create_if_needed();

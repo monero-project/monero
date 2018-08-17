@@ -68,6 +68,9 @@ public:
 
   int get_max_concurrency();
 
+  void stop();
+  void start();
+
   private:
     threadpool();
     ~threadpool();
