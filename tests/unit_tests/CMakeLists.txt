@@ -54,6 +54,7 @@ set(unit_tests_sources
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
+  keccak.cpp
   long_term_block_size.cpp
   main.cpp
   memwipe.cpp
