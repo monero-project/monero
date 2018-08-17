@@ -444,6 +444,12 @@ struct Wallet
     virtual std::string publicSpendKey() const = 0;
 
     /*!
+     * \brief publicMultisigSignerKey - returns public signer key
+     * \return                        - public multisignature signer key or empty string if wallet is not multisig
+     */
+    virtual std::string publicMultisigSignerKey() const = 0;
+
+    /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
@@ -824,6 +830,21 @@ struct Wallet
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
+
+    /*!
+     * \brief signMultisigParticipant   signs given message with the multisig public signer key
+     * \param message                   message to sign
+     * \return                          signature in case of success. Sets status to Error and return empty string in case of error
+     */
+    virtual std::string signMultisigParticipant(const std::string &message) const = 0;
+    /*!
+     * \brief verifyMessageWithPublicKey verifies that message was signed with the given public key
+     * \param message                    message
+     * \param publicKey                  hex encoded public key
+     * \param signature                  signature of the message
+     * \return                           true if the signature is correct. false and sets error state in case of error
+     */
+    virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const = 0;
 
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) = 0;
 
