@@ -50,6 +50,7 @@ set(unit_tests_sources
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
+  keccak.cpp
   main.cpp
   memwipe.cpp
   mnemonics.cpp
