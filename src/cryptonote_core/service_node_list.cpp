@@ -858,6 +858,14 @@ namespace service_nodes
     CHECK_AND_ASSERT_MES(m_db != nullptr, false, "Failed to store service node info, m_db == nullptr");
     data_members_for_serialization data_to_store;
 
+    quorum_state_for_serialization quorum;
+    for(const auto& kv_pair : m_quorum_states)
+    {
+      quorum.height = kv_pair.first;
+      quorum.state = *kv_pair.second;
+      data_to_store.quorum_states.push_back(quorum);
+    }
+
     node_info_for_serialization info;
     for (const auto& kv_pair : m_service_nodes_infos)
     {
@@ -932,6 +940,12 @@ namespace service_nodes
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse service node data from blob");
 
     m_height = data_in.height;
+
+    for (const auto& quorum : data_in.quorum_states)
+    {
+      m_quorum_states[quorum.height] = std::shared_ptr<quorum_state>(new quorum_state());
+      *m_quorum_states[quorum.height] = quorum.state;
+    }
 
     for (const auto& info : data_in.infos)
     {

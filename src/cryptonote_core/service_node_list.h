@@ -48,6 +48,11 @@ namespace service_nodes
     void clear() { quorum_nodes.clear(); nodes_to_test.clear(); }
     std::vector<crypto::public_key> quorum_nodes;
     std::vector<crypto::public_key> nodes_to_test;
+
+    BEGIN_SERIALIZE()
+      FIELD(quorum_nodes)
+      FIELD(nodes_to_test)
+    END_SERIALIZE()
   };
 
   struct service_node_info // registration information
@@ -233,13 +238,26 @@ namespace service_nodes
       END_SERIALIZE()
     };
 
+    struct quorum_state_for_serialization
+    {
+      uint64_t height;
+      quorum_state state;
+
+      BEGIN_SERIALIZE()
+        FIELD(height)
+        FIELD(state)
+      END_SERIALIZE()
+    };
+
     struct data_members_for_serialization
     {
+      std::vector<quorum_state_for_serialization> quorum_states;
       std::vector<node_info_for_serialization> infos;
       std::vector<rollback_event_variant> events;
       uint64_t height;
 
       BEGIN_SERIALIZE()
+        FIELD(quorum_states)
         FIELD(infos)
         FIELD(events)
         FIELD(height)
