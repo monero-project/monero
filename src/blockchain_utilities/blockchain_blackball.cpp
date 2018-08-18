@@ -398,6 +398,77 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   return fret;
 }
 
+static uint64_t find_first_diverging_transaction(const std::string &first_filename, const std::string &second_filename)
+{
+  MDB_env *env[2];
+  MDB_dbi dbi[2];
+  MDB_txn *txn[2];
+  MDB_cursor *cur[2];
+  int dbr;
+  bool tx_active[2] = { false, false };
+  uint64_t n_txes[2];
+  MDB_val k;
+  MDB_val v[2];
+
+  epee::misc_utils::auto_scope_leave_caller txn_dtor[2];
+  for (int i = 0; i < 2; ++i)
+  {
+    dbr = mdb_env_create(&env[i]);
+    if (dbr) throw std::runtime_error("Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+    dbr = mdb_env_set_maxdbs(env[i], 2);
+    if (dbr) throw std::runtime_error("Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
+    const std::string actual_filename = i ? second_filename : first_filename;
+    dbr = mdb_env_open(env[i], actual_filename.c_str(), 0, 0664);
+    if (dbr) throw std::runtime_error("Failed to open rings database file '"
+        + actual_filename + "': " + std::string(mdb_strerror(dbr)));
+
+    dbr = mdb_txn_begin(env[i], NULL, MDB_RDONLY, &txn[i]);
+    if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    txn_dtor[i] = epee::misc_utils::create_scope_leave_handler([&, i](){if (tx_active[i]) mdb_txn_abort(txn[i]);});
+    tx_active[i] = true;
+
+    dbr = mdb_dbi_open(txn[i], "txs_pruned", MDB_INTEGERKEY, &dbi[i]);
+    if (dbr)
+      dbr = mdb_dbi_open(txn[i], "txs", MDB_INTEGERKEY, &dbi[i]);
+    if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+    dbr = mdb_cursor_open(txn[i], dbi[i], &cur[i]);
+    if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+    MDB_stat stat;
+    dbr = mdb_stat(txn[i], dbi[i], &stat);
+    if (dbr) throw std::runtime_error("Failed to query m_block_info: " + std::string(mdb_strerror(dbr)));
+    n_txes[i] = stat.ms_entries;
+  }
+
+  if (n_txes[0] == 0 || n_txes[1] == 0)
+    throw std::runtime_error("No transaction in the database");
+  uint64_t lo = 0, hi = std::min(n_txes[0], n_txes[1]) - 1;
+  while (lo <= hi)
+  {
+    uint64_t mid = (lo + hi) / 2;
+
+    k.mv_size = sizeof(uint64_t);
+    k.mv_data = (void*)&mid;
+    dbr = mdb_cursor_get(cur[0], &k, &v[0], MDB_SET);
+    if (dbr) throw std::runtime_error("Failed to query transaction: " + std::string(mdb_strerror(dbr)));
+    dbr = mdb_cursor_get(cur[1], &k, &v[1], MDB_SET);
+    if (dbr) throw std::runtime_error("Failed to query transaction: " + std::string(mdb_strerror(dbr)));
+    if (v[0].mv_size == v[1].mv_size && !memcmp(v[0].mv_data, v[1].mv_data, v[0].mv_size))
+      lo = mid + 1;
+    else
+      hi = mid - 1;
+  }
+
+  for (int i = 0; i < 2; ++i)
+  {
+    mdb_cursor_close(cur[i]);
+    mdb_txn_commit(txn[i]);
+    tx_active[i] = false;
+    mdb_dbi_close(env[i], dbi[i]);
+    mdb_env_close(env[i]);
+  }
+  return hi;
+}
+
 static std::vector<uint64_t> canonicalize(const std::vector<uint64_t> &v)
 {
   std::vector<uint64_t> c;
@@ -931,6 +1002,11 @@ int main(int argc, char* argv[])
   {
     const std::string canonical = boost::filesystem::canonical(inputs[n]).string();
     uint64_t start_idx = get_processed_txidx(canonical);
+    if (n > 0 && start_idx == 0)
+    {
+      start_idx = find_first_diverging_transaction(inputs[0], inputs[n]);
+      LOG_PRINT_L0("First diverging transaction at " << start_idx);
+    }
     LOG_PRINT_L0("Reading blockchain from " << inputs[n] << " from " << start_idx);
     MDB_txn *txn;
     int dbr = mdb_txn_begin(env, NULL, 0, &txn);
