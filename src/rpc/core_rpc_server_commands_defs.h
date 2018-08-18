@@ -2383,7 +2383,7 @@ namespace cryptonote
         uint64_t                           total_contributed;
         uint64_t                           total_reserved;
         uint64_t                           staking_requirement;
-        uint32_t                           portions_for_operator;
+        uint64_t                           portions_for_operator;
         std::string                        operator_address;
 
         BEGIN_KV_SERIALIZE_MAP()

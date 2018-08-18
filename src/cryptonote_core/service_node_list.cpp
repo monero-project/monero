@@ -190,7 +190,7 @@ namespace service_nodes
     return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks();
   }
 
-  bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint32_t& portions_for_operator, std::vector<uint32_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
+  bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
   {
     cryptonote::tx_extra_service_node_register registration;
     if (!get_service_node_register_from_tx_extra(tx.extra, registration))
@@ -293,8 +293,8 @@ namespace service_nodes
   {
     crypto::public_key tx_pub_key, service_node_key;
     std::vector<cryptonote::account_public_address> service_node_addresses;
-    std::vector<uint32_t> service_node_portions;
-    uint32_t portions_for_operator;
+    std::vector<uint64_t> service_node_portions;
+    uint64_t portions_for_operator;
     uint64_t expiration_timestamp;
     crypto::signature signature;
 
@@ -309,7 +309,7 @@ namespace service_nodes
     uint64_t portions_left = STAKING_PORTIONS;
     for (size_t i = 0; i < service_node_portions.size(); i++)
     {
-      uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+      uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
       if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
         return false;
       portions_left -= service_node_portions[i];
@@ -365,7 +365,7 @@ namespace service_nodes
         return false;
       uint64_t hi, lo, resulthi, resultlo;
       lo = mul128(info.staking_requirement, service_node_portions[i], &hi);
-      div128_32(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+      div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
       info.contributors.push_back(service_node_info::contribution(resultlo, service_node_addresses[i]));
 
       if (m_blockchain.nettype() == cryptonote::TESTNET && block_height < 5500)
@@ -622,13 +622,13 @@ namespace service_nodes
     return expired_nodes;
   }
 
-  std::vector<std::pair<cryptonote::account_public_address, uint32_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id) const
+  std::vector<std::pair<cryptonote::account_public_address, uint64_t>> service_node_list::get_winner_addresses_and_portions(const crypto::hash& prev_id) const
   {
     crypto::public_key key = select_winner(prev_id);
     if (key == crypto::null_pkey)
       return { std::make_pair(null_address, STAKING_PORTIONS) };
 
-    std::vector<std::pair<cryptonote::account_public_address, uint32_t>> winners;
+    std::vector<std::pair<cryptonote::account_public_address, uint64_t>> winners;
 
     const service_node_info& info = m_service_nodes_infos.at(key);
 
@@ -681,7 +681,7 @@ namespace service_nodes
     if (check_winner_pubkey != winner)
       return false;
 
-    const std::vector<std::pair<cryptonote::account_public_address, uint32_t>> addresses_and_portions = get_winner_addresses_and_portions(prev_id);
+    const std::vector<std::pair<cryptonote::account_public_address, uint64_t>> addresses_and_portions = get_winner_addresses_and_portions(prev_id);
     
     if (miner_tx.vout.size() - 1 < addresses_and_portions.size())
       return false;
@@ -1013,7 +1013,7 @@ namespace service_nodes
     m_height = 0;
   }
 
-  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint32_t>& portions, uint32_t& portions_for_operator, bool& autostake)
+  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake)
   {
     autostake = false;
     if (!args.empty() && args[0] == "auto")
@@ -1074,8 +1074,8 @@ namespace service_nodes
 
       try
       {
-        uint32_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
-        uint64_t min_portions = std::min(portions_left, (uint64_t)MIN_PORTIONS);
+        uint64_t num_portions = boost::lexical_cast<uint64_t>(args[i+1]);
+        uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
         if (num_portions < min_portions || num_portions > portions_left)
         {
           MERROR(tr("Invalid portion amount: ") << args[i+1] << tr(". ") << tr("The contributors must each have at least 25%, except for the last contributor which may have the remaining amount"));
@@ -1098,8 +1098,8 @@ namespace service_nodes
   {
 
     std::vector<cryptonote::account_public_address> addresses;
-    std::vector<uint32_t> portions;
-    uint32_t operator_portions;
+    std::vector<uint64_t> portions;
+    uint64_t operator_portions;
     bool autostake;
     if (!convert_registration_args(nettype, args, addresses, portions, operator_portions, autostake))
     {

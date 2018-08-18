@@ -207,8 +207,8 @@ namespace cryptonote
   {
     std::vector<crypto::public_key> m_public_spend_keys;
     std::vector<crypto::public_key> m_public_view_keys;
-    uint32_t m_portions_for_operator;
-    std::vector<uint32_t> m_portions;
+    uint64_t m_portions_for_operator;
+    std::vector<uint64_t> m_portions;
     uint64_t m_expiration_timestamp;
     crypto::signature m_service_node_signature;
 

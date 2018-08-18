@@ -52,7 +52,7 @@
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*30)
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
-#define STAKING_PORTIONS                                0xfffffffc
+#define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define MAX_NUMBER_OF_CONTRIBUTORS                      4
 #define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
 
