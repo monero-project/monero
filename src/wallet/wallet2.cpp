@@ -577,7 +577,7 @@ size_t estimate_tx_size(bool use_rct, int n_inputs, int mixin, int n_outputs, si
 
 uint8_t get_bulletproof_fork()
 {
-  return 9;
+  return 10;
 }
 
 crypto::hash8 get_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)

@@ -2531,12 +2531,12 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v9, allow bulletproofs
-  if (hf_version < 9) {
+  // from v10, allow bulletproofs
+  if (hf_version < 10) {
     const bool bulletproof = tx.rct_signatures.type == rct::RCTTypeFullBulletproof || tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof;
     if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
     {
-      MERROR("Bulletproofs are not allowed before v9");
+      MERROR("Bulletproofs are not allowed before v10");
       tvc.m_invalid_output = true;
       return false;
     }
