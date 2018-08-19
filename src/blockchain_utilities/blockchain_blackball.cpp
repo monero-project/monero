@@ -293,14 +293,24 @@ static void close()
 
 static std::string compress_ring(const std::vector<uint64_t> &ring, std::string s = "")
 {
+  const size_t sz = s.size();
+  s.resize(s.size() + 12 * ring.size());
+  char *ptr = (char*)s.data() + sz;
   for (uint64_t out: ring)
-    s += tools::get_varint_data(out);
+    tools::write_varint(ptr, out);
+  if (ptr > s.data() + sz + 12 * ring.size())
+    throw std::runtime_error("varint output overflow");
+  s.resize(ptr - s.data());
   return s;
 }
 
 static std::string compress_ring(uint64_t amount, const std::vector<uint64_t> &ring)
 {
-  return compress_ring(ring, tools::get_varint_data(amount));
+  char s[12], *ptr = s;
+  tools::write_varint(ptr, amount);
+  if (ptr > s + sizeof(s))
+    throw std::runtime_error("varint output overflow");
+  return compress_ring(ring, std::string(s, ptr-s));
 }
 
 static std::vector<uint64_t> decompress_ring(const std::string &s)
@@ -518,27 +528,19 @@ static uint64_t get_num_spent_outputs()
   return count;
 }
 
-static void add_spent_output(MDB_txn *txn, const output_data &od)
+static void add_spent_output(MDB_cursor *cur, const output_data &od)
 {
-  MDB_cursor *cur;
-  int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val v = {sizeof(od), (void*)&od};
-  dbr = mdb_cursor_put(cur, (MDB_val *)&zerokval, &v, MDB_NODUPDATA);
+  int dbr = mdb_cursor_put(cur, (MDB_val *)&zerokval, &v, MDB_NODUPDATA);
   CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_KEYEXIST, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
-  mdb_cursor_close(cur);
 }
 
-static bool is_output_spent(MDB_txn *txn, const output_data &od)
+static bool is_output_spent(MDB_cursor *cur, const output_data &od)
 {
-  MDB_cursor *cur;
-  int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val v = {sizeof(od), (void*)&od};
-  dbr = mdb_cursor_get(cur, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+  int dbr = mdb_cursor_get(cur, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
   CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_NOTFOUND, "Failed to get spent output: " + std::string(mdb_strerror(dbr)));
   bool spent = dbr == 0;
-  mdb_cursor_close(cur);
   return spent;
 }
 
@@ -612,7 +614,6 @@ static void set_processed_txidx(MDB_txn *txn, const std::string &name, uint64_t 
 
 static bool get_relative_ring(MDB_txn *txn, const crypto::key_image &ki, std::vector<uint64_t> &ring)
 {
-  const std::string sring = compress_ring(ring);
   MDB_val k, v;
   k.mv_data = (void*)&ki;
   k.mv_size = sizeof(ki);
@@ -665,10 +666,11 @@ static uint64_t get_ring_subset_instances(MDB_txn *txn, uint64_t amount, const s
     return instances;
 
   uint64_t extra = 0;
+  std::vector<uint64_t> subset;
+  subset.reserve(ring.size());
   for (uint64_t mask = 1; mask < (1u << ring.size()) - 1; ++mask)
   {
-    std::vector<uint64_t> subset;
-    subset.reserve(ring.size());
+    subset.resize(0);
     for (size_t i = 0; i < ring.size(); ++i)
       if ((mask >> i) & 1)
         subset.push_back(ring[i]);
@@ -677,16 +679,28 @@ static uint64_t get_ring_subset_instances(MDB_txn *txn, uint64_t amount, const s
   return instances + extra;
 }
 
-static void set_ring_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring, uint64_t count)
+static uint64_t inc_ring_instances(MDB_txn *txn, uint64_t amount, const std::vector<uint64_t> &ring)
 {
   const std::string sring = keep_under_511(compress_ring(amount, ring));
   MDB_val k, v;
   k.mv_data = (void*)sring.data();
   k.mv_size = sring.size();
+
+  int dbr = mdb_get(txn, dbi_ring_instances, &k, &v);
+  CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_NOTFOUND, "Failed to get ring instances: " + std::string(mdb_strerror(dbr)));
+
+  uint64_t count;
+  if (dbr == MDB_NOTFOUND)
+    count = 1;
+  else
+    count = 1 + *(const uint64_t*)v.mv_data;
+
   v.mv_data = &count;
   v.mv_size = sizeof(count);
-  int dbr = mdb_put(txn, dbi_ring_instances, &k, &v, 0);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to get ring instances: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_put(txn, dbi_ring_instances, &k, &v, 0);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set ring instances: " + std::string(mdb_strerror(dbr)));
+
+  return count;
 }
 
 static std::vector<crypto::key_image> get_key_images(MDB_txn *txn, const output_data &od)
@@ -899,6 +913,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<bool> arg_rct_only  = {"rct-only", "Only work on ringCT outputs", false};
   const command_line::arg_descriptor<bool> arg_check_subsets  = {"check-subsets", "Check ring subsets (very expensive)", false};
+  const command_line::arg_descriptor<bool> arg_verbose  = {"verbose", "Verbose output)", false};
   const command_line::arg_descriptor<std::vector<std::string> > arg_inputs = {"inputs", "Path to Monero DB, and path to any fork DBs"};
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
     "db-sync-mode"
@@ -911,6 +926,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_database);
   command_line::add_arg(desc_cmd_sett, arg_rct_only);
   command_line::add_arg(desc_cmd_sett, arg_check_subsets);
+  command_line::add_arg(desc_cmd_sett, arg_verbose);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
@@ -950,6 +966,7 @@ int main(int argc, char* argv[])
   output_file_path = command_line::get_arg(vm, arg_blackball_db_dir);
   bool opt_rct_only = command_line::get_arg(vm, arg_rct_only);
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
+  bool opt_verbose = command_line::get_arg(vm, arg_verbose);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
   if (!cryptonote::blockchain_valid_db_type(db_type))
@@ -1011,6 +1028,9 @@ int main(int argc, char* argv[])
     MDB_txn *txn;
     int dbr = mdb_txn_begin(env, NULL, 0, &txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
     size_t records = 0;
     const std::string filename = inputs[n];
     std::vector<crypto::public_key> blackballs;
@@ -1034,16 +1054,17 @@ int main(int argc, char* argv[])
         std::vector<uint64_t> relative_ring;
         std::vector<uint64_t> new_ring = canonicalize(txin.key_offsets);
         const uint32_t ring_size = txin.key_offsets.size();
-        uint64_t instances = get_ring_instances(txn, txin.amount, new_ring);
-        ++instances;
-        set_ring_instances(txn, txin.amount, new_ring, instances);
+        const uint64_t instances = inc_ring_instances(txn, txin.amount, new_ring);
         if (n == 0 && ring_size == 1)
         {
           const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[0]);
-          MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
-          std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+          if (opt_verbose)
+          {
+            MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
+            std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+          }
           blackballs.push_back(pkey);
-          add_spent_output(txn, output_data(txin.amount, absolute[0]));
+          add_spent_output(cur, output_data(txin.amount, absolute[0]));
           inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
         else if (n == 0 && instances == new_ring.size())
@@ -1051,10 +1072,13 @@ int main(int argc, char* argv[])
           for (size_t o = 0; o < new_ring.size(); ++o)
           {
             const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[o]);
-            MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
-            std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            if (opt_verbose)
+            {
+              MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
+              std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            }
             blackballs.push_back(pkey);
-            add_spent_output(txn, output_data(txin.amount, absolute[o]));
+            add_spent_output(cur, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
@@ -1063,10 +1087,13 @@ int main(int argc, char* argv[])
           for (size_t o = 0; o < new_ring.size(); ++o)
           {
             const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[o]);
-            MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
-            std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            if (opt_verbose)
+            {
+              MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
+              std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+            }
             blackballs.push_back(pkey);
-            add_spent_output(txn, output_data(txin.amount, absolute[o]));
+            add_spent_output(cur, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
           }
         }
@@ -1096,10 +1123,13 @@ int main(int argc, char* argv[])
             else if (common.size() == 1)
             {
               const crypto::public_key pkey = get_output_key(cur0, txin.amount, common[0]);
-              MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
-              std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+              if (opt_verbose)
+              {
+                MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
+                std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
+              }
               blackballs.push_back(pkey);
-              add_spent_output(txn, output_data(txin.amount, common[0]));
+              add_spent_output(cur, output_data(txin.amount, common[0]));
               inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
             else
@@ -1116,22 +1146,25 @@ int main(int argc, char* argv[])
         if (n == 0)
           set_relative_ring(txn, txin.k_image, new_ring);
       }
-      if (!blackballs.empty())
-      {
-        ringdb.blackball(blackballs);
-        blackballs.clear();
-      }
       set_processed_txidx(txn, canonical, start_idx+1);
 
       ++records;
       if (records >= records_per_sync)
       {
+        if (!blackballs.empty())
+        {
+          ringdb.blackball(blackballs);
+          blackballs.clear();
+        }
+        mdb_cursor_close(cur);
         dbr = mdb_txn_commit(txn);
         CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
         int dbr = resize_env(cache_dir.c_str());
         CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to resize LMDB database: " + std::string(mdb_strerror(dbr)));
         dbr = mdb_txn_begin(env, NULL, 0, &txn);
         CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+        dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+        CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
         records = 0;
       }
 
@@ -1142,6 +1175,7 @@ int main(int argc, char* argv[])
       }
       return true;
     });
+    mdb_cursor_close(cur);
     dbr = mdb_txn_commit(txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
     LOG_PRINT_L0("blockchain from " << inputs[n] << " processed till tx idx " << start_idx);
@@ -1173,6 +1207,9 @@ int main(int argc, char* argv[])
     MDB_txn *txn;
     dbr = mdb_txn_begin(env, NULL, 0, &txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
 
     std::vector<crypto::public_key> blackballs;
     std::vector<output_data> scan_spent = std::move(work_spent);
@@ -1190,18 +1227,21 @@ int main(int argc, char* argv[])
         for (uint64_t out: absolute)
         {
           output_data new_od(od.amount, out);
-          if (is_output_spent(txn, new_od))
+          if (is_output_spent(cur, new_od))
             ++known;
           else
             last_unknown = out;
         }
-        if (known == absolute.size() - 1 && !is_output_spent(txn, output_data(od.amount, last_unknown)))
+        if (known == absolute.size() - 1)
         {
           const crypto::public_key pkey = get_output_key(cur0, od.amount, last_unknown);
-          MINFO("Blackballing output " << pkey << ", due to being used in a " <<
-              absolute.size() << "-ring where all other outputs are known to be spent");
+          if (opt_verbose)
+          {
+            MINFO("Blackballing output " << pkey << ", due to being used in a " <<
+                absolute.size() << "-ring where all other outputs are known to be spent");
+          }
           blackballs.push_back(pkey);
-          add_spent_output(txn, output_data(od.amount, last_unknown));
+          add_spent_output(cur, output_data(od.amount, last_unknown));
           work_spent.push_back(output_data(od.amount, last_unknown));
           inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
@@ -1218,6 +1258,7 @@ int main(int argc, char* argv[])
       ringdb.blackball(blackballs);
       blackballs.clear();
     }
+    mdb_cursor_close(cur);
     dbr = mdb_txn_commit(txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
   }
