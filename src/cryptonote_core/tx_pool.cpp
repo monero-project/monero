@@ -239,15 +239,14 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-    }
-
-    if (have_deregister_tx_already(tx))
-    {
-      mark_double_spend(tx);
-      LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
-      tvc.m_verifivation_failed = true;
-      tvc.m_double_spend = true;
-      return false;
+      if (have_deregister_tx_already(tx))
+      {
+        mark_double_spend(tx);
+        LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
+        tvc.m_verifivation_failed = true;
+        tvc.m_double_spend = true;
+        return false;
+      }
     }
 
     if (tx.is_deregister_tx())
@@ -318,7 +317,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = have_tx_keyimges_as_spent(tx);
+        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_deregister_tx_already(tx));
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
