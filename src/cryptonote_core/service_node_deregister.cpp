@@ -113,19 +113,12 @@ namespace loki
         return false;
       }
 
-      if (nettype == cryptonote::TESTNET && deregister.block_height < 7922)
+      quorum_set.resize(quorum.size());
+      if (++quorum_set[vote.voters_quorum_index] > 1)
       {
-        // TODO(doyle): Remove on next testnet re-launch, also. Can remove nettype param until next fork I guess.
-      }
-      else
-      {
-        quorum_set.resize(quorum.size());
-        if (++quorum_set[vote.voters_quorum_index] > 1)
-        {
-          vvc.m_duplicate_voters = true;
-          LOG_PRINT_L1("Voter quorum index is duplicated:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
-          return false;
-        }
+        vvc.m_duplicate_voters = true;
+        LOG_PRINT_L1("Voter quorum index is duplicated:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+        return false;
       }
 
       keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
