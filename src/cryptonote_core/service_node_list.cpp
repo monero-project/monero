@@ -49,7 +49,7 @@ namespace service_nodes
 {
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
-    : m_blockchain(blockchain), m_hooks_registered(false), m_height(0)
+    : m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr)
   {
   }
 
