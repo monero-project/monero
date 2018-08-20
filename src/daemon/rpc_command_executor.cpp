@@ -2037,8 +2037,7 @@ static void print_service_node_list_state(cryptonote::network_type nettype, uint
     // Print Expiry Info
     {
       uint64_t expiry_height = entry.registration_height;
-      if (is_registered) expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
-      else               expiry_height += (STAKING_AUTHORIZATION_EXPIRATION_WINDOW / DIFFICULTY_TARGET_V2);
+      expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
 
       if (curr_height)
       {
@@ -2046,20 +2045,8 @@ static void print_service_node_list_state(cryptonote::network_type nettype, uint
         uint64_t delta_height = expiry_height - *curr_height;
         uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V2);
 
-        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << "/" << expiry_height
-                            << " (in " << delta_height << " blocks) or UTC: " << get_date_time(expiry_epoch_time) << " (" << get_human_time_ago(expiry_epoch_time, now) << ")";
-
-        if (!is_registered)
-        {
-          uint64_t open_for_contrib_until_height = entry.registration_height + (STAKING_AUTHORIZATION_EXPIRATION_WINDOW / DIFFICULTY_TARGET_V2);
-          uint64_t open_for_contrib_height_delta = open_for_contrib_until_height - *curr_height;
-          uint64_t open_for_contrib_expiry_time = now + (open_for_contrib_height_delta * DIFFICULTY_TARGET_V2);
-
-          tools::msg_writer() << indent2 << "Open For Contribution Until: " << open_for_contrib_until_height << "/"
-                              << " (in " << open_for_contrib_height_delta << " blocks) or UTC: "
-                              << get_date_time(open_for_contrib_expiry_time) << " (" << get_human_time_ago(open_for_contrib_expiry_time, now) << ")";
-        }
-
+        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << "/" << expiry_height << " (in " << delta_height << " blocks)";
+        tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time) << " (" << get_human_time_ago(expiry_epoch_time, now) << ")";
       }
       else
       {
