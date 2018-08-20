@@ -2313,6 +2313,7 @@ namespace cryptonote
     {
       COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
       entry.service_node_pubkey           = string_tools::pod_to_hex(pubkey_info.pubkey);
+      entry.registration_height           = pubkey_info.info.registration_height;
       entry.last_reward_block_height      = pubkey_info.info.last_reward_block_height;
       entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
       entry.last_uptime_proof             = m_core.get_uptime_proof(pubkey_info.pubkey);
@@ -2323,7 +2324,7 @@ namespace cryptonote
         COMMAND_RPC_GET_SERVICE_NODES::response::contribution new_contributor = {};
         new_contributor.amount   = contributor.amount;
         new_contributor.reserved = contributor.reserved;
-        new_contributor.address  = string_tools::pod_to_hex(contributor.address);
+        new_contributor.address  = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, contributor.address);
         entry.contributors.push_back(new_contributor);
       }
 
@@ -2331,7 +2332,7 @@ namespace cryptonote
       entry.total_reserved                = pubkey_info.info.total_reserved;
       entry.staking_requirement           = pubkey_info.info.staking_requirement;
       entry.portions_for_operator         = pubkey_info.info.portions_for_operator;
-      entry.operator_address              = string_tools::pod_to_hex(pubkey_info.info.operator_address);
+      entry.operator_address              = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, pubkey_info.info.operator_address);
 
       res.service_node_states.push_back(entry);
     }

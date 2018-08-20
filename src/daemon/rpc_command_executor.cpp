@@ -100,6 +100,22 @@ namespace {
     return s + " " + (t > now ? "in the future" : "ago");
   }
 
+  char const *get_date_time(time_t t)
+  {
+      static char buf[128];
+      buf[0] = 0;
+
+      struct tm tm;
+#ifdef WIN32
+      gmtime_s(&tm, &t);
+#else
+      gmtime_r(&t, &tm);
+#endif
+
+      strftime(buf, sizeof(buf), "%Y-%m-%d %I:%M:%S %p", &tm);
+      return buf;
+  }
+
   std::string get_time_hms(time_t t)
   {
     unsigned int hours, minutes, seconds;
@@ -1998,7 +2014,7 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
     return true;
 }
 
-static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
+static void print_service_node_list_state(cryptonote::network_type nettype, uint64_t *curr_height, std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
 {
   const char indent1[] = "    ";
   const char indent2[] = "        ";
@@ -2011,11 +2027,52 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
     bool is_registered = entry.total_contributed >= entry.staking_requirement;
     epee::console_colors color = is_registered ? console_color_green : epee::console_color_yellow;
 
-    tools::msg_writer(color) << indent1 << "[" << i << "] Service Node: "              << entry.service_node_pubkey;
-    tools::msg_writer(color) << indent2 << "Total Contributed / Staking Requirement: " << cryptonote::print_money(entry.total_contributed) << " / " << cryptonote::print_money(entry.staking_requirement);
+    // Print Funding Status
+    {
+      tools::msg_writer(color) << indent1 << "[" << i << "] Service Node: "            << entry.service_node_pubkey;
+      tools::msg_writer()      << indent2 << "Total Contributed/Staking Requirement: " << cryptonote::print_money(entry.total_contributed) << "/" << cryptonote::print_money(entry.staking_requirement);
+      tools::msg_writer()      << indent2 << "Total Reserved: "                        << cryptonote::print_money(entry.total_reserved);
+    }
 
-    tools::msg_writer() << indent2 << "Total Reserved    / Staking Requirement: " << cryptonote::print_money(entry.total_reserved) << " / " << cryptonote::print_money(entry.staking_requirement);
+    // Print Expiry Info
+    {
+      uint64_t expiry_height_auto_stake = entry.registration_height + STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE;
+      uint64_t expiry_height            = entry.registration_height;
 
+      if (is_registered) expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
+      else               expiry_height += STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
+
+      if (curr_height)
+      {
+        uint64_t now = time(nullptr);
+        uint64_t delta_height            = expiry_height - *curr_height;
+        uint64_t delta_height_auto_stake = expiry_height_auto_stake - *curr_height;
+
+        uint64_t expiry_epoch_time            = now + (delta_height            * DIFFICULTY_TARGET_V2);
+        uint64_t expiry_epoch_time_auto_stake = now + (delta_height_auto_stake * DIFFICULTY_TARGET_V2);
+
+        if (is_registered)
+        {
+          tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in " << delta_height            << " blocks)"
+                                                                                  << " or if auto staking " << expiry_height_auto_stake  << " (in " << delta_height_auto_stake << " blocks)";
+        }
+        else
+        {
+          tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in " << delta_height            << " blocks)";
+        }
+
+        tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time)                                       << " (" << get_human_time_ago(expiry_epoch_time, now) << ")"
+                                                                          << " or if auto staking " << get_date_time(expiry_epoch_time_auto_stake)  << " (" << get_human_time_ago(expiry_epoch_time_auto_stake, now) << ")";
+      }
+      else
+      {
+        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in ?? blocks) "
+                                                                                << " or if auto staking " << expiry_height_auto_stake  << " (in ?? blocks)";
+        tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): ?? (Could not get current blockchain height)";
+      }
+    }
+
+    // Print reward status
     if (is_registered)
     {
       tools::msg_writer() << indent2 << "Last Reward At (Block Height/TX Index): "  << entry.last_reward_block_height << " / " << entry.last_reward_transaction_index;
@@ -2024,22 +2081,25 @@ static void print_service_node_list_state(std::vector<cryptonote::COMMAND_RPC_GE
     tools::msg_writer() << indent2 << "Operator Cut (\% Of Reward): "             << ((entry.portions_for_operator / (double)STAKING_PORTIONS) * 100.0) << "%";
     tools::msg_writer() << indent2 << "Operator Address: "                        << entry.operator_address;
 
-    epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
-
+    // Print service node tests
     if (is_registered)
     {
+      epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
       if (entry.last_uptime_proof == 0)
         tools::msg_writer(uptime_proof_color) << indent2 << "Last Uptime Proof Received: Not Received Yet";
       else
         tools::msg_writer(uptime_proof_color) << indent2 << "Last Uptime Proof Received: "            << get_human_time_ago(entry.last_uptime_proof, time(nullptr));
     }
 
-    tools::msg_writer() << "";
-    for (size_t j = 0; j < entry.contributors.size(); ++j)
+    // Print contributors
     {
-      const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &contributor = entry.contributors[j];
-      tools::msg_writer() << indent2 << "[" << j << "] Contributor: " << contributor.address;
-      tools::msg_writer() << indent3 << "Amount / Reserved: "         << cryptonote::print_money(contributor.amount) << " / " << cryptonote::print_money(contributor.reserved);
+      tools::msg_writer() << "";
+      for (size_t j = 0; j < entry.contributors.size(); ++j)
+      {
+        const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &contributor = entry.contributors[j];
+        tools::msg_writer() << indent2 << "[" << j << "] Contributor: " << contributor.address;
+        tools::msg_writer() << indent3 << "Amount / Reserved: "         << cryptonote::print_money(contributor.amount) << " / " << cryptonote::print_money(contributor.reserved);
+      }
     }
 
     tools::msg_writer() << "";
@@ -2106,16 +2166,24 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
           return a->last_reward_block_height < b->last_reward_block_height;
       });
 
+      uint64_t *curr_height = nullptr;
+      cryptonote::COMMAND_RPC_GET_HEIGHT::request height_req = {};
+      cryptonote::COMMAND_RPC_GET_HEIGHT::response height_res = {};
+      m_rpc_server->on_get_height(height_req, height_res);
+
+      if (res.status == CORE_RPC_STATUS_OK)
+        curr_height = &height_res.height;
+
       if (unregistered.size() > 0)
       {
         tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size()<< "]";
-        print_service_node_list_state(unregistered);
+        print_service_node_list_state(m_rpc_server->nettype(), curr_height, unregistered);
       }
 
       if (registered.size() > 0)
       {
         tools::msg_writer() << "Service Node Registration State[" << registered.size()<< "]";
-        print_service_node_list_state(registered);
+        print_service_node_list_state(m_rpc_server->nettype(), curr_height, registered);
       }
 
       if (unregistered.size() == 0 && registered.size() == 0)
