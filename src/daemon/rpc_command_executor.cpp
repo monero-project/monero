@@ -2036,38 +2036,21 @@ static void print_service_node_list_state(cryptonote::network_type nettype, uint
 
     // Print Expiry Info
     {
-      uint64_t expiry_height_auto_stake = entry.registration_height + STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE;
-      uint64_t expiry_height            = entry.registration_height;
-
-      if (is_registered) expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
-      else               expiry_height += STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
+      uint64_t expiry_height = entry.registration_height;
+      expiry_height += (nettype == cryptonote::TESTNET) ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
 
       if (curr_height)
       {
         uint64_t now = time(nullptr);
-        uint64_t delta_height            = expiry_height - *curr_height;
-        uint64_t delta_height_auto_stake = expiry_height_auto_stake - *curr_height;
+        uint64_t delta_height = expiry_height - *curr_height;
+        uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V2);
 
-        uint64_t expiry_epoch_time            = now + (delta_height            * DIFFICULTY_TARGET_V2);
-        uint64_t expiry_epoch_time_auto_stake = now + (delta_height_auto_stake * DIFFICULTY_TARGET_V2);
-
-        if (is_registered)
-        {
-          tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in " << delta_height            << " blocks)"
-                                                                                  << " or if auto staking " << expiry_height_auto_stake  << " (in " << delta_height_auto_stake << " blocks)";
-        }
-        else
-        {
-          tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in " << delta_height            << " blocks)";
-        }
-
-        tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time)                                       << " (" << get_human_time_ago(expiry_epoch_time, now) << ")"
-                                                                          << " or if auto staking " << get_date_time(expiry_epoch_time_auto_stake)  << " (" << get_human_time_ago(expiry_epoch_time_auto_stake, now) << ")";
+        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << "/" << expiry_height << " (in " << delta_height << " blocks)";
+        tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): " << get_date_time(expiry_epoch_time) << " (" << get_human_time_ago(expiry_epoch_time, now) << ")";
       }
       else
       {
-        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in ?? blocks) "
-                                                                                << " or if auto staking " << expiry_height_auto_stake  << " (in ?? blocks)";
+        tools::msg_writer() << indent2 << "Registration Height/Expiry Height: " << entry.registration_height << " / " << expiry_height << " (in ?? blocks) ";
         tools::msg_writer() << indent2 << "Expiry Date (Estimated UTC): ?? (Could not get current blockchain height)";
       }
     }
