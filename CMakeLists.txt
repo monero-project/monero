@@ -436,11 +436,7 @@ add_definition_if_function_found(strptime HAVE_STRPTIME)
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
 # Generate header for embedded translations
-include(ExternalProject)
-ExternalProject_Add(generate_translations_header
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
-  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
-  INSTALL_COMMAND cmake -E echo "")
+add_subdirectory(translations)
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 add_subdirectory(external)
