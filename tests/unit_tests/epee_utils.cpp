@@ -45,6 +45,7 @@
 #include "boost/archive/portable_binary_oarchive.hpp"
 #include "hex.h"
 #include "net/net_utils_base.h"
+#include "net/local_ip.h"
 #include "p2p/net_peerlist_boost_serialization.h"
 #include "span.h"
 #include "string_tools.h"
@@ -647,4 +648,35 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_FALSE(loopback.is_same_host(address1));
   EXPECT_THROW(address1.as<epee::net_utils::ipv4_network_address>(), std::bad_cast);
   EXPECT_NO_THROW(address1.as<custom_address>());
+}
+
+static bool is_local(const char *s)
+{
+  uint32_t ip;
+  CHECK_AND_ASSERT_THROW_MES(epee::string_tools::get_ip_int32_from_string(ip, s), std::string("Invalid IP address: ") + s);
+  return epee::net_utils::is_ip_local(ip);
+}
+
+TEST(NetUtils, PrivateRanges)
+{
+  ASSERT_EQ(is_local("10.0.0.0"), true);
+  ASSERT_EQ(is_local("10.255.0.0"), true);
+  ASSERT_EQ(is_local("127.0.0.0"), false); // loopback is not considered local
+  ASSERT_EQ(is_local("192.167.255.255"), false);
+  ASSERT_EQ(is_local("192.168.0.0"), true);
+  ASSERT_EQ(is_local("192.168.255.255"), true);
+  ASSERT_EQ(is_local("192.169.0.0"), false);
+  ASSERT_EQ(is_local("172.0.0.0"), false);
+  ASSERT_EQ(is_local("172.15.255.255"), false);
+  ASSERT_EQ(is_local("172.16.0.0"), true);
+  ASSERT_EQ(is_local("172.16.255.255"), true);
+  ASSERT_EQ(is_local("172.31.255.255"), true);
+  ASSERT_EQ(is_local("172.32.0.0"), false);
+  ASSERT_EQ(is_local("0.0.0.0"), false);
+  ASSERT_EQ(is_local("255.255.255.254"), false);
+  ASSERT_EQ(is_local("11.255.255.255"), false);
+  ASSERT_EQ(is_local("0.0.0.10"), false);
+  ASSERT_EQ(is_local("0.0.168.192"), false);
+  ASSERT_EQ(is_local("0.0.30.172"), false);
+  ASSERT_EQ(is_local("0.0.30.127"), false);
 }
