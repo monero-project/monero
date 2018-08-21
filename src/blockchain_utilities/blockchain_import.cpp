@@ -594,8 +594,8 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_database = {
     "database", available_dbs.c_str(), default_db_type
   };
-  const command_line::arg_descriptor<bool> arg_verify =  {"guard-against-pwnage",
-    "Verify blocks and transactions during import (only disable if you exported the file yourself)", true};
+  const command_line::arg_descriptor<bool> arg_noverify =  {"dangerous-unverified-import",
+    "Blindly trust the import file and use potentially malicious blocks and transactions during import (only enable if you exported the file yourself)", false};
   const command_line::arg_descriptor<bool> arg_batch  =  {"batch",
     "Batch transactions for faster import", true};
   const command_line::arg_descriptor<bool> arg_resume =  {"resume",
@@ -615,7 +615,7 @@ int main(int argc, char* argv[])
   // call add_options() directly for these arguments since
   // command_line helpers support only boolean switch, not boolean argument
   desc_cmd_sett.add_options()
-    (arg_verify.name, make_semantic(arg_verify), arg_verify.description)
+    (arg_noverify.name, make_semantic(arg_noverify), arg_noverify.description)
     (arg_batch.name,  make_semantic(arg_batch),  arg_batch.description)
     (arg_resume.name, make_semantic(arg_resume), arg_resume.description)
     ;
@@ -634,7 +634,7 @@ int main(int argc, char* argv[])
   if (! r)
     return 1;
 
-  opt_verify    = command_line::get_arg(vm, arg_verify);
+  opt_verify    = !command_line::get_arg(vm, arg_noverify);
   opt_batch     = command_line::get_arg(vm, arg_batch);
   opt_resume    = command_line::get_arg(vm, arg_resume);
   block_stop    = command_line::get_arg(vm, arg_block_stop);
@@ -738,6 +738,18 @@ int main(int argc, char* argv[])
 
   MINFO("bootstrap file path: " << import_file_path);
   MINFO("database path:       " << m_config_folder);
+
+  if (!opt_verify)
+  {
+    MCLOG_RED(el::Level::Warning, "global", "\n"
+      "Import is set to proceed WITHOUT VERIFICATION.\n"
+      "This is a DANGEROUS operation: if the file was tampered with in transit, or obtained from a malicious source,\n"
+      "you could end up with a compromised database. It is recommended to NOT use " << arg_noverify.name << ".\n"
+      "*****************************************************************************************\n"
+      "You have 90 seconds to press ^C or terminate this program before unverified import starts\n"
+      "*****************************************************************************************");
+    sleep(90);
+  }
 
   cryptonote::cryptonote_protocol_stub pr; //TODO: stub only for this kind of test, make real validation of relayed objects
   cryptonote::core core(&pr);
