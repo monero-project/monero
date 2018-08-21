@@ -231,7 +231,7 @@ application.
 
 * To git clone, run:
 
-        git clone --recursive https://github.com/monero-project/monero.git
+        git clone --recursive https://github.com/loki-project/loki.git
 
 **Building**
 
