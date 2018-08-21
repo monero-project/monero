@@ -10,8 +10,7 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 BinPackArguments: false
 BinPackParameters: false
-BreakBeforeBinaryOperators: NonAssignment
-BreakBeforeBraces: GNU
+BreakBeforeBraces: Allman
 ColumnLimit: 80
 CommentPragmas: '.*'
 DerivePointerAlignment: false
