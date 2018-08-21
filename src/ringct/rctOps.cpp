@@ -134,12 +134,9 @@ namespace rct {
     }
     
     key zeroCommit(xmr_amount amount) {
-        key mask = identity();
-        mask = scalarmultBase(mask);
         key am = d2h(amount);
         key bH = scalarmultH(am);
-        addKeys(mask, mask, bH);
-        return mask;
+        return addKeys(G, bH);
     }
 
     key commit(xmr_amount amount, const key &mask) {

@@ -318,6 +318,7 @@ namespace cryptonote
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
         meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_deregister_tx_already(tx));
+        meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
@@ -357,6 +358,7 @@ namespace cryptonote
       meta.relayed = relayed;
       meta.do_not_relay = do_not_relay;
       meta.double_spend_seen = false;
+      meta.bf_padding = 0;
       memset(meta.padding, 0, sizeof(meta.padding));
 
       try

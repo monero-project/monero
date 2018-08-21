@@ -394,21 +394,10 @@ namespace
 
   boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str)
   {
-    auto pos = str.find(":");
-    bool r = pos != std::string::npos;
-    uint32_t major;
-    r = r && epee::string_tools::get_xtype_from_string(major, str.substr(0, pos));
-    uint32_t minor;
-    r = r && epee::string_tools::get_xtype_from_string(minor, str.substr(pos + 1));
-    if (r)
-    {
-      return std::make_pair(major, minor);
-    }
-    else
-    {
+    auto r = tools::parse_subaddress_lookahead(str);
+    if (!r)
       fail_msg_writer() << tr("invalid format for subaddress lookahead; must be <major>:<minor>");
-      return {};
-    }
+    return r;
   }
 
   void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon)
@@ -2238,7 +2227,7 @@ simple_wallet::simple_wallet()
                                   "refresh-type <full|optimize-coinbase|no-coinbase|default>\n "
                                   "  Set the wallet's refresh behaviour.\n "
                                   "priority [0|1|2|3|4]\n "
-                                  "  Set the fee too default/unimportant/normal/elevated/priority.\n "
+                                  "  Set the fee to default/unimportant/normal/elevated/priority.\n "
                                   "confirm-missing-payment-id <1|0>\n "
                                   "ask-password <1|0>\n "
                                   "unit <loki|megarok|kilorok|rok>\n "
@@ -3788,7 +3777,6 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
   bool ok = true;
-  size_t max_mining_threads_count = (std::max)(tools::get_max_concurrency(), static_cast<unsigned>(2));
   size_t arg_size = args.size();
   if(arg_size >= 3)
   {
@@ -3804,7 +3792,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   {
     uint16_t num = 1;
     ok = string_tools::get_xtype_from_string(num, args[0]);
-    ok = ok && (1 <= num && num <= max_mining_threads_count);
+    ok = ok && 1 <= num;
     req.threads_count = num;
   }
   else
@@ -3814,8 +3802,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
 
   if (!ok)
   {
-    fail_msg_writer() << tr("invalid arguments. Please use start_mining [<number_of_threads>] [do_bg_mining] [ignore_battery], "
-      "<number_of_threads> should be from 1 to ") << max_mining_threads_count;
+    fail_msg_writer() << tr("invalid arguments. Please use start_mining [<number_of_threads>] [do_bg_mining] [ignore_battery]");
     return true;
   }
 
@@ -6213,6 +6200,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
         payment_id_str = local_args.back();
         local_args.pop_back();
       }
+
       // get amount and pop
       amount_str = local_args.back();
       local_args.pop_back();
@@ -6221,14 +6209,13 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
       local_args.push_back(amount_str);
       if (!payment_id_str.empty())
         local_args.push_back(payment_id_str);
-      message_writer() << tr("Donating ") << amount_str << " to The Monero Project (donate.getmonero.org or "<< MONERO_DONATION_ADDR <<").";
+      message_writer() << (boost::format(tr("Donating %s %s to The Monero Project (donate.getmonero.org or %s).")) % amount_str % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % MONERO_DONATION_ADDR).str();
       transfer_new(local_args);
   }
   else
   {
     fail_msg_writer() << tr("Donations are not supported in Loki right now");
   }
-
   return true;
 
 }
