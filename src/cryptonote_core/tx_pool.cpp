@@ -326,7 +326,7 @@ namespace cryptonote
           m_blockchain.add_txpool_tx(tx, meta);
           if (!insert_key_images(tx, kept_by_block))
             return false;
-          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
+          m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)blob_size, receive_time), id);
         }
         catch (const std::exception &e)
         {
@@ -367,7 +367,7 @@ namespace cryptonote
         m_blockchain.add_txpool_tx(tx, meta);
         if (!insert_key_images(tx, kept_by_block))
           return false;
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)blob_size, receive_time), id);
+        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)blob_size, receive_time), id);
       }
       catch (const std::exception &e)
       {
@@ -419,6 +419,50 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain);
 
+    for (auto it = m_txs_by_fee_and_receive_time.begin(); it != m_txs_by_fee_and_receive_time.end(); )
+    {
+      if (!std::get<0>(it->first))
+        break;
+      // is deregister. keep if has not be around for a long time
+      if (std::get<2>(it->first) >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
+        break;
+      try
+      {
+        const crypto::hash &txid = it->second;
+        txpool_tx_meta_t meta;
+        if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+        {
+          MERROR("Failed to find tx in txpool");
+          return;
+        }
+        // don't prune the kept_by_block ones, they're likely added because we're adding a block with those
+        if (meta.kept_by_block)
+        {
+          it++;
+          continue;
+        }
+        cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
+        cryptonote::transaction tx;
+        if (!parse_and_validate_tx_from_blob(txblob, tx))
+        {
+          MERROR("Failed to parse tx from txpool");
+          return;
+        }
+        // remove first, in case this throws, so key images aren't removed
+        MINFO("Pruning deregister tx " << txid << " from txpool");
+        m_blockchain.remove_txpool_tx(txid);
+        m_txpool_size -= txblob.size();
+        remove_transaction_keyimages(tx);
+        MINFO("Pruned deregister tx " << txid << " from txpool");
+        it = m_txs_by_fee_and_receive_time.erase(it);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Error while pruning txpool: " << e.what());
+        return;
+      }
+    }
+
     // this will never remove the first one, but we don't care
     auto it = --m_txs_by_fee_and_receive_time.end();
     while (it != m_txs_by_fee_and_receive_time.begin())
@@ -448,12 +492,12 @@ namespace cryptonote
           return;
         }
         // remove first, in case this throws, so key images aren't removed
-        MINFO("Pruning tx " << txid << " from txpool: size: " << it->first.second << ", fee/byte: " << it->first.first);
+        MINFO("Pruning tx " << txid << " from txpool: size: " << txblob.size() << ", fee/byte: " << std::get<1>(it->first));
         m_blockchain.remove_txpool_tx(txid);
         m_txpool_size -= txblob.size();
         remove_transaction_keyimages(tx);
-        MINFO("Pruned tx " << txid << " from txpool: size: " << it->first.second << ", fee/byte: " << it->first.first);
-        m_txs_by_fee_and_receive_time.erase(it--);
+        MINFO("Pruned tx " << txid << " from txpool: size: " << txblob.size() << ", fee/byte: " << std::get<1>(it->first));
+        it = --m_txs_by_fee_and_receive_time.erase(it);
       }
       catch (const std::exception &e)
       {
@@ -1371,7 +1415,7 @@ namespace cryptonote
           MFATAL("Failed to insert key images from txpool tx");
           return false;
         }
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, time_t>(meta.fee / (double)meta.blob_size, meta.receive_time), txid);
+        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, time_t>(tx.is_deregister_tx(), meta.fee / (double)meta.blob_size, meta.receive_time), txid);
         m_txpool_size += meta.blob_size;
         return true;
       }, true);
