@@ -515,6 +515,9 @@ bool Blockchain::deinit()
 
   MTRACE("Stopping blockchain read/write activity");
 
+  m_service_node_list.store();
+  m_service_node_list.set_db_pointer(nullptr);
+
  // stop async service
   m_async_work_idle.reset();
   m_async_pool.join_all();
@@ -1326,7 +1329,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   uint8_t hf_version = m_hardfork->get_current_version();
 
   crypto::public_key winner = m_service_node_list.select_winner(b.prev_id);
-  std::vector<std::pair<account_public_address, uint32_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
+  std::vector<std::pair<account_public_address, uint64_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
 
   bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, hf_version, m_nettype, winner, service_node_addresses);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
@@ -2531,12 +2534,12 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v9, allow bulletproofs
-  if (hf_version < 9) {
+  // from v10, allow bulletproofs
+  if (hf_version < 10) {
     const bool bulletproof = tx.rct_signatures.type == rct::RCTTypeFullBulletproof || tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof;
     if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
     {
-      MERROR("Bulletproofs are not allowed before v9");
+      MERROR("Bulletproofs are not allowed before v10");
       tvc.m_invalid_output = true;
       return false;
     }
@@ -3036,7 +3039,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     if (!loki::service_node_deregister::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *quorum_state))
     {
       tvc.m_verifivation_failed = true;
-      MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified.");
+      MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
       return false;
     }
 

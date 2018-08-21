@@ -111,15 +111,15 @@ namespace cryptonote
     return hard_fork_version >= 9 ? base_reward / 2 : 0;
   }
 
-  uint64_t get_portion_of_reward(uint32_t portions, uint64_t total_service_node_reward)
+  uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward)
   {
     uint64_t hi, lo, rewardhi, rewardlo;
     lo = mul128(total_service_node_reward, portions, &hi);
-    div128_32(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
+    div128_64(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
     return rewardlo;
   }
 
-  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint32_t>>& portions, uint64_t total_service_node_reward)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_service_node_reward)
   {
     uint64_t reward = 0;
     for (size_t i = 0; i < portions.size(); i++)
@@ -184,7 +184,7 @@ namespace cryptonote
       uint8_t hard_fork_version,
       network_type nettype,
       const crypto::public_key& service_node_key,
-      const std::vector<std::pair<account_public_address, uint32_t>>& service_node_info)
+      const std::vector<std::pair<account_public_address, uint64_t>>& service_node_info)
   {
     tx.vin.clear();
     tx.vout.clear();

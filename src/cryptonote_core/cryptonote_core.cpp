@@ -529,9 +529,10 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         blocks_per_sync, sync_mode, fast_sync);
 
-    // NOTE: Hooks must be registered before blockchain is initialised for the blockchain init hook to occur.
+    BlockchainDB *initialized_db = db.release();
+    m_service_node_list.set_db_pointer(initialized_db);
     m_service_node_list.register_hooks(m_quorum_cop);
-    r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, test_options);
+    r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, test_options);
 
     r = m_mempool.init(max_txpool_size);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
@@ -1740,8 +1741,10 @@ namespace cryptonote
       result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
       if (!result || tvc.m_verifivation_failed)
       {
-        LOG_ERROR("A full deregister tx for height: " << vote.block_height << " and service node: " 
-                  << vote.service_node_index << " could not be verified and was not added to the memory pool.");
+        LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
+                     " and service node: " << vote.service_node_index <<
+                     " could not be verified and was not added to the memory pool, reason: " <<
+                     print_tx_verification_context(tvc, &deregister_tx));
       }
     }
 
@@ -1755,21 +1758,6 @@ namespace cryptonote
       sec_key = m_service_node_key;
     }
     return m_service_node;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::cmd_prepare_registration(const boost::program_options::variables_map& vm, const std::vector<std::string>& args)
-  {
-    bool r = handle_command_line(vm);
-    CHECK_AND_ASSERT_MES(r, false, "Unable to parse command line arguments");
-
-    r = init_service_node_key();
-    CHECK_AND_ASSERT_MES(r, false, "Failed to create or load service node key");
-
-    std::string registration;
-    r = service_nodes::make_registration_cmd(get_nettype(), args, m_service_node_pubkey, m_service_node_key, registration, true /*make_friendly*/);
-    CHECK_AND_ASSERT_MES(r, "", tr("Failed to make registration command"));
-    std::cout << registration << std::endl;
-    return true;
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

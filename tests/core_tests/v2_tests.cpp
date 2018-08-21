@@ -54,7 +54,7 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, miner_accounts[n],
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp,
         2, 2, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0),
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
     prev_block = blocks + n;
@@ -70,7 +70,7 @@ bool gen_v2_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp,
           2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0),
+          crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0),
           false, "Failed to generate block");
       events.push_back(blk);
       blk_last = blk;

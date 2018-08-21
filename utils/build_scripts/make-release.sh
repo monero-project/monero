@@ -37,3 +37,6 @@ curl --header 'PRIVATE-TOKEN: '"$TOKEN" "https://gitlab.com/api/v4/projects/7515
     mv build/release/bin loki-$build-x64-$version
     zip -r loki-$build-x64-$version.zip loki-$build-x64-$version
   done
+
+echo '#### sha256sum'
+sha256sum loki-*-x64-$version.zip

@@ -43,6 +43,8 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "cryptonote_basic/verification_context.h"
+#include "cryptonote_core/service_node_deregister.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "cn"
@@ -552,8 +554,8 @@ namespace cryptonote
   bool add_service_node_register_to_tx_extra(
       std::vector<uint8_t>& tx_extra,
       const std::vector<cryptonote::account_public_address>& addresses,
-      uint32_t portions_for_operator,
-      const std::vector<uint32_t>& portions,
+      uint64_t portions_for_operator,
+      const std::vector<uint64_t>& portions,
       uint64_t expiration_timestamp,
       const crypto::signature& service_node_signature)
   {
@@ -919,6 +921,51 @@ namespace cryptonote
     return s;
   }
   //---------------------------------------------------------------
+  char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx)
+  {
+    static char buf[1024];
+    buf[0] = 0;
+    char *bufPtr = buf;
+    char *bufEnd = buf + sizeof(buf);
+
+    if (tvc.m_verifivation_failed)     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification failed, connection should be dropped, "); //bad tx, should drop connection
+    if (tvc.m_verifivation_impossible) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Verification impossible, related to alt chain, "); //the transaction is related with an alternative blockchain
+    if (tvc.m_should_be_relayed)       bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX should be relayed, ");
+    if (tvc.m_added_to_pool)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX added to pool, ");
+    if (tvc.m_low_mixin)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Insufficient mixin, ");
+    if (tvc.m_double_spend)            bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Double spend TX, ");
+    if (tvc.m_invalid_input)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid inputs, ");
+    if (tvc.m_invalid_output)          bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid outputs, ");
+    if (tvc.m_too_big)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX too big, ");
+    if (tvc.m_overspend)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Overspend, ");
+    if (tvc.m_fee_too_low)             bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Fee too low, ");
+    if (tvc.m_not_rct)                 bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX is not a valid RCT TX., ");
+    if (tvc.m_invalid_version)         bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX has invalid version, ");
+
+    if (tx) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "TX Version: %d", (int)tx->version);
+
+    return buf;
+  }
+  //---------------------------------------------------------------
+  char const *print_vote_verification_context(vote_verification_context const &vvc, loki::service_node_deregister::vote const *vote)
+  {
+      static char buf[1024];
+      buf[0] = 0;
+
+      char *bufPtr = buf;
+      char *bufEnd = buf + sizeof(buf);
+      if (vvc.m_invalid_block_height)              bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Invalid block height: %s, ",              vote ? std::to_string(vote->block_height).c_str() : "??");
+      if (vvc.m_duplicate_voters)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index was duplicated: %s, ",vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
+      if (vvc.m_voters_quorum_index_out_of_bounds) bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Voters quorum index out of bounds: %s, ", vote ? std::to_string(vote->voters_quorum_index).c_str() : "??");
+      if (vvc.m_service_node_index_out_of_bounds)  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Service node index out of bounds: %s, ",  vote ? std::to_string(vote->service_node_index).c_str() : "??");
+      if (vvc.m_signature_not_valid)               bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Signature not valid, ");
+      if (vvc.m_added_to_pool)                     bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Added to pool, ");
+      if (vvc.m_full_tx_deregister_made)           bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Full TX deregister made, ");
+      if (vvc.m_not_enough_votes)                  bufPtr += snprintf(bufPtr, bufEnd - bufPtr, "Not enough votes, ");
+
+      return buf;
+  }
+  //---------------------------------------------------------------
   crypto::hash get_blob_hash(const blobdata& blob)
   {
     crypto::hash h = null_hash;
@@ -1041,22 +1088,24 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint32_t operator_portions, const std::vector<uint32_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash)
+  bool get_registration_hash(const std::vector<cryptonote::account_public_address>& addresses, uint64_t operator_portions, const std::vector<uint64_t>& portions, uint64_t expiration_timestamp, crypto::hash& hash)
   {
     if (addresses.size() != portions.size())
     {
       LOG_ERROR("get_registration_hash addresses.size() != portions.size()");
       return false;
     }
-    uint64_t total_portions = 0;
-    for (uint32_t portion : portions)
-      total_portions += portion;
-    if (total_portions > STAKING_PORTIONS)
+    uint64_t portions_left = STAKING_PORTIONS;
+    for (uint64_t portion : portions)
     {
-      LOG_ERROR(tr("Your registration has more than ") << STAKING_PORTIONS << tr(" portions, this registration is invalid!"));
-      return false;
+      if (portion > portions_left)
+      {
+        LOG_ERROR(tr("Your registration has more than ") << STAKING_PORTIONS << tr(" portions, this registration is invalid!"));
+        return false;
+      }
+      portions_left -= portion;
     }
-    size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint32_t)) + sizeof(uint32_t) + sizeof(uint64_t);
+    size_t size = addresses.size() * (sizeof(cryptonote::account_public_address) + sizeof(uint64_t)) + sizeof(uint64_t) + sizeof(uint64_t);
     char* buffer = new char[size];
     char* buffer_iter = buffer;
     memcpy(buffer_iter, &operator_portions, sizeof(operator_portions));
@@ -1065,8 +1114,8 @@ namespace cryptonote
     {
       memcpy(buffer_iter, &addresses[i], sizeof(cryptonote::account_public_address));
       buffer_iter += sizeof(cryptonote::account_public_address);
-      memcpy(buffer_iter, &portions[i], sizeof(uint32_t));
-      buffer_iter += sizeof(uint32_t);
+      memcpy(buffer_iter, &portions[i], sizeof(uint64_t));
+      buffer_iter += sizeof(uint64_t);
     }
     memcpy(buffer_iter, &expiration_timestamp, sizeof(expiration_timestamp));
     buffer_iter += sizeof(expiration_timestamp);

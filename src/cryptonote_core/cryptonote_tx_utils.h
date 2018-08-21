@@ -49,12 +49,12 @@ namespace cryptonote
       uint8_t hard_fork_version = 1,
       network_type nettype = MAINNET,
       const crypto::public_key& service_node_key = crypto::null_pkey,
-      const std::vector<std::pair<account_public_address, uint32_t>>& service_node_info={ std::pair<account_public_address, uint32_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS) }
+      const std::vector<std::pair<account_public_address, uint64_t>>& service_node_info={ std::pair<account_public_address, uint64_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS) }
   );
 
   keypair get_deterministic_keypair_from_height(uint64_t height);
 
-  uint64_t get_portion_of_reward(uint32_t portions, uint64_t total_service_node_reward);
+  uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward);
 
   uint64_t get_governance_reward(uint64_t height, uint64_t base_reward);
   uint64_t get_service_node_reward(uint64_t height, uint64_t base_reward, int hard_fork_version);

@@ -52,7 +52,7 @@
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*30)
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
-#define STAKING_PORTIONS                                0xfffffffc
+#define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define MAX_NUMBER_OF_CONTRIBUTORS                      4
 #define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
 
@@ -60,7 +60,8 @@ static_assert(STAKING_PORTIONS % MAX_NUMBER_OF_CONTRIBUTORS == 0, "Use a multipl
 static_assert(STAKING_PORTIONS % 2 == 0, "Use a multiple of two, so that it divides easily by two contributors.");
 static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it divides easily by three contributors.");
 
-#define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2) // 2 weeks
+#define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
+#define STAKING_AUTHORIZATION_EXPIRATION_AUTOSTAKE      (60*60*24*365*2) // 2 years
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 
@@ -193,9 +194,9 @@ namespace config
     uint16_t const RPC_DEFAULT_PORT = 38151;
     uint16_t const ZMQ_RPC_DEFAULT_PORT = 38152;
     boost::uuids::uuid const NETWORK_ID = { {
-        0x44, 0xb3, 0xe9, 0xef, 0x80, 0xc0, 0x08, 0x19, 0xb4, 0x2c, 0x83, 0xfc, 0xef, 0x09, 0x24, 0xfd
+        0x5e, 0x3a, 0x78, 0x65, 0xe1, 0x6f, 0xca, 0xb8, 0x02, 0xa1, 0xdc, 0x17, 0x61, 0x64, 0x15, 0xbc,
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "03011e001e01ff00018080c9db97f4fb27021a88381764999fa47a0f16c3e16fe37b2b6199053c1777e473d5a2ecd088e119420126615e4627bb9590a1facd240caf9e533f5f6ed7df30b95257338564a3d8382f72000000000000000000000000000000000000000000000000000000000000000000";
+    std::string const GENESIS_TX = "03011e001e01ff00018080c9db97f4fb270286d1689b3935f334d26cd9ecb7fc7eb4d67fde89a702058e58ea6811740e40764201c3e91c848f253b0d0193c945787192e1a362f00c2e7f18a80064d9ed4ad88c0f72000000000000000000000000000000000000000000000000000000000000000000";
     uint32_t const GENESIS_NONCE = 10001;
 
     std::string const GOVERNANCE_WALLET_ADDRESS = "T6SUprTYE5rQpep9iQFxyPcKVd91DFR1fQ1Qsyqp5eYLiFc8XuYd3reRE71qDL8c3DXioUbDEpDFdaUpetnL37NS1R3rzoKxi";

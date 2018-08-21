@@ -426,6 +426,10 @@ private:
   // fix up anything that may be wrong due to past bugs
   virtual void fixup();
 
+  virtual void set_service_node_data(const std::string& data);
+  virtual bool get_service_node_data(std::string& data);
+  virtual void clear_service_node_data();
+
   bool m_run_checkpoint;
   std::unique_ptr<boost::thread> m_checkpoint_thread;
   typedef bdb_safe_buffer<void *> bdb_safe_buffer_t;
