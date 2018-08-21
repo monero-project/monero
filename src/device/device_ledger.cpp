@@ -406,7 +406,7 @@ namespace hw {
         }
       }
 
-      if (mszReaders) {
+      if (rv == SCARD_S_SUCCESS && mszReaders) {
         #ifdef SCARD_AUTOALLOCATE
         SCardFreeMemory(this->hContext, mszReaders);
         #else
