@@ -72,6 +72,7 @@ set(unit_tests_sources
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
+  is_hdd.cpp
   ringdb.cpp)
 
 set(unit_tests_headers
