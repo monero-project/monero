@@ -102,12 +102,6 @@ t_command_server::t_command_server(
     , "Print the quorum state for the block height."
     );
   m_command_lookup.set_handler(
-      "get_service_node_registration_cmd"
-    , std::bind(&t_command_parser_executor::get_service_node_registration_cmd, &m_parser, p::_1)
-    , "get_service_node_registration_cmd <address1> <shares1> [<address2> <shares2> [...]]"
-    , "Generate the required registration command"
-    );
-  m_command_lookup.set_handler(
       "print_sn_key"
     , std::bind(&t_command_parser_executor::print_sn_key, &m_parser, p::_1)
     , "print_sn_key"
