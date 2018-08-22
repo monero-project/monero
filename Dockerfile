@@ -67,7 +67,7 @@ RUN set -ex \
     && curl -s -O ftp://ftp.invisible-island.net/ncurses/ncurses-6.1.tar.gz \
     && tar -xzf ncurses-${NCURSES_VERSION}.tar.gz \
     && cd ncurses-${NCURSES_VERSION} \
-    && CFLAGS="" CXXFLAGS="-P" ./configure --enable-termcap --with-termlib \
+    && CFLAGS="-fPIC" CXXFLAGS="-P -fPIC" ./configure --enable-termcap --with-termlib \
     && make \
     && make install
 
