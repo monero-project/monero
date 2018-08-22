@@ -85,6 +85,8 @@ public:
 
   bool print_sn(const std::vector<std::string>& args);
 
+  bool print_sn_status(const std::vector<std::string>& args);
+
   bool set_log_level(const std::vector<std::string>& args);
 
   bool set_log_categories(const std::vector<std::string>& args);

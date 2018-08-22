@@ -2171,11 +2171,53 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 
       if (unregistered.size() == 0 && registered.size() == 0)
       {
-        tools::msg_writer() << "No service node is currently known on the network";
+        if (args.size() > 0)
+        {
+          tools::msg_writer() << "No service node is currently known on the network for: ";
+          for (const std::string &arg : args)
+          {
+            tools::msg_writer() << arg;
+          }
+        }
+        else
+        {
+          tools::msg_writer() << "No service node is currently known on the network";
+        }
       }
     }
 
     return true;
+}
+
+bool t_rpc_command_executor::print_sn_status()
+{
+  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response res = {};
+  {
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request req = {};
+    std::string fail_message = "Unsuccessful";
+
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->json_rpc_request(req, res, "get_service_node_key", fail_message.c_str()))
+      {
+        tools::fail_msg_writer() << make_error(fail_message, res.status);
+        return true;
+      }
+    }
+    else
+    {
+      epee::json_rpc::error error_resp;
+      if (!m_rpc_server->on_get_service_node_key(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+        return true;
+      }
+    }
+  }
+
+  std::string const &sn_key_str = res.service_node_pubkey;
+  bool result = print_sn({sn_key_str});
+  return result;
 }
 
 bool t_rpc_command_executor::print_sn_key()

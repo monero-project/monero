@@ -174,6 +174,13 @@ bool t_command_parser_executor::print_sn(const std::vector<std::string>& args)
   return result;
 }
 
+bool t_command_parser_executor::print_sn_status(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+  bool result = m_executor.print_sn_status();
+  return result;
+}
+
 bool t_command_parser_executor::set_log_level(const std::vector<std::string>& args)
 {
   if(args.size() > 1)
