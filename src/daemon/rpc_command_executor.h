@@ -160,6 +160,8 @@ public:
 
   bool print_sn_key();
 
+  bool print_sn_status();
+
   bool prepare_registration();
 
   bool print_sn(const std::vector<std::string> &args);
