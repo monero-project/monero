@@ -283,7 +283,7 @@ namespace service_nodes
     if (iter == m_service_nodes_infos.end())
       return;
 
-    MGINFO("Deregistration for service node: " << key);
+    LOG_PRINT_L1("Deregistration for service node: " << key);
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
     m_service_nodes_infos.erase(iter);
@@ -384,7 +384,7 @@ namespace service_nodes
     if (iter != m_service_nodes_infos.end())
       return;
 
-    MGINFO("New service node registered: " << key << " at block height: " << block_height);
+    LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
     m_service_nodes_infos[key] = info;
@@ -473,7 +473,7 @@ namespace service_nodes
     iter->second.last_reward_block_height = block_height;
     iter->second.last_reward_transaction_index = index;
 
-    MGINFO("Contribution of " << transferred << " received for service node " << pubkey);
+    LOG_PRINT_L1("Contribution of " << transferred << " received for service node " << pubkey);
 
     return;
   }
