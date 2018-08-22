@@ -449,10 +449,8 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-**TODO: Needs confirmation!**
-
-        # Build image (select android64.Dockerfile for aarch64)
-        cd utils/build_scripts/ && docker build -f android32.Dockerfile -t aeon-android .
+        # Build image
+        docker build -f utils/build_scripts/android32.Dockerfile -t aeon-android .
         # Create container
         docker create -it --name aeon-android aeon-android bash
         # Get binaries
