@@ -1023,6 +1023,11 @@ namespace cryptonote
       */
      bool init_service_node_key();
 
+     /**
+      * @brief do the uptime proof logic and calls for idle loop.
+      */
+     void do_uptime_proof_call();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
