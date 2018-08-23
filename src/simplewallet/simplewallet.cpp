@@ -6483,7 +6483,7 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
   if (ts < 3600 * 24 * 30.5)
     return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
   if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 365.25))) + tr(" months");
+    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
   return tr("a long time");
 }
 //----------------------------------------------------------------------------------------------------
