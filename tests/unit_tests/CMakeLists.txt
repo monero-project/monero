@@ -48,6 +48,7 @@ set(unit_tests_sources
   epee_levin_protocol_handler_async.cpp
   epee_utils.cpp
   fee.cpp
+  json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
   http.cpp
@@ -90,6 +91,7 @@ target_link_libraries(unit_tests
     cryptonote_core
     blockchain_db
     rpc
+    serialization
     wallet
     p2p
     version
