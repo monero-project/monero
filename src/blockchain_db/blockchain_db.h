@@ -1262,23 +1262,6 @@ public:
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) = 0;
 
   /**
-   * @brief get some of an output's data
-   *
-   * The subclass should return the public key, unlock time, and block height
-   * for the output with the given global index, collected in a struct.
-   *
-   * If the output cannot be found, the subclass should throw OUTPUT_DNE.
-   *
-   * If any of these parts cannot be found, but some are, the subclass
-   * should throw DB_ERROR with a message stating as much.
-   *
-   * @param global_index the output's index (global)
-   *
-   * @return the requested output data
-   */
-  virtual output_data_t get_output_key(const uint64_t& global_index) const = 0;
-
-  /**
    * @brief gets an output's tx hash and index
    *
    * The subclass should return the hash of the transaction which created the
