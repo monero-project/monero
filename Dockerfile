@@ -23,9 +23,9 @@ RUN set -ex && \
 WORKDIR /usr/local
 
 #Cmake
-ARG CMAKE_VERSION=3.11.4
-ARG CMAKE_VERSION_DOT=v3.11
-ARG CMAKE_HASH=8f864e9f78917de3e1483e256270daabc4a321741592c5b36af028e72bff87f5
+ARG CMAKE_VERSION=3.12.0
+ARG CMAKE_VERSION_DOT=v3.12
+ARG CMAKE_HASH=d0781a90f6cdb9049d104ac16a150f9350b693498b9dea8a0331e799db6b9d69
 RUN set -ex \
     && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
     && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
