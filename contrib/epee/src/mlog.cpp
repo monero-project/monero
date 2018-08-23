@@ -142,7 +142,9 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
     {
       std::vector<boost::filesystem::path> found_files;
       const boost::filesystem::directory_iterator end_itr;
-      for (boost::filesystem::directory_iterator iter(boost::filesystem::path(filename_base).parent_path()); iter != end_itr; ++iter)
+      const boost::filesystem::path filename_base_path(filename_base);
+      const boost::filesystem::path parent_path = filename_base_path.has_parent_path() ? filename_base_path.parent_path() : ".";
+      for (boost::filesystem::directory_iterator iter(parent_path); iter != end_itr; ++iter)
       {
         const std::string filename = iter->path().string();
         if (filename.size() >= filename_base.size() && std::memcmp(filename.data(), filename_base.data(), filename_base.size()) == 0)
