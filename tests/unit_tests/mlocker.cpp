@@ -31,6 +31,12 @@
 #include "misc_log_ex.h"
 #include "mlocker.h"
 
+#if defined __GNUC__ && !defined _WIN32
+#define HAVE_MLOCK 1
+#endif
+
+#ifdef HAVE_MLOCK
+
 #define BASE(data) (char*)(((uintptr_t)(data.get() + page_size - 1)) / page_size * page_size)
 
 TEST(mlocker, distinct_1)
@@ -184,3 +190,5 @@ TEST(mlocker, mlocked)
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
+
+#endif
