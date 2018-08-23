@@ -1703,32 +1703,30 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc)
   {
+    uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+    uint64_t delta_height = latest_block_height - vote.block_height;
+
+    if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
     {
-      uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
-      uint64_t delta_height = latest_block_height - vote.block_height;
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height
+                << " and service node: "     << vote.service_node_index
+                << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+                << " blocks and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
+    else if (vote.block_height > latest_block_height)
+    {
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height
+                << " and service node: "     << vote.service_node_index
+                << ", is newer than: "       << latest_block_height
+                << " (latest block height) and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
 
-      if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
-                  << " blocks and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-      else if (vote.block_height > latest_block_height)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is newer than: "       << latest_block_height
-                  << " (latest block height) and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-
-      if (vvc.m_invalid_block_height)
-      {
-        vvc.m_verification_failed = true;
-        return false;
-      }
+    if (vvc.m_invalid_block_height)
+    {
+      vvc.m_verification_failed = true;
+      return false;
     }
 
     const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(vote.block_height);

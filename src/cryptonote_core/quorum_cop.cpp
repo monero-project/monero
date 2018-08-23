@@ -172,7 +172,7 @@ namespace service_nodes
     if (!crypto::check_signature(hash, pubkey, sig))
       return false;
 
-    m_uptime_proof_seen[pubkey] = timestamp;
+    m_uptime_proof_seen[pubkey] = now;
     return true;
   }
 
