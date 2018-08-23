@@ -5049,12 +5049,12 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     m_idle_thread.join();
     success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
 #ifndef WIN32
-    success_msg_writer() << tr("Entering autostaking mode, forking to background...");
+    success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
     tools::threadpool::getInstance().stop();
     posix::fork("");
     tools::threadpool::getInstance().start();
 #else
-    success_msg_writer() << tr("Entering autostaking mode, please leave this wallet running.");
+    success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, please leave this wallet running to automatically renew your service node every period.");
 #endif
     m_idle_run.store(true, std::memory_order_relaxed);
     while (true)
