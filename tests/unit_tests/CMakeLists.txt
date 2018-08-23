@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(unit_tests_sources
+  account.cpp
   apply_permutation.cpp
   address_from_url.cpp
   ban.cpp
@@ -52,6 +53,7 @@ set(unit_tests_sources
   http.cpp
   main.cpp
   memwipe.cpp
+  mlocker.cpp
   mnemonics.cpp
   mul_div.cpp
   multisig.cpp
@@ -72,7 +74,8 @@ set(unit_tests_sources
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
-  ringdb.cpp)
+  ringdb.cpp
+  wipeable_string.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)

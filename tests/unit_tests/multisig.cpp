@@ -61,10 +61,13 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
 
   try
   {
-    wallet.init("");
+    wallet.init(false, "");
     wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(cryptonote::TESTNET));
+    wallet.decrypt_keys("");
+    ASSERT_TRUE(test_addresses[idx].spendkey == epee::string_tools::pod_to_hex(wallet.get_account().get_keys().m_spend_secret_key));
+    wallet.encrypt_keys("");
   }
   catch (const std::exception &e)
   {
@@ -83,8 +86,12 @@ static void make_M_2_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, un
   std::vector<crypto::secret_key> sk0(1), sk1(1);
   std::vector<crypto::public_key> pk0(1), pk1(1);
 
+  wallet0.decrypt_keys("");
   std::string mi0 = wallet0.get_multisig_info();
+  wallet0.encrypt_keys("");
+  wallet1.decrypt_keys("");
   std::string mi1 = wallet1.get_multisig_info();
+  wallet1.encrypt_keys("");
 
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk0[0], pk0[0]));
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi0, sk1[0], pk1[0]));
@@ -118,9 +125,15 @@ static void make_M_3_wallet(tools::wallet2 &wallet0, tools::wallet2 &wallet1, to
   std::vector<crypto::secret_key> sk0(2), sk1(2), sk2(2);
   std::vector<crypto::public_key> pk0(2), pk1(2), pk2(2);
 
+  wallet0.decrypt_keys("");
   std::string mi0 = wallet0.get_multisig_info();
+  wallet0.encrypt_keys("");
+  wallet1.decrypt_keys("");
   std::string mi1 = wallet1.get_multisig_info();
+  wallet1.encrypt_keys("");
+  wallet2.decrypt_keys("");
   std::string mi2 = wallet2.get_multisig_info();
+  wallet2.encrypt_keys("");
 
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi1, sk0[0], pk0[0]));
   ASSERT_TRUE(tools::wallet2::verify_multisig_info(mi2, sk0[1], pk0[1]));

@@ -44,6 +44,9 @@ extern "C"
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "account"
 
+#define KEYS_ENCRYPTION_SALT 'k'
+
+
 using namespace std;
 
 DISABLE_VS_WARNINGS(4244 4345)
@@ -60,7 +63,70 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_device = &hwdev;
     MCDEBUG("device", "account_keys::set_device device type: "<<typeid(hwdev).name());
   }
+  //-----------------------------------------------------------------
+  static void derive_key(const crypto::chacha_key &base_key, crypto::chacha_key &key)
+  {
+    static_assert(sizeof(base_key) == sizeof(crypto::hash), "chacha key and hash should be the same size");
+    epee::mlocked<tools::scrubbed_arr<char, sizeof(base_key)+1>> data;
+    memcpy(data.data(), &base_key, sizeof(base_key));
+    data[sizeof(base_key)] = KEYS_ENCRYPTION_SALT;
+    crypto::generate_chacha_key(data.data(), sizeof(data), key, 1);
+  }
+  //-----------------------------------------------------------------
+  static epee::wipeable_string get_key_stream(const crypto::chacha_key &base_key, const crypto::chacha_iv &iv, size_t bytes)
+  {
+    // derive a new key
+    crypto::chacha_key key;
+    derive_key(base_key, key);
 
+    // chacha
+    epee::wipeable_string buffer0(std::string(bytes, '\0'));
+    epee::wipeable_string buffer1 = buffer0;
+    crypto::chacha20(buffer0.data(), buffer0.size(), key, iv, buffer1.data());
+    return buffer1;
+  }
+  //-----------------------------------------------------------------
+  void account_keys::xor_with_key_stream(const crypto::chacha_key &key)
+  {
+    // encrypt a large enough byte stream with chacha20
+    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (2 + m_multisig_keys.size()));
+    const char *ptr = key_stream.data();
+    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+      m_spend_secret_key.data[i] ^= *ptr++;
+    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+      m_view_secret_key.data[i] ^= *ptr++;
+    for (crypto::secret_key &k: m_multisig_keys)
+    {
+      for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+        k.data[i] ^= *ptr++;
+    }
+  }
+  //-----------------------------------------------------------------
+  void account_keys::encrypt(const crypto::chacha_key &key)
+  {
+    m_encryption_iv = crypto::rand<crypto::chacha_iv>();
+    xor_with_key_stream(key);
+  }
+  //-----------------------------------------------------------------
+  void account_keys::decrypt(const crypto::chacha_key &key)
+  {
+    xor_with_key_stream(key);
+  }
+  //-----------------------------------------------------------------
+  void account_keys::encrypt_viewkey(const crypto::chacha_key &key)
+  {
+    // encrypt a large enough byte stream with chacha20
+    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * 2);
+    const char *ptr = key_stream.data();
+    ptr += sizeof(crypto::secret_key);
+    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+      m_view_secret_key.data[i] ^= *ptr++;
+  }
+  //-----------------------------------------------------------------
+  void account_keys::decrypt_viewkey(const crypto::chacha_key &key)
+  {
+    encrypt_viewkey(key);
+  }
   //-----------------------------------------------------------------
   account_base::account_base()
   {
@@ -157,7 +223,7 @@ DISABLE_VS_WARNINGS(4244 4345)
   void account_base::create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey)
   {
     crypto::secret_key fake;
-    memset(&unwrap(fake), 0, sizeof(fake));
+    memset(&unwrap(unwrap(fake)), 0, sizeof(fake));
     create_from_keys(address, fake, viewkey);
   }
   //-----------------------------------------------------------------

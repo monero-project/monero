@@ -53,15 +53,20 @@ namespace Language
    * \param  count           How many characters to return.
    * \return                 A string consisting of the first count characters in s.
    */
-  inline std::string utf8prefix(const std::string &s, size_t count)
+  template<typename T>
+  inline T utf8prefix(const T &s, size_t count)
   {
-    std::string prefix = "";
-    const char *ptr = s.c_str();
-    while (count-- && *ptr)
+    T prefix = "";
+    size_t avail = s.size();
+    const char *ptr = s.data();
+    while (count-- && avail--)
     {
       prefix += *ptr++;
-      while (((*ptr) & 0xc0) == 0x80)
+      while (avail && ((*ptr) & 0xc0) == 0x80)
+      {
         prefix += *ptr++;
+        --avail;
+      }
     }
     return prefix;
   }
@@ -79,8 +84,8 @@ namespace Language
       ALLOW_DUPLICATE_PREFIXES = 1<<1,
     };
     const std::vector<std::string> word_list; /*!< A pointer to the array of words */
-    std::unordered_map<std::string, uint32_t> word_map; /*!< hash table to find word's index */
-    std::unordered_map<std::string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
+    std::unordered_map<epee::wipeable_string, uint32_t> word_map; /*!< hash table to find word's index */
+    std::unordered_map<epee::wipeable_string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
     std::string english_language_name; /*!< Name of language */
     uint32_t unique_prefix_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
@@ -103,7 +108,7 @@ namespace Language
           else
             throw std::runtime_error("Too short word in " + language_name + " word list: " + *it);
         }
-        std::string trimmed;
+        epee::wipeable_string trimmed;
         if (it->length() > unique_prefix_length)
         {
           trimmed = utf8prefix(*it, unique_prefix_length);
@@ -115,9 +120,9 @@ namespace Language
         if (trimmed_word_map.find(trimmed) != trimmed_word_map.end())
         {
           if (flags & ALLOW_DUPLICATE_PREFIXES)
-            MWARNING("Duplicate prefix in " << language_name << " word list: " << trimmed);
+            MWARNING("Duplicate prefix in " << language_name << " word list: " << std::string(trimmed.data(), trimmed.size()));
           else
-            throw std::runtime_error("Duplicate prefix in " + language_name + " word list: " + trimmed);
+            throw std::runtime_error("Duplicate prefix in " + language_name + " word list: " + std::string(trimmed.data(), trimmed.size()));
         }
         trimmed_word_map[trimmed] = ii;
       }
@@ -145,7 +150,7 @@ namespace Language
      * \brief Returns a pointer to the word map.
      * \return A pointer to the word map.
      */
-    const std::unordered_map<std::string, uint32_t>& get_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t>& get_word_map() const
     {
       return word_map;
     }
@@ -153,7 +158,7 @@ namespace Language
      * \brief Returns a pointer to the trimmed word map.
      * \return A pointer to the trimmed word map.
      */
-    const std::unordered_map<std::string, uint32_t>& get_trimmed_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t>& get_trimmed_word_map() const
     {
       return trimmed_word_map;
     }

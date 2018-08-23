@@ -44,18 +44,29 @@ namespace cryptonote
     crypto::secret_key   m_view_secret_key;
     std::vector<crypto::secret_key> m_multisig_keys;
     hw::device *m_device = &hw::get_device("default");
+    crypto::chacha_iv m_encryption_iv;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_account_address)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_spend_secret_key)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_view_secret_key)
       KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_multisig_keys)
+      const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
+      KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
     END_KV_SERIALIZE_MAP()
 
     account_keys& operator=(account_keys const&) = default;
 
+    void encrypt(const crypto::chacha_key &key);
+    void decrypt(const crypto::chacha_key &key);
+    void encrypt_viewkey(const crypto::chacha_key &key);
+    void decrypt_viewkey(const crypto::chacha_key &key);
+
     hw::device& get_device()  const ;
     void set_device( hw::device &hwdev) ;
+
+  private:
+    void xor_with_key_stream(const crypto::chacha_key &key);
   };
 
   /************************************************************************/
@@ -86,6 +97,11 @@ namespace cryptonote
 
     void forget_spend_key();
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
+
+    void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }
+    void decrypt_keys(const crypto::chacha_key &key) { m_keys.decrypt(key); }
+    void encrypt_viewkey(const crypto::chacha_key &key) { m_keys.encrypt_viewkey(key); }
+    void decrypt_viewkey(const crypto::chacha_key &key) { m_keys.decrypt_viewkey(key); }
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int /*ver*/)

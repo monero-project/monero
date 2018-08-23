@@ -163,7 +163,7 @@ namespace tools
       walvars = m_wallet;
     else
     {
-      tmpwal = tools::wallet2::make_dummy(*m_vm, password_prompter);
+      tmpwal = tools::wallet2::make_dummy(*m_vm, true, password_prompter);
       walvars = tmpwal.get();
     }
     boost::optional<epee::net_utils::http::login> http_login{};
@@ -1574,11 +1574,13 @@ namespace tools
 
       if (req.key_type.compare("mnemonic") == 0)
       {
-        if (!m_wallet->get_seed(res.key))
+        epee::wipeable_string seed;
+        if (!m_wallet->get_seed(seed))
         {
             er.message = "The wallet is non-deterministic. Cannot display seed.";
             return false;
         }
+        res.key = std::string(seed.data(), seed.size()); // send to the network, then wipe RAM :D
       }
       else if(req.key_type.compare("view_key") == 0)
       {
@@ -2636,7 +2638,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, nullptr).first;
+    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, true, nullptr).first;
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -2710,7 +2712,7 @@ namespace tools
     }
     std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
-      wal = tools::wallet2::make_from_file(vm2, wallet_file, nullptr).first;
+      wal = tools::wallet2::make_from_file(vm2, true, wallet_file, nullptr).first;
     }
     catch (const std::exception& e)
     {
@@ -3259,13 +3261,13 @@ int main(int argc, char** argv) {
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
     if(!wallet_file.empty())
     {
-      wal = tools::wallet2::make_from_file(*vm, wallet_file, password_prompt).first;
+      wal = tools::wallet2::make_from_file(*vm, true, wallet_file, password_prompt).first;
     }
     else
     {
       try
       {
-        wal = tools::wallet2::make_from_json(*vm, from_json, password_prompt);
+        wal = tools::wallet2::make_from_json(*vm, true, from_json, password_prompt);
       }
       catch (const std::exception &e)
       {
