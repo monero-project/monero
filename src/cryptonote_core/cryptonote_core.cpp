@@ -1442,6 +1442,22 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::do_uptime_proof_call()
+  {
+    std::vector<service_nodes::service_node_pubkey_info> states = get_service_node_list_state({ m_service_node_pubkey });
+
+    // wait one block before starting uptime proofs.
+    if (!states.empty() && states[0].info.registration_height + 1 < get_current_blockchain_height())
+    {
+      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+    }
+    else
+    {
+      // reset the interval so that we're ready when we register.
+      m_submit_uptime_proof_interval = epee::math_helper::once_a_time_seconds<UPTIME_PROOF_FREQUENCY_IN_SECONDS, true>();
+    }
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::on_idle()
   {
     if(!m_starter_message_showed)
@@ -1468,11 +1484,9 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
-    if (m_service_node && m_service_node_list.is_service_node(m_service_node_pubkey))
-    {
-      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
-      m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
-    }
+    if (m_service_node)
+      do_uptime_proof_call();
+    m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
 
     m_miner.on_idle();
     m_mempool.on_idle();
