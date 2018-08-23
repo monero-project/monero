@@ -3066,14 +3066,26 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        if (existing_deregister.block_height       == deregister.block_height &&
-            existing_deregister.service_node_index == deregister.service_node_index)
+        std::shared_ptr<service_nodes::quorum_state> existing_deregister_quorum_state
+          = m_service_node_list.get_quorum_state(existing_deregister.block_height);
+
+        if (!existing_deregister_quorum_state)
+        {
+          MERROR_VER("could not get quorum state for recent deregister tx");
+          continue;
+        }
+
+        if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
+            quorum_state->nodes_to_test[deregister.service_node_index])
         {
           tvc.m_double_spend = true;
           return false;
         }
-
       }
+    }
+    else
+    {
+      return false;
     }
   }
   return true;
