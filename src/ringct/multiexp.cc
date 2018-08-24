@@ -564,12 +564,13 @@ struct pippenger_cached_data
   ~pippenger_cached_data() { aligned_free(cached); }
 };
 
-std::shared_ptr<pippenger_cached_data> pippenger_init_cache(const std::vector<MultiexpData> &data, size_t N)
+std::shared_ptr<pippenger_cached_data> pippenger_init_cache(const std::vector<MultiexpData> &data, size_t start_offset, size_t N)
 {
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(pippenger_init_cache, 1000000));
+  CHECK_AND_ASSERT_THROW_MES(start_offset <= data.size(), "Bad cache base data");
   if (N == 0)
-    N = data.size();
-  CHECK_AND_ASSERT_THROW_MES(N <= data.size(), "Bad cache base data");
+    N = data.size() - start_offset;
+  CHECK_AND_ASSERT_THROW_MES(N <= data.size() - start_offset, "Bad cache base data");
   ge_cached cached;
   std::shared_ptr<pippenger_cached_data> cache(new pippenger_cached_data());
 
@@ -577,7 +578,7 @@ std::shared_ptr<pippenger_cached_data> pippenger_init_cache(const std::vector<Mu
   cache->cached = (ge_cached*)aligned_realloc(cache->cached, N * sizeof(ge_cached), 4096);
   CHECK_AND_ASSERT_THROW_MES(cache->cached, "Out of memory");
   for (size_t i = 0; i < N; ++i)
-    ge_p3_to_cached(&cache->cached[i], &data[i].point);
+    ge_p3_to_cached(&cache->cached[i], &data[i+start_offset].point);
 
   MULTIEXP_PERF(PERF_TIMER_STOP(pippenger_init_cache));
   return cache;
@@ -588,9 +589,11 @@ size_t pippenger_get_cache_size(const std::shared_ptr<pippenger_cached_data> &ca
   return cache->size * sizeof(*cache->cached);
 }
 
-rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<pippenger_cached_data> &cache, size_t c)
+rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<pippenger_cached_data> &cache, size_t cache_size, size_t c)
 {
-  CHECK_AND_ASSERT_THROW_MES(cache == NULL || cache->size >= data.size(), "Cache is too small");
+  if (cache != NULL && cache_size == 0)
+    cache_size = cache->size;
+  CHECK_AND_ASSERT_THROW_MES(cache == NULL || cache_size <= cache->size, "Cache is too small");
   if (c == 0)
     c = get_pippenger_c(data.size());
   CHECK_AND_ASSERT_THROW_MES(c <= 9, "c is too large");
@@ -598,6 +601,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
   ge_p3 result = ge_p3_identity;
   std::unique_ptr<ge_p3[]> buckets{new ge_p3[1<<c]};
   std::shared_ptr<pippenger_cached_data> local_cache = cache == NULL ? pippenger_init_cache(data) : cache;
+  std::shared_ptr<pippenger_cached_data> local_cache_2 = data.size() > cache_size ? pippenger_init_cache(data, cache_size) : NULL;
 
   rct::key maxscalar = rct::zero();
   for (size_t i = 0; i < data.size(); ++i)
@@ -641,7 +645,10 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
       if (!ge_p3_is_point_at_infinity(&buckets[bucket]))
       {
-        add(buckets[bucket], local_cache->cached[i]);
+        if (i < cache_size)
+          add(buckets[bucket], local_cache->cached[i]);
+        else
+          add(buckets[bucket], local_cache_2->cached[i - cache_size]);
       }
       else
         buckets[bucket] = data[i].point;

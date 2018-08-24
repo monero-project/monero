@@ -73,15 +73,15 @@ static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
 static boost::mutex init_mutex;
 
-static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
+static inline rct::key multiexp(const std::vector<MultiexpData> &data, size_t HiGi_size)
 {
-  if (HiGi)
+  if (HiGi_size > 0)
   {
     static_assert(128 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
-    return data.size() <= 128 ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, get_pippenger_c(data.size()));
+    return HiGi_size <= 128 && data.size() == HiGi_size ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, HiGi_size, get_pippenger_c(data.size()));
   }
   else
-    return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, get_pippenger_c(data.size()));
+    return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, 0, get_pippenger_c(data.size()));
 }
 
 static inline bool is_reduced(const rct::key &scalar)
@@ -118,7 +118,7 @@ static void init_exponents()
   }
 
   straus_HiGi_cache = straus_init_cache(data, STRAUS_SIZE_LIMIT);
-  pippenger_HiGi_cache = pippenger_init_cache(data, PIPPENGER_SIZE_LIMIT);
+  pippenger_HiGi_cache = pippenger_init_cache(data, 0, PIPPENGER_SIZE_LIMIT);
 
   MINFO("Hi/Gi cache size: " << (sizeof(Hi)+sizeof(Gi))/1024 << " kB");
   MINFO("Hi_p3/Gi_p3 cache size: " << (sizeof(Hi_p3)+sizeof(Gi_p3))/1024 << " kB");
@@ -142,7 +142,7 @@ static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b)
     multiexp_data.emplace_back(a[i], Gi_p3[i]);
     multiexp_data.emplace_back(b[i], Hi_p3[i]);
   }
-  return multiexp(multiexp_data, true);
+  return multiexp(multiexp_data, 2 * a.size());
 }
 
 /* Compute a custom vector-scalar commitment */
@@ -169,7 +169,7 @@ static rct::key cross_vector_exponent8(size_t size, const std::vector<ge_p3> &A,
     sc_mul(multiexp_data.back().scalar.bytes, extra_scalar->bytes, INV_EIGHT.bytes);
     multiexp_data.back().point = *extra_point;
   }
-  return multiexp(multiexp_data, false);
+  return multiexp(multiexp_data, 0);
 }
 
 /* Given a scalar, construct a vector of powers */
@@ -839,6 +839,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
   std::vector<MultiexpData> multiexp_data;
   multiexp_data.reserve(nV + (2 * (10/*logM*/ + logN) + 4) * proofs.size() + 2 * maxMN);
+  multiexp_data.resize(2 * maxMN);
 
   PERF_TIMER_START_BP(VERIFY_line_24_25_invert);
   const std::vector<rct::key> inverses = invert(to_invert);
@@ -1011,10 +1012,10 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   multiexp_data.emplace_back(tmp, rct::H);
   for (size_t i = 0; i < maxMN; ++i)
   {
-    multiexp_data.emplace_back(m_z4[i], Gi_p3[i]);
-    multiexp_data.emplace_back(m_z5[i], Hi_p3[i]);
+    multiexp_data[i * 2] = {m_z4[i], Gi_p3[i]};
+    multiexp_data[i * 2 + 1] = {m_z5[i], Hi_p3[i]};
   }
-  if (!(multiexp(multiexp_data, false) == rct::identity()))
+  if (!(multiexp(multiexp_data, 2 * maxMN) == rct::identity()))
   {
     PERF_TIMER_STOP(VERIFY_step2_check);
     MERROR("Verification failure");

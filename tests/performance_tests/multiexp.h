@@ -78,9 +78,9 @@ public:
       case multiexp_straus_cached:
         return res == straus(data, straus_cache);
       case multiexp_pippenger:
-        return res == pippenger(data, NULL, c);
+        return res == pippenger(data, NULL, 0, c);
       case multiexp_pippenger_cached:
-        return res == pippenger(data, pippenger_cache, c);
+        return res == pippenger(data, pippenger_cache, 0, c);
       default:
         return false;
     }
