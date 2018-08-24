@@ -240,6 +240,9 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
                                       uint64_t amount, uint64_t fee, size_t nmix,
                                       std::vector<cryptonote::tx_source_entry>& sources,
                                       std::vector<cryptonote::tx_destination_entry>& destinations);
+
+/// Get the amount transferred to `account` in `tx` as output `i`
+uint64_t get_amount(const cryptonote::account_base& account, const cryptonote::transaction& tx, int i);
 uint64_t get_balance(const cryptonote::account_base& addr, const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx);
 
 //--------------------------------------------------------------------------

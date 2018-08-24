@@ -261,6 +261,7 @@ bool test_generator::construct_block_manually_tx(cryptonote::block& blk, const c
 struct output_index {
     const cryptonote::txout_target_v out;
     uint64_t amount;
+    rct::key mask;
     size_t blk_height; // block height
     size_t tx_no; // index of transaction in block
     size_t out_no; // index of out in transaction
@@ -273,7 +274,7 @@ struct output_index {
         : out(_out), amount(_a), blk_height(_h), tx_no(tno), out_no(ono), idx(0), spent(false), p_blk(_pb), p_tx(_pt) { }
 
     output_index(const output_index &other)
-        : out(other.out), amount(other.amount), blk_height(other.blk_height), tx_no(other.tx_no), out_no(other.out_no), idx(other.idx), spent(other.spent), p_blk(other.p_blk), p_tx(other.p_tx) {  }
+        : out(other.out), amount(other.amount), mask(other.mask), blk_height(other.blk_height), tx_no(other.tx_no), out_no(other.out_no), idx(other.idx), spent(other.spent), p_blk(other.p_blk), p_tx(other.p_tx) {  }
 
     const std::string toString() const {
         std::stringstream ss;
@@ -282,6 +283,7 @@ struct output_index {
            << " tx_no=" << tx_no
            << " out_no=" << out_no
            << " amount=" << amount
+           << " mask=" << mask
            << " idx=" << idx
            << " spent=" << spent
            << "}";
@@ -395,12 +397,14 @@ bool init_output_indices(output_index_vec& outs, output_vec& outs_mine, const st
                     outs.push_back({out.target, out.amount, height, i, j, &blk, vtx[i]});
                     size_t tx_global_idx = outs.size() - 1;
                     outs[tx_global_idx].idx = tx_global_idx;
+                    outs[tx_global_idx].mask = rct::zeroCommit(out.amount);
                     // Is out to me?
                     if (is_out_to_acc(from.get_keys(), boost::get<txout_to_key>(out.target), get_tx_pub_key_from_extra(tx), get_additional_tx_pub_keys_from_extra(tx), j)) {
                         outs_mine.push_back(tx_global_idx);
                         auto& out = outs.back();
                         if (out.amount == 0) {
                           out.amount = get_amount(from, tx, j);
+                          out.mask = tx.rct_signatures.outPk[j].mask;
                         }
                     }
                 }
@@ -483,7 +487,7 @@ static bool fill_output_entries(const std::vector<output_index>& out_indices, si
     if (append)
     {
       const txout_to_key& otk = boost::get<txout_to_key>(oi.out);
-      output_entries.push_back(tx_source_entry::output_entry(oi.idx, rct::ctkey({rct::pk2rct(otk.key), rct::zeroCommit(oi.amount)})));
+      output_entries.push_back(tx_source_entry::output_entry(oi.idx, rct::ctkey({rct::pk2rct(otk.key), oi.mask})));
     }
   }
 
@@ -518,17 +522,31 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
 
         cryptonote::tx_source_entry ts;
 
-
+        const auto& tx = *oi.p_tx;
         ts.amount = oi.amount;
         ts.real_output_in_tx_index = oi.out_no;
-        ts.real_out_tx_key = get_tx_pub_key_from_extra(*oi.p_tx); // incoming tx public key
-        ts.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(*oi.p_tx);
+        ts.real_out_tx_key = get_tx_pub_key_from_extra(tx); // incoming tx public key
+        ts.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(tx);
         ts.mask = rct::identity();
-        size_t realOutput;
-        if (!fill_output_entries(outs, sender_out, nmix, realOutput, ts.outputs)) continue;
-
-        ts.real_output = realOutput;
         ts.rct = true;
+
+        /// Filling in the mask
+        {
+            crypto::key_derivation derivation;
+            bool r = crypto::generate_key_derivation(ts.real_out_tx_key, from.get_keys().m_view_secret_key, derivation);
+            CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
+            crypto::secret_key amount_key;
+            crypto::derivation_to_scalar(derivation, oi.out_no, amount_key);
+            if (tx.rct_signatures.type == rct::RCTTypeSimple || tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof)
+                rct::decodeRctSimple(
+                  tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
+            else if (tx.rct_signatures.type == rct::RCTTypeFull ||
+                     tx.rct_signatures.type == rct::RCTTypeFullBulletproof)
+                rct::decodeRct(
+                  tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
+        }
+
+        if (!fill_output_entries(outs, sender_out, nmix, ts.real_output, ts.outputs)) continue;
 
         sources.push_back(ts);
 
