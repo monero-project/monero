@@ -2007,9 +2007,9 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
           tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
           return true;
       }
-
-      tools::success_msg_writer() << res.registration_cmd;
     }
+
+    tools::success_msg_writer() << res.registration_cmd;
 
     return true;
 }
@@ -2097,92 +2097,104 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     epee::json_rpc::error error_resp;
     req.service_node_pubkeys = args;
 
+    cryptonote::COMMAND_RPC_GET_INFO::request get_info_req;
+    cryptonote::COMMAND_RPC_GET_INFO::response get_info_res;
+
+    cryptonote::network_type nettype = cryptonote::UNDEFINED;
+    uint64_t *curr_height = nullptr;
     if (m_is_rpc)
     {
-      if (!m_rpc_client->json_rpc_request(req, res, "get_service_node", fail_message.c_str()))
+      if (!m_rpc_client->rpc_request(get_info_req, get_info_res, "/getinfo", fail_message.c_str()))
       {
-          tools::fail_msg_writer() << make_error(fail_message, res.status);
-          return true;
+        tools::fail_msg_writer() << make_error(fail_message, get_info_res.status);
+        return true;
       }
+
+      if (!m_rpc_client->json_rpc_request(req, res, "get_service_nodes", fail_message.c_str()))
+      {
+        tools::fail_msg_writer() << make_error(fail_message, res.status);
+        return true;
+      }
+
+      if (get_info_res.mainnet) nettype       = cryptonote::MAINNET;
+      else if (get_info_res.stagenet) nettype = cryptonote::STAGENET;
+      else if (get_info_res.testnet) nettype  = cryptonote::TESTNET;
+      curr_height = &get_info_res.height;
     }
     else
     {
+      if (m_rpc_server->on_get_info(get_info_req, get_info_res) || get_info_res.status == CORE_RPC_STATUS_OK)
+        curr_height = &get_info_res.height;
+
       if (!m_rpc_server->on_get_service_nodes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
       {
           tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
           return true;
       }
+      nettype = m_rpc_server->nettype();
+    }
 
-      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> unregistered;
-      std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> registered;
-      registered.reserve  (res.service_node_states.size());
-      unregistered.reserve(res.service_node_states.size() * 0.5f);
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> unregistered;
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> registered;
+    registered.reserve  (res.service_node_states.size());
+    unregistered.reserve(res.service_node_states.size() * 0.5f);
 
-      for (auto &entry : res.service_node_states)
+    for (auto &entry : res.service_node_states)
+    {
+      if (entry.total_contributed == entry.staking_requirement)
       {
-        if (entry.total_contributed == entry.staking_requirement)
+        registered.push_back(&entry);
+      }
+      else
+      {
+        unregistered.push_back(&entry);
+      }
+    }
+
+    std::sort(unregistered.begin(), unregistered.end(),
+        [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
+        uint64_t a_remaining = a->staking_requirement - a->total_reserved;
+        uint64_t b_remaining = b->staking_requirement - b->total_reserved;
+
+        if (b_remaining == a_remaining)
+          return b->portions_for_operator < a->portions_for_operator;
+
+        return b_remaining < a_remaining;
+    });
+
+    std::stable_sort(registered.begin(), registered.end(),
+        [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
+        if (a->last_reward_block_height == b->last_reward_block_height)
+          return a->last_reward_transaction_index < b->last_reward_transaction_index;
+
+        return a->last_reward_block_height < b->last_reward_block_height;
+    });
+
+    if (unregistered.size() > 0)
+    {
+      tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size()<< "]";
+      print_service_node_list_state(nettype, curr_height, unregistered);
+    }
+
+    if (registered.size() > 0)
+    {
+      tools::msg_writer() << "Service Node Registration State[" << registered.size()<< "]";
+      print_service_node_list_state(nettype, curr_height, registered);
+    }
+
+    if (unregistered.size() == 0 && registered.size() == 0)
+    {
+      if (args.size() > 0)
+      {
+        tools::msg_writer() << "No service node is currently known on the network for: ";
+        for (const std::string &arg : args)
         {
-          registered.push_back(&entry);
-        }
-        else
-        {
-          unregistered.push_back(&entry);
+          tools::msg_writer() << arg;
         }
       }
-
-      std::sort(unregistered.begin(), unregistered.end(),
-          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
-          uint64_t a_remaining = a->staking_requirement - a->total_reserved;
-          uint64_t b_remaining = b->staking_requirement - b->total_reserved;
-
-          if (b_remaining == a_remaining)
-            return b->portions_for_operator < a->portions_for_operator;
-
-          return b_remaining < a_remaining;
-      });
-
-      std::stable_sort(registered.begin(), registered.end(),
-          [](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *a, const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *b) {
-          if (a->last_reward_block_height == b->last_reward_block_height)
-            return a->last_reward_transaction_index < b->last_reward_transaction_index;
-
-          return a->last_reward_block_height < b->last_reward_block_height;
-      });
-
-      uint64_t *curr_height = nullptr;
-      cryptonote::COMMAND_RPC_GET_HEIGHT::request height_req = {};
-      cryptonote::COMMAND_RPC_GET_HEIGHT::response height_res = {};
-      m_rpc_server->on_get_height(height_req, height_res);
-
-      if (res.status == CORE_RPC_STATUS_OK)
-        curr_height = &height_res.height;
-
-      if (unregistered.size() > 0)
+      else
       {
-        tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size()<< "]";
-        print_service_node_list_state(m_rpc_server->nettype(), curr_height, unregistered);
-      }
-
-      if (registered.size() > 0)
-      {
-        tools::msg_writer() << "Service Node Registration State[" << registered.size()<< "]";
-        print_service_node_list_state(m_rpc_server->nettype(), curr_height, registered);
-      }
-
-      if (unregistered.size() == 0 && registered.size() == 0)
-      {
-        if (args.size() > 0)
-        {
-          tools::msg_writer() << "No service node is currently known on the network for: ";
-          for (const std::string &arg : args)
-          {
-            tools::msg_writer() << arg;
-          }
-        }
-        else
-        {
-          tools::msg_writer() << "No service node is currently known on the network";
-        }
+        tools::msg_writer() << "No service node is currently known on the network";
       }
     }
 
