@@ -847,8 +847,8 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   // setup weighted aggregates
   rct::key z1 = rct::zero();
   rct::key z3 = rct::zero();
-  rct::keyV z4(maxMN, rct::zero()), z5(maxMN, rct::zero());
-  rct::key y0 = rct::zero(), y1 = rct::zero();
+  rct::keyV m_z4(maxMN, rct::zero()), m_z5(maxMN, rct::zero());
+  rct::key m_y0 = rct::zero(), y1 = rct::zero();
   int proof_data_index = 0;
   for (const Bulletproof *p: proofs)
   {
@@ -872,7 +872,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
     PERF_TIMER_START_BP(VERIFY_line_61);
     // PAPER LINE 61
-    sc_muladd(y0.bytes, proof.taux.bytes, weight_y.bytes, y0.bytes);
+    sc_mulsub(m_y0.bytes, proof.taux.bytes, weight_y.bytes, m_y0.bytes);
 
     const rct::keyV zpow = vector_powers(pd.z, M+3);
 
@@ -968,8 +968,8 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
         sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
       }
 
-      sc_muladd(z4[i].bytes, g_scalar.bytes, weight_z.bytes, z4[i].bytes);
-      sc_muladd(z5[i].bytes, h_scalar.bytes, weight_z.bytes, z5[i].bytes);
+      sc_mulsub(m_z4[i].bytes, g_scalar.bytes, weight_z.bytes, m_z4[i].bytes);
+      sc_mulsub(m_z5[i].bytes, h_scalar.bytes, weight_z.bytes, m_z5[i].bytes);
 
       if (i == 0)
       {
@@ -1005,17 +1005,14 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 
   // now check all proofs at once
   PERF_TIMER_START_BP(VERIFY_step2_check);
-  sc_sub(tmp.bytes, rct::zero().bytes, y0.bytes);
-  sc_sub(tmp.bytes, tmp.bytes, z1.bytes);
+  sc_sub(tmp.bytes, m_y0.bytes, z1.bytes);
   multiexp_data.emplace_back(tmp, rct::G);
   sc_sub(tmp.bytes, z3.bytes, y1.bytes);
   multiexp_data.emplace_back(tmp, rct::H);
   for (size_t i = 0; i < maxMN; ++i)
   {
-    sc_sub(tmp.bytes, rct::zero().bytes, z4[i].bytes);
-    multiexp_data.emplace_back(tmp, Gi_p3[i]);
-    sc_sub(tmp.bytes, rct::zero().bytes, z5[i].bytes);
-    multiexp_data.emplace_back(tmp, Hi_p3[i]);
+    multiexp_data.emplace_back(m_z4[i], Gi_p3[i]);
+    multiexp_data.emplace_back(m_z5[i], Hi_p3[i]);
   }
   if (!(multiexp(multiexp_data, false) == rct::identity()))
   {
