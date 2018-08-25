@@ -266,8 +266,8 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     catch (const std::exception &e) { }
   }
 
-  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds));
-  wallet->init(unattended, std::move(daemon_address), std::move(login), 0, false, *trusted_daemon);
+  std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds, unattended));
+  wallet->init(std::move(daemon_address), std::move(login), 0, false, *trusted_daemon);
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
   return wallet;
@@ -711,7 +711,7 @@ wallet_keys_unlocker::~wallet_keys_unlocker()
   w.encrypt_keys(key);
 }
 
-wallet2::wallet2(network_type nettype, uint64_t kdf_rounds):
+wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_multisig_rescan_info(NULL),
   m_multisig_rescan_k(NULL),
   m_run(true),
@@ -761,7 +761,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds):
   m_ringdb(),
   m_last_block_reward(0),
   m_encrypt_keys_after_refresh(boost::none),
-  m_unattended(false)
+  m_unattended(unattended)
 {
 }
 
@@ -848,9 +848,8 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   return m_http_client.set_server(get_daemon_address(), get_daemon_login(), ssl);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::init(bool unattended, std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit, bool ssl, bool trusted_daemon)
+bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_size_limit, bool ssl, bool trusted_daemon)
 {
-  m_unattended = unattended;
   m_checkpoints.init_default_checkpoints(m_nettype);
   m_is_initialized = true;
   m_upper_transaction_size_limit = upper_transaction_size_limit;
