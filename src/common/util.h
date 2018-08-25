@@ -230,7 +230,7 @@ namespace tools
   bool sha256sum(const uint8_t *data, size_t len, crypto::hash &hash);
   bool sha256sum(const std::string &filename, crypto::hash &hash);
 
-  bool is_hdd(const char *path);
+  boost::optional<bool> is_hdd(const char *path);
 
   boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str);
 
