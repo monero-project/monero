@@ -189,7 +189,7 @@ namespace tools
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds);
 
-    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1);
+    wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false);
     ~wallet2();
 
     struct multisig_info
@@ -638,7 +638,7 @@ namespace tools
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
     bool deinit();
-    bool init(bool unatteded, std::string daemon_address = "http://localhost:8080",
+    bool init(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_weight_limit = 0, bool ssl = false, bool trusted_daemon = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
