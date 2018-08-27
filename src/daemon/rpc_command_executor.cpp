@@ -2666,4 +2666,64 @@ bool t_rpc_command_executor::prepare_registration()
 
   return true;
 }
+
+bool t_rpc_command_executor::pop_blocks(size_t num_blocks_to_pop)
+{
+  if (m_is_rpc)
+  {
+    std::cout << "Cannot pop_blocks over RPC as this will shut down your daemon." << std::endl;
+    return true;
+  }
+
+#ifdef HAVE_READLINE
+  rdln::suspend_readline pause_readline;
+#endif
+  // TODO(loki): Ideally without having to shutdown the daemon would be nice.  But there's state
+  // left over in terms of if you do this while syncing it will keep requesting the wrong height,
+  // and the detached hooks we need to deal with.
+  std::string confirmation;
+  confirmation.reserve(8);
+  std::cout << "This is an advanced command for modifying your blockchain.\n"
+               "This command will only work in offline mode.\n"
+               "Executing this command will shut down your daemon. Please restart it afterwards.\n"
+               "Are you sure you wish to continue? (Y/Yes/N/No): ";
+  std::cin >> confirmation;
+
+  if(!command_line::is_yes(confirmation))
+  {
+    std::cout << "Aborted." << std::endl;
+    return true;
+  }
+
+  // Get Height
+  cryptonote::COMMAND_RPC_GET_HEIGHT::request height_req;
+  cryptonote::COMMAND_RPC_GET_HEIGHT::response height_res;
+  std::string fail_message = "Unsuccessful";
+
+  if (!m_rpc_server->on_get_height(height_req, height_res) || height_res.status != CORE_RPC_STATUS_OK)
+  {
+    tools::fail_msg_writer() << make_error(fail_message, height_res.status);
+    return true;
+  }
+
+  if (num_blocks_to_pop >= height_res.height)
+  {
+    tools::fail_msg_writer() << "Requested to pop too many blocks. Requested: " << num_blocks_to_pop << ", current height: " << height_res.height;
+    return true;
+  }
+
+  // Pop Block
+  cryptonote::COMMAND_RPC_POP_BLOCKS::request req = {};
+  cryptonote::COMMAND_RPC_POP_BLOCKS::response res = {};
+  req.num_blocks_to_pop = num_blocks_to_pop;
+  if (!m_rpc_server->on_pop_blocks(req, res) || res.status != CORE_RPC_STATUS_OK)
+  {
+    tools::fail_msg_writer() << make_error(fail_message, res.status);
+    return true;
+  }
+
+  tools::success_msg_writer() << "Popped: " << num_blocks_to_pop << " blocks";
+  return true;
+}
+
 }// namespace daemonize
