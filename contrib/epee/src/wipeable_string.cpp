@@ -32,6 +32,8 @@
 #include "misc_log_ex.h"
 #include "wipeable_string.h"
 
+static constexpr const char hex[] = u8"0123456789abcdef";
+
 namespace
 {
   int atolower(int c)
@@ -197,7 +199,6 @@ boost::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
   const size_t len = size();
   const char *d = data();
   res->grow(0, len / 2);
-  static constexpr const char hex[] = u8"0123456789abcdef";
   for (size_t i = 0; i < len; i += 2)
   {
     char c = atolower(d[i]);

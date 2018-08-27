@@ -28,10 +28,11 @@
 
 #pragma once
 
-#include <boost/optional/optional_fwd.hpp>
+#include <boost/optional/optional.hpp>
 #include <stddef.h>
 #include <vector>
 #include <string>
+#include "memwipe.h"
 #include "fnv1.h"
 
 namespace epee
@@ -65,6 +66,8 @@ namespace epee
     void trim();
     void split(std::vector<wipeable_string> &fields) const;
     boost::optional<wipeable_string> parse_hexstr() const;
+    template<typename T> inline bool hex_to_pod(T &pod) const;
+    template<typename T> inline bool hex_to_pod(tools::scrubbed<T> &pod) const { return hex_to_pod(unwrap(pod)); }
     void resize(size_t sz);
     void reserve(size_t sz);
     void clear();
@@ -79,6 +82,20 @@ namespace epee
   private:
     std::vector<char> buffer;
   };
+
+  template<typename T> inline bool wipeable_string::hex_to_pod(T &pod) const
+  {
+    static_assert(std::is_pod<T>::value, "expected pod type");
+    if (size() != sizeof(T) * 2)
+      return false;
+    boost::optional<epee::wipeable_string> blob = parse_hexstr();
+    if (!blob)
+      return false;
+    if (blob->size() != sizeof(T))
+      return false;
+    pod = *(const T*)blob->data();
+    return true;
+  }
 }
 
 namespace std
