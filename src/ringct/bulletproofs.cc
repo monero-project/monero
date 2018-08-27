@@ -48,7 +48,7 @@ extern "C"
 
 #define PERF_TIMER_START_BP(x) PERF_TIMER_START_UNIT(x, 1000000)
 
-#define STRAUS_SIZE_LIMIT 128
+#define STRAUS_SIZE_LIMIT 232
 #define PIPPENGER_SIZE_LIMIT 0
 
 namespace rct
@@ -77,11 +77,11 @@ static inline rct::key multiexp(const std::vector<MultiexpData> &data, size_t Hi
 {
   if (HiGi_size > 0)
   {
-    static_assert(128 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
-    return HiGi_size <= 128 && data.size() == HiGi_size ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, HiGi_size, get_pippenger_c(data.size()));
+    static_assert(232 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
+    return HiGi_size <= 232 && data.size() == HiGi_size ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, HiGi_size, get_pippenger_c(data.size()));
   }
   else
-    return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, 0, get_pippenger_c(data.size()));
+    return data.size() <= 95 ? straus(data, NULL, 0) : pippenger(data, NULL, 0, get_pippenger_c(data.size()));
 }
 
 static inline bool is_reduced(const rct::key &scalar)

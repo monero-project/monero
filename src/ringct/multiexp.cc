@@ -79,6 +79,25 @@ extern "C"
 // Best/cached		Straus	Straus	Straus	Straus	Straus	Straus	Straus	Straus	Pip	Pip	Pip	Pip
 // Best/uncached	Straus	Straus	Straus	Straus	Straus	Straus	Pip	Pip	Pip	Pip	Pip	Pip
 
+// New timings:
+//   Pippenger:
+//     2/1 always
+//     3/2 at ~13
+//     4/3 at ~29
+//     5/4 at ~83
+//     6/5 < 200
+//     7/6 at ~470
+//     8/7 at ~1180
+//     9/8 at ~2290
+//   Cached Pippenger:
+//     6/5 < 200
+//     7/6 at 460
+//     8/7 at 1180
+//     9/8 at 2300
+//
+//     Cached Straus/Pippenger cross at 232
+//
+
 namespace rct
 {
 
@@ -543,16 +562,13 @@ skipfirst:
 
 size_t get_pippenger_c(size_t N)
 {
-// uncached: 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
-//   cached: 2:1, 4:2, 8:2, 16:3, 32:4, 64:4, 128:5, 256:6, 512:7, 1024:7, 2048:8, 4096:9
-  if (N <= 2) return 1;
-  if (N <= 8) return 2;
-  if (N <= 16) return 3;
-  if (N <= 64) return 4;
-  if (N <= 128) return 5;
-  if (N <= 256) return 6;
-  if (N <= 1024) return 7;
-  if (N <= 2048) return 8;
+  if (N <= 13) return 2;
+  if (N <= 29) return 3;
+  if (N <= 83) return 4;
+  if (N <= 185) return 5;
+  if (N <= 465) return 6;
+  if (N <= 1180) return 7;
+  if (N <= 2295) return 8;
   return 9;
 }
 
