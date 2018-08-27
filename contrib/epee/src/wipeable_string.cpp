@@ -164,6 +164,19 @@ void wipeable_string::operator+=(const std::string &s)
   append(s.c_str(), s.size());
 }
 
+wipeable_string wipeable_string::substr(size_t pos, size_t len)
+{
+  if (pos > size())
+    throw std::out_of_range("pos > size");
+  if (pos == size())
+    return wipeable_string();
+  if (len == npos)
+    return wipeable_string(data() + pos, size() - pos);
+  if (len > size() - pos)
+    return wipeable_string(data() + pos, size() - pos);
+  return wipeable_string(data() + pos, len - pos);
+}
+
 void wipeable_string::trim()
 {
   size_t prefix = 0;

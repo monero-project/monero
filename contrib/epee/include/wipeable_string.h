@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <vector>
 #include <string>
+#include <limits>
 #include "memwipe.h"
 #include "fnv1.h"
 
@@ -63,6 +64,7 @@ namespace epee
     size_t size() const noexcept { return buffer.size(); }
     size_t length() const noexcept { return buffer.size(); }
     bool empty() const noexcept { return buffer.empty(); }
+    wipeable_string substr(size_t pos = 0, size_t len = npos);
     void trim();
     void split(std::vector<wipeable_string> &fields) const;
     boost::optional<wipeable_string> parse_hexstr() const;
@@ -75,6 +77,8 @@ namespace epee
     bool operator!=(const wipeable_string &other) const noexcept { return buffer != other.buffer; }
     wipeable_string &operator=(wipeable_string &&other);
     wipeable_string &operator=(const wipeable_string &other);
+
+    static const size_t npos = std::numeric_limits<size_t>::max();
 
   private:
     void grow(size_t sz, size_t reserved = 0);
