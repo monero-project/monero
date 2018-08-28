@@ -539,9 +539,9 @@ namespace service_nodes
       index++;
     }
 
-    const size_t QUORUM_LIFETIME         = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+    const size_t QUORUM_LIFETIME         = (6 * loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
     // save six times the quorum lifetime, to be sure. also to help with debugging.
-    const size_t cache_state_from_height = (block_height < 6 * QUORUM_LIFETIME) ? 0 : block_height - 6 * QUORUM_LIFETIME;
+    const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
     store_quorum_state_from_rewards_list(block_height);
 
