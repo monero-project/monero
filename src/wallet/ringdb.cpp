@@ -55,6 +55,13 @@ static int compare_hash32(const MDB_val *a, const MDB_val *b)
   return 0;
 }
 
+static int compare_uint64(const MDB_val *a, const MDB_val *b)
+{
+  const uint64_t va = *(const uint64_t*) a->mv_data;
+  const uint64_t vb = *(const uint64_t*) b->mv_data;
+  return va < vb ? -1 : va > vb;
+}
+
 static std::string compress_ring(const std::vector<uint64_t> &ring)
 {
   std::string s;
@@ -217,9 +224,9 @@ ringdb::ringdb(std::string filename, const std::string &genesis):
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
   mdb_set_compare(txn, dbi_rings, compare_hash32);
 
-  dbr = mdb_dbi_open(txn, ("blackballs-" + genesis).c_str(), MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_blackballs);
+  dbr = mdb_dbi_open(txn, ("blackballs2-" + genesis).c_str(), MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_blackballs);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
-  mdb_set_dupsort(txn, dbi_blackballs, compare_hash32);
+  mdb_set_dupsort(txn, dbi_blackballs, compare_uint64);
 
   dbr = mdb_txn_commit(txn);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
@@ -374,7 +381,7 @@ bool ringdb::set_ring(const crypto::chacha_key &chacha_key, const crypto::key_im
   return true;
 }
 
-bool ringdb::blackball_worker(const std::vector<crypto::public_key> &outputs, int op)
+bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, int op)
 {
   MDB_txn *txn;
   MDB_cursor *cursor;
@@ -391,24 +398,25 @@ bool ringdb::blackball_worker(const std::vector<crypto::public_key> &outputs, in
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
-  MDB_val key = zerokeyval;
-  MDB_val data;
 
-  for (const crypto::public_key &output: outputs)
+  MDB_val key, data;
+  for (const std::pair<uint64_t, uint64_t> &output: outputs)
   {
-    data.mv_data = (void*)&output;
-    data.mv_size = sizeof(output);
+    key.mv_data = (void*)&output.first;
+    key.mv_size = sizeof(output.first);
+    data.mv_data = (void*)&output.second;
+    data.mv_size = sizeof(output.second);
 
     switch (op)
     {
       case BLACKBALL_BLACKBALL:
-        MDEBUG("Blackballing output " << output);
-        dbr = mdb_put(txn, dbi_blackballs, &key, &data, MDB_NODUPDATA);
+        MDEBUG("Blackballing output " << output.first << "/" << output.second);
+        dbr = mdb_put(txn, dbi_blackballs, &key, &data, MDB_APPENDDUP);
         if (dbr == MDB_KEYEXIST)
           dbr = 0;
         break;
       case BLACKBALL_UNBLACKBALL:
-        MDEBUG("Unblackballing output " << output);
+        MDEBUG("Unblackballing output " << output.first << "/" << output.second);
         dbr = mdb_del(txn, dbi_blackballs, &key, &data);
         if (dbr == MDB_NOTFOUND)
           dbr = 0;
@@ -443,32 +451,32 @@ bool ringdb::blackball_worker(const std::vector<crypto::public_key> &outputs, in
   return ret;
 }
 
-bool ringdb::blackball(const std::vector<crypto::public_key> &outputs)
+bool ringdb::blackball(const std::vector<std::pair<uint64_t, uint64_t>> &outputs)
 {
   return blackball_worker(outputs, BLACKBALL_BLACKBALL);
 }
 
-bool ringdb::blackball(const crypto::public_key &output)
+bool ringdb::blackball(const std::pair<uint64_t, uint64_t> &output)
 {
-  std::vector<crypto::public_key> outputs(1, output);
+  std::vector<std::pair<uint64_t, uint64_t>> outputs(1, output);
   return blackball_worker(outputs, BLACKBALL_BLACKBALL);
 }
 
-bool ringdb::unblackball(const crypto::public_key &output)
+bool ringdb::unblackball(const std::pair<uint64_t, uint64_t> &output)
 {
-  std::vector<crypto::public_key> outputs(1, output);
+  std::vector<std::pair<uint64_t, uint64_t>> outputs(1, output);
   return blackball_worker(outputs, BLACKBALL_UNBLACKBALL);
 }
 
-bool ringdb::blackballed(const crypto::public_key &output)
+bool ringdb::blackballed(const std::pair<uint64_t, uint64_t> &output)
 {
-  std::vector<crypto::public_key> outputs(1, output);
+  std::vector<std::pair<uint64_t, uint64_t>> outputs(1, output);
   return blackball_worker(outputs, BLACKBALL_QUERY);
 }
 
 bool ringdb::clear_blackballs()
 {
-  return blackball_worker(std::vector<crypto::public_key>(), BLACKBALL_CLEAR);
+  return blackball_worker(std::vector<std::pair<uint64_t, uint64_t>>(), BLACKBALL_CLEAR);
 }
 
 }
