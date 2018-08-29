@@ -497,9 +497,14 @@ namespace service_nodes
     if (hard_fork_version < 9)
       return;
 
-    while (!m_rollback_events.empty() && m_rollback_events.front()->m_block_height < block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS)
     {
-      m_rollback_events.pop_front();
+      const size_t ROLLBACK_EVENT_EXPIRATION_BLOCKS = 30;
+      uint64_t cull_height = (block_height < ROLLBACK_EVENT_EXPIRATION_BLOCKS) ? block_height : block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS;
+
+      while (!m_rollback_events.empty() && m_rollback_events.front()->m_block_height < cull_height)
+      {
+        m_rollback_events.pop_front();
+      }
     }
 
     for (const crypto::public_key& pubkey : get_expired_nodes(block_height))

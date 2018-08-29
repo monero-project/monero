@@ -32,8 +32,6 @@
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
 
-#define ROLLBACK_EVENT_EXPIRATION_BLOCKS 30
-
 namespace service_nodes
 {
   const size_t QUORUM_SIZE                    = 10;
