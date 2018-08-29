@@ -217,6 +217,12 @@ private:
 inline cryptonote::difficulty_type get_test_difficulty() {return 1;}
 void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);
 
+bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
+                                          const cryptonote::account_public_address& miner_address,
+                                          size_t height,
+                                          uint64_t already_generated_coins,
+                                          const cryptonote::account_public_address& extra_address);
+
 bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
                                  const cryptonote::account_public_address& miner_address, cryptonote::transaction& tx,
                                  uint64_t fee, cryptonote::keypair* p_txkey = 0);
@@ -641,13 +647,11 @@ inline bool do_replay_file(const std::string& filename)
     std::list<cryptonote::transaction> SET_NAME; \
     MAKE_TX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, HEAD);
 
-#define MAKE_MINER_TX_AND_KEY_MANUALLY(TX, BLK, KEY)                                                      \
-  transaction TX;                                                                                         \
-  if (!construct_miner_tx_manually(get_block_height(BLK) + 1, generator.get_already_generated_coins(BLK), \
-    miner_account.get_keys().m_account_address, TX, 0, KEY))                                              \
+#define MAKE_MINER_TX_MANUALLY(TX, BLK)         \
+  transaction TX;                     \
+  if (!construct_miner_tx(get_block_height(BLK)+1, 0, generator.get_already_generated_coins(BLK), \
+    0, 0, miner_account.get_keys().m_account_address, TX, {}, 7)) \
     return false;
-
-#define MAKE_MINER_TX_MANUALLY(TX, BLK) MAKE_MINER_TX_AND_KEY_MANUALLY(TX, BLK, 0)
 
 #define SET_EVENT_VISITOR_SETT(VEC_EVENTS, SETT, VAL) VEC_EVENTS.push_back(event_visitor_settings(SETT, VAL));
 

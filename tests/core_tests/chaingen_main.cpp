@@ -117,7 +117,6 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
     GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
     GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
-    GENERATE_AND_PLAY(gen_block_miner_tx_out_is_small);
     GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
     GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
     GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);

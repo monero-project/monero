@@ -598,6 +598,86 @@ void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t 
     blk.timestamp++;
 }
 
+static crypto::public_key get_output_key(const keypair& txkey,
+                                         const cryptonote::account_public_address& addr,
+                                         size_t output_index)
+{
+    crypto::key_derivation derivation;
+    crypto::generate_key_derivation(addr.m_view_public_key, txkey.sec, derivation);
+    crypto::public_key out_eph_public_key;
+    crypto::derive_public_key(derivation, 1, addr.m_spend_public_key, out_eph_public_key);
+    return out_eph_public_key;
+}
+
+bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
+                                          const cryptonote::account_public_address& miner_address,
+                                          size_t height,
+                                          uint64_t already_generated_coins,
+                                          const cryptonote::account_public_address& extra_address)
+{
+
+
+    keypair txkey = keypair::generate(hw::get_device("default"));
+    add_tx_pub_key_to_extra(tx, txkey.pub);
+
+    keypair gov_key = get_deterministic_keypair_from_height(height);
+    if (already_generated_coins != 0) {
+        add_tx_pub_key_to_extra(tx, gov_key.pub);
+    }
+
+    txin_gen in;
+    in.height = height;
+    tx.vin.push_back(in);
+
+    // This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
+    uint64_t block_reward;
+    if (!get_block_reward(0, 0, already_generated_coins, block_reward, 1, 0)) {
+        LOG_PRINT_L0("Block is too big");
+        return false;
+    }
+
+    const int hard_fork_version = 7;
+
+    uint64_t governance_reward = 0;
+    if (already_generated_coins != 0) {
+        governance_reward = get_governance_reward(height, block_reward);
+        block_reward -= governance_reward;
+    }
+
+    tx.version = 1;
+    tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
+
+    /// half of the miner reward goes to the other account 
+    const auto miner_reward = block_reward / 2;
+
+    /// miner reward
+    tx.vout.push_back({miner_reward, get_output_key(txkey, miner_address, 0)});
+
+    /// extra reward
+    tx.vout.push_back({miner_reward, get_output_key(txkey, extra_address, 1)});
+
+    /// governance reward
+    if (already_generated_coins != 0) {
+
+        cryptonote::address_parse_info governance_wallet_address;
+        cryptonote::get_account_address_from_str(
+          governance_wallet_address, cryptonote::MAINNET, ::config::GOVERNANCE_WALLET_ADDRESS);
+
+        crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
+
+        if (!get_deterministic_output_key(
+              governance_wallet_address.address, gov_key, tx.vout.size(), out_eph_public_key)) {
+            MERROR("Failed to generate deterministic output key for governance wallet output creation");
+            return false;
+        }
+
+        tx.vout.push_back({governance_reward, out_eph_public_key});
+        tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+    }
+
+    return true;
+}
+
 bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
                                  const account_public_address& miner_address, transaction& tx, uint64_t fee,
                                  keypair* p_txkey/* = 0*/)

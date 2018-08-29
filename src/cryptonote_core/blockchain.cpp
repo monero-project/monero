@@ -1109,6 +1109,11 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     money_in_use += o.amount;
   partial_block_reward = false;
 
+  if (b.miner_tx.vout.size() == 0) {
+    MERROR_VER("miner tx has no outputs");
+    return false;
+  }
+
   if (version == 3) {
     for (auto &o: b.miner_tx.vout) {
       if (!is_valid_decomposed_amount(o.amount)) {
