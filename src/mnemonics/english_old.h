@@ -51,7 +51,10 @@ namespace Language
   class EnglishOld: public Base
   {
   public:
-    EnglishOld(): Base("EnglishOld", "English (old)", std::vector<std::string>({
+    EnglishOld(): Base("EnglishOld", "English (old)", {}, 4)
+    {
+      static constexpr const char * const words[NWORDS] =
+      {
         "like",
         "just",
         "love",
@@ -1678,8 +1681,8 @@ namespace Language
         "unseen",
         "weapon",
         "weary"
-      }), 4)
-    {
+      };
+      set_words(words);
       populate_maps(ALLOW_DUPLICATE_PREFIXES | ALLOW_SHORT_WORDS);
     }
   };

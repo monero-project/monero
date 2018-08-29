@@ -83,7 +83,10 @@ namespace Language
       ALLOW_SHORT_WORDS = 1<<0,
       ALLOW_DUPLICATE_PREFIXES = 1<<1,
     };
-    const std::vector<std::string> word_list; /*!< A pointer to the array of words */
+    enum {
+      NWORDS = 1626
+    };
+    std::vector<std::string> word_list; /*!< A pointer to the array of words */
     std::unordered_map<epee::wipeable_string, uint32_t> word_map; /*!< hash table to find word's index */
     std::unordered_map<epee::wipeable_string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
@@ -96,7 +99,7 @@ namespace Language
     {
       int ii;
       std::vector<std::string>::const_iterator it;
-      if (word_list.size () != 1626)
+      if (word_list.size () != NWORDS)
         throw std::runtime_error("Wrong word list length for " + language_name);
       for (it = word_list.begin(), ii = 0; it != word_list.end(); it++, ii++)
       {
@@ -137,6 +140,12 @@ namespace Language
     }
     virtual ~Base()
     {
+    }
+    void set_words(const char * const words[])
+    {
+      word_list.resize(NWORDS);
+      for (size_t i = 0; i < NWORDS; ++i)
+        word_list[i] = words[i];
     }
     /*!
      * \brief Returns a pointer to the word list.
