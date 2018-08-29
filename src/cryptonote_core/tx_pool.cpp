@@ -1094,11 +1094,41 @@ namespace cryptonote
         }
       }
     }
+
     //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
     if(m_blockchain.have_tx_keyimges_as_spent(tx))
     {
       txd.double_spend_seen = true;
       return false;
+    }
+
+    // Check that the deregister hasn't become too old to be included in the block, if so reject.
+    if (tx.is_deregister_tx())
+    {
+      uint64_t curr_height    = m_blockchain.get_current_blockchain_height();
+      bool failed_ready_check = true;
+
+      tx_extra_service_node_deregister deregister;
+      if (get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      {
+        uint64_t delta_height = curr_height - deregister.block_height;
+        if (delta_height <= loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+        {
+          failed_ready_check = false;
+        }
+      }
+
+      if (failed_ready_check)
+      {
+        // NOTE: This deregistration is too old to be considered, but we can't delete it incase we
+        // pop blocks and they suddenly become valid again. Let them fail to get included in blocks
+        // until they expire.
+        txd.last_failed_height    = curr_height - 1;
+        txd.last_failed_id        = m_blockchain.get_block_id_by_height(txd.last_failed_height);
+        txd.max_used_block_height = txd.last_failed_height;
+        txd.max_used_block_id     = txd.last_failed_id;
+        return false;
+      }
     }
 
     //transaction is ok.
