@@ -66,17 +66,17 @@ static MDB_env *env = NULL;
 struct output_data
 {
   uint64_t amount;
-  uint64_t index;
-  output_data(): amount(0), index(0) {}
-  output_data(uint64_t a, uint64_t i): amount(a), index(i) {}
-  bool operator==(const output_data &other) const { return other.amount == amount && other.index == index; }
+  uint64_t offset;
+  output_data(): amount(0), offset(0) {}
+  output_data(uint64_t a, uint64_t i): amount(a), offset(i) {}
+  bool operator==(const output_data &other) const { return other.amount == amount && other.offset == offset; }
 };
 
 //
 // relative_rings: key_image -> vector<uint64_t>
 // outputs: 128 bits -> set of key images
 // processed_txidx: string -> uint64_t
-// spent: 128 bits, zerokval
+// spent: amount -> offset
 // ring_instances: vector<uint64_t> -> uint64_t
 // stats: string -> arbitrary
 //
@@ -263,7 +263,7 @@ static void init(std::string cache_filename)
 
   dbr = mdb_dbi_open(txn, "spent", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_spent);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
-  mdb_set_dupsort(txn, dbi_spent, compare_double64);
+  mdb_set_dupsort(txn, dbi_spent, compare_uint64);
 
   dbr = mdb_dbi_open(txn, "ring_instances", MDB_CREATE, &dbi_ring_instances);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
@@ -511,13 +511,19 @@ static uint64_t get_num_spent_outputs()
   dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
-  mdb_size_t count = 0;
-  dbr = mdb_cursor_get(cur, &k, &v, MDB_FIRST);
-  if (dbr != MDB_NOTFOUND)
+  mdb_size_t count = 0, tmp;
+
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
   {
-    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to get first spent output: " + std::string(mdb_strerror(dbr)));
-    dbr = mdb_cursor_count(cur, &count);
+    dbr = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT_NODUP;
+    if (dbr == MDB_NOTFOUND)
+      break;
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to get first/next spent output: " + std::string(mdb_strerror(dbr)));
+    dbr = mdb_cursor_count(cur, &tmp);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to count entries: " + std::string(mdb_strerror(dbr)));
+    count += tmp;
   }
 
   mdb_cursor_close(cur);
@@ -530,15 +536,17 @@ static uint64_t get_num_spent_outputs()
 
 static void add_spent_output(MDB_cursor *cur, const output_data &od)
 {
-  MDB_val v = {sizeof(od), (void*)&od};
-  int dbr = mdb_cursor_put(cur, (MDB_val *)&zerokval, &v, MDB_NODUPDATA);
+  MDB_val k = {sizeof(od.amount), (void*)&od.amount};
+  MDB_val v = {sizeof(od.offset), (void*)&od.offset};
+  int dbr = mdb_cursor_put(cur, &k, &v, 0);
   CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_KEYEXIST, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
 }
 
 static bool is_output_spent(MDB_cursor *cur, const output_data &od)
 {
-  MDB_val v = {sizeof(od), (void*)&od};
-  int dbr = mdb_cursor_get(cur, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+  MDB_val k = {sizeof(od.amount), (void*)&od.amount};
+  MDB_val v = {sizeof(od.offset), (void*)&od.offset};
+  int dbr = mdb_cursor_get(cur, &k, &v, MDB_GET_BOTH);
   CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_NOTFOUND, "Failed to get spent output: " + std::string(mdb_strerror(dbr)));
   bool spent = dbr == 0;
   return spent;
@@ -562,8 +570,7 @@ static std::vector<output_data> get_spent_outputs(MDB_txn *txn)
   outs.reserve(count);
   while (1)
   {
-    const output_data *od = (const output_data*)v.mv_data;
-    outs.push_back(*od);
+    outs.push_back({*(const uint64_t*)k.mv_data, *(const uint64_t*)v.mv_data});
     dbr = mdb_cursor_get(cur, &k, &v, MDB_NEXT);
     if (dbr == MDB_NOTFOUND)
       break;
@@ -815,14 +822,6 @@ static void close_db(MDB_env *env, MDB_txn *txn, MDB_cursor *cur, MDB_dbi dbi)
   mdb_env_close(env);
 }
 
-static crypto::public_key get_output_key(MDB_cursor *cur, uint64_t amount, uint64_t offset)
-{
-  MDB_val k = { sizeof(amount), (void*)&amount }, v = { sizeof(offset), (void*)&offset };
-  int dbr = mdb_cursor_get(cur, &k, &v, MDB_GET_BOTH);
-  if (dbr) throw std::runtime_error("Output key not found: " + std::string(mdb_strerror(dbr)));
-  return *(const crypto::public_key*)(((const char*)v.mv_data) + sizeof(uint64_t) * 2);
-}
-
 static void get_num_outputs(MDB_txn *txn, MDB_cursor *cur, MDB_dbi dbi, uint64_t &pre_rct, uint64_t &rct)
 {
   uint64_t amount = 0;
@@ -884,6 +883,113 @@ static crypto::hash get_genesis_block_hash(const std::string &filename)
   return genesis_block_hash;
 }
 
+static std::vector<std::pair<uint64_t, uint64_t>> load_outputs(const std::string &filename)
+{
+  std::vector<std::pair<uint64_t, uint64_t>> outputs;
+  uint64_t amount = std::numeric_limits<uint64_t>::max();
+  FILE *f;
+
+  f = fopen(filename.c_str(), "r");
+  if (!f)
+  {
+    MERROR("Failed to load outputs from " << filename << ": " << strerror(errno));
+    return {};
+  }
+  while (1)
+  {
+    char s[256];
+    fgets(s, sizeof(s), f);
+    if (feof(f))
+      break;
+    const size_t len = strlen(s);
+    if (len > 0 && s[len - 1] == '\n')
+      s[len - 1] = 0;
+    if (!s[0])
+      continue;
+    std::pair<uint64_t, uint64_t> output;
+    uint64_t offset, num_offsets;
+    if (sscanf(s, "@%" PRIu64, &amount) == 1)
+    {
+      continue;
+    }
+    if (amount == std::numeric_limits<uint64_t>::max())
+    {
+      MERROR("Bad format in " << filename);
+      continue;
+    }
+    if (sscanf(s, "%" PRIu64 "*%" PRIu64, &offset, &num_offsets) == 2 && num_offsets < std::numeric_limits<uint64_t>::max() - offset)
+    {
+      while (num_offsets-- > 0)
+        outputs.push_back(std::make_pair(amount, offset++));
+    }
+    else if (sscanf(s, "%" PRIu64, &offset) == 1)
+    {
+      outputs.push_back(std::make_pair(amount, offset));
+    }
+    else
+    {
+      MERROR("Bad format in " << filename);
+      continue;
+    }
+  }
+  fclose(f);
+  return outputs;
+}
+
+static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
+{
+  FILE *f = fopen(filename.c_str(), "w");
+  if (!f)
+  {
+    MERROR("Failed to open " << filename << ": " << strerror(errno));
+    return false;
+  }
+
+  uint64_t pending_amount = std::numeric_limits<uint64_t>::max();
+  std::vector<uint64_t> pending_offsets;
+  MDB_val k, v;
+  MDB_cursor_op op = MDB_FIRST;
+  while (1)
+  {
+    int dbr = mdb_cursor_get(cur, &k, &v, op);
+    if (dbr == MDB_NOTFOUND)
+      break;
+    op = MDB_NEXT;
+    if (dbr)
+    {
+      fclose(f);
+      MERROR("Failed to enumerate spent outputs: " << mdb_strerror(dbr));
+      return false;
+    }
+    const uint64_t amount = *(const uint64_t*)k.mv_data;
+    const uint64_t offset = *(const uint64_t*)v.mv_data;
+    if (!pending_offsets.empty() && (amount != pending_amount || pending_offsets.back()+1 != offset))
+    {
+      if (pending_offsets.size() == 1)
+        fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
+      else
+        fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+      pending_offsets.clear();
+    }
+    if (pending_amount != amount)
+    {
+      fprintf(f, "@%" PRIu64 "\n", amount);
+      pending_amount = amount;
+    }
+    pending_offsets.push_back(offset);
+  }
+  if (!pending_offsets.empty())
+  {
+    if (pending_offsets.size() == 1)
+      fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
+    else
+      fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+    pending_offsets.clear();
+  }
+  fclose(f);
+  return true;
+}
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -920,6 +1026,8 @@ int main(int argc, char* argv[])
   , "Specify sync option, using format [safe|fast|fastest]:[nrecords_per_sync]." 
   , "fast:1000"
   };
+  const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
+  const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
@@ -928,6 +1036,8 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_check_subsets);
   command_line::add_arg(desc_cmd_sett, arg_verbose);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
+  command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
+  command_line::add_arg(desc_cmd_sett, arg_export);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -967,6 +1077,9 @@ int main(int argc, char* argv[])
   bool opt_rct_only = command_line::get_arg(vm, arg_rct_only);
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
   bool opt_verbose = command_line::get_arg(vm, arg_verbose);
+  std::string opt_export = command_line::get_arg(vm, arg_export);
+  std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
+  std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
 
   std::string db_type = command_line::get_arg(vm, arg_database);
   if (!cryptonote::blockchain_valid_db_type(db_type))
@@ -1015,6 +1128,36 @@ int main(int argc, char* argv[])
   MDB_cursor *cur0;
   open_db(inputs[0], &env0, &txn0, &cur0, &dbi0);
 
+  if (!extra_spent_outputs.empty())
+  {
+    MINFO("Adding " << extra_spent_outputs.size() << " extra spent outputs");
+    MDB_txn *txn;
+    int dbr = mdb_txn_begin(env, NULL, 0, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+    std::vector<std::pair<uint64_t, uint64_t>> blackballs;
+    for (const std::pair<uint64_t, uint64_t> &output: extra_spent_outputs)
+    {
+      if (!is_output_spent(cur, output_data(output.first, output.second)))
+      {
+        blackballs.push_back(output);
+        add_spent_output(cur, output_data(output.first, output.second));
+        inc_stat(txn, output.first ? "pre-rct-extra" : "rct-ring-extra");
+      }
+    }
+    if (!blackballs.empty())
+    {
+      ringdb.blackball(blackballs);
+      blackballs.clear();
+    }
+    mdb_cursor_close(cur);
+    dbr = mdb_txn_commit(txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
+  }
+
   for (size_t n = 0; n < inputs.size(); ++n)
   {
     const std::string canonical = boost::filesystem::canonical(inputs[n]).string();
@@ -1033,7 +1176,7 @@ int main(int argc, char* argv[])
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
     size_t records = 0;
     const std::string filename = inputs[n];
-    std::vector<crypto::public_key> blackballs;
+    std::vector<std::pair<uint64_t, uint64_t>> blackballs;
     uint64_t n_txes;
     for_all_transactions(filename, start_idx, n_txes, [&](const cryptonote::transaction_prefix &tx)->bool
     {
@@ -1057,13 +1200,13 @@ int main(int argc, char* argv[])
         const uint64_t instances = inc_ring_instances(txn, txin.amount, new_ring);
         if (n == 0 && ring_size == 1)
         {
-          const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[0]);
+          const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[0]);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
+            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a 1-ring");
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           }
-          blackballs.push_back(pkey);
+          blackballs.push_back(output);
           add_spent_output(cur, output_data(txin.amount, absolute[0]));
           inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
@@ -1071,13 +1214,13 @@ int main(int argc, char* argv[])
         {
           for (size_t o = 0; o < new_ring.size(); ++o)
           {
-            const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[o]);
+            const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
+              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
-            blackballs.push_back(pkey);
+            blackballs.push_back(output);
             add_spent_output(cur, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
@@ -1086,13 +1229,13 @@ int main(int argc, char* argv[])
         {
           for (size_t o = 0; o < new_ring.size(); ++o)
           {
-            const crypto::public_key pkey = get_output_key(cur0, txin.amount, absolute[o]);
+            const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
+              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
-            blackballs.push_back(pkey);
+            blackballs.push_back(output);
             add_spent_output(cur, output_data(txin.amount, absolute[o]));
             inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
           }
@@ -1122,13 +1265,13 @@ int main(int argc, char* argv[])
             }
             else if (common.size() == 1)
             {
-              const crypto::public_key pkey = get_output_key(cur0, txin.amount, common[0]);
+              const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, common[0]);
               if (opt_verbose)
               {
-                MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
+                MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in rings with a single common element");
                 std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               }
-              blackballs.push_back(pkey);
+              blackballs.push_back(output);
               add_spent_output(cur, output_data(txin.amount, common[0]));
               inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
@@ -1211,7 +1354,7 @@ int main(int argc, char* argv[])
     dbr = mdb_cursor_open(txn, dbi_spent, &cur);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
 
-    std::vector<crypto::public_key> blackballs;
+    std::vector<std::pair<uint64_t, uint64_t>> blackballs;
     std::vector<output_data> scan_spent = std::move(work_spent);
     work_spent.clear();
     for (const output_data &od: scan_spent)
@@ -1234,13 +1377,13 @@ int main(int argc, char* argv[])
         }
         if (known == absolute.size() - 1)
         {
-          const crypto::public_key pkey = get_output_key(cur0, od.amount, last_unknown);
+          const std::pair<uint64_t, uint64_t> output = std::make_pair(od.amount, last_unknown);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << pkey << ", due to being used in a " <<
+            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a " <<
                 absolute.size() << "-ring where all other outputs are known to be spent");
           }
-          blackballs.push_back(pkey);
+          blackballs.push_back(output);
           add_spent_output(cur, output_data(od.amount, last_unknown));
           work_spent.push_back(output_data(od.amount, last_unknown));
           inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
@@ -1279,6 +1422,7 @@ skip_secondary_passes:
     { "pre-rct-duplicate-rings", pre_rct }, { "rct-duplicate-rings", rct },
     { "pre-rct-subset-rings", pre_rct }, { "rct-subset-rings", rct },
     { "pre-rct-key-image-attack", pre_rct }, { "rct-key-image-attack", rct },
+    { "pre-rct-extra", pre_rct }, { "rct-ring-extra", rct },
     { "pre-rct-chain-reaction", pre_rct }, { "rct-chain-reaction", rct },
   };
   for (const auto &key: stat_keys)
@@ -1290,6 +1434,19 @@ skip_secondary_passes:
     MINFO(key.key << ": " << data << " (" << percent << "%)");
   }
   mdb_txn_abort(txn);
+
+  if (!opt_export.empty())
+  {
+    MDB_txn *txn;
+    int dbr = mdb_txn_begin(env, NULL, 0, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    MDB_cursor *cur;
+    dbr = mdb_cursor_open(txn, dbi_spent, &cur);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+    export_spent_outputs(cur, opt_export);
+    mdb_cursor_close(cur);
+    mdb_txn_abort(txn);
+  }
 
   LOG_PRINT_L0("Blockchain blackball data exported OK");
   close_db(env0, txn0, cur0, dbi0);

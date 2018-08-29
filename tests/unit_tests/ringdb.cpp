@@ -59,17 +59,17 @@ static crypto::key_image generate_key_image()
   return key_image;
 }
 
-static crypto::public_key generate_output()
+static std::pair<uint64_t, uint64_t> generate_output()
 {
-  return rct::rct2pk(rct::scalarmultBase(rct::skGen()));
+  return std::make_pair(rand(), rand());
 }
 
 
 static const crypto::chacha_key KEY_1 = generate_chacha_key();
 static const crypto::chacha_key KEY_2 = generate_chacha_key();
 static const crypto::key_image KEY_IMAGE_1 = generate_key_image();
-static const crypto::public_key OUTPUT_1 = generate_output();
-static const crypto::public_key OUTPUT_2 = generate_output();
+static const std::pair<uint64_t, uint64_t> OUTPUT_1 = generate_output();
+static const std::pair<uint64_t, uint64_t> OUTPUT_2 = generate_output();
 
 class RingDB: public tools::ringdb
 {
