@@ -1166,5 +1166,13 @@ namespace service_nodes
     uint64_t flat = 15000 * COIN;
     return std::max(base + variable, height < 3628800 ? linear_up : flat);
   }
+
+  uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
+  {
+    uint64_t hi, lo, resulthi, resultlo;
+    lo = mul128(staking_requirement, portions, &hi);
+    div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+    return resultlo;
+  }
 }
 

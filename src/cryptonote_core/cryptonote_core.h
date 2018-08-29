@@ -817,7 +817,7 @@ namespace cryptonote
      bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
 
      /**
-      * @brief Return the account associated to this service node.
+      * @brief Get the keypair for this service node.
 
       * @param pub_key The public key for the service node, unmodified if not a service node
 

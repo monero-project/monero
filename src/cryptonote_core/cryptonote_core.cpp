@@ -1757,6 +1757,7 @@ namespace cryptonote
 
     return result;
   }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
   {
     if (m_service_node)

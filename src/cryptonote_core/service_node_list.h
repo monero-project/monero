@@ -288,6 +288,8 @@ namespace service_nodes
 
   uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
 
+  uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
+
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 }
 
