@@ -249,40 +249,6 @@ namespace cryptonote
       }
     }
 
-    if (tx.is_deregister_tx())
-    {
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
-      {
-        LOG_PRINT_L1("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
-        return false;
-      }
-
-      const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
-      if (deregister.block_height >= curr_height)
-      {
-        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                     << " and service node: "              << deregister.service_node_index
-                     << ", is newer than current height: " << curr_height
-                     << " blocks and has been rejected.");
-        tvc.m_vote_ctx.m_invalid_block_height = true;
-        tvc.m_verifivation_failed             = true;
-        return false;
-      }
-
-      uint64_t delta_height = curr_height - deregister.block_height;
-      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
-      {
-        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                     << " and service node: "     << deregister.service_node_index
-                     << ", is older than: "       << loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
-                     << " blocks and has been rejected.");
-        tvc.m_vote_ctx.m_invalid_block_height = true;
-        tvc.m_verifivation_failed             = true;
-        return false;
-      }
-    }
-
     if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
       LOG_PRINT_L1("Transaction with id= "<< id << " has at least one invalid output");
@@ -1094,6 +1060,7 @@ namespace cryptonote
         }
       }
     }
+
     //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
     if(m_blockchain.have_tx_keyimges_as_spent(tx))
     {
