@@ -162,3 +162,72 @@ TEST(service_nodes, staking_requirement)
     ASSERT_EQ(stagenet_requirement, (15000 * COIN));
   }
 }
+
+TEST(service_nodes, vote_validation)
+{
+  // Generate a quorum and the voter
+  cryptonote::keypair service_node_voter = cryptonote::keypair::generate(hw::get_device("default"));
+  int voter_index = 0;
+
+  service_nodes::quorum_state state = {};
+  {
+    state.quorum_nodes.resize(10);
+    state.nodes_to_test.resize(state.quorum_nodes.size());
+
+    for (size_t i = 0; i < state.quorum_nodes.size(); ++i)
+    {
+      state.quorum_nodes[i] = (i == voter_index) ? service_node_voter.pub : cryptonote::keypair::generate(hw::get_device("default")).pub;
+      state.nodes_to_test[i] = cryptonote::keypair::generate(hw::get_device("default")).pub;
+    }
+  }
+
+  // Valid vote
+  loki::service_node_deregister::vote valid_vote = {};
+  {
+    valid_vote.block_height         = 10;
+    valid_vote.service_node_index   = 1;
+    valid_vote.voters_quorum_index  = voter_index;
+    valid_vote.signature            = loki::service_node_deregister::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
+    if (!result)
+      printf("%s\n", cryptonote::print_vote_verification_context(vvc, &valid_vote));
+
+    ASSERT_TRUE(result);
+  }
+
+  // Voters quorum index out of bounds
+  {
+    auto vote                = valid_vote;
+    vote.voters_quorum_index = state.quorum_nodes.size() + 10;
+    vote.signature           = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Voters service node index out of bounds
+  {
+    auto vote               = valid_vote;
+    vote.service_node_index = state.nodes_to_test.size() + 10;
+    vote.signature          = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Signature not valid
+  {
+    auto vote                       = valid_vote;
+    cryptonote::keypair other_voter = cryptonote::keypair::generate(hw::get_device("default"));
+    vote.signature                  = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+}

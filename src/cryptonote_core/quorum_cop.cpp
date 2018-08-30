@@ -122,20 +122,7 @@ namespace service_nodes
         cryptonote::vote_verification_context vvc = {};
         if (!m_core.add_deregister_vote(vote, vvc))
         {
-          if (vvc.m_invalid_block_height)
-            LOG_ERROR("block height was invalid: " << vote.block_height);
-
-          if (vvc.m_voters_quorum_index_out_of_bounds)
-            LOG_ERROR("voters quorum index specified was out of bounds: " << vote.voters_quorum_index);
-
-          if (vvc.m_duplicate_voters)
-            LOG_ERROR("voters index was duplicated: " << vote.voters_quorum_index);
-
-          if (vvc.m_service_node_index_out_of_bounds)
-            LOG_ERROR("service node index specified out of bounds: " << vote.service_node_index);
-
-          if (vvc.m_signature_not_valid)
-            LOG_ERROR("signature was not valid, was the signature signed properly?");
+          LOG_ERROR("Failed to add deregister vote reason: " << print_vote_verification_context(vvc, &vote));
         }
       }
     }
