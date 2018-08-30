@@ -3024,6 +3024,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
   if (tx.is_deregister_tx())
   {
+    if (tx.rct_signatures.txnFee != 0)
+    {
+      tvc.m_invalid_input = true;
+      tvc.m_verifivation_failed = true;
+      MERROR_VER("TX version deregister should have 0 fee!");
+      return false;
+    }
+
     // Check the inputs (votes) of the transaction have not been already been
     // submitted to the blockchain under another transaction using a different
     // combination of votes.
