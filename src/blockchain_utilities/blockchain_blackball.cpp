@@ -1155,6 +1155,89 @@ static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
   return true;
 }
 
+static bool export_reduced_rings(MDB_txn *txn, const std::string &path)
+{
+  MDB_cursor *cur_o, *cur_s;
+
+  tools::create_directories_if_necessary(path);
+
+  int dbr = mdb_cursor_open(txn, dbi_outputs, &cur_o);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+  dbr = mdb_cursor_open(txn, dbi_spent, &cur_s);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+  uint64_t prev_amount = std::numeric_limits<uint64_t>::max();
+  MDB_val k, v;
+  MDB_cursor_op op = MDB_FIRST;
+  FILE *f = NULL;
+  std::set<std::pair<uint64_t, std::string>> seen;
+  while (1)
+  {
+    dbr = mdb_cursor_get(cur_o, &k, &v, op);
+    if (dbr == MDB_NOTFOUND)
+      break;
+    op = MDB_NEXT;
+
+    const uint64_t amount = ((const uint64_t*)k.mv_data)[0];
+    const uint64_t offset = ((const uint64_t*)k.mv_data)[1];
+    if (v.mv_size % 32)
+    {
+      MERROR("Invalid data size in outputs db");
+      return false;
+    }
+    const crypto::key_image *ki = (const crypto::key_image*)v.mv_data;
+    const size_t nki = v.mv_size / 32;
+
+    if (amount != prev_amount)
+    {
+      prev_amount = amount;
+      if (f)
+      {
+        fprintf(f, "}\n");
+        fclose(f);
+      }
+      seen.clear();
+      const boost::filesystem::path filename = boost::filesystem::path(path) / boost::filesystem::path(std::to_string(amount));
+      f = fopen(filename.string().c_str(), "w");
+      if (!f)
+      {
+        MERROR("Failed to open file: " << filename.string() << ": " << strerror(errno));
+        return false;
+      }
+      fprintf(f, "graph {\n");
+    }
+
+    for (size_t i = 0; i < nki; ++i)
+    {
+      std::vector<uint64_t> ring;
+      if (!get_relative_ring(txn, ki[i], ring))
+      {
+        MERROR("Relative ring not found for key image " << ki[i]);
+        return false;
+      }
+      const std::string id = epee::string_tools::pod_to_hex(ki[i]);
+      for (uint64_t o: ring)
+      {
+        const std::pair<uint64_t, std::string> e(o, id);
+        if (seen.find(e) == seen.end())
+        {
+          if (is_output_spent(cur_s, output_data(amount, o))) fprintf(f, "# ");
+          fprintf(f, "\"%" PRIu64 "\" -- \"%s\"\n", o, id.c_str());
+          seen.insert(e);
+        }
+      }
+      break; // use only the first one - monero's
+    }
+  }
+  if (f)
+    fclose(f);
+
+  mdb_cursor_close(cur_s);
+  mdb_cursor_close(cur_o);
+
+  return true;
+}
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -1185,6 +1268,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
+  const command_line::arg_descriptor<std::string> arg_reduced_rings_path = {"reduced-rings-path", "Path where to save reduced rings files"};
   const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
   const command_line::arg_descriptor<bool> arg_historical_stat = {"historical-stat", "Report historical stat of spent outputs for every 10000 blocks window"};
 
@@ -1196,6 +1280,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
   command_line::add_arg(desc_cmd_sett, arg_export);
+  command_line::add_arg(desc_cmd_sett, arg_reduced_rings_path);
   command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
   command_line::add_arg(desc_cmd_sett, arg_historical_stat);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
@@ -1240,6 +1325,7 @@ int main(int argc, char* argv[])
   bool opt_force_chain_reaction_pass = command_line::get_arg(vm, arg_force_chain_reaction_pass);
   bool opt_historical_stat = command_line::get_arg(vm, arg_historical_stat);
   std::string opt_export = command_line::get_arg(vm, arg_export);
+  std::string opt_reduced_rings_paths = command_line::get_arg(vm, arg_reduced_rings_path);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
   std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
 
@@ -1699,6 +1785,15 @@ skip_secondary_passes:
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
     export_spent_outputs(cur, opt_export);
     mdb_cursor_close(cur);
+    mdb_txn_abort(txn);
+  }
+
+  if (!opt_reduced_rings_paths.empty())
+  {
+    MDB_txn *txn;
+    int dbr = mdb_txn_begin(env, NULL, 0, &txn);
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+    export_reduced_rings(txn, opt_reduced_rings_paths);
     mdb_txn_abort(txn);
   }
 
