@@ -229,5 +229,98 @@ TEST(service_nodes, vote_validation)
     bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
+}
 
+TEST(service_nodes, tx_extra_deregister_validation)
+{
+  // Generate a quorum and the voter
+  const size_t num_voters = 10;
+  cryptonote::keypair voters[num_voters] = {};
+
+  service_nodes::quorum_state state = {};
+  {
+    state.quorum_nodes.resize(num_voters);
+    state.nodes_to_test.resize(num_voters);
+
+    for (size_t i = 0; i < state.quorum_nodes.size(); ++i)
+    {
+      voters[i]              = cryptonote::keypair::generate(hw::get_device("default"));
+      state.quorum_nodes[i]  = voters[i].pub;
+      state.nodes_to_test[i] = cryptonote::keypair::generate(hw::get_device("default")).pub;
+    }
+  }
+
+  // Valid deregister
+  cryptonote::tx_extra_service_node_deregister valid_deregister = {};
+  {
+    valid_deregister.block_height       = 10;
+    valid_deregister.service_node_index = 1;
+    valid_deregister.votes.reserve(num_voters);
+    for (size_t i = 0; i < num_voters; ++i)
+    {
+      cryptonote::keypair const *voter                        = voters + i;
+      cryptonote::tx_extra_service_node_deregister::vote vote = {};
+
+      vote.voters_quorum_index = i;
+      vote.signature           = loki::service_node_deregister::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
+      valid_deregister.votes.push_back(vote);
+    }
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
+    if (!result)
+      printf("%s\n", cryptonote::print_vote_verification_context(vvc));
+    ASSERT_TRUE(result);
+  }
+
+  // Deregister has insufficient votes
+  {
+    auto deregister = valid_deregister;
+    while (deregister.votes.size() >= service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
+      deregister.votes.pop_back();
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Deregister has duplicated voter
+  {
+    auto deregister     = valid_deregister;
+    deregister.votes[0] = deregister.votes[1];
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Deregister has one voter with invalid signature
+  {
+    auto deregister               = valid_deregister;
+    deregister.votes[0].signature = deregister.votes[1].signature;
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Deregister has one voter with index out of bounds
+  {
+    auto deregister                         = valid_deregister;
+    deregister.votes[0].voters_quorum_index = state.quorum_nodes.size() + 10;
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    ASSERT_FALSE(result);
+  }
+
+  // Deregister service node index is out of bounds
+  {
+    auto deregister               = valid_deregister;
+    deregister.service_node_index = state.nodes_to_test.size() + 10;
+
+    cryptonote::vote_verification_context vvc = {};
+    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    ASSERT_FALSE(result);
+  }
 }
