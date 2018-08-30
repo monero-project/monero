@@ -1028,6 +1028,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
+  const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
 
   command_line::add_arg(desc_cmd_sett, arg_blackball_db_dir);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
@@ -1038,6 +1039,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
   command_line::add_arg(desc_cmd_sett, arg_export);
+  command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
   command_line::add_arg(desc_cmd_sett, arg_inputs);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
@@ -1077,6 +1079,7 @@ int main(int argc, char* argv[])
   bool opt_rct_only = command_line::get_arg(vm, arg_rct_only);
   bool opt_check_subsets = command_line::get_arg(vm, arg_check_subsets);
   bool opt_verbose = command_line::get_arg(vm, arg_verbose);
+  bool opt_force_chain_reaction_pass = command_line::get_arg(vm, arg_force_chain_reaction_pass);
   std::string opt_export = command_line::get_arg(vm, arg_export);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
   std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
@@ -1331,7 +1334,7 @@ int main(int argc, char* argv[])
   if (stop_requested)
     goto skip_secondary_passes;
 
-  if (get_num_spent_outputs() > start_blackballed_outputs)
+  if (opt_force_chain_reaction_pass || get_num_spent_outputs() > start_blackballed_outputs)
   {
     MDB_txn *txn;
     dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
