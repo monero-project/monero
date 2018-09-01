@@ -104,6 +104,11 @@
 #else
 #  define ELPP_OS_OPENBSD 0
 #endif
+#if (defined(__NetBSD__))
+#  define ELPP_OS_NETBSD 1
+#else
+#  define ELPP_OS_NETBSD 0
+#endif
 #if (defined(__sun))
 #  define ELPP_OS_SOLARIS 1
 #else
@@ -115,7 +120,7 @@
 #   define ELPP_OS_DRAGONFLY 0
 #endif
 // Unix
-#if ((ELPP_OS_LINUX || ELPP_OS_MAC || ELPP_OS_FREEBSD || ELPP_OS_SOLARIS || ELPP_OS_DRAGONFLY || ELPP_OS_OPENBSD) && (!ELPP_OS_WINDOWS))
+#if ((ELPP_OS_LINUX || ELPP_OS_MAC || ELPP_OS_FREEBSD || ELPP_OS_SOLARIS || ELPP_OS_DRAGONFLY || ELPP_OS_OPENBSD || ELPP_OS_NETBSD ) && (!ELPP_OS_WINDOWS))
 #  define ELPP_OS_UNIX 1
 #else
 #  define ELPP_OS_UNIX 0
@@ -200,7 +205,7 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #  define ELPP_INTERNAL_INFO(lvl, msg)
 #endif  // (defined(ELPP_DEBUG_INFO))
 #if (defined(ELPP_FEATURE_ALL)) || (defined(ELPP_FEATURE_CRASH_LOG))
-#  if (ELPP_COMPILER_GCC && !ELPP_MINGW && !ELPP_OS_OPENBSD)
+#  if (ELPP_COMPILER_GCC && !ELPP_MINGW && !ELPP_OS_OPENBSD && !ELPP_OS_NETBSD)
 #    define ELPP_STACKTRACE 1
 #  else
 #    define ELPP_STACKTRACE 0
