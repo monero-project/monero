@@ -47,6 +47,9 @@ if(MSVC)
 elseif(NOT MSVC)
   set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
 endif()
+if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+	set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -D_NETBSD_SOURCE")
+endif()
 
 set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
 
