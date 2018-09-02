@@ -33,14 +33,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// OS X, FreeBSD, and OpenBSD don't need malloc.h
+// OS X, FreeBSD, OpenBSD and NetBSD don't need malloc.h
 #if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) \
-  && !defined(__DragonFly__)
+  && !defined(__DragonFly__) && !defined(__NetBSD__)
  #include <malloc.h>
 #endif
 
-// ANDROID, FreeBSD, and OpenBSD also don't need timeb.h
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__)
+// ANDROID, FreeBSD, OpenBSD and NetBSD also don't need timeb.h
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__) \
+  && !defined(__NetBSD__)
  #include <sys/timeb.h>
 #else
  #include <sys/time.h>
@@ -473,7 +474,7 @@ OAES_RET oaes_sprintf(
 #ifdef OAES_HAVE_ISAAC
 static void oaes_get_seed( char buf[RANDSIZ + 1] )
 {
-        #if !defined(__FreeBSD__) && !defined(__OpenBSD__)
+        #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__)
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
@@ -505,7 +506,7 @@ static void oaes_get_seed( char buf[RANDSIZ + 1] )
 #else
 static uint32_t oaes_get_seed(void)
 {
-        #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__)
+        #if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__) && !defined(__NetBSD__)
 	struct timeb timer;
 	struct tm *gmTimer;
 	char * _test = NULL;
