@@ -33,8 +33,10 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   download.cpp
+  exec.cpp
   util.cpp
   i18n.cpp
+  notify.cpp
   password.cpp
   perf_timer.cpp
   threadpool.cpp
@@ -54,8 +56,10 @@ set(common_private_headers
   common_fwd.h
   dns_utils.h
   download.h
+  exec.h
   http_connection.h
   int-util.h
+  notify.h
   pod-class.h
   rpc_client.h
   scoped_message_writer.h
