@@ -3678,7 +3678,8 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 
   try
   {
-    m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_name);
+    bool create_address_file = command_line::get_arg(vm, arg_create_address_file);
+    m_wallet->restore(m_wallet_file, std::move(rc.second).password(), device_name, create_address_file);
     message_writer(console_color_white, true) << tr("Generated new wallet on hw device: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   }
