@@ -68,6 +68,7 @@ namespace tools
 {
   class ringdb;
   class wallet2;
+  class Notify;
 
   class wallet_keys_unlocker
   {
@@ -1176,6 +1177,8 @@ namespace tools
 
     void change_password(const std::string &filename, const epee::wipeable_string &original_password, const epee::wipeable_string &new_password);
 
+    void set_tx_notify(const std::shared_ptr<tools::Notify> &notify) { m_tx_notify = notify; }
+
   private:
     /*!
      * \brief  Stores wallet information to wallet file.
@@ -1353,6 +1356,8 @@ namespace tools
     boost::optional<epee::wipeable_string> m_encrypt_keys_after_refresh;
 
     bool m_unattended;
+
+    std::shared_ptr<tools::Notify> m_tx_notify;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 25)

@@ -55,6 +55,8 @@
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
+namespace tools { class Notify; }
+
 namespace cryptonote
 {
   class tx_memory_pool;
@@ -706,6 +708,13 @@ namespace cryptonote
         blockchain_db_sync_mode sync_mode, bool fast_sync);
 
     /**
+     * @brief sets a block notify object to call for every new block
+     *
+     * @param notify the notify object to cal at every new block
+     */
+    void set_block_notify(const std::shared_ptr<tools::Notify> &notify) { m_block_notify = notify; }
+
+    /**
      * @brief Put DB in safe sync mode
      */
     void safesyncmode(const bool onoff);
@@ -1031,6 +1040,8 @@ namespace cryptonote
     uint64_t m_btc_pool_cookie;
     uint64_t m_btc_expected_reward;
     bool m_btc_valid;
+
+    std::shared_ptr<tools::Notify> m_block_notify;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
