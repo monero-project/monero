@@ -3324,6 +3324,15 @@ void wallet2::decrypt_keys(const epee::wipeable_string &password)
   decrypt_keys(key);
 }
 
+void wallet2::setup_new_blockchain()
+{
+  cryptonote::block b;
+  generate_genesis(b);
+  m_blockchain.push_back(get_block_hash(b));
+  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
+  add_subaddress_account(tr("Primary account"));
+}
+
 /*!
  * \brief  Generates a wallet or restores one.
  * \param  wallet_              Name of wallet file
@@ -3412,11 +3421,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     }
   }
 
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (!wallet_.empty())
     store();
@@ -3472,11 +3477,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
     }
   }
 
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (!wallet_.empty())
     store();
@@ -3569,11 +3570,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     }
   }
 
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (!wallet_.empty())
     store();
@@ -3623,11 +3620,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
     }
   }
 
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (!wallet_.empty())
     store();
@@ -3665,17 +3658,13 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
     r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype));
     if(!r) MERROR("String with address text not saved");
   }
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
   if (m_subaddress_lookahead_major == SUBADDRESS_LOOKAHEAD_MAJOR && m_subaddress_lookahead_minor == SUBADDRESS_LOOKAHEAD_MINOR)
   {
     // the default lookahead setting (50:200) is clearly too much for hardware wallet
     m_subaddress_lookahead_major = 5;
     m_subaddress_lookahead_minor = 20;
   }
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
   if (!wallet_.empty()) {
     store();
   }
@@ -3782,11 +3771,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
     }
   }
 
-  cryptonote::block b;
-  generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (!m_wallet_file.empty())
     store();
@@ -4709,12 +4694,7 @@ void wallet2::rescan_blockchain(bool refresh)
 {
   clear();
 
-  cryptonote::block genesis;
-  generate_genesis(genesis);
-  crypto::hash genesis_hash = get_block_hash(genesis);
-  m_blockchain.push_back(genesis_hash);
-  m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  setup_new_blockchain();
 
   if (refresh)
     this->refresh(false);
