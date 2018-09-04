@@ -5058,7 +5058,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
     }
   }
   else
@@ -5471,7 +5471,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
     }
   }
   else

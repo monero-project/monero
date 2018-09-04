@@ -78,7 +78,10 @@ namespace cryptonote
 
     uint64_t template_accept_threshold(uint64_t amount)
     {
-      return amount * ACCEPT_THRESHOLD;
+      // XXX: multiplying by ACCEPT_THRESHOLD here was removed because of a need
+      // to accept 0 fee transactions correctly. the cast to float / double and
+      // back again was causing issues estimating the effect of a zero fee tx
+      return amount;
     }
 
     uint64_t get_transaction_size_limit(uint8_t version)
