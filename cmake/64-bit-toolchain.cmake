@@ -46,3 +46,7 @@ set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
 
 set (MINGW_FLAG "-m64")
 set (USE_LTO_DEFAULT false)
+
+if (CMAKE_HOST_WIN32)
+  set (CMAKE_CROSSCOMPILING false)
+endif()
