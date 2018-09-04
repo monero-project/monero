@@ -160,8 +160,13 @@ namespace tools
     std::string bind_port = command_line::get_arg(*m_vm, arg_rpc_bind_port);
     const bool disable_auth = command_line::get_arg(*m_vm, arg_disable_rpc_login);
     m_restricted = command_line::get_arg(*m_vm, arg_restricted);
-    if (command_line::has_arg(*m_vm, arg_wallet_dir))
+    if (!command_line::is_arg_defaulted(*m_vm, arg_wallet_dir))
     {
+      if (!command_line::is_arg_defaulted(*m_vm, wallet_args::arg_wallet_file()))
+      {
+        MERROR(arg_wallet_dir.name << " and " << wallet_args::arg_wallet_file().name << " are incompatible, use only one of them");
+        return false;
+      }
       m_wallet_dir = command_line::get_arg(*m_vm, arg_wallet_dir);
 #ifdef _WIN32
 #define MKDIR(path, mode)    mkdir(path)
