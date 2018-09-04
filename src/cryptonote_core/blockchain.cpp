@@ -3768,7 +3768,6 @@ leave:
   bvc.m_added_to_main_chain = true;
   ++m_sync_counter;
 
-  // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
   m_deregister_vote_pool.remove_expired_votes(new_height);
   m_deregister_vote_pool.remove_used_votes(txs);

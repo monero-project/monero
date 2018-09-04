@@ -685,6 +685,7 @@ namespace cryptonote
       }
       return true;
     }, false);
+
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -983,11 +984,117 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::on_blockchain_inc(uint64_t new_block_height, const crypto::hash& top_block_id)
   {
+    m_blockchain.for_all_txpool_txes([this, &new_block_height](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *txblob) {
+      if (meta.do_not_relay)
+        return true;
+
+      cryptonote::transaction tx;
+      if (!parse_and_validate_tx_from_blob(*txblob, tx))
+      {
+        MERROR("Failed to parse tx from txpool: " << txid);
+        return true;
+      }
+
+      if (!tx.is_deregister_tx())
+        return true;
+
+      tx_extra_service_node_deregister deregister = {};
+      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      {
+        MERROR("Could not get deregister for tx deregister, possibly corrupt tx in pool: " << txid);
+        return true;
+      }
+
+      if (new_block_height < deregister.block_height)
+      {
+        // NOTE: This should never really happen, since the tx should fail check_tx_inputs, but also it should of been deleted on blockchain dec
+        MERROR("There was a tx in the pool that was a deregister for a height greater than the current height");
+        return true;
+      }
+
+      // Check if deregister is too old and we should stop relaying it.
+      uint64_t delta_height = new_block_height - deregister.block_height;
+      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      {
+        txpool_tx_meta_t updated_meta = meta;
+        updated_meta.do_not_relay = true;
+        m_blockchain.update_txpool_tx(txid, updated_meta);
+      }
+
+      return true;
+    }, /*include_blob*/ true, /*include_unrelayed_txes*/ true);
+
     return true;
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::on_blockchain_dec(uint64_t new_block_height, const crypto::hash& top_block_id)
   {
+    std::unordered_set<crypto::hash> txs_to_remove;
+    m_blockchain.for_all_txpool_txes([this, &txs_to_remove, &new_block_height](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *txblob) {
+      if (!meta.do_not_relay) // is already still relayable, then skip don't care.
+        return true;
+
+      cryptonote::transaction tx;
+      if (!parse_and_validate_tx_from_blob(*txblob, tx))
+      {
+        MERROR("Failed to parse tx from txpool");
+        return true;
+      }
+
+      if (!tx.is_deregister_tx())
+        return true;
+
+      tx_extra_service_node_deregister deregister = {};
+      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+      {
+        MERROR("Could not get deregister for tx deregister, possibly corrupt tx in pool: " << txid);
+        return true;
+      }
+
+      if (new_block_height < deregister.block_height)
+      {
+        // We've reorged back and this deregister is now newer than the chain and we're going to generate a different quorum.
+        // So discard it. If we end up reorging back to the original chain, fine, let the node that was going to be deregistered live longer.
+        txs_to_remove.insert(txid);
+        return true;
+      }
+
+      // Check if deregister became valid again
+      uint64_t delta_height = new_block_height - deregister.block_height;
+      if (delta_height <= loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      {
+        txpool_tx_meta_t updated_meta = meta;
+        updated_meta.do_not_relay = false;
+        m_blockchain.update_txpool_tx(txid, updated_meta);
+      }
+
+      return true;
+    }, /*include_blob*/ true, /*include_unrelayed_txes*/ true);
+
+    LockedTXN lock(m_blockchain);
+    for (const crypto::hash &txid: txs_to_remove)
+    {
+      try
+      {
+        cryptonote::blobdata bd = m_blockchain.get_txpool_tx_blob(txid);
+        cryptonote::transaction tx;
+        if (!parse_and_validate_tx_from_blob(bd, tx))
+        {
+          MERROR("Failed to parse tx from txpool");
+          continue;
+        }
+
+        // remove first, so we only remove key images if the tx removal succeeds
+        m_blockchain.remove_txpool_tx(txid);
+        m_txpool_size -= bd.size();
+        remove_transaction_keyimages(tx);
+      }
+      catch (const std::exception &e)
+      {
+        // ignore error, it doesn't exist anymore for whatever reason
+      }
+    }
+
     return true;
   }
   //---------------------------------------------------------------------------------
