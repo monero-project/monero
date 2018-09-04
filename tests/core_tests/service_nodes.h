@@ -39,7 +39,8 @@ class gen_service_nodes : public test_chain_unit_base
 public:
   gen_service_nodes();
   bool generate(std::vector<test_event_entry> &events) const;
-  bool check_stuff(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool check_registered(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool check_expired(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
 private:
   cryptonote::keypair m_alice_service_node_keys;
 };
@@ -47,7 +48,6 @@ private:
 template<>
 struct get_test_options<gen_service_nodes> {
   const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2)};
-  // const std::pair<uint8_t, uint64_t> hard_forks[1] = {std::make_pair(9, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };

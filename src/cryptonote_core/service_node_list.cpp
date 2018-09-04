@@ -187,7 +187,7 @@ namespace service_nodes
     if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
       unlock_time = tx.output_unlock_times[i];
 
-    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks();
+    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
   }
 
   bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
@@ -582,7 +582,7 @@ namespace service_nodes
   {
     std::vector<crypto::public_key> expired_nodes;
 
-    const uint64_t lock_blocks = get_staking_requirement_lock_blocks();
+    const uint64_t lock_blocks = get_staking_requirement_lock_blocks(m_blockchain.nettype());
 
     if (block_height < lock_blocks)
       return expired_nodes;
@@ -800,11 +800,6 @@ namespace service_nodes
         }
       }
     }
-  }
-
-  uint64_t service_node_list::get_staking_requirement_lock_blocks() const
-  {
-    return m_blockchain.nettype() == cryptonote::TESTNET || m_blockchain.nettype() == cryptonote::FAKECHAIN ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1156,6 +1151,20 @@ namespace service_nodes
     cmd = stream.str();
     return true;
   }
+
+  uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type nettype)
+  {
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS         = 30*24*30;
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET = 30*24*2;
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET = 30;
+
+    switch(nettype) {
+      case cryptonote::TESTNET: return STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET;
+      case cryptonote::FAKECHAIN: return STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET;
+      default: return STAKING_REQUIREMENT_LOCK_BLOCKS;
+    }
+  }
+
   uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
   {
     if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)

@@ -147,8 +147,6 @@ namespace service_nodes
 
     std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
-    uint64_t get_staking_requirement_lock_blocks() const;
-
     template<typename T>
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
@@ -283,6 +281,8 @@ namespace service_nodes
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
+
+  uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type m_nettype);
 
   uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
 
