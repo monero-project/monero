@@ -106,8 +106,6 @@ namespace service_nodes
         block_added_generic(block, txs);
       }
     }
-
-    m_rollback_events.push_back(std::unique_ptr<rollback_event>(new prevent_rollback(current_height)));
   }
 
   std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
@@ -505,6 +503,7 @@ namespace service_nodes
       {
         m_rollback_events.pop_front();
       }
+      m_rollback_events.push_front(std::unique_ptr<rollback_event>(new prevent_rollback(cull_height)));
     }
 
     for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
@@ -956,7 +955,6 @@ namespace service_nodes
         i->m_info = from.m_info;
         i->type = rollback_event::change_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else if (event.type() == typeid(rollback_new))
       {
@@ -966,7 +964,6 @@ namespace service_nodes
         i->m_key = from.m_key;
         i->type = rollback_event::new_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else if (event.type() == typeid(prevent_rollback))
       {
@@ -975,10 +972,10 @@ namespace service_nodes
         i->m_block_height = from.m_block_height;
         i->type = rollback_event::prevent_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else
       {
+        MERROR("Unhandled rollback event type in restoring data to service node list.");
         return false;
       }
     }
