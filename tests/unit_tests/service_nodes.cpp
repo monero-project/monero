@@ -82,8 +82,8 @@ TEST(service_nodes, staking_requirement)
     int64_t mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
     int64_t stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    int64_t mainnet_expected = (int64_t)((25796 * COIN) + 364642307);
-    int64_t  mainnet_delta   = std::abs(mainnet_requirement - mainnet_expected);
+    int64_t  mainnet_expected = (int64_t)((25796 * COIN) + 364642307);
+    int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
 
     int64_t stagenet_expected = (int64_t)((25376 * COIN) + 249888366);
@@ -94,15 +94,15 @@ TEST(service_nodes, staking_requirement)
   // Bottom of the curve, generally this should be the lowest the staking requirement will be
   {
     uint64_t height = 1036800;
-    int64_t mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    int64_t stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
+    int64_t  mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
+    int64_t  stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    int64_t mainnet_expected = (int64_t)((10234 * COIN) + 967482165);
-    int64_t  mainnet_delta   = std::abs(mainnet_requirement - mainnet_expected);
+    int64_t  mainnet_expected = (int64_t)((10234 * COIN) + 967482165);
+    int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
 
-    int64_t stagenet_expected = (int64_t)((10228 * COIN) + 718366740);
-    int64_t stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
+    int64_t  stagenet_expected = (int64_t)((10228 * COIN) + 718366740);
+    int64_t  stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
     ASSERT_LT(stagenet_delta, atomic_epsilon);
   }
 
@@ -129,14 +129,14 @@ TEST(service_nodes, staking_requirement)
   // Checking we are approaching 15000
   {
     uint64_t height = 3000000;
-    uint64_t mainnet_requirement  = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
-    uint64_t stagenet_requirement = service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
+    int64_t  mainnet_requirement  = (int64_t)service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
+    int64_t  stagenet_requirement = (int64_t)service_nodes::get_staking_requirement(cryptonote::STAGENET, height);
 
-    uint64_t mainnet_expected = (int64_t)((13787 * COIN) + 37037037);
+    int64_t  mainnet_expected = (int64_t)((13787 * COIN) + 37037037);
     int64_t  mainnet_delta    = std::abs(mainnet_requirement - mainnet_expected);
     ASSERT_LT(mainnet_delta, atomic_epsilon);
 
-    uint64_t stagenet_expected = (int64_t)((13787 * COIN) + 37037037);
+    int64_t  stagenet_expected = (int64_t)((13787 * COIN) + 37037037);
     int64_t  stagenet_delta    = std::abs(stagenet_requirement - stagenet_expected);
     ASSERT_LT(stagenet_delta, atomic_epsilon);
   }
