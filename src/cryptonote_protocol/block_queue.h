@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <unordered_set>
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/uuid/uuid.hpp>
 
@@ -93,7 +94,12 @@ namespace cryptonote
     bool requested(const crypto::hash &hash) const;
 
   private:
+    void erase_block(block_map::iterator j);
+    inline bool requested_internal(const crypto::hash &hash) const;
+
+  private:
     block_map blocks;
     mutable boost::recursive_mutex mutex;
+    std::unordered_set<crypto::hash> requested_hashes;
   };
 }
