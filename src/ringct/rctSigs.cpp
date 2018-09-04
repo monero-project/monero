@@ -492,7 +492,9 @@ namespace rct {
         for (size_t j = 0; j < outPk.size(); j++) {
             sc_sub(sk[rows].bytes, sk[rows].bytes, outSk[j].mask.bytes); //subtract output masks in last row..
         }
-        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
+        mgSig result = MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
+        memwipe(sk.data(), sk.size() * sizeof(key));
+        return result;
     }
 
 
@@ -521,7 +523,9 @@ namespace rct {
             M[i][0] = pubs[i].dest;
             subKeys(M[i][1], pubs[i].mask, Cout);
         }
-        return MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
+        mgSig result = MLSAG_Gen(message, M, sk, kLRki, mscout, index, rows, hwdev);
+        memwipe(&sk[0], sizeof(key));
+        return result;
     }
 
 
