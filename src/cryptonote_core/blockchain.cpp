@@ -3071,7 +3071,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
 
       uint64_t delta_height = curr_height - deregister.block_height;
-      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      if (delta_height >= loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
       {
         LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
                      << " and service node: "     << deregister.service_node_index

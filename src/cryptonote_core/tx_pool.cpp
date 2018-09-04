@@ -1014,7 +1014,7 @@ namespace cryptonote
 
       // Check if deregister is too old and we should stop relaying it.
       uint64_t delta_height = new_block_height - deregister.block_height;
-      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      if (delta_height >= loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
       {
         txpool_tx_meta_t updated_meta = meta;
         updated_meta.do_not_relay = true;
@@ -1061,7 +1061,7 @@ namespace cryptonote
 
       // Check if deregister became valid again
       uint64_t delta_height = new_block_height - deregister.block_height;
-      if (delta_height <= loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      if (delta_height < loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
       {
         txpool_tx_meta_t updated_meta = meta;
         updated_meta.do_not_relay = false;
@@ -1089,9 +1089,9 @@ namespace cryptonote
         m_txpool_size -= bd.size();
         remove_transaction_keyimages(tx);
       }
-      catch (const std::exception &e)
+      catch (const DB_EXCEPTION &e)
       {
-        // ignore error, it doesn't exist anymore for whatever reason
+        MERROR("Failed to remove txid: " << txid << " from db: " << e.what());
       }
     }
 

@@ -1706,7 +1706,7 @@ namespace cryptonote
     uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
     uint64_t delta_height = latest_block_height - vote.block_height;
 
-    if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+    if (vote.block_height < latest_block_height && delta_height >= loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
     {
       LOG_PRINT_L1("Received vote for height: " << vote.block_height
                 << " and service node: "     << vote.service_node_index
