@@ -824,7 +824,7 @@ TEST(Serialization, portability_outputs)
         return {};
     }
     crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
-    return std::move(plaintext);
+    return plaintext;
   };
   crypto::secret_key view_secret_key;
   epee::string_tools::hex_to_pod("339673bb1187e2f73ba7841ab6841c5553f96e9f13f8fe6612e69318db4e9d0a", view_secret_key);
