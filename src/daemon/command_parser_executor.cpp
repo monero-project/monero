@@ -144,22 +144,29 @@ bool t_command_parser_executor::print_quorum_state(const std::vector<std::string
   return m_executor.print_quorum_state(height);
 }
 
-bool t_command_parser_executor::get_service_node_registration_cmd(const std::vector<std::string>& args)
-{
-  if (args.empty() || args.size() % 2 != 0)
-  {
-    std::cout << "Invalid number of arguments received, expected an even number of arguments and > 0, received: " << args.size() << std::endl;
-    return false;
-  }
-
-  bool result = m_executor.get_service_node_registration_cmd(args);
-  return result;
-}
-
 bool t_command_parser_executor::print_sn_key(const std::vector<std::string>& args)
 {
   if (!args.empty()) return false;
   bool result = m_executor.print_sn_key();
+  return result;
+}
+
+bool t_command_parser_executor::print_sr(const std::vector<std::string>& args)
+{
+  if (args.size() != 1)
+  {
+    std::cout << "expected 1 argument, <height>, received: " << args.size() << std::endl;
+    return false;
+  }
+
+  uint64_t height = 0;
+  if(!epee::string_tools::get_xtype_from_string(height, args[0]))
+  {
+    std::cout << "wrong block height parameter" << std::endl;
+    return false;
+  }
+
+  bool result = m_executor.print_sr(height);
   return result;
 }
 
@@ -172,6 +179,13 @@ bool t_command_parser_executor::prepare_registration()
 bool t_command_parser_executor::print_sn(const std::vector<std::string>& args)
 {
   bool result = m_executor.print_sn(args);
+  return result;
+}
+
+bool t_command_parser_executor::print_sn_status(const std::vector<std::string>& args)
+{
+  if (!args.empty()) return false;
+  bool result = m_executor.print_sn_status();
   return result;
 }
 

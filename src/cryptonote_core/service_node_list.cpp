@@ -106,8 +106,6 @@ namespace service_nodes
         block_added_generic(block, txs);
       }
     }
-
-    m_rollback_events.push_back(std::unique_ptr<rollback_event>(new prevent_rollback(current_height)));
   }
 
   std::vector<crypto::public_key> service_node_list::get_service_nodes_pubkeys() const
@@ -187,7 +185,7 @@ namespace service_nodes
     if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
       unlock_time = tx.output_unlock_times[i];
 
-    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks();
+    return unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && unlock_time >= block_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
   }
 
   bool service_node_list::reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key) const
@@ -283,7 +281,7 @@ namespace service_nodes
     if (iter == m_service_nodes_infos.end())
       return;
 
-    MGINFO("Deregistration for service node: " << key);
+    LOG_PRINT_L1("Deregistration for service node: " << key);
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
     m_service_nodes_infos.erase(iter);
@@ -384,7 +382,7 @@ namespace service_nodes
     if (iter != m_service_nodes_infos.end())
       return;
 
-    MGINFO("New service node registered: " << key << " at block height: " << block_height);
+    LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
     m_service_nodes_infos[key] = info;
@@ -473,7 +471,7 @@ namespace service_nodes
     iter->second.last_reward_block_height = block_height;
     iter->second.last_reward_transaction_index = index;
 
-    MGINFO("Contribution of " << transferred << " received for service node " << pubkey);
+    LOG_PRINT_L1("Contribution of " << transferred << " received for service node " << pubkey);
 
     return;
   }
@@ -497,9 +495,15 @@ namespace service_nodes
     if (hard_fork_version < 9)
       return;
 
-    while (!m_rollback_events.empty() && m_rollback_events.front()->m_block_height < block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS)
     {
-      m_rollback_events.pop_front();
+      const size_t ROLLBACK_EVENT_EXPIRATION_BLOCKS = 30;
+      uint64_t cull_height = (block_height < ROLLBACK_EVENT_EXPIRATION_BLOCKS) ? block_height : block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS;
+
+      while (!m_rollback_events.empty() && m_rollback_events.front()->m_block_height < cull_height)
+      {
+        m_rollback_events.pop_front();
+      }
+      m_rollback_events.push_front(std::unique_ptr<rollback_event>(new prevent_rollback(cull_height)));
     }
 
     for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
@@ -539,7 +543,8 @@ namespace service_nodes
       index++;
     }
 
-    const size_t QUORUM_LIFETIME         = loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+    const size_t QUORUM_LIFETIME         = (6 * loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
+    // save six times the quorum lifetime, to be sure. also to help with debugging.
     const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 
     store_quorum_state_from_rewards_list(block_height);
@@ -576,7 +581,7 @@ namespace service_nodes
   {
     std::vector<crypto::public_key> expired_nodes;
 
-    const uint64_t lock_blocks = get_staking_requirement_lock_blocks();
+    const uint64_t lock_blocks = get_staking_requirement_lock_blocks(m_blockchain.nettype());
 
     if (block_height < lock_blocks)
       return expired_nodes;
@@ -796,11 +801,6 @@ namespace service_nodes
     }
   }
 
-  uint64_t service_node_list::get_staking_requirement_lock_blocks() const
-  {
-    return m_blockchain.nettype() == cryptonote::TESTNET || m_blockchain.nettype() == cryptonote::FAKECHAIN ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS;
-  }
-
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   service_node_list::rollback_event::rollback_event(uint64_t block_height, rollback_type type) : m_block_height(block_height), type(type)
@@ -955,7 +955,6 @@ namespace service_nodes
         i->m_info = from.m_info;
         i->type = rollback_event::change_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else if (event.type() == typeid(rollback_new))
       {
@@ -965,7 +964,6 @@ namespace service_nodes
         i->m_key = from.m_key;
         i->type = rollback_event::new_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else if (event.type() == typeid(prevent_rollback))
       {
@@ -974,10 +972,10 @@ namespace service_nodes
         i->m_block_height = from.m_block_height;
         i->type = rollback_event::prevent_type;
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(i));
-        break;
       }
       else
       {
+        MERROR("Unhandled rollback event type in restoring data to service node list.");
         return false;
       }
     }
@@ -1150,17 +1148,42 @@ namespace service_nodes
     cmd = stream.str();
     return true;
   }
+
+  uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type nettype)
+  {
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS         = 30*24*30;
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET = 30*24*2;
+    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET = 30;
+
+    switch(nettype) {
+      case cryptonote::TESTNET: return STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET;
+      case cryptonote::FAKECHAIN: return STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET;
+      default: return STAKING_REQUIREMENT_LOCK_BLOCKS;
+    }
+  }
+
   uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
   {
     if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
       return COIN * 100;
+
     uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
+    if (height < hardfork_height) height = hardfork_height;
+
     uint64_t height_adjusted = height - hardfork_height;
     uint64_t base = 10000 * COIN;
     uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
     uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
     uint64_t flat = 15000 * COIN;
     return std::max(base + variable, height < 3628800 ? linear_up : flat);
+  }
+
+  uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
+  {
+    uint64_t hi, lo, resulthi, resultlo;
+    lo = mul128(staking_requirement, portions, &hi);
+    div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
+    return resultlo;
   }
 }
 

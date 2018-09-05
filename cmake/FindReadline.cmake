@@ -41,7 +41,7 @@ find_library(Readline_LIBRARY
 )
 
 find_library(Termcap_LIBRARY
-  NAMES ncurses tinfo termcap ncursesw cursesw curses
+  NAMES tinfo termcap ncurses ncursesw cursesw curses
 )
 
 if(Readline_INCLUDE_DIR AND Readline_LIBRARY)

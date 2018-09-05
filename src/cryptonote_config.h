@@ -50,8 +50,6 @@
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
-#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*30)
-#define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define MAX_NUMBER_OF_CONTRIBUTORS                      4
 #define MIN_PORTIONS                                    (STAKING_PORTIONS / MAX_NUMBER_OF_CONTRIBUTORS)
@@ -67,7 +65,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define UPTIME_PROOF_BUFFER_IN_SECONDS                  (5*60)
 #define UPTIME_PROOF_FREQUENCY_IN_SECONDS               (60*60)
-#define UPTIME_PROOF_MAX_TIME_IN_SECONDS                (UPTIME_PROOF_FREQUENCY_IN_SECONDS + (2 * UPTIME_PROOF_BUFFER_IN_SECONDS))
+#define UPTIME_PROOF_MAX_TIME_IN_SECONDS                (UPTIME_PROOF_FREQUENCY_IN_SECONDS * 2 + UPTIME_PROOF_BUFFER_IN_SECONDS)
 
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)(-1))
@@ -116,6 +114,8 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    (86400*3) //seconds, three days
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
+
+#define MEMPOOL_PRUNE_DEREGISTER_LIFETIME               (2 * 60 * 60) // seconds, 2 hours
 
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
 
@@ -194,9 +194,9 @@ namespace config
     uint16_t const RPC_DEFAULT_PORT = 38151;
     uint16_t const ZMQ_RPC_DEFAULT_PORT = 38152;
     boost::uuids::uuid const NETWORK_ID = { {
-        0x5e, 0x3a, 0x78, 0x65, 0xe1, 0x6f, 0xca, 0xb8, 0x02, 0xa1, 0xdc, 0x17, 0x61, 0x64, 0x15, 0xbc,
+        0x5e, 0x3a, 0x78, 0x65, 0xe1, 0x6f, 0xca, 0xb8, 0x02, 0xa1, 0xdc, 0x17, 0x61, 0x64, 0x15, 0xbd,
       } }; // Bender's daydream
-    std::string const GENESIS_TX = "03011e001e01ff00018080c9db97f4fb270286d1689b3935f334d26cd9ecb7fc7eb4d67fde89a702058e58ea6811740e40764201c3e91c848f253b0d0193c945787192e1a362f00c2e7f18a80064d9ed4ad88c0f72000000000000000000000000000000000000000000000000000000000000000000";
+    std::string const GENESIS_TX = "03011e001e01ff00018080c9db97f4fb2702086d7c46917916b9e0401d68ab284d65e0af02ffbfa07853ce1286fda7430ad442017f0f2bbd2ea9c40e20efb4b091750cd4d95c470d34788459751d0d82c9eb137f72000000000000000000000000000000000000000000000000000000000000000000";
     uint32_t const GENESIS_NONCE = 10001;
 
     std::string const GOVERNANCE_WALLET_ADDRESS = "T6SUprTYE5rQpep9iQFxyPcKVd91DFR1fQ1Qsyqp5eYLiFc8XuYd3reRE71qDL8c3DXioUbDEpDFdaUpetnL37NS1R3rzoKxi";

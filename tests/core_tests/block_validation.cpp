@@ -171,7 +171,7 @@ bool gen_block_invalid_nonce::generate(std::vector<test_event_entry>& events) co
 
   std::vector<uint64_t> timestamps;
   std::vector<difficulty_type> commulative_difficulties;
-  if (!lift_up_difficulty(events, timestamps, commulative_difficulties, generator, 2, blk_0, miner_account))
+  if (!lift_up_difficulty(events, timestamps, commulative_difficulties, generator, 4, blk_0, miner_account))
     return false;
 
   // Create invalid nonce
@@ -331,29 +331,12 @@ bool gen_block_miner_tx_has_2_in::generate(std::vector<test_event_entry>& events
   BLOCK_VALIDATION_INIT_GENERATE();
   REWIND_BLOCKS(events, blk_0r, blk_0, miner_account);
 
-  GENERATE_ACCOUNT(alice);
-
-  tx_source_entry se;
-  se.amount = blk_0.miner_tx.vout[0].amount;
-  se.push_output(0, boost::get<txout_to_key>(blk_0.miner_tx.vout[0].target).key, se.amount);
-  se.real_output = 0;
-  se.rct = false;
-  se.real_out_tx_key = get_tx_pub_key_from_extra(blk_0.miner_tx);
-  se.real_output_in_tx_index = 0;
-  std::vector<tx_source_entry> sources;
-  sources.push_back(se);
-
-  tx_destination_entry de;
-  de.addr = miner_account.get_keys().m_account_address;
-  de.amount = se.amount;
-  std::vector<tx_destination_entry> destinations;
-  destinations.push_back(de);
-
   transaction tmp_tx;
-  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tmp_tx, 0))
+
+  if (!construct_tx_to_key(events, tmp_tx, blk_0r, miner_account, miner_account, blk_0.miner_tx.vout[0].amount))
     return false;
 
-  MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
+  MAKE_MINER_TX_MANUALLY(miner_tx, blk_0r);
   miner_tx.vin.push_back(tmp_tx.vin[0]);
 
   block blk_1;
@@ -376,24 +359,8 @@ bool gen_block_miner_tx_with_txin_to_key::generate(std::vector<test_event_entry>
 
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 
-  tx_source_entry se;
-  se.amount = blk_1.miner_tx.vout[0].amount;
-  se.push_output(0, boost::get<txout_to_key>(blk_1.miner_tx.vout[0].target).key, se.amount);
-  se.real_output = 0;
-  se.rct = false;
-  se.real_out_tx_key = get_tx_pub_key_from_extra(blk_1.miner_tx);
-  se.real_output_in_tx_index = 0;
-  std::vector<tx_source_entry> sources;
-  sources.push_back(se);
-
-  tx_destination_entry de;
-  de.addr = miner_account.get_keys().m_account_address;
-  de.amount = se.amount;
-  std::vector<tx_destination_entry> destinations;
-  destinations.push_back(de);
-
   transaction tmp_tx;
-  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tmp_tx, 0))
+  if (!construct_tx_to_key(events, tmp_tx, blk_1r, miner_account, miner_account, blk_1.miner_tx.vout[0].amount))
     return false;
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_1);
@@ -402,22 +369,6 @@ bool gen_block_miner_tx_with_txin_to_key::generate(std::vector<test_event_entry>
   block blk_2;
   generator.construct_block_manually(blk_2, blk_1r, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
   events.push_back(blk_2);
-
-  DO_CALLBACK(events, "check_block_purged");
-
-  return true;
-}
-
-bool gen_block_miner_tx_out_is_small::generate(std::vector<test_event_entry>& events) const
-{
-  BLOCK_VALIDATION_INIT_GENERATE();
-
-  MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
-  miner_tx.vout[0].amount /= 2;
-
-  block blk_1;
-  generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
-  events.push_back(blk_1);
 
   DO_CALLBACK(events, "check_block_purged");
 
@@ -446,6 +397,7 @@ bool gen_block_miner_tx_has_no_out::generate(std::vector<test_event_entry>& even
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
   miner_tx.vout.clear();
+  miner_tx.version = 1;
 
   block blk_1;
   generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
@@ -462,19 +414,14 @@ bool gen_block_miner_tx_has_out_to_alice::generate(std::vector<test_event_entry>
 
   GENERATE_ACCOUNT(alice);
 
-  keypair txkey;
-  MAKE_MINER_TX_AND_KEY_MANUALLY(miner_tx, blk_0, &txkey);
+  transaction miner_tx;
 
-  crypto::key_derivation derivation;
-  crypto::public_key out_eph_public_key;
-  crypto::generate_key_derivation(alice.get_keys().m_account_address.m_view_public_key, txkey.sec, derivation);
-  crypto::derive_public_key(derivation, 1, alice.get_keys().m_account_address.m_spend_public_key, out_eph_public_key);
+  const auto height = get_block_height(blk_0);
+  const auto coins = generator.get_already_generated_coins(blk_0);
+  const auto& miner_address = miner_account.get_keys().m_account_address;
+  const auto& alice_address = alice.get_keys().m_account_address;
 
-  tx_out out_to_alice;
-  out_to_alice.amount = miner_tx.vout[0].amount / 2;
-  miner_tx.vout[0].amount -= out_to_alice.amount;
-  out_to_alice.target = txout_to_key(out_eph_public_key);
-  miner_tx.vout.push_back(out_to_alice);
+  construct_miner_tx_with_extra_output(miner_tx, miner_address, height+1, coins, alice_address);
 
   block blk_1;
   generator.construct_block_manually(blk_1, blk_0, miner_account, test_generator::bf_miner_tx, 0, 0, 0, crypto::hash(), 0, miner_tx);
@@ -507,7 +454,9 @@ bool gen_block_is_too_big::generate(std::vector<test_event_entry>& events) const
 
   // Creating a huge miner_tx, it will have a lot of outs
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0);
+  miner_tx.version = 1;
   static const size_t tx_out_count = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
+
   uint64_t amount = get_outs_money_amount(miner_tx);
   uint64_t portion = amount / tx_out_count;
   uint64_t remainder = amount % tx_out_count;

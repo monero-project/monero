@@ -823,7 +823,7 @@ namespace cryptonote
      bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
 
      /**
-      * @brief Return the account associated to this service node.
+      * @brief Get the keypair for this service node.
 
       * @param pub_key The public key for the service node, unmodified if not a service node
 
@@ -1028,6 +1028,11 @@ namespace cryptonote
       * @return true on success, false otherwise
       */
      bool init_service_node_key();
+
+     /**
+      * @brief do the uptime proof logic and calls for idle loop.
+      */
+     void do_uptime_proof_call();
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 

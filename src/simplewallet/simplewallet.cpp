@@ -4837,14 +4837,6 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
   return sweep_main(0, true, args_);
 }
 //----------------------------------------------------------------------------------------------------
-static cryptonote::account_public_address string_to_address(const std::string& s)
-{
-  cryptonote::account_public_address address;
-  if (!epee::string_tools::hex_to_pod(s, address))
-    return service_nodes::null_address;
-  return address;
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::register_service_node_main(
     const std::vector<std::string>& service_node_key_as_str,
     uint64_t expiration_timestamp,
@@ -4886,7 +4878,7 @@ bool simple_wallet::register_service_node_main(
     return true;
   }
 
-  uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
+  uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err, err2;
@@ -5187,12 +5179,12 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     m_idle_thread.join();
     success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
 #ifndef WIN32
-    success_msg_writer() << tr("Entering autostaking mode, forking to background...");
+    success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
     tools::threadpool::getInstance().stop();
     posix::fork("");
     tools::threadpool::getInstance().start();
 #else
-    success_msg_writer() << tr("Entering autostaking mode, please leave this wallet running.");
+    success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, please leave this wallet running to automatically renew your service node every period.");
 #endif
     m_idle_run.store(true, std::memory_order_relaxed);
     while (true)
@@ -5204,7 +5196,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
     }
   }
   else
@@ -5235,7 +5227,7 @@ bool simple_wallet::stake_main(
   uint64_t fetched_blocks;
   m_wallet->refresh(0, fetched_blocks);
 
-  uint64_t staking_requirement_lock_blocks = (m_wallet->nettype() == cryptonote::TESTNET ? STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET : STAKING_REQUIREMENT_LOCK_BLOCKS);
+  uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   std::string err, err2;
@@ -5306,7 +5298,11 @@ bool simple_wallet::stake_main(
 
     for (const auto& contributor : snode_info.contributors)
     {
-      if (string_to_address(contributor.address) == address)
+      address_parse_info info;
+      if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), contributor.address))
+        info.address = service_nodes::null_address;
+
+      if (info.address == address)
       {
         uint64_t max_increase_reserve = snode_info.staking_requirement - snode_info.total_reserved;
         uint64_t max_increase_amount_to = contributor.reserved + max_increase_reserve;
@@ -5330,7 +5326,7 @@ bool simple_wallet::stake_main(
     if (amount > can_contrib_total)
     {
       success_msg_writer() << tr("You may only contribute up to ") << print_money(can_contrib_total) << tr(" more loki to this service node");
-      success_msg_writer() << tr("Automatically staking ") << print_money(can_contrib_total);
+      success_msg_writer() << tr("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(can_contrib_total);
       amount = can_contrib_total;
     }
     if (amount < must_contrib_total)
@@ -5613,7 +5609,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(120));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
     }
   }
   else

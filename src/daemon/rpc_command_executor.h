@@ -160,6 +160,10 @@ public:
 
   bool print_sn_key();
 
+  bool print_sn_status();
+
+  bool print_sr(uint64_t height);
+
   bool prepare_registration();
 
   bool print_sn(const std::vector<std::string> &args);

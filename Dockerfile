@@ -51,7 +51,7 @@ ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 ARG ZMQ_VERSION=v4.2.3
 ARG ZMQ_HASH=3226b8ebddd9c6c738ba42986822c26418a49afb
 RUN set -ex \
-    && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
+    && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} --depth=1 \
     && cd libzmq \
     && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
     && ./autogen.sh \
@@ -60,10 +60,21 @@ RUN set -ex \
     && make install \
     && ldconfig
 
+# ncurses
+ARG NCURSES_VERSION=6.1
+ARG READLINE_HASH=750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334
+RUN set -ex \
+    && curl -s -O ftp://ftp.invisible-island.net/ncurses/ncurses-6.1.tar.gz \
+    && tar -xzf ncurses-${NCURSES_VERSION}.tar.gz \
+    && cd ncurses-${NCURSES_VERSION} \
+    && CFLAGS="-fPIC" CXXFLAGS="-P -fPIC" ./configure --enable-termcap --with-termlib \
+    && make \
+    && make install
+
 # zmq.hpp
 ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
 RUN set -ex \
-    && git clone https://github.com/zeromq/cppzmq.git -b ${ZMQ_VERSION} \
+    && git clone https://github.com/zeromq/cppzmq.git -b ${ZMQ_VERSION} --depth=1 \
     && cd cppzmq \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && mv *.hpp /usr/local/include
@@ -84,7 +95,7 @@ RUN set -ex \
 ARG SODIUM_VERSION=1.0.16
 ARG SODIUM_HASH=675149b9b8b66ff44152553fb3ebf9858128363d
 RUN set -ex \
-    && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
+    && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} --depth=1 \
     && cd libsodium \
     && test `git rev-parse HEAD` = ${SODIUM_HASH} || exit 1 \
     && ./autogen.sh \
