@@ -532,6 +532,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
 
   req.start_height = start_block_index;
   req.end_height = end_block_index;
+  req.fill_pow_hash = false;
 
   std::string fail_message = "Unsuccessful";
 
@@ -1743,6 +1744,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
 
     bhreq.start_height = ires.height - nblocks;
     bhreq.end_height = ires.height - 1;
+    bhreq.fill_pow_hash = false;
     if (m_is_rpc)
     {
       if (!m_rpc_client->json_rpc_request(bhreq, bhres, "getblockheadersrange", fail_message.c_str()))
