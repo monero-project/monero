@@ -36,7 +36,8 @@
 
 #ifdef _MSC_VER
 #include <malloc.h>
-#elif !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
+#elif !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__) \
+  && !defined(__NetBSD__)
  #include <alloca.h>
 #else
  #include <stdlib.h>
