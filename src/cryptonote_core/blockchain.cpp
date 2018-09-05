@@ -3057,8 +3057,34 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
 
     // Check if deregister is too old or too new to hold onto
-    {
       const uint64_t curr_height = get_current_blockchain_height();
+    if (m_nettype == TESTNET && curr_height < 7250)
+    {
+      if (deregister.block_height > curr_height)
+      {
+        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+                     << " and service node: "              << deregister.service_node_index
+                     << ", is newer than current height: " << curr_height
+                     << " blocks and has been rejected.");
+        tvc.m_vote_ctx.m_invalid_block_height = true;
+        tvc.m_verifivation_failed             = true;
+        return false;
+      }
+
+      uint64_t delta_height = curr_height - deregister.block_height;
+      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+      {
+        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+                     << " and service node: "     << deregister.service_node_index
+                     << ", is older than: "       << loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
+                     << " blocks and has been rejected. The current height is: " << curr_height);
+        tvc.m_vote_ctx.m_invalid_block_height = true;
+        tvc.m_verifivation_failed             = true;
+        return false;
+      }
+    }
+    else
+    {
       if (deregister.block_height >= curr_height)
       {
         LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
