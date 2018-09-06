@@ -166,8 +166,6 @@ namespace cryptonote
       case STAGENET:
         break;
       case TESTNET:
-        ADD_CHECKPOINT(3591,  "2b6e72fe1b3f0803667fe24cabc31aaa1ca28e49c726872fda41eda2b648e790");
-        ADD_CHECKPOINT(4166,  "b02dcb4427a11d7287461efa000849400097e007ee8d485e5c4943d782da34a1");
         break;
       case FAKECHAIN:
         break;

@@ -295,7 +295,7 @@ namespace cryptonote
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
-    if (m_nettype == MAINNET || m_nettype == TESTNET)
+    if (m_nettype == MAINNET)
     {
       cryptonote::checkpoints checkpoints;
       if (!checkpoints.init_default_checkpoints(m_nettype))

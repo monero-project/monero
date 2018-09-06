@@ -372,7 +372,7 @@ namespace nodetool
     std::set<std::string> full_addrs;
     if (nettype == cryptonote::TESTNET)
     {
-      full_addrs.insert("52.63.146.137:38150");
+      full_addrs.insert("52.63.146.137:38156");
     }
     else if (nettype == cryptonote::STAGENET)
     {
