@@ -78,7 +78,10 @@ namespace cryptonote
 
     uint64_t template_accept_threshold(uint64_t amount)
     {
-      return amount * ACCEPT_THRESHOLD;
+      // XXX: multiplying by ACCEPT_THRESHOLD here was removed because of a need
+      // to accept 0 fee transactions correctly. the cast to float / double and
+      // back again was causing issues estimating the effect of a zero fee tx
+      return amount;
     }
 
     uint64_t get_transaction_size_limit(uint8_t version)
@@ -245,40 +248,6 @@ namespace cryptonote
         LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
         tvc.m_verifivation_failed = true;
         tvc.m_double_spend = true;
-        return false;
-      }
-    }
-
-    if (tx.is_deregister_tx())
-    {
-      tx_extra_service_node_deregister deregister;
-      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
-      {
-        LOG_PRINT_L1("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
-        return false;
-      }
-
-      const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
-      if (deregister.block_height >= curr_height)
-      {
-        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                     << " and service node: "              << deregister.service_node_index
-                     << ", is newer than current height: " << curr_height
-                     << " blocks and has been rejected.");
-        tvc.m_vote_ctx.m_invalid_block_height = true;
-        tvc.m_verifivation_failed             = true;
-        return false;
-      }
-
-      uint64_t delta_height = curr_height - deregister.block_height;
-      if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
-      {
-        LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                     << " and service node: "     << deregister.service_node_index
-                     << ", is older than: "       << loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
-                     << " blocks and has been rejected.");
-        tvc.m_vote_ctx.m_invalid_block_height = true;
-        tvc.m_verifivation_failed             = true;
         return false;
       }
     }
@@ -699,9 +668,22 @@ namespace cryptonote
             if (meta.fee == 0)
             {
               cryptonote::transaction tx;
-              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx) && !tx.is_deregister_tx())
+              if (!cryptonote::parse_and_validate_tx_from_blob(bd, tx))
               {
-                  return true;
+                LOG_PRINT_L1("TX in pool could not be parsed from blob, txid: " << txid);
+                return true;
+              }
+
+              if (!tx.is_deregister_tx())
+                return true;
+
+              tx_verification_context tvc;
+              uint64_t max_used_block_height = 0;
+              crypto::hash max_used_block_id = null_hash;
+              if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
+              {
+                LOG_PRINT_L1("TX deregister considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
+                return true;
               }
             }
 
@@ -716,6 +698,7 @@ namespace cryptonote
       }
       return true;
     }, false);
+
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -1094,6 +1077,7 @@ namespace cryptonote
         }
       }
     }
+
     //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
     if(m_blockchain.have_tx_keyimges_as_spent(tx))
     {

@@ -96,7 +96,7 @@ namespace loki
     if (deregister.service_node_index >= quorum_state.nodes_to_test.size())
     {
       vvc.m_service_node_index_out_of_bounds = true;
-      LOG_PRINT_L1("Service node index in deregister vote was out of bounds:  " << deregister.service_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << "]");
+      LOG_PRINT_L1("Service node index in deregister vote was out of bounds: " << deregister.service_node_index << ", expected to be in range of: [0, " << quorum_state.nodes_to_test.size() << ")");
       return false;
     }
 
@@ -109,7 +109,7 @@ namespace loki
       if (vote.voters_quorum_index >= quorum.size())
       {
         vvc.m_voters_quorum_index_out_of_bounds = true;
-        LOG_PRINT_L1("Voter's index in deregister vote was out of bounds:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+        LOG_PRINT_L1("Voter's index in deregister vote was out of bounds: " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << ")");
         return false;
       }
 
@@ -117,7 +117,7 @@ namespace loki
       if (++quorum_set[vote.voters_quorum_index] > 1)
       {
         vvc.m_duplicate_voters = true;
-        LOG_PRINT_L1("Voter quorum index is duplicated:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+        LOG_PRINT_L1("Voter quorum index is duplicated: " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << ")");
         return false;
       }
 

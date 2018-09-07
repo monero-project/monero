@@ -1442,6 +1442,22 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::do_uptime_proof_call()
+  {
+    std::vector<service_nodes::service_node_pubkey_info> states = get_service_node_list_state({ m_service_node_pubkey });
+
+    // wait one block before starting uptime proofs.
+    if (!states.empty() && states[0].info.registration_height + 1 < get_current_blockchain_height())
+    {
+      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+    }
+    else
+    {
+      // reset the interval so that we're ready when we register.
+      m_submit_uptime_proof_interval = epee::math_helper::once_a_time_seconds<UPTIME_PROOF_FREQUENCY_IN_SECONDS, true>();
+    }
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::on_idle()
   {
     if(!m_starter_message_showed)
@@ -1468,11 +1484,9 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
-    if (m_service_node && m_service_node_list.is_service_node(m_service_node_pubkey))
-    {
-      m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
-      m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
-    }
+    if (m_service_node)
+      do_uptime_proof_call();
+    m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
 
     m_miner.on_idle();
     m_mempool.on_idle();
@@ -1689,32 +1703,30 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc)
   {
+    uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+    uint64_t delta_height = latest_block_height - vote.block_height;
+
+    if (vote.block_height < latest_block_height && delta_height >= loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
     {
-      uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
-      uint64_t delta_height = latest_block_height - vote.block_height;
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height
+                << " and service node: "     << vote.service_node_index
+                << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+                << " blocks and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
+    else if (vote.block_height > latest_block_height)
+    {
+      LOG_PRINT_L1("Received vote for height: " << vote.block_height
+                << " and service node: "     << vote.service_node_index
+                << ", is newer than: "       << latest_block_height
+                << " (latest block height) and has been rejected.");
+      vvc.m_invalid_block_height = true;
+    }
 
-      if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is older than: "       << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
-                  << " blocks and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-      else if (vote.block_height > latest_block_height)
-      {
-        LOG_PRINT_L1("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is newer than: "       << latest_block_height
-                  << " (latest block height) and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-
-      if (vvc.m_invalid_block_height)
-      {
-        vvc.m_verification_failed = true;
-        return false;
-      }
+    if (vvc.m_invalid_block_height)
+    {
+      vvc.m_verification_failed = true;
+      return false;
     }
 
     const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(vote.block_height);
@@ -1745,6 +1757,7 @@ namespace cryptonote
 
     return result;
   }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const
   {
     if (m_service_node)

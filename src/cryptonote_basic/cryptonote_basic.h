@@ -350,6 +350,7 @@ namespace cryptonote
     vout.clear();
     extra.clear();
     signatures.clear();
+    rct_signatures = {};
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
     set_blob_size_valid(false);

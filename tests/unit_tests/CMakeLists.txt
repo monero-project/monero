@@ -56,6 +56,7 @@ set(unit_tests_sources
   multisig.cpp
   parse_amount.cpp
   serialization.cpp
+  service_nodes.cpp
   sha256.cpp
   slow_memmem.cpp
   subaddress.cpp
@@ -69,7 +70,8 @@ set(unit_tests_sources
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
-  ringdb.cpp)
+  ringdb.cpp
+  )
 
 set(unit_tests_headers
   unit_tests_utils.h)

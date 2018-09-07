@@ -2317,7 +2317,13 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-
+  bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_get_staking_requirement);
+    res.staking_requirement = service_nodes::get_staking_requirement(nettype(), req.height);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
 
   const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
