@@ -158,6 +158,7 @@ namespace net_utils
     std::list<boost::shared_ptr<connection<t_protocol_handler> > > m_self_refs; // add_ref/release support
     critical_section m_self_refs_lock;
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
+    critical_section m_shutdown_lock; // held while shutting down
     
     t_connection_type m_connection_type;
     
