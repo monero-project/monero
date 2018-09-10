@@ -1244,6 +1244,20 @@ size_t WalletImpl::importMultisigImages(const vector<string>& images) {
     return 0;
 }
 
+bool WalletImpl::hasMultisigPartialKeyImages() const {
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+
+        return m_wallet->has_multisig_partial_key_images();
+    } catch (const exception& e) {
+        LOG_ERROR("Error on checking for partial multisig key images: ") << e.what();
+        setStatusError(string(tr("Failed to check for partial multisig key images: ")) + e.what());
+    }
+
+    return false;
+}
+
 PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signData) {
     try {
         clearStatus();

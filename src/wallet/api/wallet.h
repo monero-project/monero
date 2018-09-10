@@ -139,6 +139,7 @@ public:
     bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
+    bool hasMultisigPartialKeyImages() const override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
