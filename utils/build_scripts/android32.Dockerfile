@@ -121,6 +121,18 @@ RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && cp *.hpp ${PREFIX}/include
 
+# Sodium
+ARG SODIUM_VERSION=1.0.16
+ARG SODIUM_HASH=675149b9b8b66ff44152553fb3ebf9858128363d
+RUN set -ex \
+    && git clone https://github.com/jedisct1/libsodium.git -b ${SODIUM_VERSION} \
+    && cd libsodium \
+    && test `git rev-parse HEAD` = ${SODIUM_HASH} || exit 1 \
+    && ./autogen.sh \
+    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=arm-linux-androideabi --enable-static --disable-shared \
+    && make  -j${NPROC} \
+    && make install
+
 ADD . /src
 RUN cd /src \
     && CMAKE_INCLUDE_PATH="${PREFIX}/include" \
