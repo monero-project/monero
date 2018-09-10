@@ -1,6 +1,6 @@
 package=pcsc-lite
 $(package)_version=1.8.23
-$(package)_download_path=https://alioth.debian.org/frs/download.php/file/4235
+$(package)_download_path=https://pcsclite.apdu.fr/files
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
 $(package)_sha256_hash=5a27262586eff39cfd5c19aadc8891dd71c0818d3d629539bd631b958be689c9
 
