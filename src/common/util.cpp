@@ -45,6 +45,13 @@
 #include <string>
 #endif
 
+//tools::is_hdd
+#ifdef __GLIBC__
+  #include <sstream>
+  #include <sys/sysmacros.h>
+  #include <fstream>
+#endif
+
 #include "unbound.h"
 
 #include "include_base_utils.h"
@@ -732,62 +739,41 @@ std::string get_nix_version_display_string()
 #endif
   }
 
-  bool is_hdd(const char *path)
+  boost::optional<bool> is_hdd(const char *file_path)
   {
 #ifdef __GLIBC__
-    std::string device = "";
-    struct stat st, dst;
-    if (stat(path, &st) < 0)
-      return 0;
-
-    DIR *dir = opendir("/dev/block");
-    if (!dir)
-      return 0;
-    struct dirent *de;
-    while ((de = readdir(dir)))
+    struct stat st;
+    std::string prefix;
+    if(stat(file_path, &st) == 0)
     {
-      if (strcmp(de->d_name, ".") && strcmp(de->d_name, ".."))
+      std::ostringstream s;
+      s << "/sys/dev/block/" << major(st.st_dev) << ":" << minor(st.st_dev);
+      prefix = s.str();
+    }
+    else
+    {
+      return boost::none;
+    }
+    std::string attr_path = prefix + "/queue/rotational";
+    std::ifstream f(attr_path, std::ios_base::in);
+    if(not f.is_open())
+    {
+      attr_path = prefix + "/../queue/rotational";
+      f.open(attr_path, std::ios_base::in);
+      if(not f.is_open())
       {
-        std::string dev_path = std::string("/dev/block/") + de->d_name;
-        char resolved[PATH_MAX];
-        if (realpath(dev_path.c_str(), resolved) && !strncmp(resolved, "/dev/", 5))
-        {
-          if (stat(resolved, &dst) == 0)
-          {
-            if (dst.st_rdev == st.st_dev)
-            {
-              // take out trailing digits (eg, sda1 -> sda)
-              char *ptr = resolved;
-              while (*ptr)
-                ++ptr;
-              while (ptr > resolved && isdigit(*--ptr))
-                *ptr = 0;
-              device = resolved + 5;
-              break;
-            }
-          }
-        }
+          return boost::none;
       }
     }
-    closedir(dir);
-
-    if (device.empty())
-      return 0;
-
-    std::string sys_path = "/sys/block/" + device + "/queue/rotational";
-    FILE *f = fopen(sys_path.c_str(), "r");
-    if (!f)
-      return false;
-    char s[8];
-    char *ptr = fgets(s, sizeof(s), f);
-    fclose(f);
-    if (!ptr)
-      return 0;
-    s[sizeof(s) - 1] = 0;
-    int n = atoi(s); // returns 0 on parse error
-    return n == 1;
+    unsigned short val = 0xdead;
+    f >> val;
+    if(not f.fail())
+    {
+      return (val == 1);
+    }
+    return boost::none;
 #else
-    return 0;
+    return boost::none;
 #endif
   }
 

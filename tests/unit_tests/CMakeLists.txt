@@ -77,7 +77,8 @@ set(unit_tests_sources
   output_selection.cpp
   vercmp.cpp
   ringdb.cpp
-  wipeable_string.cpp)
+  wipeable_string.cpp
+  is_hdd.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
