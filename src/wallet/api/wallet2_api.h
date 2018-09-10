@@ -720,6 +720,11 @@ struct Wallet
      * @return number of imported images
      */
     virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
+    /**
+     * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
+     * @return true if there are partial key images
+     */
+    virtual bool hasMultisigPartialKeyImages() const = 0;
 
     /**
      * @brief restoreMultisigTransaction creates PendingTransaction from signData
