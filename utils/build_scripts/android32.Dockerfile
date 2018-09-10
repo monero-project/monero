@@ -2,8 +2,6 @@ FROM debian:stable
 
 RUN apt-get update && apt-get install -y unzip automake build-essential curl file pkg-config git python libtool
 
-ARG NPROC=1
-
 WORKDIR /opt/android
 ## INSTALL ANDROID SDK
 ENV ANDROID_SDK_REVISION 4333796
@@ -24,6 +22,7 @@ RUN curl -s -O https://dl.google.com/android/repository/android-ndk-r${ANDROID_N
 ENV WORKDIR /opt/android
 ENV ANDROID_SDK_ROOT ${WORKDIR}/tools
 ENV ANDROID_NDK_ROOT ${WORKDIR}/android-ndk-r${ANDROID_NDK_REVISION}
+ENV PREFIX /opt/android/prefix
 
 ENV TOOLCHAIN_DIR ${WORKDIR}/toolchain-arm
 RUN ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py \
@@ -50,10 +49,12 @@ RUN set -ex \
     && tar -xvf boost_${BOOST_VERSION}.tar.bz2 \
     && rm -f boost_${BOOST_VERSION}.tar.bz2 \
     && cd boost_${BOOST_VERSION} \
-    && ./bootstrap.sh
+    && ./bootstrap.sh --prefix=${PREFIX}
 
 ENV HOST_PATH $PATH
 ENV PATH $TOOLCHAIN_DIR/arm-linux-androideabi/bin:$TOOLCHAIN_DIR/bin:$PATH
+
+ARG NPROC=1
 
 # Build iconv for lib boost locale
 ENV ICONV_VERSION 1.15
@@ -63,12 +64,12 @@ RUN curl -s -O http://ftp.gnu.org/pub/gnu/libiconv/libiconv-${ICONV_VERSION}.tar
     && tar -xzf libiconv-${ICONV_VERSION}.tar.gz \
     && rm -f libiconv-${ICONV_VERSION}.tar.gz \
     && cd libiconv-${ICONV_VERSION} \
-    && CC=arm-linux-androideabi-clang CXX=arm-linux-androideabi-clang++ ./configure --build=x86_64-linux-gnu --host=arm-eabi --prefix=${WORKDIR}/libiconv --disable-rpath \
+    && CC=arm-linux-androideabi-clang CXX=arm-linux-androideabi-clang++ ./configure --build=x86_64-linux-gnu --host=arm-eabi --prefix=${PREFIX} --disable-rpath \
     && make -j${NPROC} && make install
 
 ## Build BOOST
 RUN cd boost_${BOOST_VERSION} \
-    && ./b2 --build-type=minimal link=static runtime-link=static --with-chrono --with-date_time --with-filesystem --with-program_options --with-regex --with-serialization --with-system --with-thread --with-locale --build-dir=android32 --stagedir=android32 toolset=clang threading=multi threadapi=pthread target-os=android -sICONV_PATH=${WORKDIR}/libiconv  stage -j${NPROC}
+    && ./b2 --build-type=minimal link=static runtime-link=static --with-chrono --with-date_time --with-filesystem --with-program_options --with-regex --with-serialization --with-system --with-thread --with-locale --build-dir=android --stagedir=android toolset=clang threading=multi threadapi=pthread target-os=android -sICONV_PATH=${PREFIX} install -j${NPROC}
 
 #Note : we build openssl because the default lacks DSA1
 
@@ -97,8 +98,9 @@ RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
            no-asm \
            no-shared --static \
            --with-zlib-include=${WORKDIR}/zlib/include --with-zlib-lib=${WORKDIR}/zlib/lib \
+           --prefix=${PREFIX} --openssldir=${PREFIX} \
     && make -j${NPROC} \
-    && cd .. && mv openssl-${OPENSSL_VERSION}  openssl
+    && make install
 
 # ZMQ
 ARG ZMQ_VERSION=v4.2.5
@@ -107,7 +109,7 @@ RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
     && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
     && ./autogen.sh \
-    && CC=clang CXX=clang++ ./configure --prefix=${PWD}/prebuilt --host=arm-linux-androideabi --enable-static --disable-shared \
+    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=arm-linux-androideabi --enable-static --disable-shared \
     && make -j${NPROC} \
     && make install
 
@@ -116,14 +118,12 @@ ARG CPPZMQ_VERSION=v4.2.3
 ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
 RUN git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
-    && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1
+    && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
+    && cp *.hpp ${PREFIX}/include
 
 ADD . /src
 RUN cd /src \
-    && BOOST_ROOT=${WORKDIR}/boost_${BOOST_VERSION} BOOST_LIBRARYDIR=${WORKDIR}/boost_${BOOST_VERSION}/android32/lib/ \
-         OPENSSL_ROOT_DIR=${WORKDIR}/openssl/ \
-         CMAKE_INCLUDE_PATH="${WORKDIR}/cppzmq:${WORKDIR}/libzmq/prebuilt/include" \
-         CMAKE_LIBRARY_PATH=${WORKDIR}/libzmq/prebuilt/lib \
-         ANDROID_STANDALONE_TOOLCHAIN_PATH=${TOOLCHAIN_DIR} \
-         CXXFLAGS="-I ${WORKDIR}/libzmq/prebuilt/include/" \
-     PATH=${HOST_PATH} make release-static-android -j${NPROC}
+    && CMAKE_INCLUDE_PATH="${PREFIX}/include" \
+       CMAKE_LIBRARY_PATH="${PREFIX}/lib" \
+       ANDROID_STANDALONE_TOOLCHAIN_PATH=${TOOLCHAIN_DIR} \
+       PATH=${HOST_PATH} make release-static-android -j${NPROC}
