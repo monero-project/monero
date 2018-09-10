@@ -2657,6 +2657,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     tvc.m_invalid_version = true;
     return false;
   }
+  else if (hf_version < 9 && tx.version > 2)
+  {
+    tvc.m_invalid_version = true;
+    return false;
+  }
 
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
   // if one output cannot mix with 2 others, we accept at most 1 output that can mix
