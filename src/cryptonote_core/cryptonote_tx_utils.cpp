@@ -259,6 +259,7 @@ namespace cryptonote
 
     if (hard_fork_version >= 9)
     {
+      tx.version = transaction_prefix::version_3_per_output_unlock_times;
       for (size_t i = 0; i < service_node_info.size(); i++)
       {
         crypto::key_derivation derivation = AUTO_VAL_INIT(derivation);
@@ -277,6 +278,10 @@ namespace cryptonote
         tx.vout.push_back(out);
         tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
       }
+    }
+    else
+    {
+      tx.version = transaction_prefix::version_2;
     }
 
     if (already_generated_coins != 0)
@@ -320,8 +325,6 @@ namespace cryptonote
     }
 
     CHECK_AND_ASSERT_MES(summary_amounts == (block_reward + governance_reward + total_paid_service_node_reward), false, "Failed to construct miner tx, summary_amounts = " << summary_amounts << " not equal total block_reward = " << (block_reward + governance_reward + total_paid_service_node_reward));
-
-    tx.version = 3;
 
     //lock
     tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
