@@ -757,6 +757,7 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::tx_in_pool& tx
   INSERT_INTO_JSON_OBJECT(val, doc, tx, tx.tx);
   INSERT_INTO_JSON_OBJECT(val, doc, tx_hash, tx.tx_hash);
   INSERT_INTO_JSON_OBJECT(val, doc, blob_size, tx.blob_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, weight, tx.weight);
   INSERT_INTO_JSON_OBJECT(val, doc, fee, tx.fee);
   INSERT_INTO_JSON_OBJECT(val, doc, max_used_block_hash, tx.max_used_block_hash);
   INSERT_INTO_JSON_OBJECT(val, doc, max_used_block_height, tx.max_used_block_height);
@@ -780,6 +781,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::tx_in_pool& tx)
 
   GET_FROM_JSON_OBJECT(val, tx.tx, tx);
   GET_FROM_JSON_OBJECT(val, tx.blob_size, blob_size);
+  GET_FROM_JSON_OBJECT(val, tx.weight, weight);
   GET_FROM_JSON_OBJECT(val, tx.fee, fee);
   GET_FROM_JSON_OBJECT(val, tx.max_used_block_hash, max_used_block_hash);
   GET_FROM_JSON_OBJECT(val, tx.max_used_block_height, max_used_block_height);
@@ -1195,6 +1197,9 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& in
   INSERT_INTO_JSON_OBJECT(val, doc, top_block_hash, info.top_block_hash);
   INSERT_INTO_JSON_OBJECT(val, doc, cumulative_difficulty, info.cumulative_difficulty);
   INSERT_INTO_JSON_OBJECT(val, doc, block_size_limit, info.block_size_limit);
+  INSERT_INTO_JSON_OBJECT(val, doc, block_weight_limit, info.block_weight_limit);
+  INSERT_INTO_JSON_OBJECT(val, doc, block_size_median, info.block_size_median);
+  INSERT_INTO_JSON_OBJECT(val, doc, block_weight_median, info.block_weight_median);
   INSERT_INTO_JSON_OBJECT(val, doc, start_time, info.start_time);
 }
 
@@ -1221,6 +1226,9 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
   GET_FROM_JSON_OBJECT(val, info.top_block_hash, top_block_hash);
   GET_FROM_JSON_OBJECT(val, info.cumulative_difficulty, cumulative_difficulty);
   GET_FROM_JSON_OBJECT(val, info.block_size_limit, block_size_limit);
+  GET_FROM_JSON_OBJECT(val, info.block_weight_limit, block_weight_limit);
+  GET_FROM_JSON_OBJECT(val, info.block_size_median, block_size_median);
+  GET_FROM_JSON_OBJECT(val, info.block_weight_median, block_weight_median);
   GET_FROM_JSON_OBJECT(val, info.start_time, start_time);
 }
 

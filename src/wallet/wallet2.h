@@ -630,14 +630,9 @@ namespace tools
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
-    // upper_transaction_size_limit as defined below is set to 
-    // approximately 125% of the fixed minimum allowable penalty
-    // free block size. TODO: fix this so that it actually takes
-    // into account the current median block size rather than
-    // the minimum block size.
     bool deinit();
     bool init(bool rpc, std::string daemon_address = "http://localhost:8080",
-      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_size_limit = 0, bool ssl = false, bool trusted_daemon = false);
+      boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_weight_limit = 0, bool ssl = false, bool trusted_daemon = false);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); }
 
@@ -729,7 +724,7 @@ namespace tools
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, T destination_split_strategy, const tx_dust_policy& dust_policy, cryptonote::transaction& tx, pending_tx &ptx);
     void transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
-      uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, bool bulletproof);
+      uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, rct::RangeProofType range_proof_type);
 
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
@@ -1084,10 +1079,13 @@ namespace tools
     bool is_synced() const;
 
     std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels);
-    std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(uint64_t min_blob_size, uint64_t max_blob_size, const std::vector<uint64_t> &fees);
+    std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees);
 
     uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1) const;
-    uint64_t get_per_kb_fee() const;
+    uint64_t get_base_fee() const;
+    uint64_t get_fee_quantization_mask() const;
+    uint64_t get_min_ring_size() const;
+    uint64_t get_max_ring_size() const;
     uint64_t adjust_mixin(uint64_t mixin) const;
     uint32_t adjust_priority(uint32_t priority);
 
@@ -1212,9 +1210,9 @@ namespace tools
     void check_acc_out_precomp(const cryptonote::tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, const is_out_data *is_out_data, tx_scan_info_t &tx_scan_info) const;
     void check_acc_out_precomp_once(const cryptonote::tx_out &o, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, size_t i, const is_out_data *is_out_data, tx_scan_info_t &tx_scan_info, bool &already_seen) const;
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
-    uint64_t get_upper_transaction_size_limit() const;
+    uint64_t get_upper_transaction_weight_limit() const;
     std::vector<uint64_t> get_unspent_amounts_vector() const;
-    uint64_t get_dynamic_per_kb_fee_estimate() const;
+    uint64_t get_dynamic_base_fee_estimate() const;
     float get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const;
     std::vector<size_t> pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices) const;
     void set_spent(size_t idx, uint64_t height);
@@ -1269,7 +1267,7 @@ namespace tools
     std::unordered_map<std::string, std::string> m_attributes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
     std::pair<std::map<std::string, std::string>, std::vector<std::string>> m_account_tags;
-    uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
+    uint64_t m_upper_transaction_weight_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
     const std::vector<std::vector<tools::wallet2::multisig_info>> *m_multisig_rescan_info;
     const std::vector<std::vector<rct::key>> *m_multisig_rescan_k;
 
@@ -1838,7 +1836,7 @@ namespace tools
 
     THROW_WALLET_EXCEPTION_IF(m_multisig, error::wallet_internal_error, "Multisig wallets cannot spend non rct outputs");
 
-    uint64_t upper_transaction_size_limit = get_upper_transaction_size_limit();
+    uint64_t upper_transaction_weight_limit = get_upper_transaction_weight_limit();
     uint64_t needed_money = fee;
 
     // calculate total amount being sent to all destinations
@@ -1968,9 +1966,9 @@ namespace tools
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, false, m_multisig ? &msout : NULL);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, rct::RangeProofBorromean, m_multisig ? &msout : NULL);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
-    THROW_WALLET_EXCEPTION_IF(upper_transaction_size_limit <= get_object_blobsize(tx), error::tx_too_big, tx, upper_transaction_size_limit);
+    THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
 
     std::string key_images;
     bool all_are_txin_to_key = std::all_of(tx.vin.begin(), tx.vin.end(), [&](const txin_v& s_e) -> bool

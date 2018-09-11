@@ -30,11 +30,13 @@ set(ringct_basic_sources
   rctOps.cpp
   rctTypes.cpp
   rctCryptoOps.c
+  multiexp.cc
   bulletproofs.cc)
 
 set(ringct_basic_private_headers
   rctOps.h
   rctTypes.h
+  multiexp.h
   bulletproofs.h)
 
 monero_private_headers(ringct_basic

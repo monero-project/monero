@@ -1297,6 +1297,7 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
     size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
     if (fake_outs_count == 0)
         fake_outs_count = DEFAULT_MIXIN;
+    fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
 
     uint32_t adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
 

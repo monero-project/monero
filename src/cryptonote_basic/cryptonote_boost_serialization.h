@@ -295,7 +295,7 @@ namespace boost
     a & x.type;
     if (x.type == rct::RCTTypeNull)
       return;
-    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeFullBulletproof && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeSimpleBulletproof)
+    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
@@ -323,7 +323,7 @@ namespace boost
     a & x.type;
     if (x.type == rct::RCTTypeNull)
       return;
-    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeFullBulletproof && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeSimpleBulletproof)
+    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
@@ -337,7 +337,7 @@ namespace boost
     if (x.p.rangeSigs.empty())
       a & x.p.bulletproofs;
     a & x.p.MGs;
-    if (x.type == rct::RCTTypeSimpleBulletproof)
+    if (x.type == rct::RCTTypeBulletproof)
       a & x.p.pseudoOuts;
   }
 }

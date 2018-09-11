@@ -472,7 +472,8 @@ namespace rpc
     res.info.testnet = m_core.get_nettype() == TESTNET;
     res.info.stagenet = m_core.get_nettype() == STAGENET;
     res.info.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.info.height - 1);
-    res.info.block_size_limit = m_core.get_blockchain_storage().get_current_cumulative_blocksize_limit();
+    res.info.block_size_limit = res.info.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
+    res.info.block_size_median = res.info.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
     res.info.start_time = (uint64_t)m_core.get_start_time();
 
     res.status = Message::STATUS_OK;
@@ -763,7 +764,7 @@ namespace rpc
 
   void DaemonHandler::handle(const GetPerKBFeeEstimate::Request& req, GetPerKBFeeEstimate::Response& res)
   {
-    res.estimated_fee_per_kb = m_core.get_blockchain_storage().get_dynamic_per_kb_fee_estimate(req.num_grace_blocks);
+    res.estimated_fee_per_kb = m_core.get_blockchain_storage().get_dynamic_base_fee_estimate(req.num_grace_blocks);
     res.status = Message::STATUS_OK;
   }
 

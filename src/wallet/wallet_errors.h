@@ -679,30 +679,30 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_too_big : public transfer_error
     {
-      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_size_limit)
+      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_weight_limit)
         : transfer_error(std::move(loc), "transaction is too big")
         , m_tx(tx)
-        , m_tx_size_limit(tx_size_limit)
+        , m_tx_weight_limit(tx_weight_limit)
       {
       }
 
       const cryptonote::transaction& tx() const { return m_tx; }
-      uint64_t tx_size_limit() const { return m_tx_size_limit; }
+      uint64_t tx_weight_limit() const { return m_tx_weight_limit; }
 
       std::string to_string() const
       {
         std::ostringstream ss;
         cryptonote::transaction tx = m_tx;
         ss << transfer_error::to_string() <<
-          ", tx_size_limit = " << m_tx_size_limit <<
-          ", tx size = " << get_object_blobsize(m_tx) <<
+          ", tx_weight_limit = " << m_tx_weight_limit <<
+          ", tx weight = " << get_transaction_weight(m_tx) <<
           ", tx:\n" << cryptonote::obj_to_json_str(tx);
         return ss.str();
       }
 
     private:
       cryptonote::transaction m_tx;
-      uint64_t m_tx_size_limit;
+      uint64_t m_tx_weight_limit;
     };
     //----------------------------------------------------------------------------------------------------
     struct zero_destination : public transfer_error
