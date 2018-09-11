@@ -155,16 +155,7 @@ namespace tools
       return false;
 
     m_vm = vm;
-    tools::wallet2 *walvars;
-    std::unique_ptr<tools::wallet2> tmpwal;
 
-    if (m_wallet)
-      walvars = m_wallet;
-    else
-    {
-      tmpwal = tools::wallet2::make_dummy(*m_vm, true, password_prompter);
-      walvars = tmpwal.get();
-    }
     boost::optional<epee::net_utils::http::login> http_login{};
     std::string bind_port = command_line::get_arg(*m_vm, arg_rpc_bind_port);
     const bool disable_auth = command_line::get_arg(*m_vm, arg_disable_rpc_login);
