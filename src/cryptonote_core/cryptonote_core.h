@@ -849,7 +849,7 @@ namespace cryptonote
       * @param num_blocks_to_pop The number of blocks to pop
       *
       */
-     void pop_blocks(uint64_t num_blocks_to_pop);
+     void pop_blocks(size_t num_blocks_to_pop);
 
    private:
 
