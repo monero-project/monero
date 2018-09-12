@@ -1533,6 +1533,22 @@ skip:
 
 skip:
     context.m_needed_objects.clear();
+
+    // we might have been called from the "received chain entry" handler, and end up
+    // here because we can't use any of those blocks (maybe because all of them are
+    // actually already requested). In this case, if we can add blocks instead, do so
+    {
+      const boost::unique_lock<boost::mutex> sync{m_sync_lock, boost::try_to_lock};
+      if (sync.owns_lock())
+      {
+        LOG_DEBUG_CC(context, "No other thread is adding blocks, resuming");
+        context.m_state = cryptonote_connection_context::state_standby;
+        ++context.m_callback_request_count;
+        m_p2p->request_callback(context);
+        return true;
+      }
+    }
+
     if(context.m_last_response_height < context.m_remote_blockchain_height-1)
     {//we have to fetch more objects ids, request blockchain entry
 
