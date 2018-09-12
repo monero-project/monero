@@ -3391,8 +3391,10 @@ bool BlockchainLMDB::get_output_distribution(uint64_t amount, uint64_t from_heig
       break;
   }
 
+  distribution[0] += base;
   for (size_t n = 1; n < distribution.size(); ++n)
     distribution[n] += distribution[n - 1];
+  base = 0;
 
   TXN_POSTFIX_RDONLY();
 
