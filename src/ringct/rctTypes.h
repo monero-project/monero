@@ -313,10 +313,10 @@ namespace rct {
             return false;
           if (type == RCTTypeBulletproof)
           {
-            ar.tag("bp");
-            ar.begin_array();
             uint32_t nbp = bulletproofs.size();
             FIELD(nbp)
+            ar.tag("bp");
+            ar.begin_array();
             if (nbp > outputs)
               return false;
             PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs);
