@@ -2054,15 +2054,10 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   {
     std::vector<uint64_t> heights;
     heights.reserve(to_height + 1 - start_height);
-    uint64_t real_start_height = start_height > 0 ? start_height-1 : start_height;
-    for (uint64_t h = real_start_height; h <= to_height; ++h)
+    for (uint64_t h = start_height; h <= to_height; ++h)
       heights.push_back(h);
     distribution = m_db->get_block_cumulative_rct_outputs(heights);
-    if (start_height > 0)
-    {
-      base = distribution[0];
-      distribution.erase(distribution.begin());
-    }
+    base = 0;
     return true;
   }
   else
