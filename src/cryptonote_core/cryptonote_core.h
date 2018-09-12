@@ -843,14 +843,6 @@ namespace cryptonote
       */
      uint64_t get_uptime_proof(const crypto::public_key &key) const;
 
-     /**
-      * @brief Pop 'n' block(s) from the chain
-      *
-      * @param num_blocks_to_pop The number of blocks to pop
-      *
-      */
-     void pop_blocks(size_t num_blocks_to_pop);
-
    private:
 
      /**

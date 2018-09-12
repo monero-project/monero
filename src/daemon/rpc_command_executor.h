@@ -167,8 +167,6 @@ public:
   bool prepare_registration();
 
   bool print_sn(const std::vector<std::string> &args);
-
-  bool pop_blocks(size_t num_blocks_to_pop);
 };
 
 } // namespace daemonize

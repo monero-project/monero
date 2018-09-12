@@ -1114,18 +1114,6 @@ namespace cryptonote
     return result;
   }
   //-----------------------------------------------------------------------------------------------
-  void core::pop_blocks(size_t num_blocks_to_pop)
-  {
-    m_blockchain_storage.get_db().batch_start();
-    for (size_t i = 0; i < num_blocks_to_pop; i++)
-    {
-      block blk;
-      std::vector<transaction> txs;
-      m_blockchain_storage.get_db().pop_block(blk, txs);
-    }
-    m_blockchain_storage.get_db().batch_stop();
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
   {
     return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);

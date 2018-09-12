@@ -2004,30 +2004,6 @@ namespace cryptonote
     return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_pop_blocks(const COMMAND_RPC_POP_BLOCKS::request& req, COMMAND_RPC_POP_BLOCKS::response& res)
-  {
-    PERF_TIMER(on_pop_blocks);
-
-    // TODO(loki): It'd be nice not to need to be offline, but it makes
-    // implementation much easier to not handle any race conditions right now.
-    // And this is a really handy feature for debugging chains.
-
-    // TODO(loki): This doesn't activate service node lists rollbacks. But will
-    // trigger a rescan from scratch. Again simpler to not handle right now.
-    // Putting the Blockchaindetached hook in the pop blocks call may work, but
-    // haven't investigated the repercussions of that.
-    if (!m_core.offline())
-    {
-      res.status = "Daemon must be running in offline mode to pop blocks.";
-      return false;
-    }
-
-    m_core.pop_blocks(req.num_blocks_to_pop);
-    res.status = CORE_RPC_STATUS_OK;
-    return true;
-
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp)
   {
     PERF_TIMER(on_get_service_node_key);
