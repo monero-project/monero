@@ -133,6 +133,17 @@ monero_private_headers(blockchain_stats
 	  ${blockchain_stats_private_headers})
 
 
+set(blockchain_output_age_sources
+  blockchain_output_age.cpp
+  )
+
+set(blockchain_output_age_private_headers)
+
+monero_private_headers(blockchain_output_age
+	  ${blockchain_output_age_private_headers})
+
+
+
 monero_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers})
@@ -324,6 +335,27 @@ target_link_libraries(blockchain_prune
     cryptonote_core
     blockchain_db
     p2p
+    version
+    epee
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+monero_add_executable(blockchain_output_age
+  ${blockchain_output_age_sources}
+  ${blockchain_output_age_private_headers})
+
+set_property(TARGET blockchain_output_age
+	PROPERTY
+	OUTPUT_NAME "monero-blockchain-output-age")
+install(TARGETS blockchain_output_age DESTINATION bin)
+
+target_link_libraries(blockchain_output_age
+  PRIVATE
+    cryptonote_core
+    blockchain_db
     version
     epee
     ${Boost_FILESYSTEM_LIBRARY}
