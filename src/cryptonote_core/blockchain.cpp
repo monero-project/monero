@@ -2666,6 +2666,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     tvc.m_invalid_version = true;
     return false;
   }
+  else if (hf_version < 9 && tx.version > 2)
+  {
+    tvc.m_invalid_version = true;
+    return false;
+  }
 
   // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
   // if one output cannot mix with 2 others, we accept at most 1 output that can mix
@@ -3779,7 +3784,14 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
-  m_deregister_vote_pool.remove_expired_votes(new_height);
+
+  // New height is the height of the block we just mined. We want (new_height
+  // + 1) because our age checks for deregister votes is now (age >=
+  // DEREGISTER_VOTE_LIFETIME_BY_HEIGHT) where age is derived from
+  // get_current_blockchain_height() which gives you the height that you are
+  // currently mining for, i.e. (new_height + 1). Otherwise peers will silently
+  // drop connection from each other when they go around P2Ping votes.
+  m_deregister_vote_pool.remove_expired_votes(new_height + 1);
   m_deregister_vote_pool.remove_used_votes(txs);
 
   return true;

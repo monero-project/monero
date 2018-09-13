@@ -790,7 +790,7 @@ namespace cryptonote
       if (vvc.m_verification_failed)
       {
         LOG_PRINT_CCONTEXT_L1("Deregister vote verification failed, dropping connection");
-        drop_connection(context, true /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
+        drop_connection(context, false /*add_fail*/, false /*flush_all_spans i.e. delete cached block data from this peer*/);
         return 1;
       }
 
