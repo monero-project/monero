@@ -287,6 +287,19 @@ namespace service_nodes
     m_service_nodes_infos.erase(iter);
   }
 
+  bool check_service_node_portions(const std::vector<uint64_t>& portions)
+  {
+    uint64_t portions_left = STAKING_PORTIONS;
+
+    for (const auto portion : portions) {
+      const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
+      if (portion < min_portions || portion > portions_left) return false;
+      portions_left -= portion;
+    }
+
+    return true;
+  }
+
   bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
   {
     crypto::public_key tx_pub_key, service_node_key;
@@ -303,15 +316,7 @@ namespace service_nodes
       return false;
 
     // check the portions
-
-    uint64_t portions_left = STAKING_PORTIONS;
-    for (size_t i = 0; i < service_node_portions.size(); i++)
-    {
-      uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-      if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
-        return false;
-      portions_left -= service_node_portions[i];
-    }
+    if (!check_service_node_portions(service_node_portions)) return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
       return false;
