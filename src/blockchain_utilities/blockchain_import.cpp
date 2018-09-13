@@ -165,7 +165,7 @@ int pop_blocks(cryptonote::core& core, int num_blocks)
   return num_blocks;
 }
 
-int check_flush(cryptonote::core &core, std::list<block_complete_entry> &blocks, bool force)
+int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &blocks, bool force)
 {
   if (blocks.empty())
     return 0;
@@ -177,7 +177,7 @@ int check_flush(cryptonote::core &core, std::list<block_complete_entry> &blocks,
   if (!force && new_height % HASH_OF_HASHES_STEP)
     return 0;
 
-  std::list<crypto::hash> hashes;
+  std::vector<crypto::hash> hashes;
   for (const auto &b: blocks)
   {
     cryptonote::block block;
@@ -313,7 +313,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   MINFO("Reading blockchain from bootstrap file...");
   std::cout << ENDL;
 
-  std::list<block_complete_entry> blocks;
+  std::vector<block_complete_entry> blocks;
 
   // Skip to start_height before we start adding.
   {
@@ -438,7 +438,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
         {
           cryptonote::blobdata block;
           cryptonote::block_to_blob(bp.block, block);
-          std::list<cryptonote::blobdata> txs;
+          std::vector<cryptonote::blobdata> txs;
           for (const auto &tx: bp.txs)
           {
             txs.push_back(cryptonote::blobdata());
