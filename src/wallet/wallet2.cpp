@@ -768,8 +768,6 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
   // When switching from light wallet to full wallet, we need to reset the height we got from lw node.
-  if(m_light_wallet)
-    m_local_bc_height = m_blockchain.size();
   return m_http_client.set_server(get_daemon_address(), get_daemon_login(), ssl);
 }
 //----------------------------------------------------------------------------------------------------
@@ -1705,7 +1703,6 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       LOG_PRINT_L2( "Skipped block by timestamp, height: " << height << ", block time " << b.timestamp << ", account time " << m_account.get_createtime());
   }
   m_blockchain.push_back(bl_id);
-  ++m_local_bc_height;
 
   if (0 != m_callback)
     m_callback->on_new_block(height, b);
@@ -2283,7 +2280,6 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     while (missing_blocks-- > 0)
       m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
     m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
-    m_local_bc_height = m_blockchain.size();
     short_chain_history.clear();
     get_short_chain_history(short_chain_history);
   }
@@ -2316,7 +2312,6 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
         if (!(current_index % 1000))
           LOG_PRINT_L2( "Skipped block by height: " << current_index);
         m_blockchain.push_back(bl_id);
-        ++m_local_bc_height;
 
         if (0 != m_callback)
         { // FIXME: this isn't right, but simplewallet just logs that we got a block.
@@ -2377,7 +2372,6 @@ void wallet2::refresh(uint64_t start_height, uint64_t & blocks_fetched, bool& re
       // Update lw heights
       m_light_wallet_scanned_block_height = res.scanned_block_height;
       m_light_wallet_blockchain_height = res.blockchain_height;
-      m_local_bc_height = res.blockchain_height;
       // If new height - call new_block callback
       if(m_light_wallet_blockchain_height != prev_height)
       {
@@ -2632,7 +2626,6 @@ void wallet2::detach_blockchain(uint64_t height)
 
   size_t blocks_detached = m_blockchain.size() - height;
   m_blockchain.crop(height);
-  m_local_bc_height -= blocks_detached;
 
   for (auto it = m_payments.begin(); it != m_payments.end(); )
   {
@@ -2674,7 +2667,6 @@ bool wallet2::clear()
   m_scanned_pool_txs[0].clear();
   m_scanned_pool_txs[1].clear();
   m_address_book.clear();
-  m_local_bc_height = 1;
   m_subaddresses.clear();
   m_subaddress_labels.clear();
   return true;
@@ -4056,8 +4048,6 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   if (get_num_subaddress_accounts() == 0)
     add_subaddress_account(tr("Primary account"));
 
-  m_local_bc_height = m_blockchain.size();
-
   try
   {
     find_and_save_rings(false);
@@ -4437,7 +4427,6 @@ void wallet2::rescan_blockchain(bool refresh)
   crypto::hash genesis_hash = get_block_hash(genesis);
   m_blockchain.push_back(genesis_hash);
   add_subaddress_account(tr("Primary account"));
-  m_local_bc_height = 1;
 
   if (refresh)
     this->refresh();
@@ -4453,7 +4442,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) 
   if(!is_tx_spendtime_unlocked(unlock_time, block_height))
     return false;
 
-  if(block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > m_local_bc_height)
+  if(block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > get_blockchain_current_height())
     return false;
 
   return true;
@@ -4461,7 +4450,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) 
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height) const
 {
-  return cryptonote::rules::is_output_unlocked(unlock_time, m_local_bc_height);
+  return cryptonote::rules::is_output_unlocked(unlock_time, get_blockchain_current_height());
 }
 //----------------------------------------------------------------------------------------------------
 namespace
@@ -10004,7 +9993,6 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);
   check_genesis(genesis_hash);
-  m_local_bc_height = m_blockchain.size();
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<tools::wallet2::transfer_details> wallet2::export_outputs() const
