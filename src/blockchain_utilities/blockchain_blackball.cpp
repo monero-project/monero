@@ -898,7 +898,11 @@ static std::vector<std::pair<uint64_t, uint64_t>> load_outputs(const std::string
   while (1)
   {
     char s[256];
-    fgets(s, sizeof(s), f);
+    if (!fgets(s, sizeof(s), f))
+    {
+      MERROR("Error reading from " << filename << ": " << strerror(errno));
+      break;
+    }
     if (feof(f))
       break;
     const size_t len = strlen(s);
