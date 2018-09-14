@@ -7173,7 +7173,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         THROW_WALLET_EXCEPTION_IF(selected_transfers.size() != sources.size(), error::wallet_internal_error, "mismatched selected_transfers and sources sixes");
         for(size_t idx: selected_transfers)
         {
-          cryptonote::tx_source_entry& src = sources[src_idx];
+          cryptonote::tx_source_entry& src = sources_copy[src_idx];
           src.multisig_kLRki = get_multisig_composite_kLRki(idx, multisig_signers[signer_index], used_L, new_used_L);
           ++src_idx;
         }
