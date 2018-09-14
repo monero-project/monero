@@ -188,14 +188,15 @@ namespace hw {
     void device_ledger::logCMD() {
       if (apdu_verbose) {
         char  strbuffer[1024];
-        sprintf(strbuffer, "%.02x %.02x %.02x %.02x %.02x ",
+        snprintf(strbuffer, sizeof(strbuffer), "%.02x %.02x %.02x %.02x %.02x ",
           this->buffer_send[0],
           this->buffer_send[1],
           this->buffer_send[2],
           this->buffer_send[3],
           this->buffer_send[4]
           );
-        buffer_to_str(strbuffer+strlen(strbuffer), sizeof(strbuffer), (char*)(this->buffer_send+5), this->length_send-5);
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_send+5), this->length_send-5);
         MDEBUG( "CMD  :" << strbuffer);
       }
     }
@@ -203,11 +204,12 @@ namespace hw {
     void device_ledger::logRESP() {
       if (apdu_verbose) {
         char  strbuffer[1024];
-        sprintf(strbuffer, "%.02x%.02x ",
+        snprintf(strbuffer, sizeof(strbuffer), "%.02x%.02x ",
           this->buffer_recv[this->length_recv-2],
           this->buffer_recv[this->length_recv-1]
           );
-        buffer_to_str(strbuffer+strlen(strbuffer), sizeof(strbuffer), (char*)(this->buffer_recv), this->length_recv-2);
+        const size_t len = strlen(strbuffer);
+        buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_recv), this->length_recv-2);
         MDEBUG( "RESP :" << strbuffer);
 
       }
@@ -294,7 +296,7 @@ namespace hw {
      
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
       LONG rv;
-      int sw;
+      unsigned int sw;
 
       ASSERT_T0(this->length_send <= BUFFER_SEND_SIZE);
       logCMD();
@@ -303,6 +305,7 @@ namespace hw {
                          SCARD_PCI_T0, this->buffer_send, this->length_send,
                          NULL,         this->buffer_recv, &this->length_recv);
       ASSERT_RV(rv);
+      ASSERT_T0(this->length_recv >= 2);
       ASSERT_T0(this->length_recv <= BUFFER_RECV_SIZE);
       logRESP();
 

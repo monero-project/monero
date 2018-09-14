@@ -949,6 +949,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     }
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
     m_subaddress_labels[index.major].resize(index.minor + 1);
+    get_account_tags();
   }
   else if (m_subaddress_labels[index.major].size() <= index.minor)
   {
@@ -1719,7 +1720,7 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t gra
 {
   size_t i = 0;
   size_t current_multiplier = 1;
-  size_t blockchain_size = std::max(m_blockchain.size() / granularity * granularity, m_blockchain.offset());
+  size_t blockchain_size = std::max((size_t)(m_blockchain.size() / granularity * granularity), m_blockchain.offset());
   size_t sz = blockchain_size - m_blockchain.offset();
   if(!sz)
   {
@@ -2661,6 +2662,7 @@ void wallet2::detach_blockchain(uint64_t height)
 bool wallet2::deinit()
 {
   m_is_initialized=false;
+  m_keys_file_locker.reset();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2827,10 +2829,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   crypto::chacha20(account_data.data(), account_data.size(), key, keys_file_data.iv, &cipher[0]);
   keys_file_data.account_data = cipher;
 
+  m_keys_file_locker.reset();
   std::string buf;
   r = ::serialization::dump_binary(keys_file_data, buf);
   r = r && epee::file_io_utils::save_string_to_file(keys_file_name, buf); //and never touch wallet_keys_file again, only read
   CHECK_AND_ASSERT_MES(r, false, "failed to generate wallet keys file " << keys_file_name);
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
 
   return true;
 }
@@ -3960,12 +3964,17 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   boost::system::error_code e;
   bool exists = boost::filesystem::exists(m_keys_file, e);
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  THROW_WALLET_EXCEPTION_IF(!m_keys_file_locker->locked(), error::wallet_internal_error, "internal error: \"" + m_keys_file + "\" is opened by another wallet program");
 
+  // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
+  m_keys_file_locker.reset();
   if (!load_keys(m_keys_file, password))
   {
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, m_keys_file);
   }
   LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_nettype));
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem
@@ -5044,7 +5053,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, const std::string &signed_f
     return false;
   }
 
-  if (!epee::file_io_utils::save_string_to_file(signed_filename, std::string(SIGNED_TX_PREFIX) + ciphertext))
+  if (!epee::file_io_utils::save_string_to_file(signed_filename, ciphertext))
   {
     LOG_PRINT_L0("Failed to save file to " << signed_filename);
     return false;
@@ -9814,7 +9823,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   std::unordered_set<crypto::hash> spent_txids;   // For each spent key image, search for a tx in m_transfers that uses it as input.
   std::vector<size_t> swept_transfers;            // If such a spending tx wasn't found in m_transfers, this means the spending tx 
                                                   // was created by sweep_all, so we can't know the spent height and other detailed info.
-  for(size_t i = 0; i < m_transfers.size(); ++i)
+  for(size_t i = 0; i < signed_key_images.size(); ++i)
   {
     transfer_details &td = m_transfers[i];
     uint64_t amount = td.amount();
