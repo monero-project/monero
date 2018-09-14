@@ -558,7 +558,7 @@ static std::vector<output_data> get_spent_outputs(MDB_txn *txn)
   int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
-  uint64_t count = 0;
+  mdb_size_t count = 0;
   dbr = mdb_cursor_get(cur, &k, &v, MDB_FIRST);
   if (dbr != MDB_NOTFOUND)
   {
