@@ -551,26 +551,11 @@ namespace cryptonote
      difficulty_type get_block_cumulative_difficulty(uint64_t height) const;
 
      /**
-      * @copydoc Blockchain::get_random_outs_for_amounts
-      *
-      * @note see Blockchain::get_random_outs_for_amounts
-      */
-     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
-
-     /**
       * @copydoc Blockchain::get_outs
       *
       * @note see Blockchain::get_outs
       */
      bool get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const;
-
-     /**
-      *
-      * @copydoc Blockchain::get_random_rct_outs
-      *
-      * @note see Blockchain::get_random_rct_outs
-      */
-     bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
      /**
       * @copydoc Blockchain::get_output_distribution

@@ -4997,69 +4997,6 @@ void wallet2::add_unconfirmed_tx(const cryptonote::transaction& tx, uint64_t amo
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outs_count, const std::vector<size_t> &unused_transfers_indices,
-                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx& ptx)
-{
-  transfer(dsts, fake_outs_count, unused_transfers_indices, unlock_time, fee, extra, detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), tx, ptx);
-}
-//----------------------------------------------------------------------------------------------------
-void wallet2::transfer(const std::vector<cryptonote::tx_destination_entry>& dsts, const size_t fake_outs_count, const std::vector<size_t> &unused_transfers_indices,
-                       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra)
-{
-  cryptonote::transaction tx;
-  pending_tx ptx;
-  transfer(dsts, fake_outs_count, unused_transfers_indices, unlock_time, fee, extra, tx, ptx);
-}
-
-namespace {
-// split_amounts(vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
-//
-// split amount for each dst in dsts into num_splits parts
-// and make num_splits new vector<crypt...> instances to hold these new amounts
-std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
-    std::vector<cryptonote::tx_destination_entry> dsts, size_t num_splits)
-{
-  std::vector<std::vector<cryptonote::tx_destination_entry>> retVal;
-
-  if (num_splits <= 1)
-  {
-    retVal.push_back(dsts);
-    return retVal;
-  }
-
-  // for each split required
-  for (size_t i=0; i < num_splits; i++)
-  {
-    std::vector<cryptonote::tx_destination_entry> new_dsts;
-
-    // for each destination
-    for (size_t j=0; j < dsts.size(); j++)
-    {
-      cryptonote::tx_destination_entry de;
-      uint64_t amount;
-
-      amount = dsts[j].amount;
-      amount = amount / num_splits;
-
-      // if last split, add remainder
-      if (i + 1 == num_splits)
-      {
-        amount += dsts[j].amount % num_splits;
-      }
-      
-      de.addr = dsts[j].addr;
-      de.amount = amount;
-
-      new_dsts.push_back(de);
-    }
-
-    retVal.push_back(new_dsts);
-  }
-
-  return retVal;
-}
-} // anonymous namespace
-//----------------------------------------------------------------------------------------------------
 crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 {
   std::vector<tx_extra_field> tx_extra_fields;
@@ -6059,116 +5996,6 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
   return priority;
 }
 //----------------------------------------------------------------------------------------------------
-// separated the call(s) to wallet2::transfer into their own function
-//
-// this function will make multiple calls to wallet2::transfer if multiple
-// transactions will be required
-std::vector<wallet2::pending_tx> wallet2::create_transactions(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra)
-{
-  const std::vector<size_t> unused_transfers_indices = select_available_outputs_from_histogram(fake_outs_count + 1, true, true, true);
-
-  const uint64_t base_fee = get_base_fee();
-  const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
-  const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE);
-  const uint64_t fee_quantization_mask = get_fee_quantization_mask();
-
-  // failsafe split attempt counter
-  size_t attempt_count = 0;
-
-  for(attempt_count = 1; ;attempt_count++)
-  {
-    size_t num_tx = 0.5 + pow(1.7,attempt_count-1);
-
-    auto split_values = split_amounts(dsts, num_tx);
-
-    // Throw if split_amounts comes back with a vector of size different than it should
-    if (split_values.size() != num_tx)
-    {
-      throw std::runtime_error("Splitting transactions returned a number of potential tx not equal to what was requested");
-    }
-
-    std::vector<pending_tx> ptx_vector;
-    try
-    {
-      // for each new destination vector (i.e. for each new tx)
-      for (auto & dst_vector : split_values)
-      {
-        cryptonote::transaction tx;
-        pending_tx ptx;
-
-	// loop until fee is met without increasing tx size to next KB boundary.
-	uint64_t needed_fee = estimate_fee(use_per_byte_fee, false, unused_transfers_indices.size(), fake_outs_count, dst_vector.size()+1, extra.size(), false, base_fee, fee_multiplier, fee_quantization_mask);
-	do
-	{
-	  transfer(dst_vector, fake_outs_count, unused_transfers_indices, unlock_time, needed_fee, extra, tx, ptx);
-	  auto txBlob = t_serializable_object_to_blob(ptx.tx);
-	  needed_fee = calculate_fee(use_per_byte_fee, ptx.tx, txBlob.size(), base_fee, fee_multiplier, fee_quantization_mask);
-	} while (ptx.fee < needed_fee);
-
-        ptx_vector.push_back(ptx);
-
-        // mark transfers to be used as "spent"
-        for(size_t idx: ptx.selected_transfers)
-        {
-          set_spent(idx, 0);
-        }
-      }
-
-      // if we made it this far, we've selected our transactions.  committing them will mark them spent,
-      // so this is a failsafe in case they don't go through
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        for(size_t idx2: ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-
-      }
-
-      // if we made it this far, we're OK to actually send the transactions
-      return ptx_vector;
-
-    }
-    // only catch this here, other exceptions need to pass through to the calling function
-    catch (const tools::error::tx_too_big& e)
-    {
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        for(size_t idx2: ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-      }
-
-      if (attempt_count >= MAX_SPLIT_ATTEMPTS)
-      {
-        throw;
-      }
-    }
-    catch (...)
-    {
-      // in case of some other exception, make sure any tx in queue are marked unspent again
-
-      // unmark pending tx transfers as spent
-      for (auto & ptx : ptx_vector)
-      {
-        // mark transfers to be used as not spent
-        for(size_t idx2: ptx.selected_transfers)
-        {
-          set_unspent(idx2);
-        }
-      }
-
-      throw;
-    }
-  }
-}
-
 bool wallet2::set_ring_database(const std::string &filename)
 {
   m_ring_database = filename;
@@ -6939,7 +6766,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_outs.bin");
     THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_random_outs_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_outs_error, daemon_resp.status);
     THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != req.outputs.size(), error::wallet_internal_error,
       "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
       std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(req.outputs.size()));

@@ -1181,19 +1181,9 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, start_height, pruned, get_miner_tx_hash, max_count);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const
-  {
-    return m_blockchain_storage.get_random_outs_for_amounts(req, res);
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const
   {
     return m_blockchain_storage.get_outs(req, res);
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const
-  {
-    return m_blockchain_storage.get_random_rct_outs(req, res);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
