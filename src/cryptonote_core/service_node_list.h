@@ -112,6 +112,8 @@ namespace service_nodes
     service_node_info  info;
   };
 
+  void loki_shuffle(std::vector<size_t>& a, uint64_t seed);
+
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
       public cryptonote::Blockchain::BlockchainDetachedHook,

@@ -733,7 +733,7 @@ namespace service_nodes
     return  x / (secureMax / n);
   }
 
-  static void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
+  void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
   {
     if (a.size() <= 1) return;
     std::mt19937_64 mersenne_twister(seed);

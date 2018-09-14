@@ -3056,7 +3056,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    // Check the inputs (votes) of the transaction have not been already been
+    // Check the inputs (votes) of the transaction have not already been
     // submitted to the blockchain under another transaction using a different
     // combination of votes.
     tx_extra_service_node_deregister deregister;
@@ -3145,6 +3145,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
             quorum_state->nodes_to_test[deregister.service_node_index])
         {
+          MERROR_VER("Already seen this deregister tx (aka double spend)");
           tvc.m_double_spend = true;
           return false;
         }

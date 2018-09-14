@@ -262,6 +262,79 @@ bool test_generator::construct_block_manually_tx(cryptonote::block& blk, const c
   return construct_block_manually(blk, prev_block, miner_acc, bf_tx_hashes, 0, 0, 0, crypto::hash(), 0, transaction(), tx_hashes, txs_size);
 }
 
+cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& events,
+                                             const cryptonote::account_base& account,
+                                             const cryptonote::keypair& service_node_keys,
+                                             uint64_t operator_cut,
+                                             const std::vector<cryptonote::account_public_address>& addresses,
+                                             const std::vector<uint64_t>& portions,
+                                             const cryptonote::block& head)
+{
+    const auto new_height = cryptonote::get_block_height(head) + 1;
+    const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height);
+
+    uint64_t amount = service_nodes::portions_to_amount(portions[0], staking_requirement);
+
+    cryptonote::transaction tx;
+    const auto unlock_time = new_height + service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
+
+    std::vector<uint8_t> extra;
+    add_service_node_pubkey_to_tx_extra(extra, service_node_keys.pub);
+
+    const uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
+
+    crypto::hash hash;
+    if (!cryptonote::get_registration_hash(addresses, operator_cut, portions, exp_timestamp, hash))
+    {
+      MERROR("Could not make registration hash from addresses and portions");
+      return {};
+    }
+
+    crypto::signature signature;
+    crypto::generate_signature(hash, service_node_keys.pub, service_node_keys.sec, signature);
+
+    add_service_node_register_to_tx_extra(extra, addresses, operator_cut, portions, exp_timestamp, signature);
+    add_service_node_contributor_to_tx_extra(extra, addresses.at(0));
+
+    construct_tx_to_key(
+      events, tx, head, account, account, amount, TESTS_DEFAULT_FEE, 9, true /* staking */, extra, unlock_time);
+    events.push_back(tx);
+    return tx;
+}
+
+cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
+                                               const cryptonote::account_base& account,
+                                               const cryptonote::block& head,
+                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee)
+{
+  cryptonote::transaction tx;
+
+  std::vector<uint8_t> extra;
+  const bool full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
+
+  if (!full_tx_deregister_made) {
+    MERROR("Could not add deregister to extra");
+    return {};
+  }
+
+  const uint64_t unlock_time = 0;
+  const uint64_t amount = 0;
+
+  if (fee) construct_tx_to_key(events, tx, head, account, account, amount, fee, 9, false /* staking */, extra, unlock_time);
+
+  tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
+  tx.is_deregister = true;
+
+  return tx;
+}
+
+cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
+                                             const cryptonote::account_base& account,
+                                             const cryptonote::keypair& service_node_keys,
+                                             const cryptonote::block& head)
+{
+  return make_registration_tx(events, account, service_node_keys, 0, { account.get_keys().m_account_address }, { STAKING_PORTIONS }, head);
+}
 
 struct output_index {
     const cryptonote::txout_target_v out;
@@ -516,6 +589,9 @@ static bool fill_output_entries(const std::vector<output_index>& out_indices, si
 bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<test_event_entry>& events,
                      const block& blk_head, const cryptonote::account_base& from, uint64_t amount, size_t nmix)
 {
+    /// Don't fill up sources if the amount is zero
+    if (amount == 0) return true;
+
     output_index_vec outs;
     output_vec outs_mine;
 
@@ -538,6 +614,8 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
 
         const output_index& oi = outs[sender_out];
         if (oi.spent) continue;
+
+        if (!cryptonote::rules::is_output_unlocked(oi.unlock_time, get_block_height(blk_head))) continue;
 
         cryptonote::tx_source_entry ts;
 
@@ -570,9 +648,9 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
         sources.push_back(ts);
 
         sources_amount += ts.amount;
-        sources_found = amount <= sources_amount;
 
-        if (sources_found) return true;;
+        sources_found = amount <= sources_amount;
+        if (sources_found) return true;
     }
 
     return false;
@@ -751,7 +829,7 @@ bool construct_tx_to_key(const std::vector<test_event_entry>& events,
 
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx, const block& blk_head,
                          const cryptonote::account_base& from, const cryptonote::account_base& to, uint64_t amount,
-                         uint64_t fee, size_t nmix, bool stake, boost::optional<const register_info> reg_info, uint64_t unlock_time)
+                         uint64_t fee, size_t nmix, bool stake, const std::vector<uint8_t>& extra, uint64_t unlock_time)
 {
   vector<tx_source_entry> sources;
   vector<tx_destination_entry> destinations;
@@ -759,37 +837,6 @@ bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote
   uint64_t change_amount;
   fill_tx_sources_and_destinations(events, blk_head, from, to, amount, fee, nmix, sources, destinations, &change_amount);
   tx_destination_entry change_addr{change_amount, from.get_keys().m_account_address, false /* is subaddr */ };
-
-
-  std::vector<uint8_t> extra;
-
-  if (stake) {
-
-    if (!reg_info) {
-      LOG_ERROR("Stake tx has not registration info");
-      return false;
-    }
-
-    add_service_node_pubkey_to_tx_extra(extra, reg_info->service_node_keypair.pub);
-
-    const uint64_t exp_timestamp = time(nullptr) + STAKING_AUTHORIZATION_EXPIRATION_WINDOW;
-
-    crypto::hash hash;
-    bool hashed = cryptonote::get_registration_hash(reg_info->addresses, reg_info->operator_cut, reg_info->portions, exp_timestamp, hash);
-    if (!hashed)
-    {
-      MERROR("Could not make registration hash from addresses and portions");
-      return false;
-    }
-
-    crypto::signature signature;
-    crypto::generate_signature(hash, reg_info->service_node_keypair.pub, reg_info->service_node_keypair.sec, signature);
-
-    add_service_node_register_to_tx_extra(extra, reg_info->addresses, reg_info->operator_cut, reg_info->portions, exp_timestamp, signature);
-    add_service_node_contributor_to_tx_extra(extra, reg_info->addresses.at(0));
-
-  }
-
 
   return cryptonote::construct_tx(from.get_keys(), sources, destinations, change_addr, extra, tx, unlock_time, stake, true);
 }
