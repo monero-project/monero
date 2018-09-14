@@ -972,7 +972,7 @@ static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
       if (pending_offsets.size() == 1)
         fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
       else
-        fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+        fprintf(f, "%" PRIu64 "*%zu\n", pending_offsets.front(), pending_offsets.size());
       pending_offsets.clear();
     }
     if (pending_amount != amount)
@@ -987,7 +987,7 @@ static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
     if (pending_offsets.size() == 1)
       fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
     else
-      fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+      fprintf(f, "%" PRIu64 "*%zu\n", pending_offsets.front(), pending_offsets.size());
     pending_offsets.clear();
   }
   fclose(f);
