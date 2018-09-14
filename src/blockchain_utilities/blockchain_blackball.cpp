@@ -1400,7 +1400,7 @@ int main(int argc, char* argv[])
       if (stop_requested)
       {
         MINFO("Stopping secondary passes. Secondary passes are not incremental, they will re-run fully.");
-        return false;
+        return 0;
       }
     }
     if (!blackballs.empty())
