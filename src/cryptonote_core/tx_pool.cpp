@@ -185,7 +185,7 @@ namespace cryptonote
     }
 
     size_t tx_weight_limit = get_transaction_weight_limit(version);
-    if (!kept_by_block && tx_weight > tx_weight_limit)
+    if ((!kept_by_block || version >= HF_VERSION_PER_BYTE_FEE) && tx_weight > tx_weight_limit)
     {
       LOG_PRINT_L1("transaction is too heavy: " << tx_weight << " bytes, maximum weight: " << tx_weight_limit);
       tvc.m_verifivation_failed = true;
