@@ -6341,7 +6341,7 @@ bool wallet2::find_and_save_rings(bool force)
   return true;
 }
 
-bool wallet2::blackball_output(const crypto::public_key &output)
+bool wallet2::blackball_output(const std::pair<uint64_t, uint64_t> &output)
 {
   if (!m_ringdb)
     return false;
@@ -6349,7 +6349,7 @@ bool wallet2::blackball_output(const crypto::public_key &output)
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add)
+bool wallet2::set_blackballed_outputs(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, bool add)
 {
   if (!m_ringdb)
     return false;
@@ -6358,14 +6358,13 @@ bool wallet2::set_blackballed_outputs(const std::vector<crypto::public_key> &out
     bool ret = true;
     if (!add)
       ret &= m_ringdb->clear_blackballs();
-    for (const auto &output: outputs)
-      ret &= m_ringdb->blackball(output);
+    ret &= m_ringdb->blackball(outputs);
     return ret;
   }
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::unblackball_output(const crypto::public_key &output)
+bool wallet2::unblackball_output(const std::pair<uint64_t, uint64_t> &output)
 {
   if (!m_ringdb)
     return false;
@@ -6373,7 +6372,7 @@ bool wallet2::unblackball_output(const crypto::public_key &output)
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::is_output_blackballed(const crypto::public_key &output) const
+bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const
 {
   if (!m_ringdb)
     return false;
@@ -6418,8 +6417,8 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
   CHECK_AND_ASSERT_MES(!outs.empty(), false, "internal error: outs is empty");
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
     return false;
-  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
-    return false;
+//  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
+//    return false;
   outs.back().push_back(item);
   return true;
 }
@@ -6915,6 +6914,8 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           }
 
           if (seen_indices.count(i))
+            continue;
+          if (is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
             continue;
           seen_indices.emplace(i);
 

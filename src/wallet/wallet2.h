@@ -1159,10 +1159,10 @@ namespace tools
     bool set_ring(const crypto::key_image &key_image, const std::vector<uint64_t> &outs, bool relative);
     bool find_and_save_rings(bool force = true);
 
-    bool blackball_output(const crypto::public_key &output);
-    bool set_blackballed_outputs(const std::vector<crypto::public_key> &outputs, bool add = false);
-    bool unblackball_output(const crypto::public_key &output);
-    bool is_output_blackballed(const crypto::public_key &output) const;
+    bool blackball_output(const std::pair<uint64_t, uint64_t> &output);
+    bool set_blackballed_outputs(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, bool add = false);
+    bool unblackball_output(const std::pair<uint64_t, uint64_t> &output);
+    bool is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const;
 
     bool lock_keys_file();
     bool unlock_keys_file();
