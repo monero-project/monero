@@ -3986,7 +3986,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(start_height, fetched_blocks);
+    m_wallet->refresh(is_daemon_trusted(), start_height, fetched_blocks);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -5064,7 +5064,21 @@ bool simple_wallet::register_service_node_main(
       commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
-  catch (const std::exception& e)
+  catch (const tools::error::not_enough_unlocked_money& e)
+  {
+    fail_msg_writer() << tr("Not enough money in unlocked balance");
+    std::string accepted = input_line((boost::format(tr("Discarding %s of unmixable outputs that cannot be spent, which can be undone by \"rescan_spent\".  Is this okay?  (Y/Yes/N/No): ")) % print_money(e.available())).str());
+    if (std::cin.eof())
+      return true;
+    if (command_line::is_yes(accepted))
+    {
+      try
+      {
+        m_wallet->discard_unmixable_outputs(is_daemon_trusted());
+      } catch (...) {}
+    }
+  }
+  catch (const std::exception &e)
   {
     handle_transfer_exception(std::current_exception(), is_daemon_trusted());
   }
@@ -7468,7 +7482,7 @@ void simple_wallet::wallet_idle_thread()
       {
         uint64_t fetched_blocks;
         if (try_connect_to_daemon(true))
-          m_wallet->refresh(0, fetched_blocks);
+          m_wallet->refresh(is_daemon_trusted(), 0, fetched_blocks);
       }
       catch(...) {}
       m_auto_refresh_refreshing = false;
