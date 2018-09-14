@@ -766,15 +766,9 @@ namespace wallet_rpc
     struct response
     {
       std::string tx_hash;
-      std::string tx_key;
-      uint64_t fee;
-      std::string tx_blob;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
-        KV_SERIALIZE(tx_key)
-        KV_SERIALIZE(fee)
-        KV_SERIALIZE(tx_blob)
       END_KV_SERIALIZE_MAP()
     };
   };
