@@ -135,3 +135,40 @@ struct get_test_options<test_deregister_safety_buffer> {
     hard_forks
   };
 };
+
+class test_deregisters_on_split : public test_chain_unit_base
+{
+
+  size_t m_invalid_tx_index;
+
+public:
+  test_deregisters_on_split();
+  bool generate(std::vector<test_event_entry>& events);
+  bool test_on_split(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+
+  bool mark_invalid_tx(cryptonote::core& /*c*/, size_t ev_index, const std::vector<test_event_entry>& /*events*/)
+  {
+    m_invalid_tx_index = ev_index + 1;
+    return true;
+  }
+
+  bool check_tx_verification_context(const cryptonote::tx_verification_context& tvc,
+                                     bool tx_added,
+                                     size_t event_idx,
+                                     const cryptonote::transaction& /*tx*/)
+  {
+    if (m_invalid_tx_index == event_idx)
+      return tvc.m_verifivation_failed;
+    else
+      return !tvc.m_verifivation_failed && tx_added;
+  }
+};
+
+template<>
+struct get_test_options<test_deregisters_on_split>
+{
+  const std::pair<uint8_t, uint64_t> hard_forks[3] = { std::make_pair(7, 0),
+                                                       std::make_pair(8, 1),
+                                                       std::make_pair(9, 2) };
+  const cryptonote::test_options test_options = { hard_forks };
+};
