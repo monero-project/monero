@@ -1250,10 +1250,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           error::wallet_internal_error, "pk_index out of range of tx_cache_data");
       is_out_data_ptr = &tx_cache_data.primary[pk_index - 1];
       derivation = tx_cache_data.primary[pk_index - 1].derivation;
-      for (size_t n = 0; n < tx_cache_data.additional.size(); ++n)
+      if (pk_index == 1)
       {
-        additional_tx_pub_keys.data.push_back(tx_cache_data.additional[n].pkey);
-        additional_derivations.push_back(tx_cache_data.additional[n].derivation);
+        for (size_t n = 0; n < tx_cache_data.additional.size(); ++n)
+        {
+          additional_tx_pub_keys.data.push_back(tx_cache_data.additional[n].pkey);
+          additional_derivations.push_back(tx_cache_data.additional[n].derivation);
+        }
       }
     }
 

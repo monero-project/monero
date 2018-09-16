@@ -4856,9 +4856,7 @@ bool simple_wallet::register_service_node_main(
       return true;
   }
 
-  uint64_t fetched_blocks;
-  m_wallet->refresh(0, fetched_blocks);
-
+  m_wallet->refresh(false);
   if (expiration_timestamp <= (uint64_t)time(nullptr) + 600 /* 10 minutes */)
   {
     fail_msg_writer() << tr("This registration has expired.");
@@ -5241,9 +5239,7 @@ bool simple_wallet::stake_main(
       return true;
   }
 
-  uint64_t fetched_blocks;
-  m_wallet->refresh(0, fetched_blocks);
-
+  m_wallet->refresh(false);
   uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
