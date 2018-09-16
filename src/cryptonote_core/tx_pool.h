@@ -434,7 +434,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool insert_key_images(const transaction &tx, bool kept_by_block);
+    bool insert_key_images(const transaction_prefix &tx, const crypto::hash &txid, bool kept_by_block);
 
     /**
      * @brief remove old transactions from the pool
@@ -478,10 +478,11 @@ namespace cryptonote
      * a transaction from the pool.
      *
      * @param tx the transaction
+     * @param txid the transaction's hash
      *
      * @return false if any key images to be removed cannot be found, otherwise true
      */
-    bool remove_transaction_keyimages(const transaction& tx);
+    bool remove_transaction_keyimages(const transaction_prefix& tx, const crypto::hash &txid);
 
     /**
      * @brief check if any of a transaction's spent key images are present in a given set
@@ -491,7 +492,7 @@ namespace cryptonote
      *
      * @return true if any key images present in the set, otherwise false
      */
-    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
 
     /**
      * @brief append the key images from a transaction to the given set
@@ -501,7 +502,7 @@ namespace cryptonote
      *
      * @return false if any append fails, otherwise true
      */
-    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction& tx);
+    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
 
     /**
      * @brief check if a transaction is a valid candidate for inclusion in a block
@@ -509,11 +510,11 @@ namespace cryptonote
      * @param txd the transaction to check (and info about it)
      * @param txid the txid of the transaction to check
      * @param txblob the transaction blob to check
-     * @param tx the parsed transaction, if successful
+     * @param tx the parsed transaction prefix, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata &txblob, transaction &tx) const;
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata &txblob, transaction&tx) const;
 
     /**
      * @brief mark all transactions double spending the one passed
