@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "common/int-util.h"
 #include "hash-ops.h"
 #include "keccak.h"
 
@@ -105,7 +106,7 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 
     for ( ; inlen >= rsiz; inlen -= rsiz, in += rsiz) {
         for (i = 0; i < rsizw; i++)
-            st[i] ^= ((uint64_t *) in)[i];
+            st[i] ^= swap64le(((uint64_t *) in)[i]);
         keccakf(st, KECCAK_ROUNDS);
     }
     
@@ -121,11 +122,15 @@ void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
     temp[rsiz - 1] |= 0x80;
 
     for (i = 0; i < rsizw; i++)
-        st[i] ^= ((uint64_t *) temp)[i];
+        st[i] ^= swap64le(((uint64_t *) temp)[i]);
 
     keccakf(st, KECCAK_ROUNDS);
 
-    memcpy(md, st, mdlen);
+    if (((size_t)mdlen % sizeof(uint64_t)) != 0)
+    {
+      local_abort("Bad keccak use");
+    }
+    memcpy_swap64le(md, st, mdlen/sizeof(uint64_t));
 }
 
 void keccak1600(const uint8_t *in, size_t inlen, uint8_t *md)
