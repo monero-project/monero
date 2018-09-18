@@ -1970,15 +1970,10 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res)
+  bool core_rpc_server::on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_get_quorum_state);
     bool r;
-
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON, "/get_quorum_state", req, res, r))
-    {
-      return r;
-    }
 
     const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_core.get_quorum_state(req.height);
     r = (quorum_state != nullptr);
@@ -1996,9 +1991,10 @@ namespace cryptonote
     }
     else
     {
-      res.status  = "Block height: ";
-      res.status += std::to_string(req.height);
-      res.status += ", returned null hash or failed to derive quorum list";
+      error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message  = "Block height: ";
+      error_resp.message += std::to_string(req.height);
+      error_resp.message += ", returned null hash or failed to derive quorum list";
     }
 
     return r;
@@ -2212,30 +2208,6 @@ namespace cryptonote
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_quorum_state_json(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp)
-  {
-    PERF_TIMER(on_get_quorum_list_json);
-    bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_QUORUM_STATE>(invoke_http_mode::JON_RPC, "get_quorum_list", req, res, r))
-    {
-      return r;
-    }
-
-    r = on_get_quorum_state(req, res);
-
-    if (r)
-    {
-      res.status = CORE_RPC_STATUS_OK;
-    }
-    else
-    {
-      error_resp.code    = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
-      error_resp.message = res.status;
-    }
-
-    return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req,
