@@ -4837,10 +4837,11 @@ bool simple_wallet::register_service_node_main(
       return true;
     }
 
-    // give user total and fee, and prompt to confirm
+    // give user total and fee, and prompt to confirm, and always set to atleast v3 to safeguard users against fork
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
+      ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();
@@ -5249,10 +5250,11 @@ bool simple_wallet::stake_main(
       return true;
     }
 
-    // give user total and fee, and prompt to confirm
+    // give user total and fee, and prompt to confirm, and always set to atleast v3 to safeguard users against fork
     uint64_t total_fee = 0, total_sent = 0;
     for (size_t n = 0; n < ptx_vector.size(); ++n)
     {
+      ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
       total_fee += ptx_vector[n].fee;
       for (auto i: ptx_vector[n].selected_transfers)
         total_sent += m_wallet->get_transfer_details(i).amount();
