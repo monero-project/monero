@@ -372,6 +372,9 @@ add_definitions("-DBLOCKCHAIN_DB=${BLOCKCHAIN_DB}")
 if (APPLE)
   set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
+elseif (DEPENDS AND NOT LINUX)
+  set(DEFAULT_STACK_TRACE OFF)
+  set(LIBUNWIND_LIBRARIES "")
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT MINGW)
   set(DEFAULT_STACK_TRACE ON)
   set(STACK_TRACE_LIB "easylogging++") # for diag output only
@@ -410,6 +413,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
 endif ()
 
 if (APPLE AND NOT IOS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=x86-64 -fvisibility=default")
   if (NOT OpenSSL_DIR)
       EXECUTE_PROCESS(COMMAND brew --prefix openssl
         OUTPUT_VARIABLE OPENSSL_ROOT_DIR
@@ -436,9 +440,16 @@ add_definition_if_function_found(strptime HAVE_STRPTIME)
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
 # Generate header for embedded translations
-add_subdirectory(translations)
+# Generate header for embedded translations, use target toolchain if depends, otherwise use the
+# lrelease and lupdate binaries from the host
+include(ExternalProject)
+ExternalProject_Add(generate_translations_header
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
+  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
+  STAMP_DIR ${LRELEASE_PATH}
+  CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
+  INSTALL_COMMAND cmake -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
-
 add_subdirectory(external)
 
 # Final setup for libunbound
@@ -483,7 +494,11 @@ if(MSVC)
   include_directories(SYSTEM src/platform/msc)
 else()
   include(TestCXXAcceptsFlag)
-  set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+  if (NOT ARM6)
+    if(NOT DEPENDS OR DEPENDS AND NOT ARM)
+      set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
+    endif()
+  endif()
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
     set(ARCH_FLAG "")
@@ -690,6 +705,10 @@ else()
       message(STATUS "Selecting VFP for ARMv6")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp")
+      if(DEPENDS)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -marm")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -marm")
+      endif()
     endif(ARM6)
 
     if(ARM7)
@@ -744,7 +763,7 @@ else()
   endif()
 
   if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_TR1_TUPLE=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -DGTEST_HAS_TR1_TUPLE=0")
   endif()
 
   set(DEBUG_FLAGS "-g3")
@@ -835,7 +854,11 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32)
-  set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} icuio icuin icuuc icudt icutu iconv)
+  if(DEPENDS)
+    set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} sicuio sicuin sicuuc sicudt sicutu iconv)
+  else()
+    set(ICU_LIBRARIES ${Boost_LOCALE_LIBRARY} icuio icuin icuuc icudt icutu iconv)
+  endif()
 elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
 elseif(FREEBSD)
