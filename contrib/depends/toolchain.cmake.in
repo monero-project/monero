@@ -31,6 +31,7 @@ SET(Boost_USE_STATIC_LIBS TRUE)
 SET(Boost_USE_STATIC_RUNTIME TRUE)
 
 SET(OpenSSL_DIR @prefix@/lib)
+SET(ARCHITECTURE @arch@)
 
 # for libraries and headers in the target directories
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
@@ -61,7 +62,7 @@ else()
   SET(CMAKE_CXX_COMPILER @CXX@)
 endif()
 
-if(ARCH STREQUAL "arm")
+if(ARCHITECTURE STREQUAL "arm")
   set(ARCH "armv7-a")
   set(ARM ON)
   set(ARM_ID "armv7-a")
@@ -69,7 +70,7 @@ if(ARCH STREQUAL "arm")
   set(CMAKE_BUILD_TYPE release)
   set(BUILD_TAG "linux-armv7")
   set(ARM7)
-elif(ARCH STREQUAL "aarch64")
+elseif(ARCHITECTURE STREQUAL "aarch64")
   set(ARCH "armv8-a")
   set(ARM ON)
   set(ARM_ID "armv8-a")
