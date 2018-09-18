@@ -999,14 +999,7 @@ namespace service_nodes
     }
 
     m_quorum_states.clear();
-
-    uint64_t hardfork_9_height = 0;
-    {
-      uint32_t window, votes, threshold;
-      uint8_t voting;
-      m_blockchain.get_hard_fork_voting_info(9, window, votes, threshold, hardfork_9_height, voting);
-    }
-    m_height = hardfork_9_height;
+    m_height = 0;
   }
 
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake)
