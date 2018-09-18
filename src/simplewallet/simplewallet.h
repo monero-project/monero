@@ -98,7 +98,7 @@ namespace cryptonote
         const boost::optional<crypto::secret_key>& spendkey, const crypto::secret_key& viewkey);
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
         const epee::wipeable_string &multisig_keys, const std::string &old_language);
-    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const std::string& device_name);
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm);
     bool open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
 
@@ -201,6 +201,7 @@ namespace cryptonote
     bool verify(const std::vector<std::string> &args);
     bool export_key_images(const std::vector<std::string> &args);
     bool import_key_images(const std::vector<std::string> &args);
+    bool hw_reconnect(const std::vector<std::string> &args);
     bool export_outputs(const std::vector<std::string> &args);
     bool import_outputs(const std::vector<std::string> &args);
     bool show_transfer(const std::vector<std::string> &args);
