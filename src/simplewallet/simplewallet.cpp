@@ -4089,7 +4089,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       daemon_url = args[0];
     }
     LOCK_IDLE_SCOPE();
-    m_wallet->init(false, daemon_url);
+    m_wallet->init(daemon_url);
 
     if (args.size() == 2)
     {
