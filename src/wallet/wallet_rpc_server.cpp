@@ -760,10 +760,10 @@ namespace tools
     {
       if (get_tx_key)
       {
-        std::string s = epee::string_tools::pod_to_hex(ptx.tx_key);
+        epee::wipeable_string s = epee::to_hex::wipeable_string(ptx.tx_key);
         for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
-          s += epee::string_tools::pod_to_hex(additional_tx_key);
-        fill(tx_key, s);
+          s += epee::to_hex::wipeable_string(additional_tx_key);
+        fill(tx_key, std::string(s.data(), s.size()));
       }
       // Compute amount leaving wallet in tx. By convention dests does not include change outputs
       fill(amount, total_amount(ptx));
@@ -1570,11 +1570,13 @@ namespace tools
       }
       else if(req.key_type.compare("view_key") == 0)
       {
-          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_view_secret_key);
+          res.key = std::string(key.data(), key.size());
       }
       else if(req.key_type.compare("spend_key") == 0)
       {
-          res.key = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key);
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_spend_secret_key);
+          res.key = std::string(key.data(), key.size());
       }
       else
       {
@@ -1800,11 +1802,11 @@ namespace tools
       return false;
     }
 
-    std::ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
+    epee::wipeable_string s;
+    s += epee::to_hex::wipeable_string(tx_key);
     for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
-    res.tx_key = oss.str();
+      s += epee::to_hex::wipeable_string(additional_tx_keys[i]);
+    res.tx_key = std::string(s.data(), s.size());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1820,26 +1822,33 @@ namespace tools
       return false;
     }
 
-    std::string tx_key_str = req.tx_key;
-    crypto::secret_key tx_key;
-    if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), tx_key))
+    epee::wipeable_string tx_key_str = req.tx_key;
+    if (tx_key_str.size() < 64 || tx_key_str.size() % 64)
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
       er.message = "Tx key has invalid format";
       return false;
     }
-    tx_key_str = tx_key_str.substr(64);
+    const char *data = tx_key_str.data();
+    crypto::secret_key tx_key;
+    if (!epee::wipeable_string(data, 64).hex_to_pod(unwrap(unwrap(tx_key))))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
+      er.message = "Tx key has invalid format";
+      return false;
+    }
+    size_t offset = 64;
     std::vector<crypto::secret_key> additional_tx_keys;
-    while (!tx_key_str.empty())
+    while (offset < tx_key_str.size())
     {
       additional_tx_keys.resize(additional_tx_keys.size() + 1);
-      if (!epee::string_tools::hex_to_pod(tx_key_str.substr(0, 64), additional_tx_keys.back()))
+      if (!epee::wipeable_string(data + offset, 64).hex_to_pod(unwrap(unwrap(additional_tx_keys.back()))))
       {
         er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY;
         er.message = "Tx key has invalid format";
         return false;
       }
-      tx_key_str = tx_key_str.substr(64);
+      offset += 64;
     }
 
     cryptonote::address_parse_info info;
