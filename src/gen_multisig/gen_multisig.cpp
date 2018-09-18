@@ -92,7 +92,7 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
     {
       std::string name = basename + "-" + std::to_string(n + 1);
       wallets[n].reset(new tools::wallet2(nettype));
-      wallets[n]->init(false, "");
+      wallets[n]->init(false, "http://127.0.0.1:" + std::to_string(get_config(nettype).RPC_DEFAULT_PORT));
       wallets[n]->generate(name, pwd_container->password(), rct::rct2sk(rct::skGen()), false, false, create_address_file);
     }
 
