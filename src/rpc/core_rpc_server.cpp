@@ -220,6 +220,15 @@ namespace cryptonote
     return ss.str();
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  static cryptonote::blobdata get_pruned_tx_json(cryptonote::transaction &tx)
+  {
+    std::stringstream ss;
+    json_archive<true> ar(ss);
+    bool r = tx.serialize_base(ar);
+    CHECK_AND_ASSERT_MES(r, cryptonote::blobdata(), "Failed to serialize rct signatures base");
+    return ss.str();
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
     PERF_TIMER(on_get_blocks);
@@ -557,7 +566,7 @@ namespace cryptonote
       blobdata blob = req.prune ? get_pruned_tx_blob(tx) : t_serializable_object_to_blob(tx);
       e.as_hex = string_tools::buff_to_hex_nodelimer(blob);
       if (req.decode_as_json)
-        e.as_json = obj_to_json_str(tx);
+        e.as_json = req.prune ? get_pruned_tx_json(tx) : obj_to_json_str(tx);
       e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
       if (e.in_pool)
       {
