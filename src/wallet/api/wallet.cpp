@@ -629,7 +629,7 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
     m_recoveringFromDevice = true;
     try
     {
-        m_wallet->restore(path, password, device_name);
+        m_wallet->restore(path, password, device_name, false);
         LOG_PRINT_L1("Generated new wallet from device: " + device_name);
     }
     catch (const std::exception& e) {
@@ -2109,21 +2109,36 @@ bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const
     return m_wallet->use_fork_rules(version,early_blocks);
 }
 
-bool WalletImpl::blackballOutputs(const std::vector<std::string> &pubkeys, bool add)
+bool WalletImpl::blackballOutputs(const std::vector<std::string> &outputs, bool add)
 {
-    std::vector<crypto::public_key> raw_pubkeys;
-    raw_pubkeys.reserve(pubkeys.size());
-    for (const std::string &str: pubkeys)
+    std::vector<std::pair<uint64_t, uint64_t>> raw_outputs;
+    raw_outputs.reserve(outputs.size());
+    uint64_t amount = std::numeric_limits<uint64_t>::max(), offset, num_offsets;
+    for (const std::string &str: outputs)
     {
-        crypto::public_key pkey;
-        if (!epee::string_tools::hex_to_pod(str, pkey))
+        if (sscanf(str.c_str(), "@%" PRIu64, &amount) == 1)
+          continue;
+        if (amount == std::numeric_limits<uint64_t>::max())
         {
-            setStatusError(tr("Failed to parse output public key"));
-            return false;
+          setStatusError("First line is not an amount");
+          return true;
         }
-        raw_pubkeys.push_back(pkey);
+        if (sscanf(str.c_str(), "%" PRIu64 "*%" PRIu64, &offset, &num_offsets) == 2 && num_offsets <= std::numeric_limits<uint64_t>::max() - offset)
+        {
+          while (num_offsets--)
+            raw_outputs.push_back(std::make_pair(amount, offset++));
+        }
+        else if (sscanf(str.c_str(), "%" PRIu64, &offset) == 1)
+        {
+          raw_outputs.push_back(std::make_pair(amount, offset));
+        }
+        else
+        {
+          setStatusError(tr("Invalid output: ") + str);
+          return false;
+        }
     }
-    bool ret = m_wallet->set_blackballed_outputs(raw_pubkeys, add);
+    bool ret = m_wallet->set_blackballed_outputs(raw_outputs, add);
     if (!ret)
     {
         setStatusError(tr("Failed to set blackballed outputs"));
@@ -2132,15 +2147,20 @@ bool WalletImpl::blackballOutputs(const std::vector<std::string> &pubkeys, bool 
     return true;
 }
 
-bool WalletImpl::unblackballOutput(const std::string &pubkey)
+bool WalletImpl::unblackballOutput(const std::string &amount, const std::string &offset)
 {
-    crypto::public_key raw_pubkey;
-    if (!epee::string_tools::hex_to_pod(pubkey, raw_pubkey))
+    uint64_t raw_amount, raw_offset;
+    if (!epee::string_tools::get_xtype_from_string(raw_amount, amount))
     {
-        setStatusError(tr("Failed to parse output public key"));
+        setStatusError(tr("Failed to parse output amount"));
         return false;
     }
-    bool ret = m_wallet->unblackball_output(raw_pubkey);
+    if (!epee::string_tools::get_xtype_from_string(raw_offset, offset))
+    {
+        setStatusError(tr("Failed to parse output offset"));
+        return false;
+    }
+    bool ret = m_wallet->unblackball_output(std::make_pair(raw_amount, raw_offset));
     if (!ret)
     {
         setStatusError(tr("Failed to unblackball output"));

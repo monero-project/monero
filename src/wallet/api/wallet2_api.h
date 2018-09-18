@@ -880,7 +880,7 @@ struct Wallet
     virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) = 0;
 
     //! unblackballs an output
-    virtual bool unblackballOutput(const std::string &pubkey) = 0;
+    virtual bool unblackballOutput(const std::string &amount, const std::string &offset) = 0;
 
     //! gets the ring used for a key image, if any
     virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const = 0;
