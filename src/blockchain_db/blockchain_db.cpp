@@ -232,8 +232,9 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   uint64_t num_rct_outs = 0;
   add_transaction(blk_hash, blk.miner_tx);
-  if (blk.miner_tx.version == 2)
+  if (blk.miner_tx.version >= 2)
     num_rct_outs += blk.miner_tx.vout.size();
+
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
   for (const transaction& tx : txs)

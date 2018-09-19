@@ -2025,19 +2025,8 @@ void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint
 //------------------------------------------------------------------
 bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
 {
-  // rct outputs don't exist before v4
-  if (amount == 0)
-  {
-    switch (m_nettype)
-    {
-      case STAGENET: start_height = stagenet_hard_forks[3].height; break;
-      case TESTNET: start_height = testnet_hard_forks[3].height; break;
-      case MAINNET: start_height = mainnet_hard_forks[3].height; break;
-      default: return false;
-    }
-  }
-  else
-    start_height = 0;
+  // rct outputs don't exist before v4, NOTE(loki): we started from v7 so our start is always 0
+  start_height = 0;
   base = 0;
 
   if (to_height > 0 && to_height < from_height)
