@@ -184,7 +184,7 @@ bool gen_ring_signature_2::check_balances_1(cryptonote::core& c, size_t ev_index
   m_alice_account = boost::get<account_base>(events[2]);
 
   std::vector<block> blocks;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
+  bool r = c.get_blocks(0, 100 + 3 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
   std::vector<cryptonote::block> chain;
@@ -202,7 +202,7 @@ bool gen_ring_signature_2::check_balances_2(cryptonote::core& c, size_t ev_index
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_2::check_balances_2");
 
   std::vector<block> blocks;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
+  bool r = c.get_blocks(0, 100 + 3 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
   std::vector<cryptonote::block> chain;

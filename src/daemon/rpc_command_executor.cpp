@@ -605,7 +605,7 @@ bool t_rpc_command_executor::print_quorum_state(uint64_t height)
   }
   else
   {
-    if (!m_rpc_server->on_get_quorum_state_json(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_quorum_state(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;

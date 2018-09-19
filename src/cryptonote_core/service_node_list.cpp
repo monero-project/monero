@@ -73,7 +73,6 @@ namespace service_nodes
   void service_node_list::init()
   {
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
-
     bool loaded = load();
 
     if (loaded && m_height == current_height) return;
@@ -99,7 +98,10 @@ namespace service_nodes
       {
         txs.clear();
         missed_txs.clear();
+
         const cryptonote::block& block = block_pair.second;
+        std::vector<cryptonote::transaction> txs;
+        std::vector<crypto::hash> missed_txs;
         if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
         {
           LOG_ERROR("Unable to get transactions for block " << block.hash);
@@ -290,6 +292,19 @@ namespace service_nodes
     m_service_nodes_infos.erase(iter);
   }
 
+  bool check_service_node_portions(const std::vector<uint64_t>& portions)
+  {
+    uint64_t portions_left = STAKING_PORTIONS;
+
+    for (const auto portion : portions) {
+      const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
+      if (portion < min_portions || portion > portions_left) return false;
+      portions_left -= portion;
+    }
+
+    return true;
+  }
+
   bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
   {
     crypto::public_key tx_pub_key, service_node_key;
@@ -306,15 +321,7 @@ namespace service_nodes
       return false;
 
     // check the portions
-
-    uint64_t portions_left = STAKING_PORTIONS;
-    for (size_t i = 0; i < service_node_portions.size(); i++)
-    {
-      uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-      if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
-        return false;
-      portions_left -= service_node_portions[i];
-    }
+    if (!check_service_node_portions(service_node_portions)) return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
       return false;
@@ -731,7 +738,7 @@ namespace service_nodes
     return  x / (secureMax / n);
   }
 
-  static void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
+  void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
   {
     if (a.size() <= 1) return;
     std::mt19937_64 mersenne_twister(seed);
@@ -1003,7 +1010,14 @@ namespace service_nodes
     }
 
     m_quorum_states.clear();
-    m_height = 0;
+
+    uint64_t hardfork_9_height = 0;
+    {
+      uint32_t window, votes, threshold;
+      uint8_t voting;
+      m_blockchain.get_hard_fork_voting_info(9, window, votes, threshold, hardfork_9_height, voting);
+    }
+    m_height = hardfork_9_height;
   }
 
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake)

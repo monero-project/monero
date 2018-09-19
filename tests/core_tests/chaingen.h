@@ -160,6 +160,7 @@ private:
   callbacks_map m_callbacks;
 };
 
+using sn_contributor_t = std::pair<cryptonote::account_public_address, uint64_t>;
 
 class test_generator
 {
@@ -190,8 +191,6 @@ public:
     bf_diffic    = 1 << 6,
     bf_hf_version= 1 << 8
   };
-
-  using sn_contributor_t = std::pair<cryptonote::account_public_address, uint64_t>;
 
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
   void get_last_n_block_sizes(std::vector<size_t>& block_sizes, const crypto::hash& head, size_t n) const;
@@ -253,7 +252,7 @@ struct register_info {
 
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx,
                          const cryptonote::block& blk_head, const cryptonote::account_base& from, const cryptonote::account_base& to,
-                         uint64_t amount, uint64_t fee, size_t nmix, bool stake=false, boost::optional<const register_info> reg_info = boost::none, uint64_t unlock_time=0);
+                         uint64_t amount, uint64_t fee, size_t nmix, bool stake=false, const std::vector<uint8_t>& extra = {}, uint64_t unlock_time=0);
 
 cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                             const cryptonote::account_base& acc_from, const cryptonote::account_base& acc_to,
@@ -670,28 +669,24 @@ inline bool do_replay_file(const std::string& filename)
 
 #define REWIND_BLOCKS(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC) REWIND_BLOCKS_N(VEC_EVENTS, BLK_NAME, PREV_BLOCK, MINER_ACC, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW)
 
-inline cryptonote::transaction make_registration_tx(
-    std::vector<test_event_entry>& events,
-    const cryptonote::account_base& account,
-    const cryptonote::keypair& service_node_keys,
-    uint64_t operator_cut,
-    const std::vector<cryptonote::account_public_address>& addresses,
-    const std::vector<uint64_t>& portions,
-    const cryptonote::block& head)
-{
+cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& events,
+                                             const cryptonote::account_base& account,
+                                             const cryptonote::keypair& service_node_keys,
+                                             uint64_t operator_cut,
+                                             const std::vector<cryptonote::account_public_address>& addresses,
+                                             const std::vector<uint64_t>& portions,
+                                             const cryptonote::block& head);
 
-  const auto new_height = cryptonote::get_block_height(head) + 1;
-  const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height);
+cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
+                                                     const cryptonote::account_base& account,
+                                                     const cryptonote::keypair& service_node_keys,
+                                                     const cryptonote::block& head);
 
-  uint64_t amount = service_nodes::portions_to_amount(portions[0], staking_requirement);
 
-  cryptonote::transaction tx;
-  boost::optional<const register_info> reg_info = register_info{service_node_keys, portions, operator_cut, addresses};
-  const auto unlock_time = new_height + service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
-  construct_tx_to_key(events, tx, head, account, account, amount, TESTS_DEFAULT_FEE, 9, true /* staking */, reg_info, unlock_time);
-  events.push_back(tx);
-  return tx;
-}
+cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
+                                               const cryptonote::account_base& account,
+                                               const cryptonote::block& head,
+                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee = 0);
 
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
   cryptonote::transaction TX_NAME;                                                             \

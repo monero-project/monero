@@ -112,6 +112,8 @@ namespace service_nodes
     service_node_info  info;
   };
 
+  void loki_shuffle(std::vector<size_t>& a, uint64_t seed);
+
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
       public cryptonote::Blockchain::BlockchainDetachedHook,
@@ -281,6 +283,9 @@ namespace service_nodes
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
+
+  /// Check if portions are sufficiently large (except for the last) and add up to the  required amount
+  bool check_service_node_portions(const std::vector<uint64_t>& portions);
 
   uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type m_nettype);
 
