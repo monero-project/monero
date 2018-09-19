@@ -675,6 +675,7 @@ wallet2::wallet2(network_type nettype, bool restricted):
   m_segregate_pre_fork_outputs(true),
   m_key_reuse_mitigation2(true),
   m_segregation_height(0),
+  m_ignore_fractional_outputs(true),
   m_is_initialized(false),
   m_restricted(restricted),
   is_old_file_format(false),
@@ -1834,7 +1835,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   blocks_added = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
-  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::wallet_internal_error, "Index out of bounds of hashchain");
+  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::out_of_hashchain_bounds_error);
 
   tools::threadpool& tpool = tools::threadpool::getInstance();
   tools::threadpool::waiter waiter;
@@ -2280,12 +2281,12 @@ void wallet2::update_pool_state(bool refreshed)
   MDEBUG("update_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history)
+void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
 {
   std::vector<crypto::hash> hashes;
 
   const uint64_t checkpoint_height = m_checkpoints.get_max_height();
-  if (stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height)
+  if ((stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force)
   {
     // we will drop all these, so don't bother getting them
     uint64_t missing_blocks = m_checkpoints.get_max_height() - m_blockchain.size();
@@ -2450,6 +2451,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       std::vector<cryptonote::block_complete_entry> next_blocks;
       std::vector<parsed_block> next_parsed_blocks;
       bool error = false;
+      added_blocks = 0;
       if (!first && blocks.empty())
       {
         refreshed = false;
@@ -2459,7 +2461,33 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
       if (!first)
       {
-        process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
+        try
+        {
+          process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
+        }
+        catch (const tools::error::out_of_hashchain_bounds_error&)
+        {
+          MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
+          uint64_t stop_height = m_blockchain.offset();
+          std::vector<crypto::hash> tip(m_blockchain.size() - m_blockchain.offset());
+          for (size_t i = m_blockchain.offset(); i < m_blockchain.size(); ++i)
+            tip[i - m_blockchain.offset()] = m_blockchain[i];
+          cryptonote::block b;
+          generate_genesis(b);
+          m_blockchain.clear();
+          m_blockchain.push_back(get_block_hash(b));
+          short_chain_history.clear();
+          get_short_chain_history(short_chain_history);
+          fast_refresh(stop_height, blocks_start_height, short_chain_history, true);
+          THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != stop_height, error::wallet_internal_error, "Unexpected hashchain size");
+          THROW_WALLET_EXCEPTION_IF(m_blockchain.offset() != 0, error::wallet_internal_error, "Unexpected hashchain offset");
+          for (const auto &h: tip)
+            m_blockchain.push_back(h);
+          short_chain_history.clear();
+          get_short_chain_history(short_chain_history);
+          start_height = stop_height;
+          throw std::runtime_error(""); // loop again
+        }
         blocks_fetched += added_blocks;
       }
       waiter.wait(&tpool);
@@ -2489,6 +2517,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       if(try_count < 3)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
+        first = true;
         ++try_count;
       }
       else
@@ -2811,6 +2840,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(m_segregation_height);
   json.AddMember("segregation_height", value2, json.GetAllocator());
 
+  value2.SetInt(m_ignore_fractional_outputs ? 1 : 0);
+  json.AddMember("ignore_fractional_outputs", value2, json.GetAllocator());
+
   value2.SetUint(m_subaddress_lookahead_major);
   json.AddMember("subaddress_lookahead_major", value2, json.GetAllocator());
 
@@ -2893,6 +2925,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_segregate_pre_fork_outputs = true;
     m_key_reuse_mitigation2 = true;
     m_segregation_height = 0;
+    m_ignore_fractional_outputs = true;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_key_on_device = false;
@@ -3019,6 +3052,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_key_reuse_mitigation2 = field_key_reuse_mitigation2;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregation_height, int, Uint, false, 0);
     m_segregation_height = field_segregation_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_fractional_outputs, int, Int, false, true);
+    m_ignore_fractional_outputs = field_ignore_fractional_outputs;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_major, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MAJOR);
     m_subaddress_lookahead_major = field_subaddress_lookahead_major;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
@@ -5599,15 +5634,10 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       }
 
       // get the current full reward zone
-      cryptonote::COMMAND_RPC_GET_INFO::request getinfo_req = AUTO_VAL_INIT(getinfo_req);
-      cryptonote::COMMAND_RPC_GET_INFO::response getinfo_res = AUTO_VAL_INIT(getinfo_res);
-      m_daemon_rpc_mutex.lock();
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", getinfo_req, getinfo_res, m_http_client);
-      m_daemon_rpc_mutex.unlock();
-      THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-      THROW_WALLET_EXCEPTION_IF(getinfo_res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-      const uint64_t full_reward_zone = getinfo_res.block_size_limit / 2;
+      uint64_t block_size_limit = 0;
+      const auto result = m_node_rpc_proxy.get_block_size_limit(block_size_limit);
+      throw_on_rpc_response_error(result, "get_info");
+      const uint64_t full_reward_zone = block_size_limit / 2;
 
       // get the last N block headers and sum the block sizes
       const size_t N = 10;
@@ -5621,7 +5651,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       m_daemon_rpc_mutex.lock();
       getbh_req.start_height = m_blockchain.size() - N;
       getbh_req.end_height = m_blockchain.size() - 1;
-      r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheadersrange", getbh_req, getbh_res, m_http_client, rpc_timeout);
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblockheadersrange", getbh_req, getbh_res, m_http_client, rpc_timeout);
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
       THROW_WALLET_EXCEPTION_IF(getbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
@@ -7677,12 +7707,24 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   for (uint32_t i : subaddr_indices)
     LOG_PRINT_L2("Candidate subaddress index for spending: " << i);
 
+  // determine threshold for fractional amount
+  const size_t tx_size_one_ring = estimate_tx_size(use_rct, 1, fake_outs_count, 2, 0, bulletproof);
+  const size_t tx_size_two_rings = estimate_tx_size(use_rct, 2, fake_outs_count, 2, 0, bulletproof);
+  THROW_WALLET_EXCEPTION_IF(tx_size_one_ring > tx_size_two_rings, error::wallet_internal_error, "Estimated tx size with 1 input is larger than with 2 inputs!");
+  const size_t tx_size_per_ring = tx_size_two_rings - tx_size_one_ring;
+  const uint64_t fractional_threshold = (fee_multiplier * fee_per_kb * tx_size_per_ring) / 1024;
+
   // gather all dust and non-dust outputs belonging to specified subaddresses
   size_t num_nondust_outputs = 0;
   size_t num_dust_outputs = 0;
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
+    if (m_ignore_fractional_outputs && td.amount() < fractional_threshold)
+    {
+      MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is below threshold " << print_money(fractional_threshold));
+      continue;
+    }
     if (!td.m_spent && !td.m_key_image_partial && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
     {
       const uint32_t index_minor = td.m_subaddr_index.minor;
@@ -9392,31 +9434,15 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err) const
 
 uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 {
-  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-  m_daemon_rpc_mutex.lock();
-  bool ok = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  if (ok)
+  err = "";
+  uint64_t target_height = 0;
+  const auto result = m_node_rpc_proxy.get_target_height(target_height);
+  if (result && *result != CORE_RPC_STATUS_OK)
   {
-    if (resp_t.status == CORE_RPC_STATUS_BUSY)
-    {
-      err = "daemon is busy. Please try again later.";
-    }
-    else if (resp_t.status != CORE_RPC_STATUS_OK)
-    {
-      err = resp_t.status;
-    }
-    else // success, cleaning up error message
-    {
-      err = "";
-    }
+    err= *result;
+    return 0;
   }
-  else
-  {
-    err = "possibly lost connection to daemon";
-  }
-  return resp_t.target_height;
+  return target_height;
 }
 
 uint64_t wallet2::get_approximate_blockchain_height() const
@@ -10767,15 +10793,10 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_txpool_backlog");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
 
-  cryptonote::COMMAND_RPC_GET_INFO::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_INFO::response resp_t = AUTO_VAL_INIT(resp_t);
-  m_daemon_rpc_mutex.lock();
-  r = net_utils::invoke_http_json_rpc("/json_rpc", "get_info", req_t, resp_t, m_http_client);
-  m_daemon_rpc_mutex.unlock();
-  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_info");
-  THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-  uint64_t full_reward_zone = resp_t.block_size_limit / 2;
+  uint64_t block_size_limit = 0;
+  const auto result = m_node_rpc_proxy.get_block_size_limit(block_size_limit);
+  throw_on_rpc_response_error(result, "get_info");
+  uint64_t full_reward_zone = block_size_limit / 2;
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
   for (const auto &fee_level: fee_levels)

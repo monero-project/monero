@@ -86,7 +86,6 @@ loki_add_executable(wallet_rpc_server
 target_link_libraries(wallet_rpc_server
   PRIVATE
     wallet
-    epee
     rpc_base
     cryptonote_core
     cncrypto
