@@ -3833,6 +3833,7 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  get_difficulty_for_next_block(); // just to cache it
 
   // New height is the height of the block we just mined. We want (new_height
   // + 1) because our age checks for deregister votes is now (age >=

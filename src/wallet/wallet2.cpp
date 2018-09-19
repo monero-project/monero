@@ -1568,6 +1568,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       {
         // We got a payment ID to go with this tx
         LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
+        MINFO("Consider using subaddresses instead of encrypted payment IDs");
         if (tx_pub_key != null_pkey)
         {
           if (!m_account.get_device().decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
@@ -1591,11 +1592,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
       {
         LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+        MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
       }
-    }
-    else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-    {
-      LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
     }
 
     for (const auto& i : tx_money_got_in_outs)
@@ -2694,7 +2692,7 @@ void wallet2::detach_blockchain(uint64_t height)
 bool wallet2::deinit()
 {
   m_is_initialized=false;
-  m_keys_file_locker.reset();
+  unlock_keys_file();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -2864,12 +2862,12 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   crypto::chacha20(account_data.data(), account_data.size(), key, keys_file_data.iv, &cipher[0]);
   keys_file_data.account_data = cipher;
 
-  m_keys_file_locker.reset();
+  unlock_keys_file();
   std::string buf;
   r = ::serialization::dump_binary(keys_file_data, buf);
   r = r && epee::file_io_utils::save_string_to_file(keys_file_name, buf); //and never touch wallet_keys_file again, only read
   CHECK_AND_ASSERT_MES(r, false, "failed to generate wallet keys file " << keys_file_name);
-  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  lock_keys_file();
 
   return true;
 }
@@ -3093,9 +3091,13 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const epee::wipeable_string& password) const
+bool wallet2::verify_password(const epee::wipeable_string& password)
 {
-  return verify_password(m_keys_file, password, m_watch_only || m_multisig, m_account.get_device());
+  // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
+  unlock_keys_file();
+  bool r = verify_password(m_keys_file, password, m_watch_only || m_multisig, m_account.get_device());
+  lock_keys_file();
+  return r;
 }
 
 /*!
@@ -4002,17 +4004,17 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   boost::system::error_code e;
   bool exists = boost::filesystem::exists(m_keys_file, e);
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
-  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
-  THROW_WALLET_EXCEPTION_IF(!m_keys_file_locker->locked(), error::wallet_internal_error, "internal error: \"" + m_keys_file + "\" is opened by another wallet program");
+  lock_keys_file();
+  THROW_WALLET_EXCEPTION_IF(!is_keys_file_locked(), error::wallet_internal_error, "internal error: \"" + m_keys_file + "\" is opened by another wallet program");
 
   // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
-  m_keys_file_locker.reset();
+  unlock_keys_file();
   if (!load_keys(m_keys_file, password))
   {
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, m_keys_file);
   }
   LOG_PRINT_L0("Loaded wallet keys file, with public address: " << m_account.get_public_address_str(m_nettype));
-  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  lock_keys_file();
 
   //keys loaded ok!
   //try to load wallet file. but even if we failed, it is not big problem
@@ -6016,6 +6018,33 @@ bool wallet2::is_output_blackballed(const crypto::public_key &output) const
     return false;
   try { return m_ringdb->blackballed(output); }
   catch (const std::exception &e) { return false; }
+}
+
+bool wallet2::lock_keys_file()
+{
+  if (m_keys_file_locker)
+  {
+    MDEBUG(m_keys_file << " is already locked.");
+    return false;
+  }
+  m_keys_file_locker.reset(new tools::file_locker(m_keys_file));
+  return true;
+}
+
+bool wallet2::unlock_keys_file()
+{
+  if (!m_keys_file_locker)
+  {
+    MDEBUG(m_keys_file << " is already unlocked.");
+    return false;
+  }
+  m_keys_file_locker.reset();
+  return true;
+}
+
+bool wallet2::is_keys_file_locked() const
+{
+  return m_keys_file_locker->locked();
 }
 
 bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, uint64_t global_index, const crypto::public_key& output_public_key, const rct::key& mask, uint64_t real_index, bool unlocked) const

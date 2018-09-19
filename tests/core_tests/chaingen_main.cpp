@@ -30,6 +30,7 @@
 
 #include "chaingen.h"
 #include "chaingen_tests_list.h"
+#include "common/util.h"
 #include "common/command_line.h"
 #include "transaction_tests.h"
 
@@ -42,6 +43,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_play_test_data              = {"play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_generate_and_play_test_data = {"generate_and_play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
+  const command_line::arg_descriptor<std::string> arg_filter                      = { "filter", "Regular expression filter for which tests to run" };
 }
 
 int main(int argc, char* argv[])
@@ -61,6 +63,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_play_test_data);
   command_line::add_arg(desc_options, arg_generate_and_play_test_data);
   command_line::add_arg(desc_options, arg_test_transactions);
+  command_line::add_arg(desc_options, arg_filter);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -77,6 +80,9 @@ int main(int argc, char* argv[])
     std::cout << desc_options << std::endl;
     return 0;
   }
+
+  const std::string filter = tools::glob_to_regex(command_line::get_arg(vm, arg_filter));
+  boost::smatch match;
 
   size_t tests_count = 0;
   std::vector<std::string> failed_tests;

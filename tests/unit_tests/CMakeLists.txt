@@ -56,6 +56,7 @@ set(unit_tests_sources
   mul_div.cpp
   multisig.cpp
   parse_amount.cpp
+  random.cpp
   serialization.cpp
   service_nodes.cpp
   sha256.cpp

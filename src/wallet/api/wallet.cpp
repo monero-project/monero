@@ -2206,6 +2206,20 @@ void WalletImpl::keyReuseMitigation2(bool mitigation)
     m_wallet->key_reuse_mitigation2(mitigation);
 }
 
+bool WalletImpl::lockKeysFile()
+{
+    return m_wallet->lock_keys_file();
+}
+
+bool WalletImpl::unlockKeysFile()
+{
+    return m_wallet->unlock_keys_file();
+}
+
+bool WalletImpl::isKeysFileLocked()
+{
+    return m_wallet->is_keys_file_locked();
+}
 } // namespace
 
 namespace Bitmonero = Monero;

@@ -920,4 +920,23 @@ std::string get_nix_version_display_string()
       return {};
     }
   }
+
+  std::string glob_to_regex(const std::string &val)
+  {
+    std::string newval;
+
+    bool escape = false;
+    for (char c: val)
+    {
+      if (c == '*')
+        newval += escape ? "*" : ".*";
+      else if (c == '?')
+        newval += escape ? "?" : ".";
+      else if (c == '\\')
+        newval += '\\', escape = !escape;
+      else
+        newval += c;
+    }
+    return newval;
+  }
 }

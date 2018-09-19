@@ -739,6 +739,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
     }
 
 #define GENERATE_AND_PLAY(genclass)                                                                        \
+  if (filter.empty() || boost::regex_match(std::string(#genclass), match, boost::regex(filter)))           \
   {                                                                                                        \
     std::vector<test_event_entry> events;                                                                  \
     ++tests_count;                                                                                         \

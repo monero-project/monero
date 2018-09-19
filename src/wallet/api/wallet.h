@@ -188,6 +188,9 @@ public:
     virtual void segregatePreForkOutputs(bool segregate) override;
     virtual void segregationHeight(uint64_t height) override;
     virtual void keyReuseMitigation2(bool mitigation) override;
+    virtual bool lockKeysFile() override;
+    virtual bool unlockKeysFile() override;
+    virtual bool isKeysFileLocked() override;
 
 private:
     void clearStatus() const;
