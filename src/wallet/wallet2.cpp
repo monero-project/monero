@@ -6642,11 +6642,23 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         }
 
         // while we still need more mixins
+        uint64_t num_usable_outs = num_outs;
+        bool allow_blackballed = false;
         while (num_found < requested_outputs_count)
         {
           // if we've gone through every possible output, we've gotten all we can
-          if (seen_indices.size() == num_outs)
-            break;
+          if (seen_indices.size() == num_usable_outs)
+          {
+            // there is a first pass which rejects blackballed outputs, then a second pass
+            // which allows them if we don't have enough non blackballed outputs to reach
+            // the required amount of outputs (since consensus does not care about blackballed
+            // outputs, we still need to reach the minimum ring size)
+            if (allow_blackballed)
+              break;
+            MINFO("Not enough non blackballed outputs, we'll allow blackballed ones");
+            allow_blackballed = true;
+            num_usable_outs = num_outs;
+          }
 
           // get a random output index from the DB.  If we've already seen it,
           // return to the top of the loop and try again, otherwise add it to the
@@ -6720,12 +6732,24 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
           if (seen_indices.count(i))
             continue;
-          if (is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
+          if (!allow_blackballed && is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
+          {
+            --num_usable_outs;
             continue;
+          }
           seen_indices.emplace(i);
 
           LOG_PRINT_L2("picking " << i << " as " << type);
           req.outputs.push_back({amount, i});
+          ++num_found;
+        }
+
+        // if we had enough unusable outputs, we might fall off here and still
+        // have too few outputs, so we stuff with one to keep counts good, and
+        // we'll error out later
+        while (num_found < requested_outputs_count)
+        {
+          req.outputs.push_back({amount, 0});
           ++num_found;
         }
       }
