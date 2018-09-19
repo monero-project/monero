@@ -3278,10 +3278,10 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     
     else if (!m_generate_from_json.empty())
     {
-      m_wallet_file = m_generate_from_json;
       try
       {
-        m_wallet = tools::wallet2::make_from_json(vm, false, m_wallet_file, password_prompter);
+        m_wallet = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
+        m_wallet_file = m_wallet->path();
       }
       catch (const std::exception &e)
       {
