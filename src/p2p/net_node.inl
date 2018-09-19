@@ -398,6 +398,9 @@ namespace nodetool
     {
       full_addrs.insert("13.211.225.142:38153");
     }
+    else if (nettype == cryptonote::FAKECHAIN)
+    {
+    }
     else
     {
       full_addrs.insert("13.55.199.36:22022");   // Sydney A Box
