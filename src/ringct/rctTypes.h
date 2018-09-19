@@ -150,7 +150,7 @@ namespace rct {
     };
     
     //just contains the necessary keys to represent MLSAG sigs
-    //c.f. http://eprint.iacr.org/2015/1098
+    //c.f. https://eprint.iacr.org/2015/1098
     struct mgSig {
         keyM ss;
         key cc;

@@ -1438,7 +1438,6 @@ bool simple_wallet::set_ring(const std::vector<std::string> &args)
           }
           ring.push_back(offset);
           ptr += read;
-          MGINFO("read offset: " << offset);
         }
         if (!valid)
           continue;
