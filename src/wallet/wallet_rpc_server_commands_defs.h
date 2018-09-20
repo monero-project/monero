@@ -863,7 +863,7 @@ namespace wallet_rpc
     bool spent;
     uint64_t global_index;
     std::string tx_hash;
-    uint32_t subaddr_index;
+    cryptonote::subaddress_index subaddr_index;
     std::string key_image;
 
     BEGIN_KV_SERIALIZE_MAP()
