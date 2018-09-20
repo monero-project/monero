@@ -118,7 +118,11 @@ RUN set -ex && \
     if [ -z "$NPROC" ] ; \
     then make -j$(nproc) release-static ; \
     else make -j$NPROC release-static ; \
-    fi
+    fi && \
+    ls -la /src/build && \
+    ls -la /src/build/Linux && \
+    ls -la /src/build/master && \
+    ls -la /src/build/master\release
 
 # runtime stage
 FROM ubuntu:16.04
@@ -129,7 +133,7 @@ RUN set -ex && \
     apt-get clean && \
     rm -rf /var/lib/apt
 
-COPY --from=builder /src/build/release/bin/* /usr/local/bin/
+COPY --from=builder /src/build/Linux/master/release/* /usr/local/bin/
 
 # Contains the blockchain
 VOLUME /root/.bitmonero
