@@ -943,6 +943,11 @@ namespace cryptonote
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
 
+    /**
+     * @brief returns the timestamps of the last N blocks
+     */
+    std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
+
   private:
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
