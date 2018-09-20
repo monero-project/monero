@@ -4869,11 +4869,6 @@ bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
   return sweep_main(0, true, args_);
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
-{
-  return sweep_main(0, true, args_);
-}
-//----------------------------------------------------------------------------------------------------
 bool simple_wallet::register_service_node_main(
     const std::vector<std::string>& service_node_key_as_str,
     uint64_t expiration_timestamp,
@@ -5196,41 +5191,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << tr("failed to parse service node signature");
     return true;
-  }
-
-  uint64_t unlock_block = 0;
-  if (locked) {
-    uint64_t locked_blocks = 0;
-
-    if (local_args.size() < 2) {
-      fail_msg_writer() << tr("missing lockedblocks parameter");
-      return true;
-    }
-
-    try
-    {
-      locked_blocks = boost::lexical_cast<uint64_t>(local_args[1]);
-    }
-    catch (const std::exception &e)
-    {
-      fail_msg_writer() << tr("bad locked_blocks parameter");
-      return true;
-    }
-    if (locked_blocks > 1000000)
-    {
-      fail_msg_writer() << tr("Locked blocks too high, max 1000000 (˜4 yrs)");
-      return true;
-    }
-    std::string err;
-    uint64_t bc_height = get_daemon_blockchain_height(err);
-    if (!err.empty())
-    {
-      fail_msg_writer() << tr("failed to get blockchain height: ") << err;
-      return true;
-    }
-    unlock_block = bc_height + locked_blocks;
-
-    local_args.erase(local_args.begin() + 1);
   }
 
   std::vector<uint8_t> extra;

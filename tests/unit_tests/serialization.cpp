@@ -816,30 +816,8 @@ TEST(Serialization, portability_outputs)
   ASSERT_TRUE(r);
   const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
   ASSERT_FALSE(data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen));
-  // decrypt (copied from wallet2::decrypt)
-  auto decrypt = [] (const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated) -> string
-  {
-    const size_t prefix_size = sizeof(chacha_iv) + (authenticated ? sizeof(crypto::signature) : 0);
-    if(ciphertext.size() < prefix_size)
-      return {};
-    crypto::chacha_key key;
-    crypto::generate_chacha_key(&skey, sizeof(skey), key, 1);
-    const crypto::chacha_iv &iv = *(const crypto::chacha_iv*)&ciphertext[0];
-    std::string plaintext;
-    plaintext.resize(ciphertext.size() - prefix_size);
-    if (authenticated)
-    {
-      crypto::hash hash;
-      crypto::cn_fast_hash(ciphertext.data(), ciphertext.size() - sizeof(signature), hash);
-      crypto::public_key pkey;
-      crypto::secret_key_to_public_key(skey, pkey);
-      const crypto::signature &signature = *(const crypto::signature*)&ciphertext[ciphertext.size() - sizeof(crypto::signature)];
-      if(!crypto::check_signature(hash, pkey, signature))
-        return {};
-    }
-    crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
-    return std::move(plaintext);
-  };
+  data = w.decrypt_with_view_secret_key(std::string(data, magiclen));
+
   crypto::secret_key view_secret_key;
   epee::string_tools::hex_to_pod("cb979d21cde0fbcafb9ff083791a6771b750534948ede6d66058609884b27604", view_secret_key);
   bool authenticated = true;
