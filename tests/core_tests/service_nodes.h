@@ -47,7 +47,7 @@ private:
 
 template<>
 struct get_test_options<gen_service_nodes> {
-  const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };
@@ -63,7 +63,7 @@ public:
 
 template<>
 struct get_test_options<test_prefer_deregisters> {
-  const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };
@@ -96,7 +96,7 @@ public:
 
 template<>
 struct get_test_options<test_zero_fee_deregister> {
-  const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };
@@ -130,7 +130,7 @@ public:
 
 template<>
 struct get_test_options<test_deregister_safety_buffer> {
-  const std::pair<uint8_t, uint64_t> hard_forks[3] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(9, 2), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks
   };

@@ -38,6 +38,7 @@
 #ifdef __GLIBC__
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <ustat.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -682,6 +683,21 @@ std::string get_nix_version_display_string()
 #else
   static void setup_crash_dump() {}
 #endif
+
+  bool disable_core_dumps()
+  {
+#ifdef __GLIBC__
+    // disable core dumps in release mode
+    struct rlimit rlimit;
+    rlimit.rlim_cur = rlimit.rlim_max = 0;
+    if (setrlimit(RLIMIT_CORE, &rlimit))
+    {
+      MWARNING("Failed to disable core dumps");
+      return false;
+    }
+#endif
+    return true;
+  }
 
   bool on_startup()
   {

@@ -39,13 +39,14 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, NetworkType nettype) override;
-    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype) override;
+                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1) override;
+    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
                                        const std::string &mnemonic,
                                        NetworkType nettype,
-                                       uint64_t restoreHeight) override;
+                                       uint64_t restoreHeight,
+                                       uint64_t kdf_rounds = 1) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
                                              const std::string &language,
@@ -53,7 +54,8 @@ public:
                                              uint64_t restoreHeight,
                                              const std::string &addressString,
                                              const std::string &viewKeyString,
-                                             const std::string &spendKeyString = "") override;
+                                             const std::string &spendKeyString = "",
+                                             uint64_t kdf_rounds = 1) override;
     // next two methods are deprecated - use the above version which allow setting of a password
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
     // deprecated: use createWalletFromKeys(..., password, ...) instead
@@ -69,10 +71,11 @@ public:
                                             NetworkType nettype,
                                             const std::string &deviceName,
                                             uint64_t restoreHeight = 0,
-                                            const std::string &subaddressLookahead = "") override;
+                                            const std::string &subaddressLookahead = "",
+                                            uint64_t kdf_rounds = 1) override;
     virtual bool closeWallet(Wallet *wallet, bool store = true) override;
     bool walletExists(const std::string &path) override;
-    bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key) const override;
+    bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key, uint64_t kdf_rounds = 1) const override;
     std::vector<std::string> findWallets(const std::string &path) override;
     std::string errorString() const override;
     void setDaemonAddress(const std::string &address) override;
