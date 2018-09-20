@@ -150,6 +150,30 @@ TEST(blackball, found)
   ASSERT_TRUE(ringdb.blackballed(OUTPUT_1));
 }
 
+TEST(blackball, vector)
+{
+  RingDB ringdb;
+  std::vector<std::pair<uint64_t, uint64_t>> outputs;
+  outputs.push_back(std::make_pair(0, 1));
+  outputs.push_back(std::make_pair(10, 3));
+  outputs.push_back(std::make_pair(10, 4));
+  outputs.push_back(std::make_pair(10, 8));
+  outputs.push_back(std::make_pair(20, 0));
+  outputs.push_back(std::make_pair(20, 1));
+  outputs.push_back(std::make_pair(30, 5));
+  ASSERT_TRUE(ringdb.blackball(outputs));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(0, 1)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(10, 2)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 3)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 4)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(10, 5)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 8)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(20, 0)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(20, 1)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(20, 2)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(30, 5)));
+}
+
 TEST(blackball, unblackball)
 {
   RingDB ringdb;
