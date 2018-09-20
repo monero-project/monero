@@ -416,6 +416,11 @@ int main(int argc, char* argv[])
   cryptonote::block b = core_storage[0]->get_db().get_block_from_height(0);
   tools::ringdb ringdb(output_file_path.string(), epee::string_tools::pod_to_hex(get_block_hash(b)));
 
+  bool stop_requested = false;
+  tools::signal_handler::install([&stop_requested](int type) {
+    stop_requested = true;
+  });
+
   for (size_t n = 0; n < inputs.size(); ++n)
   {
     const std::string canonical = boost::filesystem::canonical(inputs[n]).string();
@@ -448,7 +453,6 @@ int main(int argc, char* argv[])
           MINFO("Blackballing output " << pkey << ", due to being used in a 1-ring");
           ringdb.blackball(pkey);
           newly_spent.insert(output_data(txin.amount, absolute[0]));
-          state.spent.insert(output_data(txin.amount, absolute[0]));
         }
         else if (state.ring_instances[new_ring] == new_ring.size())
         {
@@ -458,7 +462,6 @@ int main(int argc, char* argv[])
             MINFO("Blackballing output " << pkey << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
             ringdb.blackball(pkey);
             newly_spent.insert(output_data(txin.amount, absolute[o]));
-            state.spent.insert(output_data(txin.amount, absolute[o]));
           }
         }
         else if (state.relative_rings.find(txin.k_image) != state.relative_rings.end())
@@ -487,7 +490,6 @@ int main(int argc, char* argv[])
               MINFO("Blackballing output " << pkey << ", due to being used in rings with a single common element");
               ringdb.blackball(pkey);
               newly_spent.insert(output_data(txin.amount, common[0]));
-              state.spent.insert(output_data(txin.amount, common[0]));
             }
             else
             {
@@ -501,9 +503,17 @@ int main(int argc, char* argv[])
         }
         state.relative_rings[txin.k_image] = new_ring;
       }
+      if (stop_requested)
+      {
+        MINFO("Stopping scan, secondary passes will still happen...");
+        return false;
+      }
       return true;
     });
+    LOG_PRINT_L0("blockchain from " << inputs[n] << " processed still height " << start_idx);
     state.processed_heights[canonical] = start_idx;
+    if (stop_requested)
+      break;
   }
 
   while (!newly_spent.empty())
@@ -511,6 +521,9 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Secondary pass due to " << newly_spent.size() << " newly found spent outputs");
     std::unordered_set<output_data> work_spent = std::move(newly_spent);
     newly_spent.clear();
+
+    for (const auto &e: work_spent)
+      state.spent.insert(e);
 
     for (const output_data &od: work_spent)
     {
@@ -534,7 +547,6 @@ int main(int argc, char* argv[])
               absolute.size() << "-ring where all other outputs are known to be spent");
           ringdb.blackball(pkey);
           newly_spent.insert(output_data(od.amount, last_unknown));
-          state.spent.insert(output_data(od.amount, last_unknown));
         }
       }
     }

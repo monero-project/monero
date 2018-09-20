@@ -48,7 +48,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 1
+#define WALLET_RPC_VERSION_MINOR 2
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -63,8 +63,10 @@ namespace wallet_rpc
     struct request
     {
       uint32_t account_index;
+      std::set<uint32_t> address_indices;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
+        KV_SERIALIZE(address_indices)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -138,6 +140,25 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
         KV_SERIALIZE(addresses)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_ADDRESS_INDEX
+  {
+    struct request
+    {
+      std::string address;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      cryptonote::subaddress_index index;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(index)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -915,9 +936,11 @@ namespace wallet_rpc
   {
     struct request
     {
+      std::string standard_address;
       std::string payment_id;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(standard_address)
         KV_SERIALIZE(payment_id)
       END_KV_SERIALIZE_MAP()
     };

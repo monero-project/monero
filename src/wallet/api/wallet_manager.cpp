@@ -53,14 +53,14 @@ namespace Monero {
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language, NetworkType nettype, uint64_t kdf_rounds)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, false, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     wallet->create(path, password, language);
     return wallet;
 }
 
 Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, false, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     wallet->open(path, password);
     //Refresh addressBook
     wallet->addressBook()->refresh(); 
@@ -91,7 +91,7 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
                                                 uint64_t restoreHeight,
                                                 uint64_t kdf_rounds)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, false, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
@@ -109,7 +109,7 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
                                                 const std::string &spendKeyString,
                                                 uint64_t kdf_rounds)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, false, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
@@ -125,7 +125,7 @@ Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
                                                   const std::string &subaddressLookahead,
                                                   uint64_t kdf_rounds)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, false, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
