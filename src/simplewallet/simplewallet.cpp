@@ -2311,15 +2311,15 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::sweep_unmixable, this, _1),
                            tr("Send all unmixable outputs to yourself with ring_size 1"));
   m_cmd_binder.set_handler("sweep_all", boost::bind(&simple_wallet::sweep_all, this, _1),
-                           tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]"),
-                           tr("Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used."));
+                           tr("sweep_all [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id>]"),
+                           tr("Send all unlocked balance to an address. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet sweeps outputs received by those address indices. If omitted, the wallet randomly chooses an address index to be used. If the parameter \"outputs=<N>\" is specified and  N > 0, wallet splits the transaction into N even outputs."));
   m_cmd_binder.set_handler("sweep_below",
                            boost::bind(&simple_wallet::sweep_below, this, _1),
                            tr("sweep_below <amount_threshold> [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]"),
                            tr("Send all unlocked outputs below the threshold to an address."));
   m_cmd_binder.set_handler("sweep_single",
                            boost::bind(&simple_wallet::sweep_single, this, _1),
-                           tr("sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]"),
+                           tr("sweep_single [<priority>] [<ring_size>] [outputs=<N>] <key_image> <address> [<payment_id>]"),
                            tr("Send a single output of the given key image to an address without change."));
   m_cmd_binder.set_handler("donate",
                            boost::bind(&simple_wallet::donate, this, _1),
@@ -5253,7 +5253,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
 {
   auto print_usage = [below]()
   {
-    fail_msg_writer() << boost::format(tr("usage: %s [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> [<payment_id>]")) % (below ? "sweep_below" : "sweep_all");
+    fail_msg_writer() << boost::format(tr("usage: %s [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id>]")) % (below ? "sweep_below" : "sweep_all");
   };
   if (args_.size() == 0)
   {
@@ -5351,6 +5351,25 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     local_args.erase(local_args.begin() + 1);
   }
 
+  size_t outputs = 1;
+  if (local_args.size() > 0 && local_args[0].substr(0, 8) == "outputs=")
+  {
+    if (!epee::string_tools::get_xtype_from_string(outputs, local_args[0].substr(8)))
+    {
+      fail_msg_writer() << tr("Failed to parse number of outputs");
+      return true;
+    }
+    else if (outputs < 1)
+    {
+      fail_msg_writer() << tr("Amount of outputs should be greater than 0");
+      return true;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
+  }
+
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
   if (local_args.size() >= 2)
@@ -5435,7 +5454,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -5576,6 +5595,25 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     return true;
   }
 
+  size_t outputs = 1;
+  if (local_args.size() > 0 && local_args[0].substr(0, 8) == "outputs=")
+  {
+    if (!epee::string_tools::get_xtype_from_string(outputs, local_args[0].substr(8)))
+    {
+      fail_msg_writer() << tr("Failed to parse number of outputs");
+      return true;
+    }
+    else if (outputs < 1)
+    {
+      fail_msg_writer() << tr("Amount of outputs should be greater than 0");
+      return true;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
+  }
+
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
   if (local_args.size() == 3)
@@ -5609,7 +5647,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   if (local_args.size() != 2)
   {
-    fail_msg_writer() << tr("usage: sweep_single [<priority>] [<ring_size>] <key_image> <address> [<payment_id>]");
+    fail_msg_writer() << tr("usage: sweep_single [<priority>] [<ring_size>] [outputs=<N>] <key_image> <address> [<payment_id>]");
     return true;
   }
 
@@ -5664,7 +5702,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, fake_outs_count, 0 /* unlock_time */, priority, extra);
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count, 0 /* unlock_time */, priority, extra);
 
     if (ptx_vector.empty())
     {
