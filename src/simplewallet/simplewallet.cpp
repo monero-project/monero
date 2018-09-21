@@ -5695,9 +5695,10 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 {
   // stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey>
 
-  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
     return true;
+
+  SCOPED_WALLET_UNLOCK()
 
   std::vector<std::string> local_args = args_;
 
@@ -5931,7 +5932,6 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     return true;
   }
 
-  if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
     return true;
 
@@ -7219,7 +7219,7 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
 }
 //----------------------------------------------------------------------------------------------------
 // mutates local_args as it parses and consumes arguments
-bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers) const
+bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers)
 {
   bool in = true;
   bool out = true;
