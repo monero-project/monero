@@ -103,7 +103,7 @@ namespace hw {
         bool  device_default::generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) {
             const crypto::secret_key &view_key = keys.m_view_secret_key;
             const crypto::secret_key &spend_key = keys.m_spend_secret_key;
-            tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1> data;
+            epee::mlocked<tools::scrubbed_arr<char, sizeof(view_key) + sizeof(spend_key) + 1>> data;
             memcpy(data.data(), &view_key, sizeof(view_key));
             memcpy(data.data() + sizeof(view_key), &spend_key, sizeof(spend_key));
             data[sizeof(data) - 1] = CHACHA8_KEY_TAIL;
