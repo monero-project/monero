@@ -639,6 +639,11 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
     return true;
 }
 
+Wallet::Device WalletImpl::getDeviceType() const
+{
+    return static_cast<Wallet::Device>(m_wallet->get_device_type());
+}
+
 bool WalletImpl::open(const std::string &path, const std::string &password)
 {
     clearStatus();
