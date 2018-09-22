@@ -3476,6 +3476,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_prompt_for_password);
 
   daemonizer::init_options(hidden_options, desc_params);
+  desc_params.add(hidden_options);
 
   boost::optional<po::variables_map> vm;
   bool should_terminate = false;
