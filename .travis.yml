@@ -23,15 +23,15 @@ env:
     - DOCKER_PACKAGES="build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
   matrix:
 # ARM v7
-    - HOST=arm-linux-gnueabihf PACKAGES="g++-arm-linux-gnueabihf"
+    - HOST=arm-linux-gnueabihf PACKAGES="gperf g++-arm-linux-gnueabihf"
 # ARM v8
-    - HOST=aarch64-linux-gnu PACKAGES="g++-aarch64-linux-gnu"
+    - HOST=aarch64-linux-gnu PACKAGES="gperf g++-aarch64-linux-gnu"
 # i686 Linux
-    - HOST=i686-pc-linux-gnu PACKAGES="cmake g++-multilib bc python3-zmq" RUN_TESTS=true
+    - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib bc python3-zmq" RUN_TESTS=true
 # Win64
     - HOST=x86_64-w64-mingw32 PACKAGES="cmake python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64 bc" RUN_TESTS=true
 # x86_64 Linux
-    - HOST=x86_64-unknown-linux-gnu PACKAGES="cmake python3-zmq protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev" RUN_TESTS=true
+    - HOST=x86_64-unknown-linux-gnu PACKAGES="gperf cmake python3-zmq protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev" RUN_TESTS=true
 # Cross-Mac
     - HOST=x86_64-apple-darwin11 PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git" OSX_SDK=10.11
 
