@@ -39,7 +39,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
       endif()
       set(${VARIABLE} "" CACHE INTERNAL "Have linker flag ${flag}")
       file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
-        "Determining if the ${flag} linker flag is suppored "
+        "Determining if the ${flag} linker flag is supported "
         "failed with the following output:\n"
         "${OUTPUT}\n\n")
     endif()
