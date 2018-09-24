@@ -32,6 +32,13 @@ set(device_sources
   log.cpp
   )
 
+if(MONERUJO_PCSC)
+    set(PCSC_FOUND 1)
+    add_definitions(-DHAVE_PCSC)
+    add_definitions(-DHAVE_MONERUJO)
+    set(device_headers ${device_headers} monerujo_ledger.h)
+endif()
+
 if(PCSC_FOUND)
   set(device_sources ${device_sources} device_ledger.cpp)
 endif()
