@@ -1068,6 +1068,14 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     CHECK_AND_ASSERT_MES(!(x_ip == rct::zero()), false, "x_ip == 0");
     PERF_TIMER_STOP(VERIFY_start);
 
+    // pre-multiply some points by 8
+    rct::keyV proof8_V = proof.V; for (rct::key &k: proof8_V) k = rct::scalarmult8(k);
+    rct::keyV proof8_L = proof.L; for (rct::key &k: proof8_L) k = rct::scalarmult8(k);
+    rct::keyV proof8_R = proof.R; for (rct::key &k: proof8_R) k = rct::scalarmult8(k);
+    rct::key proof8_T1 = rct::scalarmult8(proof.T1);
+    rct::key proof8_T2 = rct::scalarmult8(proof.T2);
+    rct::key proof8_S = rct::scalarmult8(proof.S);
+
     PERF_TIMER_START_BP(VERIFY_line_61);
     // PAPER LINE 61
     sc_muladd(y0.bytes, proof.taux.bytes, weight.bytes, y0.bytes);
@@ -1090,26 +1098,22 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     multiexp_data.reserve(proof.V.size());
     sc_sub(tmp.bytes, proof.t.bytes, tmp.bytes);
     sc_muladd(y1.bytes, tmp.bytes, weight.bytes, y1.bytes);
-    for (size_t j = 0; j < proof.V.size(); j++)
+    for (size_t j = 0; j < proof8_V.size(); j++)
     {
-      sc_mul(tmp.bytes, zpow[j+2].bytes, EIGHT.bytes);
-      multiexp_data.emplace_back(tmp, proof.V[j]);
+      multiexp_data.emplace_back(zpow[j+2], proof8_V[j]);
     }
     rct::addKeys(Y2, Y2, rct::scalarmultKey(multiexp(multiexp_data, false), weight));
-    rct::key weight8;
-    sc_mul(weight8.bytes, weight.bytes, EIGHT.bytes);
-    sc_mul(tmp.bytes, x.bytes, weight8.bytes);
-    rct::addKeys(Y3, Y3, rct::scalarmultKey(proof.T1, tmp));
+    sc_mul(tmp.bytes, x.bytes, weight.bytes);
+    rct::addKeys(Y3, Y3, rct::scalarmultKey(proof8_T1, tmp));
     rct::key xsq;
     sc_mul(xsq.bytes, x.bytes, x.bytes);
-    sc_mul(tmp.bytes, xsq.bytes, weight8.bytes);
-    rct::addKeys(Y4, Y4, rct::scalarmultKey(proof.T2, tmp));
+    sc_mul(tmp.bytes, xsq.bytes, weight.bytes);
+    rct::addKeys(Y4, Y4, rct::scalarmultKey(proof8_T2, tmp));
     PERF_TIMER_STOP(VERIFY_line_61rl_new);
 
     PERF_TIMER_START_BP(VERIFY_line_62);
     // PAPER LINE 62
-    sc_mul(tmp.bytes, x.bytes, EIGHT.bytes);
-    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmult8(proof.A), rct::scalarmultKey(proof.S, tmp)), weight));
+    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmult8(proof.A), rct::scalarmultKey(proof8_S, x)), weight));
     PERF_TIMER_STOP(VERIFY_line_62);
 
     // Compute the number of rounds for the inner product
@@ -1192,11 +1196,9 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
     for (size_t i = 0; i < rounds; ++i)
     {
       sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
-      sc_mul(tmp.bytes, tmp.bytes, EIGHT.bytes);
-      multiexp_data.emplace_back(tmp, proof.L[i]);
+      multiexp_data.emplace_back(tmp, proof8_L[i]);
       sc_mul(tmp.bytes, winv[i].bytes, winv[i].bytes);
-      sc_mul(tmp.bytes, tmp.bytes, EIGHT.bytes);
-      multiexp_data.emplace_back(tmp, proof.R[i]);
+      multiexp_data.emplace_back(tmp, proof8_R[i]);
     }
     rct::key acc = multiexp(multiexp_data, false);
     rct::addKeys(Z2, Z2, rct::scalarmultKey(acc, weight));
