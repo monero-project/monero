@@ -112,6 +112,7 @@ RUN set -ex \
 WORKDIR /src
 COPY . .
 
+ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
 RUN set -ex && \
     rm -rf build && \
