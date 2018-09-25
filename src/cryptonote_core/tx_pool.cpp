@@ -472,7 +472,7 @@ namespace cryptonote
         m_txpool_size -= txblob.size();
         remove_transaction_keyimages(tx);
         MINFO("Pruned tx " << txid << " from txpool: size: " << txblob.size() << ", fee/byte: " << std::get<1>(it->first));
-        it = --m_txs_by_fee_and_receive_time.erase(it);
+        it = m_txs_by_fee_and_receive_time.erase(it);
         changed = true;
       }
       catch (const std::exception &e)

@@ -403,6 +403,16 @@ namespace rct {
     };
     struct rctSig: public rctSigBase {
         rctSigPrunable p;
+
+        keyV& get_pseudo_outs()
+        {
+          return type == RCTTypeSimpleBulletproof ? p.pseudoOuts : pseudoOuts;
+        }
+
+        keyV const& get_pseudo_outs() const
+        {
+          return type == RCTTypeSimpleBulletproof ? p.pseudoOuts : pseudoOuts;
+        }
     };
 
     //other basepoint H = toPoint(cn_fast_hash(G)), G the basepoint
