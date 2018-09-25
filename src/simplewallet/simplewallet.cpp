@@ -110,13 +110,8 @@ typedef cryptonote::simple_wallet sw;
   m_auto_refresh_enabled.store(false, std::memory_order_relaxed); \
   /* stop any background refresh, and take over */ \
   m_wallet->stop(); \
-  m_idle_mutex.lock(); \
-  while (m_auto_refresh_refreshing) \
-    m_idle_cond.notify_one(); \
-  m_idle_mutex.unlock(); \
-/*  if (auto_refresh_run)*/ \
-    /*m_auto_refresh_thread.join();*/ \
   boost::unique_lock<boost::mutex> lock(m_idle_mutex); \
+  m_idle_cond.notify_all(); \
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
   })
@@ -2414,7 +2409,7 @@ simple_wallet::simple_wallet()
                            tr("Show the unspent outputs of a specified address within an optional amount range."));
   m_cmd_binder.set_handler("rescan_bc",
                            boost::bind(&simple_wallet::rescan_blockchain, this, _1),
-                           tr("Rescan the blockchain from scratch."));
+                           tr("Rescan the blockchain from scratch, losing any information which can not be recovered from the blockchain itself."));
   m_cmd_binder.set_handler("set_tx_note",
                            boost::bind(&simple_wallet::set_tx_note, this, _1),
                            tr("set_tx_note <txid> [free text note]"),
@@ -7214,7 +7209,7 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
   if (ts < 3600 * 24 * 30.5)
     return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
   if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 365.25))) + tr(" months");
+    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
   return tr("a long time");
 }
 //----------------------------------------------------------------------------------------------------
@@ -7729,6 +7724,14 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 {
+  message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
+  message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
+  std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
+  if(!std::cin.eof())
+  {
+    if (!command_line::is_yes(confirm))
+      return true;
+  }
   return refresh_main(0, true);
 }
 //----------------------------------------------------------------------------------------------------
