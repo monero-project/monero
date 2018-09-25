@@ -1307,21 +1307,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           }
           total_received_1 += amount;
         }
-	// was amount() >= tx.vout[o].amount
         else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx_scan_info[o].amount)
         {
           LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
               << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
               << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
-//              << print_money(m_transfers[kit->second].amount()) << ", received output ignored");
               << print_money(m_transfers[kit->second].amount()) << " in tx " << m_transfers[kit->second].m_txid << ", received output ignored");
-// monero version
-/*
-	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
-              << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
-              << print_money(m_transfers[kit->second].amount()) << " in tx " << m_transfers[kit->second].m_txid << ", received output ignored");
-*/
 
           auto iter = std::find_if(
               tx_money_got_in_outs.begin(),
@@ -1332,65 +1323,34 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
                   value.amount == tx_scan_info[o].amount;
               }
             );
-          if (iter == tx_money_got_in_outs.end())
-            LOG_ERROR("Could not find the output we just added, this should never happen");
 
-          THROW_WALLET_EXCEPTION_IF(iter->amount < tx_scan_info[o].amount,
-              error::wallet_internal_error, "Unexpected values of new and old outputs");
-          iter->amount -= tx_scan_info[o].amount;
+          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
+          tx_money_got_in_outs.erase(iter);
         }
         else
         {
           LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
               << " from received " << print_money(tx.vout[o].amount) << " output already exists with "
               << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
-// monero version
-/*
-	  LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
-              << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
-          // The new larger output replaced a previous smaller one
-*/
 
           // The new larger output replaced a previous smaller one
-	  /*
           auto iter = std::find_if(
               tx_money_got_in_outs.begin(),
               tx_money_got_in_outs.end(),
               [&tx_scan_info,&tx,&o](const tx_money_got_in_out& value)
               {
                 return value.index == tx_scan_info[o].received->index &&
-                  value.amount == tx.vout[o].amount;
+                       value.amount == tx_scan_info[o].amount;
               }
             );
-          if (iter == tx_money_got_in_outs.end())
-            LOG_ERROR("Could not find the output we just added, this should never happen");
-          else
-            tx_money_got_in_outs.erase(iter);
-	  */
-	  // Monero version of the fix - 9/25/18 rtharp
-          auto iter = std::find_if(
-              tx_money_got_in_outs.begin(),
-              tx_money_got_in_outs.end(),
-              [&tx_scan_info,&tx,&o](const tx_money_got_in_out& value)
-              {
-                return value.index == tx_scan_info[o].received->index &&
-                  value.amount == tx_scan_info[o].amount;
-              }
-            );
-          if (iter == tx_money_got_in_outs.end())
-          {
-            THROW_WALLET_EXCEPTION_IF(1,
-                error::wallet_internal_error, "Could not find the output we just added, this should never happen");
-          }
 
-          // Doyle said to remove - rtharp.
-          //THROW_WALLET_EXCEPTION_IF(iter->amount < tx_scan_info[o].amount,
-          //    error::wallet_internal_error, "Unexpected values of new and old outputs");
-          THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > tx_scan_info[o].amount,
-              error::wallet_internal_error, "Unexpected values of new and old outputs");
+          // Monero fix - 9/25/18 rtharp, doyle
+          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
+          THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > iter->amount, error::wallet_internal_error, "Unexpected values of new and old outputs");
           iter->amount -= m_transfers[kit->second].amount();
-          //tx_money_got_in_outs[tx_scan_info[o].received->index] -= tx_scan_info[o].amount;
+
+          if (iter->amount == 0)
+              tx_money_got_in_outs.erase(iter);
 
           uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
           uint64_t extra_amount = amount - m_transfers[kit->second].amount();
