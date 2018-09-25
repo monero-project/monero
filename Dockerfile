@@ -112,6 +112,7 @@ RUN set -ex \
 WORKDIR /src
 COPY . .
 
+ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
 RUN set -ex && \
     rm -rf build && \
@@ -128,7 +129,7 @@ RUN set -ex && \
     apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt
-COPY --from=builder /src/build/Linux/master/release/* /usr/local/bin/
+COPY --from=builder /src/build/release/bin /usr/local/bin/
 
 # Contains the blockchain
 VOLUME /root/.bitmonero
