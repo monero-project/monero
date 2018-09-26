@@ -3282,9 +3282,16 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     encrypted_secret_keys = field_encrypted_secret_keys;
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
-    if (m_device_name.empty() && field_device_name_found)
+    if (m_device_name.empty())
     {
-      m_device_name = field_device_name;
+      if (field_device_name_found)
+      {
+        m_device_name = field_device_name;
+      }
+      else
+      {
+        m_device_name = m_key_device_type == hw::device::device_type::LEDGER ? "Ledger" : "default";
+      }
     }
   }
   else
