@@ -401,7 +401,8 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   }
 
   mdb_cursor_close(cur);
-  mdb_txn_commit(txn);
+  dbr = mdb_txn_commit(txn);
+  if (dbr) throw std::runtime_error("Failed to commit db transaction: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   mdb_dbi_close(env, dbi);
   mdb_env_close(env);
@@ -471,7 +472,8 @@ static uint64_t find_first_diverging_transaction(const std::string &first_filena
   for (int i = 0; i < 2; ++i)
   {
     mdb_cursor_close(cur[i]);
-    mdb_txn_commit(txn[i]);
+    dbr = mdb_txn_commit(txn[i]);
+    if (dbr) throw std::runtime_error("Failed to query transaction: " + std::string(mdb_strerror(dbr)));
     tx_active[i] = false;
     mdb_dbi_close(env[i], dbi[i]);
     mdb_env_close(env[i]);
