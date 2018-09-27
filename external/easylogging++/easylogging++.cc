@@ -1975,11 +1975,11 @@ void VRegistry::setCategories(const char* categories, bool clear) {
     m_cached_allowed_categories.clear();
     m_categoriesString.clear();
   }
+  if (!categories)
+    return;
   if (!m_categoriesString.empty())
     m_categoriesString += ",";
   m_categoriesString += categories;
-  if (!categories)
-    return;
 
   bool isCat = true;
   bool isLevel = false;
