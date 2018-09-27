@@ -275,6 +275,9 @@ public:
   }
   virtual ~async_protocol_handler()
   {
+    try
+    {
+
     m_deletion_initiated = true;
     if(m_connection_initialized)
     {
@@ -288,6 +291,9 @@ public:
     CHECK_AND_ASSERT_MES_NO_RET(0 == boost::interprocess::ipcdetail::atomic_read32(&m_wait_count), "Failed to wait for operation completion. m_wait_count = " << m_wait_count);
 
     MTRACE(m_connection_context << "~async_protocol_handler()");
+
+    }
+    catch (...) { /* ignore */ }
   }
 
   bool start_outer_call()
