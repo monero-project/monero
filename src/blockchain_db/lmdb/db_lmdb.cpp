@@ -3579,7 +3579,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_heights: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_block_heights, &ms);
+          result = mdb_stat(txn, m_block_heights, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query block_heights table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3682,7 +3684,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_timestamps: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_block_info, &ms);
+          result = mdb_stat(txn, m_block_info, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query block_info table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3802,7 +3806,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keys: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_hf_versions, &ms);
+          result = mdb_stat(txn, m_hf_versions, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query hf_versions table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3957,7 +3963,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_txs, &ms);
+          result = mdb_stat(txn, m_txs, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query txs table: ", result).c_str()));
           i = ms.ms_entries;
           if (i) {
             MDB_val_set(pk, "txblk");
