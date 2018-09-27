@@ -3992,6 +3992,8 @@ public:
 std::string const t_executor::NAME = "Wallet RPC Daemon";
 
 int main(int argc, char** argv) {
+  TRY_ENTRY();
+
   namespace po = boost::program_options;
 
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
@@ -4035,4 +4037,5 @@ int main(int argc, char** argv) {
   }
 
   return daemonizer::daemonize(argc, const_cast<const char**>(argv), t_executor{}, *vm) ? 0 : 1;
+  CATCH_ENTRY_L0("main", 1);
 }
