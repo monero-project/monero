@@ -121,7 +121,8 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   miner::~miner()
   {
-    stop();
+    try { stop(); }
+    catch (...) { /* ignore */ }
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::set_block_template(const block& bl, const difficulty_type& di, uint64_t height)
