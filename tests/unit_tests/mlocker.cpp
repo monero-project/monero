@@ -158,6 +158,7 @@ TEST(mlocker, cross_page)
 TEST(mlocker, redundant)
 {
   const size_t page_size = epee::mlocker::get_page_size();
+  ASSERT_TRUE(page_size > 0);
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[2 * page_size]};
