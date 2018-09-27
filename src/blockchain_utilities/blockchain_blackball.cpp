@@ -675,7 +675,7 @@ static uint64_t get_ring_subset_instances(MDB_txn *txn, uint64_t amount, const s
   uint64_t extra = 0;
   std::vector<uint64_t> subset;
   subset.reserve(ring.size());
-  for (uint64_t mask = 1; mask < (1u << ring.size()) - 1; ++mask)
+  for (uint64_t mask = 1; mask < (((uint64_t)1) << ring.size()) - 1; ++mask)
   {
     subset.resize(0);
     for (size_t i = 0; i < ring.size(); ++i)
