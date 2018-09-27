@@ -63,7 +63,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               11
 
-#define UPTIME_PROOF_BUFFER_IN_SECONDS                  (5*60)
+#define UPTIME_PROOF_BUFFER_IN_SECONDS                  (5*60) // The acceptable window of time to accept a peer's uptime proof from its reported timestamp
 #define UPTIME_PROOF_FREQUENCY_IN_SECONDS               (60*60)
 #define UPTIME_PROOF_MAX_TIME_IN_SECONDS                (UPTIME_PROOF_FREQUENCY_IN_SECONDS * 2 + UPTIME_PROOF_BUFFER_IN_SECONDS)
 

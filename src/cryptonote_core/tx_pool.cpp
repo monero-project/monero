@@ -123,7 +123,7 @@ namespace cryptonote
       return false;
     }
 
-    std::list<transaction> pool_txs;
+    std::vector<transaction> pool_txs;
     get_transactions(pool_txs);
     for (const transaction& pool_tx : pool_txs)
     {
@@ -648,11 +648,12 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_relayable_transactions(std::list<std::pair<crypto::hash, cryptonote::blobdata>> &txs) const
+  bool tx_memory_pool::get_relayable_transactions(std::vector<std::pair<crypto::hash, cryptonote::blobdata>> &txs) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
+    txs.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([this, now, &txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *){
       if(!meta.do_not_relay && now - meta.last_relayed_time > get_relay_delay(now, meta.receive_time))
       {
@@ -702,7 +703,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::set_relayed(const std::list<std::pair<crypto::hash, cryptonote::blobdata>> &txs)
+  void tx_memory_pool::set_relayed(const std::vector<std::pair<crypto::hash, cryptonote::blobdata>> &txs)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -735,10 +736,11 @@ namespace cryptonote
     return m_blockchain.get_txpool_tx_count(include_unrelayed_txes);
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::get_transactions(std::list<transaction>& txs, bool include_unrelayed_txes) const
+  void tx_memory_pool::get_transactions(std::vector<transaction>& txs, bool include_unrelayed_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
+    txs.reserve(m_blockchain.get_txpool_tx_count(include_unrelayed_txes));
     m_blockchain.for_all_txpool_txes([&txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       transaction tx;
       if (!parse_and_validate_tx_from_blob(*bd, tx))
@@ -756,6 +758,7 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
+    txs.reserve(m_blockchain.get_txpool_tx_count(include_unrelayed_txes));
     m_blockchain.for_all_txpool_txes([&txs](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       txs.push_back(txid);
       return true;
@@ -767,6 +770,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     const uint64_t now = time(NULL);
+    backlog.reserve(m_blockchain.get_txpool_tx_count(include_unrelayed_txes));
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       backlog.push_back({meta.blob_size, meta.fee, meta.receive_time - now});
       return true;
@@ -855,6 +859,8 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
+    tx_infos.reserve(m_blockchain.get_txpool_tx_count());
+    key_image_infos.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       tx_info txi;
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
@@ -925,6 +931,8 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
+    tx_infos.reserve(m_blockchain.get_txpool_tx_count());
+    key_image_infos.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       cryptonote::rpc::tx_in_pool txi;
       txi.tx_hash = txid;

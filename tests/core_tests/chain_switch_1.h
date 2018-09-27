@@ -45,12 +45,12 @@ public:
   bool check_split_switched(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 
 private:
-  std::list<cryptonote::block> m_chain_1;
+  std::vector<cryptonote::block> m_chain_1;
 
   cryptonote::account_base m_recipient_account_1;
   cryptonote::account_base m_recipient_account_2;
   cryptonote::account_base m_recipient_account_3;
   cryptonote::account_base m_recipient_account_4;
 
-  std::list<cryptonote::transaction> m_tx_pool;
+  std::vector<cryptonote::transaction> m_tx_pool;
 };

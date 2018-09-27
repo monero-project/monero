@@ -49,7 +49,7 @@ namespace service_nodes
 {
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
-    : m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr)
+    : m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr), m_service_node_pubkey(nullptr)
   {
   }
 
@@ -84,7 +84,7 @@ namespace service_nodes
 
     while (m_height < current_height)
     {
-      std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+      std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
       if (!m_blockchain.get_blocks(m_height, 1000, blocks))
       {
         LOG_ERROR("Unable to initialize service nodes list");
@@ -94,8 +94,8 @@ namespace service_nodes
       for (const auto& block_pair : blocks)
       {
         const cryptonote::block& block = block_pair.second;
-        std::list<cryptonote::transaction> txs;
-        std::list<crypto::hash> missed_txs;
+        std::vector<cryptonote::transaction> txs;
+        std::vector<crypto::hash> missed_txs;
         if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
         {
           LOG_ERROR("Unable to get transactions for block " << block.hash);
@@ -280,10 +280,31 @@ namespace service_nodes
     if (iter == m_service_nodes_infos.end())
       return;
 
-    LOG_PRINT_L1("Deregistration for service node: " << key);
+    if (m_service_node_pubkey && *m_service_node_pubkey == key)
+    {
+      MGINFO_RED("Deregistration for service node (yours): " << key);
+    }
+    else
+    {
+      LOG_PRINT_L1("Deregistration for service node: " << key);
+    }
+
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
     m_service_nodes_infos.erase(iter);
+  }
+
+  bool check_service_node_portions(const std::vector<uint64_t>& portions)
+  {
+    uint64_t portions_left = STAKING_PORTIONS;
+
+    for (const auto portion : portions) {
+      const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
+      if (portion < min_portions || portion > portions_left) return false;
+      portions_left -= portion;
+    }
+
+    return true;
   }
 
   bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
@@ -302,15 +323,7 @@ namespace service_nodes
       return false;
 
     // check the portions
-
-    uint64_t portions_left = STAKING_PORTIONS;
-    for (size_t i = 0; i < service_node_portions.size(); i++)
-    {
-      uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-      if (service_node_portions[i] < min_portions || service_node_portions[i] > portions_left)
-        return false;
-      portions_left -= service_node_portions[i];
-    }
+    if (!check_service_node_portions(service_node_portions)) return false;
 
     if (portions_for_operator > STAKING_PORTIONS)
       return false;
@@ -381,7 +394,14 @@ namespace service_nodes
     if (iter != m_service_nodes_infos.end())
       return;
 
-    LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
+    if (m_service_node_pubkey && *m_service_node_pubkey == key)
+    {
+      MGINFO_GREEN("New service node registered (yours): " << key << " at block height: " << block_height);
+    }
+    else
+    {
+      LOG_PRINT_L1("New service node registered: " << key << " at block height: " << block_height);
+    }
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
     m_service_nodes_infos[key] = info;
@@ -587,7 +607,7 @@ namespace service_nodes
 
     const uint64_t expired_nodes_block_height = block_height - lock_blocks;
 
-    std::list<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+    std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
     if (!m_blockchain.get_blocks(expired_nodes_block_height, 1, blocks))
     {
       LOG_ERROR("Unable to get historical blocks");
@@ -595,8 +615,8 @@ namespace service_nodes
     }
 
     const cryptonote::block& block = blocks.begin()->second;
-    std::list<cryptonote::transaction> txs;
-    std::list<crypto::hash> missed_txs;
+    std::vector<cryptonote::transaction> txs;
+    std::vector<crypto::hash> missed_txs;
     if (!m_blockchain.get_transactions(block.tx_hashes, txs, missed_txs))
     {
       LOG_ERROR("Unable to get transactions for block " << block.hash);
@@ -727,7 +747,7 @@ namespace service_nodes
     return  x / (secureMax / n);
   }
 
-  static void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
+  void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
   {
     if (a.size() <= 1) return;
     std::mt19937_64 mersenne_twister(seed);
@@ -979,8 +999,8 @@ namespace service_nodes
       }
     }
 
-    LOG_PRINT_L0("Service node data loaded successfully, m_height: " << m_height);
-    LOG_PRINT_L0(m_service_nodes_infos.size() << " nodes and " << m_rollback_events.size() << " rollback events loaded.");
+    MGINFO("Service node data loaded successfully, m_height: " << m_height);
+    MGINFO(m_service_nodes_infos.size() << " nodes and " << m_rollback_events.size() << " rollback events loaded.");
 
     LOG_PRINT_L1("service_node_list::load() returning success");
     return true;

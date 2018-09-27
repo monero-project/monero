@@ -106,7 +106,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetHashesFast);
     RPC_MESSAGE_MEMBER(uint64_t, start_height);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::list<crypto::hash>, hashes);
+    RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, hashes);
     RPC_MESSAGE_MEMBER(uint64_t, start_height);
     RPC_MESSAGE_MEMBER(uint64_t, current_height);
   END_RPC_MESSAGE_RESPONSE;

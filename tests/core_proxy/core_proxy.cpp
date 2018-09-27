@@ -184,7 +184,7 @@ bool tests::proxy_core::handle_incoming_tx(const cryptonote::blobdata& tx_blob, 
     return true;
 }
 
-bool tests::proxy_core::handle_incoming_txs(const std::list<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
+bool tests::proxy_core::handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay)
 {
     tvc.resize(tx_blobs.size());
     size_t i = 0;
