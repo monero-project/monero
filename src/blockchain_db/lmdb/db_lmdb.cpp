@@ -1145,7 +1145,10 @@ BlockchainLMDB::~BlockchainLMDB()
 
   // batch transaction shouldn't be active at this point. If it is, consider it aborted.
   if (m_batch_active)
-    batch_abort();
+  {
+    try { batch_abort(); }
+    catch (...) { /* ignore */ }
+  }
   if (m_open)
     close();
 }
