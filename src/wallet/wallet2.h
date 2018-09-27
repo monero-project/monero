@@ -213,9 +213,9 @@ namespace tools
       rct::key mask;
       uint64_t amount;
       uint64_t money_transfered;
+      uint64_t unlock_time;
       bool error;
       boost::optional<cryptonote::subaddress_receive_info> received;
-
       tx_scan_info_t(): money_transfered(0), error(true) {}
     };
 
