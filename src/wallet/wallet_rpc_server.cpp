@@ -60,7 +60,6 @@ namespace
 {
   const command_line::arg_descriptor<std::string, true> arg_rpc_bind_port = {"rpc-bind-port", "Sets bind port for server"};
   const command_line::arg_descriptor<bool> arg_disable_rpc_login = {"disable-rpc-login", "Disable HTTP authentication for RPC connections served by this process"};
-  const command_line::arg_descriptor<bool> arg_trusted_daemon = {"trusted-daemon", "Enable commands which rely on a trusted daemon", false};
   const command_line::arg_descriptor<bool> arg_restricted = {"restricted-rpc", "Restricts to view-only commands", false};
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
@@ -101,7 +100,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_trusted_daemon(false), m_restricted(false), m_vm(NULL)
+  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_restricted(false), m_vm(NULL)
   {
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -121,7 +120,7 @@ namespace tools
     m_stop = false;
     m_net_server.add_idle_handler([this](){
       try {
-        if (m_wallet) m_wallet->refresh(m_trusted_daemon);
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon());
       } catch (const std::exception& ex) {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
@@ -170,15 +169,6 @@ namespace tools
     boost::optional<epee::net_utils::http::login> http_login{};
     std::string bind_port = command_line::get_arg(*m_vm, arg_rpc_bind_port);
     const bool disable_auth = command_line::get_arg(*m_vm, arg_disable_rpc_login);
-    m_trusted_daemon = command_line::get_arg(*m_vm, arg_trusted_daemon);
-    if (!command_line::has_arg(*m_vm, arg_trusted_daemon))
-    {
-      if (tools::is_local_address(walvars->get_daemon_address()))
-      {
-        MINFO(tr("Daemon is local, assuming trusted"));
-        m_trusted_daemon = true;
-      }
-    }
     m_restricted = command_line::get_arg(*m_vm, arg_restricted);
     if (command_line::has_arg(*m_vm, arg_wallet_dir))
     {
@@ -858,7 +848,7 @@ namespace tools
         mixin = m_wallet->adjust_mixin(req.mixin);
       }
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
 
       if (ptx_vector.empty())
       {
@@ -919,7 +909,7 @@ namespace tools
       }
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
@@ -1080,7 +1070,7 @@ namespace tools
 
     try
     {
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_unmixable_sweep_transactions(m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_unmixable_sweep_transactions();
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, er);
@@ -1128,7 +1118,7 @@ namespace tools
         mixin = m_wallet->adjust_mixin(req.mixin);
       }
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, er);
@@ -1184,7 +1174,7 @@ namespace tools
         mixin = m_wallet->adjust_mixin(req.mixin);
       }
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra, m_trusted_daemon);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, mixin, req.unlock_time, priority, extra);
 
       if (ptx_vector.empty())
       {
@@ -2305,7 +2295,7 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
-    if (!m_trusted_daemon)
+    if (!m_wallet->is_trusted_daemon())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "This command requires a trusted daemon.";
@@ -2519,7 +2509,7 @@ namespace tools
     }
     try
     {
-      m_wallet->refresh(m_trusted_daemon, req.start_height, res.blocks_fetched, res.received_money);
+      m_wallet->refresh(m_wallet->is_trusted_daemon(), req.start_height, res.blocks_fetched, res.received_money);
       return true;
     }
     catch (const std::exception& e)
@@ -2555,7 +2545,7 @@ namespace tools
   bool wallet_rpc_server::on_start_mining(const wallet_rpc::COMMAND_RPC_START_MINING::request& req, wallet_rpc::COMMAND_RPC_START_MINING::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
-    if (!m_trusted_daemon)
+    if (!m_wallet->is_trusted_daemon())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "This command requires a trusted daemon.";
@@ -2750,6 +2740,38 @@ namespace tools
     if (m_wallet)
       delete m_wallet;
     m_wallet = wal.release();
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_change_wallet_password(const wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::request& req, wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet->verify_password(req.old_password))
+    {
+      try
+      {
+        m_wallet->rewrite(m_wallet->get_wallet_file(), req.new_password);
+        m_wallet->store();
+        LOG_PRINT_L0("Wallet password changed.");
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
+    }
+    else
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_PASSWORD;
+      er.message = "Invalid original password.";
+      return false;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -2994,7 +3016,7 @@ namespace tools
       return false;
     }
 
-    if (m_trusted_daemon)
+    if (m_wallet->is_trusted_daemon())
     {
       try
       {
@@ -3217,7 +3239,6 @@ int main(int argc, char** argv) {
   tools::wallet2::init_options(desc_params);
   command_line::add_arg(desc_params, arg_rpc_bind_port);
   command_line::add_arg(desc_params, arg_disable_rpc_login);
-  command_line::add_arg(desc_params, arg_trusted_daemon);
   command_line::add_arg(desc_params, arg_restricted);
   cryptonote::rpc_args::init_options(desc_params);
   command_line::add_arg(desc_params, arg_wallet_file);
@@ -3310,7 +3331,7 @@ int main(int argc, char** argv) {
       wal->stop();
     });
 
-    wal->refresh(command_line::get_arg(*vm, arg_trusted_daemon));
+    wal->refresh(wal->is_trusted_daemon());
     // if we ^C during potentially length load/refresh, there's no server loop yet
     if (quit)
     {

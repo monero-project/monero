@@ -47,6 +47,7 @@
 #include "misc_language.h"
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 #include <fstream>
+#include "common/int-util.h"
 #include "mnemonics/electrum-words.h"
 #include <stdexcept>
 #include <boost/filesystem.hpp>
@@ -411,7 +412,7 @@ namespace crypto
       {
         uint32_t w[4];
 
-        memcpy(&w[0], src + (i * 4), 4);
+        w[0] = SWAP32LE(*(const uint32_t*)(src + (i * 4)));
 
         w[1] = w[0] % word_list_length;
         w[2] = ((w[0] / word_list_length) + w[1]) % word_list_length;

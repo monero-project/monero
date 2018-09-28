@@ -48,7 +48,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 2
+#define WALLET_RPC_VERSION_MINOR 3
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -446,7 +446,6 @@ namespace wallet_rpc
     {
       std::string tx_hash;
       std::string tx_key;
-      std::list<std::string> amount_keys;
       uint64_t amount;
       uint64_t fee;
       std::string tx_blob;
@@ -457,7 +456,6 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(tx_key)
-        KV_SERIALIZE(amount_keys)
         KV_SERIALIZE(amount)
         KV_SERIALIZE(fee)
         KV_SERIALIZE(tx_blob)
@@ -1823,6 +1821,25 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(filename)
         KV_SERIALIZE(password)
+      END_KV_SERIALIZE_MAP()
+    };
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_CHANGE_WALLET_PASSWORD
+  {
+    struct request
+    {
+      std::string old_password;
+      std::string new_password;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(old_password)
+        KV_SERIALIZE(new_password)
       END_KV_SERIALIZE_MAP()
     };
     struct response

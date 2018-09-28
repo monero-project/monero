@@ -36,6 +36,7 @@
 #include <vector>
 #include <iostream>
 #include <cinttypes>
+#include <sodium/crypto_verify_32.h>
 
 extern "C" {
 #include "crypto/crypto-ops.h"
@@ -81,7 +82,7 @@ namespace rct {
         unsigned char operator[](int i) const {
             return bytes[i];
         }
-        bool operator==(const key &k) const { return !memcmp(bytes, k.bytes, sizeof(bytes)); }
+        bool operator==(const key &k) const { return !crypto_verify_32(bytes, k.bytes); }
         unsigned char bytes[32];
     };
     typedef std::vector<key> keyV; //vector of keys
@@ -524,16 +525,16 @@ namespace rct {
     static inline const crypto::secret_key rct2sk(const rct::key &k) { return (const crypto::secret_key&)k; }
     static inline const crypto::key_image rct2ki(const rct::key &k) { return (const crypto::key_image&)k; }
     static inline const crypto::hash rct2hash(const rct::key &k) { return (const crypto::hash&)k; }
-    static inline bool operator==(const rct::key &k0, const crypto::public_key &k1) { return !memcmp(&k0, &k1, 32); }
-    static inline bool operator!=(const rct::key &k0, const crypto::public_key &k1) { return memcmp(&k0, &k1, 32); }
+    static inline bool operator==(const rct::key &k0, const crypto::public_key &k1) { return !crypto_verify_32(k0.bytes, (const unsigned char*)&k1); }
+    static inline bool operator!=(const rct::key &k0, const crypto::public_key &k1) { return crypto_verify_32(k0.bytes, (const unsigned char*)&k1); }
 }
 
 
 namespace cryptonote {
-    static inline bool operator==(const crypto::public_key &k0, const rct::key &k1) { return !memcmp(&k0, &k1, 32); }
-    static inline bool operator!=(const crypto::public_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
-    static inline bool operator==(const crypto::secret_key &k0, const rct::key &k1) { return !memcmp(&k0, &k1, 32); }
-    static inline bool operator!=(const crypto::secret_key &k0, const rct::key &k1) { return memcmp(&k0, &k1, 32); }
+    static inline bool operator==(const crypto::public_key &k0, const rct::key &k1) { return !crypto_verify_32((const unsigned char*)&k0, k1.bytes); }
+    static inline bool operator!=(const crypto::public_key &k0, const rct::key &k1) { return crypto_verify_32((const unsigned char*)&k0, k1.bytes); }
+    static inline bool operator==(const crypto::secret_key &k0, const rct::key &k1) { return !crypto_verify_32((const unsigned char*)&k0, k1.bytes); }
+    static inline bool operator!=(const crypto::secret_key &k0, const rct::key &k1) { return crypto_verify_32((const unsigned char*)&k0, k1.bytes); }
 }
 
 namespace rct {
