@@ -380,8 +380,8 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-        # Build image (select android64.Dockerfile for aarch64)
-        cd utils/build_scripts/ && docker build -f android32.Dockerfile -t loki-android .
+        # Build image
+        docker build -f utils/build_scripts/android32.Dockerfile -t loki-android .
         # Create container
         docker create -it --name loki-android loki-android bash
         # Get binaries
