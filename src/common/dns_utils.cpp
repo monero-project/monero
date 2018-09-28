@@ -46,10 +46,11 @@ namespace bf = boost::filesystem;
 static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
 {
   "194.150.168.168",    // CCC (Germany)
-  "81.3.27.54",         // Lightning Wire Labs (Germany)
-  "31.3.135.232",       // OpenNIC (Switzerland)
   "80.67.169.40",       // FDN (France)
-  "209.58.179.186",     // Cyberghost (Singapore)
+  "89.233.43.71",       // http://censurfridns.dk (Denmark)
+  "109.69.8.51",        // punCAT (Spain)
+  "77.109.148.137",     // Xiala.net (Switzerland)
+  "193.58.251.251",     // SkyDNS (Russia)
 };
 
 static boost::mutex instance_lock;
