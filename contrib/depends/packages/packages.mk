@@ -4,7 +4,7 @@ native_packages := native_ccache
 wallet_packages=bdb
 
 darwin_native_packages = native_biplist native_ds_store native_mac_alias
-darwin_packages += sodium-darwin hidapi-darwin
+darwin_packages = sodium-darwin hidapi-darwin
 
 linux_packages = eudev libusb hidapi-linux
 
