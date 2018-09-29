@@ -47,6 +47,11 @@
 
 namespace service_nodes
 {
+  uint64_t service_node_info::get_min_contribution() const
+  {
+    uint64_t result = get_min_node_contribution(staking_requirement, total_reserved);
+    return result;
+  }
 
   service_node_list::service_node_list(cryptonote::Blockchain& blockchain)
     : m_blockchain(blockchain), m_hooks_registered(false), m_height(0), m_db(nullptr), m_service_node_pubkey(nullptr)

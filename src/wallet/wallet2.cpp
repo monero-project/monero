@@ -1384,7 +1384,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
             // Monero fix - 25/9/2018 rtharp, doyle, maxim
             THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > iter->amount, error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
-            THROW_WALLET_EXCEPTION_IF(iter != tx_money_got_in_outs.end(), error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
+            THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
             tx_money_got_in_outs.erase(iter);
 
           }
@@ -1400,7 +1400,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               }
             );
           THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > iter->amount, error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
-          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
+          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
           iter->amount -= m_transfers[kit->second].amount();
 
           if (iter->amount == 0)
