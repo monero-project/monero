@@ -5353,7 +5353,7 @@ bool simple_wallet::stake_main(
 }
 bool simple_wallet::stake(const std::vector<std::string> &args_)
 {
-  // stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey>
+  // stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <contributor address> <amount|percent%>
 
   if (m_wallet->ask_password() && !get_and_verify_password()) { return true; }
   if (!try_connect_to_daemon())
@@ -5436,6 +5436,14 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   if (!cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), local_args[1], oa_prompter))
   {
     fail_msg_writer() << tr("failed to parse address");
+    return true;
+  }
+
+  if (info.is_subaddress)
+  {
+    fail_msg_writer() << tr("Service nodes doesn't support rewards to subaddresses, cannot stake for address: ")
+                      << local_args[1]
+                      << tr("Please use index=[...] if you want to stake funds from particular subaddresses.");
     return true;
   }
 
