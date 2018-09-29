@@ -666,9 +666,19 @@ Type `run` to run monerod
 
 ### Analysing memory corruption
 
-We use the tool `valgrind` for this.
+There are two tools available:
 
-Run with `valgrind /path/to/monerod`. It will be slow.
+* ASAN
+
+Configure Monero with the -D SANITIZE=ON cmake flag, eg:
+
+    cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
+
+You can then run the monero tools normally. Performance will typically halve.
+
+* valgrind
+
+Install valgrind and run as `valgrind /path/to/monerod`. It will be very slow.
 
 ### LMDB
 
