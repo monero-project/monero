@@ -603,7 +603,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
             LOG_PRINT_L1("Generated new view only wallet from keys");
         }
         if(has_spendkey && !has_viewkey) {
-           m_wallet->generate(path, password, spendkey, true, false, false);
+           m_wallet->generate(path, password, spendkey, true, false);
            setSeedLanguage(language);
            LOG_PRINT_L1("Generated deterministic wallet from spend key with seed language: " + language);
         }
@@ -623,7 +623,7 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
     m_recoveringFromDevice = true;
     try
     {
-        m_wallet->restore(path, password, device_name, false);
+        m_wallet->restore(path, password, device_name);
         LOG_PRINT_L1("Generated new wallet from device: " + device_name);
     }
     catch (const std::exception& e) {
