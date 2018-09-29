@@ -52,6 +52,7 @@
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
+#include "common/notify.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -3551,6 +3552,10 @@ leave:
   m_tx_pool.on_blockchain_inc(new_height, id);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
+
+  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+  if (block_notify)
+    block_notify->notify(epee::string_tools::pod_to_hex(id).c_str());
 
   return true;
 }
