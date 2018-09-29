@@ -398,6 +398,8 @@ bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &
   epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){if (tx_active) mdb_txn_abort(txn);});
   tx_active = true;
 
+  dbr = mdb_cursor_open(txn, dbi_blackballs, &cursor);
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create cursor for blackballs table: " + std::string(mdb_strerror(dbr)));
 
   MDB_val key, data;
   for (const std::pair<uint64_t, uint64_t> &output: outputs)
@@ -411,25 +413,22 @@ bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &
     {
       case BLACKBALL_BLACKBALL:
         MDEBUG("Blackballing output " << output.first << "/" << output.second);
-        dbr = mdb_put(txn, dbi_blackballs, &key, &data, MDB_APPENDDUP);
+        dbr = mdb_cursor_put(cursor, &key, &data, MDB_APPENDDUP);
         if (dbr == MDB_KEYEXIST)
           dbr = 0;
         break;
       case BLACKBALL_UNBLACKBALL:
         MDEBUG("Unblackballing output " << output.first << "/" << output.second);
-        dbr = mdb_del(txn, dbi_blackballs, &key, &data);
-        if (dbr == MDB_NOTFOUND)
-          dbr = 0;
+        dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
+        if (dbr == 0)
+          dbr = mdb_cursor_del(cursor, 0);
         break;
       case BLACKBALL_QUERY:
-        dbr = mdb_cursor_open(txn, dbi_blackballs, &cursor);
-        THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create cursor for blackballs table: " + std::string(mdb_strerror(dbr)));
         dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
         THROW_WALLET_EXCEPTION_IF(dbr && dbr != MDB_NOTFOUND, tools::error::wallet_internal_error, "Failed to lookup in blackballs table: " + std::string(mdb_strerror(dbr)));
         ret = dbr != MDB_NOTFOUND;
         if (dbr == MDB_NOTFOUND)
           dbr = 0;
-        mdb_cursor_close(cursor);
         break;
       case BLACKBALL_CLEAR:
         break;
@@ -438,6 +437,8 @@ bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &
     }
     THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to query blackballs table: " + std::string(mdb_strerror(dbr)));
   }
+
+  mdb_cursor_close(cursor);
 
   if (op == BLACKBALL_CLEAR)
   {
