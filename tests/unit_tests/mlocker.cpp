@@ -46,14 +46,14 @@ TEST(mlocker, distinct_1)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[8 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data), 1);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data) + 2 * page_size, 1);
-  epee::mlocker *m2 = new epee::mlocker(BASE(data) + 3 * page_size, 1);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data), 1)};
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data) + 2 * page_size, 1)};
+  std::shared_ptr<epee::mlocker> m2{new epee::mlocker(BASE(data) + 3 * page_size, 1)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 3);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 3);
-  delete m0;
-  delete m1;
-  delete m2;
+  m0 = NULL;
+  m1 = NULL;
+  m2 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -65,14 +65,14 @@ TEST(mlocker, distinct_full_page)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[8 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data), page_size);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data) + 2 * page_size, page_size);
-  epee::mlocker *m2 = new epee::mlocker(BASE(data) + 3 * page_size, page_size);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data), page_size)};
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data) + 2 * page_size, page_size)};
+  std::shared_ptr<epee::mlocker> m2{new epee::mlocker(BASE(data) + 3 * page_size, page_size)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 3);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 3);
-  delete m0;
-  delete m1;
-  delete m2;
+  m0 = NULL;
+  m1 = NULL;
+  m2 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -84,16 +84,16 @@ TEST(mlocker, identical)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[8 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data) + page_size, 32);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data) + page_size, 32);
-  epee::mlocker *m2 = new epee::mlocker(BASE(data) + page_size, 32);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data) + page_size, 32)};
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data) + page_size, 32)};
+  std::shared_ptr<epee::mlocker> m2{new epee::mlocker(BASE(data) + page_size, 32)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 3);
-  delete m1;
+  m1 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 2);
-  delete m0;
-  delete m2;
+  m0 = NULL;
+  m2 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -105,16 +105,16 @@ TEST(mlocker, overlapping_small)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[8 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data), 32);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data) + 16, 32);
-  epee::mlocker *m2 = new epee::mlocker(BASE(data) + 8, 32);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data), 32)};
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data) + 16, 32)};
+  std::shared_ptr<epee::mlocker> m2{new epee::mlocker(BASE(data) + 8, 32)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 3);
-  delete m1;
+  m1 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 2);
-  delete m2;
-  delete m0;
+  m2 = NULL;
+  m0 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -126,16 +126,16 @@ TEST(mlocker, multi_page)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[8 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data) + page_size, page_size * 3);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data) + page_size, page_size * 3)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 3);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 1);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data) + page_size * 7, page_size);
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data) + page_size * 7, page_size)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 4);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 2);
-  delete m0;
+  m0 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 1);
-  delete m1;
+  m1 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -147,10 +147,10 @@ TEST(mlocker, cross_page)
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[2 * page_size]};
-  epee::mlocker *m0 = new epee::mlocker(BASE(data) + page_size - 1, 2);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data) + page_size - 1, 2)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 2);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 1);
-  delete m0;
+  m0 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
@@ -158,21 +158,22 @@ TEST(mlocker, cross_page)
 TEST(mlocker, redundant)
 {
   const size_t page_size = epee::mlocker::get_page_size();
+  ASSERT_TRUE(page_size > 0);
   const size_t base_pages = epee::mlocker::get_num_locked_pages();
   const size_t base_objects = epee::mlocker::get_num_locked_objects();
   std::unique_ptr<char[]> data{new char[2 * page_size]};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
-  epee::mlocker *m0 = new epee::mlocker(BASE(data), 32);
+  std::shared_ptr<epee::mlocker> m0{new epee::mlocker(BASE(data), 32)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 1);
-  epee::mlocker *m1 = new epee::mlocker(BASE(data), 32);
+  std::shared_ptr<epee::mlocker> m1{new epee::mlocker(BASE(data), 32)};
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 2);
-  delete m1;
+  m1 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 1);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 1);
-  delete m0;
+  m0 = NULL;
   ASSERT_EQ(epee::mlocker::get_num_locked_pages(), base_pages + 0);
   ASSERT_EQ(epee::mlocker::get_num_locked_objects(), base_objects + 0);
 }
