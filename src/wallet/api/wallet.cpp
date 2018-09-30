@@ -2146,6 +2146,28 @@ bool WalletImpl::blackballOutputs(const std::vector<std::string> &outputs, bool 
     return true;
 }
 
+bool WalletImpl::blackballOutput(const std::string &amount, const std::string &offset)
+{
+    uint64_t raw_amount, raw_offset;
+    if (!epee::string_tools::get_xtype_from_string(raw_amount, amount))
+    {
+        setStatusError(tr("Failed to parse output amount"));
+        return false;
+    }
+    if (!epee::string_tools::get_xtype_from_string(raw_offset, offset))
+    {
+        setStatusError(tr("Failed to parse output offset"));
+        return false;
+    }
+    bool ret = m_wallet->blackball_output(std::make_pair(raw_amount, raw_offset));
+    if (!ret)
+    {
+        setStatusError(tr("Failed to blackball output"));
+        return false;
+    }
+    return true;
+}
+
 bool WalletImpl::unblackballOutput(const std::string &amount, const std::string &offset)
 {
     uint64_t raw_amount, raw_offset;
