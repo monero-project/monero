@@ -28,8 +28,10 @@
 
 #include <errno.h>
 #include <unistd.h>
+#ifndef _WIN32
 #include <sys/types.h>
 #include <sys/wait.h>
+#endif
 
 #include "misc_log_ex.h"
 #include "exec.h"
@@ -39,6 +41,10 @@ namespace tools
 
 int exec(const char *filename, char * const argv[], bool wait)
 {
+#ifdef _WIN32
+  MERROR("I am a Windows computer, please teach me how to fork");
+  return -1;
+#else
   pid_t pid = fork();
   if (pid < 0)
   {
@@ -83,6 +89,7 @@ int exec(const char *filename, char * const argv[], bool wait)
   }
   MERROR("Secret passage found");
   return -1;
+#endif
 }
 
 }
