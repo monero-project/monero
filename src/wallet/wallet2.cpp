@@ -1158,7 +1158,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, int &num_vouts_received, std::list<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs)
+void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs)
 {
   THROW_WALLET_EXCEPTION_IF(i >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
@@ -1196,9 +1196,11 @@ void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::publi
   {
     tx_scan_info.money_transfered = tools::decodeRct(tx.rct_signatures, tx_scan_info.received->derivation, i, tx_scan_info.mask, m_account.get_device());
   }
-  tx_money_got_in_outs.push_back(tx_money_got_in_out{ tx_scan_info.received->index, tx_scan_info.money_transfered, tx.get_unlock_time(i) });
-  tx_scan_info.amount = tx_scan_info.money_transfered;
-  ++num_vouts_received;
+
+  uint64_t unlock_time = tx.get_unlock_time(i);
+  tx_money_got_in_outs.push_back(tx_money_got_in_out{ tx_scan_info.received->index, tx_scan_info.money_transfered, unlock_time });
+  tx_scan_info.amount      = tx_scan_info.money_transfered;
+  tx_scan_info.unlock_time = unlock_time;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::hash &txid, tx_cache_data &tx_cache_data) const
@@ -1247,7 +1249,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   if (!miner_tx && !pool)
     process_unconfirmed(txid, tx, height);
   std::vector<size_t> outs;
-  std::list<tx_money_got_in_out> tx_money_got_in_outs;  // per receiving subaddress index
+
+  // NOTE: tx_scan_info contains the decoded amounts from the transaction destined for us
+  //       tx_money_got_in_outs contains decoded amounts from the transaction,
+  //       that removes amounts from our scanned outputs that got invalidated
+  //       i.e. duplicated key images
+  std::vector<tx_money_got_in_out> tx_money_got_in_outs;
+  tx_money_got_in_outs.reserve(tx.vout.size());
   crypto::public_key tx_pub_key = null_pkey;
 
   std::vector<tx_extra_field> local_tx_extra_fields;
@@ -1265,9 +1273,24 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   size_t pk_index = 0;
   std::vector<tx_scan_info_t> tx_scan_info(tx.vout.size());
   std::deque<bool> output_found(tx.vout.size(), false);
+  uint64_t total_received_1 = 0;
+
+  // NOTE: This handles the case where you have multiple outputs in the same
+  // transaction with duplicated output keys. Unlock times is lost when it's
+  // stored into m_transfers so we cannot determine if the entry in m_transfers
+  // came from this transaction or a previous transaction.
+
+  // TODO(loki): This case might be feasible at all where a key image is
+  // duplicated in the _same_ tx in different output indexes, because the
+  // algorithm for making a key image uses the output index. Investigate, and if
+  // it's not feasible to construct a malicious one without absolutely breaking
+  // everything in the system then we can delete the code for it.
+  using unlock_time_t = uint64_t;
+  std::unordered_map<crypto::public_key, unlock_time_t> pk_to_unlock_times;
   while (!tx.vout.empty())
   {
     // if tx.vout is not empty, we loop through all tx pubkeys
+    outs.clear();
 
     tx_extra_pub_key pub_key_field;
     if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
@@ -1285,7 +1308,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           error::wallet_internal_error, "tx_cache_data is out of sync");
     }
 
-    int num_vouts_received = 0;
     tx_pub_key = pub_key_field.pub_key;
     tools::threadpool& tpool = tools::threadpool::getInstance();
     tools::threadpool::waiter waiter;
@@ -1345,39 +1367,17 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
+      continue;
     }
-    else if (miner_tx && m_refresh_type == RefreshOptimizeCoinbase)
-    {
-      check_acc_out_precomp_once(tx.vout[0], derivation, additional_derivations, 0, is_out_data_ptr, tx_scan_info[0], output_found[0]);
-      THROW_WALLET_EXCEPTION_IF(tx_scan_info[0].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
 
-      // this assumes that the miner tx pays a single address
-      if (tx_scan_info[0].received)
-      {
-        // process the other outs from that tx
-        // the first one was already checked
-        for (size_t i = 1; i < tx.vout.size(); ++i)
-        {
-          tpool.submit(&waiter, boost::bind(&wallet2::check_acc_out_precomp_once, this, std::cref(tx.vout[i]), std::cref(derivation), std::cref(additional_derivations), i,
-            std::cref(is_out_data_ptr), std::ref(tx_scan_info[i]), std::ref(output_found[i])), true);
-        }
-        waiter.wait(&tpool);
-        // then scan all outputs from 0
-        hw::device &hwdev = m_account.get_device();
-        boost::unique_lock<hw::device> hwdev_lock (hwdev);
-        hwdev.set_mode(hw::device::NONE);
-        for (size_t i = 0; i < tx.vout.size(); ++i)
-        {
-          THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
-          if (tx_scan_info[i].received)
-          {
-            hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-            scan_output(tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
-          }
-        }
-      }
-    }
-    else if (tx.vout.size() > 1 && tools::threadpool::getInstance().get_max_concurrency() > 1 && !is_out_data_ptr)
+    // NOTE(loki): (miner_tx && m_refresh_type == RefreshOptimiseCoinbase) used
+    // to be an optimisation step that checks if the first output was destined
+    // for us otherwise skip. This is not possible for us because our
+    // block-reward now always has more than 1 output, mining, service node
+    // and governance rewards which can all have different dest addresses, so we
+    // always need to check all outputs.
+    if ((tx.vout.size() > 1 && tools::threadpool::getInstance().get_max_concurrency() > 1 && !is_out_data_ptr) ||
+        (miner_tx && m_refresh_type == RefreshOptimizeCoinbase))
     {
       for (size_t i = 0; i < tx.vout.size(); ++i)
       {
@@ -1395,7 +1395,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         if (tx_scan_info[i].received)
         {
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
         }
       }
     }
@@ -1411,12 +1411,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           boost::unique_lock<hw::device> hwdev_lock (hwdev);
           hwdev.set_mode(hw::device::NONE);
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
         }
       }
     }
 
-    if(!outs.empty() && num_vouts_received > 0)
+    if(!outs.empty())
     {
       //good news - got money! take care about it
       //usually we have only one transfer for user in transaction
@@ -1437,10 +1437,14 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             error::wallet_internal_error, std::string("Unexpected transfer index from public key: ")
             + "got " + (kit == m_pub_keys.end() ? "<none>" : boost::lexical_cast<std::string>(kit->second))
             + ", m_transfers.size() is " + boost::lexical_cast<std::string>(m_transfers.size()));
+
         if (kit == m_pub_keys.end())
         {
+          uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
           if (!pool)
           {
+            pk_to_unlock_times[tx_scan_info[o].in_ephemeral.pub] = tx_scan_info[o].unlock_time;
+
             m_transfers.push_back(boost::value_initialized<transfer_details>());
             transfer_details& td = m_transfers.back();
             td.m_block_height = height;
@@ -1451,14 +1455,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             td.m_key_image = tx_scan_info[o].ki;
             td.m_key_image_known = !m_watch_only && !m_multisig;
             td.m_key_image_partial = m_multisig;
-            td.m_amount = tx.vout[o].amount;
+            td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
             td.m_subaddr_index = tx_scan_info[o].received->index;
             expand_subaddresses(tx_scan_info[o].received->index);
-            if (td.m_amount == 0)
+            if (tx.vout[o].amount == 0)
             {
               td.m_mask = tx_scan_info[o].mask;
-              td.m_amount = tx_scan_info[o].amount;
               td.m_rct = true;
             }
             else if (miner_tx && tx.version >= 2)
@@ -1474,7 +1477,9 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             set_unspent(m_transfers.size()-1);
             if (!m_multisig && !m_watch_only)
               m_key_images[td.m_key_image] = m_transfers.size()-1;
+
             m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
+
             if (m_multisig)
             {
               THROW_WALLET_EXCEPTION_IF(!m_multisig_rescan_k && m_multisig_rescan_info,
@@ -1486,6 +1491,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             if (0 != m_callback)
               m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
           }
+          total_received_1 += amount;
         }
         else if (m_transfers[kit->second].m_spent || m_transfers[kit->second].amount() >= tx_scan_info[o].amount)
         {
@@ -1493,27 +1499,80 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
               << (m_transfers[kit->second].m_spent ? "spent" : "unspent") << " "
               << print_money(m_transfers[kit->second].amount()) << " in tx " << m_transfers[kit->second].m_txid << ", received output ignored");
-        }
-        else
-        {
-          LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
-              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
-              << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
-          // The new larger output replaced a previous smaller one
+
           auto iter = std::find_if(
               tx_money_got_in_outs.begin(),
               tx_money_got_in_outs.end(),
               [&tx_scan_info,&tx,&o](const tx_money_got_in_out& value)
               {
                 return value.index == tx_scan_info[o].received->index &&
-                  value.amount == tx.vout[o].amount;
+                  value.amount == tx_scan_info[o].amount &&
+                  value.unlock_time == tx_scan_info[o].unlock_time;
               }
             );
-          if (iter == tx_money_got_in_outs.end())
-            LOG_ERROR("Could not find the output we just added, this should never happen");
+
+          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
+          tx_money_got_in_outs.erase(iter);
+        }
+        else
+        {
+          LOG_ERROR("Public key " << epee::string_tools::pod_to_hex(kit->first)
+              << " from received " << print_money(tx_scan_info[o].amount) << " output already exists with "
+              << print_money(m_transfers[kit->second].amount()) << ", replacing with new output");
+
+          // The new larger output replaced a previous smaller one
+          auto unlock_time_it = pk_to_unlock_times.find(kit->first);
+          if (unlock_time_it == pk_to_unlock_times.end())
+          {
+            // NOTE: This output previously existed in m_transfers before any
+            // outputs in this transaction was processed, so we couldn't find.
+            // That's fine, we don't need to modify tx_money_got_in_outs.
+            //   - 27/09/2018 Doyle
+          }
           else
+          {
+            tx_money_got_in_out smaller_output = {};
+            smaller_output.unlock_time = unlock_time_it->second;
+            smaller_output.amount = m_transfers[kit->second].amount();
+            smaller_output.index  = m_transfers[kit->second].m_subaddr_index;
+
+            auto iter = std::find_if(
+                tx_money_got_in_outs.begin(),
+                tx_money_got_in_outs.end(),
+                [&smaller_output](const tx_money_got_in_out& value)
+                {
+                  return value.index == smaller_output.index &&
+                    value.amount == smaller_output.amount &&
+                    value.unlock_time == smaller_output.unlock_time;
+                }
+              );
+
+            // Monero fix - 25/9/2018 rtharp, doyle, maxim
+            THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > iter->amount, error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
+            THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
             tx_money_got_in_outs.erase(iter);
 
+          }
+
+          auto iter = std::find_if(
+              tx_money_got_in_outs.begin(),
+              tx_money_got_in_outs.end(),
+              [&tx_scan_info, &o](const tx_money_got_in_out& value)
+              {
+                return value.index == tx_scan_info[o].received->index &&
+                  value.amount == tx_scan_info[o].amount &&
+                  value.unlock_time == tx_scan_info[o].unlock_time;
+              }
+            );
+          THROW_WALLET_EXCEPTION_IF(m_transfers[kit->second].amount() > iter->amount, error::wallet_internal_error, "Unexpected values of new and old outputs, new output is meant to be larger");
+          THROW_WALLET_EXCEPTION_IF(iter == tx_money_got_in_outs.end(), error::wallet_internal_error, "Could not find the output we just added, this should never happen");
+          iter->amount -= m_transfers[kit->second].amount();
+
+          if (iter->amount == 0)
+            tx_money_got_in_outs.erase(iter);
+
+          uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
+          uint64_t extra_amount = amount - m_transfers[kit->second].amount();
           if (!pool)
           {
             transfer_details &td = m_transfers[kit->second];
@@ -1522,14 +1581,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             td.m_global_output_index = o_indices[o];
             td.m_tx = (const cryptonote::transaction_prefix&)tx;
             td.m_txid = txid;
-            td.m_amount = tx.vout[o].amount;
+            td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
             td.m_subaddr_index = tx_scan_info[o].received->index;
             expand_subaddresses(tx_scan_info[o].received->index);
-            if (td.m_amount == 0)
+            if (tx.vout[o].amount == 0)
             {
               td.m_mask = tx_scan_info[o].mask;
-              td.m_amount = tx_scan_info[o].amount;
               td.m_rct = true;
             }
             else if (miner_tx && tx.version >= 2)
@@ -1556,6 +1614,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             if (0 != m_callback)
               m_callback->on_money_received(height, txid, tx, td.m_amount, td.m_subaddr_index);
           }
+          total_received_1 += extra_amount;
         }
       }
     }
@@ -1629,10 +1688,14 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   }
 
   // remove change sent to the spending subaddress account from the list of received funds
+  uint64_t sub_change = 0;
   for (auto i = tx_money_got_in_outs.begin(); i != tx_money_got_in_outs.end();)
   {
     if (subaddr_account && i->index.major == *subaddr_account)
+    {
+      sub_change += i->amount;
       i = tx_money_got_in_outs.erase(i);
+    }
     else
       ++i;
   }
@@ -1675,6 +1738,21 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
         MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
       }
+    }
+
+    uint64_t total_received_2 = sub_change;
+    for (const auto& i : tx_money_got_in_outs)
+      total_received_2 += i.amount;
+
+    if (total_received_1 != total_received_2)
+    {
+      const el::Level level = el::Level::Warning;
+      MCLOG_RED(level, "global", "**********************************************************************");
+      MCLOG_RED(level, "global", "Consistency failure in amounts received");
+      MCLOG_RED(level, "global", "Check transaction " << txid);
+      MCLOG_RED(level, "global", "**********************************************************************");
+      exit(1);
+      return;
     }
 
     for (const auto& i : tx_money_got_in_outs)
