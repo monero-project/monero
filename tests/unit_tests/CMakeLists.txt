@@ -62,6 +62,7 @@ set(unit_tests_sources
   mul_div.cpp
   int-util.cpp
   multisig.cpp
+  notify.cpp
   parse_amount.cpp
   random.cpp
   rolling_median.cpp
@@ -122,4 +123,8 @@ SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 
 add_test(
   NAME    unit_tests
-  COMMAND unit_tests --data-dir "${TEST_DATA_DIR}")
+  COMMAND unit_tests --data-dir "${TEST_DATA_DIR} --binary-dir ${CMAKE_BINARY_DIR}")
+
+add_executable(test_notifier test_notifier.cpp)
+target_link_libraries(test_notifier ${EXTRA_LIBRARIES})
+set_property(TARGET test_notifier PROPERTY FOLDER "tests")
