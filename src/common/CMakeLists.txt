@@ -33,12 +33,12 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   download.cpp
-  exec.cpp
   util.cpp
   i18n.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
+  spawn.cpp
   threadpool.cpp
   updates.cpp)
 
@@ -56,7 +56,6 @@ set(common_private_headers
   common_fwd.h
   dns_utils.h
   download.h
-  exec.h
   http_connection.h
   int-util.h
   notify.h
@@ -69,6 +68,7 @@ set(common_private_headers
   i18n.h
   password.h
   perf_timer.h
+  spawn.h
   stack_trace.h
   threadpool.h
   updates.h)
