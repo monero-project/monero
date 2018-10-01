@@ -221,6 +221,10 @@ namespace tools
     : m_password(std::move(password)) 
   {
   }
+  password_container::password_container(const epee::wipeable_string& password) noexcept
+    : m_password(password)
+  {
+  }
 
   password_container::~password_container() noexcept
   {
