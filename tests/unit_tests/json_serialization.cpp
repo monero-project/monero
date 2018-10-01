@@ -35,7 +35,8 @@ namespace
         std::vector<cryptonote::transaction> const& sources,
         std::vector<cryptonote::account_public_address> const& destinations,
         bool rct,
-        bool bulletproof)
+        bool bulletproof,
+        bool per_output_unlock)
     {
         std::uint64_t source_amount = 0;
         std::vector<cryptonote::tx_source_entry> actual_sources;
@@ -49,17 +50,29 @@ namespace
             if (!cryptonote::find_tx_extra_field_by_type(extra_fields, key_field))
                 throw std::runtime_error{"invalid transaction"};
 
-            for (auto const& input : boost::adaptors::index(source.vout))
+            bool is_miner_tx = false;
+            for (cryptonote::txin_v const &txin_type : source.vin)
             {
-                source_amount += input.value().amount;
-                auto const& key = boost::get<cryptonote::txout_to_key>(input.value().target);
+              is_miner_tx = (txin_type.type() == typeid(cryptonote::txin_gen));
+              if (is_miner_tx) break;
+            }
+
+            int num_outputs_to_use = static_cast<int>(source.vout.size());
+            if (num_outputs_to_use > 0 && is_miner_tx)
+              --num_outputs_to_use; // NOTE:(loki): Don't try to transfer the governance reward which is always the last one
+
+            for (int output_index = 0; output_index < num_outputs_to_use; ++output_index)
+            {
+                cryptonote::tx_out const& tx_out_entry = source.vout[output_index];
+                source_amount += tx_out_entry.amount;
+                auto const& key = boost::get<cryptonote::txout_to_key>(tx_out_entry.target);
 
                 actual_sources.push_back(
-                    {{}, 0, key_field.pub_key, {}, std::size_t(input.index()), input.value().amount, rct, rct::identity()}
+                    {{}, 0, key_field.pub_key, {}, static_cast<size_t>(output_index), tx_out_entry.amount, rct, rct::identity()}
                 );
 
                 for (unsigned ring = 0; ring < 10; ++ring)
-                    actual_sources.back().push_output(input.index(), key.key, input.value().amount);
+                    actual_sources.back().push_output(output_index, key.key, tx_out_entry.amount);
             }
         }
 
@@ -75,7 +88,7 @@ namespace
         std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.m_account_address.m_spend_public_key] = {0,0};
 
-        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, rct, bulletproof))
+        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, rct, bulletproof, nullptr, false /*staking_tx*/, per_output_unlock))
             throw std::runtime_error{"transaction construction error"};
 
         return tx;
@@ -120,7 +133,7 @@ TEST(JsonSerialization, RegularTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, false
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, false, false /*per_output_unlock*/
     );
 
     crypto::hash tx_hash{};
@@ -155,7 +168,7 @@ TEST(JsonSerialization, RingctTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, false
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, false, false /*per_output_unlock*/
     );
 
     crypto::hash tx_hash{};
@@ -190,7 +203,42 @@ TEST(JsonSerialization, BulletproofTransaction)
 
     const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
     const auto tx = make_transaction(
-        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, true
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, true, false
+    );
+
+    crypto::hash tx_hash{};
+    ASSERT_TRUE(cryptonote::get_transaction_hash(tx, tx_hash));
+
+    rapidjson::Document doc;
+    cryptonote::json::toJsonValue(doc, tx, doc);
+
+    cryptonote::transaction tx_copy;
+    cryptonote::json::fromJsonValue(doc, tx_copy);
+
+    crypto::hash tx_copy_hash{};
+    ASSERT_TRUE(cryptonote::get_transaction_hash(tx_copy, tx_copy_hash));
+    EXPECT_EQ(tx_hash, tx_copy_hash);
+
+    cryptonote::blobdata tx_bytes{};
+    cryptonote::blobdata tx_copy_bytes{};
+
+    ASSERT_TRUE(cryptonote::t_serializable_object_to_blob(tx, tx_bytes));
+    ASSERT_TRUE(cryptonote::t_serializable_object_to_blob(tx_copy, tx_copy_bytes));
+
+    EXPECT_EQ(tx_bytes, tx_copy_bytes);
+}
+
+TEST(JsonSerialization, Version3PerOutputUnlockTransaction)
+{
+    cryptonote::account_base acct1;
+    acct1.generate();
+
+    cryptonote::account_base acct2;
+    acct2.generate();
+
+    const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
+    const auto tx = make_transaction(
+        acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, true, true /*per_output_unlock*/
     );
 
     crypto::hash tx_hash{};
