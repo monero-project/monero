@@ -3275,7 +3275,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     {
       try
       {
-        m_wallet = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
+        auto rc = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
+        m_wallet = std::move(rc.first);
+        password = rc.second.password();
         m_wallet_file = m_wallet->path();
       }
       catch (const std::exception &e)

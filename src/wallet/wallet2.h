@@ -177,7 +177,7 @@ namespace tools
     static void init_options(boost::program_options::options_description& desc_params);
 
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
-    static std::unique_ptr<wallet2> make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
+    static std::pair<std::unique_ptr<wallet2>, password_container> make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     //! Uses stdin and stdout. Returns a wallet2 and password for `wallet_file` if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container>
