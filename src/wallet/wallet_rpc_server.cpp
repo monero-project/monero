@@ -2173,8 +2173,8 @@ namespace tools
     for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       if (i->second.m_tx_hash == txid)
       {
-        fill_transfer_entry(res.transfer, i->second.m_tx_hash, i->first, i->second);
-        return true;
+        res.transfers.resize(res.transfers.size() + 1);
+        fill_transfer_entry(res.transfers.back(), i->second.m_tx_hash, i->first, i->second);
       }
     }
 
@@ -2183,8 +2183,8 @@ namespace tools
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments_out.begin(); i != payments_out.end(); ++i) {
       if (i->first == txid)
       {
-        fill_transfer_entry(res.transfer, i->first, i->second);
-        return true;
+        res.transfers.resize(res.transfers.size() + 1);
+        fill_transfer_entry(res.transfers.back(), i->first, i->second);
       }
     }
 
@@ -2193,8 +2193,8 @@ namespace tools
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       if (i->first == txid)
       {
-        fill_transfer_entry(res.transfer, i->first, i->second);
-        return true;
+        res.transfers.resize(res.transfers.size() + 1);
+        fill_transfer_entry(res.transfers.back(), i->first, i->second);
       }
     }
 
@@ -2205,9 +2205,15 @@ namespace tools
     for (std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>>::const_iterator i = pool_payments.begin(); i != pool_payments.end(); ++i) {
       if (i->second.m_pd.m_tx_hash == txid)
       {
-        fill_transfer_entry(res.transfer, i->first, i->second);
-        return true;
+        res.transfers.resize(res.transfers.size() + 1);
+        fill_transfer_entry(res.transfers.back(), i->first, i->second);
       }
+    }
+
+    if (!res.transfers.empty())
+    {
+      res.transfer = res.transfers.front(); // backward compat
+      return true;
     }
 
     er.code = WALLET_RPC_ERROR_CODE_WRONG_TXID;
