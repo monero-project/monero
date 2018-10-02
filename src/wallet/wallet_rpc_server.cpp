@@ -3352,7 +3352,8 @@ public:
       {
         try
         {
-          wal = tools::wallet2::make_from_json(vm, true, from_json, password_prompt);
+          auto rc = tools::wallet2::make_from_json(vm, true, from_json, password_prompt);
+          wal = std::move(rc.first);
         }
         catch (const std::exception &e)
         {
