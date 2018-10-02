@@ -31,6 +31,6 @@
 namespace tools
 {
 
-int exec(const char *filename, char * const argv[], bool wait);
+int spawn(const char *filename, const std::vector<std::string>& args, bool wait);
 
 }

@@ -34,13 +34,13 @@ set(common_sources
   dns_utils.cpp
   download.cpp
   error.cpp
-  exec.cpp
   expect.cpp
   util.cpp
   i18n.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
+  spawn.cpp
   threadpool.cpp
   updates.cpp
   aligned.c)
@@ -60,7 +60,6 @@ set(common_private_headers
   dns_utils.h
   download.h
   error.h
-  exec.h
   expect.h
   http_connection.h
   int-util.h
@@ -74,6 +73,7 @@ set(common_private_headers
   i18n.h
   password.h
   perf_timer.h
+  spawn.h
   stack_trace.h
   threadpool.h
   updates.h
