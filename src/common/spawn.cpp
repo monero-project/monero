@@ -29,16 +29,68 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
+#ifdef _WIN32
+#include <boost/algorithm/string/join.hpp>
+#include <boost/scope_exit.hpp>
+#include <windows.h>
+#else
 #include <sys/wait.h>
+#endif
 
 #include "misc_log_ex.h"
-#include "exec.h"
+#include "spawn.h"
 
 namespace tools
 {
 
-int exec(const char *filename, char * const argv[], bool wait)
+int spawn(const char *filename, const std::vector<std::string>& args, bool wait)
 {
+#ifdef _WIN32
+  std::string joined = boost::algorithm::join(args, " ");
+  char *commandLine = !joined.empty() ? &joined[0] : nullptr;
+  STARTUPINFOA si = {};
+  si.cb = sizeof(si);
+  PROCESS_INFORMATION pi;
+  if (!CreateProcessA(filename, commandLine, nullptr, nullptr, false, 0, nullptr, nullptr, &si, &pi))
+  {
+    MERROR("CreateProcess failed. Error code " << GetLastError());
+    return -1;
+  }
+  
+  BOOST_SCOPE_EXIT(&pi)
+  {
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+  }
+  BOOST_SCOPE_EXIT_END
+
+  if (!wait)
+  {
+    return 0;
+  }
+
+  DWORD result = WaitForSingleObject(pi.hProcess, INFINITE);
+  if (result != WAIT_OBJECT_0)
+  {
+    MERROR("WaitForSingleObject failed. Result " << result << ", error code " << GetLastError());
+    return -1;
+  }
+
+  DWORD exitCode;
+  if (!GetExitCodeProcess(pi.hProcess, &exitCode))
+  {
+    MERROR("GetExitCodeProcess failed. Error code " << GetLastError());
+    return -1;
+  }
+
+  MINFO("Child exited with " << exitCode);
+  return static_cast<int>(exitCode);
+#else
+  char **argv = (char**)alloca(sizeof(char*) * (args.size() + 1));
+  for (size_t n = 0; n < args.size(); ++n)
+    argv[n] = (char*)args[n].c_str();
+  argv[args.size()] = NULL;
+
   pid_t pid = fork();
   if (pid < 0)
   {
@@ -83,6 +135,7 @@ int exec(const char *filename, char * const argv[], bool wait)
   }
   MERROR("Secret passage found");
   return -1;
+#endif
 }
 
 }

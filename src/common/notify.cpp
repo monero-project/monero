@@ -29,12 +29,17 @@
 #include <boost/algorithm/string.hpp>
 #include "misc_log_ex.h"
 #include "file_io_utils.h"
-#include "exec.h"
+#include "spawn.h"
 #include "notify.h"
 
 namespace tools
 {
 
+/*
+  TODO: 
+  - Improve tokenization to handle paths containing whitespaces, quotes, etc.
+  - Windows unicode support (implies implementing unicode command line parsing code)
+*/
 Notify::Notify(const char *spec)
 {
   CHECK_AND_ASSERT_THROW_MES(spec, "Null spec");
@@ -51,11 +56,7 @@ int Notify::notify(const char *parameter)
   for (std::string &s: margs)
     boost::replace_all(s, "%s", parameter);
 
-  char **cargs = (char**)alloca(sizeof(char*) * (margs.size() + 1));
-  for (size_t n = 0; n < margs.size(); ++n)
-    cargs[n] = (char*)margs[n].c_str();
-  cargs[margs.size()] = NULL;
-  return tools::exec(filename.c_str(), cargs, false);
+  return tools::spawn(filename.c_str(), margs, false);
 }
 
 }
