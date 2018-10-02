@@ -881,7 +881,10 @@ struct Wallet
     virtual bool rescanSpent() = 0;
     
     //! blackballs a set of outputs
-    virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) = 0;
+    virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) = 0;
+
+    //! blackballs an output
+    virtual bool blackballOutput(const std::string &amount, const std::string &offset) = 0;
 
     //! unblackballs an output
     virtual bool unblackballOutput(const std::string &amount, const std::string &offset) = 0;
