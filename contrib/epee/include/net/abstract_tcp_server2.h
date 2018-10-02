@@ -246,7 +246,6 @@ namespace net_utils
                                                           m_timer(io_serice)
       {}
       boost::asio::deadline_timer m_timer;
-      uint64_t m_period;
     };
 
     template <class t_handler>
@@ -262,25 +261,27 @@ namespace net_utils
       {
         return m_handler();
       }
+      uint64_t m_period;
     };
 
     template<class t_handler>
     bool add_idle_handler(t_handler t_callback, uint64_t timeout_ms)
       {
-        boost::shared_ptr<idle_callback_conext_base> ptr(new idle_callback_conext<t_handler>(io_service_, t_callback, timeout_ms));
+        boost::shared_ptr<idle_callback_conext<t_handler>> ptr(new idle_callback_conext<t_handler>(io_service_, t_callback, timeout_ms));
         //needed call handler here ?...
         ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
-        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler, this, ptr));
+        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
         return true;
       }
 
-    bool global_timer_handler(/*const boost::system::error_code& err, */boost::shared_ptr<idle_callback_conext_base> ptr)
+    template<class t_handler>
+    bool global_timer_handler(/*const boost::system::error_code& err, */boost::shared_ptr<idle_callback_conext<t_handler>> ptr)
     {
       //if handler return false - he don't want to be called anymore
       if(!ptr->call_handler())
         return true;
       ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
-      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler, this, ptr));
+      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
       return true;
     }
 
