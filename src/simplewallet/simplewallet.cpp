@@ -5279,10 +5279,18 @@ bool simple_wallet::register_service_node_main(
   }
   return true;
 }
+
+static const char ASK_PASSWORD_MUST_BE_OFF_MSG[] = "Cannot autostake with ask-password set to true, passwords are scrubbed from memory after use. You must enter \"set ask-password 0\" to allow autostaking to work and disable scrubbing.";
 bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 {
   if (!try_connect_to_daemon())
     return true;
+
+  if (m_wallet->ask_password())
+  {
+    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
+    return true;
+  }
 
   SCOPED_WALLET_UNLOCK();
 
@@ -5382,8 +5390,7 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   if (autostake)
   {
-    stop();
-    m_idle_thread.join();
+    m_cmd_binder.stop_handling();
     success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
 #ifndef WIN32
     success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
@@ -5396,19 +5403,17 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     m_idle_run.store(true, std::memory_order_relaxed);
     while (true)
     {
-      boost::unique_lock<boost::mutex> lock(m_idle_mutex);
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
       if (!register_service_node_main(service_node_key_as_str, expiration_timestamp, address, priority, portions, extra, subaddr_indices, autostake))
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL)); // lock implicitly defined in SCOPED_WALLET_UNLOCK()
     }
   }
   else
   {
-    LOCK_IDLE_SCOPE();
     register_service_node_main(service_node_key_as_str, expiration_timestamp, address, priority, portions, extra, subaddr_indices, autostake);
     success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
   }
@@ -5702,12 +5707,19 @@ bool simple_wallet::stake_main(
 
   return true;
 }
+
 bool simple_wallet::stake(const std::vector<std::string> &args_)
 {
   // stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <contributor address> <amount|percent%>
 
   if (!try_connect_to_daemon())
     return true;
+
+  if (m_wallet->ask_password())
+  {
+    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
+    return true;
+  }
 
   SCOPED_WALLET_UNLOCK()
 
@@ -5813,8 +5825,8 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   if (autostake)
   {
-    stop();
-    m_idle_thread.join();
+    m_cmd_binder.stop_handling();
+
 #ifndef WIN32
     success_msg_writer() << tr("Entering autostaking mode, forking to background...");
     tools::threadpool::getInstance().stop();
@@ -5826,19 +5838,17 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     m_idle_run.store(true, std::memory_order_relaxed);
     while (true)
     {
-      boost::unique_lock<boost::mutex> lock(m_idle_mutex);
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
       if (!stake_main(service_node_key, info.address, priority, subaddr_indices, amount, amount_fraction, autostake))
         break;
       if (!m_idle_run.load(std::memory_order_relaxed))
         break;
-      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL));
+      m_idle_cond.wait_for(lock, boost::chrono::seconds(AUTOSTAKE_INTERVAL)); // lock implicitly defined in SCOPED_WALLET_UNLOCK()
     }
   }
   else
   {
-    LOCK_IDLE_SCOPE();
     stake_main(service_node_key, info.address, priority, subaddr_indices, amount, amount_fraction, autostake);
   }
 
