@@ -442,7 +442,8 @@ bool t_rpc_command_executor::show_status() {
     }
   }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
+  std::stringstream str;
+  str << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections")
     % (unsigned long long)ires.height
     % (unsigned long long)net_height
     % get_sync_percentage(ires)
@@ -455,11 +456,20 @@ bool t_rpc_command_executor::show_status() {
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count
     % (unsigned)ires.incoming_connections_count
-    % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
-    % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
-    % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
-    % (unsigned int)fmod(uptime, 60.0)
   ;
+
+  // restricted RPC does not disclose start time
+  if (ires.start_time)
+  {
+    str << boost::format(", uptime %ud %uh %um %us")
+      % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
+      % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
+      % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
+      % (unsigned int)fmod(uptime, 60.0)
+    ;
+  }
+
+  tools::success_msg_writer() << str.str();
 
   return true;
 }
