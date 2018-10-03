@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
+#include <memory>
 #include "device.hpp"
 #include "device_default.hpp"
 #ifdef WITH_DEVICE_LEDGER
@@ -41,7 +42,30 @@ namespace hw {
     /*  SETUP                                                                  */
     /* ======================================================================= */
 
-    static std::unique_ptr<device_registry> registry;
+    static std::shared_ptr<device_registry> get_device_registry(bool clear){
+      static std::shared_ptr<device_registry> registry(new device_registry());
+      if (clear)
+        registry = nullptr;
+      return registry;
+    }
+
+    static void clear_device_registry(){
+      get_device_registry(true);
+    }
+
+    static bool ensure_creation(){
+      const int res = atexit(clear_device_registry);
+      CHECK_AND_ASSERT_THROW_MES(!res, "Device registry finalizer registration failed");
+      get_device_registry(false);
+      return true;
+    }
+
+    static bool ensure_created = ensure_creation();
+
+    std::shared_ptr<device_registry> get_device_registry(){
+        CHECK_AND_ASSERT_THROW_MES(ensure_created, "Device registry not created");
+        return get_device_registry(false);
+    }
 
     device_registry::device_registry(){
         hw::core::register_all(registry);
@@ -80,19 +104,7 @@ namespace hw {
     }
 
     device& get_device(const std::string & device_descriptor) {
-        if (!registry){
-            registry.reset(new device_registry());
-        }
-
-        return registry->get_device(device_descriptor);
-    }
-
-    bool register_device(const std::string & device_name, device * hw_device){
-        if (!registry){
-            registry.reset(new device_registry());
-        }
-
-        return registry->register_device(device_name, hw_device);
+        return get_device_registry()->get_device(device_descriptor);
     }
 
 }
