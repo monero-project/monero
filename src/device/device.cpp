@@ -27,6 +27,8 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
+#include <memory>
+#include <mutex>
 #include "device.hpp"
 #include "device_default.hpp"
 #ifdef WITH_DEVICE_LEDGER
@@ -41,7 +43,8 @@ namespace hw {
     /*  SETUP                                                                  */
     /* ======================================================================= */
 
-    static std::unique_ptr<device_registry> registry;
+    static std::shared_ptr<device_registry> registry;
+    static std::once_flag registry_init_flag;
 
     device_registry::device_registry(){
         hw::core::register_all(registry);
@@ -79,20 +82,37 @@ namespace hw {
         return *device->second;
     }
 
-    device& get_device(const std::string & device_descriptor) {
-        if (!registry){
-            registry.reset(new device_registry());
-        }
-
-        return registry->get_device(device_descriptor);
+    void device_registry::deinit(){
+        registry.clear();
     }
 
-    bool register_device(const std::string & device_name, device * hw_device){
-        if (!registry){
-            registry.reset(new device_registry());
-        }
+    device_registry::~device_registry() {
+        deinit();
+    }
 
-        return registry->register_device(device_name, hw_device);
+    static void init_device_registry(){
+        CHECK_AND_ASSERT_THROW_MES(!registry, "Device registry already initialized");
+        const int tmp = atexit(deinit_device_registry);
+        CHECK_AND_ASSERT_THROW_MES(!tmp, "Device registry finalizer registration failed");
+        registry = std::make_shared<device_registry>();
+    }
+
+    std::shared_ptr<device_registry> get_device_registry(){
+        if (!registry) {
+          std::call_once(registry_init_flag, init_device_registry);
+        }
+        return registry;
+    }
+
+    void deinit_device_registry(){
+        if (!registry){
+          return;
+        }
+        registry->deinit();
+    }
+
+    device& get_device(const std::string & device_descriptor) {
+        return get_device_registry()->get_device(device_descriptor);
     }
 
 }

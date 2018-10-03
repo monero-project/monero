@@ -187,6 +187,7 @@ bool t_daemon::run(bool interactive)
     for(auto& rpc : mp_internals->rpcs)
       rpc->stop();
     mp_internals->core.get().get_miner().stop();
+    hw::deinit_device_registry();
     MGINFO("Node stopped.");
     return true;
   }
