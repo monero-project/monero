@@ -149,7 +149,6 @@ static void my_construct_tx(const eventV& events,
     subaddresses[spend_pk] = { 0, 0 };
 
     const bool rct = true;
-    const bool bulletproof = false;
     const bool staking = false;
     const bool per_output_unlock = false;
 
@@ -166,7 +165,7 @@ static void my_construct_tx(const eventV& events,
                                 tx_key,
                                 additional_tx_keys,
                                 rct,
-                                bulletproof,
+                                rct::RangeProofBorromean,
                                 msout,
                                 staking,
                                 per_output_unlock);
