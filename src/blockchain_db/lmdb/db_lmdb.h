@@ -460,7 +460,7 @@ private:
 #endif
 #endif
 
-  constexpr static float RESIZE_PERCENT = 0.8f;
+  constexpr static float RESIZE_PERCENT = 0.9f;
 };
 
 }  // namespace cryptonote

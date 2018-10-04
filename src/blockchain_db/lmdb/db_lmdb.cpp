@@ -547,8 +547,8 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   LOG_PRINT_L1("Space used:      " << size_used);
   LOG_PRINT_L1("Space remaining: " << mei.me_mapsize - size_used);
   LOG_PRINT_L1("Size threshold:  " << threshold_size);
-  float resize_percent_old = RESIZE_PERCENT;
-  LOG_PRINT_L1(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent_old);
+  float resize_percent = RESIZE_PERCENT;
+  LOG_PRINT_L1(boost::format("Percent used: %.04f  Percent threshold: %.04f") % ((double)size_used/mei.me_mapsize) % resize_percent);
 
   if (threshold_size > 0)
   {
@@ -560,10 +560,6 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
     else
       return false;
   }
-
-  std::mt19937 engine(std::random_device{}());
-  std::uniform_real_distribution<double> fdis(0.6, 0.9);
-  double resize_percent = fdis(engine);
 
   if ((double)size_used / mei.me_mapsize  > resize_percent)
   {
@@ -1202,8 +1198,12 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     throw DB_ERROR("Database could not be opened");
   }
 
-  if (tools::is_hdd(filename.c_str()))
-    MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use a SSD if possible");
+  boost::optional<bool> is_hdd_result = tools::is_hdd(filename.c_str());
+  if (is_hdd_result)
+  {
+    if (is_hdd_result.value())
+        MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use a SSD if possible");
+  }
 
   m_folder = filename;
 

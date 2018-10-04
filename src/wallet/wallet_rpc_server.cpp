@@ -2670,8 +2670,20 @@ namespace tools
       er.message = "Failed to generate wallet";
       return false;
     }
+
     if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
       delete m_wallet;
+    }
     m_wallet = wal.release();
     return true;
   }
@@ -2728,9 +2740,39 @@ namespace tools
       er.message = "Failed to open wallet";
       return false;
     }
+
     if (m_wallet)
+    {
+      try
+      {
+        m_wallet->store();
+      }
+      catch (const std::exception& e)
+      {
+        handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+        return false;
+      }
       delete m_wallet;
+    }
     m_wallet = wal.release();
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_close_wallet(const wallet_rpc::COMMAND_RPC_CLOSE_WALLET::request& req, wallet_rpc::COMMAND_RPC_CLOSE_WALLET::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+
+    try
+    {
+      m_wallet->store();
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    delete m_wallet;
+    m_wallet = NULL;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
