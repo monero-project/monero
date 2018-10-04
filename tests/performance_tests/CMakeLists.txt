@@ -40,6 +40,7 @@ set(performance_tests_headers
   generate_key_image.h
   generate_key_image_helper.h
   generate_keypair.h
+  signature.h
   is_out_to_acc.h
   subaddress_expand.h
   range_proof.h

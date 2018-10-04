@@ -70,6 +70,13 @@ namespace rct {
       catch (...) { return false; }
     }
 
+    bool verBulletproof(const std::vector<const Bulletproof*> &proofs)
+    {
+      try { return bulletproof_VERIFY(proofs); }
+      // we can get deep throws from ge_frombytes_vartime if input isn't valid
+      catch (...) { return false; }
+    }
+
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
@@ -918,15 +925,23 @@ namespace rct {
 
     //ver RingCT simple
     //assumes only post-rct style inputs (at least for max anonymity)
-    bool verRctSimple(const rctSig & rv, bool semantics) {
+    bool verRctSemanticsSimple(const std::vector<const rctSig*> & rvv) {
       try
       {
-        PERF_TIMER(verRctSimple);
+        PERF_TIMER(verRctSemanticsSimple);
 
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeSimpleBulletproof, false, "verRctSimple called on non simple rctSig");
-        const bool bulletproof = is_rct_bulletproof(rv.type);
-        if (semantics)
+        tools::threadpool& tpool = tools::threadpool::getInstance();
+        tools::threadpool::waiter waiter;
+        std::deque<bool> results;
+        std::vector<const Bulletproof*> proofs;
+        size_t max_non_bp_proofs = 0, offset = 0;
+
+        for (const rctSig *rvp: rvv)
         {
+          CHECK_AND_ASSERT_MES(rvp, false, "rctSig pointer is NULL");
+          const rctSig &rv = *rvp;
+          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeSimpleBulletproof, false, "verRctSemanticsSimple called on non simple rctSig");
+          const bool bulletproof = is_rct_bulletproof(rv.type);
           if (bulletproof)
           {
             CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_amounts(rv.p.bulletproofs), false, "Mismatched sizes of outPk and bulletproofs");
@@ -940,15 +955,99 @@ namespace rct {
             CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.empty(), false, "rv.p.pseudoOuts is not empty");
           }
           CHECK_AND_ASSERT_MES(rv.outPk.size() == rv.ecdhInfo.size(), false, "Mismatched sizes of outPk and rv.ecdhInfo");
+
+          if (!bulletproof)
+            max_non_bp_proofs += rv.p.rangeSigs.size();
         }
-        else
+
+        results.resize(max_non_bp_proofs);
+        for (const rctSig *rvp: rvv)
         {
-          // semantics check is early, and mixRing/MGs aren't resolved yet
+          const rctSig &rv = *rvp;
+
+          const bool bulletproof = is_rct_bulletproof(rv.type);
+          const keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
+
+          key sumOutpks = identity();
+          for (size_t i = 0; i < rv.outPk.size(); i++) {
+            addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
+          }
+          DP(sumOutpks);
+          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+          addKeys(sumOutpks, txnFeeKey, sumOutpks);
+
+          key sumPseudoOuts = identity();
+          for (size_t i = 0 ; i < pseudoOuts.size() ; i++) {
+            addKeys(sumPseudoOuts, sumPseudoOuts, pseudoOuts[i]);
+          }
+          DP(sumPseudoOuts);
+
+          //check pseudoOuts vs Outs..
+          if (!equalKeys(sumPseudoOuts, sumOutpks)) {
+            LOG_PRINT_L1("Sum check failed");
+            return false;
+          }
+
           if (bulletproof)
-            CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.p.pseudoOuts and mixRing");
+          {
+            for (size_t i = 0; i < rv.p.bulletproofs.size(); i++)
+              proofs.push_back(&rv.p.bulletproofs[i]);
+          }
           else
-            CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
+          {
+            for (size_t i = 0; i < rv.p.rangeSigs.size(); i++)
+              tpool.submit(&waiter, [&, i, offset] { results[i+offset] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
+            offset += rv.p.rangeSigs.size();
+          }
         }
+        if (!proofs.empty() && !verBulletproof(proofs))
+        {
+          LOG_PRINT_L1("Aggregate range proof verified failed");
+          return false;
+        }
+
+        waiter.wait(&tpool);
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_PRINT_L1("Range proof verified failed for proof " << i);
+            return false;
+          }
+        }
+
+        return true;
+      }
+      // we can get deep throws from ge_frombytes_vartime if input isn't valid
+      catch (const std::exception &e)
+      {
+        LOG_PRINT_L1("Error in verRctSemanticsSimple: " << e.what());
+        return false;
+      }
+      catch (...)
+      {
+        LOG_PRINT_L1("Error in verRctSemanticsSimple, but not an actual exception");
+        return false;
+      }
+    }
+
+    bool verRctSemanticsSimple(const rctSig & rv)
+    {
+      return verRctSemanticsSimple(std::vector<const rctSig*>(1, &rv));
+    }
+
+    //ver RingCT simple
+    //assumes only post-rct style inputs (at least for max anonymity)
+    bool verRctNonSemanticsSimple(const rctSig & rv) {
+      try
+      {
+        PERF_TIMER(verRctNonSemanticsSimple);
+
+        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeSimpleBulletproof, false, "verRctNonSemanticsSimple called on non simple rctSig");
+        const bool bulletproof = is_rct_bulletproof(rv.type);
+        // semantics check is early, and mixRing/MGs aren't resolved yet
+        if (bulletproof)
+          CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.p.pseudoOuts and mixRing");
+        else
+          CHECK_AND_ASSERT_MES(rv.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.pseudoOuts and mixRing");
 
         const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
 
@@ -958,61 +1057,21 @@ namespace rct {
 
         const keyV &pseudoOuts = bulletproof ? rv.p.pseudoOuts : rv.pseudoOuts;
 
-        if (semantics) {
-          key sumOutpks = identity();
-          for (size_t i = 0; i < rv.outPk.size(); i++) {
-              addKeys(sumOutpks, sumOutpks, rv.outPk[i].mask);
-          }
-          DP(sumOutpks);
-          key txnFeeKey = scalarmultH(d2h(rv.txnFee));
-          addKeys(sumOutpks, txnFeeKey, sumOutpks);
+        const key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
 
-          key sumPseudoOuts = identity();
-          for (size_t i = 0 ; i < pseudoOuts.size() ; i++) {
-              addKeys(sumPseudoOuts, sumPseudoOuts, pseudoOuts[i]);
-          }
-          DP(sumPseudoOuts);
-
-          //check pseudoOuts vs Outs..
-          if (!equalKeys(sumPseudoOuts, sumOutpks)) {
-              LOG_PRINT_L1("Sum check failed");
-              return false;
-          }
-
-          results.clear();
-          results.resize(bulletproof ? rv.p.bulletproofs.size() : rv.outPk.size());
-          if (bulletproof)
-            for (size_t i = 0; i < rv.p.bulletproofs.size(); i++)
-              tpool.submit(&waiter, [&, i] { results[i] = verBulletproof(rv.p.bulletproofs[i]); });
-          else
-            for (size_t i = 0; i < rv.p.rangeSigs.size(); i++)
-              tpool.submit(&waiter, [&, i] { results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
-          waiter.wait(&tpool);
-
-          for (size_t i = 0; i < results.size(); ++i) {
-            if (!results[i]) {
-              LOG_PRINT_L1("Range proof verified failed for proof " << i);
-              return false;
-            }
-          }
+        results.clear();
+        results.resize(rv.mixRing.size());
+        for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
+          tpool.submit(&waiter, [&, i] {
+              results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
+          });
         }
-        else {
-          const key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
+        waiter.wait(&tpool);
 
-          results.clear();
-          results.resize(rv.mixRing.size());
-          for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
-            tpool.submit(&waiter, [&, i] {
-                results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
-            }, true);
-          }
-          waiter.wait(&tpool);
-
-          for (size_t i = 0; i < results.size(); ++i) {
-            if (!results[i]) {
-              LOG_PRINT_L1("verRctMGSimple failed for input " << i);
-              return false;
-            }
+        for (size_t i = 0; i < results.size(); ++i) {
+          if (!results[i]) {
+            LOG_PRINT_L1("verRctMGSimple failed for input " << i);
+            return false;
           }
         }
 
@@ -1021,12 +1080,12 @@ namespace rct {
       // we can get deep throws from ge_frombytes_vartime if input isn't valid
       catch (const std::exception &e)
       {
-        LOG_PRINT_L1("Error in verRct: " << e.what());
+        LOG_PRINT_L1("Error in verRctNonSemanticsSimple: " << e.what());
         return false;
       }
       catch (...)
       {
-        LOG_PRINT_L1("Error in verRct, but not an actual exception");
+        LOG_PRINT_L1("Error in verRctNonSemanticsSimple, but not an actual exception");
         return false;
       }
     }

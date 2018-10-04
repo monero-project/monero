@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,71 +30,39 @@
 
 #pragma once
 
-#include "ringct/rctSigs.h"
-#include "ringct/bulletproofs.h"
+#include "crypto/crypto.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
-template<bool a_verify, size_t n_amounts>
-class test_bulletproof
+#include "single_tx_test_base.h"
+
+template<bool verify>
+class test_signature : public single_tx_test_base
 {
 public:
-  static const size_t approx_loop_count = 100 / n_amounts;
-  static const size_t loop_count = (approx_loop_count >= 10 ? approx_loop_count : 10) / (a_verify ? 1 : 5);
-  static const bool verify = a_verify;
+  static const size_t loop_count = 10000;
 
   bool init()
   {
-    proof = rct::bulletproof_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts));
+    if (!single_tx_test_base::init())
+      return false;
+
+    message = crypto::rand<crypto::hash>();
+    keys = cryptonote::keypair::generate(hw::get_device("default"));
+    crypto::generate_signature(message, keys.pub, keys.sec, m_signature);
+
     return true;
   }
 
   bool test()
   {
-    bool ret = true;
     if (verify)
-      ret = rct::bulletproof_VERIFY(proof);
-    else
-      rct::bulletproof_PROVE(std::vector<uint64_t>(n_amounts, 749327532984), rct::skvGen(n_amounts));
-    return ret;
-  }
-
-private:
-  rct::Bulletproof proof;
-};
-
-template<bool batch, size_t start, size_t repeat, size_t mul, size_t add, size_t N>
-class test_aggregated_bulletproof
-{
-public:
-  static const size_t loop_count = 500 / (N * repeat);
-
-  bool init()
-  {
-    size_t o = start;
-    for (size_t n = 0; n < N; ++n)
-    {
-      //printf("adding %zu times %zu\n", repeat, o);
-      for (size_t i = 0; i < repeat; ++i)
-        proofs.push_back(rct::bulletproof_PROVE(std::vector<uint64_t>(o, 749327532984), rct::skvGen(o)));
-      o = o * mul + add;
-    }
+      return crypto::check_signature(message, keys.pub, m_signature);
+    crypto::generate_signature(message, keys.pub, keys.sec, m_signature);
     return true;
   }
 
-  bool test()
-  {
-    if (batch)
-    {
-      return rct::bulletproof_VERIFY(proofs);
-    }
-    else
-    {
-      for (const rct::Bulletproof &proof: proofs)
-        if (!rct::bulletproof_VERIFY(proof))
-          return false;
-      return true;
-    }
-  }
-
 private:
-  std::vector<rct::Bulletproof> proofs;
+  cryptonote::keypair keys;
+  crypto::hash message;
+  crypto::signature m_signature;
 };

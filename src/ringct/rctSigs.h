@@ -125,8 +125,10 @@ namespace rct {
     rctSig genRctSimple(const key & message, const ctkeyV & inSk, const keyV & destinations, const std::vector<xmr_amount> & inamounts, const std::vector<xmr_amount> & outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<multisig_kLRki> *kLRki, multisig_out *msout, const std::vector<unsigned int> & index, ctkeyV &outSk, RangeProofType range_proof_type, hw::device &hwdev);
     bool verRct(const rctSig & rv, bool semantics);
     static inline bool verRct(const rctSig & rv) { return verRct(rv, true) && verRct(rv, false); }
-    bool verRctSimple(const rctSig & rv, bool semantics);
-    static inline bool verRctSimple(const rctSig & rv) { return verRctSimple(rv, true) && verRctSimple(rv, false); }
+    bool verRctSemanticsSimple(const rctSig & rv);
+    bool verRctSemanticsSimple(const std::vector<const rctSig*> & rv);
+    bool verRctNonSemanticsSimple(const rctSig & rv);
+    static inline bool verRctSimple(const rctSig & rv) { return verRctSemanticsSimple(rv) && verRctNonSemanticsSimple(rv); }
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev);
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev);

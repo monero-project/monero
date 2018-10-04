@@ -46,6 +46,7 @@
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
 #include "generate_keypair.h"
+#include "signature.h"
 #include "is_out_to_acc.h"
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
@@ -150,6 +151,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, verbose, test_ge_frombytes_vartime);
   TEST_PERFORMANCE0(filter, verbose, test_generate_keypair);
   TEST_PERFORMANCE0(filter, verbose, test_sc_reduce32);
+  TEST_PERFORMANCE1(filter, verbose, test_signature, false);
+  TEST_PERFORMANCE1(filter, verbose, test_signature, true);
 
   TEST_PERFORMANCE2(filter, verbose, test_wallet2_expand_subaddresses, 50, 200);
 
@@ -182,6 +185,17 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, true, 15);
   TEST_PERFORMANCE2(filter, verbose, test_bulletproof, false, 15);
+
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 8, 1, 1, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 1, 2, 0, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 1, 8, 1, 1, 4);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, false, 2, 1, 1, 0, 64);
+  TEST_PERFORMANCE6(filter, verbose, test_aggregated_bulletproof, true, 2, 1, 1, 0, 64);
 
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 3, false);
   TEST_PERFORMANCE3(filter, verbose, test_ringct_mlsag, 1, 5, false);
@@ -220,6 +234,13 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 256);
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 1024);
   TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus, 4096);
+
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 2);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 8);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 16);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 256);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 1024);
+  TEST_PERFORMANCE2(filter, verbose, test_multiexp, multiexp_straus_cached, 4096);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 

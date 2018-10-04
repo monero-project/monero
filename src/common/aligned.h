@@ -25,62 +25,17 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#pragma once 
 
-#include <vector>
-#include "ringct/rctOps.h"
-#include "ringct/multiexp.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-enum test_multiexp_algorithm
-{
-  multiexp_bos_coster,
-  multiexp_straus,
-  multiexp_straus_cached,
-};
+void *aligned_malloc(size_t bytes, size_t align);
+void *aligned_realloc(void *ptr, size_t bytes, size_t align);
+void aligned_free(void *ptr);
 
-template<test_multiexp_algorithm algorithm, size_t npoints>
-class test_multiexp
-{
-public:
-  static const size_t loop_count = npoints >= 1024 ? 10 : npoints < 256 ? 1000 : 100;
-
-  bool init()
-  {
-    data.resize(npoints);
-    res = rct::identity();
-    for (size_t n = 0; n < npoints; ++n)
-    {
-      data[n].scalar = rct::skGen();
-      rct::key point = rct::scalarmultBase(rct::skGen());
-      if (ge_frombytes_vartime(&data[n].point, point.bytes))
-        return false;
-      rct::key kn = rct::scalarmultKey(point, data[n].scalar);
-      res = rct::addKeys(res, kn);
-    }
-    cache = rct::straus_init_cache(data);
-    return true;
-  }
-
-  bool test()
-  {
-    switch (algorithm)
-    {
-      case multiexp_bos_coster:
-        return res == bos_coster_heap_conv_robust(data);
-      case multiexp_straus:
-        return res == straus(data);
-      case multiexp_straus_cached:
-        return res == straus(data, cache);
-      default:
-        return false;
-    }
-  }
-
-private:
-  std::vector<rct::MultiexpData> data;
-  std::shared_ptr<rct::straus_cached_data> cache;
-  rct::key res;
-};
+#ifdef __cplusplus
+}
+#endif
