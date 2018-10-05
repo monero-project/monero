@@ -137,47 +137,6 @@ namespace
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
-#ifdef WIN32
-  // Translate from CP850 to UTF-8;
-  // std::getline for a Windows console returns a string in CP437 or CP850; as simplewallet,
-  // like all of Monero, is assumed to work internally with UTF-8 throughout, even on Windows
-  // (although only implemented partially), a translation to UTF-8 is needed for input.
-  //
-  // Note that if a program is started inside the MSYS2 shell somebody already translates
-  // console input to UTF-8, but it's not clear how one could detect that in order to avoid
-  // double-translation; this code here thus breaks UTF-8 input within a MSYS2 shell,
-  // unfortunately.
-  //
-  // Note also that input for passwords is NOT translated, to remain compatible with any
-  // passwords containing special characters that predate this switch to UTF-8 support.
-  template<typename T>
-  static T cp850_to_utf8(const T &cp850_str)
-  {
-    boost::locale::generator gen;
-    gen.locale_cache_enabled(true);
-    std::locale loc = gen("en_US.CP850");
-    const boost::locale::conv::method_type how = boost::locale::conv::default_method;
-    T result;
-    const char *begin = cp850_str.data();
-    const char *end = begin + cp850_str.size();
-    result.reserve(end-begin);
-    typedef std::back_insert_iterator<T> inserter_type;
-    inserter_type inserter(result);
-    boost::locale::utf::code_point c;
-    while(begin!=end) {
-        c=boost::locale::utf::utf_traits<char>::template decode<char const *>(begin,end);
-        if(c==boost::locale::utf::illegal || c==boost::locale::utf::incomplete) {
-            if(how==boost::locale::conv::stop)
-                throw boost::locale::conv::conversion_error();
-        }
-        else {
-            boost::locale::utf::utf_traits<char>::template encode<inserter_type>(c,inserter);
-        }
-    }
-    return result;
-  }
-#endif
-
   std::string input_line(const std::string& prompt)
   {
 #ifdef HAVE_READLINE
@@ -186,9 +145,10 @@ namespace
     std::cout << prompt;
 
     std::string buf;
+#ifdef _WIN32
+    buf = tools::input_line_win();
+#else
     std::getline(std::cin, buf);
-#ifdef WIN32
-    buf = cp850_to_utf8(buf);
 #endif
 
     return epee::string_tools::trim(buf);
@@ -207,10 +167,6 @@ namespace
     }
 
     epee::wipeable_string buf = pwd_container->password();
-
-#ifdef WIN32
-    buf = cp850_to_utf8(buf);
-#endif
 
     buf.trim();
     return buf;
