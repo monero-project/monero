@@ -29,42 +29,42 @@
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="90"/>
         <source>Attempting to save transaction to file, but specified file(s) exist. Exiting to not risk overwriting. File:</source>
-        <translation type="unfinished"></translation>
+        <translation>ファイルは既に存在するのでファイルに取引を書き出せなかった。上書きしないにエグジットしてます。ファイル：</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="97"/>
         <source>Failed to write transaction(s) to file</source>
-        <translation type="unfinished"></translation>
+        <translation>ファイルに取引を書き出せなかった</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="115"/>
         <source>daemon is busy. Please try again later.</source>
-        <translation type="unfinished"></translation>
+        <translation>デーモン忙しいです。後でもう一度試してください。</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="118"/>
         <source>no connection to daemon. Please make sure daemon is running.</source>
-        <translation type="unfinished"></translation>
+        <translation>デーモンの接続が確立ありません。デーモンが実行中になっていることを確認してください。</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="122"/>
         <source>transaction %s was rejected by daemon with status: </source>
-        <translation type="unfinished"></translation>
+        <translation>取引 %s がデーモンによって拒否しました。ステータス： </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="127"/>
         <source>. Reason: </source>
-        <translation type="unfinished"></translation>
+        <translation>。 理由： </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="129"/>
         <source>Unknown exception: </source>
-        <translation type="unfinished"></translation>
+        <translation>未知の例外： </translation>
     </message>
     <message>
         <location filename="../src/wallet/api/pending_transaction.cpp" line="132"/>
         <source>Unhandled exception</source>
-        <translation type="unfinished"></translation>
+        <translation>未処理の例外</translation>
     </message>
 </context>
 <context>
@@ -385,22 +385,22 @@
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="246"/>
         <source>Failed to parse address</source>
-        <translation type="unfinished"></translation>
+        <translation>アドレスを解析できませんでした</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="253"/>
         <source>Failed to parse key</source>
-        <translation type="unfinished"></translation>
+        <translation>キーを解析できませんでした</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="261"/>
         <source>failed to verify key</source>
-        <translation type="unfinished"></translation>
+        <translation>キーを検証できませんでした</translation>
     </message>
     <message>
         <location filename="../src/wallet/api/wallet.cpp" line="271"/>
         <source>key does not match address</source>
-        <translation type="unfinished"></translation>
+        <translation>キーがアドレスと一致しませんでした</translation>
     </message>
 </context>
 <context>
@@ -408,12 +408,12 @@
     <message>
         <location filename="../src/common/command_line.cpp" line="57"/>
         <source>yes</source>
-        <translation type="unfinished"></translation>
+        <translation>はい</translation>
     </message>
     <message>
         <location filename="../src/common/command_line.cpp" line="71"/>
         <source>no</source>
-        <translation type="unfinished"></translation>
+        <translation>いいえ</translation>
     </message>
 </context>
 <context>
