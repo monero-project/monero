@@ -96,6 +96,9 @@ namespace {
             throw runtime_error("Multisig wallet is not finalized yet");
         }
     }
+    void checkMultisigWalletReady(const std::unique_ptr<tools::wallet2> &wallet) {
+        return checkMultisigWalletReady(wallet.get());
+    }
 
     void checkMultisigWalletNotReady(const tools::wallet2* wallet) {
         if (!wallet) {
@@ -110,6 +113,9 @@ namespace {
         if (ready) {
             throw runtime_error("Multisig wallet is already finalized");
         }
+    }
+    void checkMultisigWalletNotReady(const std::unique_ptr<tools::wallet2> &wallet) {
+        return checkMultisigWalletNotReady(wallet.get());
     }
 }
 
@@ -376,15 +382,15 @@ WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     , m_rebuildWalletCache(false)
     , m_is_connected(false)
 {
-    m_wallet = std::make_unique<tools::wallet2>(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true);
-    m_history = std::make_unique<TransactionHistoryImpl>(this);
-    m_wallet2Callback = std::make_unique<Wallet2CallbackImpl>(this);
-    m_wallet->callback(m_wallet2Callback);
+    m_wallet.reset(new tools::wallet2(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true));
+    m_history.reset(new TransactionHistoryImpl(this));
+    m_wallet2Callback.reset(new Wallet2CallbackImpl(this));
+    m_wallet->callback(m_wallet2Callback.get());
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
-    m_addressBook = std::make_unique<AddressBookImpl>(this);
-    m_subaddress = std::make_unique<SubaddressImpl>(this);
-    m_subaddressAccount = std::make_unique<SubaddressAccountImpl>(this);
+    m_addressBook.reset(new AddressBookImpl(this));
+    m_subaddress.reset(new SubaddressImpl(this));
+    m_subaddressAccount.reset(new SubaddressAccountImpl(this));
 
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
@@ -399,6 +405,7 @@ WalletImpl::~WalletImpl()
 {
 
     LOG_PRINT_L1(__FUNCTION__);
+    m_wallet->callback(NULL);
     // Pause refresh thread - prevents refresh from starting again
     pauseRefresh();
     // Close wallet - stores cache and stops ongoing refresh operation 
