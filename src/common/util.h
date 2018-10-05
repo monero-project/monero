@@ -235,4 +235,7 @@ namespace tools
   boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str);
 
   std::string glob_to_regex(const std::string &val);
+#ifdef _WIN32
+  std::string input_line_win();
+#endif
 }
