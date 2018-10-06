@@ -258,7 +258,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       trusted_daemon = false;
       if (tools::is_local_address(daemon_address))
       {
-        MINFO(tr("Daemon is local, assuming trusted"));
+        MINFO(tools::wallet2::tr("Daemon is local, assuming trusted"));
         trusted_daemon = true;
       }
     }
@@ -310,7 +310,7 @@ boost::optional<tools::password_container> get_password(const boost::program_opt
 
   THROW_WALLET_EXCEPTION_IF(!password_prompter, tools::error::wallet_internal_error, tools::wallet2::tr("no password specified; use --prompt-for-password to prompt for a password"));
 
-  return password_prompter(verify ? tr("Enter a new password for the wallet") : tr("Wallet password"), verify);
+  return password_prompter(verify ? tools::wallet2::tr("Enter a new password for the wallet") : tools::wallet2::tr("Wallet password"), verify);
 }
 
 std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_from_json(const std::string& json_file, const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)

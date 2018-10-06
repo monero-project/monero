@@ -180,14 +180,14 @@ namespace
     auto pwd_container = tools::password_container::prompt(verify, prompt);
     if (!pwd_container)
     {
-      tools::fail_msg_writer() << tr("failed to read wallet password");
+      tools::fail_msg_writer() << sw::tr("failed to read wallet password");
     }
     return pwd_container;
   }
 
   boost::optional<tools::password_container> default_password_prompter(bool verify)
   {
-    return password_prompter(verify ? tr("Enter a new password for the wallet") : tr("Wallet password"), verify);
+    return password_prompter(verify ? sw::tr("Enter a new password for the wallet") : sw::tr("Wallet password"), verify);
   }
 
   inline std::string interpret_rpc_response(bool ok, const std::string& status)
@@ -265,7 +265,7 @@ namespace
     }
     else
     {
-      fail_msg_writer() << tr("invalid argument: must be either 0/1, true/false, y/n, yes/no");
+      fail_msg_writer() << sw::tr("invalid argument: must be either 0/1, true/false, y/n, yes/no");
       return false;
     }
   }
@@ -321,18 +321,18 @@ namespace
     std::string dnssec_str;
     if (dnssec_valid)
     {
-      dnssec_str = tr("DNSSEC validation passed");
+      dnssec_str = sw::tr("DNSSEC validation passed");
     }
     else
     {
-      dnssec_str = tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
+      dnssec_str = sw::tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
     }
     std::stringstream prompt;
-    prompt << tr("For URL: ") << url
+    prompt << sw::tr("For URL: ") << url
            << ", " << dnssec_str << std::endl
-           << tr(" Monero Address = ") << addresses[0]
+           << sw::tr(" Monero Address = ") << addresses[0]
            << std::endl
-           << tr("Is this OK? (Y/n) ")
+           << sw::tr("Is this OK? (Y/n) ")
     ;
     // prompt the user for confirmation given the dns query and dnssec status
     std::string confirm_dns_ok = input_line(prompt.str());
@@ -342,7 +342,7 @@ namespace
     }
     if (!command_line::is_yes(confirm_dns_ok))
     {
-      std::cout << tr("you have cancelled the transfer request") << std::endl;
+      std::cout << sw::tr("you have cancelled the transfer request") << std::endl;
       return {};
     }
     return addresses[0];
@@ -363,7 +363,7 @@ namespace
       uint32_t subaddr_index;
       if(!epee::string_tools::get_xtype_from_string(subaddr_index, subaddr_index_str))
       {
-        fail_msg_writer() << tr("failed to parse index: ") << subaddr_index_str;
+        fail_msg_writer() << sw::tr("failed to parse index: ") << subaddr_index_str;
         subaddr_indices.clear();
         return false;
       }
@@ -376,7 +376,7 @@ namespace
   {
     auto r = tools::parse_subaddress_lookahead(str);
     if (!r)
-      fail_msg_writer() << tr("invalid format for subaddress lookahead; must be <major>:<minor>");
+      fail_msg_writer() << sw::tr("invalid format for subaddress lookahead; must be <major>:<minor>");
     return r;
   }
 
@@ -389,27 +389,27 @@ namespace
     }
     catch (const tools::error::daemon_busy&)
     {
-      fail_msg_writer() << tr("daemon is busy. Please try again later.");
+      fail_msg_writer() << sw::tr("daemon is busy. Please try again later.");
     }
     catch (const tools::error::no_connection_to_daemon&)
     {
-      fail_msg_writer() << tr("no connection to daemon. Please make sure daemon is running.");
+      fail_msg_writer() << sw::tr("no connection to daemon. Please make sure daemon is running.");
     }
     catch (const tools::error::wallet_rpc_error& e)
     {
       LOG_ERROR("RPC error: " << e.to_string());
-      fail_msg_writer() << tr("RPC error: ") << e.what();
+      fail_msg_writer() << sw::tr("RPC error: ") << e.what();
     }
     catch (const tools::error::get_outs_error &e)
     {
-      fail_msg_writer() << tr("failed to get random outputs to mix: ") << e.what();
+      fail_msg_writer() << sw::tr("failed to get random outputs to mix: ") << e.what();
     }
     catch (const tools::error::not_enough_unlocked_money& e)
     {
       LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
         print_money(e.available()) %
         print_money(e.tx_amount()));
-      fail_msg_writer() << tr("Not enough money in unlocked balance");
+      fail_msg_writer() << sw::tr("Not enough money in unlocked balance");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::not_enough_money& e)
@@ -417,7 +417,7 @@ namespace
       LOG_PRINT_L0(boost::format("not enough money to transfer, available only %s, sent amount %s") %
         print_money(e.available()) %
         print_money(e.tx_amount()));
-      fail_msg_writer() << tr("Not enough money in unlocked balance");
+      fail_msg_writer() << sw::tr("Not enough money in unlocked balance");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_not_possible& e)
@@ -427,30 +427,30 @@ namespace
         print_money(e.tx_amount() + e.fee())  %
         print_money(e.tx_amount()) %
         print_money(e.fee()));
-      fail_msg_writer() << tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
+      fail_msg_writer() << sw::tr("Failed to find a way to create transactions. This is usually due to dust which is so small it cannot pay for itself in fees, or trying to send more money than the unlocked balance, or not leaving enough for fees");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::not_enough_outs_to_mix& e)
     {
       auto writer = fail_msg_writer();
-      writer << tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
+      writer << sw::tr("not enough outputs for specified ring size") << " = " << (e.mixin_count() + 1) << ":";
       for (std::pair<uint64_t, uint64_t> outs_for_amount : e.scanty_outs())
       {
-        writer << "\n" << tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
+        writer << "\n" << sw::tr("output amount") << " = " << print_money(outs_for_amount.first) << ", " << sw::tr("found outputs to use") << " = " << outs_for_amount.second;
       }
-      writer << tr("Please use sweep_unmixable.");
+      writer << sw::tr("Please use sweep_unmixable.");
     }
     catch (const tools::error::tx_not_constructed&)
-      {
-      fail_msg_writer() << tr("transaction was not constructed");
+    {
+      fail_msg_writer() << sw::tr("transaction was not constructed");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_rejected& e)
     {
-      fail_msg_writer() << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+      fail_msg_writer() << (boost::format(sw::tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
       std::string reason = e.reason();
       if (!reason.empty())
-        fail_msg_writer() << tr("Reason: ") << reason;
+        fail_msg_writer() << sw::tr("Reason: ") << reason;
     }
     catch (const tools::error::tx_sum_overflow& e)
     {
@@ -459,38 +459,38 @@ namespace
     }
     catch (const tools::error::zero_destination&)
     {
-      fail_msg_writer() << tr("one of destinations is zero");
+      fail_msg_writer() << sw::tr("one of destinations is zero");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::tx_too_big& e)
     {
-      fail_msg_writer() << tr("failed to find a suitable way to split transactions");
+      fail_msg_writer() << sw::tr("failed to find a suitable way to split transactions");
       warn_of_possible_attack = false;
     }
     catch (const tools::error::transfer_error& e)
     {
       LOG_ERROR("unknown transfer error: " << e.to_string());
-      fail_msg_writer() << tr("unknown transfer error: ") << e.what();
+      fail_msg_writer() << sw::tr("unknown transfer error: ") << e.what();
     }
     catch (const tools::error::multisig_export_needed& e)
     {
       LOG_ERROR("Multisig error: " << e.to_string());
-      fail_msg_writer() << tr("Multisig error: ") << e.what();
+      fail_msg_writer() << sw::tr("Multisig error: ") << e.what();
       warn_of_possible_attack = false;
     }
     catch (const tools::error::wallet_internal_error& e)
     {
       LOG_ERROR("internal error: " << e.to_string());
-      fail_msg_writer() << tr("internal error: ") << e.what();
+      fail_msg_writer() << sw::tr("internal error: ") << e.what();
     }
     catch (const std::exception& e)
     {
       LOG_ERROR("unexpected error: " << e.what());
-      fail_msg_writer() << tr("unexpected error: ") << e.what();
+      fail_msg_writer() << sw::tr("unexpected error: ") << e.what();
     }
 
     if (warn_of_possible_attack)
-      fail_msg_writer() << tr("There was an error, which could mean the node may be trying to get you to retry creating a transaction, and zero in on which outputs you own. Or it could be a bona fide error. It may be prudent to disconnect from this node, and not try to send a transaction immediately. Alternatively, connect to another node so the original node cannot correlate information.");
+      fail_msg_writer() << sw::tr("There was an error, which could mean the node may be trying to get you to retry creating a transaction, and zero in on which outputs you own. Or it could be a bona fide error. It may be prudent to disconnect from this node, and not try to send a transaction immediately. Alternatively, connect to another node so the original node cannot correlate information.");
   }
 
   bool check_file_overwrite(const std::string &filename)
@@ -500,10 +500,10 @@ namespace
     {
       if (boost::ends_with(filename, ".keys"))
       {
-        fail_msg_writer() << boost::format(tr("File %s likely stores wallet private keys! Use a different file name.")) % filename;
+        fail_msg_writer() << boost::format(sw::tr("File %s likely stores wallet private keys! Use a different file name.")) % filename;
         return false;
       }
-      return command_line::is_yes(input_line((boost::format(tr("File %s already exists. Are you sure to overwrite it? (Y/Yes/N/No): ")) % filename).str()));
+      return command_line::is_yes(input_line((boost::format(sw::tr("File %s already exists. Are you sure to overwrite it? (Y/Yes/N/No): ")) % filename).str()));
     }
     return true;
   }
@@ -6577,16 +6577,16 @@ static std::string get_human_readable_timespan(std::chrono::seconds seconds)
 {
   uint64_t ts = seconds.count();
   if (ts < 60)
-    return std::to_string(ts) + tr(" seconds");
+    return std::to_string(ts) + sw::tr(" seconds");
   if (ts < 3600)
-    return std::to_string((uint64_t)(ts / 60)) + tr(" minutes");
+    return std::to_string((uint64_t)(ts / 60)) + sw::tr(" minutes");
   if (ts < 3600 * 24)
-    return std::to_string((uint64_t)(ts / 3600)) + tr(" hours");
+    return std::to_string((uint64_t)(ts / 3600)) + sw::tr(" hours");
   if (ts < 3600 * 24 * 30.5)
-    return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
+    return std::to_string((uint64_t)(ts / (3600 * 24))) + sw::tr(" days");
   if (ts < 3600 * 24 * 365.25)
-    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
-  return tr("a long time");
+    return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + sw::tr(" months");
+  return sw::tr("a long time");
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
@@ -8096,7 +8096,7 @@ int main(int argc, char* argv[])
   if (!command.empty())
   {
     if (!w.process_command(command))
-      fail_msg_writer() << tr("Unknown command: ") << command.front();
+      fail_msg_writer() << sw::tr("Unknown command: ") << command.front();
     w.stop();
     w.deinit();
   }
