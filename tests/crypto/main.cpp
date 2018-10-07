@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
       ec_scalar expected, actual;
       get(input, expected);
       random_scalar(actual);
-      if (!check_scalar(actual)) {
+      if (expected != actual) {
         goto error;
       }
     } else if (cmd == "hash_to_scalar") {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
       secret_key expected2, actual2;
       get(input, expected1, expected2);
       generate_keys(actual1, actual2);
-      if (!check_scalar(actual2) || !check_key(actual1) || !secret_key_to_public_key(actual2, expected1) || expected1 != actual1) {
+      if (expected1 != actual1 || expected2 != actual2) {
         goto error;
       }
     } else if (cmd == "check_key") {
@@ -173,8 +173,7 @@ int main(int argc, char *argv[]) {
       signature expected, actual;
       get(input, prefix_hash, pub, sec, expected);
       generate_signature(prefix_hash, pub, sec, actual);
-      bool verified = check_signature(prefix_hash, pub, actual);
-      if (!verified) {
+      if (expected != actual) {
         goto error;
       }
     } else if (cmd == "check_signature") {
@@ -234,7 +233,7 @@ int main(int argc, char *argv[]) {
       getvar(input, pubs_count * sizeof(signature), expected.data());
       actual.resize(pubs_count);
       generate_ring_signature(prefix_hash, image, pubs.data(), pubs_count, sec, sec_index, actual.data());
-      if (!check_ring_signature(prefix_hash, image, pubs.data(), pubs_count, actual.data())) {
+      if (expected != actual) {
         goto error;
       }
     } else if (cmd == "check_ring_signature") {
