@@ -449,12 +449,14 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-        # Build image
+        # Build image (for ARM 32-bit)
         docker build -f utils/build_scripts/android32.Dockerfile -t aeon-android .
+        # Build image (for ARM 64-bit)
+        docker build -f utils/build_scripts/android64.Dockerfile -t aeon-android .
         # Create container
         docker create -it --name aeon-android aeon-android bash
         # Get binaries
-        docker cp aeon-android:/opt/android/aeon/build/release/bin .
+        docker cp aeon-android:/src/build/release/bin .
 
 ### Building portable statically linked binaries
 
