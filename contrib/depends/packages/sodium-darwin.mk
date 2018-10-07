@@ -6,7 +6,7 @@ $(package)_sha256_hash=6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e
 
 define $(package)_set_vars
 $(package)_build_opts_darwin=OS=Darwin LIBTOOL="$($(package)_libtool)"
-$(package)_config_opts=--enable-static
+$(package)_config_opts=--enable-static --disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
