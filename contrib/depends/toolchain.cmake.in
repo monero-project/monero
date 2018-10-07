@@ -18,6 +18,9 @@ SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
 SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
 SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
 
+SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
+SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
+
 SET(ZMQ_INCLUDE_PATH @prefix@/include)
 SET(ZMQ_LIB @prefix@/lib/libzmq.a)
 
