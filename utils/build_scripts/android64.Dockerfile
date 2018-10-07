@@ -26,7 +26,7 @@ ENV PREFIX /opt/android/prefix
 
 ENV TOOLCHAIN_DIR ${WORKDIR}/toolchain-arm
 RUN ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py \
-         --arch arm \
+         --arch arm64 \
          --api 21 \
          --install-dir ${TOOLCHAIN_DIR} \
          --stl=libc++
@@ -52,7 +52,7 @@ RUN set -ex \
     && ./bootstrap.sh --prefix=${PREFIX}
 
 ENV HOST_PATH $PATH
-ENV PATH $TOOLCHAIN_DIR/arm-linux-androideabi/bin:$TOOLCHAIN_DIR/bin:$PATH
+ENV PATH $TOOLCHAIN_DIR/aarch64-linux-android/bin:$TOOLCHAIN_DIR/bin:$PATH
 
 ARG NPROC=1
 
@@ -64,7 +64,7 @@ RUN curl -s -O http://ftp.gnu.org/pub/gnu/libiconv/libiconv-${ICONV_VERSION}.tar
     && tar -xzf libiconv-${ICONV_VERSION}.tar.gz \
     && rm -f libiconv-${ICONV_VERSION}.tar.gz \
     && cd libiconv-${ICONV_VERSION} \
-    && CC=arm-linux-androideabi-clang CXX=arm-linux-androideabi-clang++ ./configure --build=x86_64-linux-gnu --host=arm-eabi --prefix=${PREFIX} --disable-rpath \
+    && CC=aarch64-linux-android-clang CXX=aarch64-linux-android-clang++ ./configure --build=x86_64-linux-gnu --host=arm-eabi --prefix=${PREFIX} --disable-rpath \
     && make -j${NPROC} && make install
 
 ## Build BOOST
@@ -92,9 +92,9 @@ RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && rm openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
-    && sed -i -e "s/mandroid/target\ armv7\-none\-linux\-androideabi/" Configure \
+    && sed -i -e "s/mandroid/target\ aarch64\-linux\-android/" Configure \
     && CC=clang CXX=clang++ \
-           ./Configure android-armv7 \
+           ./Configure android \
            no-asm \
            no-shared --static \
            --with-zlib-include=${WORKDIR}/zlib/include --with-zlib-lib=${WORKDIR}/zlib/lib \
@@ -103,13 +103,13 @@ RUN curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
     && make install
 
 # ZMQ
-ARG ZMQ_VERSION=v4.2.5
-ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
+ARG ZMQ_VERSION=master
+ARG ZMQ_HASH=501d0815bf2b0abb93be8214fc66519918ef6c40
 RUN git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
-    && test `git rev-parse HEAD` = ${ZMQ_HASH} || exit 1 \
+    && git checkout ${ZMQ_HASH} \
     && ./autogen.sh \
-    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=arm-linux-androideabi --enable-static --disable-shared \
+    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=aarch64-linux-android --enable-static --disable-shared \
     && make -j${NPROC} \
     && make install
 
@@ -129,7 +129,7 @@ RUN set -ex \
     && cd libsodium \
     && test `git rev-parse HEAD` = ${SODIUM_HASH} || exit 1 \
     && ./autogen.sh \
-    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=arm-linux-androideabi --enable-static --disable-shared \
+    && CC=clang CXX=clang++ ./configure --prefix=${PREFIX} --host=aarch64-linux-android --enable-static --disable-shared \
     && make  -j${NPROC} \
     && make install
 
@@ -139,4 +139,4 @@ RUN cd /src \
        CMAKE_LIBRARY_PATH="${PREFIX}/lib" \
        ANDROID_STANDALONE_TOOLCHAIN_PATH=${TOOLCHAIN_DIR} \
        USE_SINGLE_BUILDDIR=1 \
-       PATH=${HOST_PATH} make release-static-android-armv7 -j${NPROC}
+       PATH=${HOST_PATH} make release-static-android-armv8 -j${NPROC}
