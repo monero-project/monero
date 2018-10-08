@@ -344,6 +344,9 @@ uint64_t Blockchain::get_current_blockchain_height() const
 bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline, const cryptonote::test_options *test_options, difficulty_type fixed_difficulty)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  CHECK_AND_ASSERT_MES(nettype != FAKECHAIN || test_options, false, "fake chain network type used without options");
+
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
