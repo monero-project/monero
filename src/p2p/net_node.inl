@@ -623,8 +623,9 @@ namespace nodetool
       _note("Thread monitor number of peers - done");
     })); // lambda
 
-    //here you can set worker threads count
-    int thrds_count = 10;
+    // here you can set worker threads count, by default just get the
+    // maximum number of concurrent threads based on the user's hardware...
+    int thread_count = std::thread::hardware_concurrency();
 
     m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), 1000);
     m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), 1000);
@@ -633,8 +634,8 @@ namespace nodetool
     attrs.set_stack_size(THREAD_STACK_SIZE);
 
     //go to loop
-    MINFO("Run net_service loop( " << thrds_count << " threads)...");
-    if(!m_net_server.run_server(thrds_count, true, attrs))
+    MINFO("Run net_service loop(" << thread_count << " threads)...");
+    if(!m_net_server.run_server(thread_count, true, attrs))
     {
       LOG_ERROR("Failed to run net tcp server!");
     }
