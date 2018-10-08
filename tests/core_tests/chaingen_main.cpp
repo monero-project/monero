@@ -98,45 +98,58 @@ int main(int argc, char* argv[])
   else if (command_line::get_arg(vm, arg_generate_and_play_test_data))
   {
     // NOTE: Working tests
-    GENERATE_AND_PLAY(gen_service_nodes);
-    GENERATE_AND_PLAY(test_prefer_deregisters);
-    GENERATE_AND_PLAY(test_zero_fee_deregister);
-    GENERATE_AND_PLAY(test_deregister_safety_buffer);
+    // GENERATE_AND_PLAY(gen_service_nodes);
+    // GENERATE_AND_PLAY(test_prefer_deregisters);
+    // GENERATE_AND_PLAY(test_zero_fee_deregister);
+    // GENERATE_AND_PLAY(test_deregister_safety_buffer);
 
-     GENERATE_AND_PLAY(one_block);
+    //  GENERATE_AND_PLAY(one_block);
 
-    // Block verification tests
-    GENERATE_AND_PLAY(gen_block_big_major_version);
-    GENERATE_AND_PLAY(gen_block_big_minor_version);
-    GENERATE_AND_PLAY(gen_block_ts_not_checked);
-    GENERATE_AND_PLAY(gen_block_ts_in_past);
-    GENERATE_AND_PLAY(gen_block_ts_in_future);
-    GENERATE_AND_PLAY(gen_block_invalid_prev_id);
-    GENERATE_AND_PLAY(gen_block_invalid_nonce);
-    GENERATE_AND_PLAY(gen_block_no_miner_tx);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_low);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_high);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_past);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_future);
-    GENERATE_AND_PLAY(gen_block_height_is_low);
-    GENERATE_AND_PLAY(gen_block_height_is_high);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
-    GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
-    GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
-    GENERATE_AND_PLAY(gen_block_has_invalid_tx);
-    GENERATE_AND_PLAY(gen_block_is_too_big);
+    // // Block verification tests
+    // GENERATE_AND_PLAY(gen_block_big_major_version);
+    // GENERATE_AND_PLAY(gen_block_big_minor_version);
+    // GENERATE_AND_PLAY(gen_block_ts_not_checked);
+    // GENERATE_AND_PLAY(gen_block_ts_in_past);
+    // GENERATE_AND_PLAY(gen_block_ts_in_future);
+    // GENERATE_AND_PLAY(gen_block_invalid_prev_id);
+    // GENERATE_AND_PLAY(gen_block_invalid_nonce);
+    // GENERATE_AND_PLAY(gen_block_no_miner_tx);
+    // GENERATE_AND_PLAY(gen_block_unlock_time_is_low);
+    // GENERATE_AND_PLAY(gen_block_unlock_time_is_high);
+    // GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_past);
+    // GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_future);
+    // GENERATE_AND_PLAY(gen_block_height_is_low);
+    // GENERATE_AND_PLAY(gen_block_height_is_high);
+    // GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
+    // GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
+    // GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
+    // GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
+    // GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
+    // GENERATE_AND_PLAY(gen_block_has_invalid_tx);
+    // GENERATE_AND_PLAY(gen_block_is_too_big);
 
-    // Transaction verification tests
-    GENERATE_AND_PLAY(gen_tx_no_inputs_no_outputs);
+    // // Transaction verification tests
+    // GENERATE_AND_PLAY(gen_tx_no_inputs_no_outputs);
 
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
+    // GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
+
+    // Bulletproof Tests
+    // GENERATE_AND_PLAY(gen_bp_tx_valid_1);
+    // GENERATE_AND_PLAY(gen_bp_tx_valid_1_1);
+    // GENERATE_AND_PLAY(gen_bp_tx_valid_2);
+    // GENERATE_AND_PLAY(gen_bp_tx_valid_4_2_1);
+    // GENERATE_AND_PLAY(gen_bp_tx_valid_16_16);
+    GENERATE_AND_PLAY(gen_bp_txs_valid_2_and_2);
+    GENERATE_AND_PLAY(gen_bp_txs_valid_1_1_and_8_2_and_16_16_1);
+    // GENERATE_AND_PLAY(gen_bp_tx_invalid_not_enough_proofs);
+    // GENERATE_AND_PLAY(gen_bp_tx_invalid_too_many_proofs);
+    // GENERATE_AND_PLAY(gen_bp_tx_invalid_wrong_amount);
+    // GENERATE_AND_PLAY(gen_bp_tx_invalid_switched);
 
     // TODO(loki): Tests we need to fix
     //GENERATE_AND_PLAY(gen_simple_chain_001);

@@ -145,7 +145,7 @@ VARIANT_TAG(binary_archive, serialized_block, 0xcd);
 VARIANT_TAG(binary_archive, serialized_transaction, 0xce);
 VARIANT_TAG(binary_archive, event_visitor_settings, 0xcf);
 
-typedef boost::variant<cryptonote::block, cryptonote::transaction, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
+typedef boost::variant<cryptonote::block, cryptonote::transaction, std::vector<cryptonote::transaction>, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
 typedef std::unordered_map<crypto::hash, const cryptonote::transaction*> map_hash2tx_t;
 
 class test_chain_unit_base
@@ -260,6 +260,13 @@ cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& eve
 
 void get_confirmed_txs(const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx, map_hash2tx_t& confirmed_txs);
 bool find_block_chain(const std::vector<test_event_entry>& events, std::vector<cryptonote::block>& blockchain, map_hash2tx_t& mtx, const crypto::hash& head);
+
+void fill_tx_sources_and_multi_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
+                                            const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                            uint64_t const *amount, int num_amounts, uint64_t fee, size_t nmix,
+                                            std::vector<cryptonote::tx_source_entry>& sources,
+                                            std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t *change_amount = nullptr);
+
 void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                       const cryptonote::account_base& from, const cryptonote::account_base& to,
                                       uint64_t amount, uint64_t fee, size_t nmix,
@@ -293,6 +300,30 @@ bool check_tx_verification_context(const cryptonote::tx_verification_context& tv
 {
   // SFINAE in action
   return do_check_tx_verification_context(tvc, tx_added, event_index, tx, validator, 0);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+auto do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator, int)
+  -> decltype(validator.check_tx_verification_context(tvcs, tx_added, event_index, txs))
+{
+  return validator.check_tx_verification_context(tvcs, tx_added, event_index, txs);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t /*event_index*/, const std::vector<cryptonote::transaction>& /*txs*/, t_test_class&, long)
+{
+  // Default block verification context check
+  for (const cryptonote::tx_verification_context &tvc: tvcs)
+    if (tvc.m_verifivation_failed)
+      throw std::runtime_error("Transaction verification failed");
+  return true;
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator)
+{
+  // SFINAE in action
+  return do_check_tx_verification_context(tvcs, tx_added, event_index, txs, validator, 0);
 }
 //--------------------------------------------------------------------------
 template<class t_test_class>
@@ -368,6 +399,26 @@ public:
     m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_txs_keeped_by_block, false, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = check_tx_verification_context(tvc, tx_added, m_ev_index, tx, m_validator);
+    CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
+    return true;
+  }
+
+  bool operator()(const std::vector<cryptonote::transaction>& txs) const
+  {
+    log_event("cryptonote::transaction");
+
+    std::vector<cryptonote::blobdata> tx_blobs;
+    std::vector<cryptonote::tx_verification_context> tvcs;
+     cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
+    for (const auto &tx: txs)
+    {
+      tx_blobs.push_back(t_serializable_object_to_blob(tx));
+      tvcs.push_back(tvc0);
+    }
+    size_t pool_size = m_c.get_pool_transactions_count();
+    m_c.handle_incoming_txs(tx_blobs, tvcs, m_txs_keeped_by_block, false, false);
+    size_t tx_added = m_c.get_pool_transactions_count() - pool_size;
+    bool r = check_tx_verification_context(tvcs, tx_added, m_ev_index, txs, m_validator);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
     return true;
   }

@@ -419,11 +419,10 @@ uint64_t get_amount(const cryptonote::account_base& account, const cryptonote::t
     switch (tx.rct_signatures.type)
     {
     case rct::RCTTypeSimple:
-    case rct::RCTTypeSimpleBulletproof:
+    case rct::RCTTypeBulletproof:
       money_transferred = rct::decodeRctSimple(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
       break;
     case rct::RCTTypeFull:
-    case rct::RCTTypeFullBulletproof:
       money_transferred = rct::decodeRct(tx.rct_signatures, rct::sk2rct(scalar1), i, hwdev);
       break;
     case rct::RCTTypeNull:
@@ -634,11 +633,10 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
             crypto::secret_key amount_key;
             crypto::derivation_to_scalar(derivation, oi.out_no, amount_key);
-            if (tx.rct_signatures.type == rct::RCTTypeSimple || tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof)
+            if (tx.rct_signatures.type == rct::RCTTypeSimple || tx.rct_signatures.type == rct::RCTTypeBulletproof)
                 rct::decodeRctSimple(
                   tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
-            else if (tx.rct_signatures.type == rct::RCTTypeFull ||
-                     tx.rct_signatures.type == rct::RCTTypeFullBulletproof)
+            else if (tx.rct_signatures.type == rct::RCTTypeFull)
                 rct::decodeRct(
                   tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
         }
@@ -662,24 +660,31 @@ bool fill_tx_destination(tx_destination_entry &de, const cryptonote::account_bas
     return true;
 }
 
-void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
-                                      const cryptonote::account_base& from, const cryptonote::account_base& to,
-                                      uint64_t amount, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
-                                      std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
+void fill_tx_sources_and_multi_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
+                                            const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                            uint64_t const *amount, int num_amounts, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
+                                            std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
 {
   sources.clear();
   destinations.clear();
 
-  if (!fill_tx_sources(sources, events, blk_head, from, amount + fee, nmix))
+  int total_amount = fee;
+  for (int i = 0; i < num_amounts; ++i)
+    total_amount += amount[i];
+
+  if (!fill_tx_sources(sources, events, blk_head, from, total_amount, nmix))
     throw std::runtime_error("couldn't fill transaction sources");
 
-  tx_destination_entry de;
-  if (!fill_tx_destination(de, to, amount))
-    throw std::runtime_error("couldn't fill transaction destination");
-  destinations.push_back(de);
+  for (int i = 0; i < num_amounts; ++i)
+  {
+    tx_destination_entry de;
+    if (!fill_tx_destination(de, to, amount[i]))
+      throw std::runtime_error("couldn't fill transaction destination");
+    destinations.push_back(de);
+  }
 
   tx_destination_entry de_change;
-  uint64_t cash_back = get_inputs_amount(sources) - (amount + fee);
+  uint64_t cash_back = get_inputs_amount(sources) - (total_amount);
   if (0 < cash_back)
   {
     if (!fill_tx_destination(de_change, from, cash_back))
@@ -688,6 +693,16 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
   }
 
   if (change_amount) *change_amount = (cash_back > 0) ? cash_back : 0;
+}
+
+void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
+                                      const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                      uint64_t amount, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
+                                      std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
+{
+  uint64_t *amounts = &amount;
+  int num_amounts   = 1;
+  fill_tx_sources_and_multi_destinations(events, blk_head, from, to, amounts, num_amounts, fee, nmix, sources, destinations, change_amount);
 }
 
 void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
