@@ -536,12 +536,15 @@ static uint64_t get_num_spent_outputs()
   return count;
 }
 
-static void add_spent_output(MDB_cursor *cur, const output_data &od)
+static bool add_spent_output(MDB_cursor *cur, const output_data &od)
 {
   MDB_val k = {sizeof(od.amount), (void*)&od.amount};
   MDB_val v = {sizeof(od.offset), (void*)&od.offset};
-  int dbr = mdb_cursor_put(cur, &k, &v, 0);
-  CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_KEYEXIST, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
+  int dbr = mdb_cursor_put(cur, &k, &v, MDB_NODUPDATA);
+  if (dbr == MDB_KEYEXIST)
+    return false;
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
+  return true;
 }
 
 static bool is_output_spent(MDB_cursor *cur, const output_data &od)
@@ -1153,8 +1156,8 @@ int main(int argc, char* argv[])
       if (!is_output_spent(cur, output_data(output.first, output.second)))
       {
         blackballs.push_back(output);
-        add_spent_output(cur, output_data(output.first, output.second));
-        inc_stat(txn, output.first ? "pre-rct-extra" : "rct-ring-extra");
+        if (add_spent_output(cur, output_data(output.first, output.second)))
+          inc_stat(txn, output.first ? "pre-rct-extra" : "rct-ring-extra");
       }
     }
     if (!blackballs.empty())
@@ -1216,8 +1219,8 @@ int main(int argc, char* argv[])
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           }
           blackballs.push_back(output);
-          add_spent_output(cur, output_data(txin.amount, absolute[0]));
-          inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
+          if (add_spent_output(cur, output_data(txin.amount, absolute[0])))
+            inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
         else if (n == 0 && instances == new_ring.size())
         {
@@ -1230,8 +1233,8 @@ int main(int argc, char* argv[])
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
-            add_spent_output(cur, output_data(txin.amount, absolute[o]));
-            inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
+            if (!add_spent_output(cur, output_data(txin.amount, absolute[o])))
+              inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
         else if (n == 0 && opt_check_subsets && get_ring_subset_instances(txn, txin.amount, new_ring) >= new_ring.size())
@@ -1245,8 +1248,8 @@ int main(int argc, char* argv[])
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
-            add_spent_output(cur, output_data(txin.amount, absolute[o]));
-            inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
+            if (add_spent_output(cur, output_data(txin.amount, absolute[o])))
+              inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
           }
         }
         else if (n > 0 && get_relative_ring(txn, txin.k_image, relative_ring))
@@ -1281,8 +1284,8 @@ int main(int argc, char* argv[])
                 std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               }
               blackballs.push_back(output);
-              add_spent_output(cur, output_data(txin.amount, common[0]));
-              inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
+              if (add_spent_output(cur, output_data(txin.amount, common[0])))
+                inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
             else
             {
@@ -1393,9 +1396,9 @@ int main(int argc, char* argv[])
                 absolute.size() << "-ring where all other outputs are known to be spent");
           }
           blackballs.push_back(output);
-          add_spent_output(cur, output_data(od.amount, last_unknown));
+          if (add_spent_output(cur, output_data(od.amount, last_unknown)))
+            inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
           work_spent.push_back(output_data(od.amount, last_unknown));
-          inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
       }
 
