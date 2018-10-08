@@ -192,6 +192,17 @@ namespace
     return epee::string_tools::trim(buf);
   }
 
+  bool input_line_and_parse_yes_no_result(char const *prompt)
+  {
+    std::string prompt_yes_no = std::string(prompt) + " (Y/Yes/N/No): ";
+    std::string result        = input_line(prompt_yes_no);
+
+    if (std::cin.eof())
+      return false;
+
+    return command_line::is_yes(result);
+  }
+
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
 #ifdef HAVE_READLINE
@@ -4820,6 +4831,7 @@ bool simple_wallet::register_service_node_main(
   de.amount = amount_payable_by_operator;
   dsts.push_back(de);
 
+  bool submitted_to_network = false;
   try
   {
     // figure out what tx will be necessary
@@ -4923,6 +4935,7 @@ bool simple_wallet::register_service_node_main(
     else
     {
       commit_or_save(ptx_vector, m_do_not_relay);
+      submitted_to_network = true;
     }
   }
   catch (const std::exception& e)
@@ -4934,6 +4947,13 @@ bool simple_wallet::register_service_node_main(
     LOG_ERROR("unknown error");
     fail_msg_writer() << tr("unknown error");
   }
+
+  if (submitted_to_network && !autostake)
+  {
+    success_msg_writer() << tr("Wait for transaction to be included in a block before registration is complete.\n")
+                         << tr("Use the print_sn command in the daemon to check the status.");
+  }
+
   return true;
 }
 
@@ -4943,20 +4963,8 @@ static bool prompt_autostaking_non_trusted_contributors_warning()
       << tr("Auto staking to a reserved service node with non-trusted contributors may lock up your loki for the staking duration "
             "if they do not restake after service node expiration.")
       << tr("\n\nIf this behaviour is not desirable, please reuse the staking command without the auto command");
-
-  std::string accepted = input_line("Accept auto staking towards a reserved service node (Y/Yes/N/No): ");
-
-  if (std::cin.eof())
-    return false;
-
-  if (!command_line::is_yes(accepted))
-  {
-    fail_msg_writer() << tr("Auto staking transaction cancelled.");
-    return false;
-  }
-
-  success_msg_writer(false/*color*/) << "\n";
-  return true;
+  bool result = input_line_and_parse_yes_no_result("Accept auto staking towards a reserved service node");
+  return result;
 }
 
 bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
@@ -5502,7 +5510,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     return true;
   }
 
-
   if (autostake)
   {
     {
@@ -5543,12 +5550,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
                 "may change your percentage of stake towards the service node and consequently your block reward allocation.")
          << tr("\n\nIf this behaviour is not desirable, please reuse the staking command with a percentage sign.");
 
-      std::string accepted = input_line("Accept staking with a fixed amount of loki (Y/Yes/N/No): ");
-
-      if (std::cin.eof())
-        return true;
-
-      if (!command_line::is_yes(accepted))
+      if (!input_line_and_parse_yes_no_result("Accept staking with a fixed amount of loki"))
       {
         fail_msg_writer() << tr("Staking transaction with fixed loki specified cancelled.");
         return true;
