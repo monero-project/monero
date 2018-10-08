@@ -199,9 +199,6 @@ set(PER_BLOCK_CHECKPOINT 1)
 
 if(PER_BLOCK_CHECKPOINT)
   add_definitions("-DPER_BLOCK_CHECKPOINT")
-  set(Blocks "blocks")
-else()
-  set(Blocks "")
 endif()
 
 list(INSERT CMAKE_MODULE_PATH 0
@@ -677,10 +674,12 @@ else()
   add_linker_flag_if_supported(-Wl,-z,noexecstack noexecstack_SUPPORTED)
   if (noexecstack_SUPPORTED)
     set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,-z,noexecstack")
+    set(LD_RAW_FLAGS ${LD_RAW_FLAGS} -z noexecstack)
   endif()
   add_linker_flag_if_supported(-Wl,-z,noexecheap noexecheap_SUPPORTED)
   if (noexecheap_SUPPORTED)
     set(LD_SECURITY_FLAGS "${LD_SECURITY_FLAGS} -Wl,-z,noexecheap")
+    set(LD_RAW_FLAGS ${LD_RAW_FLAGS} -z noexecheap)
   endif()
 
   # some windows linker bits
