@@ -220,7 +220,7 @@ namespace hw {
       device& get_device(const std::string & device_descriptor);
     };
 
+    std::shared_ptr<device_registry> get_device_registry();
     device& get_device(const std::string & device_descriptor);
-    bool register_device(const std::string & device_name, device * hw_device);
 }
 
