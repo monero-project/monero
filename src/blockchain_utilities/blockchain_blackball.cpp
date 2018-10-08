@@ -1233,7 +1233,7 @@ int main(int argc, char* argv[])
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
-            if (!add_spent_output(cur, output_data(txin.amount, absolute[o])))
+            if (add_spent_output(cur, output_data(txin.amount, absolute[o])))
               inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
