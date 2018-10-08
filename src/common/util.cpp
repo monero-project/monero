@@ -948,7 +948,7 @@ std::string get_nix_version_display_string()
 
     FlushConsoleInputBuffer(hConIn);
     GetConsoleMode(hConIn, &oldMode);
-    SetConsoleMode(hConIn, ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
+    SetConsoleMode(hConIn, ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
     wchar_t buffer[1024];
     DWORD read;
