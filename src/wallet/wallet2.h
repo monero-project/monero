@@ -229,7 +229,7 @@ namespace tools
       bool error;
       boost::optional<cryptonote::subaddress_receive_info> received;
 
-      tx_scan_info_t(): money_transfered(0), error(true) {}
+      tx_scan_info_t(): amount(0), money_transfered(0), error(true) {}
     };
 
     struct transfer_details
