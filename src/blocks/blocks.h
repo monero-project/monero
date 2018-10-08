@@ -1,12 +1,16 @@
 #ifndef SRC_BLOCKS_BLOCKS_H_
 #define SRC_BLOCKS_BLOCKS_H_
 
-#include "cryptonote_config.h"
-#include "span.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace blocks
-{
-    const epee::span<const unsigned char> GetCheckpointsData(cryptonote::network_type network);
+const unsigned char *get_blocks_dat_start(int testnet, int stagenet);
+size_t get_blocks_dat_size(int testnet, int stagenet);
+
+#ifdef __cplusplus
 }
+#endif
+
 
 #endif /* SRC_BLOCKS_BLOCKS_H_ */
