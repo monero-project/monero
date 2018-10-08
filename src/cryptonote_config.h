@@ -163,6 +163,8 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 
 #define DEFAULT_TXPOOL_MAX_SIZE                 648000000ull // 3 days at 300000, in bytes
 
+#define BULLETPROOF_MAX_OUTPUTS                 16
+
 // New constants are intended to go here
 namespace config
 {

@@ -39,9 +39,11 @@ enum test_multiexp_algorithm
   multiexp_bos_coster,
   multiexp_straus,
   multiexp_straus_cached,
+  multiexp_pippenger,
+  multiexp_pippenger_cached,
 };
 
-template<test_multiexp_algorithm algorithm, size_t npoints>
+template<test_multiexp_algorithm algorithm, size_t npoints, size_t c=0>
 class test_multiexp
 {
 public:
@@ -60,7 +62,8 @@ public:
       rct::key kn = rct::scalarmultKey(point, data[n].scalar);
       res = rct::addKeys(res, kn);
     }
-    cache = rct::straus_init_cache(data);
+    straus_cache = rct::straus_init_cache(data);
+    pippenger_cache = rct::pippenger_init_cache(data);
     return true;
   }
 
@@ -73,7 +76,11 @@ public:
       case multiexp_straus:
         return res == straus(data);
       case multiexp_straus_cached:
-        return res == straus(data, cache);
+        return res == straus(data, straus_cache);
+      case multiexp_pippenger:
+        return res == pippenger(data, NULL, c);
+      case multiexp_pippenger_cached:
+        return res == pippenger(data, pippenger_cache, c);
       default:
         return false;
     }
@@ -81,6 +88,7 @@ public:
 
 private:
   std::vector<rct::MultiexpData> data;
-  std::shared_ptr<rct::straus_cached_data> cache;
+  std::shared_ptr<rct::straus_cached_data> straus_cache;
+  std::shared_ptr<rct::pippenger_cached_data> pippenger_cache;
   rct::key res;
 };

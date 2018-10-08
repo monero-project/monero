@@ -51,6 +51,7 @@ enum test_op
   op_addKeys2,
   op_addKeys3,
   op_addKeys3_2,
+  op_isInMainSubgroup,
 };
 
 template<test_op op>
@@ -102,6 +103,7 @@ public:
       case op_addKeys2: rct::addKeys2(key, scalar0, scalar1, point0); break;
       case op_addKeys3: rct::addKeys3(key, scalar0, point0, scalar1, precomp1); break;
       case op_addKeys3_2: rct::addKeys3(key, scalar0, precomp0, scalar1, precomp1); break;
+      case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
       default: return false;
     }
     return true;
