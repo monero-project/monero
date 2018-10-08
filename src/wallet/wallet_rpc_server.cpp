@@ -3360,6 +3360,13 @@ public:
 
   bool run()
   {
+    const bool res = body();
+    hw::deinit_device_registry();
+    return res;
+  }
+
+  bool body()
+  {
     std::unique_ptr<tools::wallet2> wal;
     try
     {

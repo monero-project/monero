@@ -216,11 +216,14 @@ namespace hw {
 
     public:
       device_registry();
+      virtual ~device_registry();
       bool register_device(const std::string & device_name, device * hw_device);
       device& get_device(const std::string & device_descriptor);
+      void deinit();
     };
 
+    std::shared_ptr<device_registry> get_device_registry();
+    void deinit_device_registry();
     device& get_device(const std::string & device_descriptor);
-    bool register_device(const std::string & device_name, device * hw_device);
 }
 
