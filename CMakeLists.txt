@@ -406,7 +406,6 @@ endif()
 if (UNIX AND NOT APPLE)
   # Note that at the time of this writing the -Wstrict-prototypes flag added below will make this fail
   set(THREADS_PREFER_PTHREAD_FLAG ON)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   find_package(Threads)
 endif()
 

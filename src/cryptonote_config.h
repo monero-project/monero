@@ -50,6 +50,8 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
+#define CRYPTONOTE_TX_DEFAULT_MIX 9
+
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define MAX_NUMBER_OF_CONTRIBUTORS                      4

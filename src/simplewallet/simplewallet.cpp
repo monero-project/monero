@@ -101,8 +101,6 @@ typedef cryptonote::simple_wallet sw;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
-#define DEFAULT_MIX 9
-
 #define OUTPUT_EXPORT_FILE_MAGIC "Loki output export\003"
 
 #define LOCK_IDLE_SCOPE() \
@@ -4809,16 +4807,16 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return true;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, CRYPTONOTE_TX_DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       case TransferNew:
-        ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, CRYPTONOTE_TX_DEFAULT_MIX, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
         /* FALLTHRU */
       case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
+        ptx_vector = m_wallet->create_transactions(dsts, CRYPTONOTE_TX_DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
         break;
     }
 
@@ -4940,7 +4938,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
             if (vin.type() == typeid(txin_to_key))
             {
               const txin_to_key& in_to_key = boost::get<txin_to_key>(vin);
-              if (in_to_key.key_offsets.size() != DEFAULT_MIX + 1)
+              if (in_to_key.key_offsets.size() != CRYPTONOTE_TX_DEFAULT_MIX + 1)
                 default_ring_size = false;
             }
           }
@@ -5147,7 +5145,7 @@ bool simple_wallet::register_service_node_main(
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, true);
+    auto ptx_vector = m_wallet->create_transactions_2(dsts, CRYPTONOTE_TX_DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, true);
 
     if (ptx_vector.empty())
     {
@@ -5587,7 +5585,7 @@ bool simple_wallet::stake_main(
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, true);
+    auto ptx_vector = m_wallet->create_transactions_2(dsts, CRYPTONOTE_TX_DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, true);
 
     if (ptx_vector.empty())
     {
@@ -6096,7 +6094,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, CRYPTONOTE_TX_DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -6293,7 +6291,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, CRYPTONOTE_TX_DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
 
     if (ptx_vector.empty())
     {

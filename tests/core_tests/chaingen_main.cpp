@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(test_zero_fee_deregister);
     GENERATE_AND_PLAY(test_deregister_safety_buffer);
 
-     GENERATE_AND_PLAY(one_block);
+    GENERATE_AND_PLAY(one_block);
 
     // Block verification tests
     GENERATE_AND_PLAY(gen_block_big_major_version);

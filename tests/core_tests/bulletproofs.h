@@ -33,6 +33,7 @@
 
 struct gen_bp_tx_validation_base : public test_chain_unit_base
 {
+  static const int NUM_UNLOCKED_BLOCKS = 48;
   gen_bp_tx_validation_base()
     : m_invalid_tx_index(0)
     , m_invalid_block_index(0)
@@ -82,7 +83,6 @@ struct gen_bp_tx_validation_base : public test_chain_unit_base
   }
 
   bool generate_with(std::vector<test_event_entry>& events,
-      int mixin,
       size_t n_txes,
       const uint64_t *amounts_paid,
       bool valid,
@@ -99,7 +99,13 @@ private:
 
 template<>
 struct get_test_options<gen_bp_tx_validation_base> {
-  const std::pair<uint8_t, uint64_t> hard_forks[4] = {std::make_pair(7, 0), std::make_pair(8, 1), std::make_pair(10, 40 + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 1), std::make_pair(0, 0)};
+  const std::pair<uint8_t, uint64_t> hard_forks[4] = {
+    std::make_pair(7, 0),
+    std::make_pair(8, 1),
+    std::make_pair(10, gen_bp_tx_validation_base::NUM_UNLOCKED_BLOCKS + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 1),
+    std::make_pair(0, 0),
+  };
+
   const cryptonote::test_options test_options = {
     hard_forks
   };
