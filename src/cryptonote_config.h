@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <stdexcept>
 #include <string>
 #include <boost/uuid/uuid.hpp>
 
