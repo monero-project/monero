@@ -169,6 +169,9 @@ build the library binary manually. This can be done with the following command `
 Debian / Ubuntu one liner for all dependencies  
 ``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
 
+FreeBSD one liner for required to build dependencies
+```pkg install git gmake cmake pkgconf boost-libs cppzmq libsodium```
+
 ### Cloning the repository
 
 Clone recursively to pull-in needed submodule(s):
@@ -190,7 +193,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd monero
-        git checkout v0.13.0.4
+        git checkout release-v0.13
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -254,7 +257,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.13.0.4
+	git checkout tags/release-v0.13
 ```
 * Build:
 ```
@@ -351,9 +354,9 @@ application.
 
         cd monero
 
-* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.13.0.0'. If you dont care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'release-0.13'. If you dont care about the version and just want binaries from master, skip this step:
 
-        git checkout v0.13.0.4
+        git checkout release-v0.13
 
 * If you are on a 64-bit system, run:
 
@@ -377,7 +380,7 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above. If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above(but use `gmake` instead of `make`). If you are running monero in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
 We expect to add Monero into the ports tree in the near future, which will aid in managing installations using ports or packages.
 
