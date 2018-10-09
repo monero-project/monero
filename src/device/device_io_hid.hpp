@@ -86,13 +86,13 @@ namespace hw {
     public:
       bool hid_verbose = false;
 
-      const unsigned int  OR_SELECT = 1;
-      const unsigned int  AND_SELECT = 2;
+      static const unsigned int  OR_SELECT = 1;
+      static const unsigned int  AND_SELECT = 2;
 
-      const unsigned char DEFAULT_CHANNEL     = 0x0001;
-      const unsigned char DEFAULT_TAG         = 0x01;
-      const unsigned int  DEFAULT_PACKET_SIZE = 64;
-      const unsigned int  DEFAULT_TIMEOUT     = 120000;
+      static const unsigned short DEFAULT_CHANNEL     = 0x0001;
+      static const unsigned char  DEFAULT_TAG         = 0x01;
+      static const unsigned int   DEFAULT_PACKET_SIZE = 64;
+      static const unsigned int   DEFAULT_TIMEOUT     = 120000;
 
       device_io_hid(unsigned short channel, unsigned char tag, unsigned int packet_zize, unsigned int timeout);
       device_io_hid();
