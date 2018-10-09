@@ -277,6 +277,7 @@ namespace rct {
             for (j = 0; j < dsRows; j++) {
                 addKeys2(L, rv.ss[i][j], c_old, pk[i][j]);
                 hashToPoint(Hi, pk[i][j]);
+                CHECK_AND_ASSERT_MES(!(Hi == rct::identity()), false, "Data hashed to point at infinity");
                 addKeys3(R, rv.ss[i][j], Hi, c_old, Ip[j].k);
                 toHash[3 * j + 1] = pk[i][j];
                 toHash[3 * j + 2] = L; 
@@ -767,7 +768,7 @@ namespace rct {
                 #endif
                 for (i = 0; i < outamounts.size(); ++i)
                 {
-                    rv.outPk[i].mask = C[i];
+                    rv.outPk[i].mask = rct::scalarmult8(C[i]);
                     outSk[i].mask = masks[i];
                 }
             }
@@ -787,7 +788,7 @@ namespace rct {
             #endif
                 for (i = 0; i < batch_size; ++i)
                 {
-                  rv.outPk[i + amounts_proved].mask = C[i];
+                  rv.outPk[i + amounts_proved].mask = rct::scalarmult8(C[i]);
                   outSk[i + amounts_proved].mask = masks[i];
                 }
                 amounts_proved += batch_size;
@@ -1108,6 +1109,8 @@ namespace rct {
         DP("C");
         DP(C);
         key Ctmp;
+        CHECK_AND_ASSERT_THROW_MES(sc_check(mask.bytes) == 0, "warning, bad ECDH mask");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(amount.bytes) == 0, "warning, bad ECDH amount");
         addKeys2(Ctmp, mask, amount, H);
         DP("Ctmp");
         DP(Ctmp);
@@ -1136,6 +1139,8 @@ namespace rct {
         DP("C");
         DP(C);
         key Ctmp;
+        CHECK_AND_ASSERT_THROW_MES(sc_check(mask.bytes) == 0, "warning, bad ECDH mask");
+        CHECK_AND_ASSERT_THROW_MES(sc_check(amount.bytes) == 0, "warning, bad ECDH amount");
         addKeys2(Ctmp, mask, amount, H);
         DP("Ctmp");
         DP(Ctmp);

@@ -317,9 +317,9 @@ namespace rct {
             ar.begin_array();
             uint32_t nbp = bulletproofs.size();
             FIELD(nbp)
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs);
-            if (bulletproofs.size() > outputs)
+            if (nbp > outputs)
               return false;
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs);
             for (size_t i = 0; i < nbp; ++i)
             {
               FIELDS(bulletproofs[i])

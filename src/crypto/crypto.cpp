@@ -116,7 +116,7 @@ namespace crypto {
     do
     {
       generate_random_bytes_thread_safe(32, bytes);
-    } while (!less32(bytes, limit)); // should be good about 15/16 of the time
+    } while (!sc_isnonzero(bytes) && !less32(bytes, limit)); // should be good about 15/16 of the time
     sc_reduce32(bytes);
   }
   /* generate a random 32-byte (256-bit) integer and copy it to res */
@@ -274,11 +274,18 @@ namespace crypto {
 #endif
     buf.h = prefix_hash;
     buf.key = pub;
+  try_again:
     random_scalar(k);
+    if (((const uint32_t*)(&k))[7] == 0) // we don't want tiny numbers here
+      goto try_again;
     ge_scalarmult_base(&tmp3, &k);
     ge_p3_tobytes(&buf.comm, &tmp3);
     hash_to_scalar(&buf, sizeof(s_comm), sig.c);
+    if (!sc_isnonzero((const unsigned char*)sig.c.data))
+      goto try_again;
     sc_mulsub(&sig.r, &sig.c, &unwrap(sec), &k);
+    if (!sc_isnonzero((const unsigned char*)sig.r.data))
+      goto try_again;
   }
 
   bool crypto_ops::check_signature(const hash &prefix_hash, const public_key &pub, const signature &sig) {
@@ -292,11 +299,14 @@ namespace crypto {
     if (ge_frombytes_vartime(&tmp3, &pub) != 0) {
       return false;
     }
-    if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0) {
+    if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0 || !sc_isnonzero(&sig.c)) {
       return false;
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
+    static const ec_point infinity = {{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
+    if (memcmp(&buf.comm, &infinity, 32) == 0)
+      return false;
     hash_to_scalar(&buf, sizeof(s_comm), c);
     sc_sub(&c, &c, &sig.c);
     return sc_isnonzero(&c) == 0;

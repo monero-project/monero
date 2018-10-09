@@ -216,23 +216,27 @@ rct::key bos_coster_heap_conv_robust(std::vector<MultiexpData> data)
   heap.reserve(points);
   for (size_t n = 0; n < points; ++n)
   {
-    if (!(data[n].scalar == rct::zero()) && memcmp(&data[n].point, &ge_p3_identity, sizeof(ge_p3)))
+    if (!(data[n].scalar == rct::zero()) && !ge_p3_is_point_at_infinity(&data[n].point))
       heap.push_back(n);
   }
   points = heap.size();
   if (points == 0)
     return rct::identity();
+
+  auto Comp = [&](size_t e0, size_t e1) { return data[e0].scalar < data[e1].scalar; };
+  std::make_heap(heap.begin(), heap.end(), Comp);
+
   if (points < 2)
   {
+    std::pop_heap(heap.begin(), heap.end(), Comp);
+    size_t index1 = heap.back();
     ge_p2 p2;
-    ge_scalarmult(&p2, data[0].scalar.bytes, &data[0].point);
+    ge_scalarmult(&p2, data[index1].scalar.bytes, &data[index1].point);
     rct::key res;
     ge_tobytes(res.bytes, &p2);
     return res;
   }
 
-  auto Comp = [&](size_t e0, size_t e1) { return data[e0].scalar < data[e1].scalar; };
-  std::make_heap(heap.begin(), heap.end(), Comp);
   MULTIEXP_PERF(PERF_TIMER_STOP(setup));
 
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(loop, 1000000));
@@ -438,7 +442,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
   MULTIEXP_PERF(PERF_TIMER_START_UNIT(skip, 1000000));
   std::vector<uint8_t> skip(data.size());
   for (size_t i = 0; i < data.size(); ++i)
-    skip[i] = data[i].scalar == rct::zero() || !memcmp(&data[i].point, &ge_p3_identity, sizeof(ge_p3));
+    skip[i] = data[i].scalar == rct::zero() || ge_p3_is_point_at_infinity(&data[i].point);
   MULTIEXP_PERF(PERF_TIMER_STOP(skip));
 #endif
 
@@ -601,13 +605,13 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       maxscalar = data[i].scalar;
   }
   size_t groups = 0;
-  while (groups < 256 && pow2(groups) < maxscalar)
+  while (groups < 256 && !(maxscalar < pow2(groups)))
     ++groups;
   groups = (groups + c - 1) / c;
 
   for (size_t k = groups; k-- > 0; )
   {
-    if (memcmp(&result, &ge_p3_identity, sizeof(ge_p3)))
+    if (!ge_p3_is_point_at_infinity(&result))
     {
       ge_p2 p2;
       ge_p3_to_p2(&p2, &result);
@@ -634,7 +638,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       if (bucket == 0)
         continue;
       CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
-      if (memcmp(&buckets[bucket], &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&buckets[bucket]))
       {
         add(buckets[bucket], local_cache->cached[i]);
       }
@@ -646,9 +650,9 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
     ge_p3 pail = ge_p3_identity;
     for (size_t i = (1<<c)-1; i > 0; --i)
     {
-      if (memcmp(&buckets[i], &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&buckets[i]))
         add(pail, buckets[i]);
-      if (memcmp(&pail, &ge_p3_identity, sizeof(ge_p3)))
+      if (!ge_p3_is_point_at_infinity(&pail))
         add(result, pail);
     }
   }
