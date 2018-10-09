@@ -471,12 +471,14 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-        # Build image
+        # Build image (for ARM 32-bit)
         docker build -f utils/build_scripts/android32.Dockerfile -t monero-android .
+        # Build image (for ARM 64-bit)
+        docker build -f utils/build_scripts/android64.Dockerfile -t monero-android .
         # Create container
         docker create -it --name monero-android monero-android bash
         # Get binaries
-        docker cp monero-android:/opt/android/monero/build/release/bin .
+        docker cp monero-android:/src/build/release/bin .
 
 ### Building portable statically linked binaries (Cross Compiling)
 
