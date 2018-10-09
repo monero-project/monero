@@ -66,15 +66,13 @@ def build():
         print('\nCompiling ' + args.version + ' Windows')
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, '../monero/contrib/gitian/gitian-win.yml'])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-win-unsigned', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-win.yml'])
-        subprocess.check_call('mv build/out/monero*-unsigned.tar.gz inputs/', shell=True)
-        subprocess.check_call('mv build/out/monero*.zip ../monerobinaries/'+args.version, shell=True)
+        subprocess.check_call('mv build/out/monero*.zip ../monero-binaries/'+args.version, shell=True)
 
     if args.macos:
         print('\nCompiling ' + args.version + ' MacOS')
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero'+args.commit, '--url', 'monero'+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
+        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero'+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx-unsigned', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx.yml'])
-        subprocess.check_call('mv build/out/monero*-osx-unsigned.tar.gz inputs/', shell=True)
-        subprocess.check_call('mv build/out/monero*.tar.gz build/out/monero*.dmg ../monerobinaries/'+args.version, shell=True)
+        subprocess.check_call('mv build/out/monero*.tar.gz ../monero-binaries/'+args.version, shell=True)
 
     os.chdir(workdir)
 
@@ -90,20 +88,6 @@ def build():
 def sign():
     global args, workdir
     os.chdir('gitian-builder')
-
-    if args.windows:
-        print('\nSigning ' + args.version + ' Windows')
-        subprocess.check_call(['bin/gbuild', '-i', '--commit', 'signature='+args.commit, '../monero/contrib/gitian/gitian-win-signer.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-win-signed', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-win-signer.yml'])
-        subprocess.check_call('mv build/out/monero*win64-setup.exe ../monerobinaries/'+args.version, shell=True)
-        subprocess.check_call('mv build/out/monero*win32-setup.exe ../monerobinaries/'+args.version, shell=True)
-
-    if args.macos:
-        print('\nSigning ' + args.version + ' MacOS')
-        subprocess.check_call(['bin/gbuild', '-i', '--commit', 'signature='+args.commit, '../monero/contrib/gitian/gitian-osx-signer.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx-signed', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx-signer.yml'])
-        subprocess.check_call('mv build/out/moneroosx-signed.dmg ../monerobinaries/'+args.version+'/monero'+args.version+'-osx.dmg', shell=True)
-
     os.chdir(workdir)
 
     if args.commit_files:
@@ -137,7 +121,7 @@ def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options] signer version')
     parser.add_argument('-c', '--commit', action='store_true', dest='commit', help='Indicate that the version argument is for a commit or branch')
     parser.add_argument('-p', '--pull', action='store_true', dest='pull', help='Indicate that the version argument is the number of a github repository pull request')
-    parser.add_argument('-u', '--url', dest='url', default='https://github.com/TheCharlatan/monero', help='Specify the URL of the repository. Default is %(default)s')
+    parser.add_argument('-u', '--url', dest='url', default='https://github.com/monero-project/monero', help='Specify the URL of the repository. Default is %(default)s')
     parser.add_argument('-v', '--verify', action='store_true', dest='verify', help='Verify the Gitian build')
     parser.add_argument('-b', '--build', action='store_true', dest='build', help='Do a Gitian build')
     parser.add_argument('-s', '--sign', action='store_true', dest='sign', help='Make signed binaries for Windows and MacOS')

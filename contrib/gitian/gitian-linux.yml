@@ -43,7 +43,7 @@ packages:
 - "libprotobuf-dev"
 - "python3-zmq"
 remotes:
-- "url": "https://github.com/TheCharlatan/monero.git"
+- "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
 files: []
 script: |
@@ -148,7 +148,7 @@ script: |
   export PATH=${WRAP_DIR}:${PATH}
 
   ORIGPATH="$PATH"
-  # Extract the release tarball into a dir for each host and build
+  # Build in a new dir for each host
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
