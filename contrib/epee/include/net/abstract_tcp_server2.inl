@@ -1109,8 +1109,16 @@ POP_WARNINGS
     sock_.open(remote_endpoint.protocol());
     if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
     {
-      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(adr.c_str()), 0);
-      sock_.bind(local_endpoint);
+      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(bind_ip.c_str()), 0);
+      boost::system::error_code ec;
+      sock_.bind(local_endpoint, ec);
+      if (ec)
+      {
+        MERROR("Error binding to " << bind_ip << ": " << ec.message());
+        if (sock_.is_open())
+          sock_.close();
+        return false;
+      }
     }
 
     /*
@@ -1215,8 +1223,16 @@ POP_WARNINGS
     sock_.open(remote_endpoint.protocol());
     if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
     {
-      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(adr.c_str()), 0);
-      sock_.bind(local_endpoint);
+      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(bind_ip.c_str()), 0);
+      boost::system::error_code ec;
+      sock_.bind(local_endpoint, ec);
+      if (ec)
+      {
+        MERROR("Error binding to " << bind_ip << ": " << ec.message());
+        if (sock_.is_open())
+          sock_.close();
+        return false;
+      }
     }
     
     boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(io_service_));
