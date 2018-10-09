@@ -39,9 +39,9 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool construct_miner_tx(
       size_t height,
-      size_t median_size,
+      size_t median_weight,
       uint64_t already_generated_coins,
-      size_t current_block_size,
+      size_t current_block_weight,
       uint64_t fee,
       const account_public_address &miner_address,
       transaction& tx,

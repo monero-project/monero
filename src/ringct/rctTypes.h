@@ -214,7 +214,9 @@ namespace rct {
     };
 
     size_t n_bulletproof_amounts(const Bulletproof &proof);
+    size_t n_bulletproof_max_amounts(const Bulletproof &proof);
     size_t n_bulletproof_amounts(const std::vector<Bulletproof> &proofs);
+    size_t n_bulletproof_max_amounts(const std::vector<Bulletproof> &proofs);
 
     //A container to hold all signatures necessary for RingCT
     // rangeSigs holds all the rangeproof data of a transaction
@@ -229,7 +231,7 @@ namespace rct {
       RCTTypeSimple = 2,
       RCTTypeBulletproof = 3,
     };
-    enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof };
+    enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof, RangeProofPaddedBulletproof };
     struct rctSigBase {
         uint8_t type;
         key message;
@@ -324,7 +326,7 @@ namespace rct {
               if (nbp - i > 1)
                 ar.delimit_array();
             }
-            if (n_bulletproof_amounts(bulletproofs) != outputs)
+            if (n_bulletproof_max_amounts(bulletproofs) < outputs)
               return false;
             ar.end_array();
           }
@@ -528,6 +530,7 @@ namespace rct {
 
     bool is_rct_simple(int type);
     bool is_rct_bulletproof(int type);
+    bool is_rct_borromean(int type);
 
     static inline const rct::key &pk2rct(const crypto::public_key &pk) { return (const rct::key&)pk; }
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }

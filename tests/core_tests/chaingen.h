@@ -167,16 +167,23 @@ class test_generator
 public:
   struct block_info
   {
-    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_size)
+    block_info()
+      : prev_id()
+      , already_generated_coins(0)
+      , block_weight(0)
+    {
+    }
+
+    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_weight)
       : prev_id(a_prev_id)
       , already_generated_coins(an_already_generated_coins)
-      , block_size(a_block_size)
+      , block_weight(a_block_weight)
     {
     }
 
     crypto::hash prev_id;
     uint64_t already_generated_coins;
-    size_t block_size;
+    size_t block_weight;
   };
 
   enum block_fields
@@ -193,14 +200,14 @@ public:
   };
 
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
-  void get_last_n_block_sizes(std::vector<size_t>& block_sizes, const crypto::hash& head, size_t n) const;
+  void get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const;
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
-  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins);
+  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_weights, uint64_t already_generated_coins);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-    std::vector<size_t>& block_sizes, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
+    std::vector<size_t>& block_weights, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
     const std::vector<sn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
   bool construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp);
   bool construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev, const cryptonote::account_base& miner_acc,

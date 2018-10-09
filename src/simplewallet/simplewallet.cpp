@@ -844,21 +844,24 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     fail_msg_writer() << tr("Cannot connect to daemon");
     return true;
   }
-  const uint64_t per_kb_fee = m_wallet->get_per_kb_fee();
-  const uint64_t typical_size_kb = 13;
-  message_writer() << (boost::format(tr("Current fee is %s %s per kB")) % print_money(per_kb_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point())).str();
+  const bool per_byte = m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE);
+  const uint64_t base_fee = m_wallet->get_base_fee();
+  const char *base = per_byte ? "byte" : "kB";
+  const uint64_t typical_size = per_byte ? 2500 : 13;
+  const uint64_t size_granularity = per_byte ? 1 : 1024;
+  message_writer() << (boost::format(tr("Current fee is %s %s per %s")) % print_money(base_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % base).str();
 
   std::vector<uint64_t> fees;
   for (uint32_t priority = 1; priority <= 4; ++priority)
   {
     uint64_t mult = m_wallet->get_fee_multiplier(priority);
-    fees.push_back(per_kb_fee * typical_size_kb * mult);
+    fees.push_back(base_fee * typical_size * mult);
   }
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
   try
   {
-    uint64_t base_size = typical_size_kb * 1024;
-    blocks = m_wallet->estimate_backlog(base_size, base_size + 1023, fees);
+    uint64_t base_size = typical_size * size_granularity;
+    blocks = m_wallet->estimate_backlog(base_size, base_size + size_granularity - 1, fees);
   }
   catch (const std::exception &e)
   {
@@ -4677,14 +4680,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = DEFAULT_MIX;
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count > fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return true;
-  }
-
   const size_t min_args = (transfer_type == TransferLocked) ? 3 : 2;
   if(local_args.size() < min_args)
   {
@@ -4814,16 +4809,16 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return true;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       case TransferNew:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, DEFAULT_MIX, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using original");
         /* FALLTHRU */
       case TransferOriginal:
-        ptx_vector = m_wallet->create_transactions(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra);
+        ptx_vector = m_wallet->create_transactions(dsts, DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
         break;
     }
 
@@ -5982,16 +5977,6 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     local_args.erase(local_args.begin());
 
   priority = m_wallet->adjust_priority(priority);
-
-  size_t fake_outs_count = DEFAULT_MIX;
-
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count != fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is incorrect, must be %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return true;
-  }
-
   uint64_t unlock_block = 0;
   if (locked) {
     uint64_t locked_blocks = 0;
@@ -6111,7 +6096,7 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, DEFAULT_MIX, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -6220,8 +6205,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = DEFAULT_MIX;
-
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
   if (local_args.size() == 3)
@@ -6310,7 +6293,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, fake_outs_count, 0 /* unlock_time */, priority, extra);
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, DEFAULT_MIX, 0 /* unlock_time */, priority, extra);
 
     if (ptx_vector.empty())
     {
