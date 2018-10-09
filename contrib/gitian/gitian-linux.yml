@@ -154,9 +154,9 @@ script: |
     mkdir build && cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
     make
-    DISTNAME=monero-${i}.tar.gz
-    tar -cvzf $DISTNAME bin/*
-    cp $DISTNAME $OUTDIR/
+    DISTNAME=monero-${i}
+    mv bin ${DISTNAME}
+    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
     cd ..
     rm -rf build
   done
