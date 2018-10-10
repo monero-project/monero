@@ -73,11 +73,10 @@ bool gen_double_spend_in_different_chains::check_double_spend(cryptonote::core& 
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_double_spend_in_different_chains::check_double_spend");
 
-  std::vector<block> block_list;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, block_list);
+  std::vector<block> blocks;
+  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
 
-  std::vector<block> blocks(block_list.begin(), block_list.end());
   //CHECK_EQ(expected_blockchain_height, blocks.size());
   if (expected_blockchain_height != blocks.size()) LOG_ERROR ("oops");
 

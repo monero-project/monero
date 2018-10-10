@@ -41,6 +41,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_generate_test_data          = {"generate_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_play_test_data              = {"play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_generate_and_play_test_data = {"generate_and_play_test_data", ""};
+  const command_line::arg_descriptor<bool>        arg_service_nodes               = {"service_nodes", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
 }
 
@@ -60,6 +61,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_generate_test_data);
   command_line::add_arg(desc_options, arg_play_test_data);
   command_line::add_arg(desc_options, arg_generate_and_play_test_data);
+  command_line::add_arg(desc_options, arg_service_nodes);
   command_line::add_arg(desc_options, arg_test_transactions);
 
   po::variables_map vm;
@@ -89,137 +91,156 @@ int main(int argc, char* argv[])
   {
     PLAY("chain001.dat", gen_simple_chain_001);
   }
-  else if (command_line::get_arg(vm, arg_generate_and_play_test_data))
+  else if (command_line::get_arg(vm, arg_test_transactions))
   {
-    GENERATE_AND_PLAY(gen_service_nodes);
-    GENERATE_AND_PLAY(test_prefer_deregisters);
-    GENERATE_AND_PLAY(test_zero_fee_deregister);
-    GENERATE_AND_PLAY(test_deregister_safety_buffer);
-    GENERATE_AND_PLAY(gen_simple_chain_001);
-    GENERATE_AND_PLAY(gen_simple_chain_split_1);
-    GENERATE_AND_PLAY(one_block);
-    GENERATE_AND_PLAY(gen_chain_switch_1);
-    GENERATE_AND_PLAY(gen_ring_signature_1);
-    GENERATE_AND_PLAY(gen_ring_signature_2);
-    //GENERATE_AND_PLAY(gen_ring_signature_big); // Takes up to XXX hours (if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10)
+    CALL_TEST("TRANSACTIONS TESTS", test_transactions);
+  }
+  else
+  {
+    const bool run_all = !command_line::get_arg(vm, arg_service_nodes);
 
-    // Block verification tests
-    GENERATE_AND_PLAY(gen_block_big_major_version);
-    GENERATE_AND_PLAY(gen_block_big_minor_version);
-    GENERATE_AND_PLAY(gen_block_ts_not_checked);
-    GENERATE_AND_PLAY(gen_block_ts_in_past);
-    GENERATE_AND_PLAY(gen_block_ts_in_future);
-    GENERATE_AND_PLAY(gen_block_invalid_prev_id);
-    GENERATE_AND_PLAY(gen_block_invalid_nonce);
-    GENERATE_AND_PLAY(gen_block_no_miner_tx);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_low);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_high);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_past);
-    GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_future);
-    GENERATE_AND_PLAY(gen_block_height_is_low);
-    GENERATE_AND_PLAY(gen_block_height_is_high);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
-    GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
-    GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
-    GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
-    GENERATE_AND_PLAY(gen_block_has_invalid_tx);
-    GENERATE_AND_PLAY(gen_block_is_too_big);
-    GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
+    if (run_all) {
+      MLOG(el::Level::Info, "Running all tests\n");
+    }
 
-    // Transaction verification tests
-    GENERATE_AND_PLAY(gen_tx_big_version);
-    GENERATE_AND_PLAY(gen_tx_unlock_time);
-    GENERATE_AND_PLAY(gen_tx_input_is_not_txin_to_key);
-    GENERATE_AND_PLAY(gen_tx_no_inputs_no_outputs);
-    GENERATE_AND_PLAY(gen_tx_no_inputs_has_outputs);
-    GENERATE_AND_PLAY(gen_tx_has_inputs_no_outputs);
-    GENERATE_AND_PLAY(gen_tx_invalid_input_amount);
-    GENERATE_AND_PLAY(gen_tx_input_wo_key_offsets);
-    GENERATE_AND_PLAY(gen_tx_sender_key_offest_not_exist);
-    GENERATE_AND_PLAY(gen_tx_key_offest_points_to_foreign_key);
-    GENERATE_AND_PLAY(gen_tx_mixed_key_offest_not_exist);
-    GENERATE_AND_PLAY(gen_tx_key_image_not_derive_from_tx_key);
-    GENERATE_AND_PLAY(gen_tx_key_image_is_invalid);
-    GENERATE_AND_PLAY(gen_tx_check_input_unlock_time);
-    GENERATE_AND_PLAY(gen_tx_txout_to_key_has_invalid_key);
-    GENERATE_AND_PLAY(gen_tx_output_with_zero_amount);
-    GENERATE_AND_PLAY(gen_tx_output_is_not_txout_to_key);
-    GENERATE_AND_PLAY(gen_tx_signatures_are_invalid);
+    if (run_all || command_line::get_arg(vm, arg_service_nodes))
+    {
+      GENERATE_AND_PLAY(gen_service_nodes);
+      GENERATE_AND_PLAY(test_prefer_deregisters);
+      GENERATE_AND_PLAY(test_zero_fee_deregister);
+      GENERATE_AND_PLAY(test_deregister_safety_buffer);
+      GENERATE_AND_PLAY(test_deregisters_on_split);
+    }
 
-    // Double spend
-    GENERATE_AND_PLAY(gen_double_spend_in_tx<false>);
-    GENERATE_AND_PLAY(gen_double_spend_in_tx<true>);
-    GENERATE_AND_PLAY(gen_double_spend_in_the_same_block<false>);
-    GENERATE_AND_PLAY(gen_double_spend_in_the_same_block<true>);
-    GENERATE_AND_PLAY(gen_double_spend_in_different_blocks<false>);
-    GENERATE_AND_PLAY(gen_double_spend_in_different_blocks<true>);
-    GENERATE_AND_PLAY(gen_double_spend_in_different_chains);
-    GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_the_same_block<false>);
-    GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_the_same_block<true>);
-    GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_different_blocks<false>);
-    GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_different_blocks<true>);
+    if (run_all)
+    {
+      GENERATE_AND_PLAY(gen_simple_chain_001);
+      GENERATE_AND_PLAY(gen_simple_chain_split_1);
+      GENERATE_AND_PLAY(one_block);
+      GENERATE_AND_PLAY(gen_chain_switch_1);
+      GENERATE_AND_PLAY(gen_ring_signature_1);
+      GENERATE_AND_PLAY(gen_ring_signature_2);
+      //GENERATE_AND_PLAY(gen_ring_signature_big); // Takes up to XXX hours (if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10)
 
-    GENERATE_AND_PLAY(gen_uint_overflow_1);
-    GENERATE_AND_PLAY(gen_uint_overflow_2);
+      // Block verification tests
+      GENERATE_AND_PLAY(gen_block_big_major_version);
+      GENERATE_AND_PLAY(gen_block_big_minor_version);
+      GENERATE_AND_PLAY(gen_block_ts_not_checked);
+      GENERATE_AND_PLAY(gen_block_ts_in_past);
+      GENERATE_AND_PLAY(gen_block_ts_in_future);
+      GENERATE_AND_PLAY(gen_block_invalid_prev_id);
+      GENERATE_AND_PLAY(gen_block_invalid_nonce);
+      GENERATE_AND_PLAY(gen_block_no_miner_tx);
+      GENERATE_AND_PLAY(gen_block_unlock_time_is_low);
+      GENERATE_AND_PLAY(gen_block_unlock_time_is_high);
+      GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_past);
+      GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_future);
+      GENERATE_AND_PLAY(gen_block_height_is_low);
+      GENERATE_AND_PLAY(gen_block_height_is_high);
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
+      GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
+      GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
+      GENERATE_AND_PLAY(gen_block_has_invalid_tx);
+      GENERATE_AND_PLAY(gen_block_is_too_big);
+      GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
 
-    GENERATE_AND_PLAY(gen_block_reward);
+      // Transaction verification tests
+      GENERATE_AND_PLAY(gen_tx_big_version);
+      GENERATE_AND_PLAY(gen_tx_unlock_time);
+      GENERATE_AND_PLAY(gen_tx_input_is_not_txin_to_key);
+      GENERATE_AND_PLAY(gen_tx_no_inputs_no_outputs);
+      GENERATE_AND_PLAY(gen_tx_no_inputs_has_outputs);
+      GENERATE_AND_PLAY(gen_tx_has_inputs_no_outputs);
+      GENERATE_AND_PLAY(gen_tx_invalid_input_amount);
+      GENERATE_AND_PLAY(gen_tx_input_wo_key_offsets);
+      GENERATE_AND_PLAY(gen_tx_sender_key_offest_not_exist);
+      GENERATE_AND_PLAY(gen_tx_key_offest_points_to_foreign_key);
+      GENERATE_AND_PLAY(gen_tx_mixed_key_offest_not_exist);
+      GENERATE_AND_PLAY(gen_tx_key_image_not_derive_from_tx_key);
+      GENERATE_AND_PLAY(gen_tx_key_image_is_invalid);
+      GENERATE_AND_PLAY(gen_tx_check_input_unlock_time);
+      GENERATE_AND_PLAY(gen_tx_txout_to_key_has_invalid_key);
+      GENERATE_AND_PLAY(gen_tx_output_with_zero_amount);
+      GENERATE_AND_PLAY(gen_tx_output_is_not_txout_to_key);
+      GENERATE_AND_PLAY(gen_tx_signatures_are_invalid);
 
-    GENERATE_AND_PLAY(gen_v2_tx_mixable_0_mixin);
-    GENERATE_AND_PLAY(gen_v2_tx_mixable_low_mixin);
-//    GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
-//    GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
-//    GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
-    GENERATE_AND_PLAY(gen_v2_tx_dust);
+      // Double spend
+      GENERATE_AND_PLAY(gen_double_spend_in_tx<false>);
+      GENERATE_AND_PLAY(gen_double_spend_in_tx<true>);
+      GENERATE_AND_PLAY(gen_double_spend_in_the_same_block<false>);
+      GENERATE_AND_PLAY(gen_double_spend_in_the_same_block<true>);
+      GENERATE_AND_PLAY(gen_double_spend_in_different_blocks<false>);
+      GENERATE_AND_PLAY(gen_double_spend_in_different_blocks<true>);
+      GENERATE_AND_PLAY(gen_double_spend_in_different_chains);
+      GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_the_same_block<false>);
+      GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_the_same_block<true>);
+      GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_different_blocks<false>);
+      GENERATE_AND_PLAY(gen_double_spend_in_alt_chain_in_different_blocks<true>);
 
-    GENERATE_AND_PLAY(gen_rct_tx_valid_from_pre_rct);
-    GENERATE_AND_PLAY(gen_rct_tx_valid_from_rct);
-    GENERATE_AND_PLAY(gen_rct_tx_valid_from_mixed);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_real_dest);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_real_mask);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_fake_dest);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_fake_mask);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_bad_real_dest);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_bad_real_mask);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_bad_fake_dest);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_bad_fake_mask);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_spend_with_zero_commit);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_zero_vin_amount);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_non_zero_vin_amount);
-    GENERATE_AND_PLAY(gen_rct_tx_non_zero_vout_amount);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_duplicate_key_image);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_duplicate_key_image);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_wrong_key_image);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_wrong_key_image);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_wrong_fee);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_wrong_fee);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_remove_vin);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_remove_vin);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_add_vout);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_add_vout);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_increase_vin_and_fee);
-    GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
-    GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
+      GENERATE_AND_PLAY(gen_uint_overflow_1);
+      GENERATE_AND_PLAY(gen_uint_overflow_2);
 
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2_many_inputs);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_22_2_1);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_33_1_23);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_33_3_21);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_23_1_2);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_23_1_3);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_1);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_3);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_45_1_234);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_45_4_135_many_inputs);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_89_3_1245789);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
-    GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
+      GENERATE_AND_PLAY(gen_block_reward);
+
+      GENERATE_AND_PLAY(gen_v2_tx_mixable_0_mixin);
+      GENERATE_AND_PLAY(gen_v2_tx_mixable_low_mixin);
+  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
+  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
+  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
+      GENERATE_AND_PLAY(gen_v2_tx_dust);
+
+      GENERATE_AND_PLAY(gen_rct_tx_valid_from_pre_rct);
+      GENERATE_AND_PLAY(gen_rct_tx_valid_from_rct);
+      GENERATE_AND_PLAY(gen_rct_tx_valid_from_mixed);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_real_dest);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_real_mask);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_fake_dest);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_bad_fake_mask);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_bad_real_dest);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_bad_real_mask);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_bad_fake_dest);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_bad_fake_mask);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_spend_with_zero_commit);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_zero_vin_amount);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_non_zero_vin_amount);
+      GENERATE_AND_PLAY(gen_rct_tx_non_zero_vout_amount);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_duplicate_key_image);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_duplicate_key_image);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_wrong_key_image);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_wrong_key_image);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_wrong_fee);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_wrong_fee);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_remove_vin);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_remove_vin);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_add_vout);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_add_vout);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_increase_vin_and_fee);
+      GENERATE_AND_PLAY(gen_rct_tx_pre_rct_altered_extra);
+      GENERATE_AND_PLAY(gen_rct_tx_rct_altered_extra);
+
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_22_1_2_many_inputs);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_22_2_1);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_33_1_23);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_33_3_21);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_23_1_2);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_23_1_3);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_1);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_23_2_3);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_45_1_234);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_45_4_135_many_inputs);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_89_3_1245789);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
+
+    }
 
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     MLOG(level, "\nREPORT:");
@@ -233,15 +254,6 @@ int main(int argc, char* argv[])
         MLOG(level, "  " << test_name);
       }
     }
-  }
-  else if (command_line::get_arg(vm, arg_test_transactions))
-  {
-    CALL_TEST("TRANSACTIONS TESTS", test_transactions);
-  }
-  else
-  {
-    MERROR("Wrong arguments");
-    return 2;
   }
 
   return failed_tests.empty() ? 0 : 1;
