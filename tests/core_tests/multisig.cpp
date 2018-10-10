@@ -41,6 +41,87 @@ using namespace cryptonote;
 
 //#define NO_MULTISIG
 
+void make_multisig_accounts(std::vector<cryptonote::account_base>& account, uint32_t threshold)
+{
+  std::vector<crypto::secret_key> all_view_keys;
+  std::vector<std::vector<crypto::public_key>> derivations(account.size());
+  //storage for all set of multisig derivations and spend public key (in first round)
+  std::unordered_set<crypto::public_key> exchanging_keys;
+
+  for (size_t msidx = 0; msidx < account.size(); ++msidx)
+  {
+    crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx].get_keys().m_view_secret_key);
+    all_view_keys.push_back(vkh);
+
+    crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx].get_keys().m_spend_secret_key);
+    crypto::public_key pskh;
+    crypto::secret_key_to_public_key(skh, pskh);
+
+    derivations[msidx].push_back(pskh);
+    exchanging_keys.insert(pskh);
+  }
+
+  uint32_t roundsTotal = 1;
+  if (threshold < account.size())
+    roundsTotal = account.size() - threshold;
+
+  //secret multisig keys of every account
+  std::vector<std::vector<crypto::secret_key>> multisig_keys(account.size());
+  std::vector<crypto::secret_key> spend_skey(account.size());
+  std::vector<crypto::public_key> spend_pkey(account.size());
+  for (uint32_t round = 0; round < roundsTotal; ++round)
+  {
+    std::unordered_set<crypto::public_key> roundKeys;
+    for (size_t msidx = 0; msidx < account.size(); ++msidx)
+    {
+      // subtracting one's keys from set of all unique keys is the same as key exchange
+      auto myKeys = exchanging_keys;
+      for (const auto& d: derivations[msidx])
+          myKeys.erase(d);
+
+      if (threshold == account.size())
+      {
+        cryptonote::generate_multisig_N_N(account[msidx].get_keys(), std::vector<crypto::public_key>(myKeys.begin(), myKeys.end()), multisig_keys[msidx], (rct::key&)spend_skey[msidx], (rct::key&)spend_pkey[msidx]);
+      }
+      else
+      {
+        derivations[msidx] = cryptonote::generate_multisig_derivations(account[msidx].get_keys(), std::vector<crypto::public_key>(myKeys.begin(), myKeys.end()));
+        roundKeys.insert(derivations[msidx].begin(), derivations[msidx].end());
+      }
+    }
+
+    exchanging_keys = roundKeys;
+    roundKeys.clear();
+  }
+
+  std::unordered_set<crypto::public_key> all_multisig_keys;
+  for (size_t msidx = 0; msidx < account.size(); ++msidx)
+  {
+    std::unordered_set<crypto::secret_key> view_keys(all_view_keys.begin(), all_view_keys.end());
+    view_keys.erase(all_view_keys[msidx]);
+
+    crypto::secret_key view_skey = cryptonote::generate_multisig_view_secret_key(account[msidx].get_keys().m_view_secret_key, std::vector<secret_key>(view_keys.begin(), view_keys.end()));
+    if (threshold < account.size())
+    {
+      multisig_keys[msidx] = cryptonote::calculate_multisig_keys(derivations[msidx]);
+      spend_skey[msidx] = cryptonote::calculate_multisig_signer_key(multisig_keys[msidx]);
+    }
+    account[msidx].make_multisig(view_skey, spend_skey[msidx], spend_pkey[msidx], multisig_keys[msidx]);
+    for (const auto &k: multisig_keys[msidx]) {
+      all_multisig_keys.insert(rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k))));
+    }
+  }
+
+  if (threshold < account.size())
+  {
+    std::vector<crypto::public_key> public_keys(std::vector<crypto::public_key>(all_multisig_keys.begin(), all_multisig_keys.end()));
+    crypto::public_key spend_pkey = cryptonote::generate_multisig_M_N_spend_public_key(public_keys);
+
+    for (size_t msidx = 0; msidx < account.size(); ++msidx)
+      account[msidx].finalize_multisig(spend_pkey);
+  }
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 // Tests
 
@@ -55,7 +136,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 
   CHECK_AND_ASSERT_MES(total >= 2, false, "Bad scheme");
   CHECK_AND_ASSERT_MES(threshold <= total, false, "Bad scheme");
-  CHECK_AND_ASSERT_MES(threshold >= total - 1, false, "Unsupported scheme");
 #ifdef NO_MULTISIG
   CHECK_AND_ASSERT_MES(total <= 5, false, "Unsupported scheme");
 #endif
@@ -480,6 +560,48 @@ bool gen_multisig_tx_valid_89_3_1245789::generate(std::vector<test_event_entry>&
   return generate_with(events, 2, mixin, amount_paid, true, 8, 9, 3, {1, 2, 4, 5, 7, 8, 9}, NULL, NULL);
 }
 
+bool gen_multisig_tx_valid_24_1_2::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 2, mixin, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_24_1_2_many_inputs::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 4, mixin, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_25_1_2::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 2, mixin, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_25_1_2_many_inputs::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 4, mixin, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_48_1_234::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 2, mixin, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_48_1_234_many_inputs::generate(std::vector<test_event_entry>& events) const
+{
+    const size_t mixin = 4;
+    const uint64_t amount_paid = 10000;
+    return generate_with(events, 4, mixin, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
+}
+
 bool gen_multisig_tx_invalid_22_1__no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const size_t mixin = 4;
@@ -520,4 +642,32 @@ bool gen_multisig_tx_invalid_45_5_23_no_threshold::generate(std::vector<test_eve
   const size_t mixin = 4;
   const uint64_t amount_paid = 10000;
   return generate_with(events, 2, mixin, amount_paid, false, 4, 5, 5, {2, 3}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_24_1_no_signers::generate(std::vector<test_event_entry>& events) const
+{
+  const size_t mixin = 4;
+  const uint64_t amount_paid = 10000;
+  return generate_with(events, 2, mixin, amount_paid, false, 2, 4, 1, {}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_25_1_no_signers::generate(std::vector<test_event_entry>& events) const
+{
+  const size_t mixin = 4;
+  const uint64_t amount_paid = 10000;
+  return generate_with(events, 2, mixin, amount_paid, false, 2, 5, 1, {}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_48_1_no_signers::generate(std::vector<test_event_entry>& events) const
+{
+  const size_t mixin = 4;
+  const uint64_t amount_paid = 10000;
+  return generate_with(events, 2, mixin, amount_paid, false, 4, 8, 1, {}, NULL, NULL);
+}
+
+bool gen_multisig_tx_valid_48_1_23_no_threshold::generate(std::vector<test_event_entry>& events) const
+{
+  const size_t mixin = 4;
+  const uint64_t amount_paid = 10000;
+  return generate_with(events, 2, mixin, amount_paid, false, 4, 8, 1, {2, 3}, NULL, NULL);
 }

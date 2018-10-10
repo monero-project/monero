@@ -5,7 +5,7 @@ $(package)_file_name=$($(package)_version).tar.gz
 $(package)_sha256_hash=a96ecb8637667897b8bd4dee4c22c7c5f08b327be45186e912ce6bc768385852
 
 define $(package)_set_vars
-  $(package)_config_opts=--disable-gudev --disable-introspection --disable-hwdb --disable-manpages
+  $(package)_config_opts=--disable-gudev --disable-introspection --disable-hwdb --disable-manpages --disable-shared
 endef
 
 define $(package)_config_cmds

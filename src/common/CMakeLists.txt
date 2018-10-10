@@ -40,9 +40,11 @@ set(common_sources
   i18n.cpp
   exp2.cpp
   round.cpp
+  rules.cpp
+  notify.cpp
   password.cpp
   perf_timer.cpp
-  rules.cpp
+  spawn.cpp
   threadpool.cpp
   updates.cpp
   aligned.c)
@@ -67,6 +69,7 @@ set(common_private_headers
   expect.h
   http_connection.h
   int-util.h
+  notify.h
   pod-class.h
   rpc_client.h
   scoped_message_writer.h
@@ -77,6 +80,7 @@ set(common_private_headers
   password.h
   perf_timer.h
   rules.h
+  spawn.h
   stack_trace.h
   threadpool.h
   updates.h

@@ -56,6 +56,7 @@ using namespace epee;
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
+#include "common/notify.h"
 #include "version.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
@@ -176,6 +177,11 @@ namespace cryptonote
     "service-node"
   , "Run as a service node"
   };
+  static const command_line::arg_descriptor<std::string> arg_block_notify = {
+    "block-notify"
+  , "Run a program for each new block, '%s' will be replaced by the block hash"
+  , ""
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -288,6 +294,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_service_node);
+    command_line::add_arg(desc, arg_block_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -566,6 +573,16 @@ namespace cryptonote
 
     m_blockchain_storage.set_user_options(blocks_threads,
         sync_on_blocks, sync_threshold, sync_mode, fast_sync);
+
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_block_notify))
+        m_blockchain_storage.set_block_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_block_notify).c_str())));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse block notify spec");
+    }
 
     const std::pair<uint8_t, uint64_t> regtest_hard_forks[3] = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
     const cryptonote::test_options regtest_test_options = {

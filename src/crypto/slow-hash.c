@@ -1040,10 +1040,37 @@ STATIC INLINE void aes_pseudo_round_xor(const uint8_t *in, uint8_t *out, const u
 	}
 }
 
+#ifdef FORCE_USE_HEAP
+STATIC INLINE void* aligned_malloc(size_t size, size_t align)
+{
+    void *result;
+#ifdef _MSC_VER
+    result = _aligned_malloc(size, align);
+#else
+    if (posix_memalign(&result, align, size)) result = NULL;
+#endif
+    return result;
+}
+
+STATIC INLINE void aligned_free(void *ptr)
+{
+#ifdef _MSC_VER
+    _aligned_free(ptr);
+#else
+    free(ptr);
+#endif
+}
+#endif /* FORCE_USE_HEAP */
+
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed)
 {
     RDATA_ALIGN16 uint8_t expandedKey[240];
+
+#ifndef FORCE_USE_HEAP
     RDATA_ALIGN16 uint8_t hp_state[MEMORY];
+#else
+    uint8_t *hp_state = (uint8_t *)aligned_malloc(MEMORY,16);
+#endif
 
     uint8_t text[INIT_SIZE_BYTE];
     RDATA_ALIGN16 uint64_t a[2];
@@ -1129,6 +1156,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     memcpy(state.init, text, INIT_SIZE_BYTE);
     hash_permutation(&state.hs);
     extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
+
+#ifdef FORCE_USE_HEAP
+    aligned_free(hp_state);
+#endif
 }
 #else /* aarch64 && crypto */
 
@@ -1270,8 +1301,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 #ifndef FORCE_USE_HEAP
     uint8_t long_state[MEMORY];
 #else
-    uint8_t *long_state = NULL;
-    long_state = (uint8_t *)malloc(MEMORY);
+    uint8_t *long_state = (uint8_t *)malloc(MEMORY);
 #endif
 
     if (prehashed) {
@@ -1449,7 +1479,12 @@ union cn_slow_hash_state {
 #pragma pack(pop)
 
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed) {
+#ifndef FORCE_USE_HEAP
   uint8_t long_state[MEMORY];
+#else
+  uint8_t *long_state = (uint8_t *)malloc(MEMORY);
+#endif
+
   union cn_slow_hash_state state;
   uint8_t text[INIT_SIZE_BYTE];
   uint8_t a[AES_BLOCK_SIZE];
@@ -1534,6 +1569,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
   /*memcpy(hash, &state, 32);*/
   extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
   oaes_free((OAES_CTX **) &aes_ctx);
+
+#ifdef FORCE_USE_HEAP
+  free(long_state);
+#endif
 }
 
 #endif

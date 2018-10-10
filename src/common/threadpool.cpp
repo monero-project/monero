@@ -55,7 +55,8 @@ void threadpool::stop() {
     has_work.notify_all();
   }
   for (size_t i = 0; i<threads.size(); i++) {
-    threads[i].join();
+    try { threads[i].join(); }
+    catch (...) { /* ignore */ }
   }
   threads.clear();
   queue.clear();

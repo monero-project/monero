@@ -55,6 +55,7 @@
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
+#include "common/notify.h"
 #if defined(PER_BLOCK_CHECKPOINT)
 #include "blocks/blocks.h"
 #endif
@@ -3688,6 +3689,10 @@ leave:
   // drop connection from each other when they go around P2Ping votes.
   m_deregister_vote_pool.remove_expired_votes(new_height + 1);
   m_deregister_vote_pool.remove_used_votes(txs);
+
+  std::shared_ptr<tools::Notify> block_notify = m_block_notify;
+  if (block_notify)
+    block_notify->notify(epee::string_tools::pod_to_hex(id).c_str());
 
   return true;
 }

@@ -49,21 +49,12 @@ namespace hw {
     /* ===================================================================== */
     /* ===                           Debug                              ==== */
     /* ===================================================================== */
-    #ifdef WIN32
-    static char *pcsc_stringify_error(LONG rv) {
-     static __thread char out[20];
-     sprintf_s(out, sizeof(out), "0x%08lX", rv);
-
-     return out;
-    }
-    #endif
 
     void set_apdu_verbose(bool verbose) {
       apdu_verbose = verbose;
     }
 
     #define TRACKD MTRACE("hw")
-    #define ASSERT_RV(rv)        CHECK_AND_ASSERT_THROW_MES((rv)==SCARD_S_SUCCESS, "Fail SCard API : (" << (rv) << ") "<< pcsc_stringify_error(rv)<<" Device="<<this->id<<", hCard="<<hCard<<", hContext="<<hContext);
     #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), "Wrong Device Status : SW=" << std::hex << (sw) << " (EXPECT=" << std::hex << (ok) << ", MASK=" << std::hex << (mask) << ")") ;
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
@@ -186,7 +177,7 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 10000) {
+    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 120000) {
       this->id = device_id++;
       this->reset_buffer();      
       this->mode = NONE;

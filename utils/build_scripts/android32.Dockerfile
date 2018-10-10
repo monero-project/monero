@@ -139,4 +139,4 @@ RUN cd /src \
        CMAKE_LIBRARY_PATH="${PREFIX}/lib" \
        ANDROID_STANDALONE_TOOLCHAIN_PATH=${TOOLCHAIN_DIR} \
        USE_SINGLE_BUILDDIR=1 \
-       PATH=${HOST_PATH} make release-static-android -j${NPROC}
+       PATH=${HOST_PATH} make release-static-android-armv7 -j${NPROC}

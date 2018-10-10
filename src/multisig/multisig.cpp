@@ -85,6 +85,43 @@ namespace cryptonote
     }
   }
   //-----------------------------------------------------------------
+  std::vector<crypto::public_key> generate_multisig_derivations(const account_keys &keys, const std::vector<crypto::public_key> &derivations)
+  {
+    std::vector<crypto::public_key> multisig_keys;
+    crypto::secret_key blinded_skey = get_multisig_blinded_secret_key(keys.m_spend_secret_key);
+    for (const auto &k: derivations)
+    {
+      rct::key d = rct::scalarmultKey(rct::pk2rct(k), rct::sk2rct(blinded_skey));
+      multisig_keys.push_back(rct::rct2pk(d));
+    }
+
+    return multisig_keys;
+  }
+  //-----------------------------------------------------------------
+  crypto::secret_key calculate_multisig_signer_key(const std::vector<crypto::secret_key>& multisig_keys)
+  {
+    rct::key secret_key = rct::zero();
+    for (const auto &k: multisig_keys)
+    {
+      sc_add(secret_key.bytes, secret_key.bytes, (const unsigned char*)k.data);
+    }
+
+    return rct::rct2sk(secret_key);
+  }
+  //-----------------------------------------------------------------
+  std::vector<crypto::secret_key> calculate_multisig_keys(const std::vector<crypto::public_key>& derivations)
+  {
+    std::vector<crypto::secret_key> multisig_keys;
+    multisig_keys.reserve(derivations.size());
+
+    for (const auto &k: derivations)
+    {
+      multisig_keys.emplace_back(get_multisig_blinded_secret_key(rct::rct2sk(rct::pk2rct(k))));
+    }
+
+    return multisig_keys;
+  }
+  //-----------------------------------------------------------------
   crypto::secret_key generate_multisig_view_secret_key(const crypto::secret_key &skey, const std::vector<crypto::secret_key> &skeys)
   {
     rct::key view_skey = rct::sk2rct(get_multisig_blinded_secret_key(skey));
@@ -93,7 +130,7 @@ namespace cryptonote
     return rct::rct2sk(view_skey);
   }
   //-----------------------------------------------------------------
-  crypto::public_key generate_multisig_N1_N_spend_public_key(const std::vector<crypto::public_key> &pkeys)
+  crypto::public_key generate_multisig_M_N_spend_public_key(const std::vector<crypto::public_key> &pkeys)
   {
     rct::key spend_public_key = rct::identity();
     for (const auto &pk: pkeys)
@@ -142,4 +179,9 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------
+  uint32_t multisig_rounds_required(uint32_t participants, uint32_t threshold)
+  {
+    CHECK_AND_ASSERT_THROW_MES(participants >= threshold, "participants must be greater or equal than threshold");
+    return participants - threshold + 1;
+  }
 }
