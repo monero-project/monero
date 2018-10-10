@@ -334,8 +334,10 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
   if (m_nettype == FAKECHAIN)
   {
-    for (size_t n = 0; test_options->hard_forks[n].first; ++n)
-      m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
+    for (auto n = 0u; n < test_options->hard_forks.size(); ++n) {
+      const auto& hf = test_options->hard_forks.at(n);
+      m_hardfork->add_fork(hf.first, hf.second, 0, n + 1);
+    }
   }
   else if (m_nettype == TESTNET)
   {
