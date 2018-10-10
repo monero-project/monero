@@ -559,7 +559,7 @@ static std::vector<output_data> get_spent_outputs(MDB_txn *txn)
   int dbr = mdb_cursor_open(txn, dbi_spent, &cur);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open cursor for spent outputs: " + std::string(mdb_strerror(dbr)));
   MDB_val k, v;
-  uint64_t count = 0;
+  mdb_size_t count = 0;
   dbr = mdb_cursor_get(cur, &k, &v, MDB_FIRST);
   if (dbr != MDB_NOTFOUND)
   {
@@ -973,7 +973,7 @@ static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
       if (pending_offsets.size() == 1)
         fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
       else
-        fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+        fprintf(f, "%" PRIu64 "*%zu\n", pending_offsets.front(), pending_offsets.size());
       pending_offsets.clear();
     }
     if (pending_amount != amount)
@@ -988,7 +988,7 @@ static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
     if (pending_offsets.size() == 1)
       fprintf(f, "%" PRIu64 "\n", pending_offsets.front());
     else
-      fprintf(f, "%" PRIu64 "*%" PRIu64 "\n", pending_offsets.front(), pending_offsets.size());
+      fprintf(f, "%" PRIu64 "*%zu\n", pending_offsets.front(), pending_offsets.size());
     pending_offsets.clear();
   }
   fclose(f);
@@ -1420,7 +1420,7 @@ int main(int argc, char* argv[])
       if (stop_requested)
       {
         MINFO("Stopping secondary passes. Secondary passes are not incremental, they will re-run fully.");
-        return false;
+        return 0;
       }
     }
     if (!blackballs.empty())

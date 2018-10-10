@@ -32,6 +32,7 @@
 
 #include "misc_log_ex.h"
 #include "wipeable_string.h"
+#include "hex.h"
 
 TEST(wipeable_string, ctor)
 {
@@ -201,4 +202,10 @@ TEST(wipeable_string, parse_hexstr)
   ASSERT_EQ(*s, epee::wipeable_string("A"));
   ASSERT_TRUE((s = epee::wipeable_string("414243").parse_hexstr()));
   ASSERT_EQ(*s, epee::wipeable_string("ABC"));
+}
+
+TEST(wipeable_string, to_hex)
+{
+  ASSERT_TRUE(epee::to_hex::wipeable_string(epee::span<const uint8_t>((const uint8_t*)"", 0)) == epee::wipeable_string(""));
+  ASSERT_TRUE(epee::to_hex::wipeable_string(epee::span<const uint8_t>((const uint8_t*)"abc", 3)) == epee::wipeable_string("616263"));
 }

@@ -387,7 +387,7 @@ Then you can run make as usual.
         # Get binaries
         docker cp loki-android:/opt/android/loki/build/release/bin .
 
-### Building portable statically linked binaries
+### Building portable statically linked binaries (Cross Compiling)
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
 
