@@ -168,6 +168,14 @@ bool WalletManagerImpl::verifyWalletPassword(const std::string &keys_file_name, 
 	    return tools::wallet2::verify_password(keys_file_name, password, no_spend_key, hw::get_device("default"), kdf_rounds);
 }
 
+bool WalletManagerImpl::queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds) const
+{
+    hw::device::device_type type;
+    bool r = tools::wallet2::query_device(type, keys_file_name, password, kdf_rounds);
+    device_type = static_cast<Wallet::Device>(type);
+    return r;
+}
+
 std::vector<std::string> WalletManagerImpl::findWallets(const std::string &path)
 {
     std::vector<std::string> result;

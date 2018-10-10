@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -52,11 +53,15 @@ namespace epee
   template<typename T>
   class span
   {
-    /* Supporting class types is tricky - the {ptr,len} constructor will allow
-       derived-to-base conversions. This is NOT desireable because an array of
-       derived types is not an array of base types. It is possible to handle
-       this case, implement when/if needed. */
-    static_assert(!std::is_class<T>(), "no class types are currently allowed");
+    template<typename U>
+    static constexpr bool safe_conversion() noexcept
+    {
+      // Allow exact matches or `T*` -> `const T*`.
+      using with_const = typename std::add_const<U>::type;
+      return std::is_same<T, U>() ||
+        (std::is_const<T>() && std::is_same<T, with_const>());
+    }
+
   public:
     using value_type = T;
     using size_type = std::size_t;
@@ -71,7 +76,9 @@ namespace epee
     constexpr span() noexcept : ptr(nullptr), len(0) {}
     constexpr span(std::nullptr_t) noexcept : span() {}
 
-    constexpr span(T* const src_ptr, const std::size_t count) noexcept
+    //! Prevent derived-to-base conversions; invalid in this context.
+    template<typename U, typename = typename std::enable_if<safe_conversion<U>()>::type>
+    constexpr span(U* const src_ptr, const std::size_t count) noexcept
       : ptr(src_ptr), len(count) {}
 
     //! Conversion from C-array. Prevents common bugs with sizeof + arrays.
@@ -80,6 +87,16 @@ namespace epee
 
     constexpr span(const span&) noexcept = default;
     span& operator=(const span&) noexcept = default;
+
+    /*! Try to remove `amount` elements from beginning of span.
+    \return Number of elements removed. */
+    std::size_t remove_prefix(std::size_t amount) noexcept
+    {
+        amount = std::min(len, amount);
+        ptr += amount;
+        len -= amount;
+        return amount;
+    }
 
     constexpr iterator begin() const noexcept { return ptr; }
     constexpr const_iterator cbegin() const noexcept { return ptr; }
@@ -100,6 +117,14 @@ namespace epee
   //! \return `span<const T::value_type>` from a STL compatible `src`.
   template<typename T>
   constexpr span<const typename T::value_type> to_span(const T& src)
+  {
+    // compiler provides diagnostic if size() is not size_t.
+    return {src.data(), src.size()};
+  }
+
+  //! \return `span<T::value_type>` from a STL compatible `src`.
+  template<typename T>
+  constexpr span<typename T::value_type> to_mut_span(T& src)
   {
     // compiler provides diagnostic if size() is not size_t.
     return {src.data(), src.size()};
@@ -126,5 +151,14 @@ namespace epee
     static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
     static_assert(!has_padding<T>(), "source type may have padding");
     return {reinterpret_cast<const std::uint8_t*>(std::addressof(src)), sizeof(T)};
+  }
+
+  //! \return `span<std::uint8_t>` which represents the bytes at `&src`.
+  template<typename T>
+  span<std::uint8_t> as_mut_byte_span(T& src) noexcept
+  {
+    static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
+    static_assert(!has_padding<T>(), "source type may have padding");
+    return {reinterpret_cast<std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
 }

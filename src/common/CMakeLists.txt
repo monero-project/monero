@@ -34,6 +34,8 @@ set(common_sources
   command_line.cpp
   dns_utils.cpp
   download.cpp
+  error.cpp
+  expect.cpp
   util.cpp
   i18n.cpp
   exp2.cpp
@@ -61,6 +63,8 @@ set(common_private_headers
   download.h
   exp2.h
   round.h
+  error.h
+  expect.h
   http_connection.h
   int-util.h
   pod-class.h

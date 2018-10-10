@@ -47,6 +47,7 @@ set(unit_tests_sources
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
   epee_utils.cpp
+  expect.cpp
   fee.cpp
   json_serialization.cpp
   get_xtype_from_string.cpp

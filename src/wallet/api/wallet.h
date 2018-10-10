@@ -79,6 +79,7 @@ public:
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
+    Device getDeviceType() const;
     bool close(bool store = true);
     std::string seed() const override;
     std::string getSeedLanguage() const override;
@@ -139,6 +140,7 @@ public:
     bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
+    bool hasMultisigPartialKeyImages() const override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
 
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
@@ -181,7 +183,7 @@ public:
     virtual bool lightWalletLogin(bool &isNewWallet) const override;
     virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status) override;
     virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) override;
-    virtual bool unblackballOutput(const std::string &pubkey) override;
+    virtual bool unblackballOutput(const std::string &amount, const std::string &offset) override;
     virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const override;
     virtual bool getRings(const std::string &txid, std::vector<std::pair<std::string, std::vector<uint64_t>>> &rings) const override;
     virtual bool setRing(const std::string &key_image, const std::vector<uint64_t> &ring, bool relative) override;

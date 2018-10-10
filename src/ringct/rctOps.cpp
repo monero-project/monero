@@ -252,6 +252,25 @@ namespace rct {
       return k;
     }
 
+    rct::key addKeys(const keyV &A) {
+      if (A.empty())
+        return rct::identity();
+      ge_p3 p3, tmp;
+      CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&p3, A[0].bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+      for (size_t i = 1; i < A.size(); ++i)
+      {
+        CHECK_AND_ASSERT_THROW_MES_L1(ge_frombytes_vartime(&tmp, A[i].bytes) == 0, "ge_frombytes_vartime failed at "+boost::lexical_cast<std::string>(__LINE__));
+        ge_cached p2;
+        ge_p3_to_cached(&p2, &tmp);
+        ge_p1p1 p1;
+        ge_add(&p1, &p3, &p2);
+        ge_p1p1_to_p3(&p3, &p1);
+      }
+      rct::key res;
+      ge_p3_tobytes(res.bytes, &p3);
+      return res;
+    }
+
     //addKeys1
     //aGB = aG + B where a is a scalar, G is the basepoint, and B is a point
     void addKeys1(key &aGB, const key &a, const key & B) {
