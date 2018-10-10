@@ -57,7 +57,7 @@ DISABLE_VS_WARNINGS(4355)
 namespace cryptonote
 {
    struct test_options {
-     const std::pair<uint8_t, uint64_t> *hard_forks;
+     const std::vector<std::pair<uint8_t, uint64_t>> hard_forks;
    };
 
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;

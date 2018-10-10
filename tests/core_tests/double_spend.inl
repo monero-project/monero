@@ -96,10 +96,10 @@ bool gen_double_spend_base<concrete_test>::check_double_spend(cryptonote::core& 
   }
   CHECK_NOT_EQ(invalid_index_value, m_invalid_block_index);
 
-  std::vector<cryptonote::block> block_list;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, block_list);
+  std::vector<cryptonote::block> blocks;
+  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
   CHECK_TEST_CONDITION(r);
-  CHECK_TEST_CONDITION(m_last_valid_block == block_list.back());
+  CHECK_TEST_CONDITION(m_last_valid_block == blocks.back());
 
   CHECK_EQ(concrete_test::expected_pool_txs_count, c.get_pool_transactions_count());
 
@@ -108,7 +108,6 @@ bool gen_double_spend_base<concrete_test>::check_double_spend(cryptonote::core& 
 
   std::vector<cryptonote::block> chain;
   map_hash2tx_t mtx;
-  std::vector<cryptonote::block> blocks(block_list.begin(), block_list.end());
   r = find_block_chain(events, chain, mtx, get_block_hash(blocks.back()));
   CHECK_TEST_CONDITION(r);
   CHECK_EQ(concrete_test::expected_bob_balance, get_balance(bob_account, blocks, mtx));
