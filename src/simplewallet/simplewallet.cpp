@@ -6092,6 +6092,25 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
     local_args.erase(local_args.begin() + 1);
   }
 
+  size_t outputs = 1;
+  if (local_args.size() > 0 && local_args[0].substr(0, 8) == "outputs=")
+  {
+    if (!epee::string_tools::get_xtype_from_string(outputs, local_args[0].substr(8)))
+    {
+      fail_msg_writer() << tr("Failed to parse number of outputs");
+      return true;
+    }
+    else if (outputs < 1)
+    {
+      fail_msg_writer() << tr("Amount of outputs should be greater than 0");
+      return true;
+    }
+    else
+    {
+      local_args.erase(local_args.begin());
+    }
+  }
+
   std::vector<uint8_t> extra;
   bool payment_id_seen = false;
   if (local_args.size() >= 2)
