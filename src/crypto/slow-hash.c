@@ -198,6 +198,22 @@ extern int aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *exp
     } while (0)
 #endif
 
+#define VARIANT2_2_PORTABLE() \
+    if (variant >= 2) { \
+      xor_blocks(long_state + (j ^ 0x10), d); \
+      xor_blocks(d, long_state + (j ^ 0x20)); \
+    }
+
+#define VARIANT2_2() \
+  do if (variant >= 2) \
+  { \
+    *U64(hp_state + (j ^ 0x10)) ^= hi; \
+    *(U64(hp_state + (j ^ 0x10)) + 1) ^= lo; \
+    hi ^= *U64(hp_state + (j ^ 0x20)); \
+    lo ^= *(U64(hp_state + (j ^ 0x20)) + 1); \
+  } while (0)
+
+
 #if !defined NO_AES && (defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64)))
 // Optimised code below, uses x86-specific intrinsics, SSE2, AES-NI
 // Fall back to more portable code is down at the bottom
@@ -282,6 +298,7 @@ extern int aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *exp
   b[0] = p[0]; b[1] = p[1]; \
   VARIANT2_INTEGER_MATH_SSE2(b, c); \
   __mul(); \
+  VARIANT2_2(); \
   VARIANT2_SHUFFLE_ADD_SSE2(hp_state, j); \
   a[0] += hi; a[1] += lo; \
   p = U64(&hp_state[j]); \
@@ -884,6 +901,7 @@ union cn_slow_hash_state
   b[0] = p[0]; b[1] = p[1]; \
   VARIANT2_PORTABLE_INTEGER_MATH(b, c); \
   __mul(); \
+  VARIANT2_2(); \
   VARIANT2_SHUFFLE_ADD_NEON(hp_state, j); \
   a[0] += hi; a[1] += lo; \
   p = U64(&hp_state[j]); \
@@ -1305,6 +1323,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 
       VARIANT2_PORTABLE_INTEGER_MATH(c, c1);
       mul(c1, c, d);
+      VARIANT2_2_PORTABLE();
       VARIANT2_PORTABLE_SHUFFLE_ADD(long_state, j);
       sum_half_blocks(a, d);
       swap_blocks(a, c);
@@ -1486,6 +1505,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
     copy_block(c2, &long_state[j]);
     VARIANT2_PORTABLE_INTEGER_MATH(c2, c1);
     mul(c1, c2, d);
+    VARIANT2_2_PORTABLE();
     VARIANT2_PORTABLE_SHUFFLE_ADD(long_state, j);
     swap_blocks(a, c1);
     sum_half_blocks(c1, d);

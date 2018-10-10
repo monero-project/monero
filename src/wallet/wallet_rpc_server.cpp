@@ -3295,9 +3295,12 @@ class t_daemon
 private:
   const boost::program_options::variables_map& vm;
 
+  std::unique_ptr<tools::wallet_rpc_server> wrpc;
+
 public:
   t_daemon(boost::program_options::variables_map const & _vm)
     : vm(_vm)
+    , wrpc(new tools::wallet_rpc_server)
   {
   }
 
@@ -3387,17 +3390,16 @@ public:
       return false;
     }
   just_dir:
-    tools::wallet_rpc_server wrpc;
-    if (wal) wrpc.set_wallet(wal.release());
-    bool r = wrpc.init(&vm);
+    if (wal) wrpc->set_wallet(wal.release());
+    bool r = wrpc->init(&vm);
     CHECK_AND_ASSERT_MES(r, false, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
-    tools::signal_handler::install([&wrpc](int) {
-      wrpc.send_stop_signal();
+    tools::signal_handler::install([this](int) {
+      wrpc->send_stop_signal();
     });
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
     try
     {
-      wrpc.run();
+      wrpc->run();
     }
     catch (const std::exception &e)
     {
@@ -3408,7 +3410,7 @@ public:
     try
     {
       LOG_PRINT_L0(tools::wallet_rpc_server::tr("Saving wallet..."));
-      wrpc.stop();
+      wrpc->stop();
       LOG_PRINT_L0(tools::wallet_rpc_server::tr("Successfully saved"));
     }
     catch (const std::exception& e)
@@ -3418,6 +3420,11 @@ public:
     }
     return true;
   }
+
+  void stop()
+  {
+    wrpc->send_stop_signal();
+  }
 };
 
 class t_executor final
@@ -3425,7 +3432,9 @@ class t_executor final
 public:
   static std::string const NAME;
 
-  std::string const & name()
+  typedef ::t_daemon t_daemon;
+
+  std::string const & name() const
   {
     return NAME;
   }
