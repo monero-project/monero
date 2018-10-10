@@ -158,6 +158,13 @@ namespace
         if (!aPass.empty())
         {
           aPass.pop_back();
+          if (!hide_input)
+            std::cout << "\b\b\b   \b\b\b" << std::flush;
+        }
+        else
+        {
+          if (!hide_input)
+            std::cout << "\b\b  \b\b" << std::flush;
         }
       }
       else
