@@ -5607,6 +5607,10 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     ptx.construction_data = sd;
 
     txs.push_back(ptx);
+
+    // add tx keys only to ptx
+    txs.back().tx_key = tx_key;
+    txs.back().additional_tx_keys = additional_tx_keys;
   }
 
   // add key images
