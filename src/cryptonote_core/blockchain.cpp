@@ -1111,11 +1111,6 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
 // This function validates the miner transaction reward
 bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version)
 {
-  if (version == 10)
-  {
-    volatile int break_here = 5;
-  }
-
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
   uint64_t money_in_use = 0;
@@ -3495,12 +3490,6 @@ leave:
   TIME_MEASURE_FINISH(t3);
 
 // XXX old code adds miner tx here
-
-  auto volatile version = m_hardfork->get_current_version();
-  if (version == 10)
-  {
-    int volatile break_here = 5;
-  }
 
   size_t tx_index = 0;
   // Iterate over the block's transaction hashes, grabbing each
