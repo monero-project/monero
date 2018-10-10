@@ -1980,7 +1980,7 @@ namespace cryptonote
     PERF_TIMER(on_get_quorum_state);
     bool r;
 
-    const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_core.get_quorum_state(req.height);
+    const auto quorum_state = m_core.get_quorum_state(req.height);
     r = (quorum_state != nullptr);
     if (r)
     {

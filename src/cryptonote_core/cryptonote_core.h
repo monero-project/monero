@@ -796,7 +796,7 @@ namespace cryptonote
 
       * @return Null shared ptr if quorum has not been determined yet for height
       */
-     const std::shared_ptr<service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
+     const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
 
      /**
       * @brief Get a snapshot of the service node list state at the time of the call.
@@ -807,6 +807,14 @@ namespace cryptonote
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
+    /**
+      * @brief get whether `pubkey` is known as a service node
+      *
+      * @param pubkey the public key to test
+      *
+      * @return whether `pubkey` is known as a service node
+      */
+    bool is_service_node(const crypto::public_key& pubkey) const;
      /**
       * @brief Add a vote to deregister a service node from network
       *
