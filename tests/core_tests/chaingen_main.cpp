@@ -91,17 +91,28 @@ int main(int argc, char* argv[])
   {
     PLAY("chain001.dat", gen_simple_chain_001);
   }
-  else if (command_line::get_arg(vm, arg_generate_and_play_test_data))
+  else if (command_line::get_arg(vm, arg_test_transactions))
   {
+    CALL_TEST("TRANSACTIONS TESTS", test_transactions);
+  }
+  else
+  {
+    const bool run_all = !command_line::get_arg(vm, arg_service_nodes);
 
-    if (command_line::get_arg(vm, arg_service_nodes))
+    if (run_all) {
+      MLOG(el::Level::Info, "Running all tests\n");
+    }
+
+    if (run_all || command_line::get_arg(vm, arg_service_nodes))
     {
       GENERATE_AND_PLAY(gen_service_nodes);
       GENERATE_AND_PLAY(test_prefer_deregisters);
       GENERATE_AND_PLAY(test_zero_fee_deregister);
       GENERATE_AND_PLAY(test_deregister_safety_buffer);
       GENERATE_AND_PLAY(test_deregisters_on_split);
-    } else
+    }
+
+    if (run_all)
     {
       GENERATE_AND_PLAY(gen_simple_chain_001);
       GENERATE_AND_PLAY(gen_simple_chain_split_1);
@@ -243,15 +254,6 @@ int main(int argc, char* argv[])
         MLOG(level, "  " << test_name);
       }
     }
-  }
-  else if (command_line::get_arg(vm, arg_test_transactions))
-  {
-    CALL_TEST("TRANSACTIONS TESTS", test_transactions);
-  }
-  else
-  {
-    MERROR("Wrong arguments");
-    return 2;
   }
 
   return failed_tests.empty() ? 0 : 1;
