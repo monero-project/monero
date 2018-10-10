@@ -140,7 +140,7 @@ namespace hw {
 
         bool set_mode(device_mode mode) override;
 
-        device_type get_type() const {return device_type::LEDGER;};
+        device_type get_type() const override {return device_type::LEDGER;};
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */

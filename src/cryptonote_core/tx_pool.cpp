@@ -1468,6 +1468,7 @@ namespace cryptonote
         {
           MWARNING("Failed to parse tx from txpool, removing");
           remove.push_back(txid);
+          return true;
         }
         if (!insert_key_images(tx, meta.kept_by_block))
         {
