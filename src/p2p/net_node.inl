@@ -450,11 +450,11 @@ namespace nodetool
       // for some time yet.
 
       std::vector<std::vector<std::string>> dns_results;
-      dns_results.resize(m_seed_nodes_list.size());
+      dns_results.resize(p2p::seed_nodes_list.size());
 
       std::list<boost::thread> dns_threads;
       uint64_t result_index = 0;
-      for (const std::string& addr_str : m_seed_nodes_list)
+      for (const std::string& addr_str : p2p::seed_nodes_list)
       {
         boost::thread th = boost::thread([=, &dns_results, &addr_str]
         {
@@ -502,7 +502,7 @@ namespace nodetool
       i = 0;
       for (const auto& result : dns_results)
       {
-        MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
+        MDEBUG("DNS lookup for " << p2p::seed_nodes_list[i] << ": " << result.size() << " results");
         // if no results for node, thread's lookup likely timed out
         if (result.size())
         {
