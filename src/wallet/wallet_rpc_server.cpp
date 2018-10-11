@@ -3072,6 +3072,11 @@ namespace tools
       er.code = WALLET_RPC_ERROR_CODE_ADDRESS_INDEX_OUT_OF_BOUNDS;
       er.message = e.what();
     }
+    catch (const error::signature_check_failed& e)
+    {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_SIGNATURE;
+        er.message = e.what();
+    }
     catch (const std::exception& e)
     {
       er.code = default_error_code;
