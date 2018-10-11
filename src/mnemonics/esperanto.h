@@ -58,7 +58,10 @@ namespace Language
   class Esperanto: public Base
   {
   public:
-    Esperanto(): Base("Esperanto", "Esperanto", std::vector<std::string>({
+    Esperanto(): Base("Esperanto", "Esperanto", {}, 4)
+    {
+      static constexpr const char * const words[NWORDS] =
+      {
       "abako",
       "abdiki",
       "abelo",
@@ -1685,8 +1688,8 @@ namespace Language
       "zorgi",
       "zukino",
       "zumilo",
-      }), 4)
-    {
+      };
+      set_words(words);
       populate_maps();
     }
   };

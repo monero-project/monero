@@ -87,8 +87,8 @@ const command_line::arg_descriptor<std::string> arg_db_type = {
 };
 const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
   "db-sync-mode"
-, "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[nblocks_per_sync]." 
-, "fast:async:1000"
+, "Specify sync option, using format [safe|fast|fastest]:[sync|async]:[<nblocks_per_sync>[blocks]|<nbytes_per_sync>[bytes]]." 
+, "fast:async:250000000bytes"
 };
 const command_line::arg_descriptor<bool> arg_db_salvage  = {
   "db-salvage"
@@ -196,7 +196,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
 }
 
 uint64_t BlockchainDB::add_block( const block& blk
-                                , const size_t& block_size
+                                , size_t block_weight
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<transaction>& txs
@@ -241,7 +241,7 @@ uint64_t BlockchainDB::add_block( const block& blk
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_size, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
+  add_block(blk, block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 

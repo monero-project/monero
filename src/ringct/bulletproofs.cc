@@ -30,14 +30,17 @@
 
 #include <stdlib.h>
 #include <openssl/ssl.h>
+#include <openssl/bn.h>
 #include <boost/thread/mutex.hpp>
 #include "misc_log_ex.h"
 #include "common/perf_timer.h"
+#include "cryptonote_config.h"
 extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
 #include "rctOps.h"
+#include "multiexp.h"
 #include "bulletproofs.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -47,27 +50,99 @@ extern "C"
 
 #define PERF_TIMER_START_BP(x) PERF_TIMER_START_UNIT(x, 1000000)
 
+#define STRAUS_SIZE_LIMIT 128
+#define PIPPENGER_SIZE_LIMIT 0
+
 namespace rct
 {
 
 static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b);
-static rct::keyV vector_powers(rct::key x, size_t n);
+static rct::keyV vector_powers(const rct::key &x, size_t n);
+static rct::keyV vector_dup(const rct::key &x, size_t n);
 static rct::key inner_product(const rct::keyV &a, const rct::keyV &b);
 
 static constexpr size_t maxN = 64;
-static rct::key Hi[maxN], Gi[maxN];
-static ge_dsmp Gprecomp[64], Hprecomp[64];
+static constexpr size_t maxM = BULLETPROOF_MAX_OUTPUTS;
+static rct::key Hi[maxN*maxM], Gi[maxN*maxM];
+static ge_p3 Hi_p3[maxN*maxM], Gi_p3[maxN*maxM];
+static std::shared_ptr<straus_cached_data> straus_HiGi_cache;
+static std::shared_ptr<pippenger_cached_data> pippenger_HiGi_cache;
 static const rct::key TWO = { {0x02, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00 , 0x00, 0x00, 0x00,0x00  } };
-static const rct::keyV oneN = vector_powers(rct::identity(), maxN);
+static const rct::key MINUS_ONE = { { 0xec, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 } };
+static const rct::key MINUS_INV_EIGHT = { { 0x74, 0xa4, 0x19, 0x7a, 0xf0, 0x7d, 0x0b, 0xf7, 0x05, 0xc2, 0xda, 0x25, 0x2b, 0x5c, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a } };
+static const rct::keyV oneN = vector_dup(rct::identity(), maxN);
 static const rct::keyV twoN = vector_powers(TWO, maxN);
 static const rct::key ip12 = inner_product(oneN, twoN);
 static boost::mutex init_mutex;
+
+static inline rct::key multiexp(const std::vector<MultiexpData> &data, bool HiGi)
+{
+  if (HiGi)
+  {
+    static_assert(128 <= STRAUS_SIZE_LIMIT, "Straus in precalc mode can only be calculated till STRAUS_SIZE_LIMIT");
+    return data.size() <= 128 ? straus(data, straus_HiGi_cache, 0) : pippenger(data, pippenger_HiGi_cache, get_pippenger_c(data.size()));
+  }
+  else
+    return data.size() <= 64 ? straus(data, NULL, 0) : pippenger(data, NULL, get_pippenger_c(data.size()));
+}
+
+static bool is_reduced(const rct::key &scalar)
+{
+  rct::key reduced = scalar;
+  sc_reduce32(reduced.bytes);
+  return scalar == reduced;
+}
+
+static void addKeys_acc_p3(ge_p3 *acc_p3, const rct::key &a, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_scalarmult_p3(&p3, a.bytes, &p3);
+    ge_cached cached;
+    ge_p3_to_cached(&cached, acc_p3);
+    ge_p1p1 p1;
+    ge_add(&p1, &p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
+static void add_acc_p3(ge_p3 *acc_p3, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_cached cached;
+    ge_p3_to_cached(&cached, &p3);
+    ge_p1p1 p1;
+    ge_add(&p1, acc_p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
+static void sub_acc_p3(ge_p3 *acc_p3, const rct::key &point)
+{
+    ge_p3 p3;
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&p3, point.bytes) == 0, "ge_frombytes_vartime failed");
+    ge_cached cached;
+    ge_p3_to_cached(&cached, &p3);
+    ge_p1p1 p1;
+    ge_sub(&p1, acc_p3, &cached);
+    ge_p1p1_to_p3(acc_p3, &p1);
+}
+
+static rct::key scalarmultKey(const ge_p3 &P, const rct::key &a)
+{
+  ge_p2 R;
+  ge_scalarmult(&R, a.bytes, &P);
+  rct::key aP;
+  ge_tobytes(aP.bytes, &R);
+  return aP;
+}
 
 static rct::key get_exponent(const rct::key &base, size_t idx)
 {
   static const std::string salt("bulletproof");
   std::string hashed = std::string((const char*)base.bytes, sizeof(base)) + salt + tools::get_varint_data(idx);
-  return rct::hashToPoint(rct::hash2rct(crypto::cn_fast_hash(hashed.data(), hashed.size())));
+  const rct::key e = rct::hashToPoint(rct::hash2rct(crypto::cn_fast_hash(hashed.data(), hashed.size())));
+  CHECK_AND_ASSERT_THROW_MES(!(e == rct::identity()), "Exponent is point at infinity");
+  return e;
 }
 
 static void init_exponents()
@@ -77,13 +152,27 @@ static void init_exponents()
   static bool init_done = false;
   if (init_done)
     return;
-  for (size_t i = 0; i < maxN; ++i)
+  std::vector<MultiexpData> data;
+  for (size_t i = 0; i < maxN*maxM; ++i)
   {
     Hi[i] = get_exponent(rct::H, i * 2);
-    rct::precomp(Hprecomp[i], Hi[i]);
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Hi_p3[i], Hi[i].bytes) == 0, "ge_frombytes_vartime failed");
     Gi[i] = get_exponent(rct::H, i * 2 + 1);
-    rct::precomp(Gprecomp[i], Gi[i]);
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&Gi_p3[i], Gi[i].bytes) == 0, "ge_frombytes_vartime failed");
+
+    data.push_back({rct::zero(), Gi[i]});
+    data.push_back({rct::zero(), Hi[i]});
   }
+
+  straus_HiGi_cache = straus_init_cache(data, STRAUS_SIZE_LIMIT);
+  pippenger_HiGi_cache = pippenger_init_cache(data, PIPPENGER_SIZE_LIMIT);
+
+  MINFO("Hi/Gi cache size: " << (sizeof(Hi)+sizeof(Gi))/1024 << " kB");
+  MINFO("Hi_p3/Gi_p3 cache size: " << (sizeof(Hi_p3)+sizeof(Gi_p3))/1024 << " kB");
+  MINFO("Straus cache size: " << straus_get_cache_size(straus_HiGi_cache)/1024 << " kB");
+  MINFO("Pippenger cache size: " << pippenger_get_cache_size(pippenger_HiGi_cache)/1024 << " kB");
+  size_t cache_size = (sizeof(Hi)+sizeof(Hi_p3))*2 + straus_get_cache_size(straus_HiGi_cache) + pippenger_get_cache_size(pippenger_HiGi_cache);
+  MINFO("Total cache size: " << cache_size/1024 << "kB");
   init_done = true;
 }
 
@@ -91,15 +180,16 @@ static void init_exponents()
 static rct::key vector_exponent(const rct::keyV &a, const rct::keyV &b)
 {
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
-  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN, "Incompatible sizes of a and maxN");
-  rct::key res = rct::identity();
+  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
+
+  std::vector<MultiexpData> multiexp_data;
+  multiexp_data.reserve(a.size()*2);
   for (size_t i = 0; i < a.size(); ++i)
   {
-    rct::key term;
-    rct::addKeys3(term, a[i], Gprecomp[i], b[i], Hprecomp[i]);
-    rct::addKeys(res, res, term);
+    multiexp_data.emplace_back(a[i], Gi_p3[i]);
+    multiexp_data.emplace_back(b[i], Hi_p3[i]);
   }
-  return res;
+  return multiexp(multiexp_data, true);
 }
 
 /* Compute a custom vector-scalar commitment */
@@ -108,44 +198,24 @@ static rct::key vector_exponent_custom(const rct::keyV &A, const rct::keyV &B, c
   CHECK_AND_ASSERT_THROW_MES(A.size() == B.size(), "Incompatible sizes of A and B");
   CHECK_AND_ASSERT_THROW_MES(a.size() == b.size(), "Incompatible sizes of a and b");
   CHECK_AND_ASSERT_THROW_MES(a.size() == A.size(), "Incompatible sizes of a and A");
-  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN, "Incompatible sizes of a and maxN");
-  rct::key res = rct::identity();
+  CHECK_AND_ASSERT_THROW_MES(a.size() <= maxN*maxM, "Incompatible sizes of a and maxN");
+
+  std::vector<MultiexpData> multiexp_data;
+  multiexp_data.reserve(a.size()*2);
   for (size_t i = 0; i < a.size(); ++i)
   {
-    rct::key term;
-#if 0
-    // we happen to know where A and B might fall, so don't bother checking the rest
-    ge_dsmp *Acache = NULL, *Bcache = NULL;
-    ge_dsmp Acache_custom[1], Bcache_custom[1];
-    if (Gi[i] == A[i])
-      Acache = Gprecomp + i;
-    else if (i<32 && Gi[i+32] == A[i])
-      Acache = Gprecomp + i + 32;
-    else
-    {
-      rct::precomp(Acache_custom[0], A[i]);
-      Acache = Acache_custom;
-    }
-    if (i == 0 && B[i] == Hi[0])
-      Bcache = Hprecomp;
-    else
-    {
-      rct::precomp(Bcache_custom[0], B[i]);
-      Bcache = Bcache_custom;
-    }
-    rct::addKeys3(term, a[i], *Acache, b[i], *Bcache);
-#else
-    ge_dsmp Acache, Bcache;
-    rct::precomp(Bcache, B[i]);
-    rct::addKeys3(term, a[i], A[i], b[i], Bcache);
-#endif
-    rct::addKeys(res, res, term);
+    multiexp_data.resize(multiexp_data.size() + 1);
+    multiexp_data.back().scalar = a[i];
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, A[i].bytes) == 0, "ge_frombytes_vartime failed");
+    multiexp_data.resize(multiexp_data.size() + 1);
+    multiexp_data.back().scalar = b[i];
+    CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&multiexp_data.back().point, B[i].bytes) == 0, "ge_frombytes_vartime failed");
   }
-  return res;
+  return multiexp(multiexp_data, false);
 }
 
 /* Given a scalar, construct a vector of powers */
-static rct::keyV vector_powers(rct::key x, size_t n)
+static rct::keyV vector_powers(const rct::key &x, size_t n)
 {
   rct::keyV res(n);
   if (n == 0)
@@ -157,6 +227,24 @@ static rct::keyV vector_powers(rct::key x, size_t n)
   for (size_t i = 2; i < n; ++i)
   {
     sc_mul(res[i].bytes, res[i-1].bytes, x.bytes);
+  }
+  return res;
+}
+
+/* Given a scalar, return the sum of its powers from 0 to n-1 */
+static rct::key vector_power_sum(const rct::key &x, size_t n)
+{
+  if (n == 0)
+    return rct::zero();
+  rct::key res = rct::identity();
+  if (n == 1)
+    return res;
+  rct::key prev = x;
+  for (size_t i = 1; i < n; ++i)
+  {
+    if (i > 1)
+      sc_mul(prev.bytes, prev.bytes, x.bytes);
+    sc_add(res.bytes, res.bytes, prev.bytes);
   }
   return res;
 }
@@ -232,6 +320,12 @@ static rct::keyV vector_scalar(const rct::keyV &a, const rct::key &x)
   return res;
 }
 
+/* Create a vector from copies of a single value */
+static rct::keyV vector_dup(const rct::key &x, size_t N)
+{
+  return rct::keyV(N, x);
+}
+
 /* Exponentiate a curve vector by a scalar */
 static rct::keyV vector_scalar2(const rct::keyV &a, const rct::key &x)
 {
@@ -239,6 +333,17 @@ static rct::keyV vector_scalar2(const rct::keyV &a, const rct::key &x)
   for (size_t i = 0; i < a.size(); ++i)
   {
     rct::scalarmultKey(res[i], a[i], x);
+  }
+  return res;
+}
+
+/* Get the sum of a vector's elements */
+static rct::key vector_sum(const rct::keyV &a)
+{
+  rct::key res = rct::zero();
+  for (size_t i = 0; i < a.size(); ++i)
+  {
+    sc_add(res.bytes, res.bytes, a[i].bytes);
   }
   return res;
 }
@@ -345,6 +450,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   PERF_TIMER_START_BP(PROVE_v);
   rct::addKeys2(V, gamma, sv, rct::H);
+  V = rct::scalarmultKey(V, INV_EIGHT);
   PERF_TIMER_STOP(PROVE_v);
 
   PERF_TIMER_START_BP(PROVE_aLaR);
@@ -380,12 +486,14 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   CHECK_AND_ASSERT_THROW_MES(test_aR == v_test, "test_aR failed");
 #endif
 
+try_again:
   PERF_TIMER_START_BP(PROVE_step1);
   // PAPER LINES 38-39
   rct::key alpha = rct::skGen();
   rct::key ve = vector_exponent(aL, aR);
   rct::key A;
   rct::addKeys(A, ve, rct::scalarmultBase(alpha));
+  A = rct::scalarmultKey(A, INV_EIGHT);
 
   // PAPER LINES 40-42
   rct::keyV sL = rct::skvGen(N), sR = rct::skvGen(N);
@@ -393,10 +501,23 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   ve = vector_exponent(sL, sR);
   rct::key S;
   rct::addKeys(S, ve, rct::scalarmultBase(rho));
+  S = rct::scalarmultKey(S, INV_EIGHT);
 
   // PAPER LINES 43-45
   rct::key y = hash_cache_mash(hash_cache, A, S);
+  if (y == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("y is 0, trying again");
+    goto try_again;
+  }
   rct::key z = hash_cache = rct::hash_to_scalar(y);
+  if (z == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("z is 0, trying again");
+    goto try_again;
+  }
 
   // Polynomial construction before PAPER LINE 46
   rct::key t0 = rct::zero();
@@ -405,7 +526,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   const auto yN = vector_powers(y, N);
 
-  rct::key ip1y = inner_product(oneN, yN);
+  rct::key ip1y = vector_sum(yN);
   rct::key tmp;
   sc_muladd(t0.bytes, z.bytes, ip1y.bytes, t0.bytes);
 
@@ -437,7 +558,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
 
   PERF_TIMER_START_BP(PROVE_step2);
   const auto HyNsR = hadamard(yN, sR);
-  const auto vpIz = vector_scalar(oneN, z);
+  const auto vpIz = vector_dup(z, N);
   const auto vp2zsq = vector_scalar(twoN, zsq);
   const auto aL_vpIz = vector_subtract(aL, vpIz);
   const auto aR_vpIz = vector_add(aR, vpIz);
@@ -454,11 +575,19 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   // PAPER LINES 47-48
   rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
 
-  rct::key T1 = rct::addKeys(rct::scalarmultKey(rct::H, t1), rct::scalarmultBase(tau1));
-  rct::key T2 = rct::addKeys(rct::scalarmultKey(rct::H, t2), rct::scalarmultBase(tau2));
+  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  T1 = rct::scalarmultKey(T1, INV_EIGHT);
+  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
+  T2 = rct::scalarmultKey(T2, INV_EIGHT);
 
   // PAPER LINES 49-51
   rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
+  if (x == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step2);
+    MINFO("x is 0, trying again");
+    goto try_again;
+  }
 
   // PAPER LINES 52-53
   rct::key taux = rct::zero();
@@ -500,7 +629,7 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
   for (size_t i = 0; i < N; ++i)
   {
     Gprime[i] = Gi[i];
-    Hprime[i] = scalarmultKey(Hi[i], yinvpow);
+    Hprime[i] = scalarmultKey(Hi_p3[i], yinvpow);
     sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
     aprime[i] = l[i];
     bprime[i] = r[i];
@@ -525,13 +654,21 @@ Bulletproof bulletproof_PROVE(const rct::key &sv, const rct::key &gamma)
     // PAPER LINES 18-19
     L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
     sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
-    rct::addKeys(L[round], L[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
+    L[round] = rct::scalarmultKey(L[round], INV_EIGHT);
     R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
     sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
-    rct::addKeys(R[round], R[round], rct::scalarmultKey(rct::H, tmp));
+    rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
+    R[round] = rct::scalarmultKey(R[round], INV_EIGHT);
 
     // PAPER LINES 21-22
     w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
+    if (w[round] == rct::zero())
+    {
+      PERF_TIMER_STOP(PROVE_step4);
+      MINFO("w[round] is 0, trying again");
+      goto try_again;
+    }
 
     // PAPER LINES 24-25
     const rct::key winv = invert(w[round]);
@@ -567,179 +704,542 @@ Bulletproof bulletproof_PROVE(uint64_t v, const rct::key &gamma)
   return bulletproof_PROVE(sv, gamma);
 }
 
+/* Given a set of values v (0..2^N-1) and masks gamma, construct a range proof */
+Bulletproof bulletproof_PROVE(const rct::keyV &sv, const rct::keyV &gamma)
+{
+  CHECK_AND_ASSERT_THROW_MES(sv.size() == gamma.size(), "Incompatible sizes of sv and gamma");
+  CHECK_AND_ASSERT_THROW_MES(!sv.empty(), "sv is empty");
+  for (const rct::key &sve: sv)
+    CHECK_AND_ASSERT_THROW_MES(is_reduced(sve), "Invalid sv input");
+  for (const rct::key &g: gamma)
+    CHECK_AND_ASSERT_THROW_MES(is_reduced(g), "Invalid gamma input");
+
+  init_exponents();
+
+  PERF_TIMER_UNIT(PROVE, 1000000);
+
+  constexpr size_t logN = 6; // log2(64)
+  constexpr size_t N = 1<<logN;
+  size_t M, logM;
+  for (logM = 0; (M = 1<<logM) <= maxM && M < sv.size(); ++logM);
+  CHECK_AND_ASSERT_THROW_MES(M <= maxM, "sv/gamma are too large");
+  const size_t logMN = logM + logN;
+  const size_t MN = M * N;
+
+  rct::keyV V(sv.size());
+  rct::keyV aL(MN), aR(MN);
+  rct::key tmp;
+
+  PERF_TIMER_START_BP(PROVE_v);
+  for (size_t i = 0; i < sv.size(); ++i)
+  {
+    rct::addKeys2(V[i], gamma[i], sv[i], rct::H);
+    V[i] = rct::scalarmultKey(V[i], INV_EIGHT);
+  }
+  PERF_TIMER_STOP(PROVE_v);
+
+  PERF_TIMER_START_BP(PROVE_aLaR);
+  for (size_t j = 0; j < M; ++j)
+  {
+    for (size_t i = N; i-- > 0; )
+    {
+      if (j >= sv.size())
+      {
+        aL[j*N+i] = rct::zero();
+      }
+      else if (sv[j][i/8] & (((uint64_t)1)<<(i%8)))
+      {
+        aL[j*N+i] = rct::identity();
+      }
+      else
+      {
+        aL[j*N+i] = rct::zero();
+      }
+      sc_sub(aR[j*N+i].bytes, aL[j*N+i].bytes, rct::identity().bytes);
+    }
+  }
+  PERF_TIMER_STOP(PROVE_aLaR);
+
+  // DEBUG: Test to ensure this recovers the value
+#ifdef DEBUG_BP
+  for (size_t j = 0; j < M; ++j)
+  {
+    uint64_t test_aL = 0, test_aR = 0;
+    for (size_t i = 0; i < N; ++i)
+    {
+      if (aL[j*N+i] == rct::identity())
+        test_aL += ((uint64_t)1)<<i;
+      if (aR[j*N+i] == rct::zero())
+        test_aR += ((uint64_t)1)<<i;
+    }
+    uint64_t v_test = 0;
+    if (j < sv.size())
+      for (int n = 0; n < 8; ++n) v_test |= (((uint64_t)sv[j][n]) << (8*n));
+    CHECK_AND_ASSERT_THROW_MES(test_aL == v_test, "test_aL failed");
+    CHECK_AND_ASSERT_THROW_MES(test_aR == v_test, "test_aR failed");
+  }
+#endif
+
+try_again:
+  rct::key hash_cache = rct::hash_to_scalar(V);
+
+  PERF_TIMER_START_BP(PROVE_step1);
+  // PAPER LINES 38-39
+  rct::key alpha = rct::skGen();
+  rct::key ve = vector_exponent(aL, aR);
+  rct::key A;
+  rct::addKeys(A, ve, rct::scalarmultBase(alpha));
+  A = rct::scalarmultKey(A, INV_EIGHT);
+
+  // PAPER LINES 40-42
+  rct::keyV sL = rct::skvGen(MN), sR = rct::skvGen(MN);
+  rct::key rho = rct::skGen();
+  ve = vector_exponent(sL, sR);
+  rct::key S;
+  rct::addKeys(S, ve, rct::scalarmultBase(rho));
+  S = rct::scalarmultKey(S, INV_EIGHT);
+
+  // PAPER LINES 43-45
+  rct::key y = hash_cache_mash(hash_cache, A, S);
+  if (y == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("y is 0, trying again");
+    goto try_again;
+  }
+  rct::key z = hash_cache = rct::hash_to_scalar(y);
+  if (z == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step1);
+    MINFO("z is 0, trying again");
+    goto try_again;
+  }
+
+  // Polynomial construction by coefficients
+  const auto zMN = vector_dup(z, MN);
+  rct::keyV l0 = vector_subtract(aL, zMN);
+  const rct::keyV &l1 = sL;
+
+  // This computes the ugly sum/concatenation from PAPER LINE 65
+  rct::keyV zero_twos(MN);
+  const rct::keyV zpow = vector_powers(z, M+2);
+  for (size_t i = 0; i < MN; ++i)
+  {
+    zero_twos[i] = rct::zero();
+    for (size_t j = 1; j <= M; ++j)
+    {
+      if (i >= (j-1)*N && i < j*N)
+      {
+        CHECK_AND_ASSERT_THROW_MES(1+j < zpow.size(), "invalid zpow index");
+        CHECK_AND_ASSERT_THROW_MES(i-(j-1)*N < twoN.size(), "invalid twoN index");
+        sc_muladd(zero_twos[i].bytes, zpow[1+j].bytes, twoN[i-(j-1)*N].bytes, zero_twos[i].bytes);
+      }
+    }
+  }
+
+  rct::keyV r0 = vector_add(aR, zMN);
+  const auto yMN = vector_powers(y, MN);
+  r0 = hadamard(r0, yMN);
+  r0 = vector_add(r0, zero_twos);
+  rct::keyV r1 = hadamard(yMN, sR);
+
+  // Polynomial construction before PAPER LINE 46
+  rct::key t1_1 = inner_product(l0, r1);
+  rct::key t1_2 = inner_product(l1, r0);
+  rct::key t1;
+  sc_add(t1.bytes, t1_1.bytes, t1_2.bytes);
+  rct::key t2 = inner_product(l1, r1);
+
+  PERF_TIMER_STOP(PROVE_step1);
+
+  PERF_TIMER_START_BP(PROVE_step2);
+  // PAPER LINES 47-48
+  rct::key tau1 = rct::skGen(), tau2 = rct::skGen();
+
+  rct::key T1 = rct::addKeys(rct::scalarmultH(t1), rct::scalarmultBase(tau1));
+  T1 = rct::scalarmultKey(T1, INV_EIGHT);
+  rct::key T2 = rct::addKeys(rct::scalarmultH(t2), rct::scalarmultBase(tau2));
+  T2 = rct::scalarmultKey(T2, INV_EIGHT);
+
+  // PAPER LINES 49-51
+  rct::key x = hash_cache_mash(hash_cache, z, T1, T2);
+  if (x == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step2);
+    MINFO("x is 0, trying again");
+    goto try_again;
+  }
+
+  // PAPER LINES 52-53
+  rct::key taux;
+  sc_mul(taux.bytes, tau1.bytes, x.bytes);
+  rct::key xsq;
+  sc_mul(xsq.bytes, x.bytes, x.bytes);
+  sc_muladd(taux.bytes, tau2.bytes, xsq.bytes, taux.bytes);
+  for (size_t j = 1; j <= sv.size(); ++j)
+  {
+    CHECK_AND_ASSERT_THROW_MES(j+1 < zpow.size(), "invalid zpow index");
+    sc_muladd(taux.bytes, zpow[j+1].bytes, gamma[j-1].bytes, taux.bytes);
+  }
+  rct::key mu;
+  sc_muladd(mu.bytes, x.bytes, rho.bytes, alpha.bytes);
+
+  // PAPER LINES 54-57
+  rct::keyV l = l0;
+  l = vector_add(l, vector_scalar(l1, x));
+  rct::keyV r = r0;
+  r = vector_add(r, vector_scalar(r1, x));
+  PERF_TIMER_STOP(PROVE_step2);
+
+  PERF_TIMER_START_BP(PROVE_step3);
+  rct::key t = inner_product(l, r);
+
+  // DEBUG: Test if the l and r vectors match the polynomial forms
+#ifdef DEBUG_BP
+  rct::key test_t;
+  const rct::key t0 = inner_product(l0, r0);
+  sc_muladd(test_t.bytes, t1.bytes, x.bytes, t0.bytes);
+  sc_muladd(test_t.bytes, t2.bytes, xsq.bytes, test_t.bytes);
+  CHECK_AND_ASSERT_THROW_MES(test_t == t, "test_t check failed");
+#endif
+
+  // PAPER LINES 32-33
+  rct::key x_ip = hash_cache_mash(hash_cache, x, taux, mu, t);
+  if (x_ip == rct::zero())
+  {
+    PERF_TIMER_STOP(PROVE_step3);
+    MINFO("x_ip is 0, trying again");
+    goto try_again;
+  }
+
+  // These are used in the inner product rounds
+  size_t nprime = MN;
+  rct::keyV Gprime(MN);
+  rct::keyV Hprime(MN);
+  rct::keyV aprime(MN);
+  rct::keyV bprime(MN);
+  const rct::key yinv = invert(y);
+  rct::key yinvpow = rct::identity();
+  for (size_t i = 0; i < MN; ++i)
+  {
+    Gprime[i] = Gi[i];
+    Hprime[i] = scalarmultKey(Hi_p3[i], yinvpow);
+    sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
+    aprime[i] = l[i];
+    bprime[i] = r[i];
+  }
+  rct::keyV L(logMN);
+  rct::keyV R(logMN);
+  int round = 0;
+  rct::keyV w(logMN); // this is the challenge x in the inner product protocol
+  PERF_TIMER_STOP(PROVE_step3);
+
+  PERF_TIMER_START_BP(PROVE_step4);
+  // PAPER LINE 13
+  while (nprime > 1)
+  {
+    // PAPER LINE 15
+    nprime /= 2;
+
+    // PAPER LINES 16-17
+    rct::key cL = inner_product(slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
+    rct::key cR = inner_product(slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
+
+    // PAPER LINES 18-19
+    L[round] = vector_exponent_custom(slice(Gprime, nprime, Gprime.size()), slice(Hprime, 0, nprime), slice(aprime, 0, nprime), slice(bprime, nprime, bprime.size()));
+    sc_mul(tmp.bytes, cL.bytes, x_ip.bytes);
+    rct::addKeys(L[round], L[round], rct::scalarmultH(tmp));
+    L[round] = rct::scalarmultKey(L[round], INV_EIGHT);
+    R[round] = vector_exponent_custom(slice(Gprime, 0, nprime), slice(Hprime, nprime, Hprime.size()), slice(aprime, nprime, aprime.size()), slice(bprime, 0, nprime));
+    sc_mul(tmp.bytes, cR.bytes, x_ip.bytes);
+    rct::addKeys(R[round], R[round], rct::scalarmultH(tmp));
+    R[round] = rct::scalarmultKey(R[round], INV_EIGHT);
+
+    // PAPER LINES 21-22
+    w[round] = hash_cache_mash(hash_cache, L[round], R[round]);
+    if (w[round] == rct::zero())
+    {
+      PERF_TIMER_STOP(PROVE_step4);
+      MINFO("w[round] is 0, trying again");
+      goto try_again;
+    }
+
+    // PAPER LINES 24-25
+    const rct::key winv = invert(w[round]);
+    Gprime = hadamard2(vector_scalar2(slice(Gprime, 0, nprime), winv), vector_scalar2(slice(Gprime, nprime, Gprime.size()), w[round]));
+    Hprime = hadamard2(vector_scalar2(slice(Hprime, 0, nprime), w[round]), vector_scalar2(slice(Hprime, nprime, Hprime.size()), winv));
+
+    // PAPER LINES 28-29
+    aprime = vector_add(vector_scalar(slice(aprime, 0, nprime), w[round]), vector_scalar(slice(aprime, nprime, aprime.size()), winv));
+    bprime = vector_add(vector_scalar(slice(bprime, 0, nprime), winv), vector_scalar(slice(bprime, nprime, bprime.size()), w[round]));
+
+    ++round;
+  }
+  PERF_TIMER_STOP(PROVE_step4);
+
+  // PAPER LINE 58 (with inclusions from PAPER LINE 8 and PAPER LINE 20)
+  return Bulletproof(V, A, S, T1, T2, taux, mu, L, R, aprime[0], bprime[0], t);
+}
+
+Bulletproof bulletproof_PROVE(const std::vector<uint64_t> &v, const rct::keyV &gamma)
+{
+  CHECK_AND_ASSERT_THROW_MES(v.size() == gamma.size(), "Incompatible sizes of v and gamma");
+
+  // vG + gammaH
+  PERF_TIMER_START_BP(PROVE_v);
+  rct::keyV sv(v.size());
+  for (size_t i = 0; i < v.size(); ++i)
+  {
+    sv[i] = rct::zero();
+    sv[i].bytes[0] = v[i] & 255;
+    sv[i].bytes[1] = (v[i] >> 8) & 255;
+    sv[i].bytes[2] = (v[i] >> 16) & 255;
+    sv[i].bytes[3] = (v[i] >> 24) & 255;
+    sv[i].bytes[4] = (v[i] >> 32) & 255;
+    sv[i].bytes[5] = (v[i] >> 40) & 255;
+    sv[i].bytes[6] = (v[i] >> 48) & 255;
+    sv[i].bytes[7] = (v[i] >> 56) & 255;
+  }
+  PERF_TIMER_STOP(PROVE_v);
+  return bulletproof_PROVE(sv, gamma);
+}
+
 /* Given a range proof, determine if it is valid */
-bool bulletproof_VERIFY(const Bulletproof &proof)
+bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 {
   init_exponents();
 
-  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "V does not have exactly one element");
-  CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
-  CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");
-  CHECK_AND_ASSERT_MES(proof.L.size() == 6, false, "Proof is not for 64 bits");
-
-  const size_t logN = proof.L.size();
-  const size_t N = 1 << logN;
-
-  // Reconstruct the challenges
   PERF_TIMER_START_BP(VERIFY);
-  PERF_TIMER_START_BP(VERIFY_start);
-  rct::key hash_cache = rct::hash_to_scalar(proof.V[0]);
-  rct::key y = hash_cache_mash(hash_cache, proof.A, proof.S);
-  rct::key z = hash_cache = rct::hash_to_scalar(y);
-  rct::key x = hash_cache_mash(hash_cache, z, proof.T1, proof.T2);
-  PERF_TIMER_STOP(VERIFY_start);
 
-  PERF_TIMER_START_BP(VERIFY_line_60);
-  // Reconstruct the challenges
-  rct::key x_ip = hash_cache_mash(hash_cache, x, proof.taux, proof.mu, proof.t);
-  PERF_TIMER_STOP(VERIFY_line_60);
+  // sanity and figure out which proof is longest
+  size_t max_length = 0;
+  for (const Bulletproof *p: proofs)
+  {
+    const Bulletproof &proof = *p;
 
-  PERF_TIMER_START_BP(VERIFY_line_61);
-  // PAPER LINE 61
-  rct::key L61Left = rct::addKeys(rct::scalarmultBase(proof.taux), rct::scalarmultKey(rct::H, proof.t));
+    // check scalar range
+    CHECK_AND_ASSERT_MES(is_reduced(proof.taux), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.mu), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.a), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.b), false, "Input scalar not in range");
+    CHECK_AND_ASSERT_MES(is_reduced(proof.t), false, "Input scalar not in range");
 
-  rct::key k = rct::zero();
-  const auto yN = vector_powers(y, N);
-  rct::key ip1y = inner_product(oneN, yN);
-  rct::key zsq;
-  sc_mul(zsq.bytes, z.bytes, z.bytes);
-  rct::key tmp, tmp2;
-  sc_mulsub(k.bytes, zsq.bytes, ip1y.bytes, k.bytes);
-  rct::key zcu;
-  sc_mul(zcu.bytes, zsq.bytes, z.bytes);
-  sc_mulsub(k.bytes, zcu.bytes, ip12.bytes, k.bytes);
-  PERF_TIMER_STOP(VERIFY_line_61);
+    CHECK_AND_ASSERT_MES(proof.V.size() >= 1, false, "V does not have at least one element");
+    CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
+    CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");
 
-  PERF_TIMER_START_BP(VERIFY_line_61rl);
-  sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
-  rct::key L61Right = rct::scalarmultKey(rct::H, tmp);
+    max_length = std::max(max_length, proof.L.size());
+  }
+  CHECK_AND_ASSERT_MES(max_length < 32, false, "At least one proof is too large");
+  size_t maxMN = 1u << max_length;
 
-  CHECK_AND_ASSERT_MES(proof.V.size() == 1, false, "proof.V does not have exactly one element");
-  tmp = rct::scalarmultKey(proof.V[0], zsq);
-  rct::addKeys(L61Right, L61Right, tmp);
+  const size_t logN = 6;
+  const size_t N = 1 << logN;
+  rct::key tmp;
 
-  tmp = rct::scalarmultKey(proof.T1, x);
-  rct::addKeys(L61Right, L61Right, tmp);
+  // setup weighted aggregates
+  rct::key Z0 = rct::identity();
+  rct::key z1 = rct::zero();
+  rct::key Z2 = rct::identity();
+  rct::key z3 = rct::zero();
+  rct::keyV z4(maxMN, rct::zero()), z5(maxMN, rct::zero());
+  rct::key Y2 = rct::identity(), Y3 = rct::identity(), Y4 = rct::identity();
+  rct::key y0 = rct::zero(), y1 = rct::zero();
+  for (const Bulletproof *p: proofs)
+  {
+    const Bulletproof &proof = *p;
 
-  rct::key xsq;
-  sc_mul(xsq.bytes, x.bytes, x.bytes);
-  tmp = rct::scalarmultKey(proof.T2, xsq);
-  rct::addKeys(L61Right, L61Right, tmp);
-  PERF_TIMER_STOP(VERIFY_line_61rl);
+    size_t M, logM;
+    for (logM = 0; (M = 1<<logM) <= maxM && M < proof.V.size(); ++logM);
+    CHECK_AND_ASSERT_MES(proof.L.size() == 6+logM, false, "Proof is not the expected size");
+    const size_t MN = M*N;
+    rct::key weight = rct::skGen();
 
-  if (!(L61Right == L61Left))
+    // Reconstruct the challenges
+    PERF_TIMER_START_BP(VERIFY_start);
+    rct::key hash_cache = rct::hash_to_scalar(proof.V);
+    rct::key y = hash_cache_mash(hash_cache, proof.A, proof.S);
+    CHECK_AND_ASSERT_MES(!(y == rct::zero()), false, "y == 0");
+    rct::key z = hash_cache = rct::hash_to_scalar(y);
+    CHECK_AND_ASSERT_MES(!(z == rct::zero()), false, "z == 0");
+    rct::key x = hash_cache_mash(hash_cache, z, proof.T1, proof.T2);
+    CHECK_AND_ASSERT_MES(!(x == rct::zero()), false, "x == 0");
+    rct::key x_ip = hash_cache_mash(hash_cache, x, proof.taux, proof.mu, proof.t);
+    CHECK_AND_ASSERT_MES(!(x_ip == rct::zero()), false, "x_ip == 0");
+    PERF_TIMER_STOP(VERIFY_start);
+
+    // pre-multiply some points by 8
+    rct::keyV proof8_V = proof.V; for (rct::key &k: proof8_V) k = rct::scalarmult8(k);
+    rct::keyV proof8_L = proof.L; for (rct::key &k: proof8_L) k = rct::scalarmult8(k);
+    rct::keyV proof8_R = proof.R; for (rct::key &k: proof8_R) k = rct::scalarmult8(k);
+    rct::key proof8_T1 = rct::scalarmult8(proof.T1);
+    rct::key proof8_T2 = rct::scalarmult8(proof.T2);
+    rct::key proof8_S = rct::scalarmult8(proof.S);
+
+    PERF_TIMER_START_BP(VERIFY_line_61);
+    // PAPER LINE 61
+    sc_muladd(y0.bytes, proof.taux.bytes, weight.bytes, y0.bytes);
+
+    const rct::keyV zpow = vector_powers(z, M+3);
+
+    rct::key k;
+    const rct::key ip1y = vector_power_sum(y, MN);
+    sc_mulsub(k.bytes, zpow[2].bytes, ip1y.bytes, rct::zero().bytes);
+    for (size_t j = 1; j <= M; ++j)
+    {
+      CHECK_AND_ASSERT_MES(j+2 < zpow.size(), false, "invalid zpow index");
+      sc_mulsub(k.bytes, zpow[j+2].bytes, ip12.bytes, k.bytes);
+    }
+    PERF_TIMER_STOP(VERIFY_line_61);
+
+    PERF_TIMER_START_BP(VERIFY_line_61rl_new);
+    sc_muladd(tmp.bytes, z.bytes, ip1y.bytes, k.bytes);
+    std::vector<MultiexpData> multiexp_data;
+    multiexp_data.reserve(proof.V.size());
+    sc_sub(tmp.bytes, proof.t.bytes, tmp.bytes);
+    sc_muladd(y1.bytes, tmp.bytes, weight.bytes, y1.bytes);
+    for (size_t j = 0; j < proof8_V.size(); j++)
+    {
+      multiexp_data.emplace_back(zpow[j+2], proof8_V[j]);
+    }
+    rct::addKeys(Y2, Y2, rct::scalarmultKey(multiexp(multiexp_data, false), weight));
+    sc_mul(tmp.bytes, x.bytes, weight.bytes);
+    rct::addKeys(Y3, Y3, rct::scalarmultKey(proof8_T1, tmp));
+    rct::key xsq;
+    sc_mul(xsq.bytes, x.bytes, x.bytes);
+    sc_mul(tmp.bytes, xsq.bytes, weight.bytes);
+    rct::addKeys(Y4, Y4, rct::scalarmultKey(proof8_T2, tmp));
+    PERF_TIMER_STOP(VERIFY_line_61rl_new);
+
+    PERF_TIMER_START_BP(VERIFY_line_62);
+    // PAPER LINE 62
+    rct::addKeys(Z0, Z0, rct::scalarmultKey(rct::addKeys(rct::scalarmult8(proof.A), rct::scalarmultKey(proof8_S, x)), weight));
+    PERF_TIMER_STOP(VERIFY_line_62);
+
+    // Compute the number of rounds for the inner product
+    const size_t rounds = logM+logN;
+    CHECK_AND_ASSERT_MES(rounds > 0, false, "Zero rounds");
+
+    PERF_TIMER_START_BP(VERIFY_line_21_22);
+    // PAPER LINES 21-22
+    // The inner product challenges are computed per round
+    rct::keyV w(rounds);
+    for (size_t i = 0; i < rounds; ++i)
+    {
+      w[i] = hash_cache_mash(hash_cache, proof.L[i], proof.R[i]);
+      CHECK_AND_ASSERT_MES(!(w[i] == rct::zero()), false, "w[i] == 0");
+    }
+    PERF_TIMER_STOP(VERIFY_line_21_22);
+
+    PERF_TIMER_START_BP(VERIFY_line_24_25);
+    // Basically PAPER LINES 24-25
+    // Compute the curvepoints from G[i] and H[i]
+    rct::key yinvpow = rct::identity();
+    rct::key ypow = rct::identity();
+
+    PERF_TIMER_START_BP(VERIFY_line_24_25_invert);
+    const rct::key yinv = invert(y);
+    rct::keyV winv(rounds);
+    for (size_t i = 0; i < rounds; ++i)
+      winv[i] = invert(w[i]);
+    PERF_TIMER_STOP(VERIFY_line_24_25_invert);
+
+    for (size_t i = 0; i < MN; ++i)
+    {
+      // Convert the index to binary IN REVERSE and construct the scalar exponent
+      rct::key g_scalar = proof.a;
+      rct::key h_scalar;
+      sc_mul(h_scalar.bytes, proof.b.bytes, yinvpow.bytes);
+
+      for (size_t j = rounds; j-- > 0; )
+      {
+        size_t J = w.size() - j - 1;
+
+        if ((i & (((size_t)1)<<j)) == 0)
+        {
+          sc_mul(g_scalar.bytes, g_scalar.bytes, winv[J].bytes);
+          sc_mul(h_scalar.bytes, h_scalar.bytes, w[J].bytes);
+        }
+        else
+        {
+          sc_mul(g_scalar.bytes, g_scalar.bytes, w[J].bytes);
+          sc_mul(h_scalar.bytes, h_scalar.bytes, winv[J].bytes);
+        }
+      }
+
+      // Adjust the scalars using the exponents from PAPER LINE 62
+      sc_add(g_scalar.bytes, g_scalar.bytes, z.bytes);
+      CHECK_AND_ASSERT_MES(2+i/N < zpow.size(), false, "invalid zpow index");
+      CHECK_AND_ASSERT_MES(i%N < twoN.size(), false, "invalid twoN index");
+      sc_mul(tmp.bytes, zpow[2+i/N].bytes, twoN[i%N].bytes);
+      sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
+      sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
+
+      sc_muladd(z4[i].bytes, g_scalar.bytes, weight.bytes, z4[i].bytes);
+      sc_muladd(z5[i].bytes, h_scalar.bytes, weight.bytes, z5[i].bytes);
+
+      if (i != MN-1)
+      {
+        sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
+        sc_mul(ypow.bytes, ypow.bytes, y.bytes);
+      }
+    }
+
+    PERF_TIMER_STOP(VERIFY_line_24_25);
+
+    // PAPER LINE 26
+    PERF_TIMER_START_BP(VERIFY_line_26_new);
+    multiexp_data.clear();
+    multiexp_data.reserve(2*rounds);
+
+    sc_muladd(z1.bytes, proof.mu.bytes, weight.bytes, z1.bytes);
+    for (size_t i = 0; i < rounds; ++i)
+    {
+      sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
+      multiexp_data.emplace_back(tmp, proof8_L[i]);
+      sc_mul(tmp.bytes, winv[i].bytes, winv[i].bytes);
+      multiexp_data.emplace_back(tmp, proof8_R[i]);
+    }
+    rct::key acc = multiexp(multiexp_data, false);
+    rct::addKeys(Z2, Z2, rct::scalarmultKey(acc, weight));
+    sc_mulsub(tmp.bytes, proof.a.bytes, proof.b.bytes, proof.t.bytes);
+    sc_mul(tmp.bytes, tmp.bytes, x_ip.bytes);
+    sc_muladd(z3.bytes, tmp.bytes, weight.bytes, z3.bytes);
+    PERF_TIMER_STOP(VERIFY_line_26_new);
+  }
+
+  // now check all proofs at once
+  PERF_TIMER_START_BP(VERIFY_step2_check);
+  ge_p3 check1;
+  ge_scalarmult_base(&check1, y0.bytes);
+  addKeys_acc_p3(&check1, y1, rct::H);
+  sub_acc_p3(&check1, Y2);
+  sub_acc_p3(&check1, Y3);
+  sub_acc_p3(&check1, Y4);
+  if (!ge_p3_is_point_at_infinity(&check1))
   {
     MERROR("Verification failure at step 1");
     return false;
   }
+  ge_p3 check2;
+  sc_sub(tmp.bytes, rct::zero().bytes, z1.bytes);
+  ge_double_scalarmult_base_vartime_p3(&check2, z3.bytes, &ge_p3_H, tmp.bytes);
+  add_acc_p3(&check2, Z0);
+  add_acc_p3(&check2, Z2);
 
-  PERF_TIMER_START_BP(VERIFY_line_62);
-  // PAPER LINE 62
-  rct::key P = rct::addKeys(proof.A, rct::scalarmultKey(proof.S, x));
-  PERF_TIMER_STOP(VERIFY_line_62);
-
-  // Compute the number of rounds for the inner product
-  const size_t rounds = proof.L.size();
-  CHECK_AND_ASSERT_MES(rounds > 0, false, "Zero rounds");
-
-  PERF_TIMER_START_BP(VERIFY_line_21_22);
-  // PAPER LINES 21-22
-  // The inner product challenges are computed per round
-  rct::keyV w(rounds);
-  for (size_t i = 0; i < rounds; ++i)
+  std::vector<MultiexpData> multiexp_data;
+  multiexp_data.reserve(2 * maxMN);
+  for (size_t i = 0; i < maxMN; ++i)
   {
-    w[i] = hash_cache_mash(hash_cache, proof.L[i], proof.R[i]);
+    sc_sub(tmp.bytes, rct::zero().bytes, z4[i].bytes);
+    multiexp_data.emplace_back(tmp, Gi_p3[i]);
+    sc_sub(tmp.bytes, rct::zero().bytes, z5[i].bytes);
+    multiexp_data.emplace_back(tmp, Hi_p3[i]);
   }
-  PERF_TIMER_STOP(VERIFY_line_21_22);
-
-  PERF_TIMER_START_BP(VERIFY_line_24_25);
-  // Basically PAPER LINES 24-25
-  // Compute the curvepoints from G[i] and H[i]
-  rct::key inner_prod = rct::identity();
-  rct::key yinvpow = rct::identity();
-  rct::key ypow = rct::identity();
-
-  PERF_TIMER_START_BP(VERIFY_line_24_25_invert);
-  const rct::key yinv = invert(y);
-  rct::keyV winv(rounds);
-  for (size_t i = 0; i < rounds; ++i)
-    winv[i] = invert(w[i]);
-  PERF_TIMER_STOP(VERIFY_line_24_25_invert);
-
-  for (size_t i = 0; i < N; ++i)
-  {
-    // Convert the index to binary IN REVERSE and construct the scalar exponent
-    rct::key g_scalar = proof.a;
-    rct::key h_scalar;
-    sc_mul(h_scalar.bytes, proof.b.bytes, yinvpow.bytes);
-
-    for (size_t j = rounds; j-- > 0; )
-    {
-      size_t J = w.size() - j - 1;
-
-      if ((i & (((size_t)1)<<j)) == 0)
-      {
-        sc_mul(g_scalar.bytes, g_scalar.bytes, winv[J].bytes);
-        sc_mul(h_scalar.bytes, h_scalar.bytes, w[J].bytes);
-      }
-      else
-      {
-        sc_mul(g_scalar.bytes, g_scalar.bytes, w[J].bytes);
-        sc_mul(h_scalar.bytes, h_scalar.bytes, winv[J].bytes);
-      }
-    }
-
-    // Adjust the scalars using the exponents from PAPER LINE 62
-    sc_add(g_scalar.bytes, g_scalar.bytes, z.bytes);
-    sc_mul(tmp.bytes, zsq.bytes, twoN[i].bytes);
-    sc_muladd(tmp.bytes, z.bytes, ypow.bytes, tmp.bytes);
-    sc_mulsub(h_scalar.bytes, tmp.bytes, yinvpow.bytes, h_scalar.bytes);
-
-    // Now compute the basepoint's scalar multiplication
-    // Each of these could be written as a multiexp operation instead
-    rct::addKeys3(tmp, g_scalar, Gprecomp[i], h_scalar, Hprecomp[i]);
-    rct::addKeys(inner_prod, inner_prod, tmp);
-
-    if (i != N-1)
-    {
-      sc_mul(yinvpow.bytes, yinvpow.bytes, yinv.bytes);
-      sc_mul(ypow.bytes, ypow.bytes, y.bytes);
-    }
-  }
-  PERF_TIMER_STOP(VERIFY_line_24_25);
-
-  PERF_TIMER_START_BP(VERIFY_line_26);
-  // PAPER LINE 26
-  rct::key pprime;
-  sc_sub(tmp.bytes, rct::zero().bytes, proof.mu.bytes);
-  rct::addKeys(pprime, P, rct::scalarmultBase(tmp));
-
-  for (size_t i = 0; i < rounds; ++i)
-  {
-    sc_mul(tmp.bytes, w[i].bytes, w[i].bytes);
-    sc_mul(tmp2.bytes, winv[i].bytes, winv[i].bytes);
-#if 1
-    ge_dsmp cacheL, cacheR;
-    rct::precomp(cacheL, proof.L[i]);
-    rct::precomp(cacheR, proof.R[i]);
-    rct::addKeys3(tmp, tmp, cacheL, tmp2, cacheR);
-    rct::addKeys(pprime, pprime, tmp);
-#else
-    rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.L[i], tmp));
-    rct::addKeys(pprime, pprime, rct::scalarmultKey(proof.R[i], tmp2));
-#endif
-  }
-  sc_mul(tmp.bytes, proof.t.bytes, x_ip.bytes);
-  rct::addKeys(pprime, pprime, rct::scalarmultKey(rct::H, tmp));
-  PERF_TIMER_STOP(VERIFY_line_26);
-
-  PERF_TIMER_START_BP(VERIFY_step2_check);
-  sc_mul(tmp.bytes, proof.a.bytes, proof.b.bytes);
-  sc_mul(tmp.bytes, tmp.bytes, x_ip.bytes);
-  tmp = rct::scalarmultKey(rct::H, tmp);
-  rct::addKeys(tmp, tmp, inner_prod);
+  add_acc_p3(&check2, multiexp(multiexp_data, true));
   PERF_TIMER_STOP(VERIFY_step2_check);
-  if (!(pprime == tmp))
+
+  if (!ge_p3_is_point_at_infinity(&check2))
   {
     MERROR("Verification failure at step 2");
     return false;
@@ -747,6 +1247,21 @@ bool bulletproof_VERIFY(const Bulletproof &proof)
 
   PERF_TIMER_STOP(VERIFY);
   return true;
+}
+
+bool bulletproof_VERIFY(const std::vector<Bulletproof> &proofs)
+{
+  std::vector<const Bulletproof*> proof_pointers;
+  for (const Bulletproof &proof: proofs)
+    proof_pointers.push_back(&proof);
+  return bulletproof_VERIFY(proof_pointers);
+}
+
+bool bulletproof_VERIFY(const Bulletproof &proof)
+{
+  std::vector<const Bulletproof*> proofs;
+  proofs.push_back(&proof);
+  return bulletproof_VERIFY(proofs);
 }
 
 }

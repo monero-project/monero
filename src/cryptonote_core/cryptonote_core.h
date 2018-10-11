@@ -551,26 +551,11 @@ namespace cryptonote
      difficulty_type get_block_cumulative_difficulty(uint64_t height) const;
 
      /**
-      * @copydoc Blockchain::get_random_outs_for_amounts
-      *
-      * @note see Blockchain::get_random_outs_for_amounts
-      */
-     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
-
-     /**
       * @copydoc Blockchain::get_outs
       *
       * @note see Blockchain::get_outs
       */
      bool get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const;
-
-     /**
-      *
-      * @copydoc Blockchain::get_random_rct_outs
-      *
-      * @note see Blockchain::get_random_rct_outs
-      */
-     bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
      /**
       * @copydoc Blockchain::get_output_distribution
@@ -754,6 +739,16 @@ namespace cryptonote
      network_type get_nettype() const { return m_nettype; };
 
      /**
+      * @brief check whether an update is known to be available or not
+      *
+      * This does not actually trigger a check, but returns the result
+      * of the last check
+      *
+      * @return whether an update is known to be available or not
+      */
+     bool is_update_available() const { return m_update_available; }
+
+     /**
       * @brief get whether fluffy blocks are enabled
       *
       * @return whether fluffy blocks are enabled
@@ -788,12 +783,12 @@ namespace cryptonote
       *
       * @param tx_hash the transaction's hash
       * @param tx_prefix_hash the transaction prefix' hash
-      * @param blob_size the size of the transaction
+      * @param tx_weight the weight of the transaction
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -864,9 +859,12 @@ namespace cryptonote
       * @return true if all the checks pass, otherwise false
       */
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
+     void set_semantics_failed(const crypto::hash &tx_hash);
 
      bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
      bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+     struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
+     bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
      /**
       * @copydoc miner::on_block_chain_update
@@ -977,6 +975,8 @@ namespace cryptonote
      uint64_t m_target_blockchain_height; //!< blockchain height target
 
      network_type m_nettype; //!< which network are we on?
+
+     std::atomic<bool> m_update_available;
 
      std::string m_checkpoints_path; //!< path to json checkpoints file
      time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated

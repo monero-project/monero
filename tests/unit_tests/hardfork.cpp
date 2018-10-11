@@ -72,7 +72,7 @@ public:
   virtual uint64_t get_block_timestamp(const uint64_t& height) const { return 0; }
   virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const { return {}; }
   virtual uint64_t get_top_block_timestamp() const { return 0; }
-  virtual size_t get_block_size(const uint64_t& height) const { return 128; }
+  virtual size_t get_block_weight(const uint64_t& height) const { return 128; }
   virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const { return 10; }
   virtual difficulty_type get_block_difficulty(const uint64_t& height) const { return 0; }
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const { return 10000000000; }
@@ -93,7 +93,6 @@ public:
   virtual uint64_t get_num_outputs(const uint64_t& amount) const { return 1; }
   virtual uint64_t get_indexing_base() const { return 0; }
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) { return output_data_t(); }
-  virtual output_data_t get_output_key(const uint64_t& global_index) const { return output_data_t(); }
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const { return tx_out_index(); }
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const { return tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const {}
@@ -131,7 +130,7 @@ public:
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)>, bool include_blob = false, bool include_unrelayed_txes = false) const { return false; }
 
   virtual void add_block( const block& blk
-                        , const size_t& block_size
+                        , size_t block_weight
                         , const difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs

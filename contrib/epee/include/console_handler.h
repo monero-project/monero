@@ -63,7 +63,8 @@ namespace epee
 
     ~async_stdin_reader()
     {
-      stop();
+      try { stop(); }
+      catch (...) { /* ignore */ }
     }
 
 #ifdef HAVE_READLINE

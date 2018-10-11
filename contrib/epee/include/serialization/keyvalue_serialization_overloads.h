@@ -35,6 +35,11 @@
 
 namespace epee
 {
+  namespace
+  {
+    template<class C> void hint_resize(C &container, size_t size) {}
+    template<class C> void hint_resize(std::vector<C> &container, size_t size) { container.reserve(size); }
+  }
   namespace serialization
   {
 
@@ -158,6 +163,7 @@ namespace epee
           false, 
           "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(typename stl_container::value_type) << ", type " << typeid(typename stl_container::value_type).name());
         size_t count = (loaded_size/sizeof(typename stl_container::value_type));
+        hint_resize(container, count);
         for(size_t i = 0; i < count; i++)
           container.insert(container.end(), *(pelem++));
       }

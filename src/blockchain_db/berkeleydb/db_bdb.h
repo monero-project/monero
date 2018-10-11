@@ -266,7 +266,7 @@ public:
 
   virtual uint64_t get_top_block_timestamp() const;
 
-  virtual size_t get_block_size(const uint64_t& height) const;
+  virtual size_t get_block_weight(const uint64_t& height) const;
 
   virtual difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const;
 
@@ -303,7 +303,6 @@ public:
   virtual uint64_t get_indexing_base() const { return 1; }
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index);
-  virtual output_data_t get_output_key(const uint64_t& global_index) const;
   virtual void get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs);
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
@@ -319,7 +318,7 @@ public:
   virtual bool has_key_image(const crypto::key_image& img) const;
 
   virtual uint64_t add_block( const block& blk
-                            , const size_t& block_size
+                            , size_t block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
@@ -354,7 +353,7 @@ public:
 
 private:
   virtual void add_block( const block& blk
-                , const size_t& block_size
+                , size_t block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
                 , const crypto::hash& block_hash
@@ -419,6 +418,7 @@ private:
    * @return the global index of the desired output
    */
   uint64_t get_output_global_index(const uint64_t& amount, const uint64_t& index);
+  output_data_t get_output_key(const uint64_t& global_index) const;
   void checkpoint_worker() const;
   void check_open() const;
 

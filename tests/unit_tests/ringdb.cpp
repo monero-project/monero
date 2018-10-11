@@ -47,7 +47,7 @@ static crypto::chacha_key generate_chacha_key()
 {
   crypto::chacha_key chacha_key;
   uint64_t password = crypto::rand<uint64_t>();
-  crypto::generate_chacha_key(std::string((const char*)&password, sizeof(password)), chacha_key);
+  crypto::generate_chacha_key(std::string((const char*)&password, sizeof(password)), chacha_key, 1);
   return chacha_key;
 }
 
@@ -59,17 +59,17 @@ static crypto::key_image generate_key_image()
   return key_image;
 }
 
-static crypto::public_key generate_output()
+static std::pair<uint64_t, uint64_t> generate_output()
 {
-  return rct::rct2pk(rct::scalarmultBase(rct::skGen()));
+  return std::make_pair(rand(), rand());
 }
 
 
 static const crypto::chacha_key KEY_1 = generate_chacha_key();
 static const crypto::chacha_key KEY_2 = generate_chacha_key();
 static const crypto::key_image KEY_IMAGE_1 = generate_key_image();
-static const crypto::public_key OUTPUT_1 = generate_output();
-static const crypto::public_key OUTPUT_2 = generate_output();
+static const std::pair<uint64_t, uint64_t> OUTPUT_1 = generate_output();
+static const std::pair<uint64_t, uint64_t> OUTPUT_2 = generate_output();
 
 class RingDB: public tools::ringdb
 {
@@ -148,6 +148,30 @@ TEST(blackball, found)
   RingDB ringdb;
   ASSERT_TRUE(ringdb.blackball(OUTPUT_1));
   ASSERT_TRUE(ringdb.blackballed(OUTPUT_1));
+}
+
+TEST(blackball, vector)
+{
+  RingDB ringdb;
+  std::vector<std::pair<uint64_t, uint64_t>> outputs;
+  outputs.push_back(std::make_pair(0, 1));
+  outputs.push_back(std::make_pair(10, 3));
+  outputs.push_back(std::make_pair(10, 4));
+  outputs.push_back(std::make_pair(10, 8));
+  outputs.push_back(std::make_pair(20, 0));
+  outputs.push_back(std::make_pair(20, 1));
+  outputs.push_back(std::make_pair(30, 5));
+  ASSERT_TRUE(ringdb.blackball(outputs));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(0, 1)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(10, 2)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 3)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 4)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(10, 5)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(10, 8)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(20, 0)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(20, 1)));
+  ASSERT_FALSE(ringdb.blackballed(std::make_pair(20, 2)));
+  ASSERT_TRUE(ringdb.blackballed(std::make_pair(30, 5)));
 }
 
 TEST(blackball, unblackball)

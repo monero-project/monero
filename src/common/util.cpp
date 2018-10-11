@@ -38,12 +38,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <ustat.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 #include <ctype.h>
 #include <string>
+#endif
+
+//tools::is_hdd
+#ifdef __GLIBC__
+  #include <sstream>
+  #include <sys/sysmacros.h>
+  #include <fstream>
 #endif
 
 #include "unbound.h"
@@ -733,62 +739,41 @@ std::string get_nix_version_display_string()
 #endif
   }
 
-  bool is_hdd(const char *path)
+  boost::optional<bool> is_hdd(const char *file_path)
   {
 #ifdef __GLIBC__
-    std::string device = "";
-    struct stat st, dst;
-    if (stat(path, &st) < 0)
-      return 0;
-
-    DIR *dir = opendir("/dev/block");
-    if (!dir)
-      return 0;
-    struct dirent *de;
-    while ((de = readdir(dir)))
+    struct stat st;
+    std::string prefix;
+    if(stat(file_path, &st) == 0)
     {
-      if (strcmp(de->d_name, ".") && strcmp(de->d_name, ".."))
+      std::ostringstream s;
+      s << "/sys/dev/block/" << major(st.st_dev) << ":" << minor(st.st_dev);
+      prefix = s.str();
+    }
+    else
+    {
+      return boost::none;
+    }
+    std::string attr_path = prefix + "/queue/rotational";
+    std::ifstream f(attr_path, std::ios_base::in);
+    if(not f.is_open())
+    {
+      attr_path = prefix + "/../queue/rotational";
+      f.open(attr_path, std::ios_base::in);
+      if(not f.is_open())
       {
-        std::string dev_path = std::string("/dev/block/") + de->d_name;
-        char resolved[PATH_MAX];
-        if (realpath(dev_path.c_str(), resolved) && !strncmp(resolved, "/dev/", 5))
-        {
-          if (stat(resolved, &dst) == 0)
-          {
-            if (dst.st_rdev == st.st_dev)
-            {
-              // take out trailing digits (eg, sda1 -> sda)
-              char *ptr = resolved;
-              while (*ptr)
-                ++ptr;
-              while (ptr > resolved && isdigit(*--ptr))
-                *ptr = 0;
-              device = resolved + 5;
-              break;
-            }
-          }
-        }
+          return boost::none;
       }
     }
-    closedir(dir);
-
-    if (device.empty())
-      return 0;
-
-    std::string sys_path = "/sys/block/" + device + "/queue/rotational";
-    FILE *f = fopen(sys_path.c_str(), "r");
-    if (!f)
-      return false;
-    char s[8];
-    char *ptr = fgets(s, sizeof(s), f);
-    fclose(f);
-    if (!ptr)
-      return 0;
-    s[sizeof(s) - 1] = 0;
-    int n = atoi(s); // returns 0 on parse error
-    return n == 1;
+    unsigned short val = 0xdead;
+    f >> val;
+    if(not f.fail())
+    {
+      return (val == 1);
+    }
+    return boost::none;
 #else
-    return 0;
+    return boost::none;
 #endif
   }
 
@@ -954,4 +939,32 @@ std::string get_nix_version_display_string()
     }
     return newval;
   }
+  
+#ifdef _WIN32
+  std::string input_line_win()
+  {
+    HANDLE hConIn = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    DWORD oldMode;
+
+    FlushConsoleInputBuffer(hConIn);
+    GetConsoleMode(hConIn, &oldMode);
+    SetConsoleMode(hConIn, ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
+
+    wchar_t buffer[1024];
+    DWORD read;
+
+    ReadConsoleW(hConIn, buffer, sizeof(buffer)/sizeof(wchar_t)-1, &read, nullptr);
+    buffer[read] = 0;
+
+    SetConsoleMode(hConIn, oldMode);
+    CloseHandle(hConIn);
+  
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL, NULL);
+    std::string buf(size_needed, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, buffer, -1, &buf[0], size_needed, NULL, NULL);
+    buf.pop_back(); //size_needed includes null that we needed to have space for
+    return buf;
+  }
+#endif
+
 }

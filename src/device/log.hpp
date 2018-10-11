@@ -40,12 +40,13 @@
 
 namespace hw {
 
+    void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) ;
+    void log_hexbuffer(const std::string &msg,  const char* buff, size_t len);
+    void log_message(const std::string &msg, const std::string &info );
+
     #ifdef WITH_DEVICE_LEDGER    
     namespace ledger {
 
-        void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) ;
-        void log_hexbuffer(const std::string &msg,  const char* buff, size_t len);
-        void log_message(const std::string &msg, const std::string &info );
         #ifdef DEBUG_HWDEVICE
         #define TRACK printf("file %s:%d\n",__FILE__, __LINE__)
         //#define TRACK MCDEBUG("ledger"," At file " << __FILE__ << ":" << __LINE__)

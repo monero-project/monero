@@ -36,7 +36,7 @@
 
 #include "multi_tx_test_base.h"
 
-template<size_t a_in_count, size_t a_out_count, bool a_rct>
+template<size_t a_in_count, size_t a_out_count, bool a_rct, rct::RangeProofType range_proof_type = rct::RangeProofBorromean>
 class test_construct_tx : private multi_tx_test_base<a_in_count>
 {
   static_assert(0 < a_in_count, "in_count must be greater than 0");
@@ -73,7 +73,7 @@ public:
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, m_destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct);
+    return cryptonote::construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, m_destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, range_proof_type);
   }
 
 private:

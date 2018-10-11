@@ -48,11 +48,12 @@
 #include "crypto/chacha.h"
 #include "ringct/rctTypes.h"
 
+
 #ifndef USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 1
 #endif
 
-#if !defined(HAVE_PCSC) 
+#if !defined(HAVE_HIDAPI) 
 #undef  USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 0
 #endif
@@ -78,7 +79,6 @@ namespace hw {
            return false;
     }
 
-
     class device {
     protected:
         std::string  name;
@@ -96,6 +96,12 @@ namespace hw {
             TRANSACTION_CREATE_FAKE,
             TRANSACTION_PARSE
         };
+        enum device_type
+        {
+          SOFTWARE = 0,
+          LEDGER = 1
+        };
+
 
         /* ======================================================================= */
         /*                              SETUP/TEARDOWN                             */
@@ -109,7 +115,9 @@ namespace hw {
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
 
-        virtual bool  set_mode(device_mode mode) = 0;
+        virtual bool set_mode(device_mode mode) = 0;
+
+        virtual device_type get_type() const = 0;
 
 
         /* ======================================================================= */
@@ -202,6 +210,17 @@ namespace hw {
         ~reset_mode() { hwref.set_mode(hw::device::NONE);}
     };
 
-    device& get_device(const std::string device_descriptor) ;
+    class device_registry {
+    private:
+      std::map<std::string, std::unique_ptr<device>> registry;
+
+    public:
+      device_registry();
+      bool register_device(const std::string & device_name, device * hw_device);
+      device& get_device(const std::string & device_descriptor);
+    };
+
+    device& get_device(const std::string & device_descriptor);
+    bool register_device(const std::string & device_name, device * hw_device);
 }
 

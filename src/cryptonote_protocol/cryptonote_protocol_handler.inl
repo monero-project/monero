@@ -1683,11 +1683,6 @@ skip:
     fluffy_arg.b = arg.b;
     fluffy_arg.b.txs = fluffy_txs;
 
-    // pre-serialize them
-    std::string fullBlob, fluffyBlob;
-    epee::serialization::store_t_to_binary(arg, fullBlob);
-    epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob);
-
     // sort peers between fluffy ones and others
     std::list<boost::uuids::uuid> fullConnections, fluffyConnections;
     m_p2p->for_each_connection([this, &exclude_context, &fullConnections, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
@@ -1709,8 +1704,18 @@ skip:
     });
 
     // send fluffy ones first, we want to encourage people to run that
-    m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, fluffyBlob, fluffyConnections);
-    m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, fullBlob, fullConnections);
+    if (!fluffyConnections.empty())
+    {
+      std::string fluffyBlob;
+      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, fluffyBlob, fluffyConnections);
+    }
+    if (!fullConnections.empty())
+    {
+      std::string fullBlob;
+      epee::serialization::store_t_to_binary(arg, fullBlob);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, fullBlob, fullConnections);
+    }
 
     return true;
   }
