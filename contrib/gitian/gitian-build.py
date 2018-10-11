@@ -65,13 +65,13 @@ def build():
     if args.windows:
         print('\nCompiling ' + args.version + ' Windows')
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, '../monero/contrib/gitian/gitian-win.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-win-unsigned', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-win.yml'])
+        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-win', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-win.yml'])
         subprocess.check_call('mv build/out/monero*.zip ../monero-binaries/'+args.version, shell=True)
 
     if args.macos:
         print('\nCompiling ' + args.version + ' MacOS')
         subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero'+args.url, '../monero/contrib/gitian/gitian-osx.yml'])
-        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx-unsigned', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx.yml'])
+        subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-osx', '--destination', '../gitian.sigs/', '../monero/contrib/gitian/gitian-osx.yml'])
         subprocess.check_call('mv build/out/monero*.tar.gz ../monero-binaries/'+args.version, shell=True)
 
     os.chdir(workdir)
@@ -80,22 +80,9 @@ def build():
         print('\nCommitting '+args.version+' Unsigned Sigs\n')
         os.chdir('gitian.sigs')
         subprocess.check_call(['git', 'add', args.version+'-linux/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-win-unsigned/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-osx-unsigned/'+args.signer])
+        subprocess.check_call(['git', 'add', args.version+'-win/'+args.signer])
+        subprocess.check_call(['git', 'add', args.version+'-osx/'+args.signer])
         subprocess.check_call(['git', 'commit', '-m', 'Add '+args.version+' unsigned sigs for '+args.signer])
-        os.chdir(workdir)
-
-def sign():
-    global args, workdir
-    os.chdir('gitian-builder')
-    os.chdir(workdir)
-
-    if args.commit_files:
-        print('\nCommitting '+args.version+' Signed Sigs\n')
-        os.chdir('gitian.sigs')
-        subprocess.check_call(['git', 'add', args.version+'-win-signed/'+args.signer])
-        subprocess.check_call(['git', 'add', args.version+'-osx-signed/'+args.signer])
-        subprocess.check_call(['git', 'commit', '-a', '-m', 'Add '+args.version+' signed binary sigs for '+args.signer])
         os.chdir(workdir)
 
 def verify():
@@ -105,14 +92,9 @@ def verify():
     print('\nVerifying v'+args.version+' Linux\n')
     subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-linux', '../monero/contrib/gitian/gitian-linux.yml'])
     print('\nVerifying v'+args.version+' Windows\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-win-unsigned', '../monero/contrib/gitian/gitian-win.yml'])
+    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-win', '../monero/contrib/gitian/gitian-win.yml'])
     print('\nVerifying v'+args.version+' MacOS\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-osx-unsigned', '../monero/contrib/gitian/gitian-osx.yml'])
-    print('\nVerifying v'+args.version+' Signed Windows\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-win-signed', '../monero/contrib/gitian/gitian-win-signer.yml'])
-    print('\nVerifying v'+args.version+' Signed MacOS\n')
-    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-osx-signed', '../monero/contrib/gitian/gitian-osx-signer.yml'])
-
+    subprocess.check_call(['bin/gverify', '-v', '-d', '../gitian.sigs/', '-r', args.version+'-osx', '../monero/contrib/gitian/gitian-osx.yml'])
     os.chdir(workdir)
 
 def main():
@@ -124,7 +106,6 @@ def main():
     parser.add_argument('-u', '--url', dest='url', default='https://github.com/monero-project/monero', help='Specify the URL of the repository. Default is %(default)s')
     parser.add_argument('-v', '--verify', action='store_true', dest='verify', help='Verify the Gitian build')
     parser.add_argument('-b', '--build', action='store_true', dest='build', help='Do a Gitian build')
-    parser.add_argument('-s', '--sign', action='store_true', dest='sign', help='Make signed binaries for Windows and MacOS')
     parser.add_argument('-B', '--buildsign', action='store_true', dest='buildsign', help='Build both signed and unsigned binaries')
     parser.add_argument('-o', '--os', dest='os', default='lwm', help='Specify which Operating Systems the build is for. Default is %(default)s. l for Linux, w for Windows, m for MacOS')
     parser.add_argument('-j', '--jobs', dest='jobs', default='2', help='Number of processes to use. Default %(default)s')
@@ -184,7 +165,7 @@ def main():
     # Add leading 'v' for tags
     if args.commit and args.pull:
         raise Exception('Cannot have both commit and pull')
-    args.commit = ('' if args.commit else 'v') + args.version
+    args.commit = ('' if args.commit else) + args.version
 
     if args.setup:
         setup()
@@ -203,9 +184,6 @@ def main():
 
     if args.build:
         build()
-
-    if args.sign:
-        sign()
 
     if args.verify:
         verify()
