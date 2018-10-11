@@ -152,3 +152,42 @@ public:
 };
 
 template<> struct get_test_options<test_deregisters_on_split>: public get_test_options<test_service_nodes_base> {};
+
+class deregister_too_old : public test_chain_unit_base
+{
+  size_t m_invalid_block_index;
+
+public:
+  deregister_too_old();
+  bool generate(std::vector<test_event_entry>& events);
+
+  bool mark_invalid_block(cryptonote::core& /*c*/, size_t ev_index, const std::vector<test_event_entry>& /*events*/)
+  {
+    m_invalid_block_index = ev_index + 1;
+    return true;
+  }
+
+  bool check_block_verification_context(const cryptonote::block_verification_context& bvc,
+                                        size_t event_idx,
+                                        const cryptonote::block& /*blk*/)
+  {
+    if (m_invalid_block_index == event_idx)
+      return bvc.m_verifivation_failed;
+    else
+      return !bvc.m_verifivation_failed;
+  }
+};
+
+
+template<> struct get_test_options<deregister_too_old>: public get_test_options<test_service_nodes_base> {};
+//-------------------------------------------------------------------------------------------
+class sn_test_rollback : public test_chain_unit_base
+{
+
+public:
+  sn_test_rollback();
+  bool generate(std::vector<test_event_entry>& events);
+  bool test_registrations(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+};
+
+template<> struct get_test_options<sn_test_rollback>: public get_test_options<test_service_nodes_base> {};
