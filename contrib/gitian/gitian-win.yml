@@ -1,5 +1,5 @@
 ---
-name: "bitcoin-win-0.18"
+name: "monero-win-0.14"
 enable_cache: true
 suites:
 - "bionic"
