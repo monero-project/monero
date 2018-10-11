@@ -152,7 +152,7 @@ library archives (`.a`).
 | Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
 
 
-[^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must	##### Notice
+[^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
 
 Debian / Ubuntu one liner for all dependencies  
