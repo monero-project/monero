@@ -34,6 +34,7 @@
 #include "include_base_utils.h"
 #include "misc_log_ex.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "common/util.h"
 
 #include "net_load_tests.h"
 

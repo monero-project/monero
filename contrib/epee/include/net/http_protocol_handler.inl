@@ -32,6 +32,7 @@
 #include "string_tools.h"
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
+#include "time_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"

@@ -41,6 +41,7 @@
 #include "misc_language.h"
 #include "misc_log_ex.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "common/util.h"
 
 #include "net_load_tests.h"
 
