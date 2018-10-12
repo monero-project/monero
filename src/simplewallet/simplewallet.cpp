@@ -3032,7 +3032,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
       crypto::secret_key viewkey;
-      if (viewkey_string.hex_to_pod(unwrap(unwrap(viewkey))))
+      if (!viewkey_string.hex_to_pod(unwrap(unwrap(viewkey))))
       {
         fail_msg_writer() << tr("failed to parse view key secret key");
         return false;
