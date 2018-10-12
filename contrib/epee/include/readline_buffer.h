@@ -27,6 +27,7 @@ namespace rdln
 
   private:
     std::streambuf* m_cout_buf;
+    size_t m_prompt_length;
     static std::vector<std::string>& completion_commands();
   };
   
