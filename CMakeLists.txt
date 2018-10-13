@@ -40,6 +40,7 @@ if (IOS)
 endif()
 
 cmake_minimum_required(VERSION 2.8.7)
+message(STATUS "CMake version ${CMAKE_VERSION}")
 
 project(monero)
 
@@ -139,7 +140,6 @@ if(ARCH_ID STREQUAL "ppc64le")
   set(PPC64LE 1)
   set(PPC64   0)
   set(PPC     0)
-
 endif()
 
 if(ARCH_ID STREQUAL "powerpc64" OR ARCH_ID STREQUAL "ppc64")
@@ -517,10 +517,8 @@ if(MSVC)
   include_directories(SYSTEM src/platform/msc)
 else()
   include(TestCXXAcceptsFlag)
-  if (NOT ARM6)
-    if(NOT DEPENDS OR DEPENDS AND NOT ARM)
-      set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
-    endif()
+  if (NOT ARCH)
+    set(ARCH native CACHE STRING "CPU to build for: -march value or 'default' to not pass -march at all")
   endif()
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
