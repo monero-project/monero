@@ -58,7 +58,7 @@ script:
     - export TRAVIS_COMMIT_LOG=`git log --format=fuller -1`
     - OUTDIR=$BASE_OUTDIR/$TRAVIS_PULL_REQUEST/$TRAVIS_JOB_NUMBER-$HOST
     - if [ -z "$NO_DEPENDS" ]; then $DOCKER_EXEC ccache --max-size=$CCACHE_SIZE; fi
-    - $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake .. && make $MAKEJOBS"
+    - $DOCKER_EXEC bash -c "mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/share/toolchain.cmake -DTRAVIS=true .. && make $MAKEJOBS"
     - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/contrib/depends/$HOST/lib
 after_script:
     - echo $TRAVIS_COMMIT_RANGE
