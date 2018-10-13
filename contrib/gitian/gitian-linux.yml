@@ -152,7 +152,7 @@ script: |
   for i in ${HOSTS}; do
     export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
     mkdir build && cd build
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON
     make
     DISTNAME=monero-${i}
     mv bin ${DISTNAME}
