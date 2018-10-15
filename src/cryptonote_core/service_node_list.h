@@ -255,7 +255,6 @@ namespace service_nodes
     void block_added_generic(const cryptonote::block& block, const T& txs);
 
     bool contribution_tx_output_has_correct_unlock_time(const cryptonote::transaction& tx, size_t i, uint64_t block_height) const;
-    uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev) const;
 
     void store_quorum_state_from_rewards_list(uint64_t height);
 
@@ -265,7 +264,7 @@ namespace service_nodes
     void clear(bool delete_db_entry = false);
     bool load();
 
-    mutable std::recursive_mutex m_sn_mutex;
+    mutable boost::recursive_mutex m_sn_mutex;
 
     using block_height = uint64_t;
 
@@ -282,13 +281,14 @@ namespace service_nodes
     std::map<block_height, std::shared_ptr<const quorum_state>> m_quorum_states;
   };
 
+  uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
 
-  /// Check if portions are sufficiently large (except for the last) and add up to the  required amount
+  /// Check if portions are sufficiently large (except for the last) and add up to the required amount
   bool check_service_node_portions(const std::vector<uint64_t>& portions);
 
   uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type m_nettype);
