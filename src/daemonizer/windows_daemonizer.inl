@@ -29,6 +29,7 @@
 #pragma once
 
 #include "common/util.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
 
