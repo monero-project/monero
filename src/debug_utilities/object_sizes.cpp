@@ -29,6 +29,7 @@
 #include <map>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/tx_extra.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"
 #include "p2p/p2p_protocol_defs.h"
 #include "net/connection_basic.hpp"
