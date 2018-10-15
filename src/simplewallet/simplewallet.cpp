@@ -4735,22 +4735,6 @@ bool simple_wallet::register_service_node_main(
     return false;
   }
 
-  try
-  {
-    const auto& response = m_wallet->get_service_nodes(service_node_key_as_str);
-    if (response.service_node_states.size() >= 1)
-    {
-      if (!autostake)
-        fail_msg_writer() << tr("This service node is already registered");
-      return true;
-    }
-  }
-  catch(const std::exception &e)
-  {
-    fail_msg_writer() << e.what();
-    return true;
-  }
-
   uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
@@ -4790,6 +4774,34 @@ bool simple_wallet::register_service_node_main(
       if (bc_height == 0)
         return true;
     }
+  }
+
+  try
+  {
+    const auto& response = m_wallet->get_service_nodes(service_node_key_as_str);
+    if (response.service_node_states.size() >= 1)
+    {
+      bool can_reregister = false;
+      if (m_wallet->use_fork_rules(cryptonote::Blockchain::version_10_swarms, 0))
+      {
+        cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info = response.service_node_states[0];
+        uint64_t expiry_height = node_info.registration_height + staking_requirement_lock_blocks;
+        if (bc_height >= expiry_height)
+          can_reregister = true;
+      }
+
+      if (!can_reregister)
+      {
+        if (!autostake)
+          fail_msg_writer() << tr("This service node is already registered");
+        return true;
+      }
+    }
+  }
+  catch(const std::exception &e)
+  {
+    fail_msg_writer() << e.what();
+    return true;
   }
 
   uint64_t unlock_block = bc_height + locked_blocks;
@@ -5062,10 +5074,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
   add_service_node_contributor_to_tx_extra(extra, address);
 
-  std::string please_wait_to_be_included_in_block_msg = std::string() +
-      tr("Wait for transaction to be included in a block before registration is complete.\n") +
-      tr("Use the print_sn command in the daemon to check the status.");
-
   if (autostake)
   {
     bool is_open_service_node = portions_for_operator != STAKING_PORTIONS;
@@ -5077,7 +5085,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
 
     stop();
     m_idle_thread.join();
-    success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
 #ifndef WIN32
     success_msg_writer(true /*color*/) << tr("Successfully entered autostaking mode, this wallet is moving into the background to automatically renew your service node every period.");
     tools::threadpool::getInstance().stop();
@@ -5103,7 +5110,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   {
     LOCK_IDLE_SCOPE();
     register_service_node_main(service_node_key_as_str, expiration_timestamp, address, priority, portions, extra, subaddr_indices, autostake);
-    success_msg_writer(false) << please_wait_to_be_included_in_block_msg;
   }
 
   return true;

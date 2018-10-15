@@ -2014,7 +2014,7 @@ bool t_rpc_command_executor::get_service_node_registration_cmd(const std::vector
     return true;
 }
 
-static void print_service_node_list_state(cryptonote::network_type nettype, uint64_t *curr_height, std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
+static void print_service_node_list_state(cryptonote::network_type nettype, int hard_fork_version, uint64_t *curr_height, std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry *> list)
 {
   const char indent1[] = "    ";
   const char indent2[] = "        ";
@@ -2036,8 +2036,9 @@ static void print_service_node_list_state(cryptonote::network_type nettype, uint
 
     // Print Expiry Info
     {
-      uint64_t expiry_height = entry.registration_height;
-      expiry_height += service_nodes::get_staking_requirement_lock_blocks(nettype);
+      uint64_t expiry_height = entry.registration_height + service_nodes::get_staking_requirement_lock_blocks(nettype);
+      if (hard_fork_version >= cryptonote::Blockchain::version_10_swarms)
+        expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
       if (curr_height)
       {
@@ -2102,12 +2103,25 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 
     cryptonote::network_type nettype = cryptonote::UNDEFINED;
     uint64_t *curr_height = nullptr;
+    int hard_fork_version = 7;
     if (m_is_rpc)
     {
       if (!m_rpc_client->rpc_request(get_info_req, get_info_res, "/getinfo", fail_message.c_str()))
       {
         tools::fail_msg_writer() << make_error(fail_message, get_info_res.status);
         return true;
+      }
+
+      {
+        cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+        cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+        if (!m_rpc_client->json_rpc_request(hard_fork_info_req, hard_fork_info_res, "hard_fork_info", fail_message.c_str()))
+        {
+          tools::fail_msg_writer() << make_error(fail_message, hard_fork_info_res.status);
+          return true;
+        }
+
+        hard_fork_version = hard_fork_info_res.version;
       }
 
       if (!m_rpc_client->json_rpc_request(req, res, "get_service_nodes", fail_message.c_str()))
@@ -2125,6 +2139,17 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     {
       if (m_rpc_server->on_get_info(get_info_req, get_info_res) || get_info_res.status == CORE_RPC_STATUS_OK)
         curr_height = &get_info_res.height;
+
+      {
+        cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+        cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+        if (!m_rpc_server->on_hard_fork_info(hard_fork_info_req, hard_fork_info_res, error_resp) || hard_fork_info_res.status != CORE_RPC_STATUS_OK)
+        {
+          tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+          return true;
+        }
+        hard_fork_version = hard_fork_info_res.version;
+      }
 
       if (!m_rpc_server->on_get_service_nodes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
       {
@@ -2173,13 +2198,13 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     if (unregistered.size() > 0)
     {
       tools::msg_writer() << "Service Node Unregistered State[" << unregistered.size()<< "]";
-      print_service_node_list_state(nettype, curr_height, unregistered);
+      print_service_node_list_state(nettype, hard_fork_version, curr_height, unregistered);
     }
 
     if (registered.size() > 0)
     {
       tools::msg_writer() << "Service Node Registration State[" << registered.size()<< "]";
-      print_service_node_list_state(nettype, curr_height, registered);
+      print_service_node_list_state(nettype, hard_fork_version, curr_height, registered);
     }
 
     if (unregistered.size() == 0 && registered.size() == 0)
