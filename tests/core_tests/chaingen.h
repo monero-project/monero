@@ -224,6 +224,165 @@ private:
   uint8_t hf_version_;
 };
 
+/// ------------ Service Nodes -----------
+
+struct last_reward_point {
+  uint64_t height;
+  uint64_t priority;
+};
+
+struct sn_registration {
+  uint64_t valid_until; /// block height
+  cryptonote::keypair keys;
+  sn_contributor_t contribution;
+  last_reward_point last_reward;
+};
+
+class sn_list
+{
+  std::vector<sn_registration> sn_owners_;
+
+public:
+
+  const sn_registration& at(size_t idx) const { return sn_owners_.at(idx); }
+
+  const boost::optional<sn_registration> find_registration(const crypto::public_key& pk) const;
+
+  void expire_old(uint64_t height);
+
+  const boost::optional<crypto::public_key> get_winner_pk(uint64_t height);
+
+  size_t size() const { return sn_owners_.size(); }
+
+  void add_registrations(const std::vector<sn_registration>& regs);
+
+  void remove_node(const crypto::public_key& pk);
+};
+
+/// Service node and its index
+struct sn_idx {
+  crypto::public_key sn_pk;
+  /// index in the sorted list of service nodes for a particular block
+  size_t idx_in_quorum;
+};
+
+struct QuorumState {
+  std::vector<sn_idx> voters;
+  std::vector<sn_idx> to_test;
+};
+
+class dereg_tx_builder;
+class linear_chain_generator
+{
+
+  private:
+    test_generator gen_;
+    std::vector<test_event_entry>& events_;
+    std::vector<cryptonote::block> blocks_;
+
+    sn_list sn_list_;
+
+    /// keep new registrations here until the next block
+    std::vector<sn_registration> registration_buffer_;
+
+    cryptonote::account_base first_miner_;
+
+  public:
+    linear_chain_generator(std::vector<test_event_entry> &events)
+      : gen_(), events_(events)
+    { }
+
+    uint64_t height() const { return get_block_height(blocks_.back()); }
+
+    cryptonote::account_base create_account();
+
+    void create_genesis_block();
+
+    void create_block(const std::vector<cryptonote::transaction>& txs = {});
+
+    cryptonote::block create_block_on_fork(const cryptonote::block& prev, const std::vector<cryptonote::transaction>& txs = {});
+
+    void rewind_until_v9();
+    void rewind_blocks_n(int n);
+    void rewind_blocks();
+
+    cryptonote::transaction create_tx(const cryptonote::account_base& miner,
+                                      const cryptonote::account_base& acc,
+                                      uint64_t amount,
+                                      uint64_t fee = TESTS_DEFAULT_FEE);
+
+    cryptonote::transaction create_registration_tx(const cryptonote::account_base& acc, const cryptonote::keypair& sn_keys);
+
+    cryptonote::transaction create_registration_tx();
+
+    const cryptonote::account_base& first_miner() const { return first_miner_; }
+
+    /// Note: should be carefull with returing a reference to vector elements
+    const cryptonote::block& chain_head() const { return blocks_.back(); }
+
+    /// get a copy of the service node list
+    sn_list get_sn_list() const { return sn_list_; }
+
+    void set_sn_list(const sn_list& list) { sn_list_ = list; }
+
+    QuorumState get_quorum_idxs(const cryptonote::block& block) const;
+
+    QuorumState get_quorum_idxs(uint64_t height) const;
+
+    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<sn_idx>& voters, uint64_t fee = 0) const;
+
+    dereg_tx_builder build_deregister(const crypto::public_key& pk);
+
+    crypto::public_key get_test_pk(uint32_t idx) const;
+
+    boost::optional<uint32_t> get_idx_in_tested(const crypto::public_key& pk, uint64_t height) const;
+
+    void deregister(const crypto::public_key& pk);
+
+};
+
+class dereg_tx_builder {
+
+  linear_chain_generator& gen_;
+  const crypto::public_key& pk_;
+
+  /// the height at which `pk_` is to be found
+  boost::optional<uint64_t> height_ = boost::none;
+
+  boost::optional<uint64_t> fee_ = boost::none;
+
+  boost::optional<const std::vector<sn_idx>&> voters_ = boost::none;
+
+  public:
+    dereg_tx_builder(linear_chain_generator& gen, const crypto::public_key& pk)
+      : gen_(gen), pk_(pk)
+    {}
+
+    dereg_tx_builder&& with_height(uint64_t height) {
+      height_ = height;
+      return std::move(*this);
+    }
+
+    dereg_tx_builder&& with_fee(uint64_t fee) {
+      fee_ = fee;
+      return std::move(*this);
+    }
+
+    dereg_tx_builder&& with_voters(const std::vector<sn_idx>& voters)
+    {
+      voters_ = voters;
+      return std::move(*this);
+    }
+
+    cryptonote::transaction build()
+    {
+      const auto height = height_ ? *height_ : gen_.height();
+      const auto voters = voters_ ? *voters_ : gen_.get_quorum_idxs(height).voters;
+      return gen_.create_deregister_tx(pk_, height, voters, fee_.value_or(0));
+    }
+
+};
+
 inline cryptonote::difficulty_type get_test_difficulty() {return 1;}
 void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);
 
@@ -236,23 +395,6 @@ bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
 bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
                                  const cryptonote::account_public_address& miner_address, cryptonote::transaction& tx,
                                  uint64_t fee, cryptonote::keypair* p_txkey = 0);
-bool construct_tx_to_key(const std::vector<test_event_entry>& events,
-                         cryptonote::transaction& tx,
-                         const cryptonote::block& blk_head,
-                         const cryptonote::account_base& from,
-                         const cryptonote::account_base& to,
-                         uint64_t amount);
-
-struct register_info {
-  const cryptonote::keypair& service_node_keypair;
-  const std::vector<uint64_t>& portions;
-  uint64_t operator_cut;
-  const std::vector<cryptonote::account_public_address>& addresses;
-};
-
-bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx,
-                         const cryptonote::block& blk_head, const cryptonote::account_base& from, const cryptonote::account_base& to,
-                         uint64_t amount, uint64_t fee, size_t nmix, bool stake=false, const std::vector<uint8_t>& extra = {}, uint64_t unlock_time=0);
 
 cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                             const cryptonote::account_base& acc_from, const cryptonote::account_base& acc_to,
@@ -265,6 +407,103 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
                                       uint64_t amount, uint64_t fee, size_t nmix,
                                       std::vector<cryptonote::tx_source_entry>& sources,
                                       std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t *change_amount = nullptr);
+
+class TxBuilder {
+
+  /// required fields
+  const std::vector<test_event_entry>& m_events;
+  cryptonote::transaction& m_tx;
+  const cryptonote::block& m_head;
+  const cryptonote::account_base& m_from;
+  const cryptonote::account_base& m_to;
+  uint64_t m_amount;
+
+  /// optional fields
+  boost::optional<uint64_t> m_fee;
+  boost::optional<std::vector<uint8_t>> m_extra;
+  boost::optional<uint64_t> m_unlock_time;
+  bool m_per_output_unlock = false;
+  bool m_is_staking = false;
+
+  /// this makes sure we didn't forget to build it
+  bool m_finished = false;
+
+public:
+  TxBuilder(const std::vector<test_event_entry>& events,
+            cryptonote::transaction& tx,
+            const cryptonote::block& head,
+            const cryptonote::account_base& from,
+            const cryptonote::account_base& to,
+            uint64_t amount)
+    : m_events(events)
+    , m_tx(tx)
+    , m_head(head)
+    , m_from(from)
+    , m_to(to)
+    , m_amount(amount)
+  {}
+
+  TxBuilder&& with_fee(uint64_t fee) {
+    m_fee = fee;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_extra(const std::vector<uint8_t>& extra) {
+    m_extra = extra;
+    return std::move(*this);
+  }
+
+  TxBuilder&& is_staking(bool val) {
+    m_is_staking = val;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_unlock_time(uint64_t val) {
+    m_unlock_time = val;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_per_output_unlock(bool val) {
+    m_per_output_unlock = val;
+    return std::move(*this);
+  }
+
+  ~TxBuilder() {
+    if (!m_finished) {
+      std::cerr << "Tx building not finished\n";
+      abort();
+    }
+  }
+
+  bool build()
+  {
+    m_finished = true;
+
+    std::vector<cryptonote::tx_source_entry> sources;
+    std::vector<cryptonote::tx_destination_entry> destinations;
+    uint64_t change_amount;
+
+    const auto fee = m_fee ? *m_fee : TESTS_DEFAULT_FEE;
+    const auto nmix = 9;
+
+    fill_tx_sources_and_destinations(
+      m_events, m_head, m_from, m_to, m_amount, fee, nmix, sources, destinations, &change_amount);
+
+    const bool is_subaddr = false;
+
+    cryptonote::tx_destination_entry change_addr{ change_amount, m_from.get_keys().m_account_address, is_subaddr };
+
+    std::vector<uint8_t> extra;
+    if (m_extra) extra = *m_extra;
+
+    const auto unlock_time = m_unlock_time ? *m_unlock_time : 0;
+
+
+    return cryptonote::construct_tx(
+      m_from.get_keys(), sources, destinations, change_addr, extra, m_tx, unlock_time, m_is_staking, m_per_output_unlock);
+
+  }
+};
 
 /// Get the amount transferred to `account` in `tx` as output `i`
 uint64_t get_amount(const cryptonote::account_base& account, const cryptonote::transaction& tx, int i);
@@ -688,8 +927,8 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
                                                const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee = 0);
 
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
-  cryptonote::transaction TX_NAME;                                                             \
-  construct_tx_to_key(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX); \
+  cryptonote::transaction TX_NAME;                                                           \
+  TxBuilder(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT).build();                            \
   VEC_EVENTS.push_back(TX_NAME);
 
 #define MAKE_TX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, HEAD) MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, 9, HEAD)
@@ -697,7 +936,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 #define MAKE_TX_MIX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD)             \
   {                                                                                      \
     cryptonote::transaction t;                                                             \
-    construct_tx_to_key(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX); \
+    TxBuilder(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT).build();                            \
     SET_NAME.push_back(t);                                                               \
     VEC_EVENTS.push_back(t);                                                             \
   }

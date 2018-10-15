@@ -180,7 +180,8 @@ void make_rct_tx(eventV& events,
                  uint64_t amount)
 {
     txs.emplace_back();
-    bool success = construct_tx_to_key(events, txs.back(), blk_head, from, to, amount);
+
+    bool success = TxBuilder(events, txs.back(), blk_head, from, to, amount).build();
     /// TODO: beter error message
     if (!success) throw std::exception();
     events.push_back(txs.back());
@@ -225,7 +226,7 @@ bool gen_simple_chain_001::generate(eventV& events)
     events.push_back(chain.back());
 
     /// Note: to create N RingCT transactions need at least 10 + N outputs
-    while (chain.size() < 8) {
+    while (chain.size() < 10) {
         chain.emplace_back();
         const auto idx = chain.size() - 1;
         generator.construct_block(chain[idx], chain[idx-1], miner);
