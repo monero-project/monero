@@ -655,10 +655,14 @@ namespace nodetool
   {
     kill();
     m_peerlist.deinit();
-    m_net_server.deinit_server();
-    // remove UPnP port mapping
-    if(!m_no_igd)
-      delete_upnp_port_mapping(m_listening_port);
+
+    if (!m_offline)
+    {
+      m_net_server.deinit_server();
+      // remove UPnP port mapping
+      if(!m_no_igd)
+        delete_upnp_port_mapping(m_listening_port);
+    }
     return store_config();
   }
   //-----------------------------------------------------------------------------------
