@@ -544,7 +544,7 @@ public:
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
 
   /**
    * @brief An empty destructor.
