@@ -137,13 +137,18 @@ bool t_daemon::run(bool interactive)
     throw std::runtime_error{"Can't run stopped daemon"};
   }
 
-  std::atomic<bool> stop(false);
-  boost::thread([&stop, this] {
+  std::atomic<bool> stop(false), shutdown(false);
+  boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
     while (!stop)
       epee::misc_utils::sleep_no_w(100);
-    this->stop_p2p();
-  }).detach();
-  tools::signal_handler::install([&stop](int){ stop = true; });
+    if (shutdown)
+      this->stop_p2p();
+  });
+  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+    stop = true;
+    stop_thread.join();
+  });
+  tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
 
   try
   {
