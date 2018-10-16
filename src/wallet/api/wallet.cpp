@@ -776,7 +776,7 @@ bool WalletImpl::setPassword(const std::string &password)
 {
     clearStatus();
     try {
-        m_wallet->rewrite(m_wallet->get_wallet_file(), password);
+        m_wallet->change_password(m_wallet->get_wallet_file(), m_password, password);
         m_password = password;
     } catch (const std::exception &e) {
         setStatusError(e.what());
