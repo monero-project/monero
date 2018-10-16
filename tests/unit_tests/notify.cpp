@@ -26,6 +26,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#ifdef __GLIBC__
+#include <sys/stat.h>
+#endif
+
 #include "gtest/gtest.h"
 
 #include <boost/filesystem.hpp>
@@ -37,8 +41,14 @@
 
 TEST(notify, works)
 {
+#ifdef __GLIBC__
+  mode_t prevmode = umask(077);
+#endif
   char name_template[] = "/tmp/monero-notify-unit-test-XXXXXX";
   int fd = mkstemp(name_template);
+#ifdef __GLIBC__
+  umask(prevmode);
+#endif
   ASSERT_TRUE(fd >= 0);
   close(fd);
 
