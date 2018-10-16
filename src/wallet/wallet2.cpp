@@ -809,6 +809,7 @@ wallet_keys_unlocker::~wallet_keys_unlocker()
 wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_multisig_rescan_info(NULL),
   m_multisig_rescan_k(NULL),
+  m_upper_transaction_weight_limit(0),
   m_run(true),
   m_callback(0),
   m_trusted_daemon(false),
@@ -841,6 +842,9 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_is_initialized(false),
   m_kdf_rounds(kdf_rounds),
   is_old_file_format(false),
+  m_watch_only(false),
+  m_multisig(false),
+  m_multisig_threshold(0),
   m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex),
   m_subaddress_lookahead_major(SUBADDRESS_LOOKAHEAD_MAJOR),
   m_subaddress_lookahead_minor(SUBADDRESS_LOOKAHEAD_MINOR),
