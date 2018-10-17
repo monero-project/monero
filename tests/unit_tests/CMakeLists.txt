@@ -123,7 +123,7 @@ SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 
 add_test(
   NAME    unit_tests
-  COMMAND unit_tests --data-dir "${TEST_DATA_DIR} --binary-dir ${CMAKE_BINARY_DIR}")
+  COMMAND unit_tests --data-dir "${TEST_DATA_DIR}")
 
 add_executable(test_notifier test_notifier.cpp)
 target_link_libraries(test_notifier ${EXTRA_LIBRARIES})
