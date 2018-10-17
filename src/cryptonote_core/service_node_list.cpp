@@ -79,6 +79,12 @@ namespace service_nodes
   void service_node_list::init()
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
+    if (m_blockchain.get_current_hard_fork_version() < 9)
+    {
+      clear(true);
+      return;
+    }
+
     uint64_t current_height = m_blockchain.get_current_blockchain_height();
     bool loaded = load();
 
@@ -558,12 +564,11 @@ namespace service_nodes
     uint64_t block_height = cryptonote::get_block_height(block);
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
-    assert(m_height == block_height);
-    m_height++;
-
     if (hard_fork_version < 9)
       return;
 
+    assert(m_height == block_height);
+    m_height++;
     {
       const size_t ROLLBACK_EVENT_EXPIRATION_BLOCKS = 30;
       uint64_t cull_height = (block_height < ROLLBACK_EVENT_EXPIRATION_BLOCKS) ? block_height : block_height - ROLLBACK_EVENT_EXPIRATION_BLOCKS;
@@ -1103,7 +1108,14 @@ namespace service_nodes
     }
 
     m_quorum_states.clear();
-    m_height = 0;
+
+    uint64_t hardfork_9_from_height = 0;
+    {
+      uint32_t window, votes, threshold;
+      uint8_t voting;
+      m_blockchain.get_hard_fork_voting_info(9, window, votes, threshold, hardfork_9_from_height, voting);
+    }
+    m_height = hardfork_9_from_height;
   }
 
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake)
