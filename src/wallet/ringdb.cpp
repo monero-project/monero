@@ -412,13 +412,13 @@ bool ringdb::blackball_worker(const std::vector<std::pair<uint64_t, uint64_t>> &
     switch (op)
     {
       case BLACKBALL_BLACKBALL:
-        MDEBUG("Blackballing output " << output.first << "/" << output.second);
+        MDEBUG("Marking output " << output.first << "/" << output.second << " as spent");
         dbr = mdb_cursor_put(cursor, &key, &data, MDB_APPENDDUP);
         if (dbr == MDB_KEYEXIST)
           dbr = 0;
         break;
       case BLACKBALL_UNBLACKBALL:
-        MDEBUG("Unblackballing output " << output.first << "/" << output.second);
+        MDEBUG("Marking output " << output.first << "/" << output.second << " as unspent");
         dbr = mdb_cursor_get(cursor, &key, &data, MDB_GET_BOTH);
         if (dbr == 0)
           dbr = mdb_cursor_del(cursor, 0);
