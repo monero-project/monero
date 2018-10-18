@@ -1577,6 +1577,7 @@ namespace tools
         epee::wipeable_string seed;
         if (!m_wallet->get_seed(seed))
         {
+            er.code = WALLET_RPC_ERROR_CODE_NON_DETERMINISTIC;
             er.message = "The wallet is non-deterministic. Cannot display seed.";
             return false;
         }
