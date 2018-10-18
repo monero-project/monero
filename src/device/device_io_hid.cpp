@@ -72,7 +72,7 @@ namespace hw {
       this->connect(p->vid, p->pid, p->interface_number, p->usage_page, p->interface_OR_page);
     }
 
-    void device_io_hid::connect(unsigned int vid, unsigned  int pid, unsigned int interface_number, unsigned int usage_page, bool interface_OR_page ) {
+    void device_io_hid::connect(unsigned int vid, unsigned  int pid, int interface_number, unsigned short usage_page, bool interface_OR_page ) {
       hid_device_info *hwdev_info, *hwdev_info_list;
       hid_device      *hwdev;
 
@@ -83,8 +83,8 @@ namespace hw {
       hwdev = NULL;
       hwdev_info = hwdev_info_list;
       while (hwdev_info) {
-        if ((interface_OR_page && ((usage_page == 0xffa0) || (interface_number == 0))) ||
-                                  ((usage_page == 0xffa0) && (interface_number == 0)) ) {
+        if ((interface_OR_page && ((hwdev_info->usage_page == usage_page) || (hwdev_info->interface_number == interface_number))) ||
+                                  ((hwdev_info->usage_page == usage_page) && (hwdev_info->interface_number == interface_number))) {
           MDEBUG("HID Device found: " << safe_hid_path(hwdev_info));
           hwdev = hid_open_path(hwdev_info->path);
           break;
