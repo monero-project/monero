@@ -340,7 +340,7 @@ namespace hw {
 
     bool device_ledger::connect(void) {
       this->disconnect();
-      hw_device.connect(0x2c97,0x0001, 0, 0xffa0, hw_device.OR_SELECT);
+      hw_device.connect(0x2c97, 0x0001, 0, 0xffa0);
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
