@@ -39,7 +39,6 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
-#include "common/threadpool.h"
 #include "common/command_line.h"
 #include "service_node_deregister.h"
 #include "tx_pool.h"
@@ -64,6 +63,8 @@ namespace cryptonote
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
   extern const command_line::arg_descriptor<bool, false> arg_stagenet_on;
+  extern const command_line::arg_descriptor<bool, false> arg_regtest_on;
+  extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
 
   /************************************************************************/
@@ -533,7 +534,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const;
 
      /**
       * @brief gets some stats about the daemon
@@ -566,26 +567,11 @@ namespace cryptonote
      difficulty_type get_block_cumulative_difficulty(uint64_t height) const;
 
      /**
-      * @copydoc Blockchain::get_random_outs_for_amounts
-      *
-      * @note see Blockchain::get_random_outs_for_amounts
-      */
-     bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
-
-     /**
       * @copydoc Blockchain::get_outs
       *
       * @note see Blockchain::get_outs
       */
      bool get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const;
-
-     /**
-      *
-      * @copydoc Blockchain::get_random_rct_outs
-      *
-      * @note see Blockchain::get_random_rct_outs
-      */
-     bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
      /**
       * @copydoc Blockchain::get_output_distribution
@@ -679,6 +665,13 @@ namespace cryptonote
      uint8_t get_hard_fork_version(uint64_t height) const;
 
      /**
+      * @brief return the earliest block a given version may activate
+      *
+      * @return what it says above
+      */
+     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const;
+
+     /**
       * @brief gets start_time
       *
       */
@@ -760,6 +753,16 @@ namespace cryptonote
       * @return which network are we on?
       */
      network_type get_nettype() const { return m_nettype; };
+
+     /**
+      * @brief check whether an update is known to be available or not
+      *
+      * This does not actually trigger a check, but returns the result
+      * of the last check
+      *
+      * @return whether an update is known to be available or not
+      */
+     bool is_update_available() const { return m_update_available; }
 
      /**
       * @brief get whether fluffy blocks are enabled
@@ -858,12 +861,12 @@ namespace cryptonote
       *
       * @param tx_hash the transaction's hash
       * @param tx_prefix_hash the transaction prefix' hash
-      * @param blob_size the size of the transaction
+      * @param tx_weight the weight of the transaction
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t blob_size, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prefix_hash, size_t tx_weight, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -934,9 +937,12 @@ namespace cryptonote
       * @return true if all the checks pass, otherwise false
       */
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
+     void set_semantics_failed(const crypto::hash &tx_hash);
 
      bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
      bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash, crypto::hash &tx_prefixt_hash, bool keeped_by_block, bool relayed, bool do_not_relay);
+     struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
+     bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
      /**
       * @copydoc miner::on_block_chain_update
@@ -1073,6 +1079,8 @@ namespace cryptonote
 
      network_type m_nettype; //!< which network are we on?
 
+     std::atomic<bool> m_update_available;
+
      std::string m_checkpoints_path; //!< path to json checkpoints file
      time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated
      time_t m_last_json_checkpoints_update; //!< time when json checkpoints were last updated
@@ -1090,8 +1098,6 @@ namespace cryptonote
 
      std::unordered_set<crypto::hash> bad_semantics_txes[2];
      boost::mutex bad_semantics_txes_lock;
-
-     tools::threadpool& m_threadpool;
 
      enum {
        UPDATES_DISABLED,

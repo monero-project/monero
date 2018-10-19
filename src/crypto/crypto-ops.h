@@ -140,6 +140,7 @@ extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
 extern const ge_p3 ge_p3_identity;
+extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
 void sc_0(unsigned char *);
 void sc_reduce32(unsigned char *);
@@ -158,3 +159,5 @@ void ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q);
 void fe_add(fe h, const fe f, const fe g);
 void fe_tobytes(unsigned char *, const fe);
 void fe_invert(fe out, const fe z);
+
+int ge_p3_is_point_at_infinity(const ge_p3 *p);

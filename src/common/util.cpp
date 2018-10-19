@@ -35,6 +35,24 @@
 #include <gnu/libc-version.h>
 #endif
 
+#ifdef __GLIBC__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+#include <ctype.h>
+#include <string>
+#endif
+
+//tools::is_hdd
+#ifdef __GLIBC__
+  #include <sstream>
+  #include <sys/sysmacros.h>
+  #include <fstream>
+#endif
+
 #include "unbound.h"
 
 #include "include_base_utils.h"
@@ -183,6 +201,73 @@ namespace tools
       boost::filesystem::remove(filename(), ec);
     }
     catch (...) {}
+  }
+
+  file_locker::file_locker(const std::string &filename)
+  {
+#ifdef WIN32
+    m_fd = INVALID_HANDLE_VALUE;
+    std::wstring filename_wide;
+    try
+    {
+      filename_wide = string_tools::utf8_to_utf16(filename);
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to convert path \"" << filename << "\" to UTF-16: " << e.what());
+      return;
+    }
+    m_fd = CreateFileW(filename_wide.c_str(), GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (m_fd != INVALID_HANDLE_VALUE)
+    {
+      OVERLAPPED ov;
+      memset(&ov, 0, sizeof(ov));
+      if (!LockFileEx(m_fd, LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &ov))
+      {
+        MERROR("Failed to lock " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
+        CloseHandle(m_fd);
+        m_fd = INVALID_HANDLE_VALUE;
+      }
+    }
+    else
+    {
+      MERROR("Failed to open " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
+    }
+#else
+    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT, 0666);
+    if (m_fd != -1)
+    {
+      if (flock(m_fd, LOCK_EX | LOCK_NB) == -1)
+      {
+        MERROR("Failed to lock " << filename << ": " << std::strerror(errno));
+        close(m_fd);
+        m_fd = -1;
+      }
+    }
+    else
+    {
+      MERROR("Failed to open " << filename << ": " << std::strerror(errno));
+    }
+#endif
+  }
+  file_locker::~file_locker()
+  {
+    if (locked())
+    {
+#ifdef WIN32
+      CloseHandle(m_fd);
+#else
+      close(m_fd);
+#endif
+    }
+  }
+  bool file_locker::locked() const
+  {
+#ifdef WIN32
+    return m_fd != INVALID_HANDLE_VALUE;
+#else
+    return m_fd != -1;
+#endif
   }
 
 #ifdef WIN32
@@ -441,10 +526,15 @@ std::string get_nix_version_display_string()
 
     if (SHGetSpecialFolderPathW(NULL, psz_path, nfolder, iscreate))
     {
-      int size_needed = WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), NULL, 0, NULL, NULL);
-      std::string folder_name(size_needed, 0);
-      WideCharToMultiByte(CP_UTF8, 0, psz_path, wcslen(psz_path), &folder_name[0], size_needed, NULL, NULL);
-      return folder_name;
+      try
+      {
+        return string_tools::utf16_to_utf8(psz_path);
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("utf16_to_utf8 failed: " << e.what());
+        return "";
+      }
     }
 
     LOG_ERROR("SHGetSpecialFolderPathW() failed, could not obtain requested path.");
@@ -505,18 +595,20 @@ std::string get_nix_version_display_string()
     int code;
 #if defined(WIN32)
     // Maximizing chances for success
-    WCHAR wide_replacement_name[1000];
-    MultiByteToWideChar(CP_UTF8, 0, replacement_name.c_str(), replacement_name.size() + 1, wide_replacement_name, 1000);
-    WCHAR wide_replaced_name[1000];
-    MultiByteToWideChar(CP_UTF8, 0, replaced_name.c_str(), replaced_name.size() + 1, wide_replaced_name, 1000);
+    std::wstring wide_replacement_name;
+    try { wide_replacement_name = string_tools::utf8_to_utf16(replacement_name); }
+    catch (...) { return std::error_code(GetLastError(), std::system_category()); }
+    std::wstring wide_replaced_name;
+    try { wide_replaced_name = string_tools::utf8_to_utf16(replaced_name); }
+    catch (...) { return std::error_code(GetLastError(), std::system_category()); }
 
-    DWORD attributes = ::GetFileAttributesW(wide_replaced_name);
+    DWORD attributes = ::GetFileAttributesW(wide_replaced_name.c_str());
     if (INVALID_FILE_ATTRIBUTES != attributes)
     {
-      ::SetFileAttributesW(wide_replaced_name, attributes & (~FILE_ATTRIBUTE_READONLY));
+      ::SetFileAttributesW(wide_replaced_name.c_str(), attributes & (~FILE_ATTRIBUTE_READONLY));
     }
 
-    bool ok = 0 != ::MoveFileExW(wide_replacement_name, wide_replaced_name, MOVEFILE_REPLACE_EXISTING);
+    bool ok = 0 != ::MoveFileExW(wide_replacement_name.c_str(), wide_replaced_name.c_str(), MOVEFILE_REPLACE_EXISTING);
     code = ok ? 0 : static_cast<int>(::GetLastError());
 #else
     bool ok = 0 == std::rename(replacement_name.c_str(), replaced_name.c_str());
@@ -598,6 +690,21 @@ std::string get_nix_version_display_string()
   static void setup_crash_dump() {}
 #endif
 
+  bool disable_core_dumps()
+  {
+#ifdef __GLIBC__
+    // disable core dumps in release mode
+    struct rlimit rlimit;
+    rlimit.rlim_cur = rlimit.rlim_max = 0;
+    if (setrlimit(RLIMIT_CORE, &rlimit))
+    {
+      MWARNING("Failed to disable core dumps");
+      return false;
+    }
+#endif
+    return true;
+  }
+
   bool on_startup()
   {
     mlog_configure("", true);
@@ -633,6 +740,44 @@ std::string get_nix_version_display_string()
 #endif
   }
 
+  boost::optional<bool> is_hdd(const char *file_path)
+  {
+#ifdef __GLIBC__
+    struct stat st;
+    std::string prefix;
+    if(stat(file_path, &st) == 0)
+    {
+      std::ostringstream s;
+      s << "/sys/dev/block/" << major(st.st_dev) << ":" << minor(st.st_dev);
+      prefix = s.str();
+    }
+    else
+    {
+      return boost::none;
+    }
+    std::string attr_path = prefix + "/queue/rotational";
+    std::ifstream f(attr_path, std::ios_base::in);
+    if(not f.is_open())
+    {
+      attr_path = prefix + "/../queue/rotational";
+      f.open(attr_path, std::ios_base::in);
+      if(not f.is_open())
+      {
+          return boost::none;
+      }
+    }
+    unsigned short val = 0xdead;
+    f >> val;
+    if(not f.fail())
+    {
+      return (val == 1);
+    }
+    return boost::none;
+#else
+    return boost::none;
+#endif
+  }
+
   namespace
   {
     boost::mutex max_concurrency_lock;
@@ -658,6 +803,13 @@ std::string get_nix_version_display_string()
 
   bool is_local_address(const std::string &address)
   {
+    // always assume Tor/I2P addresses to be untrusted by default
+    if (boost::ends_with(address, ".onion") || boost::ends_with(address, ".i2p"))
+    {
+      MDEBUG("Address '" << address << "' is Tor/I2P, non local");
+      return false;
+    }
+
     // extract host
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(address, u_c))
@@ -751,4 +903,69 @@ std::string get_nix_version_display_string()
       return false;
     return true;
   }
+
+  boost::optional<std::pair<uint32_t, uint32_t>> parse_subaddress_lookahead(const std::string& str)
+  {
+    auto pos = str.find(":");
+    bool r = pos != std::string::npos;
+    uint32_t major;
+    r = r && epee::string_tools::get_xtype_from_string(major, str.substr(0, pos));
+    uint32_t minor;
+    r = r && epee::string_tools::get_xtype_from_string(minor, str.substr(pos + 1));
+    if (r)
+    {
+      return std::make_pair(major, minor);
+    }
+    else
+    {
+      return {};
+    }
+  }
+
+  std::string glob_to_regex(const std::string &val)
+  {
+    std::string newval;
+
+    bool escape = false;
+    for (char c: val)
+    {
+      if (c == '*')
+        newval += escape ? "*" : ".*";
+      else if (c == '?')
+        newval += escape ? "?" : ".";
+      else if (c == '\\')
+        newval += '\\', escape = !escape;
+      else
+        newval += c;
+    }
+    return newval;
+  }
+  
+#ifdef _WIN32
+  std::string input_line_win()
+  {
+    HANDLE hConIn = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    DWORD oldMode;
+
+    FlushConsoleInputBuffer(hConIn);
+    GetConsoleMode(hConIn, &oldMode);
+    SetConsoleMode(hConIn, ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
+
+    wchar_t buffer[1024];
+    DWORD read;
+
+    ReadConsoleW(hConIn, buffer, sizeof(buffer)/sizeof(wchar_t)-1, &read, nullptr);
+    buffer[read] = 0;
+
+    SetConsoleMode(hConIn, oldMode);
+    CloseHandle(hConIn);
+  
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL, NULL);
+    std::string buf(size_needed, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, buffer, -1, &buf[0], size_needed, NULL, NULL);
+    buf.pop_back(); //size_needed includes null that we needed to have space for
+    return buf;
+  }
+#endif
+
 }

@@ -70,6 +70,9 @@ namespace crypto {
 #include "random.h"
   }
 
+  const crypto::public_key null_pkey = crypto::public_key{};
+  const crypto::secret_key null_skey = crypto::secret_key{};
+
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }
@@ -93,18 +96,32 @@ namespace crypto {
     generate_random_bytes_not_thread_safe(N, bytes);
   }
 
-  /* generate a random 32-byte (256-bit) integer and copy it to res */
-  static inline void random_scalar_not_thread_safe(ec_scalar &res) {
-    unsigned char tmp[64];
-    generate_random_bytes_not_thread_safe(64, tmp);
-    sc_reduce(tmp);
-    memcpy(&res, tmp, 32);
+  static inline bool less32(const unsigned char *k0, const unsigned char *k1)
+  {
+    for (int n = 31; n >= 0; --n)
+    {
+      if (k0[n] < k1[n])
+        return true;
+      if (k0[n] > k1[n])
+        return false;
+    }
+    return false;
   }
+
+  void random32_unbiased(unsigned char *bytes)
+  {
+    // l = 2^252 + 27742317777372353535851937790883648493.
+    // it fits 15 in 32 bytes
+    static const unsigned char limit[32] = { 0xe3, 0x6a, 0x67, 0x72, 0x8b, 0xce, 0x13, 0x29, 0x8f, 0x30, 0x82, 0x8c, 0x0b, 0xa4, 0x10, 0x39, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0 };
+    do
+    {
+      generate_random_bytes_thread_safe(32, bytes);
+    } while (!sc_isnonzero(bytes) && !less32(bytes, limit)); // should be good about 15/16 of the time
+    sc_reduce32(bytes);
+  }
+  /* generate a random 32-byte (256-bit) integer and copy it to res */
   static inline void random_scalar(ec_scalar &res) {
-    unsigned char tmp[64];
-    generate_random_bytes_thread_safe(64, tmp);
-    sc_reduce(tmp);
-    memcpy(&res, tmp, 32);
+    random32_unbiased((unsigned char*)res.data);
   }
 
   void hash_to_scalar(const void *data, size_t length, ec_scalar &res) {
@@ -257,11 +274,18 @@ namespace crypto {
 #endif
     buf.h = prefix_hash;
     buf.key = pub;
+  try_again:
     random_scalar(k);
+    if (((const uint32_t*)(&k))[7] == 0) // we don't want tiny numbers here
+      goto try_again;
     ge_scalarmult_base(&tmp3, &k);
     ge_p3_tobytes(&buf.comm, &tmp3);
     hash_to_scalar(&buf, sizeof(s_comm), sig.c);
+    if (!sc_isnonzero((const unsigned char*)sig.c.data))
+      goto try_again;
     sc_mulsub(&sig.r, &sig.c, &unwrap(sec), &k);
+    if (!sc_isnonzero((const unsigned char*)sig.r.data))
+      goto try_again;
   }
 
   bool crypto_ops::check_signature(const hash &prefix_hash, const public_key &pub, const signature &sig) {
@@ -275,11 +299,14 @@ namespace crypto {
     if (ge_frombytes_vartime(&tmp3, &pub) != 0) {
       return false;
     }
-    if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0) {
+    if (sc_check(&sig.c) != 0 || sc_check(&sig.r) != 0 || !sc_isnonzero(&sig.c)) {
       return false;
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
+    static const ec_point infinity = {{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
+    if (memcmp(&buf.comm, &infinity, 32) == 0)
+      return false;
     hash_to_scalar(&buf, sizeof(s_comm), c);
     sc_sub(&c, &c, &sig.c);
     return sc_isnonzero(&c) == 0;

@@ -80,7 +80,10 @@ namespace {
       << "hash: " << header.hash << std::endl
       << "difficulty: " << boost::lexical_cast<std::string>(header.difficulty) << std::endl
       << "POW hash: " << header.pow_hash << std::endl
-      << "reward: " << boost::lexical_cast<std::string>(header.reward);
+      << "block size: " << header.block_size << std::endl
+      << "block weight: " << header.block_weight << std::endl
+      << "num txes: " << header.num_txes << std::endl
+      << "reward: " << cryptonote::print_money(header.reward);
   }
 
   std::string get_human_time_ago(time_t t, time_t now)
@@ -460,7 +463,8 @@ bool t_rpc_command_executor::show_status() {
     }
   }
 
-  tools::success_msg_writer() << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections, uptime %ud %uh %um %us")
+  std::stringstream str;
+  str << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %s, %u(out)+%u(in) connections")
     % (unsigned long long)ires.height
     % (unsigned long long)net_height
     % get_sync_percentage(ires)
@@ -473,11 +477,20 @@ bool t_rpc_command_executor::show_status() {
     % (hfres.state == cryptonote::HardFork::Ready ? "up to date" : hfres.state == cryptonote::HardFork::UpdateNeeded ? "update needed" : "out of date, likely forked")
     % (unsigned)ires.outgoing_connections_count
     % (unsigned)ires.incoming_connections_count
-    % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
-    % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
-    % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
-    % (unsigned int)fmod(uptime, 60.0)
   ;
+
+  // restricted RPC does not disclose start time
+  if (ires.start_time)
+  {
+    str << boost::format(", uptime %ud %uh %um %us")
+      % (unsigned int)floor(uptime / 60.0 / 60.0 / 24.0)
+      % (unsigned int)floor(fmod((uptime / 60.0 / 60.0), 24.0))
+      % (unsigned int)floor(fmod((uptime / 60.0), 60.0))
+      % (unsigned int)fmod(uptime, 60.0)
+    ;
+  }
+
+  tools::success_msg_writer() << str.str();
 
   return true;
 }
@@ -551,6 +564,7 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
 
   req.start_height = start_block_index;
   req.end_height = end_block_index;
+  req.fill_pow_hash = false;
 
   std::string fail_message = "Unsuccessful";
 
@@ -576,8 +590,8 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
     if (!first)
       std::cout << std::endl;
     std::cout
-      << "height: " << header.height << ", timestamp: " << header.timestamp << ", difficulty: " << header.difficulty
-      << ", size: " << header.block_size << ", transactions: " << header.num_txes << std::endl
+      << "height: " << header.height << ", timestamp: " << header.timestamp
+      << ", size: " << header.block_size << ", weight: " << header.block_weight << ", transactions: " << header.num_txes << std::endl
       << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
       << "block id: " << header.hash << ", previous block id: " << header.prev_hash << std::endl
       << "difficulty: " << header.difficulty << ", nonce " << header.nonce << ", reward " << cryptonote::print_money(header.reward) << std::endl;
@@ -920,8 +934,9 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
       tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                           << tx_info.tx_json << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
+                          << "weight: " << tx_info.weight << std::endl
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                          << "fee/byte: " << cryptonote::print_money(tx_info.fee / (double)tx_info.blob_size) << std::endl
+                          << "fee/byte: " << cryptonote::print_money(tx_info.fee / (double)tx_info.weight) << std::endl
                           << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
                           << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
@@ -1003,8 +1018,9 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
     {
       tools::msg_writer() << "id: " << tx_info.id_hash << std::endl
                           << "blob_size: " << tx_info.blob_size << std::endl
+                          << "weight: " << tx_info.weight << std::endl
                           << "fee: " << cryptonote::print_money(tx_info.fee) << std::endl
-                          << "fee/byte: " << cryptonote::print_money(tx_info.fee / (double)tx_info.blob_size) << std::endl
+                          << "fee/byte: " << cryptonote::print_money(tx_info.fee / (double)tx_info.weight) << std::endl
                           << "receive_time: " << tx_info.receive_time << " (" << get_human_time_ago(tx_info.receive_time, now) << ")" << std::endl
                           << "relayed: " << [&](const cryptonote::tx_info &tx_info)->std::string { if (!tx_info.relayed) return "no"; return boost::lexical_cast<std::string>(tx_info.last_relayed_time) + " (" + get_human_time_ago(tx_info.last_relayed_time, now) + ")"; } (tx_info) << std::endl
                           << "do_not_relay: " << (tx_info.do_not_relay ? 'T' : 'F')  << std::endl
@@ -1059,7 +1075,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   size_t avg_bytes = n_transactions ? res.pool_stats.bytes_total / n_transactions : 0;
 
   std::string backlog_message;
-  const uint64_t full_reward_zone = ires.block_size_limit / 2;
+  const uint64_t full_reward_zone = ires.block_weight_limit / 2;
   if (res.pool_stats.bytes_total <= full_reward_zone)
   {
     backlog_message = "no backlog";
@@ -1693,7 +1709,7 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
   return true;
 }
 
-bool t_rpc_command_executor::alt_chain_info()
+bool t_rpc_command_executor::alt_chain_info(const std::string &tip)
 {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
@@ -1728,12 +1744,32 @@ bool t_rpc_command_executor::alt_chain_info()
     }
   }
 
-  tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
-  for (const auto &chain: res.chains)
+  if (tip.empty())
   {
-    uint64_t start_height = (chain.height - chain.length + 1);
-    tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
-        << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
+    tools::msg_writer() << boost::lexical_cast<std::string>(res.chains.size()) << " alternate chains found:";
+    for (const auto &chain: res.chains)
+    {
+      uint64_t start_height = (chain.height - chain.length + 1);
+      tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+          << " deep), diff " << chain.difficulty << ": " << chain.block_hash;
+    }
+  }
+  else
+  {
+    const auto i = std::find_if(res.chains.begin(), res.chains.end(), [&tip](cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::chain_info &info){ return info.block_hash == tip; });
+    if (i != res.chains.end())
+    {
+      const auto &chain = *i;
+      tools::success_msg_writer() << "Found alternate chain with tip " << tip;
+      uint64_t start_height = (chain.height - chain.length + 1);
+      tools::msg_writer() << chain.length << " blocks long, from height " << start_height << " (" << (ires.height - start_height - 1)
+          << " deep), diff " << chain.difficulty << ":";
+      for (const std::string &block_id: chain.block_hashes)
+        tools::msg_writer() << "  " << block_id;
+      tools::msg_writer() << "Chain parent on main chain: " << chain.main_chain_parent_block;
+    }
+    else
+      tools::fail_msg_writer() << "Block hash " << tip << " is not the tip of any known alternate chain";
   }
   return true;
 }
@@ -1744,8 +1780,8 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
   cryptonote::COMMAND_RPC_GET_INFO::response ires;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request bhreq;
   cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response bhres;
-  cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::request fereq;
-  cryptonote::COMMAND_RPC_GET_PER_KB_FEE_ESTIMATE::response feres;
+  cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::request fereq;
+  cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE::response feres;
   epee::json_rpc::error error_resp;
 
   std::string fail_message = "Problem fetching info";
@@ -1769,7 +1805,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
       tools::fail_msg_writer() << make_error(fail_message, ires.status);
       return true;
     }
-    if (!m_rpc_server->on_get_per_kb_fee_estimate(fereq, feres, error_resp) || feres.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_base_fee_estimate(fereq, feres, error_resp) || feres.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, feres.status);
       return true;
@@ -1786,6 +1822,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
 
     bhreq.start_height = ires.height - nblocks;
     bhreq.end_height = ires.height - 1;
+    bhreq.fill_pow_hash = false;
     if (m_is_rpc)
     {
       if (!m_rpc_client->json_rpc_request(bhreq, bhres, "getblockheadersrange", fail_message.c_str()))
@@ -1805,8 +1842,8 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     double avgdiff = 0;
     double avgnumtxes = 0;
     double avgreward = 0;
-    std::vector<uint64_t> sizes;
-    sizes.reserve(nblocks);
+    std::vector<uint64_t> weights;
+    weights.reserve(nblocks);
     uint64_t earliest = std::numeric_limits<uint64_t>::max(), latest = 0;
     std::vector<unsigned> major_versions(256, 0), minor_versions(256, 0);
     for (const auto &bhr: bhres.headers)
@@ -1814,7 +1851,7 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
       avgdiff += bhr.difficulty;
       avgnumtxes += bhr.num_txes;
       avgreward += bhr.reward;
-      sizes.push_back(bhr.block_size);
+      weights.push_back(bhr.block_weight);
       static_assert(sizeof(bhr.major_version) == 1, "major_version expected to be uint8_t");
       static_assert(sizeof(bhr.minor_version) == 1, "major_version expected to be uint8_t");
       major_versions[(unsigned)bhr.major_version]++;
@@ -1825,9 +1862,9 @@ bool t_rpc_command_executor::print_blockchain_dynamic_stats(uint64_t nblocks)
     avgdiff /= nblocks;
     avgnumtxes /= nblocks;
     avgreward /= nblocks;
-    uint64_t median_block_size = epee::misc_utils::median(sizes);
+    uint64_t median_block_weight = epee::misc_utils::median(weights);
     tools::msg_writer() << "Last " << nblocks << ": avg. diff " << (uint64_t)avgdiff << ", " << (latest - earliest) / nblocks << " avg sec/block, avg num txes " << avgnumtxes
-        << ", avg. reward " << cryptonote::print_money(avgreward) << ", median block size " << median_block_size;
+        << ", avg. reward " << cryptonote::print_money(avgreward) << ", median block weight " << median_block_weight;
 
     unsigned int max_major = 256, max_minor = 256;
     while (max_major > 0 && !major_versions[--max_major]);
@@ -1960,7 +1997,7 @@ bool t_rpc_command_executor::sync_info()
       for (const auto &s: res.spans)
         if (s.rate > 0.0f && s.connection_id == p.info.connection_id)
           nblocks += s.nblocks, size += s.size;
-      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
+      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " << epee::string_tools::pad_string(p.info.state, 16) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
     }
 
     uint64_t total_size = 0;

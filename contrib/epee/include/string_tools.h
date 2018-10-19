@@ -46,6 +46,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include "hex.h"
 #include "memwipe.h"
+#include "mlocker.h"
 #include "span.h"
 #include "warnings.h"
 
@@ -358,6 +359,12 @@ POP_WARNINGS
     return hex_to_pod(hex_str, unwrap(s));
   }
   //----------------------------------------------------------------------------
+  template<class t_pod_type>
+  bool hex_to_pod(const std::string& hex_str, epee::mlocked<t_pod_type>& s)
+  {
+    return hex_to_pod(hex_str, unwrap(s));
+  }
+  //----------------------------------------------------------------------------
   bool validate_hex(uint64_t length, const std::string& str);
   //----------------------------------------------------------------------------
 	inline std::string get_extension(const std::string& str)
@@ -381,6 +388,41 @@ POP_WARNINGS
 		res = str.substr(0, pos);
 		return res;
 	}
+  //----------------------------------------------------------------------------
+#ifdef _WIN32
+  inline std::wstring utf8_to_utf16(const std::string& str)
+  {
+    if (str.empty())
+      return {};
+    int wstr_size = MultiByteToWideChar(CP_UTF8, 0, &str[0], str.size(), NULL, 0);
+    if (wstr_size == 0)
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    std::wstring wstr(wstr_size, wchar_t{});
+    if (!MultiByteToWideChar(CP_UTF8, 0, &str[0], str.size(), &wstr[0], wstr_size))
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    return wstr;
+  }
+  inline std::string utf16_to_utf8(const std::wstring& wstr)
+  {
+    if (wstr.empty())
+      return {};
+    int str_size = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], wstr.size(), NULL, 0, NULL, NULL);
+    if (str_size == 0)
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    std::string str(str_size, char{});
+    if (!WideCharToMultiByte(CP_UTF8, 0, &wstr[0], wstr.size(), &str[0], str_size, NULL, NULL))
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    return str;
+  }
+#endif
 }
 }
 #endif //_STRING_TOOLS_H_

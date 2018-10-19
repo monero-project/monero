@@ -95,17 +95,23 @@ namespace service_nodes
     LOG_PRINT_L0("Recalculating service nodes list, scanning blockchain from height " << m_height);
     LOG_PRINT_L0("This may take some time...");
 
+    std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
     while (m_height < current_height)
     {
-      std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+      blocks.clear();
       if (!m_blockchain.get_blocks(m_height, 1000, blocks))
       {
         LOG_ERROR("Unable to initialize service nodes list");
         return;
       }
 
+      std::vector<cryptonote::transaction> txs;
+      std::vector<crypto::hash> missed_txs;
       for (const auto& block_pair : blocks)
       {
+        txs.clear();
+        missed_txs.clear();
+
         const cryptonote::block& block = block_pair.second;
         std::vector<cryptonote::transaction> txs;
         std::vector<crypto::hash> missed_txs;
@@ -253,11 +259,10 @@ namespace service_nodes
       switch (tx.rct_signatures.type)
       {
       case rct::RCTTypeSimple:
-      case rct::RCTTypeSimpleBulletproof:
+      case rct::RCTTypeBulletproof:
         money_transferred = rct::decodeRctSimple(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
         break;
       case rct::RCTTypeFull:
-      case rct::RCTTypeFullBulletproof:
         money_transferred = rct::decodeRct(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
         break;
       default:

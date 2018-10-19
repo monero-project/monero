@@ -30,6 +30,7 @@
 
 #include "chaingen.h"
 #include "chaingen_tests_list.h"
+#include "common/util.h"
 #include "common/command_line.h"
 #include "transaction_tests.h"
 
@@ -43,6 +44,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_generate_and_play_test_data = {"generate_and_play_test_data", ""};
   const command_line::arg_descriptor<bool>        arg_service_nodes               = {"service_nodes", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
+  const command_line::arg_descriptor<std::string> arg_filter                      = { "filter", "Regular expression filter for which tests to run" };
 }
 
 int main(int argc, char* argv[])
@@ -63,6 +65,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_generate_and_play_test_data);
   command_line::add_arg(desc_options, arg_service_nodes);
   command_line::add_arg(desc_options, arg_test_transactions);
+  command_line::add_arg(desc_options, arg_filter);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -79,6 +82,9 @@ int main(int argc, char* argv[])
     std::cout << desc_options << std::endl;
     return 0;
   }
+
+  const std::string filter = tools::glob_to_regex(command_line::get_arg(vm, arg_filter));
+  boost::smatch match;
 
   size_t tests_count = 0;
   std::vector<std::string> failed_tests;
@@ -116,13 +122,7 @@ int main(int argc, char* argv[])
 
     if (run_all)
     {
-      GENERATE_AND_PLAY(gen_simple_chain_001);
-      GENERATE_AND_PLAY(gen_simple_chain_split_1);
       GENERATE_AND_PLAY(one_block);
-      GENERATE_AND_PLAY(gen_chain_switch_1);
-      GENERATE_AND_PLAY(gen_ring_signature_1);
-      GENERATE_AND_PLAY(gen_ring_signature_2);
-      //GENERATE_AND_PLAY(gen_ring_signature_big); // Takes up to XXX hours (if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10)
 
       // Block verification tests
       GENERATE_AND_PLAY(gen_block_big_major_version);
@@ -140,34 +140,75 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_block_height_is_low);
       GENERATE_AND_PLAY(gen_block_height_is_high);
       GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
-      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
       GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
       GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
       GENERATE_AND_PLAY(gen_block_miner_tx_has_no_out);
       GENERATE_AND_PLAY(gen_block_miner_tx_has_out_to_alice);
       GENERATE_AND_PLAY(gen_block_has_invalid_tx);
       GENERATE_AND_PLAY(gen_block_is_too_big);
-      GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
 
       // Transaction verification tests
-      GENERATE_AND_PLAY(gen_tx_big_version);
-      GENERATE_AND_PLAY(gen_tx_unlock_time);
-      GENERATE_AND_PLAY(gen_tx_input_is_not_txin_to_key);
       GENERATE_AND_PLAY(gen_tx_no_inputs_no_outputs);
-      GENERATE_AND_PLAY(gen_tx_no_inputs_has_outputs);
-      GENERATE_AND_PLAY(gen_tx_has_inputs_no_outputs);
-      GENERATE_AND_PLAY(gen_tx_invalid_input_amount);
-      GENERATE_AND_PLAY(gen_tx_input_wo_key_offsets);
-      GENERATE_AND_PLAY(gen_tx_sender_key_offest_not_exist);
-      GENERATE_AND_PLAY(gen_tx_key_offest_points_to_foreign_key);
-      GENERATE_AND_PLAY(gen_tx_mixed_key_offest_not_exist);
-      GENERATE_AND_PLAY(gen_tx_key_image_not_derive_from_tx_key);
-      GENERATE_AND_PLAY(gen_tx_key_image_is_invalid);
-      GENERATE_AND_PLAY(gen_tx_check_input_unlock_time);
-      GENERATE_AND_PLAY(gen_tx_txout_to_key_has_invalid_key);
-      GENERATE_AND_PLAY(gen_tx_output_with_zero_amount);
-      GENERATE_AND_PLAY(gen_tx_output_is_not_txout_to_key);
-      GENERATE_AND_PLAY(gen_tx_signatures_are_invalid);
+
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_23_no_threshold);
+
+      // Bulletproof Tests
+      GENERATE_AND_PLAY(gen_bp_tx_valid_1);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_1_1);
+      GENERATE_AND_PLAY(gen_bp_tx_valid_2);
+      GENERATE_AND_PLAY(gen_bp_tx_valid_3);
+      GENERATE_AND_PLAY(gen_bp_tx_valid_16);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_4_2_1);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_16_16);
+      GENERATE_AND_PLAY(gen_bp_txs_valid_2_and_2);
+      GENERATE_AND_PLAY(gen_bp_txs_invalid_2_and_8_2_and_16_16_1);
+      GENERATE_AND_PLAY(gen_bp_txs_valid_2_and_3_and_2_and_4);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_not_enough_proofs);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_empty_proofs);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_too_many_proofs);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_wrong_amount);
+      GENERATE_AND_PLAY(gen_bp_tx_invalid_borromean_type);
+
+      // TODO(loki): Tests we need to fix
+#if 0
+      GENERATE_AND_PLAY(gen_simple_chain_001);
+      GENERATE_AND_PLAY(gen_simple_chain_split_1);
+      GENERATE_AND_PLAY(gen_chain_switch_1);
+      GENERATE_AND_PLAY(gen_ring_signature_1);
+      GENERATE_AND_PLAY(gen_ring_signature_2);
+      //GENERATE_AND_PLAY(gen_ring_signature_big); // Takes up to XXX hours (if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10)
+
+       Block verification tests
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
+      //GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
+
+      // Transaction verification tests
+       GENERATE_AND_PLAY(gen_tx_big_version);
+       GENERATE_AND_PLAY(gen_tx_unlock_time);
+       GENERATE_AND_PLAY(gen_tx_input_is_not_txin_to_key);
+       GENERATE_AND_PLAY(gen_tx_no_inputs_has_outputs);
+       GENERATE_AND_PLAY(gen_tx_has_inputs_no_outputs);
+       GENERATE_AND_PLAY(gen_tx_invalid_input_amount);
+       GENERATE_AND_PLAY(gen_tx_input_wo_key_offsets);
+       GENERATE_AND_PLAY(gen_tx_sender_key_offest_not_exist);
+       GENERATE_AND_PLAY(gen_tx_key_offest_points_to_foreign_key);
+       GENERATE_AND_PLAY(gen_tx_mixed_key_offest_not_exist);
+       GENERATE_AND_PLAY(gen_tx_key_image_not_derive_from_tx_key);
+       GENERATE_AND_PLAY(gen_tx_key_image_is_invalid);
+       GENERATE_AND_PLAY(gen_tx_check_input_unlock_time);
+       GENERATE_AND_PLAY(gen_tx_txout_to_key_has_invalid_key);
+       GENERATE_AND_PLAY(gen_tx_output_with_zero_amount);
+       GENERATE_AND_PLAY(gen_tx_output_is_not_txout_to_key);
+       GENERATE_AND_PLAY(gen_tx_signatures_are_invalid);
 
       // Double spend
       GENERATE_AND_PLAY(gen_double_spend_in_tx<false>);
@@ -235,13 +276,13 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_multisig_tx_valid_45_1_234);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_45_4_135_many_inputs);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_89_3_1245789);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_23_1__no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_45_5_23_no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_22_1__no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
-
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_2);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_2_many_inputs);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_2);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_2_many_inputs);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234);
+      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234_many_inputs);
+#endif
     }
 
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);

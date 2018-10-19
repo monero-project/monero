@@ -145,7 +145,7 @@ VARIANT_TAG(binary_archive, serialized_block, 0xcd);
 VARIANT_TAG(binary_archive, serialized_transaction, 0xce);
 VARIANT_TAG(binary_archive, event_visitor_settings, 0xcf);
 
-typedef boost::variant<cryptonote::block, cryptonote::transaction, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
+typedef boost::variant<cryptonote::block, cryptonote::transaction, std::vector<cryptonote::transaction>, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
 typedef std::unordered_map<crypto::hash, const cryptonote::transaction*> map_hash2tx_t;
 
 class test_chain_unit_base
@@ -167,16 +167,23 @@ class test_generator
 public:
   struct block_info
   {
-    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_size)
+    block_info()
+      : prev_id()
+      , already_generated_coins(0)
+      , block_weight(0)
+    {
+    }
+
+    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_weight)
       : prev_id(a_prev_id)
       , already_generated_coins(an_already_generated_coins)
-      , block_size(a_block_size)
+      , block_weight(a_block_weight)
     {
     }
 
     crypto::hash prev_id;
     uint64_t already_generated_coins;
-    size_t block_size;
+    size_t block_weight;
   };
 
   enum block_fields
@@ -193,14 +200,14 @@ public:
   };
 
   void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
-  void get_last_n_block_sizes(std::vector<size_t>& block_sizes, const crypto::hash& head, size_t n) const;
+  void get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const;
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
-  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins);
+  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_weights, uint64_t already_generated_coins);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-    std::vector<size_t>& block_sizes, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
+    std::vector<size_t>& block_weights, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
     const std::vector<sn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
   bool construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp);
   bool construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev, const cryptonote::account_base& miner_acc,
@@ -402,6 +409,13 @@ cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& eve
 
 void get_confirmed_txs(const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx, map_hash2tx_t& confirmed_txs);
 bool find_block_chain(const std::vector<test_event_entry>& events, std::vector<cryptonote::block>& blockchain, map_hash2tx_t& mtx, const crypto::hash& head);
+
+void fill_tx_sources_and_multi_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
+                                            const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                            uint64_t const *amount, int num_amounts, uint64_t fee, size_t nmix,
+                                            std::vector<cryptonote::tx_source_entry>& sources,
+                                            std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t *change_amount = nullptr);
+
 void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                       const cryptonote::account_base& from, const cryptonote::account_base& to,
                                       uint64_t amount, uint64_t fee, size_t nmix,
@@ -535,6 +549,30 @@ bool check_tx_verification_context(const cryptonote::tx_verification_context& tv
 }
 //--------------------------------------------------------------------------
 template<class t_test_class>
+auto do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator, int)
+  -> decltype(validator.check_tx_verification_context(tvcs, tx_added, event_index, txs))
+{
+  return validator.check_tx_verification_context(tvcs, tx_added, event_index, txs);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t /*event_index*/, const std::vector<cryptonote::transaction>& /*txs*/, t_test_class&, long)
+{
+  // Default block verification context check
+  for (const cryptonote::tx_verification_context &tvc: tvcs)
+    if (tvc.m_verifivation_failed)
+      throw std::runtime_error("Transaction verification failed");
+  return true;
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator)
+{
+  // SFINAE in action
+  return do_check_tx_verification_context(tvcs, tx_added, event_index, txs, validator, 0);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
 auto do_check_block_verification_context(const cryptonote::block_verification_context& bvc, size_t event_index, const cryptonote::block& blk, t_test_class& validator, int)
   -> decltype(validator.check_block_verification_context(bvc, event_index, blk))
 {
@@ -607,6 +645,26 @@ public:
     m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_txs_keeped_by_block, false, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = check_tx_verification_context(tvc, tx_added, m_ev_index, tx, m_validator);
+    CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
+    return true;
+  }
+
+  bool operator()(const std::vector<cryptonote::transaction>& txs) const
+  {
+    log_event("cryptonote::transaction");
+
+    std::vector<cryptonote::blobdata> tx_blobs;
+    std::vector<cryptonote::tx_verification_context> tvcs;
+     cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
+    for (const auto &tx: txs)
+    {
+      tx_blobs.push_back(t_serializable_object_to_blob(tx));
+      tvcs.push_back(tvc0);
+    }
+    size_t pool_size = m_c.get_pool_transactions_count();
+    m_c.handle_incoming_txs(tx_blobs, tvcs, m_txs_keeped_by_block, false, false);
+    size_t tx_added = m_c.get_pool_transactions_count() - pool_size;
+    bool r = check_tx_verification_context(tvcs, tx_added, m_ev_index, txs, m_validator);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
     return true;
   }
@@ -771,6 +829,7 @@ inline bool do_replay_file(const std::string& filename)
   }
   return do_replay_events<t_test_class>(events);
 }
+
 //--------------------------------------------------------------------------
 #define GENERATE_ACCOUNT(account) \
     cryptonote::account_base account; \
@@ -783,47 +842,7 @@ inline bool do_replay_file(const std::string& filename)
     { \
       for (size_t msidx = 0; msidx < total; ++msidx) \
         account[msidx].generate(); \
-      std::unordered_set<crypto::public_key> all_multisig_keys; \
-      std::vector<std::vector<crypto::secret_key>> view_keys(total); \
-      std::vector<std::vector<crypto::public_key>> spend_keys(total); \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        for (size_t msidx_inner = 0; msidx_inner < total; ++msidx_inner) \
-        { \
-          if (msidx_inner != msidx) \
-          { \
-            crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_view_secret_key); \
-            view_keys[msidx].push_back(vkh); \
-            crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_spend_secret_key); \
-            crypto::public_key pskh; \
-            crypto::secret_key_to_public_key(skh, pskh); \
-            spend_keys[msidx].push_back(pskh); \
-          } \
-        } \
-      } \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        std::vector<crypto::secret_key> multisig_keys; \
-        crypto::secret_key spend_skey; \
-        crypto::public_key spend_pkey; \
-        if (threshold == total) \
-          cryptonote::generate_multisig_N_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        else \
-          cryptonote::generate_multisig_N1_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        crypto::secret_key view_skey = cryptonote::generate_multisig_view_secret_key(account[msidx].get_keys().m_view_secret_key, view_keys[msidx]); \
-        account[msidx].make_multisig(view_skey, spend_skey, spend_pkey, multisig_keys); \
-        for (const auto &k: multisig_keys) \
-          all_multisig_keys.insert(rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k)))); \
-      } \
-      if (threshold < total) \
-      { \
-        std::vector<crypto::public_key> spend_public_keys; \
-        for (const auto &k: all_multisig_keys) \
-          spend_public_keys.push_back(k); \
-        crypto::public_key spend_pkey = cryptonote::generate_multisig_N1_N_spend_public_key(spend_public_keys); \
-        for (size_t msidx = 0; msidx < total; ++msidx) \
-          account[msidx].finalize_multisig(spend_pkey); \
-      } \
+      make_multisig_accounts(account, threshold); \
     } while(0)
 
 #define MAKE_ACCOUNT(VEC_EVENTS, account) \
@@ -977,6 +996,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
     }
 
 #define GENERATE_AND_PLAY(genclass)                                                                        \
+  if (filter.empty() || boost::regex_match(std::string(#genclass), match, boost::regex(filter)))           \
   {                                                                                                        \
     std::vector<test_event_entry> events;                                                                  \
     ++tests_count;                                                                                         \

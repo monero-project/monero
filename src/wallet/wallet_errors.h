@@ -53,6 +53,7 @@ namespace tools
     //         wallet_not_initialized
     //       multisig_export_needed
     //       multisig_import_needed
+    //       password_needed
     //   std::logic_error
     //     wallet_logic_error *
     //       file_exists
@@ -70,8 +71,9 @@ namespace tools
     //         get_out_indexes_error
     //         tx_parse_error
     //         get_tx_pool_error
+    //         out_of_hashchain_bounds_error
     //       transfer_error *
-    //         get_random_outs_general_error
+    //         get_outs_general_error
     //         not_enough_unlocked_money
     //         not_enough_money
     //         tx_not_possible
@@ -128,8 +130,8 @@ namespace tools
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
-      get_random_outs_error_message_index,
-      get_service_nodes_error_message_index
+      get_service_nodes_error_message_index,
+      get_outs_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -207,6 +209,14 @@ namespace tools
     {
       explicit multisig_import_needed(std::string&& loc)
         : wallet_runtime_error(std::move(loc), "Not enough multisig data was found to sign: import multisig data from more other participants")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct password_needed : public wallet_runtime_error
+    {
+      explicit password_needed(std::string&& loc, const std::string &msg = "Password needed")
+        : wallet_runtime_error(std::move(loc), msg)
       {
       }
     };
@@ -403,6 +413,16 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
+    struct out_of_hashchain_bounds_error : public refresh_error
+    {
+      explicit out_of_hashchain_bounds_error(std::string&& loc)
+        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct transfer_error : public wallet_logic_error
     {
     protected:
@@ -412,7 +432,7 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    typedef failed_rpc_request<transfer_error, get_random_outs_error_message_index> get_random_outs_error;
+    typedef failed_rpc_request<transfer_error, get_outs_error_message_index> get_outs_error;
     //----------------------------------------------------------------------------------------------------
     struct not_enough_unlocked_money : public transfer_error
     {
@@ -692,30 +712,30 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct tx_too_big : public transfer_error
     {
-      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_size_limit)
+      explicit tx_too_big(std::string&& loc, const cryptonote::transaction& tx, uint64_t tx_weight_limit)
         : transfer_error(std::move(loc), "transaction is too big")
         , m_tx(tx)
-        , m_tx_size_limit(tx_size_limit)
+        , m_tx_weight_limit(tx_weight_limit)
       {
       }
 
       const cryptonote::transaction& tx() const { return m_tx; }
-      uint64_t tx_size_limit() const { return m_tx_size_limit; }
+      uint64_t tx_weight_limit() const { return m_tx_weight_limit; }
 
       std::string to_string() const
       {
         std::ostringstream ss;
         cryptonote::transaction tx = m_tx;
         ss << transfer_error::to_string() <<
-          ", tx_size_limit = " << m_tx_size_limit <<
-          ", tx size = " << get_object_blobsize(m_tx) <<
+          ", tx_weight_limit = " << m_tx_weight_limit <<
+          ", tx weight = " << get_transaction_weight(m_tx) <<
           ", tx:\n" << cryptonote::obj_to_json_str(tx);
         return ss.str();
       }
 
     private:
       cryptonote::transaction m_tx;
-      uint64_t m_tx_size_limit;
+      uint64_t m_tx_weight_limit;
     };
     //----------------------------------------------------------------------------------------------------
     struct zero_destination : public transfer_error

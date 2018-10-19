@@ -33,29 +33,34 @@
 
 namespace hw {
 
-    #ifdef WITH_DEVICE_LEDGER    
+  #undef LOKI_DEFAULT_LOG_CATEGORY
+  #define LOKI_DEFAULT_LOG_CATEGORY "device"
+
+  void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) {
+    CHECK_AND_ASSERT_THROW_MES(to_len > (len*2), "destination buffer too short. At least" << (len*2+1) << " bytes required");
+    for (size_t i=0; i<len; i++) {
+      sprintf(to_buff+2*i, "%.02x", (unsigned char)buff[i]);
+    }
+  }
+
+  void log_hexbuffer(const std::string &msg,  const char* buff, size_t len) {
+    char logstr[1025];
+    buffer_to_str(logstr, sizeof(logstr),  buff, len);
+    MDEBUG(msg<< ": " << logstr);
+  }
+
+  void log_message(const std::string &msg, const std::string &info ) {
+    MDEBUG(msg << ": " << info);
+  }
+
+
+  #ifdef WITH_DEVICE_LEDGER    
     namespace ledger {
     
     #undef LOKI_DEFAULT_LOG_CATEGORY
     #define LOKI_DEFAULT_LOG_CATEGORY "device.ledger"
 
-    void buffer_to_str(char *to_buff,  size_t to_len, const char *buff, size_t len) {
-      CHECK_AND_ASSERT_THROW_MES(to_len > (len*2), "destination buffer too short. At least" << (len*2+1) << " bytes required");
-      for (size_t i=0; i<len; i++) {
-        sprintf(to_buff+2*i, "%.02x", (unsigned char)buff[i]);
-      }
-    }
-
-    void log_hexbuffer(std::string msg,  const char* buff, size_t len) {
-      char logstr[1025];
-      buffer_to_str(logstr, sizeof(logstr),  buff, len);
-      MDEBUG(msg<< ": " << logstr);
-    }
-
-    void log_message(std::string msg,  std::string info ) {
-      MDEBUG(msg << ": " << info);
-    }
-
+    
     #ifdef DEBUG_HWDEVICE
     extern crypto::secret_key dbg_viewkey;
     extern crypto::secret_key dbg_spendkey;
@@ -123,16 +128,18 @@ namespace hw {
 
     rct::keyV decrypt(const rct::keyV &keys) {
         rct::keyV x ;
+        x.reserve(keys.size());
         for (unsigned int j = 0; j<keys.size(); j++) {
             x.push_back(decrypt(keys[j]));
         }
         return x;
     }
 
-    static void check(std::string msg, std::string info, const char *h, const char *d, int len, bool crypted) {
+    static void check(const std::string &msg, const std::string &info, const char *h, const char *d, size_t len, bool crypted) {
       char dd[32];
       char logstr[128];
 
+      CHECK_AND_ASSERT_THROW_MES(len <= sizeof(dd), "invalid len");
       memmove(dd,d,len);
       if (crypted) {
         CHECK_AND_ASSERT_THROW_MES(len<=32, "encrypted data greater than 32");
@@ -150,11 +157,11 @@ namespace hw {
       }
     }
 
-    void check32(std::string msg, std::string info, const char *h, const char *d, bool crypted) {
+    void check32(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted) {
       check(msg, info, h, d, 32, crypted);
     }
 
-    void check8(std::string msg, std::string info, const char *h, const char *d, bool crypted) {
+    void check8(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted) {
       check(msg, info, h, d, 8, crypted);
     }
     #endif

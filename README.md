@@ -41,29 +41,32 @@ sources are also used for statically-linked builds because distribution
 packages often include only shared library binaries (`.so`) but not static
 library archives (`.a`).
 
-| Dep            | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg       | Optional | Purpose        |
-| -------------- | ------------- | ---------| ------------------ | -------------- | -------- | -------------- |
-| GCC            | 4.7.3         | NO       | `build-essential`  | `base-devel`   | NO       |                |
-| CMake          | 3.0.0         | NO       | `cmake`            | `cmake`        | NO       |                |
-| pkg-config     | any           | NO       | `pkg-config`       | `base-devel`   | NO       |                |
-| Boost          | 1.58          | NO       | `libboost-all-dev` | `boost`        | NO       | C++ libraries  |
-| OpenSSL        | basically any | NO       | `libssl-dev`       | `openssl`      | NO       | sha256 sum     |
-| libzmq         | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`       | NO       | ZeroMQ library |
-| libunbound     | 1.4.16        | YES      | `libunbound-dev`   | `unbound`      | NO       | DNS resolver   |
-| libsodium      | ?             | NO       | `libsodium-dev`    | ?              | NO       | libsodium      |
-| libminiupnpc   | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`    | YES      | NAT punching   |
-| libunwind      | any           | NO       | `libunwind8-dev`   | `libunwind`    | YES      | Stack traces   |
-| liblzma        | any           | NO       | `liblzma-dev`      | `xz`           | YES      | For libunwind  |
-| libreadline    | 6.3.0         | NO       | `libreadline6-dev` | `readline`     | YES      | Input editing  |
-| ldns           | 1.6.17        | NO       | `libldns-dev`      | `ldns`         | YES      | SSL toolkit    |
-| expat          | 1.1           | NO       | `libexpat1-dev`    | `expat`        | YES      | XML parsing    |
-| GTest          | 1.5           | YES      | `libgtest-dev`^    | `gtest`        | YES      | Test suite     |
-| Doxygen        | any           | NO       | `doxygen`          | `doxygen`      | YES      | Documentation  |
-| Graphviz       | any           | NO       | `graphviz`         | `graphviz`     | YES      | Documentation  |
+| Dep          | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg     | Fedora            | Optional | Purpose        |
+| ------------ | ------------- | -------- | ------------------ | ------------ | ----------------- | -------- | -------------- |
+| GCC          | 4.7.3         | NO       | `build-essential`  | `base-devel` | `gcc`             | NO       |                |
+| CMake        | 3.5           | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
+| pkg-config   | any           | NO       | `pkg-config`       | `base-devel` | `pkgconf`         | NO       |                |
+| Boost        | 1.58          | NO       | `libboost-all-dev` | `boost`      | `boost-devel`     | NO       | C++ libraries  |
+| OpenSSL      | basically any | NO       | `libssl-dev`       | `openssl`    | `openssl-devel`   | NO       | sha256 sum     |
+| libzmq       | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`     | `cppzmq-devel`    | NO       | ZeroMQ library |
+| OpenPGM      | ?             | NO       | `libpgm-dev`       | `libpgm`     | `openpgm-devel`   | NO       | For ZeroMQ     |
+| libunbound   | 1.4.16        | YES      | `libunbound-dev`   | `unbound`    | `unbound-devel`   | NO       | DNS resolver   |
+| libsodium    | ?             | NO       | `libsodium-dev`    | `libsodium`  | `libsodium-devel` | NO       | cryptography   |
+| libunwind    | any           | NO       | `libunwind8-dev`   | `libunwind`  | `libunwind-devel` | YES      | Stack traces   |
+| liblzma      | any           | NO       | `liblzma-dev`      | `xz`         | `xz-devel`        | YES      | For libunwind  |
+| libreadline  | 6.3.0         | NO       | `libreadline6-dev` | `readline`   | `readline-devel`  | YES      | Input editing  |
+| ldns         | 1.6.17        | NO       | `libldns-dev`      | `ldns`       | `ldns-devel`      | YES      | SSL toolkit    |
+| expat        | 1.1           | NO       | `libexpat1-dev`    | `expat`      | `expat-devel`     | YES      | XML parsing    |
+| GTest        | 1.5           | YES      | `libgtest-dev`^    | `gtest`      | `gtest-devel`     | YES      | Test suite     |
+| Doxygen      | any           | NO       | `doxygen`          | `doxygen`    | `doxygen`         | YES      | Documentation  |
+| Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
 
 
 [^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+
+Debian / Ubuntu one liner for all dependencies  
+``` sudo apt update && sudo apt install build-essential cmake pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpgm-dev```
 
 ### Cloning the repository
 
@@ -83,9 +86,10 @@ invokes cmake commands as needed.
 #### On Linux and OS X
 
 * Install the dependencies
-* Change to the root of the source code directory and build:
+* Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd loki
+        git checkout master
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -95,6 +99,12 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
+    
+    *Note*: The instructions above will compile the most stable release of the
+    Loki software. If you would like to use and test the most recent software,
+    use ```git checkout master```. The master branch may contain updates that are
+    both unstable and incompatible with release software, though testing is always 
+    encouraged. 
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -141,7 +151,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/loki-project/loki.git
 	cd loki
-	git checkout tags/v0.11.0.0
+	git checkout master
 ```
 * Build:
 ```
@@ -183,7 +193,7 @@ If you are using the older Raspbian Jessie image, compiling Loki is a bit more c
 ```
 * Wait ~8 hours
 ```
-	sudo ./bjam install
+	sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
 ```
 * Wait ~4 hours
 
@@ -192,14 +202,14 @@ If you are using the older Raspbian Jessie image, compiling Loki is a bit more c
 #### On Windows:
 
 Binaries for Windows are built on Windows using the MinGW toolchain within
-[MSYS2 environment](http://msys2.github.io). The MSYS2 environment emulates a
+[MSYS2 environment](https://www.msys2.org). The MSYS2 environment emulates a
 POSIX system. The toolchain runs within the environment and *cross-compiles*
 binaries that can run outside of the environment as a regular Windows
 application.
 
 **Preparing the build environment**
 
-* Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
+* Download and install the [MSYS2 installer](https://www.msys2.org), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
 * Update packages using pacman:  
 
@@ -216,17 +226,31 @@ application.
 
     To build for 64-bit Windows:
 
-        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium
+        pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi
 
     To build for 32-bit Windows:
  
-        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium
+        pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi
 
 * Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
   or `MinGW-w64-Win64 Shell` shortcut on 32-bit Windows. Note that if you are
   running 64-bit Windows, you will have both 64-bit and 32-bit MinGW shells.
 
+**Cloning**
+
+* To git clone, run:
+
+        git clone --recursive https://github.com/loki-project/loki.git
+
 **Building**
+
+* Change to the cloned directory, run:
+	
+        cd git
+
+* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. '0.3.0'. If you dont care about the version and just want binaries from master, skip this step:
+	
+        git checkout 0.3.0
 
 * If you are on a 64-bit system, run:
 
@@ -238,6 +262,16 @@ application.
 
 * The resulting executables can be found in `build/release/bin`
 
+* **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
+
+        make debug-static-win64
+	
+* **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
+
+        make debug-static-win32
+
+* The resulting executables can be found in `build/debug/bin`
+
 ### On FreeBSD:
 
 The project can be built from scratch by following instructions for Linux above. If you are running loki in a jail you need to add the flag: `allow.sysvipc=1` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
@@ -248,7 +282,7 @@ The project can be built from scratch by following instructions for Linux above.
 
 This has been tested on OpenBSD 5.8.
 
-You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ miniupnpc gtest`.
+You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ gtest`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -261,7 +295,7 @@ To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/pat
 
 #### OpenBSD >= 6.2
 
-You will need to add a few packages to your system. `pkg_add cmake miniupnpc zeromq libiconv`.
+You will need to add a few packages to your system. `pkg_add cmake zeromq libiconv`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -345,14 +379,16 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-        # Build image (select android64.Dockerfile for aarch64)
-        cd utils/build_scripts/ && docker build -f android32.Dockerfile -t loki-android .
+        # Build image (for ARM 32-bit)
+        docker build -f utils/build_scripts/android32.Dockerfile -t loki-android .
+        # Build image (for ARM 64-bit)
+        docker build -f utils/build_scripts/android64.Dockerfile -t loki-android .
         # Create container
         docker create -it --name loki-android loki-android bash
         # Get binaries
-        docker cp loki-android:/opt/android/loki/build/release/bin .
+        docker cp loki-android:/src/build/release/bin .
 
-### Building portable statically linked binaries
+### Building portable statically linked binaries (Cross Compiling)
 
 By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
 
@@ -407,6 +443,8 @@ setting the following configuration parameters and environment variables:
    as well.
 * Do NOT pass `--detach` when running through torsocks with systemd, (see
   [utils/systemd/lokid.service](utils/systemd/lokid.service) for details).
+* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
+  then use `--untrusted-daemon` unless it is your own hidden service.
 
 Example command line to start lokid through Tor:
 
@@ -468,9 +506,19 @@ Type `run` to run lokid
 
 ### Analysing memory corruption
 
-We use the tool `valgrind` for this.
+There are two tools available:
 
-Run with `valgrind /path/to/lokid`. It will be slow.
+* ASAN
+
+Configure Loki with the -D SANITIZE=ON cmake flag, eg:
+
+    cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
+
+You can then run the loki tools normally. Performance will typically halve.
+
+* valgrind
+
+Install valgrind and run as `valgrind /path/to/lokid`. It will be very slow.
 
 ### LMDB
 

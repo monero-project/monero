@@ -55,15 +55,9 @@
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
 
-namespace service_nodes
-{
-  class service_node_list;
-};
-
-namespace loki
-{
-  class deregister_vote_pool;
-};
+namespace service_nodes { class service_node_list; };
+namespace loki { class deregister_vote_pool; };
+namespace tools { class Notify; }
 
 namespace cryptonote
 {
@@ -114,7 +108,7 @@ namespace cryptonote
     {
       block   bl; //!< the block
       uint64_t height; //!< the height of the block in the blockchain
-      size_t block_cumulative_size; //!< the size (in bytes) of the block
+      size_t block_cumulative_weight; //!< the weight of the block
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
@@ -157,10 +151,11 @@ namespace cryptonote
      * @param nettype network type
      * @param offline true if running offline, else false
      * @param test_options test parameters
+     * @param fixed_difficulty fixed difficulty for testing purposes; 0 means disabled
      *
      * @return true on success, false if any initialization steps fail
      */
-    bool init(BlockchainDB* db, const network_type nettype = MAINNET, bool offline = false, const cryptonote::test_options *test_options = NULL);
+    bool init(BlockchainDB* db, const network_type nettype = MAINNET, bool offline = false, const cryptonote::test_options *test_options = NULL, difficulty_type fixed_difficulty = 0);
 
     /**
      * @brief Initialize the Blockchain state
@@ -463,7 +458,7 @@ namespace cryptonote
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, size_t max_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_count) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -489,16 +484,6 @@ namespace cryptonote
     uint64_t get_num_mature_outputs(uint64_t amount) const;
 
     /**
-     * @brief get random outputs (indices) for an amount
-     *
-     * @param amount the amount
-     * @param count the number of random outputs to choose
-     *
-     * @return the outputs' amount-global indices
-     */
-    std::vector<uint64_t> get_random_outputs(uint64_t amount, uint64_t count) const;
-
-    /**
      * @brief get the public key for an output
      *
      * @param amount the output amount
@@ -507,22 +492,6 @@ namespace cryptonote
      * @return the public key
      */
     crypto::public_key get_output_key(uint64_t amount, uint64_t global_index) const;
-
-    /**
-     * @brief gets random outputs to mix with
-     *
-     * This function takes an RPC request for outputs to mix with
-     * and creates an RPC response with the resultant output indices.
-     *
-     * Outputs to mix with are randomly selected from the utxo set
-     * for each output amount in the request.
-     *
-     * @param req the output amounts and number of mixins to select
-     * @param res return-by-reference the resultant output indices
-     *
-     * @return true
-     */
-    bool get_random_outs_for_amounts(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res) const;
 
     /**
      * @brief gets specific outputs to mix with
@@ -549,23 +518,6 @@ namespace cryptonote
      * @param unlocked out - the output's unlocked state
      */
     void get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const;
-
-    /**
-     * @brief gets random ringct outputs to mix with
-     *
-     * This function takes an RPC request for outputs to mix with
-     * and creates an RPC response with the resultant output indices
-     * and the matching keys.
-     *
-     * Outputs to mix with are randomly selected from the utxo set
-     * for each output amount in the request.
-     *
-     * @param req the output amounts and number of mixins to select
-     * @param res return-by-reference the resultant output indices
-     *
-     * @return true
-     */
-    bool get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res) const;
 
     /**
      * @brief gets per block distribution of outputs of a given amount
@@ -621,46 +573,57 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false);
 
     /**
-     * @brief get dynamic per kB fee for a given block size
+     * @brief get fee quantization mask
      *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB.
+     * The dynamic fee may be quantized, to mask out the last decimal places
      *
-     * @param block_reward the current block reward
-     * @param median_block_size the median blob's size in the past window
-     * @param version hard fork version for rules and constants to use
-     *
-     * @return the per kB fee
+     * @return the fee quantized mask
      */
-    static uint64_t get_dynamic_per_kb_fee(uint64_t block_reward, size_t median_block_size, uint8_t version);
+    static uint64_t get_fee_quantization_mask();
 
     /**
-     * @brief get dynamic per kB fee estimate for the next few blocks
+     * @brief get dynamic per kB or byte fee for a given block weight
      *
-     * The dynamic fee is based on the block size in a past window, and
-     * the current block reward. It is expressed by kB. This function
-     * calculates an estimate for a dynamic fee which will be valid for
-     * the next grace_blocks
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed by kB before v8, and
+     * per byte from v8.
+     *
+     * @param block_reward the current block reward
+     * @param median_block_weight the median block weight in the past window
+     * @param version hard fork version for rules and constants to use
+     *
+     * @return the fee
+     */
+    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t version);
+
+    /**
+     * @brief get dynamic per kB or byte fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed by kB before v8, and
+     * per byte from v8.
+     * This function calculates an estimate for a dynamic fee which will be
+     * valid for the next grace_blocks
      *
      * @param grace_blocks number of blocks we want the fee to be valid for
      *
-     * @return the per kB fee estimate
+     * @return the fee estimate
      */
-    uint64_t get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const;
+    uint64_t get_dynamic_base_fee_estimate(uint64_t grace_blocks) const;
 
     /**
      * @brief validate a transaction's fee
      *
      * This function validates the fee is enough for the transaction.
-     * This is based on the size of the transaction blob, and, after a
-     * height threshold, on the average size of transaction in a past window
+     * This is based on the weight of the transaction, and, after a
+     * height threshold, on the average weight of transaction in a past window
      *
-     * @param blob_size the transaction blob's size
+     * @param tx_weight the transaction weight
      * @param fee the fee
      *
      * @return true if the fee is enough, false otherwise
      */
-    bool check_fee(size_t blob_size, uint64_t fee) const;
+    bool check_fee(size_t tx_weight, uint64_t fee) const;
 
     /**
      * @brief check that a transaction's outputs conform to current standards
@@ -677,18 +640,18 @@ namespace cryptonote
     bool check_tx_outputs(const transaction& tx, tx_verification_context &tvc);
 
     /**
-     * @brief gets the blocksize limit based on recent blocks
+     * @brief gets the block weight limit based on recent blocks
      *
      * @return the limit
      */
-    uint64_t get_current_cumulative_blocksize_limit() const;
+    uint64_t get_current_cumulative_block_weight_limit() const;
 
     /**
-     * @brief gets the blocksize median based on recent blocks (same window as for the limit)
+     * @brief gets the block weight median based on recent blocks (same window as for the limit)
      *
      * @return the median
      */
-    uint64_t get_current_cumulative_blocksize_median() const;
+    uint64_t get_current_cumulative_block_weight_median() const;
 
     /**
      * @brief gets the difficulty of the block with a given height
@@ -771,12 +734,20 @@ namespace cryptonote
      * @brief sets various performance options
      *
      * @param maxthreads max number of threads when preparing blocks for addition
-     * @param blocks_per_sync number of blocks to cache before syncing to database
+     * @param sync_on_blocks whether to sync based on blocks or bytes
+     * @param sync_threshold number of blocks/bytes to cache before syncing to database
      * @param sync_mode the ::blockchain_db_sync_mode to use
      * @param fast_sync sync using built-in block hashes as trusted
      */
-    void set_user_options(uint64_t maxthreads, uint64_t blocks_per_sync,
+    void set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint64_t sync_threshold,
         blockchain_db_sync_mode sync_mode, bool fast_sync);
+
+    /**
+     * @brief sets a block notify object to call for every new block
+     *
+     * @param notify the notify object to cal at every new block
+     */
+    void set_block_notify(const std::shared_ptr<tools::Notify> &notify) { m_block_notify = notify; }
 
     /**
      * @brief Put DB in safe sync mode
@@ -802,6 +773,13 @@ namespace cryptonote
      * @return the HardFork object
      */
     HardFork::State get_hard_fork_state() const;
+
+    /**
+     * @brief gets the hardfork heights of given network
+     *
+     * @return the HardFork object
+     */
+    static const std::vector<HardFork::Params>& get_hard_fork_heights(network_type nettype);
 
     /**
      * @brief gets the current hardfork version in use/voted for
@@ -842,6 +820,13 @@ namespace cryptonote
      * @return the version
      */
     uint8_t get_hard_fork_version(uint64_t height) const { return m_hardfork->get(height); }
+
+    /**
+     * @brief returns the earliest block a given version may activate
+     *
+     * @return the height
+     */
+    uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return m_hardfork->get_earliest_ideal_height_for_version(version); }
 
     /**
      * @brief get information about hardfork voting for a version
@@ -981,7 +966,7 @@ namespace cryptonote
      *
      * @return a list of chains
      */
-    std::list<std::pair<block_extended_info,uint64_t>> get_alternative_chains() const;
+    std::list<std::pair<block_extended_info,std::vector<crypto::hash>>> get_alternative_chains() const;
 
     void add_txpool_tx(transaction &tx, const txpool_tx_meta_t &meta);
     void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t &meta);
@@ -1045,8 +1030,8 @@ namespace cryptonote
 
     // main chain
     transactions_container m_transactions;
-    size_t m_current_block_cumul_sz_limit;
-    size_t m_current_block_cumul_sz_median;
+    size_t m_current_block_cumul_weight_limit;
+    size_t m_current_block_cumul_weight_median;
 
     // metadata containers
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
@@ -1062,11 +1047,13 @@ namespace cryptonote
     bool m_fast_sync;
     bool m_show_time_stats;
     bool m_db_default_sync;
-    uint64_t m_db_blocks_per_sync;
+    bool m_db_sync_on_blocks;
+    uint64_t m_db_sync_threshold;
     uint64_t m_max_prepare_blocks_threads;
     uint64_t m_fake_pow_calc_time;
     uint64_t m_fake_scan_time;
     uint64_t m_sync_counter;
+    uint64_t m_bytes_to_sync;
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
@@ -1097,8 +1084,20 @@ namespace cryptonote
 
     network_type m_nettype;
     bool m_offline;
+    difficulty_type m_fixed_difficulty;
 
     std::atomic<bool> m_cancel;
+
+    // block template cache
+    block m_btc;
+    account_public_address m_btc_address;
+    blobdata m_btc_nonce;
+    difficulty_type m_btc_difficulty;
+    uint64_t m_btc_pool_cookie;
+    uint64_t m_btc_expected_reward;
+    bool m_btc_valid;
+
+    std::shared_ptr<tools::Notify> m_block_notify;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
@@ -1261,7 +1260,7 @@ namespace cryptonote
      * and that his miner transaction totals reward + fee.
      *
      * @param b the block containing the miner transaction to be validated
-     * @param cumulative_block_size the block's size
+     * @param cumulative_block_weight the block's weight
      * @param fee the total fees collected in the block
      * @param base_reward return-by-reference the new block's generated coins
      * @param already_generated_coins the amount of currency generated prior to this block
@@ -1270,7 +1269,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_size, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1287,35 +1286,17 @@ namespace cryptonote
     bool rollback_blockchain_switching(std::list<block>& original_chain, uint64_t rollback_height);
 
     /**
-     * @brief gets recent block sizes for median calculation
+     * @brief gets recent block weights for median calculation
      *
-     * get the block sizes of the last <count> blocks, and return by reference <sz>.
+     * get the block weights of the last <count> blocks, and return by reference <sz>.
      *
-     * @param sz return-by-reference the list of sizes
-     * @param count the number of blocks to get sizes for
+     * @param sz return-by-reference the list of weights
+     * @param count the number of blocks to get weights for
      */
-    void get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const;
+    void get_last_n_blocks_weights(std::vector<size_t>& weights, size_t count) const;
 
     /**
-     * @brief adds the given output to the requested set of random outputs
-     *
-     * @param result_outs return-by-reference the set the output is to be added to
-     * @param amount the output amount
-     * @param i the output index (indexed to amount)
-     */
-    void add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs, uint64_t amount, size_t i) const;
-
-    /**
-     * @brief adds the given output to the requested set of random ringct outputs
-     *
-     * @param outs return-by-reference the set the output is to be added to
-     * @param amount the output amount (0 for rct inputs)
-     * @param i the rct output index
-     */
-    void add_out_to_get_rct_random_outs(std::list<COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::out_entry>& outs, uint64_t amount, size_t i) const;
-
-    /**
-     * @brief checks if an output is unlocked (spendable)
+     * @brief checks if a transaction is unlocked (its outputs spendable)
      *
      * This function checks to see if an output is unlocked.
      * unlock_time is either a block index or a unix time.
@@ -1409,11 +1390,11 @@ namespace cryptonote
     bool complete_timestamps_vector(uint64_t start_height, std::vector<uint64_t>& timestamps);
 
     /**
-     * @brief calculate the block size limit for the next block to be added
+     * @brief calculate the block weight limit for the next block to be added
      *
      * @return true
      */
-    bool update_next_cumulative_size_limit();
+    bool update_next_cumulative_weight_limit();
     void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**
@@ -1455,5 +1436,17 @@ namespace cryptonote
      * that implicit data.
      */
     bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
+
+    /**
+     * @brief invalidates any cached block template
+     */
+    void invalidate_block_template_cache();
+
+    /**
+     * @brief stores a new cached block template
+     *
+     * At some point, may be used to push an update to miners
+     */
+    void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t expected_reward, uint64_t pool_cookie);
   };
 }  // namespace cryptonote

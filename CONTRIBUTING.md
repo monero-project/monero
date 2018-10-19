@@ -1,7 +1,7 @@
 # Contributing to Monero
 
 A good way to help is to test, and report bugs. See
-[How to Report Bugs Effectively (by Simon Tatham)](http://www.chiark.greenend.org.uk/~sgtatham/bugs.html)
+[How to Report Bugs Effectively (by Simon Tatham)](https://www.chiark.greenend.org.uk/~sgtatham/bugs.html)
 if you want to help that way. Testing is invaluable in making a piece
 of software solid and usable.
 

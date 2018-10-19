@@ -1967,17 +1967,19 @@ void VRegistry::setCategories(const char* categories, bool clear) {
   base::threading::ScopedLock scopedLock(lock());
   auto insert = [&](std::stringstream& ss, Level level) {
     m_categories.push_back(std::make_pair(ss.str(), level));
+    m_cached_allowed_categories.clear();
   };
 
   if (clear) {
     m_categories.clear();
+    m_cached_allowed_categories.clear();
     m_categoriesString.clear();
   }
+  if (!categories)
+    return;
   if (!m_categoriesString.empty())
     m_categoriesString += ",";
   m_categoriesString += categories;
-  if (!categories)
-    return;
 
   bool isCat = true;
   bool isLevel = false;
@@ -2033,15 +2035,22 @@ static int priority(Level level) {
 
 bool VRegistry::allowed(Level level, const char* category) {
   base::threading::ScopedLock scopedLock(lock());
+  const std::string scategory = category;
+  const std::map<std::string, int>::const_iterator it = m_cached_allowed_categories.find(scategory);
+  if (it != m_cached_allowed_categories.end())
+    return priority(level) <= it->second;
   if (m_categories.empty() || category == nullptr) {
     return false;
   } else {
     std::deque<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
     for (; it != m_categories.rend(); ++it) {
       if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
-        return priority(level) <= priority(it->second);
+        const int p = priority(it->second);
+        m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), p));
+        return priority(level) <= p;
       }
     }
+    m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), -1));
     return false;
   }
 }
@@ -2083,6 +2092,17 @@ void VRegistry::setFromArgs(const base::utils::CommandLineArgs* commandLineArgs)
 #   define ELPP_DEFAULT_LOGGING_FLAGS 0x0
 #endif // !defined(ELPP_DEFAULT_LOGGING_FLAGS)
 // Storage
+el::base::type::StoragePointer getresetELPP(bool reset)
+{
+  static el::base::type::StoragePointer p(new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder())));
+  if (reset)
+    p = NULL;
+  return p;
+}
+el::base::type::StoragePointer el::base::Storage::getELPP()
+{
+  return getresetELPP(false);
+}
 #if ELPP_ASYNC_LOGGING
 Storage::Storage(const LogBuilderPtr& defaultLogBuilder, base::IWorker* asyncDispatchWorker) :
 #else
@@ -2131,6 +2151,7 @@ Storage::Storage(const LogBuilderPtr& defaultLogBuilder) :
 
 Storage::~Storage(void) {
   ELPP_INTERNAL_INFO(4, "Destroying storage");
+  getresetELPP(true);
 #if ELPP_ASYNC_LOGGING
   ELPP_INTERNAL_INFO(5, "Replacing log dispatch callback to synchronous");
   uninstallLogDispatchCallback<base::AsyncLogDispatchCallback>(std::string("AsyncLogDispatchCallback"));

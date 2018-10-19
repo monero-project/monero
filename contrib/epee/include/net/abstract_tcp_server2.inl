@@ -1037,7 +1037,8 @@ POP_WARNINGS
   void boosted_tcp_server<t_protocol_handler>::handle_accept(const boost::system::error_code& e)
   {
     MDEBUG("handle_accept");
-    TRY_ENTRY();
+    try
+    {
     if (!e)
     {
 		if (m_connection_type == e_connection_type_RPC) {
@@ -1055,11 +1056,25 @@ POP_WARNINGS
 
       conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
-    }else
-    {
-      _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+      return;
     }
-    CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::handle_accept", void());
+    else
+    {
+      MERROR("Error in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e);
+    }
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Exception in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e.what());
+    }
+
+    // error path, if e or exception
+    _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+    misc_utils::sleep_no_w(100);
+    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_.async_accept(new_connection_->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+      boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1094,8 +1109,16 @@ POP_WARNINGS
     sock_.open(remote_endpoint.protocol());
     if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
     {
-      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(adr.c_str()), 0);
-      sock_.bind(local_endpoint);
+      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(bind_ip.c_str()), 0);
+      boost::system::error_code ec;
+      sock_.bind(local_endpoint, ec);
+      if (ec)
+      {
+        MERROR("Error binding to " << bind_ip << ": " << ec.message());
+        if (sock_.is_open())
+          sock_.close();
+        return false;
+      }
     }
 
     /*
@@ -1200,8 +1223,16 @@ POP_WARNINGS
     sock_.open(remote_endpoint.protocol());
     if(bind_ip != "0.0.0.0" && bind_ip != "0" && bind_ip != "" )
     {
-      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(adr.c_str()), 0);
-      sock_.bind(local_endpoint);
+      boost::asio::ip::tcp::endpoint local_endpoint(boost::asio::ip::address::from_string(bind_ip.c_str()), 0);
+      boost::system::error_code ec;
+      sock_.bind(local_endpoint, ec);
+      if (ec)
+      {
+        MERROR("Error binding to " << bind_ip << ": " << ec.message());
+        if (sock_.is_open())
+          sock_.close();
+        return false;
+      }
     }
     
     boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(io_service_));
