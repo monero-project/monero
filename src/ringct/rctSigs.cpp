@@ -44,6 +44,19 @@ using namespace std;
 
 #define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
 
+namespace
+{
+    rct::Bulletproof make_dummy_bulletproof(size_t n_outs)
+    {
+        const rct::key I = rct::identity();
+        size_t nrl = 0;
+        while ((1u << nrl) < n_outs)
+          ++nrl;
+        nrl += 6;
+        return rct::Bulletproof{rct::keyV(n_outs, I), I, I, I, I, I, I, rct::keyV(nrl, I), rct::keyV(nrl, I), I, I, I};
+    }
+}
+
 namespace rct {
     Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
     {
@@ -762,10 +775,20 @@ namespace rct {
             if (range_proof_type == RangeProofPaddedBulletproof)
             {
                 rct::keyV C, masks;
-                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts));
-                #ifdef DBG
-                CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
-                #endif
+                if (hwdev.get_mode() == hw::device::TRANSACTION_CREATE_FAKE)
+                {
+                    // use a fake bulletproof for speed
+                    rv.p.bulletproofs.push_back(make_dummy_bulletproof(outamounts.size()));
+                    C = rct::keyV(outamounts.size(), I);
+                    masks = rct::keyV(outamounts.size(), I);
+                }
+                else
+                {
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts));
+                    #ifdef DBG
+                    CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
+                    #endif
+                }
                 for (i = 0; i < outamounts.size(); ++i)
                 {
                     rv.outPk[i].mask = rct::scalarmult8(C[i]);
@@ -782,10 +805,20 @@ namespace rct {
                 std::vector<uint64_t> batch_amounts(batch_size);
                 for (i = 0; i < batch_size; ++i)
                   batch_amounts[i] = outamounts[i + amounts_proved];
-                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts));
-            #ifdef DBG
-                CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
-            #endif
+                if (hwdev.get_mode() == hw::device::TRANSACTION_CREATE_FAKE)
+                {
+                    // use a fake bulletproof for speed
+                    rv.p.bulletproofs.push_back(make_dummy_bulletproof(batch_amounts.size()));
+                    C = rct::keyV(batch_amounts.size(), I);
+                    masks = rct::keyV(batch_amounts.size(), I);
+                }
+                else
+                {
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts));
+                #ifdef DBG
+                    CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
+                #endif
+                }
                 for (i = 0; i < batch_size; ++i)
                 {
                   rv.outPk[i + amounts_proved].mask = rct::scalarmult8(C[i]);

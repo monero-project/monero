@@ -85,7 +85,7 @@ namespace hw {
 
     public:
 
-        device()  {}
+        device(): mode(NONE)  {}
         device(const device &hwdev) {}
         virtual ~device()   {}
 
@@ -115,7 +115,8 @@ namespace hw {
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
 
-        virtual bool set_mode(device_mode mode) = 0;
+        virtual bool set_mode(device_mode mode) { this->mode = mode; return true; }
+        virtual device_mode get_mode() const { return mode; }
 
         virtual device_type get_type() const = 0;
 
@@ -202,6 +203,9 @@ namespace hw {
         virtual bool  mlsag_sign(const rct::key &c, const rct::keyV &xx, const rct::keyV &alpha, const size_t rows, const size_t dsRows, rct::keyV &ss) = 0;
 
         virtual bool  close_tx(void) = 0;
+
+    protected:
+        device_mode mode;
     } ;
 
     struct reset_mode {
