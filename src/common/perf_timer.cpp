@@ -104,11 +104,11 @@ PerformanceTimer::PerformanceTimer(bool paused): started(true), paused(paused)
     ticks = get_tick_count();
 }
 
-LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, uint64_t unit, el::Level l): PerformanceTimer(), name(s), unit(unit), level(l)
+LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l): PerformanceTimer(), name(s), cat(cat), unit(unit), level(l)
 {
   if (!performance_timers)
   {
-    MLOG(level, "PERF             ----------");
+    MCLOG(level, cat.c_str(), "PERF             ----------");
     performance_timers = new std::vector<LoggingPerformanceTimer*>();
   }
   else
@@ -117,7 +117,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, uint64_t 
     if (!pt->started && !pt->paused)
     {
       size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
-      MLOG(pt->level, "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      MCLOG(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
       pt->started = true;
     }
   }
@@ -137,7 +137,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
   char s[12];
   snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
   size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
-  MLOG(level, "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  MCLOG(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
   if (performance_timers->empty())
   {
     delete performance_timers;
