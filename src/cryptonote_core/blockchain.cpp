@@ -2364,7 +2364,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
       const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
       if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
       {
-        MERROR("Bulletproofs are not allowed before v8");
+        MERROR_VER("Bulletproofs are not allowed before v8");
         tvc.m_invalid_output = true;
         return false;
       }
@@ -2377,7 +2377,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
       const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
       if (borromean)
       {
-        MERROR("Borromean range proofs are not allowed after v8");
+        MERROR_VER("Borromean range proofs are not allowed after v8");
         tvc.m_invalid_output = true;
         return false;
       }
