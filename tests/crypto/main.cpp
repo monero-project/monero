@@ -41,6 +41,8 @@
 #include "crypto-tests.h"
 #include "../io.h"
 
+#include "string_tools.h"
+
 using namespace std;
 using namespace crypto;
 typedef crypto::hash chash;
@@ -57,10 +59,39 @@ bool operator !=(const key_derivation &a, const key_derivation &b) {
   return 0 != memcmp(&a, &b, sizeof(key_derivation));
 }
 
+std::ostream &operator<<(std::ostream &s, const ec_point &t)
+{
+  s << epee::string_tools::pod_to_hex(t);
+  return s;
+}
+
+std::ostream &operator<<(std::ostream &s, const ec_scalar &t)
+{
+  s << epee::string_tools::pod_to_hex(t);
+  return s;
+}
+
+std::ostream &operator<<(std::ostream &s, const std::vector<char> &t)
+{
+  if (t.empty())
+  {
+    s << "x";
+    return s;
+  }
+  char hex[8];
+  for (char c: t)
+  {
+    snprintf(hex, sizeof(hex), "%02x", (unsigned char)c);
+    s << hex;
+  }
+  return s;
+}
+
 DISABLE_GCC_WARNING(maybe-uninitialized)
 
 int main(int argc, char *argv[]) {
   TRY_ENTRY();
+  bool gen = false;
   fstream input;
   string cmd;
   size_t test = 0;
@@ -73,6 +104,7 @@ int main(int argc, char *argv[]) {
   input.open(argv[1], ios_base::in);
   for (;;) {
     ++test;
+//std::cout << test << "..." << std::endl;
     input.exceptions(ios_base::badbit);
     if (!(input >> cmd)) {
       break;
@@ -83,14 +115,18 @@ int main(int argc, char *argv[]) {
       bool expected, actual;
       get(input, scalar, expected);
       actual = check_scalar(scalar);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "check_scalar " << scalar << " " << (expected ? "true" : "false") << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "random_scalar") {
       ec_scalar expected, actual;
       get(input, expected);
       random_scalar(actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "random_scalar " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "hash_to_scalar") {
@@ -98,7 +134,9 @@ int main(int argc, char *argv[]) {
       ec_scalar expected, actual;
       get(input, data, expected);
       crypto::hash_to_scalar(data.data(), data.size(), actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "hash_to_scalar " << data << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "generate_keys") {
@@ -106,7 +144,9 @@ int main(int argc, char *argv[]) {
       secret_key expected2, actual2;
       get(input, expected1, expected2);
       generate_keys(actual1, actual2);
-      if (expected1 != actual1 || expected2 != actual2) {
+      if (gen)
+        std::cout << "generate_keys " << actual1 << " " << actual2 << std::endl;
+      else if (expected1 != actual1 || expected2 != actual2) {
         goto error;
       }
     } else if (cmd == "check_key") {
@@ -114,7 +154,9 @@ int main(int argc, char *argv[]) {
       bool expected, actual;
       get(input, key, expected);
       actual = check_key(key);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "check_key " << key << " " << (actual ? "true" : "false") << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "secret_key_to_public_key") {
@@ -126,7 +168,14 @@ int main(int argc, char *argv[]) {
         get(input, expected2);
       }
       actual1 = secret_key_to_public_key(sec, actual2);
-      if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
+      if (gen)
+      {
+        std::cout << "secret_key_to_public_key " << sec << " " << (actual1 ? "true" : "false");
+        if (expected1)
+          std::cout << " " << actual2;
+        std::cout << std::endl;
+      }
+      else if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
         goto error;
       }
     } else if (cmd == "generate_key_derivation") {
@@ -139,7 +188,14 @@ int main(int argc, char *argv[]) {
         get(input, expected2);
       }
       actual1 = generate_key_derivation(key1, key2, actual2);
-      if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
+      if (gen)
+      {
+        std::cout << "generate_key_derivation " << key1 << " " << key2 << " " << (actual1 ? "true" : "false");
+        if (expected1)
+          std::cout << " " << actual2;
+        std::cout << std::endl;
+      }
+      else if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
         goto error;
       }
     } else if (cmd == "derive_public_key") {
@@ -153,7 +209,14 @@ int main(int argc, char *argv[]) {
         get(input, expected2);
       }
       actual1 = derive_public_key(derivation, output_index, base, actual2);
-      if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
+      if (gen)
+      {
+        std::cout << "derive_public_key " << derivation << " " << output_index << " " <<  base << " " << (actual1 ? "true" : "false");
+        if (expected1)
+          std::cout << " " << actual2;
+        std::cout << std::endl;
+      }
+      else if (expected1 != actual1 || (expected1 && expected2 != actual2)) {
         goto error;
       }
     } else if (cmd == "derive_secret_key") {
@@ -163,7 +226,9 @@ int main(int argc, char *argv[]) {
       secret_key expected, actual;
       get(input, derivation, output_index, base, expected);
       derive_secret_key(derivation, output_index, base, actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "derive_secret_key " << derivation << " " << output_index << " " << base << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "generate_signature") {
@@ -173,7 +238,9 @@ int main(int argc, char *argv[]) {
       signature expected, actual;
       get(input, prefix_hash, pub, sec, expected);
       generate_signature(prefix_hash, pub, sec, actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "generate_signature " << prefix_hash << " " << pub << " " << sec << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "check_signature") {
@@ -183,7 +250,9 @@ int main(int argc, char *argv[]) {
       bool expected, actual;
       get(input, prefix_hash, pub, sig, expected);
       actual = check_signature(prefix_hash, pub, sig);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "check_signature " << prefix_hash << " " << pub << " " << sig << " " << (actual ? "true" : "false") << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "hash_to_point") {
@@ -191,7 +260,9 @@ int main(int argc, char *argv[]) {
       ec_point expected, actual;
       get(input, h, expected);
       hash_to_point(h, actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "hash_to_point " << h << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "hash_to_ec") {
@@ -199,7 +270,9 @@ int main(int argc, char *argv[]) {
       ec_point expected, actual;
       get(input, key, expected);
       hash_to_ec(key, actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "hash_to_ec " << key << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "generate_key_image") {
@@ -208,7 +281,9 @@ int main(int argc, char *argv[]) {
       key_image expected, actual;
       get(input, pub, sec, expected);
       generate_key_image(pub, sec, actual);
-      if (expected != actual) {
+      if (gen)
+        std::cout << "generate_key_image " << pub << " " << sec << " " << actual << std::endl;
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "generate_ring_signature") {
@@ -233,7 +308,17 @@ int main(int argc, char *argv[]) {
       getvar(input, pubs_count * sizeof(signature), expected.data());
       actual.resize(pubs_count);
       generate_ring_signature(prefix_hash, image, pubs.data(), pubs_count, sec, sec_index, actual.data());
-      if (expected != actual) {
+      if (gen)
+      {
+         std::cout << "generate_ring_signature " << prefix_hash << " " << image << " " << pubs_count;
+         for (i = 0; i < pubs_count; i++)
+           std::cout << " " << vpubs[i];
+         std::cout << " " << sec << " " << sec_index << " ";
+         for (const auto &s: actual)
+           std::cout << s;
+         std::cout << std::endl;
+      }
+      else if (expected != actual) {
         goto error;
       }
     } else if (cmd == "check_ring_signature") {
@@ -256,7 +341,17 @@ int main(int argc, char *argv[]) {
       getvar(input, pubs_count * sizeof(signature), sigs.data());
       get(input, expected);
       actual = check_ring_signature(prefix_hash, image, pubs.data(), pubs_count, sigs.data());
-      if (expected != actual) {
+      if (gen)
+      {
+        std::cout << "check_ring_signature " << prefix_hash << " " << image << " " << pubs_count;
+        for (i = 0; i < pubs_count; i++)
+          std::cout << " " << vpubs[i];
+        std::cout << " ";
+        for (const auto &s: sigs)
+          std::cout << s;
+        std::cout << " " << (actual ? "true" : "false") << std::endl;
+      }
+      else if (expected != actual) {
         goto error;
       }
     } else {
