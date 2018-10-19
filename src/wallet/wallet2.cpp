@@ -4577,7 +4577,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   bool exists = boost::filesystem::exists(m_keys_file, e);
   THROW_WALLET_EXCEPTION_IF(e || !exists, error::file_not_found, m_keys_file);
   lock_keys_file();
-  THROW_WALLET_EXCEPTION_IF(!is_keys_file_locked(), error::wallet_internal_error, "internal error: \"" + m_keys_file + "\" is opened by another wallet program");
+  THROW_WALLET_EXCEPTION_IF(!is_keys_file_locked(), error::wallet_internal_error, "internal error: can't lock \"" + m_keys_file + "\". It might be opened by another wallet program or this user has no permission to read and write.");
 
   // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
   unlock_keys_file();
@@ -5408,7 +5408,7 @@ void wallet2::commit_tx(pending_tx& ptx)
             << "Commission: " << print_money(ptx.fee) << " (dust sent to dust addr: " << print_money((ptx.dust_added_to_fee ? 0 : ptx.dust)) << ")" << ENDL
             << "Balance: " << print_money(balance(ptx.construction_data.subaddr_account)) << ENDL
             << "Unlocked: " << print_money(unlocked_balance(ptx.construction_data.subaddr_account)) << ENDL
-            << "Please, wait for confirmation for your balance to be unlocked.");
+            << "Please wait for confirmations for your balance to be unlocked.");
 }
 
 void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
@@ -6242,7 +6242,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       }
       else if (blocks[0].first > 0)
       {
-        MINFO("We don't use the low priority because there's a backlog in the tx pool.");
+        MINFO("We don't use low priority because there's a backlog in the tx pool.");
         return priority;
       }
 
@@ -6285,10 +6285,10 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % P).str());
       if (P > 80)
       {
-        MINFO("We don't use the low priority because recent blocks are quite full.");
+        MINFO("We don't use low priority because recent blocks are quite full.");
         return priority;
       }
-      MINFO("We'll use the low priority because probably it's safe to do so.");
+      MINFO("We'll use low priority because probably it's safe to do so.");
       return 1;
     }
     catch (const std::exception &e)
