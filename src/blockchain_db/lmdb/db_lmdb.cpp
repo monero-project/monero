@@ -1208,7 +1208,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   if (is_hdd_result)
   {
     if (is_hdd_result.value())
-        MCLOG_RED(el::Level::Warning, "global", "The blockchain db file might be on a HDD: this could be very slow, store it in a SSD if possible");
+        MCLOG_RED(el::Level::Warning, "global", "The blockchain db file might be on a rotating disk(HDD): this will be very slow, use a SSD if possible");
   }
 
   m_folder = filename;
