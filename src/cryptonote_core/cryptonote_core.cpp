@@ -856,16 +856,19 @@ namespace cryptonote
     }
     waiter.wait(&tpool);
     it = tx_blobs.begin();
+    std::vector<bool> already_have(tx_blobs.size(), false);
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
       if (!results[i].res)
         continue;
       if(m_mempool.have_tx(results[i].hash))
       {
         LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in tx_pool");
+        already_have[i] = true;
       }
       else if(m_blockchain_storage.have_tx(results[i].hash))
       {
         LOG_PRINT_L2("tx " << results[i].hash << " already have transaction in blockchain");
+        already_have[i] = true;
       }
       else
       {
@@ -887,7 +890,7 @@ namespace cryptonote
     std::vector<tx_verification_batch_info> tx_info;
     tx_info.reserve(tx_blobs.size());
     for (size_t i = 0; i < tx_blobs.size(); i++) {
-      if (!results[i].res)
+      if (!results[i].res || already_have[i])
         continue;
       tx_info.push_back({&results[i].tx, results[i].hash, tvc[i], results[i].res});
     }
@@ -897,6 +900,8 @@ namespace cryptonote
     bool ok = true;
     it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+      if (already_have[i])
+        continue;
       if (!results[i].res)
       {
         ok = false;
