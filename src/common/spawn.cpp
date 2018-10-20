@@ -38,6 +38,7 @@
 #endif
 
 #include "misc_log_ex.h"
+#include "util.h"
 #include "spawn.h"
 
 namespace tools
@@ -101,6 +102,8 @@ int spawn(const char *filename, const std::vector<std::string>& args, bool wait)
   // child
   if (pid == 0)
   {
+    tools::closefrom(3);
+    close(0);
     char *envp[] = {NULL};
     execve(filename, argv, envp);
     MERROR("Failed to execve: " << strerror(errno));
