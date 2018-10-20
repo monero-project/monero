@@ -52,8 +52,8 @@ namespace hw {
     struct hid_conn_params {
       unsigned int vid; 
       unsigned int pid; 
-      unsigned int interface_number;
-      unsigned int usage_page;
+      int interface_number;
+      unsigned short usage_page;
       bool interface_OR_page ;
     };
     
@@ -100,7 +100,7 @@ namespace hw {
 
       void init();  
       void connect(void *params);
-      void connect(unsigned int vid, unsigned  int pid, unsigned int interface_number, unsigned int usage_page, bool interface_OR_page );
+      void connect(unsigned int vid, unsigned  int pid, int interface_number, unsigned short usage_page, bool interface_OR_page );
       bool connected() const;
       int  exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len);
       void disconnect();
