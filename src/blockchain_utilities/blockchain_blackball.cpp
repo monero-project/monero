@@ -226,7 +226,7 @@ static void init(std::string cache_filename)
   bool tx_active = false;
   int dbr;
 
-  MINFO("Creating blackball cache in " << cache_filename);
+  MINFO("Creating spent output cache in " << cache_filename);
 
   tools::create_directories_if_necessary(cache_filename);
 
@@ -1019,7 +1019,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_blackball_db_dir = {
-      "blackball-db-dir", "Specify blackball database directory",
+      "spent-output-db-dir", "Specify spent output database directory",
       get_default_db_path(),
   };
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
@@ -1076,7 +1076,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-blackball.log"), true);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-find-spent-outputs.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -1114,10 +1114,10 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  const std::string cache_dir = (output_file_path / "blackball-cache").string();
+  const std::string cache_dir = (output_file_path / "spent-outputs-cache").string();
   init(cache_dir);
 
-  LOG_PRINT_L0("Scanning for blackballable outputs...");
+  LOG_PRINT_L0("Scanning for spent outputs...");
 
   size_t done = 0;
 
@@ -1215,7 +1215,7 @@ int main(int argc, char* argv[])
           const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[0]);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a 1-ring");
+            MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in a 1-ring");
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           }
           blackballs.push_back(output);
@@ -1229,7 +1229,7 @@ int main(int argc, char* argv[])
             const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
+              MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
@@ -1244,7 +1244,7 @@ int main(int argc, char* argv[])
             const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
+              MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
@@ -1280,7 +1280,7 @@ int main(int argc, char* argv[])
               const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, common[0]);
               if (opt_verbose)
               {
-                MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in rings with a single common element");
+                MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in rings with a single common element");
                 std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               }
               blackballs.push_back(output);
@@ -1392,7 +1392,7 @@ int main(int argc, char* argv[])
           const std::pair<uint64_t, uint64_t> output = std::make_pair(od.amount, last_unknown);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a " <<
+            MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in a " <<
                 absolute.size() << "-ring where all other outputs are known to be spent");
           }
           blackballs.push_back(output);
@@ -1420,7 +1420,7 @@ int main(int argc, char* argv[])
 
 skip_secondary_passes:
   uint64_t diff = get_num_spent_outputs() - start_blackballed_outputs;
-  LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs() << " total outputs blackballed");
+  LOG_PRINT_L0(std::to_string(diff) << " new outputs marked as spent, " << get_num_spent_outputs() << " total outputs marked as spent");
 
   MDB_txn *txn;
   dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
@@ -1460,7 +1460,7 @@ skip_secondary_passes:
     mdb_txn_abort(txn);
   }
 
-  LOG_PRINT_L0("Blockchain blackball data exported OK");
+  LOG_PRINT_L0("Blockchain spent output data exported OK");
   close_db(env0, txn0, cur0, dbi0);
   close();
   return 0;
