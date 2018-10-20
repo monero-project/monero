@@ -13,6 +13,7 @@
 //
 #if defined(HAVE_HIDAPI) 
 
+#include <boost/scope_exit.hpp>
 #include "log.hpp"
 #include "device_io_hid.hpp"
 
@@ -69,11 +70,47 @@ namespace hw {
 
     void device_io_hid::connect(void *params) {
       hid_conn_params *p = (struct hid_conn_params*)params;
-      this->connect(p->vid, p->pid, p->interface_number, p->usage_page, p->interface_OR_page);
+      this->connect(p->vid, p->pid, p->interface_number, p->usage_page);
     }
 
-    void device_io_hid::connect(unsigned int vid, unsigned  int pid, unsigned int interface_number, unsigned int usage_page, bool interface_OR_page ) {
-      hid_device_info *hwdev_info, *hwdev_info_list;
+    hid_device_info *device_io_hid::find_device(hid_device_info *devices_list, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
+      bool select_any = !interface_number && !usage_page;
+
+      MDEBUG( "Looking for " <<
+              (select_any ? "any HID Device" : "HID Device with") <<
+              (interface_number ? (" interface_number " + std::to_string(interface_number.value())) : "") <<
+              ((interface_number && usage_page) ? " or" : "") <<
+              (usage_page ? (" usage_page " + std::to_string(usage_page.value())) : ""));
+
+      hid_device_info *result = nullptr;
+      for (; devices_list != nullptr; devices_list = devices_list->next) {
+        BOOST_SCOPE_EXIT(&devices_list, &result) {
+          MDEBUG( (result == devices_list ? "SELECTED" : "SKIPPED ") <<
+                  " HID Device" <<
+                  " path " << safe_hid_path(devices_list) <<
+                  " interface_number " << devices_list->interface_number <<
+                  " usage_page " << devices_list->usage_page);
+        }
+        BOOST_SCOPE_EXIT_END
+
+        if (result != nullptr) {
+          continue;
+        }
+
+        if (select_any) {
+          result = devices_list;
+        } else if (interface_number && devices_list->interface_number == interface_number.value()) {
+          result = devices_list;
+        } else if (usage_page && devices_list->usage_page == usage_page.value()) {
+          result = devices_list;
+        }
+      }
+
+      return result;
+    }
+
+    void device_io_hid::connect(unsigned int vid, unsigned  int pid, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page) {
+      hid_device_info *hwdev_info_list;
       hid_device      *hwdev;
 
       this->disconnect();
@@ -81,17 +118,8 @@ namespace hw {
       hwdev_info_list = hid_enumerate(vid, pid);
       ASSERT_X(hwdev_info_list, "Unable to enumerate device "+std::to_string(vid)+":"+std::to_string(vid)+  ": "+ safe_hid_error(this->usb_device));
       hwdev = NULL;
-      hwdev_info = hwdev_info_list;
-      while (hwdev_info) {
-        if ((interface_OR_page && ((usage_page == 0xffa0) || (interface_number == 0))) ||
-                                  ((usage_page == 0xffa0) && (interface_number == 0)) ) {
-          MDEBUG("HID Device found: " << safe_hid_path(hwdev_info));
-          hwdev = hid_open_path(hwdev_info->path);
-          break;
-        } else {
-          MDEBUG("HID Device discard: " << safe_hid_path(hwdev_info) << "("+std::to_string(hwdev_info->usage_page) << "," << std::to_string(hwdev_info->interface_number) << ")");
-        }
-        hwdev_info = hwdev_info->next;
+      if (hid_device_info *device = find_device(hwdev_info_list, interface_number, usage_page)) {
+        hwdev = hid_open_path(device->path);
       }
       hid_free_enumeration(hwdev_info_list);
       ASSERT_X(hwdev, "Unable to open device "+std::to_string(pid)+":"+std::to_string(vid));
