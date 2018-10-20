@@ -281,6 +281,9 @@ void fromJsonValue(const rapidjson::Value& val, rct::mgSig& sig);
 void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& info, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& info);
 
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_distribution& dist, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_distribution& dist);
+
 template <typename Map>
 typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type toJsonValue(rapidjson::Document& doc, const Map& map, rapidjson::Value& val);
 
