@@ -766,7 +766,7 @@ namespace cryptonote
     m_blockchain.for_all_txpool_txes([&tx_infos, key_image_infos, include_sensitive_data](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata *bd){
       tx_info txi;
       txi.id_hash = epee::string_tools::pod_to_hex(txid);
-      txi.tx_blob = epee::string_tools::buff_to_hex_nodelimer(*bd);
+      txi.tx_blob = *bd;
       transaction tx;
       if (!parse_and_validate_tx_from_blob(*bd, tx))
       {
