@@ -398,24 +398,22 @@ namespace cryptonote
     LockedTXN lock(m_blockchain);
     bool changed = false;
 
-    auto prune_tx = [this](sorted_tx_container::iterator &it, crypto::hash const &txid, bool &changed)
+    auto prune_tx = [this](sorted_tx_container::iterator &it, crypto::hash const &txid, txpool_tx_meta_t const &meta, bool &changed)
     {
       cryptonote::blobdata tx_blob = m_blockchain.get_txpool_tx_blob(txid);
-      cryptonote::transaction tx;
-      if (!parse_and_validate_tx_from_blob(tx_blob, tx))
+      cryptonote::transaction_prefix tx;
+      if (!parse_and_validate_tx_prefix_from_blob(tx_blob, tx))
       {
         return false;
       }
 
-      const uint64_t tx_fee    = std::get<1>(it->first);
-      const uint64_t tx_weight = get_transaction_weight(tx, tx_blob.size());
-
       // remove first, in case this throws, so key images aren't removed
-      MINFO("Pruning tx " << txid << " from txpool: weight: " << tx_weight << ", fee/byte: " << tx_fee);
+      const uint64_t tx_fee = std::get<1>(it->first);
+      MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << tx_fee);
       m_blockchain.remove_txpool_tx(txid);
-      m_txpool_weight -= tx_weight;
+      m_txpool_weight -= meta.weight;
       remove_transaction_keyimages(tx, txid);
-      MINFO("Pruned tx " << txid << " from txpool: weight: " << tx_weight << ", fee/byte: " << tx_fee);
+      MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << tx_fee);
       it = m_txs_by_fee_and_receive_time.erase(it);
       changed = true;
 
@@ -446,7 +444,7 @@ namespace cryptonote
           continue;
         }
 
-        if (!prune_tx(it, txid, changed))
+        if (!prune_tx(it, txid, meta, changed))
         {
           MERROR("Failed to parse tx from txpool");
           return;
@@ -481,7 +479,7 @@ namespace cryptonote
           continue;
         }
 
-        if (!prune_tx(it, txid, changed))
+        if (!prune_tx(it, txid, meta, changed))
         {
           MERROR("Failed to parse tx from txpool");
           return;
