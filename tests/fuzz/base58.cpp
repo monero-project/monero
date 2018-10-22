@@ -68,7 +68,9 @@ int Base58Fuzzer::run(const std::string &filename)
 
 int main(int argc, const char **argv)
 {
+  TRY_ENTRY();
   Base58Fuzzer fuzzer;
   return run_fuzzer(argc, argv, fuzzer);
+  CATCH_ENTRY_L0("main", 1);
 }
 

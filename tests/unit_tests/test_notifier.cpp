@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,53 +26,29 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "include_base_utils.h"
-#include "file_io_utils.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_template_helper.h"
-#include "storages/portable_storage_base.h"
-#include "fuzzer.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
-class PortableStorageFuzzer: public Fuzzer
+int main(int argc, char **argv)
 {
-public:
-  PortableStorageFuzzer() {}
-  virtual int init();
-  virtual int run(const std::string &filename);
-};
-
-int PortableStorageFuzzer::init()
-{
-  return 0;
-}
-
-int PortableStorageFuzzer::run(const std::string &filename)
-{
-  std::string s;
-
-  if (!epee::file_io_utils::load_file_to_string(filename, s))
+  if (argc < 3)
   {
-    std::cout << "Error: failed to load file " << filename << std::endl;
+    fprintf(stderr, "usage: %s <filename> <hash>\n", argv[0]);
     return 1;
   }
-  try
+  const char *filename = argv[1];
+  const char *hash = argv[2];
+
+  FILE *f = fopen(filename, "a+");
+  if (!f)
   {
-    epee::serialization::portable_storage ps;
-    ps.load_from_json(s);
-  }
-  catch (const std::exception &e)
-  {
-    std::cerr << "Failed to load from binary: " << e.what() << std::endl;
+    fprintf(stderr, "error opening file %s: %s\n", filename, strerror(errno));
     return 1;
   }
+  fprintf(f, "%s", hash);
+  fclose(f);
+
   return 0;
 }
-
-int main(int argc, const char **argv)
-{
-  TRY_ENTRY();
-  PortableStorageFuzzer fuzzer;
-  return run_fuzzer(argc, argv, fuzzer);
-  CATCH_ENTRY_L0("main", 1);
-}
-

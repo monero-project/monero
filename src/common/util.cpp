@@ -29,6 +29,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <unistd.h>
 #include <cstdio>
 
 #ifdef __GLIBC__
@@ -234,7 +235,7 @@ namespace tools
       MERROR("Failed to open " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
     }
 #else
-    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT, 0666);
+    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT | O_CLOEXEC, 0666);
     if (m_fd != -1)
     {
       if (flock(m_fd, LOCK_EX | LOCK_NB) == -1)
@@ -967,5 +968,24 @@ std::string get_nix_version_display_string()
     return buf;
   }
 #endif
+
+  void closefrom(int fd)
+  {
+#if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__ || defined __DragonFly__
+    ::closefrom(fd);
+#else
+#if defined __GLIBC__
+    const int sc_open_max =  sysconf(_SC_OPEN_MAX);
+    const int MAX_FDS = std::min(65536, sc_open_max);
+#else
+    const int MAX_FDS = 65536;
+#endif
+    while (fd < MAX_FDS)
+    {
+      close(fd);
+      ++fd;
+    }
+#endif
+  }
 
 }

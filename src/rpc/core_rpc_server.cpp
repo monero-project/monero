@@ -918,6 +918,8 @@ namespace cryptonote
       return r;
 
     m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, !request_has_rpc_origin || !m_restricted);
+    for (tx_info& txi : res.transactions)
+      txi.tx_blob = epee::string_tools::buff_to_hex_nodelimer(txi.tx_blob);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -1084,7 +1086,7 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
-      LOG_ERROR("Failed to  tx pub key in coinbase extra");
+      LOG_ERROR("Failed to get tx pub key in coinbase extra");
       return false;
     }
     res.reserved_offset = slow_memmem((void*)block_blob.data(), block_blob.size(), &tx_pub_key, sizeof(tx_pub_key));
@@ -2164,6 +2166,8 @@ namespace cryptonote
 
     try
     {
+      // 0 is placeholder for the whole chain
+      const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);
       for (uint64_t amount: req.amounts)
       {
         static struct D
@@ -2176,7 +2180,7 @@ namespace cryptonote
         } d;
         boost::unique_lock<boost::mutex> lock(d.mutex);
 
-        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
+        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req_to_height)
         {
           res.distributions.push_back({amount, d.cached_start_height, req.binary, d.cached_distribution, d.cached_base});
           if (!req.cumulative)
@@ -2191,23 +2195,23 @@ namespace cryptonote
 
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
-        if (!m_core.get_output_distribution(amount, req.from_height, req.to_height, start_height, distribution, base))
+        if (!m_core.get_output_distribution(amount, req.from_height, req_to_height, start_height, distribution, base))
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
           error_resp.message = "Failed to get rct distribution";
           return false;
         }
-        if (req.to_height > 0 && req.to_height >= req.from_height)
+        if (req_to_height > 0 && req_to_height >= req.from_height)
         {
           uint64_t offset = std::max(req.from_height, start_height);
-          if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
-            distribution.resize(req.to_height - offset + 1);
+          if (offset <= req_to_height && req_to_height - offset + 1 < distribution.size())
+            distribution.resize(req_to_height - offset + 1);
         }
 
         if (amount == 0)
         {
           d.cached_from = req.from_height;
-          d.cached_to = req.to_height;
+          d.cached_to = req_to_height;
           d.cached_distribution = distribution;
           d.cached_start_height = start_height;
           d.cached_base = base;

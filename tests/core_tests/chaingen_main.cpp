@@ -122,6 +122,11 @@ int main(int argc, char* argv[])
 
     if (run_all)
     {
+      GENERATE_AND_PLAY(gen_simple_chain_001);
+      GENERATE_AND_PLAY(gen_simple_chain_split_1);
+      GENERATE_AND_PLAY(gen_chain_switch_1);
+      GENERATE_AND_PLAY(gen_ring_signature_1);
+      GENERATE_AND_PLAY(gen_ring_signature_2);
       GENERATE_AND_PLAY(one_block);
 
       // Block verification tests
@@ -139,6 +144,7 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_block_unlock_time_is_timestamp_in_future);
       GENERATE_AND_PLAY(gen_block_height_is_low);
       GENERATE_AND_PLAY(gen_block_height_is_high);
+      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
       GENERATE_AND_PLAY(gen_block_miner_tx_has_2_tx_gen_in);
       GENERATE_AND_PLAY(gen_block_miner_tx_with_txin_to_key);
       GENERATE_AND_PLAY(gen_block_miner_tx_out_is_big);
@@ -180,15 +186,7 @@ int main(int argc, char* argv[])
 
       // TODO(loki): Tests we need to fix
 #if 0
-      GENERATE_AND_PLAY(gen_simple_chain_001);
-      GENERATE_AND_PLAY(gen_simple_chain_split_1);
-      GENERATE_AND_PLAY(gen_chain_switch_1);
-      GENERATE_AND_PLAY(gen_ring_signature_1);
-      GENERATE_AND_PLAY(gen_ring_signature_2);
       //GENERATE_AND_PLAY(gen_ring_signature_big); // Takes up to XXX hours (if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10)
-
-       Block verification tests
-      GENERATE_AND_PLAY(gen_block_miner_tx_has_2_in);
       //GENERATE_AND_PLAY(gen_block_invalid_binary_format); // Takes up to 3 hours, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 500, up to 30 minutes, if CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW == 10
 
       // Transaction verification tests
@@ -282,6 +280,7 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_2_many_inputs);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234_many_inputs);
+
 #endif
     }
 

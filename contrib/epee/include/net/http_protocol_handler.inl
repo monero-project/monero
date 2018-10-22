@@ -32,6 +32,7 @@
 #include "string_tools.h"
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
+#include "time_helper.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "net.http"
