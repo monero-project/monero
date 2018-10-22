@@ -60,7 +60,7 @@ namespace
 
     DWORD mode_old;
     ::GetConsoleMode(h_cin, &mode_old);
-    DWORD mode_new = mode_old & ~((hide_input ? ENABLE_ECHO_INPUT : 0) | ENABLE_LINE_INPUT);
+    DWORD mode_new = mode_old & ~(hide_input ? ENABLE_ECHO_INPUT : 0);
     ::SetConsoleMode(h_cin, mode_new);
 
     bool r = true;
@@ -78,7 +78,11 @@ namespace
       {
         break;
       }
-      else if (ucs2_ch == L'\n' || ucs2_ch == L'\r')
+      else if (ucs2_ch == L'\r')
+      {
+        continue;
+      }
+      else if (ucs2_ch == L'\n')
       {
         std::cout << std::endl;
         break;
@@ -158,6 +162,13 @@ namespace
         if (!aPass.empty())
         {
           aPass.pop_back();
+          if (!hide_input)
+            std::cout << "\b\b\b   \b\b\b" << std::flush;
+        }
+        else
+        {
+          if (!hide_input)
+            std::cout << "\b\b  \b\b" << std::flush;
         }
       }
       else
