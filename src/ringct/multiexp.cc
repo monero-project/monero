@@ -473,10 +473,7 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
 #endif
   for (size_t j = 0; j < data.size(); ++j)
   {
-    unsigned char bytes33[33];
-    memcpy(bytes33,  data[j].scalar.bytes, 32);
-    bytes33[32] = 0;
-    const unsigned char *bytes = bytes33;
+    const unsigned char *bytes = data[j].scalar.bytes;
 #if STRAUS_C==4
     unsigned int i;
     for (i = 0; i < 64; i += 2, bytes++)
@@ -485,6 +482,10 @@ rct::key straus(const std::vector<MultiexpData> &data, const std::shared_ptr<str
       digits[j*64+i+1] = bytes[0] >> 4;
     }
 #elif 1
+    unsigned char bytes33[33];
+    memcpy(bytes33,  data[j].scalar.bytes, 32);
+    bytes33[32] = 0;
+    bytes = bytes33;
     for (size_t i = 0; i < 256; ++i)
       digits[j*256+i] = ((bytes[i>>3] | (bytes[(i>>3)+1]<<8)) >> (i&7)) & mask;
 #else
@@ -615,7 +616,9 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
   CHECK_AND_ASSERT_THROW_MES(c <= 9, "c is too large");
 
   ge_p3 result = ge_p3_identity;
+  bool result_init = false;
   std::unique_ptr<ge_p3[]> buckets{new ge_p3[1<<c]};
+  bool buckets_init[1<<9];
   std::shared_ptr<pippenger_cached_data> local_cache = cache == NULL ? pippenger_init_cache(data) : cache;
   std::shared_ptr<pippenger_cached_data> local_cache_2 = data.size() > cache_size ? pippenger_init_cache(data, cache_size) : NULL;
 
@@ -632,7 +635,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
 
   for (size_t k = groups; k-- > 0; )
   {
-    if (!ge_p3_is_point_at_infinity(&result))
+    if (result_init)
     {
       ge_p2 p2;
       ge_p3_to_p2(&p2, &result);
@@ -646,8 +649,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
           ge_p1p1_to_p2(&p2, &p1);
       }
     }
-    for (size_t i = 0; i < (1u<<c); ++i)
-      buckets[i] = ge_p3_identity;
+    memset(buckets_init, 0, 1u<<c);
 
     // partition scalars into buckets
     for (size_t i = 0; i < data.size(); ++i)
@@ -659,7 +661,7 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
       if (bucket == 0)
         continue;
       CHECK_AND_ASSERT_THROW_MES(bucket < (1u<<c), "bucket overflow");
-      if (!ge_p3_is_point_at_infinity(&buckets[bucket]))
+      if (buckets_init[bucket])
       {
         if (i < cache_size)
           add(buckets[bucket], local_cache->cached[i]);
@@ -667,17 +669,37 @@ rct::key pippenger(const std::vector<MultiexpData> &data, const std::shared_ptr<
           add(buckets[bucket], local_cache_2->cached[i - cache_size]);
       }
       else
+      {
         buckets[bucket] = data[i].point;
+        buckets_init[bucket] = true;
+      }
     }
 
     // sum the buckets
-    ge_p3 pail = ge_p3_identity;
+    ge_p3 pail;
+    bool pail_init = false;
     for (size_t i = (1<<c)-1; i > 0; --i)
     {
-      if (!ge_p3_is_point_at_infinity(&buckets[i]))
-        add(pail, buckets[i]);
-      if (!ge_p3_is_point_at_infinity(&pail))
-        add(result, pail);
+      if (buckets_init[i])
+      {
+        if (pail_init)
+          add(pail, buckets[i]);
+        else
+        {
+          pail = buckets[i];
+          pail_init = true;
+        }
+      }
+      if (pail_init)
+      {
+        if (result_init)
+          add(result, pail);
+        else
+        {
+          result = pail;
+          result_init = true;
+        }
+      }
     }
   }
 
