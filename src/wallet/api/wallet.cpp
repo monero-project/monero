@@ -777,7 +777,7 @@ bool WalletImpl::setPassword(const std::string &password)
 {
     clearStatus();
     try {
-        m_wallet->rewrite(m_wallet->get_wallet_file(), password);
+        m_wallet->change_password(m_wallet->get_wallet_file(), m_password, password);
         m_password = password;
     } catch (const std::exception &e) {
         setStatusError(e.what());
@@ -2162,7 +2162,7 @@ bool WalletImpl::blackballOutputs(const std::vector<std::string> &outputs, bool 
     bool ret = m_wallet->set_blackballed_outputs(raw_outputs, add);
     if (!ret)
     {
-        setStatusError(tr("Failed to set blackballed outputs"));
+        setStatusError(tr("Failed to mark outputs as spent"));
         return false;
     }
     return true;
@@ -2184,7 +2184,7 @@ bool WalletImpl::blackballOutput(const std::string &amount, const std::string &o
     bool ret = m_wallet->blackball_output(std::make_pair(raw_amount, raw_offset));
     if (!ret)
     {
-        setStatusError(tr("Failed to blackball output"));
+        setStatusError(tr("Failed to mark output as spent"));
         return false;
     }
     return true;
@@ -2206,7 +2206,7 @@ bool WalletImpl::unblackballOutput(const std::string &amount, const std::string 
     bool ret = m_wallet->unblackball_output(std::make_pair(raw_amount, raw_offset));
     if (!ret)
     {
-        setStatusError(tr("Failed to unblackball output"));
+        setStatusError(tr("Failed to mark output as unspent"));
         return false;
     }
     return true;

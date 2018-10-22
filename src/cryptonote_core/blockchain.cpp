@@ -306,6 +306,9 @@ uint64_t Blockchain::get_current_blockchain_height() const
 bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline, const cryptonote::test_options *test_options, difficulty_type fixed_difficulty)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+
+  CHECK_AND_ASSERT_MES(nettype != FAKECHAIN || test_options, false, "fake chain network type used without options");
+
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
 
@@ -2386,7 +2389,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
     if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
     {
-      MERROR("Bulletproofs are not allowed before v10");
+      MERROR_VER("Bulletproofs are not allowed before v10");
       tvc.m_invalid_output = true;
       return false;
     }
@@ -2396,7 +2399,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
     if (borromean)
     {
-      MERROR("Borromean range proofs are not allowed after v10");
+      MERROR_VER("Borromean range proofs are not allowed after v10");
       tvc.m_invalid_output = true;
       return false;
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018, The Monero Project
+// Copyright (c) 2018, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,53 +26,32 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "include_base_utils.h"
+#include "gtest/gtest.h"
+
+#include <boost/filesystem.hpp>
+
+#include "misc_language.h"
+#include "string_tools.h"
 #include "file_io_utils.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_template_helper.h"
-#include "storages/portable_storage_base.h"
-#include "fuzzer.h"
+#include "common/notify.h"
 
-class PortableStorageFuzzer: public Fuzzer
+TEST(notify, works)
 {
-public:
-  PortableStorageFuzzer() {}
-  virtual int init();
-  virtual int run(const std::string &filename);
-};
+  char name_template[] = "/tmp/monero-notify-unit-test-XXXXXX";
+  int fd = mkstemp(name_template);
+  ASSERT_TRUE(fd >= 0);
+  close(fd);
 
-int PortableStorageFuzzer::init()
-{
-  return 0;
-}
+  const std::string spec = epee::string_tools::get_current_module_folder() + "/test_notifier " + name_template + " %s";
 
-int PortableStorageFuzzer::run(const std::string &filename)
-{
+  tools::Notify notify(spec.c_str());
+  notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
+
+  epee::misc_utils::sleep_no_w(100);
+
   std::string s;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(name_template, s));
+  ASSERT_TRUE(s == "1111111111111111111111111111111111111111111111111111111111111111");
 
-  if (!epee::file_io_utils::load_file_to_string(filename, s))
-  {
-    std::cout << "Error: failed to load file " << filename << std::endl;
-    return 1;
-  }
-  try
-  {
-    epee::serialization::portable_storage ps;
-    ps.load_from_json(s);
-  }
-  catch (const std::exception &e)
-  {
-    std::cerr << "Failed to load from binary: " << e.what() << std::endl;
-    return 1;
-  }
-  return 0;
+  boost::filesystem::remove(name_template);
 }
-
-int main(int argc, const char **argv)
-{
-  TRY_ENTRY();
-  PortableStorageFuzzer fuzzer;
-  return run_fuzzer(argc, argv, fuzzer);
-  CATCH_ENTRY_L0("main", 1);
-}
-
