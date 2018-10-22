@@ -179,7 +179,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd monero
-        git checkout v0.13.0.3
+        git checkout v0.13.0.4
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -241,7 +241,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```
         git clone https://github.com/monero-project/monero.git
 	cd monero
-	git checkout tags/v0.13.0.0
+	git checkout tags/v0.13.0.4
 ```
 * Build:
 ```
@@ -340,7 +340,7 @@ application.
 
 * If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.13.0.0'. If you dont care about the version and just want binaries from master, skip this step:
 	
-        git checkout v0.13.0.3
+        git checkout v0.13.0.4
 
 * If you are on a 64-bit system, run:
 
