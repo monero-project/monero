@@ -62,7 +62,7 @@ class classname \
 #define END_RPC_MESSAGE_RESPONSE };
 #define END_RPC_MESSAGE_CLASS };
 
-#define COMMA() ,
+#define COMMA ,
 
 // NOTE: when using a type with multiple template parameters,
 // replace any comma in the template specifier with the macro
@@ -118,7 +118,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetTransactions);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, tx_hashes);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::unordered_map<crypto::hash COMMA() cryptonote::rpc::transaction_info>, txs);
+    RPC_MESSAGE_MEMBER(std::unordered_map<crypto::hash COMMA cryptonote::rpc::transaction_info>, txs);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, missed_hashes);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
