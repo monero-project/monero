@@ -237,7 +237,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   }
 
   size_t count = 0;
-    for (const uint64_t& i : absolute_offsets)
+  for (const uint64_t& i : absolute_offsets)
   {
     try
     {
@@ -1020,10 +1020,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   LOG_PRINT_L3("Blockchain::" << __func__);
   std::vector<uint64_t> timestamps;
   std::vector<difficulty_type> cumulative_difficulties;
-  uint8_t version = get_current_hard_fork_version();
-  size_t difficulty_blocks_count;
-
-  difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
+  size_t difficulty_blocks_count = DIFFICULTY_BLOCKS_COUNT_V2;
 
   // if the alt chain isn't long enough to calculate the difficulty target
   // based on its blocks alone, need to get more blocks from the main chain
@@ -1081,7 +1078,6 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   // calculate the difficulty target for the block and return it
   return next_difficulty_v2(timestamps, cumulative_difficulties, target);
 }
-
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
 // transactions have in common, such as:
@@ -1284,7 +1280,6 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   b.major_version = m_hardfork->get_current_version();
   b.minor_version = m_hardfork->get_ideal_version();
   b.prev_id = get_tail_id();
-
   b.timestamp = time(NULL);
 
   uint64_t median_ts;

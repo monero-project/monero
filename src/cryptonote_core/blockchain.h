@@ -81,7 +81,6 @@ namespace cryptonote
   class Blockchain
   {
   public:
-
     enum version
     {
       version_7 = 7,

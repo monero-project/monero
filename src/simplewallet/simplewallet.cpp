@@ -36,7 +36,7 @@
  */
 
 #ifdef _WIN32
- #define __STDC_FORMAT_MACROS
+ #define __STDC_FORMAT_MACROS // NOTE(loki): Explicitly define the PRIu64 macro on Mingw
 #endif
 
 #include <thread>
