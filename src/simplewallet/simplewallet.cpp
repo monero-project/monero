@@ -4422,7 +4422,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   tools::wallet2::transfer_container transfers;
   m_wallet->get_transfers(transfers);
 
-  bool transfers_found = false;
+  size_t transfers_found = 0;
   for (const auto& td : transfers)
   {
     if (!filter || available != td.m_spent)
@@ -4435,7 +4435,6 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         if (verbose)
           verbose_string = (boost::format("%68s%68s") % tr("pubkey") % tr("key image")).str();
         message_writer() << boost::format("%21s%8s%12s%8s%16s%68s%16s%s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id") % tr("addr index") % verbose_string;
-        transfers_found = true;
       }
       std::string verbose_string;
       if (verbose)
@@ -4450,6 +4449,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         td.m_txid %
         td.m_subaddr_index.minor %
         verbose_string;
+      ++transfers_found;
     }
   }
 
@@ -4467,6 +4467,10 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     {
       success_msg_writer() << tr("No incoming unavailable transfers");
     }
+  }
+  else
+  {
+    success_msg_writer() << boost::format("Found %u/%u transfers") % transfers_found % m_wallet->get_num_transfer_details();
   }
 
   return true;
