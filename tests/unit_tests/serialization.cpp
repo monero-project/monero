@@ -922,7 +922,6 @@ inline void serialize(Archive &a, unsigned_tx_set &x, const boost::serialization
 #define UNSIGNED_TX_PREFIX "Monero unsigned tx set\003"
 TEST(Serialization, portability_unsigned_tx)
 {
-
   const boost::filesystem::path filename = unit_test::data_dir / "unsigned_monero_tx";
   std::string s;
   const cryptonote::network_type nettype = cryptonote::TESTNET;
