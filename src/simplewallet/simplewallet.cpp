@@ -6105,8 +6105,8 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
 {
   std::string extra_message;
-  if (!txs.transfers.empty())
-    extra_message = (boost::format("%u outputs to import. ") % (unsigned)txs.transfers.size()).str();
+  if (!txs.transfers.second.empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)txs.transfers.second.size()).str();
   return accept_loaded_tx([&txs](){return txs.txes.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.txes[n];}, extra_message);
 }
 //----------------------------------------------------------------------------------------------------
