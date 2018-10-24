@@ -720,7 +720,6 @@ namespace cryptonote
       }
       return true;
     }, false);
-
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -1149,7 +1148,6 @@ namespace cryptonote
         }
       }
     }
-
     //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
     if(m_blockchain.have_tx_keyimges_as_spent(lazy_tx()))
     {

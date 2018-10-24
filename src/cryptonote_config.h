@@ -45,8 +45,6 @@
 #define CURRENT_TRANSACTION_VERSION                     3
 #define CURRENT_BLOCK_MAJOR_VERSION                     7
 #define CURRENT_BLOCK_MINOR_VERSION                     7
-#define CURRENT_BLOCK_MAJOR_VERSION_TESTNET             7
-#define CURRENT_BLOCK_MINOR_VERSION_TESTNET             7
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 

@@ -341,7 +341,7 @@ if(SANITIZE)
 endif()
 
 # Set default blockchain storage location:
-# memory was the default in Cryptonote before monero implemented LMDB, it still works but is unnecessary.
+# memory was the default in Cryptonote before Monero implemented LMDB, it still works but is unnecessary.
 # set(DATABASE memory)
 set(DATABASE lmdb)
 

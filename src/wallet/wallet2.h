@@ -44,7 +44,6 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
-#include "cryptonote_core/service_node_deregister.h"
 #include "net/http_client.h"
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -241,6 +240,7 @@ namespace tools
       uint64_t unlock_time;
       bool error;
       boost::optional<cryptonote::subaddress_receive_info> received;
+
       tx_scan_info_t(): money_transfered(0), error(true) {}
     };
 
@@ -753,7 +753,6 @@ namespace tools
       std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
       uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, rct::RangeProofType range_proof_type, bool is_staking_tx=false);
 
-    void commit_deregister_vote(loki::service_node_deregister::vote& vote);
     void commit_tx(pending_tx& ptx_vector);
     void commit_tx(std::vector<pending_tx>& ptx_vector);
     bool save_tx(const std::vector<pending_tx>& ptx_vector, const std::string &filename) const;

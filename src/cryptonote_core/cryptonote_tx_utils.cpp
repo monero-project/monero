@@ -594,7 +594,6 @@ namespace cryptonote
         hwdev.derivation_to_scalar(derivation, output_index, scalar1);
         amount_keys.push_back(rct::sk2rct(scalar1));
       }
-
       r = hwdev.derive_public_key(derivation, output_index, dst_entr.addr.m_spend_public_key, out_eph_public_key);
       CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
 

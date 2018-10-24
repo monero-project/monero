@@ -157,7 +157,6 @@ int main(int argc, char* argv[])
   BlockchainObjects *blockchain_objects = new BlockchainObjects();
   Blockchain *core_storage = &blockchain_objects->m_blockchain;
   BlockchainDB *db = new_db(db_type);
-
   if (db == NULL)
   {
     LOG_ERROR("Attempted to use non-existent database type: " << db_type);

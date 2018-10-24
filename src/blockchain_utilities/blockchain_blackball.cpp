@@ -27,6 +27,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#ifdef _WIN32
+ #define __STDC_FORMAT_MACROS // NOTE(loki): Explicitly define the PRIu64 macro on Mingw
+#endif
+
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
