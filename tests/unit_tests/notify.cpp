@@ -52,7 +52,11 @@ TEST(notify, works)
   ASSERT_TRUE(fd >= 0);
   close(fd);
 
-  const std::string spec = epee::string_tools::get_current_module_folder() + "/test_notifier " + name_template + " %s";
+  const std::string spec = epee::string_tools::get_current_module_folder() + "/test_notifier"
+#ifdef _WIN32
+      + ".exe"
+#endif
+      + " " + name_template + " %s";
 
   tools::Notify notify(spec.c_str());
   notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
