@@ -641,7 +641,7 @@ namespace cryptonote
     {
       std::string keystr;
       bool r = epee::file_io_utils::load_file_to_string(keypath, keystr);
-      memcpy(&unwrap(m_service_node_key), keystr.data(), sizeof(m_service_node_key));
+      memcpy(&unwrap(unwrap(m_service_node_key)), keystr.data(), sizeof(m_service_node_key));
       wipeable_string wipe(keystr);
       CHECK_AND_ASSERT_MES(r, false, "failed to load service node key from file");
 
