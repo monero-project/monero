@@ -335,6 +335,7 @@ namespace crypto
           return false;
         }
 
+        w[0] = SWAP32LE(w[0]);
         dst.append((const char*)&w[0], 4);  // copy 4 bytes to position
         memwipe(w, sizeof(w));
       }
