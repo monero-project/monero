@@ -994,6 +994,171 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_describe_transfer(const wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::response& res, epee::json_rpc::error& er)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet->key_on_device())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "command not supported by HW wallet";
+      return false;
+    }
+    if(m_wallet->watch_only())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WATCH_ONLY;
+      er.message = "command not supported by watch-only wallet";
+      return false;
+    }
+
+    tools::wallet2::unsigned_tx_set exported_txs;
+    try
+    {
+      cryptonote::blobdata blob;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.unsigned_txset, blob))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_HEX;
+        er.message = "Failed to parse hex.";
+        return false;
+      }
+      if(!m_wallet->parse_unsigned_tx_from_str(blob, exported_txs))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+        er.message = "cannot load unsigned_txset";
+        return false;
+      }
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+      er.message = "failed to parse unsigned transfers: " + std::string(e.what());
+      return false;
+    }
+
+    std::vector<tools::wallet2::pending_tx> ptx;
+    try
+    {
+      // gather info to ask the user
+      std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> dests;
+      int first_known_non_zero_change_index = -1;
+      for (size_t n = 0; n < exported_txs.txes.size(); ++n)
+      {
+        const tools::wallet2::tx_construction_data &cd = exported_txs.txes[n];
+        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, "", 0, "", 0, 0, ""});
+        wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
+
+        std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+        bool has_encrypted_payment_id = false;
+        crypto::hash8 payment_id8 = crypto::null_hash8;
+        if (cryptonote::parse_tx_extra(cd.extra, tx_extra_fields))
+        {
+          cryptonote::tx_extra_nonce extra_nonce;
+          if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+          {
+            crypto::hash payment_id;
+            if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+            {
+              desc.payment_id = epee::string_tools::pod_to_hex(payment_id8);
+              has_encrypted_payment_id = true;
+            }
+            else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+            {
+              desc.payment_id = epee::string_tools::pod_to_hex(payment_id);
+            }
+          }
+        }
+
+        for (size_t s = 0; s < cd.sources.size(); ++s)
+        {
+          desc.amount_in += cd.sources[s].amount;
+          size_t ring_size = cd.sources[s].outputs.size();
+          if (ring_size < desc.ring_size)
+            desc.ring_size = ring_size;
+        }
+        for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
+        {
+          const cryptonote::tx_destination_entry &entry = cd.splitted_dsts[d];
+          std::string address = cryptonote::get_account_address_as_str(m_wallet->nettype(), entry.is_subaddress, entry.addr);
+          if (has_encrypted_payment_id && !entry.is_subaddress)
+            address = cryptonote::get_account_integrated_address_as_str(m_wallet->nettype(), entry.addr, payment_id8);
+          auto i = dests.find(entry.addr);
+          if (i == dests.end())
+            dests.insert(std::make_pair(entry.addr, std::make_pair(address, entry.amount)));
+          else
+            i->second.second += entry.amount;
+          desc.amount_out += entry.amount;
+        }
+        if (cd.change_dts.amount > 0)
+        {
+          auto it = dests.find(cd.change_dts.addr);
+          if (it == dests.end())
+          {
+            er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+            er.message = "Claimed change does not go to a paid address";
+            return false;
+          }
+          if (it->second.second < cd.change_dts.amount)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+            er.message = "Claimed change is larger than payment to the change address";
+            return false;
+          }
+          if (cd.change_dts.amount > 0)
+          {
+            if (first_known_non_zero_change_index == -1)
+              first_known_non_zero_change_index = n;
+            const tools::wallet2::tx_construction_data &cdn = exported_txs.txes[first_known_non_zero_change_index];
+            if (memcmp(&cd.change_dts.addr, &cdn.change_dts.addr, sizeof(cd.change_dts.addr)))
+            {
+              er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+              er.message = "Change goes to more than one address";
+              return false;
+            }
+          }
+          desc.change_amount += cd.change_dts.amount;
+          it->second.second -= cd.change_dts.amount;
+          if (it->second.second == 0)
+            dests.erase(cd.change_dts.addr);
+        }
+
+        size_t n_dummy_outputs = 0;
+        for (auto i = dests.begin(); i != dests.end(); )
+        {
+          if (i->second.second > 0)
+          {
+            desc.recipients.push_back({i->second.first, i->second.second});
+          }
+          else
+            ++desc.dummy_outputs;
+          ++i;
+        }
+
+        if (desc.change_amount > 0)
+        {
+          const tools::wallet2::tx_construction_data &cd0 = exported_txs.txes[0];
+          desc.change_address = get_account_address_as_str(m_wallet->nettype(), cd0.subaddr_account > 0, cd0.change_dts.addr);
+        }
+
+        desc.fee = desc.amount_in - desc.amount_out;
+        desc.unlock_time = cd.unlock_time;
+        desc.extra = epee::to_hex::string({cd.extra.data(), cd.extra.size()});
+      }
+    }
+    catch (const std::exception &e)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
+      er.message = "failed to parse unsigned transfers";
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_submit_transfer(const wallet_rpc::COMMAND_RPC_SUBMIT_TRANSFER::request& req, wallet_rpc::COMMAND_RPC_SUBMIT_TRANSFER::response& res, epee::json_rpc::error& er)
   {
     if (!m_wallet) return not_open(er);
