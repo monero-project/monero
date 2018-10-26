@@ -598,10 +598,12 @@ namespace wallet_rpc
     {
       std::string unsigned_txset;
       bool export_raw;
+      bool get_tx_keys;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(unsigned_txset)
         KV_SERIALIZE_OPT(export_raw, false)
+        KV_SERIALIZE_OPT(get_tx_keys, false)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -610,11 +612,13 @@ namespace wallet_rpc
       std::string signed_txset;
       std::list<std::string> tx_hash_list;
       std::list<std::string> tx_raw_list;
+      std::list<std::string> tx_key_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(signed_txset)
         KV_SERIALIZE(tx_hash_list)
         KV_SERIALIZE(tx_raw_list)
+        KV_SERIALIZE(tx_key_list)
       END_KV_SERIALIZE_MAP()
     };
   };

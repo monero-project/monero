@@ -981,6 +981,8 @@ namespace tools
     for (auto &ptx: ptxs)
     {
       res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
+      if (req.get_tx_keys)
+        res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
     }
 
     if (req.export_raw)
