@@ -381,6 +381,7 @@ WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     , m_synchronized(false)
     , m_rebuildWalletCache(false)
     , m_is_connected(false)
+    , m_refreshShouldRescan(false)
 {
     m_wallet.reset(new tools::wallet2(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true));
     m_history.reset(new TransactionHistoryImpl(this));
@@ -1009,6 +1010,20 @@ void WalletImpl::refreshAsync()
     LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asynchronously..");
     clearStatus();
     m_refreshCV.notify_one();
+}
+
+bool WalletImpl::rescanBlockchain()
+{
+    clearStatus();
+    m_refreshShouldRescan = true;
+    doRefresh();
+    return status() == Status_Ok;
+}
+
+void WalletImpl::rescanBlockchainAsync()
+{
+    m_refreshShouldRescan = true;
+    refreshAsync();
 }
 
 void WalletImpl::setAutoRefreshInterval(int millis)
@@ -1984,6 +1999,7 @@ void WalletImpl::refreshThreadFunc()
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
         LOG_PRINT_L3(__FUNCTION__ << ": m_refreshEnabled: " << m_refreshEnabled);
         LOG_PRINT_L3(__FUNCTION__ << ": m_status: " << status());
+        LOG_PRINT_L3(__FUNCTION__ << ": m_refreshShouldRescan: " << m_refreshShouldRescan);
         if (m_refreshEnabled) {
             LOG_PRINT_L3(__FUNCTION__ << ": refreshing...");
             doRefresh();
@@ -1994,12 +2010,16 @@ void WalletImpl::refreshThreadFunc()
 
 void WalletImpl::doRefresh()
 {
+    bool rescan = m_refreshShouldRescan.exchange(false);
     // synchronizing async and sync refresh calls
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
-    try {
+    do try {
+        LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
         if (m_wallet->light_wallet() || daemonSynced()) {
+            if(rescan)
+                m_wallet->rescan_blockchain(false);
             m_wallet->refresh(trustedDaemon());
             if (!m_synchronized) {
                 m_synchronized = true;
@@ -2016,7 +2036,9 @@ void WalletImpl::doRefresh()
         }
     } catch (const std::exception &e) {
         setStatusError(e.what());
-    }
+        break;
+    }while(!rescan && (rescan=m_refreshShouldRescan.exchange(false))); // repeat if not rescanned and rescan was requested
+
     if (m_wallet2Callback->getListener()) {
         m_wallet2Callback->getListener()->refreshed();
     }
