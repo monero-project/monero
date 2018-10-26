@@ -1,0 +1,114 @@
+---
+name: "monero-osx-0.14"
+enable_cache: true
+suites:
+- "bionic"
+architectures:
+- "amd64"
+packages:
+- "ca-certificates"
+- "curl"
+- "g++"
+- "git"
+- "pkg-config"
+- "autoconf"
+- "librsvg2-bin"
+- "libtiff-tools"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "cmake"
+- "imagemagick"
+- "libcap-dev"
+- "libz-dev"
+- "libbz2-dev"
+- "python"
+- "python-dev"
+- "python-setuptools"
+- "fonts-tuffy"
+remotes:
+- "url": "https://github.com/monero-project/monero.git"
+  "dir": "monero"
+files:
+- "MacOSX10.11.sdk.tar.gz"
+script: |
+  WRAP_DIR=$HOME/wrapped
+  HOSTS="x86_64-apple-darwin11"
+  FAKETIME_HOST_PROGS=""
+  FAKETIME_PROGS="ar ranlib date dmg genisoimage"
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+  mkdir -p ${WRAP_DIR}
+  if test -n "$GBUILD_CACHE_ENABLED"; then
+    export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+    export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+    mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+  fi
+
+  export ZERO_AR_DATE=1
+
+  function create_global_faketime_wrappers {
+  for prog in ${FAKETIME_PROGS}; do
+    echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
+    echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+    echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${prog}
+    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    chmod +x ${WRAP_DIR}/${prog}
+  done
+  }
+
+  function create_per-host_faketime_wrappers {
+  for i in $HOSTS; do
+    for prog in ${FAKETIME_HOST_PROGS}; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}-${prog}
+        echo "REAL=\`which -a ${i}-${prog} | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
+        echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
+        echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
+        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        chmod +x ${WRAP_DIR}/${i}-${prog}
+    done
+  done
+  }
+
+  # Faketime for depends so intermediate results are comparable
+  export PATH_orig=${PATH}
+  create_global_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_faketime_wrappers "2000-01-01 12:00:00"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  cd monero
+  BASEPREFIX=`pwd`/contrib/depends
+
+  mkdir -p ${BASEPREFIX}/SDKs
+  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
+
+  # Build dependencies for each host
+  for i in $HOSTS; do
+    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
+  done
+
+  # Faketime for binaries
+  export PATH=${PATH_orig}
+  create_global_faketime_wrappers "${REFERENCE_DATETIME}"
+  create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  ORIGPATH="$PATH"
+  # Build in a new dir for each host
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
+    make
+    DISTNAME=monero-${i}
+    mv bin ${DISTNAME}
+    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
+    cd ..
+    rm -rf build
+  done
+

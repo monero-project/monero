@@ -1,0 +1,134 @@
+---
+name: "monero-win-0.14"
+enable_cache: true
+suites:
+- "bionic"
+architectures:
+- "amd64"
+packages:
+- "curl"
+- "g++"
+- "git"
+- "pkg-config"
+- "autoconf"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "mingw-w64"
+- "g++-mingw-w64"
+- "zip"
+- "ca-certificates"
+- "python"
+- "rename"
+- "cmake"
+remotes:
+- "url": "https://github.com/monero-project/monero.git"
+  "dir": "monero"
+files: []
+script: |
+  WRAP_DIR=$HOME/wrapped
+  HOSTS="i686-w64-mingw32 x86_64-w64-mingw32"
+  FAKETIME_HOST_PROGS="ar ranlib nm windres strip objcopy"
+  FAKETIME_PROGS="date zip"
+  HOST_CFLAGS="-O2 -g"
+  HOST_CXXFLAGS="-O2 -g"
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+  mkdir -p ${WRAP_DIR}
+  if test -n "$GBUILD_CACHE_ENABLED"; then
+    export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+    export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+    mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+  fi
+
+  function create_global_faketime_wrappers {
+  for prog in ${FAKETIME_PROGS}; do
+    echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
+    echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+    echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${prog}
+    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    chmod +x ${WRAP_DIR}/${prog}
+  done
+  }
+
+  function create_per-host_faketime_wrappers {
+  for i in $HOSTS; do
+    for prog in ${FAKETIME_HOST_PROGS}; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}-${prog}
+        echo "REAL=\`which -a ${i}-${prog} | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
+        echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
+        echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
+        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        chmod +x ${WRAP_DIR}/${i}-${prog}
+    done
+  done
+  }
+
+  function create_per-host_linker_wrapper {
+  # This is only needed for trusty, as the mingw linker leaks a few bytes of
+  # heap, causing non-determinism. See discussion in https://github.com/bitcoin/bitcoin/pull/6900
+  for i in $HOSTS; do
+    mkdir -p ${WRAP_DIR}/${i}
+    for prog in collect2; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}/${prog}
+        REAL=$(${i}-gcc -print-prog-name=${prog})
+        echo "export MALLOC_PERTURB_=255" >> ${WRAP_DIR}/${i}/${prog}
+        echo "${REAL} \$@" >> $WRAP_DIR/${i}/${prog}
+        chmod +x ${WRAP_DIR}/${i}/${prog}
+    done
+    for prog in gcc g++; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}-${prog}
+        echo "REAL=\`which -a ${i}-${prog}-posix | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
+        echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
+        echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
+        echo "export COMPILER_PATH=${WRAP_DIR}/${i}" >> ${WRAP_DIR}/${i}-${prog}
+        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        chmod +x ${WRAP_DIR}/${i}-${prog}
+    done
+  done
+  }
+
+  # Faketime for depends so intermediate results are comparable
+  export PATH_orig=${PATH}
+  create_global_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_linker_wrapper "2000-01-01 12:00:00"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  cd monero
+  BASEPREFIX=`pwd`/contrib/depends
+  # Build dependencies for each host
+  for i in $HOSTS; do
+    EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
+    if [ -d "$EXTRA_INCLUDES" ]; then
+      export HOST_ID_SALT="$EXTRA_INCLUDES"
+    fi
+    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" -j 4 V=1
+    unset HOST_ID_SALT
+  done
+
+  # Faketime for binaries
+  export PATH=${PATH_orig}
+  create_global_faketime_wrappers "${REFERENCE_DATETIME}"
+  create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  ORIGPATH="$PATH"
+  # Run cmake and make, for each create a new build/ directory, 
+  # compile from there, archive, export and delete the archive again
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
+    make
+    DISTNAME=monero-${i}
+    mv bin ${DISTNAME}
+    find ${DISTNAME}/ | sort | zip -X@ ${OUTDIR}/${DISTNAME}.zip
+    cd .. && rm -rf build
+  done
+
