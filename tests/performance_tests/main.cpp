@@ -42,6 +42,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "ge_frombytes_vartime.h"
+#include "ge_tobytes.h"
 #include "generate_key_derivation.h"
 #include "generate_key_image.h"
 #include "generate_key_image_helper.h"
@@ -182,6 +183,7 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_derive_public_key);
   TEST_PERFORMANCE0(filter, p, test_derive_secret_key);
   TEST_PERFORMANCE0(filter, p, test_ge_frombytes_vartime);
+  TEST_PERFORMANCE0(filter, p, test_ge_tobytes);
   TEST_PERFORMANCE0(filter, p, test_generate_keypair);
   TEST_PERFORMANCE0(filter, p, test_sc_reduce32);
   TEST_PERFORMANCE1(filter, p, test_signature, false);
