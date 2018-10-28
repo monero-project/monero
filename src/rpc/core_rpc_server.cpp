@@ -801,7 +801,14 @@ namespace cryptonote
   bool core_rpc_server::on_stop_mining(const COMMAND_RPC_STOP_MINING::request& req, COMMAND_RPC_STOP_MINING::response& res)
   {
     PERF_TIMER(on_stop_mining);
-    if(!m_core.get_miner().stop())
+    cryptonote::miner &miner= m_core.get_miner();
+    if(!miner.is_mining())
+    {
+      res.status = "Mining never started";
+      LOG_PRINT_L0(res.status);
+      return true;
+    }
+    if(!miner.stop())
     {
       res.status = "Failed, mining not stopped";
       LOG_PRINT_L0(res.status);
