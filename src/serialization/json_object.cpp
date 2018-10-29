@@ -1192,7 +1192,9 @@ void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& in
   INSERT_INTO_JSON_OBJECT(val, doc, incoming_connections_count, info.incoming_connections_count);
   INSERT_INTO_JSON_OBJECT(val, doc, white_peerlist_size, info.white_peerlist_size);
   INSERT_INTO_JSON_OBJECT(val, doc, grey_peerlist_size, info.grey_peerlist_size);
+  INSERT_INTO_JSON_OBJECT(val, doc, mainnet, info.mainnet);
   INSERT_INTO_JSON_OBJECT(val, doc, testnet, info.testnet);
+  INSERT_INTO_JSON_OBJECT(val, doc, stagenet, info.stagenet);
   INSERT_INTO_JSON_OBJECT(val, doc, nettype, info.nettype);
   INSERT_INTO_JSON_OBJECT(val, doc, top_block_hash, info.top_block_hash);
   INSERT_INTO_JSON_OBJECT(val, doc, cumulative_difficulty, info.cumulative_difficulty);
@@ -1221,7 +1223,9 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
   GET_FROM_JSON_OBJECT(val, info.incoming_connections_count, incoming_connections_count);
   GET_FROM_JSON_OBJECT(val, info.white_peerlist_size, white_peerlist_size);
   GET_FROM_JSON_OBJECT(val, info.grey_peerlist_size, grey_peerlist_size);
+  GET_FROM_JSON_OBJECT(val, info.mainnet, mainnet);
   GET_FROM_JSON_OBJECT(val, info.testnet, testnet);
+  GET_FROM_JSON_OBJECT(val, info.stagenet, stagenet);
   GET_FROM_JSON_OBJECT(val, info.nettype, nettype);
   GET_FROM_JSON_OBJECT(val, info.top_block_hash, top_block_hash);
   GET_FROM_JSON_OBJECT(val, info.cumulative_difficulty, cumulative_difficulty);
