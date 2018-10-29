@@ -56,12 +56,13 @@ static uint8_t get_block_version(const cryptonote::block &b)
 
 HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint64_t original_version_till_height, time_t forked_time, time_t update_time, uint64_t window_size, uint8_t default_threshold_percent):
   db(db),
-  original_version(original_version),
-  original_version_till_height(original_version_till_height),
   forked_time(forked_time),
   update_time(update_time),
   window_size(window_size),
-  default_threshold_percent(default_threshold_percent)
+  default_threshold_percent(default_threshold_percent),
+  original_version(original_version),
+  original_version_till_height(original_version_till_height),
+  current_fork_index(0)
 {
   if (window_size == 0)
     throw "window_size needs to be strictly positive";
