@@ -150,6 +150,7 @@ network_throttle::network_throttle(const std::string &nameshort, const std::stri
 	m_any_packet_yet = false;
 	m_slot_size = 1.0; // hard coded in few places
 	m_target_speed = 16 * 1024; // other defaults are probably defined in the command-line parsing code when this class is used e.g. as main global throttle
+	m_last_sample_time = 0;
 }
 
 void network_throttle::set_name(const std::string &name) 
