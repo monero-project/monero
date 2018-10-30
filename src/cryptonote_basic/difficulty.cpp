@@ -38,6 +38,7 @@
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
 #include "difficulty.h"
+#include <boost/math/special_functions/round.hpp>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "difficulty"
@@ -120,46 +121,72 @@ namespace cryptonote {
   }
 
   difficulty_type next_difficulty(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
+    // LWMA difficulty algorithm
+        // Background:  https://github.com/zawy12/difficulty-algorithms/issues/3
+        // Copyright (c) 2017-2018 Zawy (pseudocode)
+        // MIT license http://www.opensource.org/licenses/mit-license.php
+        // Copyright (c) 2018 The Karbowanec developers (initial code)
+        // Copyright (c) 2018 Haven Protocol (refinements)
+        // Degnr8, Karbowanec, Masari, Bitcoin Gold, Bitcoin Candy, and Haven have contributed.
 
-    if(timestamps.size() > DIFFICULTY_WINDOW)
-    {
-      timestamps.resize(DIFFICULTY_WINDOW);
-      cumulative_difficulties.resize(DIFFICULTY_WINDOW);
-    }
 
+        // Set DIFFICULTY_WINDOW_V3 = N where N is defined below.
+        // N=45, 55, 70, 90, 120 for T=600, 240, 120, 90, and 60 seconds
+        // This is optimized for small coin protection.  It's fast!
+        // Largest coin for a given POW can safely double N.
 
-    size_t length = timestamps.size();
-    assert(length == cumulative_difficulties.size());
-    if (length <= 1) {
-      return 1;
+        // Set DIFFICULTY_BLOCKS_COUNT_V3 = DIFFICULTY_WINDOW_V3 +1;
+
+        // Set your constants so everyone uses same variables.
+        size_t N = DIFFICULTY_WINDOW_V3;
+        const int64_t T = static_cast<int64_t>(DIFFICULTY_TARGET_V2);
+
+        // Return a difficulty of 1 for first 3 blocks if it's the start of the chain.
+        if (timestamps.size() < 4) { return 1; }
+        // Otherwise, use a smaller N if the start of the chain is less than N+1.
+        else if (timestamps.size() < N + 1) { N = timestamps.size() - 1; }
+        // Otherwise make sure timestamps and cumulative_difficulties are correct size.
+        else {
+          timestamps.resize(N + 1);
+          cumulative_difficulties.resize(N + 1);
+        }
+
+        size_t length = timestamps.size();
+        assert(length == cumulative_difficulties.size());
+        assert(length <= DIFFICULTY_BLOCKS_COUNT_V3);
+
+        // To get an average solvetime to within +/- ~0.1%, use an adjustment factor.
+        // adjust=0.999 for 80 < N < 120(?)
+        const double adjust = 0.998;  // for 45 < N < 80
+                        // The divisor k normalizes the LWMA sum to a standard LWMA.
+        const double k = N * (N + 1) / 2;
+
+        double LWMA(0), sum_inverse_D(0), harmonic_mean_D(0), nextDifficulty(0);
+        int64_t solveTime(0);
+        uint64_t difficulty(0), next_difficulty(0);
+
+        // Loop through N most recent blocks. N is most recently solved block.
+        for (size_t i = 1; i <= N; i++) {
+          solveTime = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i - 1]);
+          // Next line not required if coin uses BTC's MTP of 11 blocks & FTL=500 to 1000.
+          solveTime = std::min<int64_t>((T * 6), std::max<int64_t>(solveTime, (-6 * T)));
+          difficulty = cumulative_difficulties[i] - cumulative_difficulties[i - 1];
+          LWMA += (int64_t)(solveTime * i) / k;
+          sum_inverse_D += 1 / static_cast<double>(difficulty);
+        }
+        harmonic_mean_D = N / sum_inverse_D;
+
+        // Keep LWMA sane in case something unforeseen occurs.
+        if (static_cast<int64_t>(boost::math::round(LWMA)) < T / 20)
+          LWMA = static_cast<double>(T / 20);
+
+        nextDifficulty = harmonic_mean_D * T / LWMA * adjust;
+
+        // No limits should be employed, but this is correct way to employ a 20% symmetrical limit:
+        // nextDifficulty=max(previous_Difficulty*0.8,min(previous_Difficulty/0.8, next_Difficulty));
+
+        next_difficulty = static_cast<uint64_t>(nextDifficulty);
+        return next_difficulty;
     }
-    static_assert(DIFFICULTY_WINDOW >= 2, "Window is too small");
-    assert(length <= DIFFICULTY_WINDOW);
-    sort(timestamps.begin(), timestamps.end());
-    size_t cut_begin, cut_end;
-    static_assert(2 * DIFFICULTY_CUT <= DIFFICULTY_WINDOW - 2, "Cut length is too large");
-    if (length <= DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) {
-      cut_begin = 0;
-      cut_end = length;
-    } else {
-      cut_begin = (length - (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT) + 1) / 2;
-      cut_end = cut_begin + (DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT);
-    }
-    assert(/*cut_begin >= 0 &&*/ cut_begin + 2 <= cut_end && cut_end <= length);
-    uint64_t time_span = timestamps[cut_end - 1] - timestamps[cut_begin];
-    if (time_span == 0) {
-      time_span = 1;
-    }
-    difficulty_type total_work = cumulative_difficulties[cut_end - 1] - cumulative_difficulties[cut_begin];
-    assert(total_work > 0);
-    uint64_t low, high;
-    mul(total_work, target_seconds, low, high);
-    // blockchain errors "difficulty overhead" if this function returns zero.
-    // TODO: consider throwing an exception instead
-    if (high != 0 || low + time_span - 1 < low) {
-      return 0;
-    }
-    return (low + time_span - 1) / time_span;
-  }
 
 }

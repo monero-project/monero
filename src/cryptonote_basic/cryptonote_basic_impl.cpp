@@ -87,18 +87,26 @@ namespace cryptonote {
   }
   //-----------------------------------------------------------------------------------------------
   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version) {
-    static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
-    const int target = version < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
-    const int target_minutes = target / 60;
-    const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE - (target_minutes-1);
-
-    uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
-    if (base_reward < FINAL_SUBSIDY_PER_MINUTE*target_minutes)
-    {
-      base_reward = FINAL_SUBSIDY_PER_MINUTE*target_minutes;
+    if(version == 0){
+      reward = 0;
+      return true;
     }
+    const uint64_t premine = TRITON_SWAP;
+   if (median_weight > 0 && already_generated_coins < premine && version < 2) {
+    reward = premine / 7;
+    MERROR(print_money(premine  / 7));
 
-    uint64_t full_reward_zone = get_min_block_weight(version);
+    return true;
+  }
+   static_assert(DIFFICULTY_TARGET_V2%60==0&&DIFFICULTY_TARGET_V1%60==0,"difficulty targets must be a multiple of 60");
+   const int target = DIFFICULTY_TARGET_V2;
+   const int target_minutes = target / 60;
+   const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE;
+
+   uint64_t base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+
+
+   uint64_t full_reward_zone = get_min_block_weight(version);
 
     //make it soft
     if (median_weight < full_reward_zone) {
@@ -228,7 +236,7 @@ namespace cryptonote {
         info.has_payment_id = false;
       }
       else {
-        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix 
+        LOG_PRINT_L1("Wrong address prefix: " << prefix << ", expected " << address_prefix
           << " or " << integrated_address_prefix
           << " or " << subaddress_prefix);
         return false;
