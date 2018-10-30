@@ -185,7 +185,7 @@ if(NOT MANUAL_SUBMODULES)
         message(FATAL_ERROR "Submodule '${relative_path}' is not up-to-date. Please update with\ngit submodule update --init --force ${relative_path}\nor run cmake with -DMANUAL_SUBMODULES=1")
       endif()
     endfunction ()
-    
+
     message(STATUS "Checking submodules")
     check_submodule(external/miniupnp)
     check_submodule(external/unbound)
@@ -503,7 +503,7 @@ include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for hid
-if (HIDAPI_FOUND) 
+if (HIDAPI_FOUND)
   message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
   add_definitions(-DHAVE_HIDAPI)
   include_directories(${HIDAPI_INCLUDE_DIR})
@@ -786,7 +786,7 @@ else()
   endif(ARM)
 
   if(ANDROID AND NOT BUILD_GUI_DEPS STREQUAL "ON" OR IOS)
-    #From Android 5: "only position independent executables (PIE) are supported" 
+    #From Android 5: "only position independent executables (PIE) are supported"
     message(STATUS "Enabling PIE executable")
     set(PIC_FLAG "")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
@@ -907,7 +907,7 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if (HIDAPI_FOUND) 
+if (HIDAPI_FOUND)
   if (APPLE)
     if(DEPENDS)
       list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
@@ -973,7 +973,7 @@ add_subdirectory(contrib)
 add_subdirectory(src)
 
 if(BUILD_TESTS)
-  add_subdirectory(tests)
+  #add_subdirectory(tests)
 endif()
 
 if(BUILD_DOCUMENTATION)
