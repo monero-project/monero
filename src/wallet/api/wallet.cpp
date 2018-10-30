@@ -383,15 +383,15 @@ WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     , m_is_connected(false)
     , m_refreshShouldRescan(false)
 {
-    m_wallet = std::make_unique<tools::wallet2>(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true);
-    m_history = std::make_unique<TransactionHistoryImpl>(this);
-    m_wallet2Callback = std::make_unique<Wallet2CallbackImpl>(this);
-    m_wallet->callback(m_wallet2Callback);
+    m_wallet.reset(new tools::wallet2(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true));
+    m_history.reset(new TransactionHistoryImpl(this));
+    m_wallet2Callback.reset(new Wallet2CallbackImpl(this));
+    m_wallet->callback(m_wallet2Callback.get());
     m_refreshThreadDone = false;
     m_refreshEnabled = false;
-    m_addressBook = std::make_unique<AddressBookImpl>(this);
-    m_subaddress = std::make_unique<SubaddressImpl>(this);
-    m_subaddressAccount = std::make_unique<SubaddressAccountImpl>(this);
+    m_addressBook.reset(new AddressBookImpl(this));
+    m_subaddress.reset(new SubaddressImpl(this));
+    m_subaddressAccount.reset(new SubaddressAccountImpl(this));
 
 
     m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
