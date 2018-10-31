@@ -290,10 +290,9 @@ namespace cryptonote
       {
         CRITICAL_REGION_LOCAL1(m_blockchain);
         LockedTXN lock(m_blockchain);
-        const crypto::hash txid = get_transaction_hash(tx);
-        m_blockchain.remove_txpool_tx(txid);
-        m_blockchain.add_txpool_tx(txid, blob, meta);
-        if (!insert_key_images(tx, txid, kept_by_block))
+        m_blockchain.remove_txpool_tx(id);
+        m_blockchain.add_txpool_tx(id, blob, meta);
+        if (!insert_key_images(tx, id, kept_by_block))
           return false;
         m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
       }
