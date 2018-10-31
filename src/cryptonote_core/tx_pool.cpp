@@ -454,8 +454,6 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     auto sorted_it = find_tx_in_sorted_container(id);
-    if (sorted_it == m_txs_by_fee_and_receive_time.end())
-      return false;
 
     try
     {
@@ -489,7 +487,8 @@ namespace cryptonote
       return false;
     }
 
-    m_txs_by_fee_and_receive_time.erase(sorted_it);
+    if (sorted_it != m_txs_by_fee_and_receive_time.end())
+      m_txs_by_fee_and_receive_time.erase(sorted_it);
     ++m_cookie;
     return true;
   }
