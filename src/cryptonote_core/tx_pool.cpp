@@ -247,6 +247,8 @@ namespace cryptonote
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
+          if (kept_by_block)
+            m_parsed_tx_cache.insert(std::make_pair(id, tx));
           CRITICAL_REGION_LOCAL1(m_blockchain);
           LockedTXN lock(m_blockchain);
           m_blockchain.add_txpool_tx(id, blob, meta);
@@ -288,6 +290,8 @@ namespace cryptonote
 
       try
       {
+        if (kept_by_block)
+          m_parsed_tx_cache.insert(std::make_pair(id, tx));
         CRITICAL_REGION_LOCAL1(m_blockchain);
         LockedTXN lock(m_blockchain);
         m_blockchain.remove_txpool_tx(id);
@@ -468,7 +472,12 @@ namespace cryptonote
         return false;
       }
       cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(id);
-      if (!parse_and_validate_tx_from_blob(txblob, tx))
+      auto ci = m_parsed_tx_cache.find(id);
+      if (ci != m_parsed_tx_cache.end())
+      {
+        tx = ci->second;
+      }
+      else if (!parse_and_validate_tx_from_blob(txblob, tx))
       {
         MERROR("Failed to parse tx from txpool");
         return false;
@@ -911,6 +920,7 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     m_input_cache.clear();
+    m_parsed_tx_cache.clear();
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -918,6 +928,7 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     m_input_cache.clear();
+    m_parsed_tx_cache.clear();
     return true;
   }
   //---------------------------------------------------------------------------------

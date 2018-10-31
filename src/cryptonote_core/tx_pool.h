@@ -584,6 +584,8 @@ private:
     size_t m_txpool_weight;
 
     mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
+
+    std::unordered_map<crypto::hash, transaction> m_parsed_tx_cache;
   };
 }
 
