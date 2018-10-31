@@ -4171,7 +4171,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   if (!m_db->can_thread_bulk_indices())
     threads = 1;
 
-  if (threads > 1)
+  if (threads > 1 && amounts.size() > 1)
   {
     tools::threadpool::waiter waiter;
 
