@@ -273,6 +273,7 @@ namespace cryptonote
         memset(meta.padding, 0, sizeof(meta.padding));
         try
         {
+          PERF_TIMER(add_txpool_tx);
           if (kept_by_block)
             m_parsed_tx_cache.insert(std::make_pair(id, tx));
           CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -302,6 +303,7 @@ namespace cryptonote
     {
       try
       {
+        PERF_TIMER(add_txpool_tx);
         if (kept_by_block)
           m_parsed_tx_cache.insert(std::make_pair(id, tx));
         CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -524,6 +526,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned)
   {
+    PERF_TIMER(take_tx);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 

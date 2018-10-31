@@ -1325,6 +1325,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 //   a non-overflowing tx amount (dubious necessity on this check)
 bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version)
 {
+  PERF_TIMER(prevalidate_miner_transaction);
   LOG_PRINT_L3("Blockchain::" << __func__);
   CHECK_AND_ASSERT_MES(b.miner_tx.vin.size() == 1, false, "coinbase transaction in the block has no inputs");
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
@@ -1360,6 +1361,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
 // This function validates the miner transaction reward
 bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version)
 {
+  PERF_TIMER(validate_miner_transaction);
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
   uint64_t money_in_use = 0;
@@ -3978,6 +3980,7 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
 //      m_db->add_block()
 bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc, bool notify/* = true*/)
 {
+  PERF_TIMER(handle_block_to_main_chain);
   LOG_PRINT_L3("Blockchain::" << __func__);
 
   TIME_MEASURE_START(block_processing_time);
@@ -4090,9 +4093,13 @@ leave:
       proof_of_work = it->second;
     }
     else
+    {
+      PERF_TIMER(get_block_longhash);
       proof_of_work = get_block_longhash(this, bl, blockchain_height, 0);
+    }
 
     // validate proof_of_work versus difficulty target
+    PERF_TIMER(check_hash);
     if(!check_hash(proof_of_work, current_diffic))
     {
       MERROR_VER("Block with id: " << id << std::endl << "does not have enough proof of work: " << proof_of_work << " at height " << blockchain_height << ", unexpected difficulty: " << current_diffic);
@@ -4301,6 +4308,7 @@ leave:
   {
     try
     {
+      PERF_TIMER(db_add_block);
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
       new_height = m_db->add_block(std::make_pair(std::move(bl), std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
@@ -4329,6 +4337,8 @@ leave:
   }
 
   TIME_MEASURE_FINISH(addblock);
+
+  PERF_TIMER(epilogue);
 
   // do this after updating the hard fork state since the weight limit may change due to fork
   if (!update_next_cumulative_weight_limit())

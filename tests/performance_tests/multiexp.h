@@ -36,12 +36,31 @@
 
 enum test_multiexp_algorithm
 {
+  multiexp_naive,
   multiexp_bos_coster,
   multiexp_straus,
   multiexp_straus_cached,
   multiexp_pippenger,
   multiexp_pippenger_cached,
 };
+
+static rct::key naive_multiexp(const std::vector<rct::MultiexpData> &data)
+{
+  ge_p3 tmp = ge_p3_identity;
+  for (const auto &e: data)
+  {
+    ge_p3 p3;
+    ge_scalarmult_p3(&p3, e.scalar.bytes, &e.point);
+    ge_cached c;
+    ge_p3_to_cached(&c, &tmp);
+    ge_p1p1 p1;
+    ge_add(&p1, &p3, &c);
+    ge_p1p1_to_p3(&tmp, &p1);
+  }
+  rct::key res;
+  ge_p3_tobytes(res.bytes, &tmp);
+  return res;
+}
 
 template<test_multiexp_algorithm algorithm, size_t npoints, size_t c=0>
 class test_multiexp
@@ -71,6 +90,8 @@ public:
   {
     switch (algorithm)
     {
+      case multiexp_naive:
+        return res == naive_multiexp(data);
       case multiexp_bos_coster:
         return res == bos_coster_heap_conv_robust(data);
       case multiexp_straus:

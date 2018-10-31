@@ -62,6 +62,7 @@
 #include "multiexp.h"
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
+#include "log.h"
 
 namespace po = boost::program_options;
 
@@ -326,6 +327,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 2048);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 4096);
 
+  TEST_PERFORMANCE0(filter, p, test_log);
+
 #if 1
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 2, 1);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4, 2);
@@ -351,6 +354,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger_cached, 1024, 7);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger_cached, 2048, 8);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger_cached, 4096, 9);
+  TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_naive, 128);
+  TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_naive, 256);
 #else
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger_cached, 2, 1);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger_cached, 2, 2);
