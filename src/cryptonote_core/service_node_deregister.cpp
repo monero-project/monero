@@ -28,6 +28,7 @@
 
 #include "service_node_deregister.h"
 #include "service_node_list.h"
+#include "cryptonote_basic/tx_extra.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/verification_context.h"
 #include "cryptonote_basic/connection_context.h"
