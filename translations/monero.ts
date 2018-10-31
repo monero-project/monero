@@ -2397,7 +2397,7 @@ Otherwise, you prove the reserve of the smallest possible amount above &lt;amoun
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3386"/>
-        <source>Warning: using an untrusted daemon at %s, privacy will be lessened</source>
+        <source>Warning: using an untrusted daemon at %s, privacy will be reduced</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

@@ -2191,7 +2191,7 @@ Annars bevisar du reserven för det minsta möjliga belopp över &lt;belopp&gt; 
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2582"/>
-        <source>Warning: using an untrusted daemon at %s, privacy will be lessened</source>
+        <source>Warning: using an untrusted daemon at %s, privacy will be reduced</source>
         <translation>Varning: använder en ej betrodd daemon på %s; sekretessen kommer att vara mindre</translation>
     </message>
     <message>

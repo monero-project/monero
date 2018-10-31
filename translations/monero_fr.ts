@@ -2110,7 +2110,7 @@ Sinon, vous prouvez le plus petit solde supérieur à &lt;montant&gt; dans votre
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3386"/>
-        <source>Warning: using an untrusted daemon at %s, privacy will be lessened</source>
+        <source>Warning: using an untrusted daemon at %s, privacy will be reduced</source>
         <translation>Attention&#xa0;: en n&apos;utilisant %s qui n&apos;est pas un démon de confiance, la confidentialité sera réduite</translation>
     </message>
     <message>
