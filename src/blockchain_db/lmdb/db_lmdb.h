@@ -256,7 +256,7 @@ public:
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
-  virtual void add_txpool_tx(const transaction &tx, const txpool_tx_meta_t& meta);
+  virtual void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t& meta);
   virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& meta);
   virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const;
   virtual bool txpool_has_tx(const crypto::hash &txid) const;

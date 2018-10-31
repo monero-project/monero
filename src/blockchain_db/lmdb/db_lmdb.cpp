@@ -1591,7 +1591,7 @@ void BlockchainLMDB::unlock()
       auto_txn.commit(); \
   } while(0)
 
-void BlockchainLMDB::add_txpool_tx(const transaction &tx, const txpool_tx_meta_t &meta)
+void BlockchainLMDB::add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t &meta)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1599,8 +1599,6 @@ void BlockchainLMDB::add_txpool_tx(const transaction &tx, const txpool_tx_meta_t
 
   CURSOR(txpool_meta)
   CURSOR(txpool_blob)
-
-  const crypto::hash txid = get_transaction_hash(tx);
 
   MDB_val k = {sizeof(txid), (void *)&txid};
   MDB_val v = {sizeof(meta), (void *)&meta};
@@ -1610,7 +1608,7 @@ void BlockchainLMDB::add_txpool_tx(const transaction &tx, const txpool_tx_meta_t
     else
       throw1(DB_ERROR(lmdb_error("Error adding txpool tx metadata to db transaction: ", result).c_str()));
   }
-  MDB_val_copy<cryptonote::blobdata> blob_val(tx_to_blob(tx));
+  MDB_val_copy<cryptonote::blobdata> blob_val(blob);
   if (auto result = mdb_cursor_put(m_cur_txpool_blob, &k, &blob_val, MDB_NODUPDATA)) {
     if (result == MDB_KEYEXIST)
       throw1(DB_ERROR("Attempting to add txpool tx blob that's already in the db"));

@@ -111,7 +111,7 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
+  bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/ const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, bool kept_by_block, bool relayed, bool do_not_relay, uint8_t version)
   {
     // this should already be called with that lock, but let's make it explicit for clarity
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -249,7 +249,7 @@ namespace cryptonote
         {
           CRITICAL_REGION_LOCAL1(m_blockchain);
           LockedTXN lock(m_blockchain);
-          m_blockchain.add_txpool_tx(tx, meta);
+          m_blockchain.add_txpool_tx(id, blob, meta);
           if (!insert_key_images(tx, id, kept_by_block))
             return false;
           m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
@@ -292,7 +292,7 @@ namespace cryptonote
         LockedTXN lock(m_blockchain);
         const crypto::hash txid = get_transaction_hash(tx);
         m_blockchain.remove_txpool_tx(txid);
-        m_blockchain.add_txpool_tx(tx, meta);
+        m_blockchain.add_txpool_tx(txid, blob, meta);
         if (!insert_key_images(tx, txid, kept_by_block))
           return false;
         m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
@@ -324,9 +324,11 @@ namespace cryptonote
   {
     crypto::hash h = null_hash;
     size_t blob_size = 0;
-    if (!get_transaction_hash(tx, h, blob_size) || blob_size == 0)
+    cryptonote::blobdata bl;
+    t_serializable_object_to_blob(tx, bl);
+    if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
-    return add_tx(tx, h, get_transaction_weight(tx, blob_size), tvc, keeped_by_block, relayed, do_not_relay, version);
+    return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, keeped_by_block, relayed, do_not_relay, version);
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_txpool_weight() const
