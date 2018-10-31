@@ -33,6 +33,9 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "perf"
 
+#define PERF_LOG(level, cat, x) \
+  ELPP_WRITE_LOG(el::base::Writer, level, el::base::DispatchAction::FileOnlyLog, cat) << x
+
 namespace tools
 {
   uint64_t get_tick_count()
@@ -108,7 +111,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
 {
   if (!performance_timers)
   {
-    MCLOG(level, cat.c_str(), "PERF             ----------");
+    PERF_LOG(level, cat.c_str(), "PERF             ----------");
     performance_timers = new std::vector<LoggingPerformanceTimer*>();
     performance_timers->reserve(16); // how deep before realloc
   }
@@ -118,7 +121,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
     if (!pt->started && !pt->paused)
     {
       size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
-      MCLOG(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      PERF_LOG(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
       pt->started = true;
     }
   }
@@ -138,7 +141,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
   char s[12];
   snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
   size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
-  MCLOG(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  PERF_LOG(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
   if (performance_timers->empty())
   {
     delete performance_timers;
