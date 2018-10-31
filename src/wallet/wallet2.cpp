@@ -5652,6 +5652,10 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     ptx.construction_data = sd;
 
     txs.push_back(ptx);
+
+    // add tx keys only to ptx
+    txs.back().tx_key = tx_key;
+    txs.back().additional_tx_keys = additional_tx_keys;
   }
 
   // add key images
@@ -10595,7 +10599,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
         + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image));
 
     THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys, &signature),
-        error::wallet_internal_error, "Signature check failed: input " + boost::lexical_cast<std::string>(n) + "/"
+        error::signature_check_failed, boost::lexical_cast<std::string>(n) + "/"
         + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
         + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
 

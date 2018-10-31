@@ -38,6 +38,7 @@
 #include "misc_log_ex.h"
 #include "bootstrap_file.h"
 #include "bootstrap_serialization.h"
+#include "blocks/blocks.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
 #include "serialization/json_utils.h" // dump_json()
@@ -759,7 +760,12 @@ int main(int argc, char* argv[])
   {
 
   core.disable_dns_checkpoints(true);
-  if (!core.init(vm, NULL))
+#if defined(PER_BLOCK_CHECKPOINT)
+  const GetCheckpointsCallback& get_checkpoints = blocks::GetCheckpointsData;
+#else
+  const GetCheckpointsCallback& get_checkpoints = nullptr;
+#endif
+  if (!core.init(vm, nullptr, nullptr, get_checkpoints))
   {
     std::cerr << "Failed to initialize core" << ENDL;
     return 1;
