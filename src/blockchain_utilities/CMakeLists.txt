@@ -226,7 +226,7 @@ target_link_libraries(blockchain_ancestry
 
 set_property(TARGET blockchain_ancestry
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-ancestry")
+	OUTPUT_NAME "loki-blockchain-ancestry")
 install(TARGETS blockchain_ancestry DESTINATION bin)
 
 loki_add_executable(blockchain_depth
@@ -247,6 +247,6 @@ target_link_libraries(blockchain_depth
 
 set_property(TARGET blockchain_depth
 	PROPERTY
-	OUTPUT_NAME "monero-blockchain-depth")
+	OUTPUT_NAME "loki-blockchain-depth")
 install(TARGETS blockchain_depth DESTINATION bin)
 
