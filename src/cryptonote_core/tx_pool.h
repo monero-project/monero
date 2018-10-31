@@ -510,7 +510,7 @@ namespace cryptonote
      * @param txd the transaction to check (and info about it)
      * @param txid the txid of the transaction to check
      * @param txblob the transaction blob to check
-     * @param tx the parsed transaction prefix, if successful
+     * @param tx the parsed transaction, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
