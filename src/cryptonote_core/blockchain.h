@@ -992,6 +992,8 @@ namespace cryptonote
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
 
+    std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
+
     /**
      * @brief add a hook for processing new blocks and rollbacks for reorgs
      */
