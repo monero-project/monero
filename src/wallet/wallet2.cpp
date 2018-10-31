@@ -6085,10 +6085,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     rct::RangeProofType range_proof_type = rct::RangeProofBorromean;
     if (sd.use_bulletproofs)
     {
-      range_proof_type = rct::RangeProofBulletproof;
-      for (const rct::Bulletproof &proof: ptx.tx.rct_signatures.p.bulletproofs)
-        if (proof.V.size() > 1)
-          range_proof_type = rct::RangeProofPaddedBulletproof;
+      range_proof_type = rct::RangeProofPaddedBulletproof;
     }
     bool per_output_unlock = use_fork_rules(9, 10);
     bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, sd.use_rct, range_proof_type, &msout, per_output_unlock, false);
