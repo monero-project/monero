@@ -644,6 +644,17 @@ struct Wallet
     virtual void refreshAsync() = 0;
 
     /**
+     * @brief rescanBlockchain - rescans the wallet, updating transactions from daemon
+     * @return - true if refreshed successfully;
+     */
+    virtual bool rescanBlockchain() = 0;
+
+    /**
+     * @brief rescanBlockchainAsync - rescans wallet asynchronously, starting from genesys
+     */
+    virtual void rescanBlockchainAsync() = 0;
+
+    /**
      * @brief setAutoRefreshInterval - setup interval for automatic refresh.
      * @param seconds - interval in millis. if zero or less than zero - automatic refresh disabled;
      */
