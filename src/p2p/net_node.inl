@@ -1334,12 +1334,19 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::check_incoming_connections()
   {
-    if (m_offline || m_hide_my_port)
+    if (m_offline)
       return true;
     if (get_incoming_connections_count() == 0)
     {
-      const el::Level level = el::Level::Warning;
-      MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+      if (m_hide_my_port || m_config.m_net_config.max_in_connection_count == 0)
+      {
+        MGINFO("Incoming connections disabled, enable them for full connectivity");
+      }
+      else
+      {
+        const el::Level level = el::Level::Warning;
+        MCLOG_RED(level, "global", "No incoming connections - check firewalls/routers allow port " << get_this_peer_port());
+      }
     }
     return true;
   }
