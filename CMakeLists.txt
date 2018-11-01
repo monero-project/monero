@@ -148,7 +148,7 @@ if(ARCH_ID STREQUAL "powerpc64" OR ARCH_ID STREQUAL "ppc64")
   set(PPC     0)
 endif()
 
-if(ARCH_ID STREQUAL "powerpc")
+if(ARCH_ID STREQUAL "powerpc" OR ARCH_ID STREQUAL "ppc")
   set(PPC64LE 0)
   set(PPC64   0)
   set(PPC     1)
