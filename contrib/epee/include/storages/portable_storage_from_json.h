@@ -125,16 +125,22 @@ namespace epee
               {
                 if(is_signed)
                 {
-                  int64_t nval = boost::lexical_cast<int64_t>(val);
+                  errno = 0;
+                  int64_t nval = strtoll(val.c_str(), NULL, 10);
+                  if (errno) throw std::runtime_error("Invalid number: " + val);
                   stg.set_value(name, nval, current_section);              
                 }else
                 {
-                  uint64_t nval = boost::lexical_cast<uint64_t >(val);
+                  errno = 0;
+                  uint64_t nval = strtoull(val.c_str(), NULL, 10);
+                  if (errno) throw std::runtime_error("Invalid number: " + val);
                   stg.set_value(name, nval, current_section);              
                 }
               }else
               {
-                double nval = boost::lexical_cast<double>(val);
+                errno = 0;
+                double nval = strtod(val.c_str(), NULL);
+                if (errno) throw std::runtime_error("Invalid number: " + val);
                 stg.set_value(name, nval, current_section);              
               }
               state = match_state_wonder_after_value;
@@ -208,12 +214,25 @@ namespace epee
               match_number2(it, buf_end, val, is_v_float, is_signed_val);
               if(!is_v_float)
               {
-                int64_t nval = boost::lexical_cast<int64_t>(val);//bool res = string_tools::string_to_num_fast(val, nval);
-                h_array = stg.insert_first_value(name, nval, current_section);
+                if (is_signed_val)
+                {
+                  errno = 0;
+                  int64_t nval = strtoll(val.c_str(), NULL, 10);
+                  if (errno) throw std::runtime_error("Invalid number: " + val);
+                  h_array = stg.insert_first_value(name, nval, current_section);
+                }else
+                {
+                  errno = 0;
+                  uint64_t nval = strtoull(val.c_str(), NULL, 10);
+                  if (errno) throw std::runtime_error("Invalid number: " + val);
+                  h_array = stg.insert_first_value(name, nval, current_section);
+                }
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }else
               {
-                double nval = boost::lexical_cast<double>(val);//bool res = string_tools::string_to_num_fast(val, nval);
+                errno = 0;
+                double nval = strtod(val.c_str(), NULL);
+                if (errno) throw std::runtime_error("Invalid number: " + val);
                 h_array = stg.insert_first_value(name, nval, current_section);
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }
@@ -286,13 +305,24 @@ namespace epee
                 bool insert_res = false;
                 if(!is_v_float)
                 {
-                  int64_t nval = boost::lexical_cast<int64_t>(val);  //bool res = string_tools::string_to_num_fast(val, nval);
-                  insert_res = stg.insert_next_value(h_array, nval);
-                  
+                  if (is_signed_val)
+                  {
+                    errno = 0;
+                    int64_t nval = strtoll(val.c_str(), NULL, 10);
+                    if (errno) throw std::runtime_error("Invalid number: " + val);
+                    insert_res = stg.insert_next_value(h_array, nval);
+                  }else
+                  {
+                    errno = 0;
+                    uint64_t nval = strtoull(val.c_str(), NULL, 10);
+                    if (errno) throw std::runtime_error("Invalid number: " + val);
+                    insert_res = stg.insert_next_value(h_array, nval);
+                  }
                 }else
                 {
-                  //TODO: optimize here if need
-                  double nval = boost::lexical_cast<double>(val); //string_tools::string_to_num_fast(val, nval);
+                  errno = 0;
+                  double nval = strtod(val.c_str(), NULL);
+                  if (errno) throw std::runtime_error("Invalid number: " + val);
                   insert_res = stg.insert_next_value(h_array, nval);              
                 }
                 CHECK_AND_ASSERT_THROW_MES(insert_res, "Failed to insert next value");
