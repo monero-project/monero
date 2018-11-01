@@ -53,7 +53,8 @@ set(performance_tests_headers
   multi_tx_test_base.h
   performance_tests.h
   performance_utils.h
-  single_tx_test_base.h)
+  single_tx_test_base.h
+  json.h)
 
 monero_add_test_executable(performance_tests
   ${performance_tests_sources}

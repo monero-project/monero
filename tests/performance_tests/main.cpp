@@ -63,6 +63,7 @@
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
 #include "log.h"
+#include "json.h"
 
 namespace po = boost::program_options;
 
@@ -328,6 +329,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_straus_cached, 4096);
 
   TEST_PERFORMANCE0(filter, p, test_log);
+  TEST_PERFORMANCE1(filter, p, test_json, json_epee);
+  TEST_PERFORMANCE1(filter, p, test_json, json_rapidjson);
 
 #if 1
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 2, 1);
