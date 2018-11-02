@@ -146,18 +146,18 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     \
     uint64_t b1[2]; \
     memcpy_swap64le(b1, b + 16, 2); \
-    chunk1[0] = SWAP64LE(chunk3[0] + b1[0]); \
-    chunk1[1] = SWAP64LE(chunk3[1] + b1[1]); \
+    chunk1[0] = SWAP64LE(SWAP64LE(chunk3[0]) + b1[0]); \
+    chunk1[1] = SWAP64LE(SWAP64LE(chunk3[1]) + b1[1]); \
     \
     uint64_t a0[2]; \
     memcpy_swap64le(a0, a, 2); \
-    chunk3[0] = SWAP64LE(chunk2[0] + a0[0]); \
-    chunk3[1] = SWAP64LE(chunk2[1] + a0[1]); \
+    chunk3[0] = SWAP64LE(SWAP64LE(chunk2[0]) + a0[0]); \
+    chunk3[1] = SWAP64LE(SWAP64LE(chunk2[1]) + a0[1]); \
     \
     uint64_t b0[2]; \
     memcpy_swap64le(b0, b, 2); \
-    chunk2[0] = SWAP64LE(chunk1_old[0] + b0[0]); \
-    chunk2[1] = SWAP64LE(chunk1_old[1] + b0[1]); \
+    chunk2[0] = SWAP64LE(SWAP64LE(chunk1_old[0]) + b0[0]); \
+    chunk2[1] = SWAP64LE(SWAP64LE(chunk1_old[1]) + b0[1]); \
   } while (0)
 
 #define VARIANT2_INTEGER_MATH_DIVISION_STEP(b, ptr) \
