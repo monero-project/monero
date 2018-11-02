@@ -146,9 +146,11 @@ namespace cryptonote
     struct request
     {
       std::vector<blobdata>   txs;
+      std::string _; // padding
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
+        KV_SERIALIZE(_)
       END_KV_SERIALIZE_MAP()
     };
   };
