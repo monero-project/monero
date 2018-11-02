@@ -97,19 +97,19 @@ static const struct {
   { 3, 100, 0, 1458558528 },
 
   // version 4 starts from block 1220516, which is on or around the 5th of January, 2017. Fork time finalised on 2016-09-18.
-  { 4, 150, 0, 1483574400 },
+  { 4, 20000, 0, 1483574400 },
 
   // version 5 starts from block 1288616, which is on or around the 15th of April, 2017. Fork time finalised on 2017-03-14.
-  { 5, 200, 0, 1489520158 },
+  { 5, 22500, 0, 1489520158 },
 
   // version 6 starts from block 1400000, which is on or around the 16th of September, 2017. Fork time finalised on 2017-08-18.
-  { 6, 225, 0, 1503046577 },
+  { 6, 25000, 0, 1503046577 },
 
   // version 7 starts from block 1546000, which is on or around the 6th of April, 2018. Fork time finalised on 2018-03-17.
-  { 7, 250, 0, 1521303150 },
+  { 7, 50000, 0, 1521303150 },
 
   // version 8 starts from block 1685555, which is on or around the 18th of October, 2018. Fork time finalised on 2018-09-02.
-  { 8, 300, 0, 1535889547 },
+  { 8, 100000, 0, 1535889547 },
 
   // version 9 starts from block 1686275, which is on or around the 19th of October, 2018. Fork time finalised on 2018-09-02.
   { 9, 1686275, 0, 1535889548 },
@@ -859,7 +859,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   }
   size_t target = DIFFICULTY_TARGET_V2;
   difficulty_type diff = 0;
-  if(get_current_hard_fork_version() != 0 && get_current_hard_fork_version() < 8){
+  if(get_current_hard_fork_version() != 0 && get_current_hard_fork_version() < 4 && m_db->height() < 235){
     diff = 1000;
   }else{
     diff = next_difficulty(timestamps,difficulties,target);
@@ -1081,7 +1081,13 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   size_t target = get_ideal_hard_fork_version(bei.height) < 2 ? DIFFICULTY_TARGET_V1 : DIFFICULTY_TARGET_V2;
 
   // calculate the difficulty target for the block and return it
-  return next_difficulty(timestamps, cumulative_difficulties, target);
+  uint64_t diff = 0;
+  if(get_current_hard_fork_version() != 0 && get_current_hard_fork_version() < 4 && m_db->height() < 235){
+    diff = 1000;
+  }else{
+    diff = next_difficulty(timestamps,cumulative_difficulties,target);
+  }
+  return diff;
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
@@ -1092,6 +1098,8 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
 bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+  if(height == 0)
+    return true;
   CHECK_AND_ASSERT_MES(b.miner_tx.vin.size() == 1, false, "coinbase transaction in the block has no inputs");
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
   if(boost::get<txin_gen>(b.miner_tx.vin[0]).height != height)

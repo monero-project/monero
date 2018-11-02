@@ -71,14 +71,11 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   checkpoints::checkpoints()
   {
-    add_checkpoint(1,"dbfc4e77fb8228560a755ad1f979e58b8cee741aa89cd5c3672ce7103080db32");
-    add_checkpoint(8,"3d2efd65a22c4ee3832c56baf123ca876454bcc9263f9229a3e975b65aa6c051");
-    add_checkpoint(100,"4cd32a5108a26dbf2ee3084498cb70843dd30b6d09b0cfb78d12a763cc47bce3");
-    add_checkpoint(150,"d813bb835d4cc65bac538e74f9714634752e945e57c57b60257774f2a343f214");
-    add_checkpoint(200,"f9834ee5790ff576d6189dd8c213bf14e993cb8817cf1427b61adc6d9f698481");
-    add_checkpoint(225,"c6898d4d6b763cd446f443cba1282244ef5db3b5aa17b5d213897aa88cd1bd6e");
-    add_checkpoint(250,"4e7ba0f0daac9e46c98b042a7bc0de098d20a1336e0caf01c308eb0a5d83962a");
-    add_checkpoint(300,"cbc800f4a0363d2ced1094add169b7e7132a539da4e041ffde42a32fa2d46273");
+    add_checkpoint(1,"ed1dd5a452b32bdc13cd11aee5e2485ca69d2a2ae8beb1e28e7da2d30959c799");
+    add_checkpoint(8,"5311cf4bd7a02cb267f89bf9e727aeaf27f669468979876fbd42c3f6a2ed0808");
+    add_checkpoint(100,"a46c1f2818fe83cb65b6a83dc9c4c50eb7eaa00e6a8acf3716549c220f5815cc");
+    add_checkpoint(150,"2d38fff19b0412cda9c943531a0cb64deb24786e66dab0bfd777bcef6aef6e01");
+    add_checkpoint(200,"f3f517a221e90540a60fe3c1280c4f9a9d3520f99e33e95043a6e6a9f37fd708");
   }
   //---------------------------------------------------------------------------
   bool checkpoints::add_checkpoint(uint64_t height, const std::string& hash_str)
