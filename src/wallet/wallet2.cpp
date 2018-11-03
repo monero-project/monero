@@ -2290,7 +2290,7 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
 //----------------------------------------------------------------------------------------------------
 void wallet2::update_pool_state(bool refreshed)
 {
-  MDEBUG("update_pool_state start");
+  MTRACE("update_pool_state start");
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
     if (m_encrypt_keys_after_refresh)
@@ -2309,7 +2309,7 @@ void wallet2::update_pool_state(bool refreshed)
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_transaction_pool_hashes.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_transaction_pool_hashes.bin");
   THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_tx_pool_error);
-  MDEBUG("update_pool_state got pool");
+  MTRACE("update_pool_state got pool");
 
   // remove any pending tx that's not in the pool
   std::unordered_map<crypto::hash, wallet2::unconfirmed_transfer_details>::iterator it = m_unconfirmed_txs.begin();
@@ -2366,7 +2366,7 @@ void wallet2::update_pool_state(bool refreshed)
       }
     }
   }
-  MDEBUG("update_pool_state done first loop");
+  MTRACE("update_pool_state done first loop");
 
   // remove pool txes to us that aren't in the pool anymore
   // but only if we just refreshed, so that the tx can go in
@@ -2375,7 +2375,7 @@ void wallet2::update_pool_state(bool refreshed)
   if (refreshed)
     remove_obsolete_pool_txs(res.tx_hashes);
 
-  MDEBUG("update_pool_state done second loop");
+  MTRACE("update_pool_state done second loop");
 
   // gather txids of new pool txes to us
   std::vector<std::pair<crypto::hash, bool>> txids;
@@ -2512,7 +2512,7 @@ void wallet2::update_pool_state(bool refreshed)
       LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << res.status);
     }
   }
-  MDEBUG("update_pool_state end");
+  MTRACE("update_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
