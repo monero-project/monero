@@ -402,8 +402,8 @@ namespace nodetool
     }
     else
     {
-      full_addrs.insert("138.68.63.97");
-      full_addrs.insert("165.227.125.101");
+      full_addrs.insert("138.68.63.97:9230");
+      full_addrs.insert("165.227.125.101:9230");
 
     }
     return full_addrs;
