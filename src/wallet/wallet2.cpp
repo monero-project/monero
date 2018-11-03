@@ -1919,6 +1919,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
     entry.first->second.m_subaddr_indices = subaddr_indices;
   }
 
+  entry.first->second.m_rings.clear();
   for (const auto &in: tx.vin)
   {
     if (in.type() != typeid(cryptonote::txin_to_key))
