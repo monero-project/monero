@@ -644,6 +644,17 @@ struct Wallet
     virtual void refreshAsync() = 0;
 
     /**
+     * @brief rescanBlockchain - rescans the wallet, updating transactions from daemon
+     * @return - true if refreshed successfully;
+     */
+    virtual bool rescanBlockchain() = 0;
+
+    /**
+     * @brief rescanBlockchainAsync - rescans wallet asynchronously, starting from genesys
+     */
+    virtual void rescanBlockchainAsync() = 0;
+
+    /**
      * @brief setAutoRefreshInterval - setup interval for automatic refresh.
      * @param seconds - interval in millis. if zero or less than zero - automatic refresh disabled;
      */
@@ -706,6 +717,12 @@ struct Wallet
      * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
      */
     virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
+    /**
+     * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
+     * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
+     * @return new info string if more rounds required or an empty string if wallet creation is done
+     */
+    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info) = 0;
     /**
      * @brief finalizeMultisig - finalizes N - 1 / N multisig wallets creation
      * @param extraMultisigInfo - wallet participants' extra multisig info obtained with makeMultisig call
@@ -881,7 +898,10 @@ struct Wallet
     virtual bool rescanSpent() = 0;
     
     //! blackballs a set of outputs
-    virtual bool blackballOutputs(const std::vector<std::string> &pubkeys, bool add) = 0;
+    virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) = 0;
+
+    //! blackballs an output
+    virtual bool blackballOutput(const std::string &amount, const std::string &offset) = 0;
 
     //! unblackballs an output
     virtual bool unblackballOutput(const std::string &amount, const std::string &offset) = 0;

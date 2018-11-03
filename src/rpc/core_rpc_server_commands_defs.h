@@ -782,9 +782,6 @@ namespace cryptonote
       std::string tx_as_hex;
       bool do_not_relay;
 
-      request() {}
-      explicit request(const transaction &);
-
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_as_hex)
         KV_SERIALIZE_OPT(do_not_relay, false)

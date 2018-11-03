@@ -65,7 +65,7 @@ namespace rpc
       static const char* STATUS_BAD_REQUEST;
       static const char* STATUS_BAD_JSON;
 
-      Message() : status(STATUS_OK) { }
+      Message() : status(STATUS_OK), rpc_version(0) { }
 
       virtual ~Message() { }
 

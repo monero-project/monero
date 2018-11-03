@@ -26,6 +26,8 @@ env:
     - HOST=arm-linux-gnueabihf PACKAGES="gperf g++-arm-linux-gnueabihf"
 # ARM v8
     - HOST=aarch64-linux-gnu PACKAGES="gperf g++-aarch64-linux-gnu"
+# i686 Win
+    - HOST=i686-w64-mingw32 PACKAGES="python3 nsis g++-mingw-w64-i686"
 # i686 Linux
     - HOST=i686-pc-linux-gnu PACKAGES="gperf cmake g++-multilib bc python3-zmq" RUN_TESTS=true
 # Win64

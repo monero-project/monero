@@ -38,6 +38,7 @@ using namespace epee;
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
+#include "cryptonote_basic/tx_extra.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
@@ -84,6 +85,8 @@ namespace cryptonote
     if(!extra_nonce.empty())
       if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
         return false;
+    if (!sort_tx_extra(tx.extra, tx.extra))
+      return false;
 
     txin_gen in;
     in.height = height;
@@ -127,7 +130,7 @@ namespace cryptonote
         out_amounts[1] += out_amounts[0];
         for (size_t n = 1; n < out_amounts.size(); ++n)
           out_amounts[n - 1] = out_amounts[n];
-        out_amounts.resize(out_amounts.size() - 1);
+        out_amounts.pop_back();
       }
     }
     else
@@ -433,6 +436,9 @@ namespace cryptonote
         LOG_PRINT_L2(additional_tx_public_keys[i]);
       add_additional_tx_pub_keys_to_extra(tx.extra, additional_tx_public_keys);
     }
+
+    if (!sort_tx_extra(tx.extra, tx.extra))
+      return false;
 
     //check money
     if(summary_outs_money > summary_inputs_money )

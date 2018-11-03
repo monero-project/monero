@@ -44,7 +44,7 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf(), m_cout_buf(NULL)
+: std::stringbuf(), m_cout_buf(NULL), m_prompt_length(0)
 {
   current = this;
 }
@@ -86,8 +86,11 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   if(m_cout_buf == NULL)
     return;
   boost::lock_guard<boost::mutex> lock(sync_mutex);
+  rl_set_prompt(std::string(m_prompt_length, ' ').c_str());
+  rl_redisplay();
   rl_set_prompt(prompt.c_str());
   rl_redisplay();
+  m_prompt_length = prompt.size();
 }
 
 void rdln::readline_buffer::add_completion(const std::string& command)

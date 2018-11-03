@@ -54,7 +54,9 @@ endif()
 target_link_libraries(epee
   PUBLIC
     easylogging
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})

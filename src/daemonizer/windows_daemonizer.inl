@@ -31,6 +31,7 @@
 #include "common/util.h"
 #include "daemonizer/windows_service.h"
 #include "daemonizer/windows_service_runner.h"
+#include "cryptonote_core/cryptonote_core.h"
 
 #include <shlobj.h>
 #include <boost/filesystem/operations.hpp>

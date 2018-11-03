@@ -655,10 +655,14 @@ namespace nodetool
   {
     kill();
     m_peerlist.deinit();
-    m_net_server.deinit_server();
-    // remove UPnP port mapping
-    if(!m_no_igd)
-      delete_upnp_port_mapping(m_listening_port);
+
+    if (!m_offline)
+    {
+      m_net_server.deinit_server();
+      // remove UPnP port mapping
+      if(!m_no_igd)
+        delete_upnp_port_mapping(m_listening_port);
+    }
     return store_config();
   }
   //-----------------------------------------------------------------------------------
@@ -937,7 +941,7 @@ namespace nodetool
     bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
       epee::string_tools::num_to_string_fast(ipv4.port()),
       m_config.m_net_config.connection_timeout,
-      con, m_bind_ip.empty() ? "0.0.0.0" : m_bind_ip);
+      con);
 
     if(!res)
     {
@@ -1002,7 +1006,7 @@ namespace nodetool
     bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(ipv4.ip()),
                                     epee::string_tools::num_to_string_fast(ipv4.port()),
                                     m_config.m_net_config.connection_timeout,
-                                    con, m_bind_ip.empty() ? "0.0.0.0" : m_bind_ip);
+                                    con);
 
     if (!res) {
       bool is_priority = is_priority_node(na);
@@ -1617,7 +1621,7 @@ namespace nodetool
         return false;
       }
       return true;
-    }, m_bind_ip.empty() ? "0.0.0.0" : m_bind_ip);
+    });
     if(!r)
     {
       LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
@@ -2042,7 +2046,7 @@ namespace nodetool
     char lanAddress[64];
     result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
     freeUPNPDevlist(deviceList);
-    if (result != 0) {
+    if (result > 0) {
       if (result == 1) {
         std::ostringstream portString;
         portString << port;
@@ -2088,7 +2092,7 @@ namespace nodetool
     char lanAddress[64];
     result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
     freeUPNPDevlist(deviceList);
-    if (result != 0) {
+    if (result > 0) {
       if (result == 1) {
         std::ostringstream portString;
         portString << port;

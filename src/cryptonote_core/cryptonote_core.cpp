@@ -53,6 +53,7 @@ using namespace epee;
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
+#include "common/notify.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -167,6 +168,11 @@ namespace cryptonote
   , "Set maximum txpool weight in bytes."
   , DEFAULT_TXPOOL_MAX_WEIGHT
   };
+  static const command_line::arg_descriptor<std::string> arg_block_notify = {
+    "block-notify"
+  , "Run a program for each new block, '%s' will be replaced by the block hash"
+  , ""
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -276,6 +282,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_weight);
+    command_line::add_arg(desc, arg_block_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -382,7 +389,7 @@ namespace cryptonote
     return m_blockchain_storage.get_alternative_blocks_count();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::init(const boost::program_options::variables_map& vm, const char *config_subdir, const cryptonote::test_options *test_options)
+  bool core::init(const boost::program_options::variables_map& vm, const char *config_subdir, const cryptonote::test_options *test_options, const GetCheckpointsCallback& get_checkpoints/* = nullptr */)
   {
     start_time = std::time(nullptr);
 
@@ -545,12 +552,22 @@ namespace cryptonote
     m_blockchain_storage.set_user_options(blocks_threads,
         sync_on_blocks, sync_threshold, sync_mode, fast_sync);
 
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_block_notify))
+        m_blockchain_storage.set_block_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_block_notify).c_str())));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse block notify spec");
+    }
+
     const std::pair<uint8_t, uint64_t> regtest_hard_forks[3] = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
     const cryptonote::test_options regtest_test_options = {
       regtest_hard_forks
     };
     const difficulty_type fixed_difficulty = command_line::get_arg(vm, arg_fixed_difficulty);
-    r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty);
+    r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty, get_checkpoints);
 
     r = m_mempool.init(max_txpool_weight);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
@@ -839,16 +856,19 @@ namespace cryptonote
     }
     waiter.wait(&tpool);
     it = tx_blobs.begin();
+    std::vector<bool> already_have(tx_blobs.size(), false);
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
       if (!results[i].res)
         continue;
       if(m_mempool.have_tx(results[i].hash))
       {
         LOG_PRINT_L2("tx " << results[i].hash << "already have transaction in tx_pool");
+        already_have[i] = true;
       }
       else if(m_blockchain_storage.have_tx(results[i].hash))
       {
         LOG_PRINT_L2("tx " << results[i].hash << " already have transaction in blockchain");
+        already_have[i] = true;
       }
       else
       {
@@ -870,7 +890,7 @@ namespace cryptonote
     std::vector<tx_verification_batch_info> tx_info;
     tx_info.reserve(tx_blobs.size());
     for (size_t i = 0; i < tx_blobs.size(); i++) {
-      if (!results[i].res)
+      if (!results[i].res || already_have[i])
         continue;
       tx_info.push_back({&results[i].tx, results[i].hash, tvc[i], results[i].res});
     }
@@ -880,6 +900,8 @@ namespace cryptonote
     bool ok = true;
     it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
+      if (already_have[i])
+        continue;
       if (!results[i].res)
       {
         ok = false;
@@ -1472,6 +1494,7 @@ namespace cryptonote
     m_txpool_auto_relayer.do_call(boost::bind(&core::relay_txpool_transactions, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
+    m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1657,6 +1680,52 @@ namespace cryptonote
       const el::Level level = el::Level::Warning;
       MCLOG_RED(level, "global", "Free space is below 1 GB on " << m_config_folder);
     }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  double factorial(unsigned int n)
+  {
+    if (n <= 1)
+      return 1.0;
+    double f = n;
+    while (n-- > 1)
+      f *= n;
+    return f;
+  }
+  //-----------------------------------------------------------------------------------------------
+  static double probability(unsigned int blocks, unsigned int expected)
+  {
+    // https://www.umass.edu/wsp/resources/poisson/#computing
+    return pow(expected, blocks) / (factorial(blocks) * exp(expected));
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_block_rate()
+  {
+    if (m_offline || m_target_blockchain_height > get_current_blockchain_height())
+    {
+      MDEBUG("Not checking block rate, offline or syncing");
+      return true;
+    }
+
+    static constexpr double threshold = 1. / (864000 / DIFFICULTY_TARGET_V2); // one false positive every 10 days
+
+    const time_t now = time(NULL);
+    const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(60);
+
+    static const unsigned int seconds[] = { 5400, 1800, 600 };
+    for (size_t n = 0; n < sizeof(seconds)/sizeof(seconds[0]); ++n)
+    {
+      unsigned int b = 0;
+      for (time_t ts: timestamps) b += ts >= now - seconds[n];
+      const double p = probability(b, seconds[n] / DIFFICULTY_TARGET_V2);
+      MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
+      if (p < threshold)
+      {
+        MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
+        break; // no need to look further
+      }
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------

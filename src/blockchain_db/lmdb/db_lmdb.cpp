@@ -649,7 +649,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
   {
     MDB_txn *rtxn;
     mdb_txn_cursors *rcurs;
-    block_rtxn_start(&rtxn, &rcurs);
+    bool my_rtxn = block_rtxn_start(&rtxn, &rcurs);
     for (uint64_t block_num = block_start; block_num <= block_stop; ++block_num)
     {
       // we have access to block weight, which will be greater or equal to block size,
@@ -661,7 +661,7 @@ uint64_t BlockchainLMDB::get_estimated_batch_size(uint64_t batch_num_blocks, uin
       // some blocks were to be skipped for being outliers.
       ++num_blocks_used;
     }
-    block_rtxn_stop();
+    if (my_rtxn) block_rtxn_stop();
     avg_block_size = total_block_size / num_blocks_used;
     MDEBUG("average block size across recent " << num_blocks_used << " blocks: " << avg_block_size);
   }
@@ -1145,7 +1145,10 @@ BlockchainLMDB::~BlockchainLMDB()
 
   // batch transaction shouldn't be active at this point. If it is, consider it aborted.
   if (m_batch_active)
-    batch_abort();
+  {
+    try { batch_abort(); }
+    catch (...) { /* ignore */ }
+  }
   if (m_open)
     close();
 }
@@ -1205,7 +1208,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   if (is_hdd_result)
   {
     if (is_hdd_result.value())
-        MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use a SSD if possible");
+        MCLOG_RED(el::Level::Warning, "global", "The blockchain is on a rotating drive: this will be very slow, use an SSD if possible");
   }
 
   m_folder = filename;
@@ -1977,22 +1980,36 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
   MDB_val v;
 
   uint64_t prev_height = heights[0];
+  uint64_t range_begin = 0, range_end = 0;
   for (uint64_t height: heights)
   {
-    if (height == prev_height + 1)
+    if (height >= range_begin && height < range_end)
     {
-      MDB_val k2;
-      result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT);
+      // nohting to do
     }
     else
     {
-      v.mv_size = sizeof(uint64_t);
-      v.mv_data = (void*)&height;
-      result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+      if (height == prev_height + 1)
+      {
+        MDB_val k2;
+        result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT_MULTIPLE);
+        range_begin = ((const mdb_block_info*)v.mv_data)->bi_height;
+        range_end = range_begin + v.mv_size / sizeof(mdb_block_info); // whole records please
+        if (height < range_begin || height >= range_end)
+          throw0(DB_ERROR(("Height " + std::to_string(height) + " not included in multuple record range: " + std::to_string(range_begin) + "-" + std::to_string(range_end)).c_str()));
+      }
+      else
+      {
+        v.mv_size = sizeof(uint64_t);
+        v.mv_data = (void*)&height;
+        result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+        range_begin = height;
+        range_end = range_begin + 1;
+      }
+      if (result)
+        throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
     }
-    if (result)
-      throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
-    const mdb_block_info *bi = (const mdb_block_info *)v.mv_data;
+    const mdb_block_info *bi = ((const mdb_block_info *)v.mv_data) + (height - range_begin);
     res.push_back(bi->bi_cum_rct);
     prev_height = height;
   }
@@ -3490,7 +3507,17 @@ void BlockchainLMDB::fixup()
   BlockchainDB::fixup();
 }
 
-#define RENAME_DB(name) \
+#define RENAME_DB(name) do { \
+    char n2[] = name; \
+    MDB_dbi tdbi; \
+    n2[sizeof(n2)-2]--; \
+    /* play some games to put (name) on a writable page */ \
+    result = mdb_dbi_open(txn, n2, MDB_CREATE, &tdbi); \
+    if (result) \
+      throw0(DB_ERROR(lmdb_error("Failed to create " + std::string(n2) + ": ", result).c_str())); \
+    result = mdb_drop(txn, tdbi, 1); \
+    if (result) \
+      throw0(DB_ERROR(lmdb_error("Failed to delete " + std::string(n2) + ": ", result).c_str())); \
     k.mv_data = (void *)name; \
     k.mv_size = sizeof(name)-1; \
     result = mdb_cursor_open(txn, 1, &c_cur); \
@@ -3500,7 +3527,7 @@ void BlockchainLMDB::fixup()
     if (result) \
       throw0(DB_ERROR(lmdb_error("Failed to get DB record for " name ": ", result).c_str())); \
     ptr = (char *)k.mv_data; \
-    ptr[sizeof(name)-2]++
+    ptr[sizeof(name)-2]++; } while(0)
 
 #define LOGIF(y)    if (ELPP->vRegistry()->allowed(y, "global"))
 
@@ -3579,7 +3606,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_heights: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_block_heights, &ms);
+          result = mdb_stat(txn, m_block_heights, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query block_heights table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3682,7 +3711,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_timestamps: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_block_info, &ms);
+          result = mdb_stat(txn, m_block_info, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query block_info table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3802,7 +3833,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keys: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_hf_versions, &ms);
+          result = mdb_stat(txn, m_hf_versions, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query hf_versions table: ", result).c_str()));
           i = ms.ms_entries;
         }
       }
@@ -3957,7 +3990,9 @@ void BlockchainLMDB::migrate_0_1()
           throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs: ", result).c_str()));
         if (!i) {
           MDB_stat ms;
-          mdb_stat(txn, m_txs, &ms);
+          result = mdb_stat(txn, m_txs, &ms);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to query txs table: ", result).c_str()));
           i = ms.ms_entries;
           if (i) {
             MDB_val_set(pk, "txblk");

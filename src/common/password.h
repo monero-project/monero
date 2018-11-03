@@ -47,6 +47,7 @@ namespace tools
 
     //! `password` is used as password
     password_container(std::string&& password) noexcept;
+    password_container(const epee::wipeable_string& password) noexcept;
 
     //! \return A password from stdin TTY prompt or `std::cin` pipe.
     static boost::optional<password_container> prompt(bool verify, const char *mesage = "Password", bool hide_input = true);

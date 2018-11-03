@@ -226,7 +226,7 @@ static void init(std::string cache_filename)
   bool tx_active = false;
   int dbr;
 
-  MINFO("Creating blackball cache in " << cache_filename);
+  MINFO("Creating spent output cache in " << cache_filename);
 
   tools::create_directories_if_necessary(cache_filename);
 
@@ -401,7 +401,8 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   }
 
   mdb_cursor_close(cur);
-  mdb_txn_commit(txn);
+  dbr = mdb_txn_commit(txn);
+  if (dbr) throw std::runtime_error("Failed to commit db transaction: " + std::string(mdb_strerror(dbr)));
   tx_active = false;
   mdb_dbi_close(env, dbi);
   mdb_env_close(env);
@@ -471,7 +472,8 @@ static uint64_t find_first_diverging_transaction(const std::string &first_filena
   for (int i = 0; i < 2; ++i)
   {
     mdb_cursor_close(cur[i]);
-    mdb_txn_commit(txn[i]);
+    dbr = mdb_txn_commit(txn[i]);
+    if (dbr) throw std::runtime_error("Failed to query transaction: " + std::string(mdb_strerror(dbr)));
     tx_active[i] = false;
     mdb_dbi_close(env[i], dbi[i]);
     mdb_env_close(env[i]);
@@ -534,12 +536,15 @@ static uint64_t get_num_spent_outputs()
   return count;
 }
 
-static void add_spent_output(MDB_cursor *cur, const output_data &od)
+static bool add_spent_output(MDB_cursor *cur, const output_data &od)
 {
   MDB_val k = {sizeof(od.amount), (void*)&od.amount};
   MDB_val v = {sizeof(od.offset), (void*)&od.offset};
-  int dbr = mdb_cursor_put(cur, &k, &v, 0);
-  CHECK_AND_ASSERT_THROW_MES(!dbr || dbr == MDB_KEYEXIST, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
+  int dbr = mdb_cursor_put(cur, &k, &v, MDB_NODUPDATA);
+  if (dbr == MDB_KEYEXIST)
+    return false;
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to add spent output: " + std::string(mdb_strerror(dbr)));
+  return true;
 }
 
 static bool is_output_spent(MDB_cursor *cur, const output_data &od)
@@ -675,7 +680,7 @@ static uint64_t get_ring_subset_instances(MDB_txn *txn, uint64_t amount, const s
   uint64_t extra = 0;
   std::vector<uint64_t> subset;
   subset.reserve(ring.size());
-  for (uint64_t mask = 1; mask < (1u << ring.size()) - 1; ++mask)
+  for (uint64_t mask = 1; mask < (((uint64_t)1) << ring.size()) - 1; ++mask)
   {
     subset.resize(0);
     for (size_t i = 0; i < ring.size(); ++i)
@@ -1014,7 +1019,7 @@ int main(int argc, char* argv[])
   po::options_description desc_cmd_only("Command line options");
   po::options_description desc_cmd_sett("Command line options and settings options");
   const command_line::arg_descriptor<std::string> arg_blackball_db_dir = {
-      "blackball-db-dir", "Specify blackball database directory",
+      "spent-output-db-dir", "Specify spent output database directory",
       get_default_db_path(),
   };
   const command_line::arg_descriptor<std::string> arg_log_level  = {"log-level",  "0-4 or categories", ""};
@@ -1071,7 +1076,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-blackball.log"), true);
+  mlog_configure(mlog_get_default_log_path("monero-blockchain-find-spent-outputs.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -1109,10 +1114,10 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  const std::string cache_dir = (output_file_path / "blackball-cache").string();
+  const std::string cache_dir = (output_file_path / "spent-outputs-cache").string();
   init(cache_dir);
 
-  LOG_PRINT_L0("Scanning for blackballable outputs...");
+  LOG_PRINT_L0("Scanning for spent outputs...");
 
   size_t done = 0;
 
@@ -1151,8 +1156,8 @@ int main(int argc, char* argv[])
       if (!is_output_spent(cur, output_data(output.first, output.second)))
       {
         blackballs.push_back(output);
-        add_spent_output(cur, output_data(output.first, output.second));
-        inc_stat(txn, output.first ? "pre-rct-extra" : "rct-ring-extra");
+        if (add_spent_output(cur, output_data(output.first, output.second)))
+          inc_stat(txn, output.first ? "pre-rct-extra" : "rct-ring-extra");
       }
     }
     if (!blackballs.empty())
@@ -1210,12 +1215,12 @@ int main(int argc, char* argv[])
           const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[0]);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a 1-ring");
+            MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in a 1-ring");
             std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
           }
           blackballs.push_back(output);
-          add_spent_output(cur, output_data(txin.amount, absolute[0]));
-          inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
+          if (add_spent_output(cur, output_data(txin.amount, absolute[0])))
+            inc_stat(txn, txin.amount ? "pre-rct-ring-size-1" : "rct-ring-size-1");
         }
         else if (n == 0 && instances == new_ring.size())
         {
@@ -1224,12 +1229,12 @@ int main(int argc, char* argv[])
             const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
+              MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in " << new_ring.size() << " identical " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
-            add_spent_output(cur, output_data(txin.amount, absolute[o]));
-            inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
+            if (add_spent_output(cur, output_data(txin.amount, absolute[o])))
+              inc_stat(txn, txin.amount ? "pre-rct-duplicate-rings" : "rct-duplicate-rings");
           }
         }
         else if (n == 0 && opt_check_subsets && get_ring_subset_instances(txn, txin.amount, new_ring) >= new_ring.size())
@@ -1239,12 +1244,12 @@ int main(int argc, char* argv[])
             const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, absolute[o]);
             if (opt_verbose)
             {
-              MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
+              MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in " << new_ring.size() << " subsets of " << new_ring.size() << "-rings");
               std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
             }
             blackballs.push_back(output);
-            add_spent_output(cur, output_data(txin.amount, absolute[o]));
-            inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
+            if (add_spent_output(cur, output_data(txin.amount, absolute[o])))
+              inc_stat(txn, txin.amount ? "pre-rct-subset-rings" : "rct-subset-rings");
           }
         }
         else if (n > 0 && get_relative_ring(txn, txin.k_image, relative_ring))
@@ -1275,12 +1280,12 @@ int main(int argc, char* argv[])
               const std::pair<uint64_t, uint64_t> output = std::make_pair(txin.amount, common[0]);
               if (opt_verbose)
               {
-                MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in rings with a single common element");
+                MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in rings with a single common element");
                 std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
               }
               blackballs.push_back(output);
-              add_spent_output(cur, output_data(txin.amount, common[0]));
-              inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
+              if (add_spent_output(cur, output_data(txin.amount, common[0])))
+                inc_stat(txn, txin.amount ? "pre-rct-key-image-attack" : "rct-key-image-attack");
             }
             else
             {
@@ -1387,13 +1392,13 @@ int main(int argc, char* argv[])
           const std::pair<uint64_t, uint64_t> output = std::make_pair(od.amount, last_unknown);
           if (opt_verbose)
           {
-            MINFO("Blackballing output " << output.first << "/" << output.second << ", due to being used in a " <<
+            MINFO("Marking output " << output.first << "/" << output.second << " as spent, due to being used in a " <<
                 absolute.size() << "-ring where all other outputs are known to be spent");
           }
           blackballs.push_back(output);
-          add_spent_output(cur, output_data(od.amount, last_unknown));
+          if (add_spent_output(cur, output_data(od.amount, last_unknown)))
+            inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
           work_spent.push_back(output_data(od.amount, last_unknown));
-          inc_stat(txn, od.amount ? "pre-rct-chain-reaction" : "rct-chain-reaction");
         }
       }
 
@@ -1415,7 +1420,7 @@ int main(int argc, char* argv[])
 
 skip_secondary_passes:
   uint64_t diff = get_num_spent_outputs() - start_blackballed_outputs;
-  LOG_PRINT_L0(std::to_string(diff) << " new outputs blackballed, " << get_num_spent_outputs() << " total outputs blackballed");
+  LOG_PRINT_L0(std::to_string(diff) << " new outputs marked as spent, " << get_num_spent_outputs() << " total outputs marked as spent");
 
   MDB_txn *txn;
   dbr = mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
@@ -1455,7 +1460,7 @@ skip_secondary_passes:
     mdb_txn_abort(txn);
   }
 
-  LOG_PRINT_L0("Blockchain blackball data exported OK");
+  LOG_PRINT_L0("Blockchain spent output data exported OK");
   close_db(env0, txn0, cur0, dbi0);
   close();
   return 0;

@@ -41,6 +41,7 @@
 #include "misc_language.h"
 #include "misc_log_ex.h"
 #include "storages/levin_abstract_invoke2.h"
+#include "common/util.h"
 
 #include "net_load_tests.h"
 
@@ -628,6 +629,7 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_ser
 
 int main(int argc, char** argv)
 {
+  TRY_ENTRY();
   tools::on_startup();
   epee::debug::get_set_enable_assert(true, false);
   //set up logging options
@@ -635,4 +637,5 @@ int main(int argc, char** argv)
 
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
+  CATCH_ENTRY_L0("main", 1);
 }

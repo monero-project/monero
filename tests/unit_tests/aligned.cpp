@@ -84,3 +84,24 @@ TEST(aligned, contents_smaller)
   aligned_free(ptr2);
 }
 
+TEST(aligned, alignment)
+{
+  static const size_t good_alignments[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
+  for (size_t a = 0; a <= 8192; ++a)
+  {
+    bool good = false;
+    for (const auto t: good_alignments) if (a == t) good = true;
+    void *ptr = aligned_malloc(1, a);
+    if (good)
+    {
+      ASSERT_TRUE(ptr != NULL);
+      aligned_free(ptr);
+    }
+    else
+    {
+      ASSERT_TRUE(ptr == NULL);
+    }
+  }
+
+  ASSERT_TRUE(aligned_malloc(1, ~0) == NULL);
+}

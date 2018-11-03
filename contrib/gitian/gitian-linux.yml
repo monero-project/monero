@@ -1,0 +1,162 @@
+---
+name: "monero-linux-0.14"
+enable_cache: true
+suites:
+- "bionic"
+architectures:
+- "amd64"
+packages:
+- "curl"
+- "gperf"
+- "gcc-7"
+- "g++-7"
+- "gcc"
+- "g++"
+- "gcc-7-aarch64-linux-gnu"
+- "g++-7-aarch64-linux-gnu"
+- "gcc-aarch64-linux-gnu"
+- "g++-aarch64-linux-gnu"
+- "binutils-aarch64-linux-gnu"
+- "gcc-7-arm-linux-gnueabihf"
+- "g++-7-arm-linux-gnueabihf"
+- "gcc-arm-linux-gnueabihf"
+- "g++-arm-linux-gnueabihf"
+- "g++-7-multilib"
+- "gcc-7-multilib"
+- "binutils-arm-linux-gnueabihf"
+- "binutils-gold"
+- "git"
+- "pkg-config"
+- "build-essential"
+- "autoconf"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "ca-certificates"
+- "python"
+- "cmake"
+- "ccache"
+- "protobuf-compiler"
+- "libdbus-1-dev"
+- "libharfbuzz-dev"
+- "libprotobuf-dev"
+- "python3-zmq"
+remotes:
+- "url": "https://github.com/monero-project/monero.git"
+  "dir": "monero"
+files: []
+script: |
+
+  WRAP_DIR=$HOME/wrapped
+  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu i686-linux-gnu"
+  FAKETIME_HOST_PROGS="gcc g++"
+  FAKETIME_PROGS="date ar ranlib nm"
+  HOST_CFLAGS="-O2 -g"
+  HOST_CXXFLAGS="-O2 -g"
+  HOST_LDFLAGS=-static-libstdc++
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+  mkdir -p ${WRAP_DIR}
+  if test -n "$GBUILD_CACHE_ENABLED"; then
+    export SOURCES_PATH=${GBUILD_COMMON_CACHE}
+    export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
+    mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
+  fi
+
+  function create_global_faketime_wrappers {
+  for prog in ${FAKETIME_PROGS}; do
+    echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
+    echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
+    echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
+    echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${prog}
+    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    chmod +x ${WRAP_DIR}/${prog}
+  done
+  }
+
+  function create_per-host_faketime_wrappers {
+  for i in $HOSTS; do
+    for prog in ${FAKETIME_HOST_PROGS}; do
+        if which ${i}-${prog}-7
+        then
+            echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}-${prog}
+            echo "REAL=\`which -a ${i}-${prog}-7 | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
+            echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
+            echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
+            echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+            chmod +x ${WRAP_DIR}/${i}-${prog}
+        fi
+    done
+  done
+  }
+
+  # Faketime for depends so intermediate results are comparable
+  export PATH_orig=${PATH}
+  create_global_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_faketime_wrappers "2000-01-01 12:00:00"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  EXTRA_INCLUDES_BASE=$WRAP_DIR/extra_includes
+  mkdir -p $EXTRA_INCLUDES_BASE
+
+  # x86 needs /usr/include/i386-linux-gnu/asm pointed to /usr/include/x86_64-linux-gnu/asm,
+  # but we can't write there. Instead, create a link here and force it to be included in the
+  # search paths by wrapping gcc/g++.
+
+  mkdir -p $EXTRA_INCLUDES_BASE/i686-pc-linux-gnu
+  rm -f $WRAP_DIR/extra_includes/i686-pc-linux-gnu/asm
+  ln -s /usr/include/x86_64-linux-gnu/asm $EXTRA_INCLUDES_BASE/i686-pc-linux-gnu/asm
+
+  for prog in gcc g++; do
+  rm -f ${WRAP_DIR}/${prog}
+  cat << EOF > ${WRAP_DIR}/${prog}
+  #!/usr/bin/env bash
+  REAL="`which -a ${prog}-7 | grep -v ${WRAP_DIR}/${prog} | head -1`"
+  for var in "\$@"
+  do
+    if [ "\$var" = "-m32" ]; then
+      export C_INCLUDE_PATH="$EXTRA_INCLUDES_BASE/i686-pc-linux-gnu"
+      export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES_BASE/i686-pc-linux-gnu"
+      break
+    fi
+  done
+  \$REAL \$@
+  EOF
+  chmod +x ${WRAP_DIR}/${prog}
+  done
+
+  cd monero
+  BASEPREFIX=`pwd`/contrib/depends
+  # Build dependencies for each host
+  for i in $HOSTS; do
+    EXTRA_INCLUDES="$EXTRA_INCLUDES_BASE/$i"
+    if [ -d "$EXTRA_INCLUDES" ]; then
+      export HOST_ID_SALT="$EXTRA_INCLUDES"
+    fi
+    make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}" -j 4 V=1
+    unset HOST_ID_SALT
+  done
+
+  # Faketime for binaries
+  export PATH=${PATH_orig}
+  create_global_faketime_wrappers "${REFERENCE_DATETIME}"
+  create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
+  export PATH=${WRAP_DIR}:${PATH}
+
+  ORIGPATH="$PATH"
+  # Build in a new dir for each host
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
+    make
+    DISTNAME=monero-${i}
+    mv bin ${DISTNAME}
+    find ${DISTNAME}/ | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}.tar.gz
+    cd ..
+    rm -rf build
+  done

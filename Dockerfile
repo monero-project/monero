@@ -115,6 +115,7 @@ COPY . .
 ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
 RUN set -ex && \
+    git submodule init && git submodule update && \
     rm -rf build && \
     if [ -z "$NPROC" ] ; \
     then make -j$(nproc) release-static ; \

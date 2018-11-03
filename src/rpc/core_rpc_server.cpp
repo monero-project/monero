@@ -212,23 +212,15 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  static cryptonote::blobdata get_pruned_tx_blob(cryptonote::transaction &tx)
-  {
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
-    bool r = tx.serialize_base(ba);
-    CHECK_AND_ASSERT_MES(r, cryptonote::blobdata(), "Failed to serialize rct signatures base");
-    return ss.str();
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  static cryptonote::blobdata get_pruned_tx_json(cryptonote::transaction &tx)
-  {
-    std::stringstream ss;
-    json_archive<true> ar(ss);
-    bool r = tx.serialize_base(ar);
-    CHECK_AND_ASSERT_MES(r, cryptonote::blobdata(), "Failed to serialize rct signatures base");
-    return ss.str();
-  }
+  class pruned_transaction {
+    transaction& tx;
+  public:
+    pruned_transaction(transaction& tx) : tx(tx) {}
+    BEGIN_SERIALIZE_OBJECT()
+      bool r = tx.serialize_base(ar);
+      if (!r) return false;
+    END_SERIALIZE()
+  };
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res)
   {
@@ -564,10 +556,11 @@ namespace cryptonote
 
       crypto::hash tx_hash = *vhi++;
       e.tx_hash = *txhi++;
-      blobdata blob = req.prune ? get_pruned_tx_blob(tx) : t_serializable_object_to_blob(tx);
+      pruned_transaction pruned_tx{tx};
+      blobdata blob = req.prune ? t_serializable_object_to_blob(pruned_tx) : t_serializable_object_to_blob(tx);
       e.as_hex = string_tools::buff_to_hex_nodelimer(blob);
       if (req.decode_as_json)
-        e.as_json = req.prune ? get_pruned_tx_json(tx) : obj_to_json_str(tx);
+        e.as_json = req.prune ? obj_to_json_str(pruned_tx) : obj_to_json_str(tx);
       e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
       if (e.in_pool)
       {
@@ -924,6 +917,8 @@ namespace cryptonote
       return r;
 
     m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, !request_has_rpc_origin || !m_restricted);
+    for (tx_info& txi : res.transactions)
+      txi.tx_blob = epee::string_tools::buff_to_hex_nodelimer(txi.tx_blob);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -1090,7 +1085,7 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
-      LOG_ERROR("Failed to  tx pub key in coinbase extra");
+      LOG_ERROR("Failed to get tx pub key in coinbase extra");
       return false;
     }
     res.reserved_offset = slow_memmem((void*)block_blob.data(), block_blob.size(), &tx_pub_key, sizeof(tx_pub_key));
@@ -2118,6 +2113,8 @@ namespace cryptonote
 
     try
     {
+      // 0 is placeholder for the whole chain
+      const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);
       for (uint64_t amount: req.amounts)
       {
         static struct D
@@ -2130,7 +2127,7 @@ namespace cryptonote
         } d;
         boost::unique_lock<boost::mutex> lock(d.mutex);
 
-        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req.to_height)
+        if (d.cached && amount == 0 && d.cached_from == req.from_height && d.cached_to == req_to_height)
         {
           res.distributions.push_back({amount, d.cached_start_height, req.binary, d.cached_distribution, d.cached_base});
           if (!req.cumulative)
@@ -2145,23 +2142,23 @@ namespace cryptonote
 
         std::vector<uint64_t> distribution;
         uint64_t start_height, base;
-        if (!m_core.get_output_distribution(amount, req.from_height, req.to_height, start_height, distribution, base))
+        if (!m_core.get_output_distribution(amount, req.from_height, req_to_height, start_height, distribution, base))
         {
           error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
           error_resp.message = "Failed to get rct distribution";
           return false;
         }
-        if (req.to_height > 0 && req.to_height >= req.from_height)
+        if (req_to_height > 0 && req_to_height >= req.from_height)
         {
           uint64_t offset = std::max(req.from_height, start_height);
-          if (offset <= req.to_height && req.to_height - offset + 1 < distribution.size())
-            distribution.resize(req.to_height - offset + 1);
+          if (offset <= req_to_height && req_to_height - offset + 1 < distribution.size())
+            distribution.resize(req_to_height - offset + 1);
         }
 
         if (amount == 0)
         {
           d.cached_from = req.from_height;
-          d.cached_to = req.to_height;
+          d.cached_to = req_to_height;
           d.cached_distribution = distribution;
           d.cached_start_height = start_height;
           d.cached_base = base;

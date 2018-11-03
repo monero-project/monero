@@ -250,22 +250,15 @@ void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q
 	}
 
 }
-void connection_basic::set_start_time() {
-	CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-	m_start_time = network_throttle_manager::get_global_throttle_out().get_time_seconds();
-}
 
 void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
         // No sleeping here; sleeping is done once and for all in connection<t_protocol_handler>::handle_write
 	MTRACE("handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
-	set_start_time();
 }
 
 void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
         // No sleeping here; sleeping is done once and for all in connection<t_protocol_handler>::handle_write
 	MTRACE("handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
-
-	set_start_time();
 }
 
 void connection_basic::logger_handle_net_read(size_t size) { // network data read

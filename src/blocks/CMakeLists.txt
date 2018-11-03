@@ -26,14 +26,23 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-if(APPLE)
-    add_library(blocks STATIC blockexports.c)
-    set_target_properties(blocks PROPERTIES LINKER_LANGUAGE C)
-else()
-    add_custom_command(OUTPUT blocks.o MAIN_DEPENDENCY blocks.dat COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} ${LD_RAW_FLAGS} -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/blocks.o blocks.dat)
-    add_custom_command(OUTPUT testnet_blocks.o MAIN_DEPENDENCY testnet_blocks.dat COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} ${LD_RAW_FLAGS} -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/testnet_blocks.o testnet_blocks.dat)
-    add_custom_command(OUTPUT stagenet_blocks.o MAIN_DEPENDENCY stagenet_blocks.dat COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} ${LD_RAW_FLAGS} -r -b binary -o ${CMAKE_CURRENT_BINARY_DIR}/stagenet_blocks.o stagenet_blocks.dat)
-    add_library(blocks STATIC blocks.o testnet_blocks.o stagenet_blocks.o blockexports.c)
-    set_target_properties(blocks PROPERTIES LINKER_LANGUAGE C)
-endif()
+set(GENERATED_SOURCES "")
 
+foreach(BLOB_NAME checkpoints testnet_blocks stagenet_blocks)
+    set(OUTPUT_C_SOURCE "generated_${BLOB_NAME}.c")
+    list(APPEND GENERATED_SOURCES ${OUTPUT_C_SOURCE})
+    set(INPUT_DAT_FILE "${BLOB_NAME}.dat")
+    add_custom_command(
+        OUTPUT ${OUTPUT_C_SOURCE} 
+        MAIN_DEPENDENCY ${INPUT_DAT_FILE} 
+        COMMAND 
+            cd ${CMAKE_CURRENT_BINARY_DIR} && 
+            echo "'#include\t<stddef.h>'" > ${OUTPUT_C_SOURCE} &&
+            echo "'const\tunsigned\tchar\t${BLOB_NAME}[]={'" >> ${OUTPUT_C_SOURCE} &&
+            od -v -An -tu1 ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_DAT_FILE} | sed -e "'s/[0-9]\\{1,\\}/&,/g'" -e "'$$s/.$$//'" >> ${OUTPUT_C_SOURCE} &&
+            echo "'};'" >> ${OUTPUT_C_SOURCE} &&
+            echo "'const\tsize_t\t${BLOB_NAME}_len\t=\tsizeof(${BLOB_NAME});'" >> ${OUTPUT_C_SOURCE}
+    )
+endforeach()
+
+add_library(blocks STATIC blocks.cpp ${GENERATED_SOURCES})
