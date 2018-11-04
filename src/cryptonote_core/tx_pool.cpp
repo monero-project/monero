@@ -379,11 +379,11 @@ namespace cryptonote
           return;
         }
         // remove first, in case this throws, so key images aren't removed
-        MINFO("Pruning tx " << txid << " from txpool: weight: " << it->first.second << ", fee/byte: " << it->first.first);
+        MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= it->first.second;
+        m_txpool_weight -= meta.weight;
         remove_transaction_keyimages(tx, txid);
-        MINFO("Pruned tx " << txid << " from txpool: weight: " << it->first.second << ", fee/byte: " << it->first.first);
+        MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
         m_txs_by_fee_and_receive_time.erase(it--);
         changed = true;
       }
