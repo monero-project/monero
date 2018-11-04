@@ -32,13 +32,12 @@
 namespace hw {
 namespace trezor {
 
-#if WITH_DEVICE_TREZOR
+#ifdef WITH_DEVICE_TREZOR
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "device.trezor"
 
 #define HW_TREZOR_NAME "Trezor"
-#define HW_TREZOR_NAME_LITE "TrezorLite"
 
     static device_trezor *trezor_device = nullptr;
     static device_trezor *ensure_trezor_device(){

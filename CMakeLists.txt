@@ -513,15 +513,8 @@ else (HIDAPI_FOUND)
   message(STATUS "Could not find HIDAPI")
 endif()
 
-# Protobuf, optional. Required for TREZOR.
-include(FindProtobuf)
-find_package(Protobuf)
-if(Protobuf_FOUND)
-  set(HAVE_PROTOBUF 1)
-  add_definitions(-DHAVE_PROTOBUF=1)
-else(Protobuf_FOUND)
-  message(STATUS "Could not find Protobuf")
-endif()
+# Trezor support check
+include(CheckTrezor)
 
 if(MSVC)
   add_definitions("/bigobj /MP /W3 /GS- /D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4345 /D_WIN32_WINNT=0x0600 /DWIN32_LEAN_AND_MEAN /DGTEST_HAS_TR1_TUPLE=0 /FIinline_c.h /D__SSE4_1__")
@@ -921,7 +914,7 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if (HIDAPI_FOUND) 
+if (HIDAPI_FOUND OR LibUSB_COMPILE_TEST_PASSED)
   if (APPLE)
     if(DEPENDS)
       list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
