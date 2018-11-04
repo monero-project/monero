@@ -407,8 +407,7 @@ int main(int argc, char* argv[])
     for (uint64_t h = state.height; h < db_height; ++h)
     {
       size_t block_ancestry_size = 0;
-      const crypto::hash block_hash = db->get_block_hash_from_height(h);
-      const cryptonote::blobdata bd = db->get_block_blob(block_hash);
+      const cryptonote::blobdata bd = db->get_block_blob_from_height(h);
       ++total_blocks;
       cryptonote::block b;
       if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
@@ -482,8 +481,7 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                  const crypto::hash block_hash = db->get_block_hash_from_height(od.height);
-                  cryptonote::blobdata bd = db->get_block_blob(block_hash);
+                  cryptonote::blobdata bd = db->get_block_blob_from_height(od.height);
                   if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
                   {
                     LOG_PRINT_L0("Bad block from db");
@@ -620,8 +618,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    const crypto::hash block_hash = db->get_block_hash_from_height(opt_height);
-    const cryptonote::blobdata bd = db->get_block_blob(block_hash);
+    const cryptonote::blobdata bd = db->get_block_blob_from_height(opt_height);
     cryptonote::block b;
     if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
     {
@@ -678,8 +675,7 @@ int main(int argc, char* argv[])
           {
             add_ancestor(ancestry, amount, offset);
             const output_data_t od = db->get_output_key(amount, offset);
-            const crypto::hash block_hash = db->get_block_hash_from_height(od.height);
-            bd = db->get_block_blob(block_hash);
+            bd = db->get_block_blob_from_height(od.height);
             cryptonote::block b;
             if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
             {

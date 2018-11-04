@@ -187,8 +187,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    const crypto::hash block_hash = db->get_block_hash_from_height(opt_height);
-    const cryptonote::blobdata bd = db->get_block_blob(block_hash);
+    const cryptonote::blobdata bd = db->get_block_blob_from_height(opt_height);
     cryptonote::block b;
     if (!cryptonote::parse_and_validate_block_from_blob(bd, b))
     {
