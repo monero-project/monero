@@ -117,7 +117,7 @@ namespace cryptonote
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
-      * @return true if the transaction made it to the transaction pool, otherwise false
+      * @return true if the transaction was accepted, false otherwise
       */
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
@@ -133,7 +133,7 @@ namespace cryptonote
       * @param relayed whether or not the transactions were relayed to us
       * @param do_not_relay whether to prevent the transactions from being relayed
       *
-      * @return true if the transactions made it to the transaction pool, otherwise false
+      * @return true if the transactions were accepted, false otherwise
       */
      bool handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
