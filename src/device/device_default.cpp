@@ -69,17 +69,17 @@ namespace hw {
         }
         
         bool device_default::init(void) {
-            dfns();
+            return true;
         }
         bool device_default::release() {
-            dfns();
+            return true;
         }
 
         bool device_default::connect(void) {
-            dfns();
+            return true;
         }
         bool device_default::disconnect() {
-            dfns();
+            return true;
         }
 
         bool  device_default::set_mode(device_mode mode) {

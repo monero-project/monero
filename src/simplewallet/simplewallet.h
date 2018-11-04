@@ -139,6 +139,7 @@ namespace cryptonote
     bool set_subaddress_lookahead(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_segregation_height(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ignore_fractional_outputs(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
     bool start_mining(const std::vector<std::string> &args);
     bool stop_mining(const std::vector<std::string> &args);
@@ -200,6 +201,7 @@ namespace cryptonote
     bool verify(const std::vector<std::string> &args);
     bool export_key_images(const std::vector<std::string> &args);
     bool import_key_images(const std::vector<std::string> &args);
+    bool hw_key_images_sync(const std::vector<std::string> &args);
     bool hw_reconnect(const std::vector<std::string> &args);
     bool export_outputs(const std::vector<std::string> &args);
     bool import_outputs(const std::vector<std::string> &args);
@@ -224,6 +226,7 @@ namespace cryptonote
     bool unblackball(const std::vector<std::string>& args);
     bool blackballed(const std::vector<std::string>& args);
     bool version(const std::vector<std::string>& args);
+    bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
 
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);

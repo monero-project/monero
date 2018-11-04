@@ -1801,6 +1801,27 @@ bool simple_wallet::version(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func)
+{
+  std::vector<std::string> tx_aux;
+
+  message_writer(console_color_white, false) << tr("Please confirm the transaction on the device");
+
+  m_wallet->cold_sign_tx(ptx_vector, exported_txs, dsts_info, tx_aux);
+
+  if (accept_func && !accept_func(exported_txs))
+  {
+    MERROR("Transactions rejected by callback");
+    return false;
+  }
+
+  // aux info
+  m_wallet->cold_tx_aux_import(exported_txs.ptx, tx_aux);
+
+  // import key images
+  return m_wallet->import_key_images(exported_txs.key_images);
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -2253,6 +2274,33 @@ bool simple_wallet::set_ignore_fractional_outputs(const std::vector<std::string>
   return true;
 }
 
+bool simple_wallet::set_device_name(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    if (args.size() == 0){
+      fail_msg_writer() << tr("Device name not specified");
+      return true;
+    }
+
+    m_wallet->device_name(args[0]);
+    bool r = false;
+    try {
+      r = m_wallet->reconnect_device();
+      if (!r){
+        fail_msg_writer() << tr("Device reconnect failed");
+      }
+
+    } catch(const std::exception & e){
+      MWARNING("Device reconnect failed: " << e.what());
+      fail_msg_writer() << tr("Device reconnect failed: ") << e.what();
+    }
+
+  }
+  return true;
+}
+
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if(args.empty())
@@ -2537,6 +2585,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::import_key_images, this, _1),
                            tr("import_key_images <file>"),
                            tr("Import a signed key images list and verify their spent status."));
+  m_cmd_binder.set_handler("hw_key_images_sync",
+                           boost::bind(&simple_wallet::hw_key_images_sync, this, _1),
+                           tr("hw_key_images_sync"),
+                           tr("Synchronizes key images with the hw wallet."));
   m_cmd_binder.set_handler("hw_reconnect",
                            boost::bind(&simple_wallet::hw_reconnect, this, _1),
                            tr("hw_reconnect"),
@@ -2728,6 +2780,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("subaddress-lookahead", set_subaddress_lookahead, tr("<major>:<minor>"));
     CHECK_SIMPLE_VARIABLE("segregation-height", set_segregation_height, tr("unsigned integer"));
     CHECK_SIMPLE_VARIABLE("ignore-fractional-outputs", set_ignore_fractional_outputs, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("device-name", set_device_name, tr("<device_name[:device_spec]>"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
@@ -4834,12 +4887,14 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     local_args.pop_back();
   }
 
+  vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
   size_t num_subaddresses = 0;
   for (size_t i = 0; i < local_args.size(); )
   {
+    dsts_info.emplace_back();
+    cryptonote::address_parse_info & info = dsts_info.back();
     cryptonote::tx_destination_entry de;
-    cryptonote::address_parse_info info;
     bool r = true;
 
     // check for a URI
@@ -5121,6 +5176,28 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       else
       {
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->get_account().get_device().has_tx_cold_sign())
+    {
+      try
+      {
+        tools::wallet2::signed_tx_set signed_tx;
+        if (!cold_sign_tx(ptx_vector, signed_tx, dsts_info, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); })){
+          fail_msg_writer() << tr("Failed to cold sign transaction with HW wallet");
+          return true;
+        }
+
+        commit_or_save(signed_tx.ptx, m_do_not_relay);
+      }
+      catch (const std::exception& e)
+      {
+        handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
+      }
+      catch (...)
+      {
+        LOG_ERROR("Unknown error");
+        fail_msg_writer() << tr("unknown error");
       }
     }
     else if (m_wallet->watch_only())
@@ -5543,6 +5620,31 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
       else
       {
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << "multisig_monero_tx";
+      }
+    }
+    else if (m_wallet->get_account().get_device().has_tx_cold_sign())
+    {
+      try
+      {
+        tools::wallet2::signed_tx_set signed_tx;
+        std::vector<cryptonote::address_parse_info> dsts_info;
+        dsts_info.push_back(info);
+
+        if (!cold_sign_tx(ptx_vector, signed_tx, dsts_info, [&](const tools::wallet2::signed_tx_set &tx){ return accept_loaded_tx(tx); })){
+          fail_msg_writer() << tr("Failed to cold sign transaction with HW wallet");
+          return true;
+        }
+
+        commit_or_save(signed_tx.ptx, m_do_not_relay);
+      }
+      catch (const std::exception& e)
+      {
+        handle_transfer_exception(std::current_exception(), m_wallet->is_trusted_daemon());
+      }
+      catch (...)
+      {
+        LOG_ERROR("Unknown error");
+        fail_msg_writer() << tr("unknown error");
       }
     }
     else if (m_wallet->watch_only())
@@ -7788,6 +7890,48 @@ bool simple_wallet::import_key_images(const std::vector<std::string> &args)
   catch (const std::exception &e)
   {
     fail_msg_writer() << "Failed to import key images: " << e.what();
+    return true;
+  }
+
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::hw_key_images_sync(const std::vector<std::string> &args)
+{
+  if (!m_wallet->key_on_device())
+  {
+    fail_msg_writer() << tr("command only supported by HW wallet");
+    return true;
+  }
+  if (!m_wallet->get_account().get_device().has_ki_cold_sync())
+  {
+    fail_msg_writer() << tr("hw wallet does not support cold KI sync");
+    return true;
+  }
+  if (!m_wallet->is_trusted_daemon())
+  {
+    fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
+    return true;
+  }
+
+  LOCK_IDLE_SCOPE();
+  try
+  {
+    message_writer(console_color_white, false) << tr("Please confirm the key image sync on the device");
+
+    uint64_t spent = 0, unspent = 0;
+    uint64_t height = m_wallet->cold_key_image_sync(spent, unspent);
+    if (height > 0)
+    {
+      success_msg_writer() << tr("Signed key images imported to height ") << height << ", "
+          << print_money(spent) << tr(" spent, ") << print_money(unspent) << tr(" unspent");
+    } else {
+      fail_msg_writer() << tr("Failed to import key images");
+    }
+  }
+  catch (const std::exception &e)
+  {
+    fail_msg_writer() << tr("Failed to import key images: ") << e.what();
     return true;
   }
 
