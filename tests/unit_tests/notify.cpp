@@ -44,7 +44,14 @@ TEST(notify, works)
 #ifdef __GLIBC__
   mode_t prevmode = umask(077);
 #endif
-  char name_template[] = "/tmp/monero-notify-unit-test-XXXXXX";
+  const char *tmp = getenv("TEMP");
+  if (!tmp)
+    tmp = "/tmp";
+  static const char *filename = "monero-notify-unit-test-XXXXXX";
+  const size_t len = strlen(tmp) + 1 + strlen(filename);
+  char *name_template = (char*)malloc(len + 1);
+  ASSERT_TRUE(name_template != NULL);
+  snprintf(name_template, len + 1, "%s/%s", tmp, filename);
   int fd = mkstemp(name_template);
 #ifdef __GLIBC__
   umask(prevmode);
@@ -68,4 +75,5 @@ TEST(notify, works)
   ASSERT_TRUE(s == "1111111111111111111111111111111111111111111111111111111111111111");
 
   boost::filesystem::remove(name_template);
+  free(name_template);
 }
