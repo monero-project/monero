@@ -58,15 +58,6 @@ namespace
 }
 
 namespace rct {
-    Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
-    {
-        mask = rct::skGen();
-        Bulletproof proof = bulletproof_PROVE(amount, mask);
-        CHECK_AND_ASSERT_THROW_MES(proof.V.size() == 1, "V has not exactly one element");
-        C = proof.V[0];
-        return proof;
-    }
-
     Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts)
     {
         masks = rct::skvGen(amounts.size());
