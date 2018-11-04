@@ -59,7 +59,8 @@ const char* const HardForkInfo::name = "hard_fork_info";
 const char* const GetOutputHistogram::name = "get_output_histogram";
 const char* const GetOutputKeys::name = "get_output_keys";
 const char* const GetRPCVersion::name = "get_rpc_version";
-const char* const GetPerKBFeeEstimate::name = "get_dynamic_per_kb_fee_estimate";
+const char* const GetFeeEstimate::name = "get_dynamic_fee_estimate";
+const char* const GetOutputDistribution::name = "get_output_distribution";
 
 
 
@@ -825,7 +826,7 @@ void GetRPCVersion::Response::fromJson(rapidjson::Value& val)
   GET_FROM_JSON_OBJECT(val, version, version);
 }
 
-rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc) const
+rapidjson::Value GetFeeEstimate::Request::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
@@ -836,27 +837,70 @@ rapidjson::Value GetPerKBFeeEstimate::Request::toJson(rapidjson::Document& doc) 
   return val;
 }
 
-void GetPerKBFeeEstimate::Request::fromJson(rapidjson::Value& val)
+void GetFeeEstimate::Request::fromJson(rapidjson::Value& val)
 {
   GET_FROM_JSON_OBJECT(val, num_grace_blocks, num_grace_blocks);
 }
 
-rapidjson::Value GetPerKBFeeEstimate::Response::toJson(rapidjson::Document& doc) const
+rapidjson::Value GetFeeEstimate::Response::toJson(rapidjson::Document& doc) const
 {
   auto val = Message::toJson(doc);
 
   auto& al = doc.GetAllocator();
 
-  INSERT_INTO_JSON_OBJECT(val, doc, estimated_fee_per_kb, estimated_fee_per_kb);
+  INSERT_INTO_JSON_OBJECT(val, doc, estimated_base_fee, estimated_base_fee);
+  INSERT_INTO_JSON_OBJECT(val, doc, fee_mask, fee_mask);
+  INSERT_INTO_JSON_OBJECT(val, doc, size_scale, size_scale);
+  INSERT_INTO_JSON_OBJECT(val, doc, hard_fork_version, hard_fork_version);
 
   return val;
 }
 
-void GetPerKBFeeEstimate::Response::fromJson(rapidjson::Value& val)
+void GetFeeEstimate::Response::fromJson(rapidjson::Value& val)
 {
-  GET_FROM_JSON_OBJECT(val, estimated_fee_per_kb, estimated_fee_per_kb);
+  GET_FROM_JSON_OBJECT(val, estimated_base_fee, estimated_base_fee);
+  GET_FROM_JSON_OBJECT(val, fee_mask, fee_mask);
+  GET_FROM_JSON_OBJECT(val, size_scale, size_scale);
+  GET_FROM_JSON_OBJECT(val, hard_fork_version, hard_fork_version);
 }
 
+rapidjson::Value GetOutputDistribution::Request::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, amounts, amounts);
+  INSERT_INTO_JSON_OBJECT(val, doc, from_height, from_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, to_height, to_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, cumulative, cumulative);
+
+  return val;
+}
+
+void GetOutputDistribution::Request::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, amounts, amounts);
+  GET_FROM_JSON_OBJECT(val, from_height, from_height);
+  GET_FROM_JSON_OBJECT(val, to_height, to_height);
+  GET_FROM_JSON_OBJECT(val, cumulative, cumulative);
+}
+
+rapidjson::Value GetOutputDistribution::Response::toJson(rapidjson::Document& doc) const
+{
+  auto val = Message::toJson(doc);
+  auto& al = doc.GetAllocator();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, status, status);
+  INSERT_INTO_JSON_OBJECT(val, doc, distributions, distributions);
+
+  return val;
+}
+
+void GetOutputDistribution::Response::fromJson(rapidjson::Value& val)
+{
+  GET_FROM_JSON_OBJECT(val, status, status);
+  GET_FROM_JSON_OBJECT(val, distributions, distributions);
+}
 
 }  // namespace rpc
 

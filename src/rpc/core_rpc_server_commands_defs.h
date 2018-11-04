@@ -33,6 +33,7 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
+#include "rpc/rpc_handler.h"
 
 namespace cryptonote
 {
@@ -2233,21 +2234,19 @@ namespace cryptonote
 
     struct distribution
     {
+      rpc::output_distribution_data data;
       uint64_t amount;
-      uint64_t start_height;
       bool binary;
-      std::vector<uint64_t> distribution;
-      uint64_t base;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
-        KV_SERIALIZE(start_height)
+        KV_SERIALIZE_N(data.start_height, "start_height")
         KV_SERIALIZE(binary)
         if (this_ref.binary)
-          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(distribution)
+          KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
         else
-          KV_SERIALIZE(distribution)
-        KV_SERIALIZE(base)
+          KV_SERIALIZE_N(data.distribution, "distribution")
+        KV_SERIALIZE_N(data.base, "base")
       END_KV_SERIALIZE_MAP()
     };
 

@@ -28,6 +28,9 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <vector>
+
 #include "message.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/message_data_structs.h"
@@ -61,8 +64,6 @@ class classname \
 #define END_RPC_MESSAGE_REQUEST };
 #define END_RPC_MESSAGE_RESPONSE };
 #define END_RPC_MESSAGE_CLASS };
-
-#define COMMA() ,
 
 // NOTE: when using a type with multiple template parameters,
 // replace any comma in the template specifier with the macro
@@ -118,7 +119,8 @@ BEGIN_RPC_MESSAGE_CLASS(GetTransactions);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, tx_hashes);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::unordered_map<crypto::hash COMMA() cryptonote::rpc::transaction_info>, txs);
+    using txes_map = std::unordered_map<crypto::hash, transaction_info>;
+    RPC_MESSAGE_MEMBER(txes_map, txs);
     RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, missed_hashes);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
@@ -407,12 +409,27 @@ BEGIN_RPC_MESSAGE_CLASS(GetRPCVersion);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
-BEGIN_RPC_MESSAGE_CLASS(GetPerKBFeeEstimate);
+BEGIN_RPC_MESSAGE_CLASS(GetFeeEstimate);
   BEGIN_RPC_MESSAGE_REQUEST;
     RPC_MESSAGE_MEMBER(uint64_t, num_grace_blocks);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(uint64_t, estimated_fee_per_kb);
+    RPC_MESSAGE_MEMBER(uint64_t, estimated_base_fee);
+    RPC_MESSAGE_MEMBER(uint64_t, fee_mask);
+    RPC_MESSAGE_MEMBER(uint32_t, size_scale);
+    RPC_MESSAGE_MEMBER(uint8_t, hard_fork_version);
+  END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(GetOutputDistribution);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, amounts);
+    RPC_MESSAGE_MEMBER(uint64_t, from_height);
+    RPC_MESSAGE_MEMBER(uint64_t, to_height);
+    RPC_MESSAGE_MEMBER(bool, cumulative);
+  END_RPC_MESSAGE_REQUEST;
+  BEGIN_RPC_MESSAGE_RESPONSE;
+    RPC_MESSAGE_MEMBER(std::vector<output_distribution>, distributions);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 

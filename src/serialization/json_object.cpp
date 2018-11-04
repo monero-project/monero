@@ -1232,6 +1232,29 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
   GET_FROM_JSON_OBJECT(val, info.start_time, start_time);
 }
 
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_distribution& dist, rapidjson::Value& val)
+{
+  val.SetObject();
+
+  INSERT_INTO_JSON_OBJECT(val, doc, distribution, dist.data.distribution);
+  INSERT_INTO_JSON_OBJECT(val, doc, amount, dist.amount);
+  INSERT_INTO_JSON_OBJECT(val, doc, start_height, dist.data.start_height);
+  INSERT_INTO_JSON_OBJECT(val, doc, base, dist.data.base);
+}
+
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_distribution& dist)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, dist.data.distribution, distribution);
+  GET_FROM_JSON_OBJECT(val, dist.amount, amount);
+  GET_FROM_JSON_OBJECT(val, dist.data.start_height, start_height);
+  GET_FROM_JSON_OBJECT(val, dist.data.base, base);
+}
+
 }  // namespace json
 
 }  // namespace cryptonote
