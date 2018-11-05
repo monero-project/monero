@@ -37,8 +37,8 @@
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "bcutil"
 
 namespace po = boost::program_options;
 using namespace epee;
@@ -107,12 +107,12 @@ int main(int argc, char* argv[])
 
   if (command_line::get_arg(vm, command_line::arg_help))
   {
-    std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << ENDL << ENDL;
+    std::cout << "Loki '" << LOKI_RELEASE_NAME << "' (v" << LOKI_VERSION_FULL << ")" << ENDL << ENDL;
     std::cout << desc_options << std::endl;
     return 1;
   }
 
-  mlog_configure(mlog_get_default_log_path("monero-blockchain-stats.log"), true);
+  mlog_configure(mlog_get_default_log_path("loki-blockchain-stats.log"), true);
   if (!command_line::is_arg_defaulted(vm, arg_log_level))
     mlog_set_log(command_line::get_arg(vm, arg_log_level).c_str());
   else
@@ -139,9 +139,20 @@ int main(int argc, char* argv[])
   }
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  std::unique_ptr<Blockchain> core_storage;
-  tx_memory_pool m_mempool(*core_storage);
-  core_storage.reset(new Blockchain(m_mempool));
+  struct BlockchainObjects // This is done this way because of the circular constructors.
+  {
+    Blockchain m_blockchain;
+    tx_memory_pool m_mempool;
+    service_nodes::service_node_list m_service_node_list;
+    loki::deregister_vote_pool m_deregister_vote_pool;
+    BlockchainObjects() :
+      m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
+      m_service_node_list(m_blockchain),
+      m_mempool(m_blockchain) { }
+  };
+
+  BlockchainObjects *blockchain_objects = new BlockchainObjects();
+  Blockchain *core_storage = &blockchain_objects->m_blockchain;
   BlockchainDB *db = new_db(db_type);
   if (db == NULL)
   {
@@ -179,7 +190,7 @@ int main(int argc, char* argv[])
 /*
  * The default output can be plotted with GnuPlot using these commands:
 set key autotitle columnhead
-set title "Monero Blockchain Growth"
+set title "Loki Blockchain Growth"
 set timefmt "%Y-%m-%d"
 set xdata time
 set xrange ["2014-04-17":*]
