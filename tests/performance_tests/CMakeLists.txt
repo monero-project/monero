@@ -46,6 +46,8 @@ set(performance_tests_headers
   range_proof.h
   bulletproof.h
   crypto_ops.h
+  sc_reduce32.h
+  sc_check.h
   multiexp.h
   multi_tx_test_base.h
   performance_tests.h

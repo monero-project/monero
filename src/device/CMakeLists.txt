@@ -45,6 +45,7 @@ set(device_headers
   device.hpp
   device_io.hpp
   device_default.hpp
+  device_cold.hpp
   log.hpp
  )
 
@@ -73,5 +74,6 @@ target_link_libraries(device
     cncrypto
     ringct_basic
     ${OPENSSL_CRYPTO_LIBRARIES}
+    ${Boost_SERIALIZATION_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

@@ -102,6 +102,16 @@ set(blockchain_depth_private_headers)
 loki_private_headers(blockchain_depth
 	  ${blockchain_depth_private_headers})
 
+set(blockchain_stats_sources
+  blockchain_stats.cpp
+  )
+
+set(blockchain_stats_private_headers)
+
+loki_private_headers(blockchain_stats
+	  ${blockchain_stats_private_headers})
+
+
 loki_add_executable(blockchain_import
   ${blockchain_import_sources}
   ${blockchain_import_private_headers})
@@ -236,3 +246,23 @@ set_property(TARGET blockchain_depth
 	OUTPUT_NAME "loki-blockchain-depth")
 install(TARGETS blockchain_depth DESTINATION bin)
 
+loki_add_executable(blockchain_stats
+  ${blockchain_stats_sources}
+  ${blockchain_stats_private_headers})
+
+target_link_libraries(blockchain_stats
+  PRIVATE
+    cryptonote_core
+    blockchain_db
+    version
+    epee
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+set_property(TARGET blockchain_stats
+	PROPERTY
+	OUTPUT_NAME "loki-blockchain-stats")
+install(TARGETS blockchain_stats DESTINATION bin)
