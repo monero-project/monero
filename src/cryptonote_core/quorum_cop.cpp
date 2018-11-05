@@ -161,12 +161,10 @@ namespace service_nodes
     if (!m_core.is_service_node(pubkey))
       return false;
 
-    if (!(proof.snode_version_major == 2 &&
-          proof.snode_version_minor == 0 &&
-          proof.snode_version_patch == 0))
-    {
-      return false;
-    }
+    uint64_t height = m_core.get_current_blockchain_height();
+    int version     = m_core.get_hard_fork_version(height);
+    if (version >= cryptonote::Blockchain::version_10_swarms && proof.snode_version_major != 2)
+      return false; // NOTE: Only care about major version for now
 
     CRITICAL_REGION_LOCAL(m_lock);
     if (m_uptime_proof_seen[pubkey] >= now - (UPTIME_PROOF_FREQUENCY_IN_SECONDS / 2))
