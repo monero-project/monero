@@ -117,8 +117,7 @@ namespace rct {
 
     //generates C =aG + bH from b, a is given..
     void genC(key & C, const key & a, xmr_amount amount) {
-        key bH = scalarmultH(d2h(amount));
-        addKeys1(C, a, bH);
+        addKeys2(C, a, d2h(amount), rct::H);
     }
 
     //generates a <secret , public> / Pedersen commitment to the amount
@@ -149,10 +148,8 @@ namespace rct {
     }
 
     key commit(xmr_amount amount, const key &mask) {
-        key c = scalarmultBase(mask);
-        key am = d2h(amount);
-        key bH = scalarmultH(am);
-        addKeys(c, c, bH);
+        key c;
+        genC(c, mask, amount);
         return c;
     }
 
