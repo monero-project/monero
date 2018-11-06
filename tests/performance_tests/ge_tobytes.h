@@ -35,7 +35,7 @@
 
 #include "single_tx_test_base.h"
 
-class test_ge_frombytes_vartime : public multi_tx_test_base<1>
+class test_ge_tobytes : public multi_tx_test_base<1>
 {
 public:
   static const size_t loop_count = 10000;
@@ -59,19 +59,21 @@ public:
 
     if (!construct_tx(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, boost::none, std::vector<uint8_t>(), m_tx, 0))
       return false;
-
+    
     const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
-    m_key = rct::ki2rct(txin.k_image);
+    if (ge_frombytes_vartime(&m_p3, (const unsigned char*) &txin.k_image) != 0)
+      return false;
 
     return true;
   }
 
   bool test()
   {
-    ge_p3 unp;
-    return ge_frombytes_vartime(&unp, (const unsigned char*) &m_key) == 0;
+    rct::key key;
+    ge_p3_tobytes(key.bytes, &m_p3);
+    return true;
   }
 
 private:
-  rct::key m_key;
+  ge_p3 m_p3;
 };
