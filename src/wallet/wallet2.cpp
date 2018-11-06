@@ -7310,6 +7310,20 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       outs.push_back(v);
     }
   }
+
+  // save those outs in the ringdb for reuse
+  for (size_t i = 0; i < selected_transfers.size(); ++i)
+  {
+    const size_t idx = selected_transfers[i];
+    THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error, "selected_transfers entry out of range");
+    const transfer_details &td = m_transfers[idx];
+    std::vector<uint64_t> ring;
+    ring.reserve(outs[i].size());
+    for (const auto &e: outs[i])
+      ring.push_back(std::get<0>(e));
+    if (!set_ring(td.m_key_image, ring, false))
+      MERROR("Failed to set ring for " << td.m_key_image);
+  }
 }
 
 template<typename T>
