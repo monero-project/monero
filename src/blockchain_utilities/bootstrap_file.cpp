@@ -304,7 +304,7 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
     }
     if (m_cur_height % progress_interval == 0) {
       std::cout << refresh_string;
-      std::cout << "block " << m_cur_height << "/" << block_stop << std::flush;
+      std::cout << "block " << m_cur_height << "/" << block_stop << "\r" << std::flush;
     }
   }
   // NOTE: use of NUM_BLOCKS_PER_CHUNK is a placeholder in case multi-block chunks are later supported.
@@ -479,7 +479,7 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, std::s
     bytes_read += count_bytes(import_file, progress_interval, blocks, quit);
     h += blocks;
     std::cout << "\r" << "block height: " << h-1 <<
-      "    " <<
+      "    \r" <<
       std::flush;
 
     // std::cout << refresh_string;
