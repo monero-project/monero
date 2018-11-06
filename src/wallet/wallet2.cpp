@@ -11069,7 +11069,8 @@ std::string wallet2::export_outputs_to_str() const
 
   std::stringstream oss;
   boost::archive::portable_binary_oarchive ar(oss);
-  ar << export_outputs();
+  const auto& outputs = export_outputs();
+  ar << outputs;
 
   std::string magic(OUTPUT_EXPORT_FILE_MAGIC, strlen(OUTPUT_EXPORT_FILE_MAGIC));
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
