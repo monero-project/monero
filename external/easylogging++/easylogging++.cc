@@ -1981,6 +1981,12 @@ void VRegistry::setCategories(const char* categories, bool clear) {
     m_categoriesString += ",";
   m_categoriesString += categories;
 
+  size_t n_fields = m_categories.size() + 1;
+  for (const char *ptr = categories; *ptr; ++ptr)
+    if (*ptr == ',')
+      ++n_fields;
+  m_categories.reserve(n_fields);
+
   bool isCat = true;
   bool isLevel = false;
   std::stringstream ss;
@@ -2042,7 +2048,7 @@ bool VRegistry::allowed(Level level, const char* category) {
   if (m_categories.empty() || category == nullptr) {
     return false;
   } else {
-    std::deque<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
+    std::vector<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
     for (; it != m_categories.rend(); ++it) {
       if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
         const int p = priority(it->second);
