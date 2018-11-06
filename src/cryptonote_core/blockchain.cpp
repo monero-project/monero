@@ -1805,6 +1805,7 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
       case STAGENET: start_height = stagenet_hard_forks[3].height; break;
       case TESTNET: start_height = testnet_hard_forks[3].height; break;
       case MAINNET: start_height = mainnet_hard_forks[3].height; break;
+      case FAKECHAIN: start_height = 0; break;
       default: return false;
     }
   }
