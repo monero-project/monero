@@ -212,9 +212,10 @@ namespace trezor {
                                 tools::wallet2::signed_tx_set & signed_tx,
                                 hw::tx_aux_data & aux_data)
     {
+      CHECK_AND_ASSERT_THROW_MES(unsigned_tx.transfers.first == 0, "Unsuported non zero offset");
       size_t num_tx = unsigned_tx.txes.size();
       signed_tx.key_images.clear();
-      signed_tx.key_images.resize(unsigned_tx.transfers.size());
+      signed_tx.key_images.resize(unsigned_tx.transfers.second.size());
 
       for(size_t tx_idx = 0; tx_idx < num_tx; ++tx_idx) {
         std::shared_ptr<protocol::tx::Signer> signer;
