@@ -37,7 +37,7 @@ extern "C" {
 #define TEST_KECCAK(sz, chunks) \
   std::string data; \
   data.resize(sz); \
-  for (size_t i = 0; i < sz; ++i) \
+  for (size_t i = 0; i < data.size(); ++i) \
     data[i] = i * 17; \
   uint8_t md0[32], md1[32]; \
   keccak((const uint8_t*)data.data(), data.size(), md0, 32); \
