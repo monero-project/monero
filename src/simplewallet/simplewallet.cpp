@@ -130,6 +130,64 @@ enum TransferType {
   TransferLocked,
 };
 
+#define LOKI_DEVELOPER 1
+#if defined(LOKI_DEVELOPER)
+#define SHOOM_IMPLEMENTATION
+#include "shoom.h"
+
+#define LOKI_ARRAY_COUNT(array) (sizeof(array)/sizeof(array[0]))
+#define LOKI_MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+shoom::Shm wallet_stdout_shared_mem("loki_integration_testing_wallet_stdout", 8192);
+static std::ostringstream global_debug_cout;
+static std::streambuf    *global_old_cout;
+
+void use_standard_cout() { std::cout.rdbuf(global_old_cout); }
+void use_debug_cout()    { std::cout.rdbuf(global_debug_cout.rdbuf()); }
+
+char stdin_buf[8192];
+char const *blocking_read_stdin_from_shared_mem()
+{
+    for (;;)
+    {
+        shoom::Shm shared_mem("loki_integration_testing_wallet_stdin", LOKI_ARRAY_COUNT(stdin_buf));
+        shared_mem.Create();
+
+        char *buf = reinterpret_cast<char *>(shared_mem.Data());
+        if (buf[0])
+        {
+            memcpy(stdin_buf, buf, LOKI_MIN(strlen(buf), LOKI_ARRAY_COUNT(stdin_buf)));
+            buf[0] = 0;
+            return stdin_buf;
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
+        }
+    }
+}
+
+void blocking_write_to_stdout_shared_mem(std::string const &input)
+{
+    shoom::Shm shared_mem("loki_integration_testing_wallet_stdout", LOKI_ARRAY_COUNT(stdin_buf));
+    shared_mem.Create();
+
+    for (;;)
+    {
+        char *buf = reinterpret_cast<char *>(shared_mem.Data());
+        if (buf[0])
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
+        }
+        else
+        {
+            memcpy(buf, input.c_str(), LOKI_MIN(input.size(), LOKI_ARRAY_COUNT(stdin_buf)));
+            return;
+        }
+    }
+}
+#endif // LOKI_DEVELOPER
+
 namespace
 {
   const std::array<const char* const, 5> allowed_priority_strings = {{"default", "unimportant", "normal", "elevated", "priority"}};
@@ -160,13 +218,18 @@ namespace
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
-    std::cout << prompt;
 
+    std::cout << prompt;
     std::string buf;
-#ifdef _WIN32
-    buf = tools::input_line_win();
+#if defined (LOKI_DEVELOPER)
+    buf.reserve(LOKI_ARRAY_COUNT(stdin_buf));
+    buf = blocking_read_stdin_from_shared_mem();
 #else
-    std::getline(std::cin, buf);
+  #ifdef _WIN32
+      buf = tools::input_line_win();
+  #else
+      std::getline(std::cin, buf);
+  #endif
 #endif
 
     return epee::string_tools::trim(buf);
@@ -8232,11 +8295,17 @@ std::string simple_wallet::get_prompt() const
   else if (!m_wallet->is_synced())
     prompt += tr(" (out of sync)");
   prompt += "]: ";
+
   return prompt;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
+#if defined(LOKI_DEVELOPER)
+    wallet_stdout_shared_mem.Create();
+    global_old_cout = std::cout.rdbuf();
+#endif
+
   // check and display warning, but go on anyway
   try_connect_to_daemon();
 
@@ -8246,7 +8315,51 @@ bool simple_wallet::run()
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
   message_writer(console_color_green, false) << "Background refresh thread started";
-  return m_cmd_binder.run_handling([this](){return get_prompt();}, "");
+
+#if defined(LOKI_DEVELOPER)
+  for (;;)
+  {
+      use_standard_cout();
+      std::cout << get_prompt();
+
+      std::vector<std::string> args;
+      {
+          char const *cmd = blocking_read_stdin_from_shared_mem();
+          std::cout << cmd << std::endl;
+
+          char const *start = cmd;
+          for (char const *buf_ptr = cmd; *buf_ptr; ++buf_ptr)
+          {
+              if (buf_ptr[0] == ' ')
+              {
+                  std::string result(start, buf_ptr - start);
+                  start = buf_ptr + 1;
+                  args.push_back(result);
+              }
+          }
+
+          if (*start)
+          {
+              std::string last(start);
+              args.push_back(last);
+          }
+      }
+      use_debug_cout();
+      process_command(args);
+
+      std::string output = global_debug_cout.str();
+      global_debug_cout.flush();
+      global_debug_cout.str("");
+      global_debug_cout.clear();
+      blocking_write_to_stdout_shared_mem(output);
+
+      use_standard_cout();
+      std::cout << output << std::endl;
+      use_debug_cout();
+  }
+#else
+  return m_cmd_binder.run_handling([this]() {return get_prompt()}, "");
+#endif
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::stop()
