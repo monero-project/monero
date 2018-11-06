@@ -5105,11 +5105,27 @@ void wallet2::rescan_spent()
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::rescan_blockchain(bool refresh)
+void wallet2::rescan_blockchain(bool hard, bool refresh)
 {
-  clear();
+  if(hard)
+  {
+    clear();
+    setup_new_blockchain();
+  }
+  else
+  {
+    m_blockchain.clear();
+    m_transfers.clear();
+    m_key_images.clear();
+    m_pub_keys.clear();
+    m_scanned_pool_txs[0].clear();
+    m_scanned_pool_txs[1].clear();
 
-  setup_new_blockchain();
+    cryptonote::block b;
+    generate_genesis(b);
+    m_blockchain.push_back(get_block_hash(b));
+    m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
+  }
 
   if (refresh)
     this->refresh(false);

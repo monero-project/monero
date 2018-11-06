@@ -1057,7 +1057,10 @@ namespace wallet_rpc
   {
     struct request
     {
+      bool hard;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(hard, false);
       END_KV_SERIALIZE_MAP()
     };
 
