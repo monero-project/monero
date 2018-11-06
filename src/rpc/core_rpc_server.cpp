@@ -701,7 +701,7 @@ namespace cryptonote
       res.status = "Failed";
       res.reason = "";
       if ((res.low_mixin = tvc.m_low_mixin))
-        add_reason(res.reason, "ring size too small");
+        add_reason(res.reason, "bad ring size");
       if ((res.double_spend = tvc.m_double_spend))
         add_reason(res.reason, "double spend");
       if ((res.invalid_input = tvc.m_invalid_input))
