@@ -115,7 +115,7 @@ namespace cryptonote
       *
       * @return true if we haven't seen it before and thus need to relay.
       */
-     bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
+     bool handle_uptime_proof(const NOTIFY_UPTIME_PROOF::request &proof);
 
      /**
       * @brief handles an incoming transaction

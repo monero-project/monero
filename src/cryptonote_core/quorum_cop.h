@@ -55,7 +55,7 @@ namespace service_nodes
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
 
-    bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
+    bool handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);
 
     static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
     static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT,

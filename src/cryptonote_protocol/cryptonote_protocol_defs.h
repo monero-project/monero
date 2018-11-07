@@ -308,11 +308,18 @@ namespace cryptonote
 
     struct request
     {
+      uint16_t snode_version_major;
+      uint16_t snode_version_minor;
+      uint16_t snode_version_patch;
+
       uint64_t timestamp;
       crypto::public_key pubkey;
       crypto::signature sig;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(snode_version_major)
+        KV_SERIALIZE(snode_version_minor)
+        KV_SERIALIZE(snode_version_patch)
         KV_SERIALIZE(timestamp)
         KV_SERIALIZE_VAL_POD_AS_BLOB(pubkey)
         KV_SERIALIZE_VAL_POD_AS_BLOB(sig)
