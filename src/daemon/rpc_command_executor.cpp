@@ -39,6 +39,8 @@
 #include "cryptonote_basic/hardfork.h"
 #include <boost/format.hpp>
 
+#include "common/loki_integration_test_hooks.h"
+
 #include <fstream>
 #include <ctime>
 #include <string>
@@ -130,6 +132,27 @@ namespace {
     seconds = t;
     snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", hours, minutes, seconds);
     return std::string(buffer);
+  }
+
+
+  std::string input_line(char const *prompt = nullptr)
+  {
+    if (prompt) std::cout << prompt;
+
+    std::string result;
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::daemon);
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::daemon);
+    result.reserve(buffer.len);
+    result = buffer.data;
+#else
+
+  #ifdef HAVE_READLINE
+    rdln::suspend_readline pause_readline;
+  #endif
+    std::cin >> result;
+#endif
+    return result;
   }
 
   std::string make_error(const std::string &base, const std::string &status)
@@ -2426,10 +2449,6 @@ bool t_rpc_command_executor::prepare_registration()
     return true;
   }
 
-#ifdef HAVE_READLINE
-  rdln::suspend_readline pause_readline;
-#endif
-
   size_t number_participants = 1;
   uint64_t operating_cost_portions = STAKING_PORTIONS;
   bool is_solo_stake = false;
@@ -2450,9 +2469,7 @@ bool t_rpc_command_executor::prepare_registration()
 
   std::cout << "Current staking requirement: " << cryptonote::print_money(staking_requirement) << " " << cryptonote::get_unit() << std::endl;
   
-  std::string solo_stake;
-  std::cout << "Will the operator contribute the entire stake? (Y/Yes/N/No): ";
-  std::cin >> solo_stake;
+  std::string solo_stake = input_line("Will the operator contribute the entire stake? (Y/Yes/N/No): ");
   if(command_line::is_yes(solo_stake))
   {
     is_solo_stake = true;
@@ -2476,12 +2493,8 @@ bool t_rpc_command_executor::prepare_registration()
   }
   else
   {
-    std::string operating_cost_string;
-    std::cout << "What percentage of the total staking reward would the operator like to reserve as an operator fee [0-100]%: ";
-    std::cin >> operating_cost_string;
-    
-    // remove any trailing '%'
-    if(!operating_cost_string.empty() && operating_cost_string.back() == '%')
+    std::string operating_cost_string = input_line("What percentage of the total staking reward would the operator like to reserve as an operator fee [0-100]%: ");
+    if(!operating_cost_string.empty() && operating_cost_string.back() == '%') // remove any trailing '%'
     {
       operating_cost_string.pop_back();
     }
@@ -2521,9 +2534,7 @@ bool t_rpc_command_executor::prepare_registration()
 
     std::cout << "Minimum amount that can be reserved: " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
 
-    std::cout << "How much loki does the operator want to reserve in the stake? ";
-    std::string contribution_string;
-    std::cin >> contribution_string;
+    std::string contribution_string = input_line("How much loki does the operator want to reserve in the stake? ");
     uint64_t operator_cut;
     if(!cryptonote::parse_amount(operator_cut, contribution_string))
     {
@@ -2550,14 +2561,12 @@ bool t_rpc_command_executor::prepare_registration()
 
   if (!is_solo_stake)
   {
-    std::string allow_multiple_contributors;
-    std::cout << "Do you want to reserve portions of the stake for other specific contributors? (Y/Yes/N/No): ";
-    std::cin >> allow_multiple_contributors;
+    std::string allow_multiple_contributors = input_line("Do you want to reserve portions of the stake for other specific contributors? (Y/Yes/N/No): ");
     if(command_line::is_yes(allow_multiple_contributors))
     {
       std::cout << "Number of additional contributors [1-" << (MAX_NUMBER_OF_CONTRIBUTORS - 1) << "]: ";
-      int additional_contributors;
-      if(!(std::cin >> additional_contributors) || additional_contributors < 1 || additional_contributors > (MAX_NUMBER_OF_CONTRIBUTORS - 1))
+      int additional_contributors = std::stoi(input_line());
+      if(additional_contributors < 1 || additional_contributors > (MAX_NUMBER_OF_CONTRIBUTORS - 1))
       {
         std::cout << "Invalid value. Should be between [1-" << (MAX_NUMBER_OF_CONTRIBUTORS - 1) << "]" << std::endl;
         mlog_set_categories(categories.c_str());
@@ -2581,8 +2590,7 @@ bool t_rpc_command_executor::prepare_registration()
       std::cout << "There is " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " left to meet the staking requirement." << std::endl;
       std::cout << "How much loki does " << contributor_name << " want to reserve in the stake? ";
       uint64_t contribution_amount;
-      std::string contribution_string;
-      std::cin >> contribution_string;
+      std::string contribution_string = input_line();
       if (!cryptonote::parse_amount(contribution_amount, contribution_string))
       {
         std::cout << "Invalid amount. Aborted." << std::endl;
@@ -2603,15 +2611,9 @@ bool t_rpc_command_executor::prepare_registration()
       total_reserved_contributions += get_actual_amount(staking_requirement, portions);
     }
 
-    std::cout << "Enter the loki address for " << contributor_name << ": ";
-    std::string address_string;
     // the addresses will be validated later down the line
-    if(!(std::cin >> address_string))
-    {
-      std::cout << "Invalid address. Aborted." << std::endl;
-      mlog_set_categories(categories.c_str());
-      return true;
-    }
+    std::cout << "Enter the loki address for " << contributor_name << ": ";
+    std::string address_string = input_line();
     addresses.push_back(address_string);
   }
 
@@ -2626,9 +2628,7 @@ bool t_rpc_command_executor::prepare_registration()
     {
       std::cout << "Your total reservations do not equal the staking requirement." << std::endl;
       std::cout << "You will leave the remaining portion of " << cryptonote::print_money(amount_left) << " " << cryptonote::get_unit() << " open to contributions from anyone, and the Service Node will not activate until the full staking requirement is filled." << std::endl;
-      std::cout << "Is this ok? (Y/Yes/N/No): ";
-      std::string accept_pool_staking;
-      std::cin >> accept_pool_staking;
+      std::string accept_pool_staking = input_line("Is this ok? (Y/Yes/N/No): ");
       if(command_line::is_yes(accept_pool_staking))
       {
         // All good
@@ -2649,9 +2649,7 @@ bool t_rpc_command_executor::prepare_registration()
   }
 
   bool autostaking = false;
-  std::cout << "Do you wish to enable automatic re-staking [Y/N]: ";
-  std::string autostake_str;
-  std::cin >> autostake_str;
+  std::string autostake_str = input_line("Do you wish to enable automatic re-staking [Y/N]: ");
   if (command_line::is_yes(autostake_str))
   {
     autostaking = true;
@@ -2695,9 +2693,7 @@ bool t_rpc_command_executor::prepare_registration()
   std::cout << "amounts shown here are used as a guide only, and the percentages will remain\n";
   std::cout << "the same." << std::endl;
 
-  std::cout << "\nDo you confirm the information above is correct? (Y/Yes/N/No): ";
-  std::string confirm_string;
-  std::cin >> confirm_string;
+  std::string confirm_string = input_line("\nDo you confirm the information above is correct? (Y/Yes/N/No): ");
   if(command_line::is_yes(confirm_string))
   {
     // all good

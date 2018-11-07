@@ -21,12 +21,9 @@ struct fixed_buffer
   int  len;
 };
 
-std::ostringstream global_redirected_cout;
-std::streambuf    *global_std_cout;
-
 void         init_integration_test_context();
-inline void  use_standard_cout()   { std::cout.rdbuf(global_std_cout); }
-inline void  use_redirected_cout() { std::cout.rdbuf(global_redirected_cout.rdbuf()); }
+void         use_standard_cout();
+void         use_redirected_cout();
 
 enum struct shared_mem_type { wallet, daemon };
 void         write_to_stdout_shared_mem(shared_mem_type type, char const *buf, int buf_len);
@@ -48,6 +45,9 @@ void         write_redirected_stdout_to_shared_mem(shared_mem_type type);
 
 #define SHOOM_IMPLEMENTATION
 #include "shoom.h"
+
+std::ostringstream global_redirected_cout;
+std::streambuf    *global_std_cout;
 
 shoom::Shm wallet_stdout_shared_mem{"loki_integration_testing_wallet_stdout", 8192};
 shoom::Shm wallet_stdin_shared_mem {"loki_integration_testing_wallet_stdin",  8192};
@@ -90,6 +90,9 @@ void init_shared_mem(shoom::Shm *shared_mem, shared_mem_create create)
     }
   }
 }
+
+void loki::use_standard_cout()   { std::cout.rdbuf(global_std_cout); }
+void loki::use_redirected_cout() { std::cout.rdbuf(global_redirected_cout.rdbuf()); }
 
 void loki::init_integration_test_context()
 {
