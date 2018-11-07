@@ -507,7 +507,7 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         auto key_images = m_wallet->export_key_images();
         uint64_t spent = 0;
         uint64_t unspent = 0;
-        view_wallet->import_key_images(key_images,spent,unspent,false);
+        view_wallet->import_key_images(key_images.second, key_images.first, spent, unspent, false);
         clearStatus();
     } catch (const std::exception &e) {
         LOG_ERROR("Error creating view only wallet: " << e.what());
@@ -1051,8 +1051,8 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
   
   // Check tx data and construct confirmation message
   std::string extra_message;
-  if (!transaction->m_unsigned_tx_set.transfers.empty())
-    extra_message = (boost::format("%u outputs to import. ") % (unsigned)transaction->m_unsigned_tx_set.transfers.size()).str();
+  if (!transaction->m_unsigned_tx_set.transfers.second.empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)transaction->m_unsigned_tx_set.transfers.second.size()).str();
   transaction->checkLoadedTx([&transaction](){return transaction->m_unsigned_tx_set.txes.size();}, [&transaction](size_t n)->const tools::wallet2::tx_construction_data&{return transaction->m_unsigned_tx_set.txes[n];}, extra_message);
   setStatus(transaction->status(), transaction->errorString());
     
