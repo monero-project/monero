@@ -45,6 +45,7 @@
 #include "memwipe.h"
 
 #define EOT 0x4
+#define LOKI_DEVELOPER 1
 
 namespace
 {
@@ -118,6 +119,7 @@ namespace
 
 #else // end WIN32 
 
+#ifndef LOKI_DEVELOPER
   bool is_cin_tty() noexcept
   {
     return 0 != isatty(fileno(stdin));
@@ -179,9 +181,11 @@ namespace
 
     return true;
   }
+#endif // ifndef LOKI_DEVELOPER
 
 #endif // end !WIN32
 
+#ifndef LOKI_DEVELOPER
   bool read_from_tty(const bool verify, const char *message, bool hide_input, epee::wipeable_string& pass1, epee::wipeable_string& pass2)
   {
     while (true)
@@ -233,6 +237,7 @@ namespace
     }
     return true;
   }
+#endif // !defined(LOKI_DEVELOPER)
 
 } // anonymous namespace
 
@@ -258,6 +263,9 @@ namespace tools
 
   boost::optional<password_container> password_container::prompt(const bool verify, const char *message, bool hide_input)
   {
+#if defined(LOKI_DEVELOPER)
+    return password_container(std::string(""));
+#else
     is_prompting = true;
     password_container pass1{};
     password_container pass2{};
@@ -269,6 +277,7 @@ namespace tools
 
     is_prompting = false;
     return boost::none;
+#endif
   }
 
   boost::optional<login> login::parse(std::string&& userpass, bool verify, const std::function<boost::optional<password_container>(bool)> &prompt)

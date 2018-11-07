@@ -254,17 +254,31 @@ namespace
 
   std::string input_line(const std::string& prompt)
   {
+    std::string buf;
+#if defined (LOKI_DEVELOPER)
+    use_redirected_cout();
+    std::cout << prompt;
+
+    std::string output = global_debug_cout.str();
+    global_debug_cout.flush();
+    global_debug_cout.str("");
+    global_debug_cout.clear();
+    write_to_stdout_shared_mem(output);
+
+    use_standard_cout();
+    std::cout << output << std::endl;
+    use_redirected_cout();
+
+    loki_buffer buffer = read_from_stdin_shared_mem();
+    buf.reserve(buffer.len);
+    buf = buffer.data;
+#else
+
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
 
     std::cout << prompt;
-    std::string buf;
-#if defined (LOKI_DEVELOPER)
-    loki_buffer buffer = read_from_stdin_shared_mem();
-    buf.reserve(buffer.len);
-    buf = buffer.data;
-#else
   #ifdef _WIN32
       buf = tools::input_line_win();
   #else
@@ -277,9 +291,27 @@ namespace
 
   epee::wipeable_string input_secure_line(const std::string& prompt)
   {
-#ifdef HAVE_READLINE
+#if defined (LOKI_DEVELOPER)
+    use_redirected_cout();
+    std::cout << prompt;
+
+    std::string output = global_debug_cout.str();
+    global_debug_cout.flush();
+    global_debug_cout.str("");
+    global_debug_cout.clear();
+    write_to_stdout_shared_mem(output);
+
+    use_standard_cout();
+    std::cout << output << std::endl;
+    use_redirected_cout();
+
+    loki_buffer buffer = read_from_stdin_shared_mem();
+    epee::wipeable_string buf = buffer.data;
+#else
+
+  #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
-#endif
+  #endif
     auto pwd_container = tools::password_container::prompt(false, prompt.c_str(), false);
     if (!pwd_container)
     {
@@ -290,6 +322,7 @@ namespace
     epee::wipeable_string buf = pwd_container->password();
 
     buf.trim();
+#endif
     return buf;
   }
 
@@ -306,14 +339,31 @@ namespace
 
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
-#ifdef HAVE_READLINE
+#if defined(LOKI_DEVELOPER)
+    use_redirected_cout();
+    std::cout << prompt << ": NOTE(loki): Passwords not supported, defaulting to empty password";
+
+    std::string output = global_debug_cout.str();
+    global_debug_cout.flush();
+    global_debug_cout.str("");
+    global_debug_cout.clear();
+    write_to_stdout_shared_mem(output);
+
+    use_standard_cout();
+    std::cout << output << std::endl;
+    use_redirected_cout();
+
+    tools::password_container pwd_container(std::string(""));
+#else
+  #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
-#endif
+  #endif
     auto pwd_container = tools::password_container::prompt(verify, prompt);
     if (!pwd_container)
     {
       tools::fail_msg_writer() << sw::tr("failed to read wallet password");
     }
+#endif
     return pwd_container;
   }
 
