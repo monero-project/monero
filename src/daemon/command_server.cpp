@@ -33,6 +33,9 @@
 #include "string_tools.h"
 #include "daemon/command_server.h"
 
+#define LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
+#include "common/loki_integration_test_hooks.h"
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "daemon"
 
@@ -344,7 +347,42 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 {
   if (m_is_rpc) return false;
 
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  loki::init_integration_test_context();
+
+  for (;;)
+  {
+    loki::use_standard_cout();
+
+    std::vector<std::string> args;
+    {
+      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem(loki::shared_mem_type::daemon);
+      std::cout << cmd.data << std::endl;
+
+      char const *start = cmd.data;
+      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
+      {
+        if (buf_ptr[0] == ' ')
+        {
+          std::string result(start, buf_ptr - start);
+          start = buf_ptr + 1;
+          args.push_back(result);
+        }
+      }
+
+      if (*start)
+      {
+          std::string last(start);
+          args.push_back(last);
+      }
+    }
+    loki::use_redirected_cout();
+    process_command_vec(args);
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::daemon);
+  }
+#else
   m_command_lookup.start_handling("", get_commands_str(), exit_handler);
+#endif
 
   return true;
 }
