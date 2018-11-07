@@ -3197,8 +3197,11 @@ void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint6
   TXN_POSTFIX_RDONLY();
 }
 
-void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial)
+void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial)
 {
+  if (amounts.size() != 1 && amounts.size() != offsets.size())
+    throw0(DB_ERROR("Invalid sizes of amounts and offets"));
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   TIME_MEASURE_START(db3);
   check_open();
@@ -3209,10 +3212,11 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 
   RCURSOR(output_amounts);
 
-  MDB_val_set(k, amount);
-  for (const uint64_t &index : offsets)
+  for (size_t i = 0; i < offsets.size(); ++i)
   {
-    MDB_val_set(v, index);
+    const uint64_t amount = amounts.size() == 1 ? amounts[0] : amounts[i];
+    MDB_val_set(k, amount);
+    MDB_val_set(v, offsets[i]);
 
     auto get_result = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_GET_BOTH);
     if (get_result == MDB_NOTFOUND)
@@ -3222,7 +3226,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
         MDEBUG("Partial result: " << outputs.size() << "/" << offsets.size());
         break;
       }
-      throw1(OUTPUT_DNE((std::string("Attempting to get output pubkey by global index (amount ") + boost::lexical_cast<std::string>(amount) + ", index " + boost::lexical_cast<std::string>(index) + ", count " + boost::lexical_cast<std::string>(get_num_outputs(amount)) + "), but key does not exist (current height " + boost::lexical_cast<std::string>(height()) + ")").c_str()));
+      throw1(OUTPUT_DNE((std::string("Attempting to get output pubkey by global index (amount ") + boost::lexical_cast<std::string>(amount) + ", index " + boost::lexical_cast<std::string>(offsets[i]) + ", count " + boost::lexical_cast<std::string>(get_num_outputs(amount)) + "), but key does not exist (current height " + boost::lexical_cast<std::string>(height()) + ")").c_str()));
     }
     else if (get_result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output pubkey from the db", get_result).c_str()));
