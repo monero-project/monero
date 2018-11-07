@@ -85,6 +85,9 @@
 #include <sys/stat.h>
 #endif
 
+#define LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
+#include "common/loki_integration_test_hooks.h"
+
 #ifdef WIN32
 #include <boost/locale.hpp>
 #include <boost/filesystem.hpp>
@@ -93,103 +96,6 @@
 #ifdef HAVE_READLINE
 #include "readline_buffer.h"
 #endif
-
-#define LOKI_DEVELOPER 1
-#if defined(LOKI_DEVELOPER)
-#define SHOOM_IMPLEMENTATION
-#include "shoom.h"
-
-#define LOKI_ARRAY_COUNT(array) (sizeof(array)/sizeof(array[0]))
-#define LOKI_MIN(a, b) (((a) < (b)) ? (a) : (b))
-
-shoom::Shm wallet_stdout_shared_mem("loki_integration_testing_wallet_stdout", 8192);
-shoom::Shm wallet_stdin_shared_mem ("loki_integration_testing_wallet_stdin", 8192);
-const uint32_t CONFIRM_READ_MAGIC_BYTES = 0x7428da3f;
-static std::ostringstream global_debug_cout;
-static std::streambuf    *global_old_cout;
-
-void use_standard_cout() { std::cout.rdbuf(global_old_cout); }
-void use_redirected_cout()    { std::cout.rdbuf(global_debug_cout.rdbuf()); }
-
-struct loki_buffer
-{
-  static const int SIZE = 8192;
-  char data[SIZE];
-  int  len;
-};
-
-static void make_message(char *msg_buf, int msg_buf_len, char const *msg_data, int msg_data_len)
-{
-  uint64_t timestamp = time(nullptr);
-  int total_len      = static_cast<int>(sizeof(timestamp) + sizeof(CONFIRM_READ_MAGIC_BYTES) + msg_data_len);
-  assert(total_len < msg_buf_len);
-
-  char *ptr = msg_buf;
-  memcpy(ptr, &timestamp, sizeof(timestamp));
-  ptr += sizeof(timestamp);
-
-  memcpy(ptr, (char *)&CONFIRM_READ_MAGIC_BYTES, sizeof(CONFIRM_READ_MAGIC_BYTES));
-  ptr += sizeof(CONFIRM_READ_MAGIC_BYTES);
-
-  memcpy(ptr, msg_data, msg_data_len);
-  ptr += sizeof(msg_data);
-
-  msg_buf[total_len] = 0;
-}
-
-static char const *parse_message(char const *msg_buf, int msg_buf_len, uint64_t *timestamp)
-{
-  char const *ptr = msg_buf;
-  *timestamp = *((uint64_t const *)ptr);
-  ptr += sizeof(*timestamp);
-
-  if ((*(uint32_t const *)ptr) != CONFIRM_READ_MAGIC_BYTES)
-    return nullptr;
-
-  ptr += sizeof(CONFIRM_READ_MAGIC_BYTES);
-  assert(ptr < msg_buf + msg_buf_len);
-  return ptr;
-}
-
-void write_to_stdout_shared_mem(char const *bytes, int len)
-{
-  make_message((char *)wallet_stdout_shared_mem.Data(), wallet_stdout_shared_mem.Size(), bytes, len);
-}
-
-void write_to_stdout_shared_mem(std::string const &input)
-{
-  write_to_stdout_shared_mem(input.c_str(), input.size());
-}
-
-loki_buffer read_from_stdin_shared_mem()
-{
-  static uint64_t last_timestamp = 0;
-  uint64_t timestamp             = 0;
-  char const *input              = nullptr;
-
-  for (;;)
-  {
-    wallet_stdin_shared_mem.Open();
-    char *data = reinterpret_cast<char *>(wallet_stdin_shared_mem.Data());
-    input = parse_message(data, wallet_stdin_shared_mem.Size(), &timestamp);
-    if (input && last_timestamp != timestamp)
-    {
-      last_timestamp = timestamp;
-      break;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
-  }
-
-  loki_buffer result = {};
-  result.len = strlen(input);
-  assert(result.len <= loki_buffer::SIZE);
-  memcpy(result.data, input, result.len);
-  return result;
-}
-
-#endif // LOKI_DEVELOPER
-
 
 using namespace std;
 using namespace epee;
@@ -255,21 +161,12 @@ namespace
   std::string input_line(const std::string& prompt)
   {
     std::string buf;
-#if defined (LOKI_DEVELOPER)
-    use_redirected_cout();
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    loki::use_redirected_cout();
     std::cout << prompt;
 
-    std::string output = global_debug_cout.str();
-    global_debug_cout.flush();
-    global_debug_cout.str("");
-    global_debug_cout.clear();
-    write_to_stdout_shared_mem(output);
-
-    use_standard_cout();
-    std::cout << output << std::endl;
-    use_redirected_cout();
-
-    loki_buffer buffer = read_from_stdin_shared_mem();
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
     buf.reserve(buffer.len);
     buf = buffer.data;
 #else
@@ -291,21 +188,11 @@ namespace
 
   epee::wipeable_string input_secure_line(const std::string& prompt)
   {
-#if defined (LOKI_DEVELOPER)
-    use_redirected_cout();
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    loki::use_redirected_cout();
     std::cout << prompt;
-
-    std::string output = global_debug_cout.str();
-    global_debug_cout.flush();
-    global_debug_cout.str("");
-    global_debug_cout.clear();
-    write_to_stdout_shared_mem(output);
-
-    use_standard_cout();
-    std::cout << output << std::endl;
-    use_redirected_cout();
-
-    loki_buffer buffer = read_from_stdin_shared_mem();
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
     epee::wipeable_string buf = buffer.data;
 #else
 
@@ -339,20 +226,10 @@ namespace
 
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
-#if defined(LOKI_DEVELOPER)
-    use_redirected_cout();
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    loki::use_redirected_cout();
     std::cout << prompt << ": NOTE(loki): Passwords not supported, defaulting to empty password";
-
-    std::string output = global_debug_cout.str();
-    global_debug_cout.flush();
-    global_debug_cout.str("");
-    global_debug_cout.clear();
-    write_to_stdout_shared_mem(output);
-
-    use_standard_cout();
-    std::cout << output << std::endl;
-    use_redirected_cout();
-
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
     tools::password_container pwd_container(std::string(""));
 #else
   #ifdef HAVE_READLINE
@@ -8391,38 +8268,6 @@ std::string simple_wallet::get_prompt() const
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::run()
 {
-#if defined(LOKI_DEVELOPER)
-  assert(wallet_stdout_shared_mem.Create() == 0);
-  wallet_stdout_shared_mem.Data()[0] = 0;
-
-  for (;
-       wallet_stdin_shared_mem.Open() != 0;
-       std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000)))
-  {
-    static bool once_only = true;
-    if (once_only)
-    {
-      once_only = false;
-      printf("Shared memory at: %s not created yet, blocking until companion program initialises it.\n", wallet_stdin_shared_mem.Path().c_str());
-    }
-  }
-
-  for (shoom::Shm *shared_mem = &wallet_stdin_shared_mem;
-       shared_mem->Data()[0];
-       std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000)), shared_mem->Open())
-  {
-    static bool once_only = true;
-    if (once_only)
-    {
-      once_only = false;
-      printf("Shared memory at: %s still has remnant data: %s, blocking until companion program clears it out.\n", shared_mem->Path().c_str(), (char *)shared_mem->Data());
-    }
-  }
-
-  printf("Shared memory initialised! Entering hooked stdin/stdout read memory loop.\n");
-  global_old_cout = std::cout.rdbuf();
-#endif
-
   // check and display warning, but go on anyway
   try_connect_to_daemon();
 
@@ -8433,49 +8278,41 @@ bool simple_wallet::run()
 
   message_writer(console_color_green, false) << "Background refresh thread started";
 
-#if defined(LOKI_DEVELOPER)
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  loki::init_integration_test_context();
   for (;;)
   {
-      use_standard_cout();
-      std::cout << get_prompt();
+    loki::use_standard_cout();
+    std::cout << get_prompt();
 
-      std::vector<std::string> args;
+    std::vector<std::string> args;
+    {
+      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
+      std::cout << cmd.data << std::endl;
+
+      char const *start = cmd.data;
+      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
       {
-          loki_buffer cmd = read_from_stdin_shared_mem();
-          std::cout << cmd.data << std::endl;
-
-          char const *start = cmd.data;
-          for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
-          {
-              if (buf_ptr[0] == ' ')
-              {
-                  std::string result(start, buf_ptr - start);
-                  start = buf_ptr + 1;
-                  args.push_back(result);
-              }
-          }
-
-          if (*start)
-          {
-              std::string last(start);
-              args.push_back(last);
-          }
+        if (buf_ptr[0] == ' ')
+        {
+          std::string result(start, buf_ptr - start);
+          start = buf_ptr + 1;
+          args.push_back(result);
+        }
       }
-      use_redirected_cout();
-      process_command(args);
 
-      std::string output = global_debug_cout.str();
-      global_debug_cout.flush();
-      global_debug_cout.str("");
-      global_debug_cout.clear();
-      write_to_stdout_shared_mem(output);
-
-      use_standard_cout();
-      std::cout << output << std::endl;
-      use_redirected_cout();
+      if (*start)
+      {
+          std::string last(start);
+          args.push_back(last);
+      }
+    }
+    loki::use_redirected_cout();
+    process_command(args);
+    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
   }
 #else
-  return m_cmd_binder.run_handling([this]() {return get_prompt()}, "");
+  return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
 #endif
 }
 //----------------------------------------------------------------------------------------------------

@@ -33,9 +33,10 @@ class Shm {
   // open an existing shared memory for reading
   inline ShoomError Open() { return CreateOrOpen(false); };
 
-  inline size_t Size() { return size_; };
-  inline const std::string& Path() { return path_; }
-  inline uint8_t* Data() { return data_; }
+  inline size_t             Size() const { return size_; };
+  inline const std::string& Path() const { return path_; }
+  inline       uint8_t*     Data()       { return data_; }
+  inline const uint8_t*     Data() const { return data_; }
 
   ~Shm();
 
