@@ -6140,8 +6140,6 @@ uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm) const
   }
   multipliers[] =
   {
-    { 3, {1, 2, 3} },
-    { 3, {1, 20, 166} },
     { 4, {1, 4, 20, 166} },
     { 4, {1, 5, 25, 1000} },
   };
@@ -6160,7 +6158,7 @@ uint64_t wallet2::get_fee_multiplier(uint32_t priority, int fee_algorithm) const
       priority = 1;
   }
 
-  THROW_WALLET_EXCEPTION_IF(fee_algorithm < 0 || fee_algorithm > 3, error::invalid_priority);
+  THROW_WALLET_EXCEPTION_IF(fee_algorithm < 0 || fee_algorithm > 1, error::invalid_priority);
 
   // 1 to 3/4 are allowed as priorities
   const uint32_t max_priority = multipliers[fee_algorithm].count;
@@ -6193,9 +6191,6 @@ uint64_t wallet2::get_base_fee() const
     else
       return m_light_wallet_per_kb_fee;
   }
-  bool use_dyn_fee = use_fork_rules(HF_VERSION_DYNAMIC_FEE, -720 * 1);
-  if (!use_dyn_fee)
-    return FEE_PER_KB;
 
   return get_dynamic_base_fee_estimate();
 }
@@ -6219,13 +6214,9 @@ uint64_t wallet2::get_fee_quantization_mask() const
 //----------------------------------------------------------------------------------------------------
 int wallet2::get_fee_algorithm() const
 {
-  // changes at v3, v5, v8
+  // changes at v10
   if (use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0))
-    return 3;
-  if (use_fork_rules(5, 0))
-    return 2;
-  if (use_fork_rules(3, -720 * 14))
-   return 1;
+    return 1;
   return 0;
 }
 //------------------------------------------------------------------------------------------------------------------------------
