@@ -104,3 +104,4 @@ local.properties
 .idea/
 
 /testnet
+external/
