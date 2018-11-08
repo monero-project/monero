@@ -2493,7 +2493,15 @@ bool t_rpc_command_executor::prepare_registration()
       return true;
     }
 
-    operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+        // Fix for truncation issue when operator cut = 100 for a pool Service Node.
+    if (operating_cost_percent == 100.0)
+    {
+      operating_cost_portions = STAKING_PORTIONS;
+    }
+    else
+    {
+      operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+    }
 
     const uint64_t min_contribution_portions = std::min(portions_remaining, MIN_PORTIONS);
 
