@@ -39,8 +39,6 @@
 #include "cryptonote_basic/hardfork.h"
 #include <boost/format.hpp>
 
-#include "common/loki_integration_test_hooks.h"
-
 #include <fstream>
 #include <ctime>
 #include <string>

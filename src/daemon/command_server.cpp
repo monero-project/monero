@@ -33,7 +33,6 @@
 #include "string_tools.h"
 #include "daemon/command_server.h"
 
-#define LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
 #include "common/loki_integration_test_hooks.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY

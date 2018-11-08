@@ -57,6 +57,7 @@
 #include "common/dns_utils.h"
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
+#include "common/loki_integration_test_hooks.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_core/service_node_deregister.h"
 #include "cryptonote_core/service_node_list.h"
@@ -84,9 +85,6 @@
 #include <string>
 #include <sys/stat.h>
 #endif
-
-#define LOKI_INTEGRATION_TEST_HOOKS_IMPLEMENTATION
-#include "common/loki_integration_test_hooks.h"
 
 #ifdef WIN32
 #include <boost/locale.hpp>

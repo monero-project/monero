@@ -38,14 +38,15 @@ set(common_sources
   expect.cpp
   util.cpp
   i18n.cpp
+  loki_integration_test_hooks.cpp
   exp2.cpp
   round.cpp
   rules.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
-  spawn.cpp
   scoped_message_writer.cpp
+  spawn.cpp
   threadpool.cpp
   updates.cpp
   aligned.c)
@@ -70,6 +71,7 @@ set(common_private_headers
   expect.h
   http_connection.h
   int-util.h
+  loki_integration_test_hooks.h
   notify.h
   pod-class.h
   rpc_client.h
