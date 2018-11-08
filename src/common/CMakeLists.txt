@@ -45,6 +45,7 @@ set(common_sources
   password.cpp
   perf_timer.cpp
   spawn.cpp
+  scoped_message_writer.cpp
   threadpool.cpp
   updates.cpp
   aligned.c)

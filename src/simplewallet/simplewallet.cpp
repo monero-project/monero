@@ -94,7 +94,11 @@
 #endif
 
 #ifdef HAVE_READLINE
-#include "readline_buffer.h"
+  #include "readline_buffer.h"
+  #define PAUSE_READLINE() \
+    rdln::suspend_readline pause_readline; 
+#else
+  #define PAUSE_READLINE()
 #endif
 
 using namespace std;
@@ -8279,7 +8283,7 @@ bool simple_wallet::run()
   message_writer(console_color_green, false) << "Background refresh thread started";
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context();
+  loki::init_integration_test_context(loki::shared_mem_type::wallet);
   for (;;)
   {
     loki::use_standard_cout();
@@ -8287,7 +8291,7 @@ bool simple_wallet::run()
 
     std::vector<std::string> args;
     {
-      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
+      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
       std::cout << cmd.data << std::endl;
 
       char const *start = cmd.data;
@@ -8309,7 +8313,7 @@ bool simple_wallet::run()
     }
     loki::use_redirected_cout();
     process_command(args);
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
+    loki::write_redirected_stdout_to_shared_mem();
   }
 #else
   return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");

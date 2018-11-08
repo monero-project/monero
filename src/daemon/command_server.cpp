@@ -348,7 +348,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
   if (m_is_rpc) return false;
 
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context();
+  loki::init_integration_test_context(loki::shared_mem_type::daemon);
 
   for (;;)
   {
@@ -356,7 +356,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 
     std::vector<std::string> args;
     {
-      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem(loki::shared_mem_type::daemon);
+      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
       std::cout << cmd.data << std::endl;
 
       char const *start = cmd.data;
@@ -378,7 +378,7 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
     }
     loki::use_redirected_cout();
     process_command_vec(args);
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::daemon);
+    loki::write_redirected_stdout_to_shared_mem();
   }
 #else
   m_command_lookup.start_handling("", get_commands_str(), exit_handler);
