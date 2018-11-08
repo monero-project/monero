@@ -71,7 +71,6 @@ namespace cryptonote
   //---------------------------------------------------------------------------
   checkpoints::checkpoints()
   {
-    add_checkpoint(0,"85bb9128c170896673aa1b47f2c7d238f77b6c6f06cd7f25b399747d5015577e ");
     add_checkpoint(1,"ed1dd5a452b32bdc13cd11aee5e2485ca69d2a2ae8beb1e28e7da2d30959c799");
     add_checkpoint(8,"5311cf4bd7a02cb267f89bf9e727aeaf27f669468979876fbd42c3f6a2ed0808");
     add_checkpoint(100,"a46c1f2818fe83cb65b6a83dc9c4c50eb7eaa00e6a8acf3716549c220f5815cc");
