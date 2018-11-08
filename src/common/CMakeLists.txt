@@ -38,7 +38,6 @@ set(common_sources
   expect.cpp
   util.cpp
   i18n.cpp
-  loki_integration_test_hooks.cpp
   exp2.cpp
   round.cpp
   rules.cpp
@@ -109,6 +108,7 @@ target_link_libraries(common
     ${Boost_CHRONO_LIBRARY}
   PRIVATE
     ${OPENSSL_LIBRARIES}
+    ${EPEE_READLINE}
     ${EXTRA_LIBRARIES})
 
 #monero_install_headers(common
