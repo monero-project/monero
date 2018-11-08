@@ -46,6 +46,8 @@ void         write_redirected_stdout_to_shared_mem(shared_mem_type type = shared
 #define SHOOM_IMPLEMENTATION
 #include "shoom.h"
 
+const int POLL_SHARED_MEM_SLEEP_MS = 16;
+
 static std::ostringstream     global_redirected_cout;
 static std::streambuf        *global_std_cout;
 static loki::shared_mem_type  global_default_type;
@@ -69,7 +71,7 @@ void init_shared_mem(shoom::Shm *shared_mem, shared_mem_create create)
 
     for (;
          shared_mem->Open() != 0;
-         std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000)))
+         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS)))
     {
       if (create_once_only)
       {
@@ -80,7 +82,7 @@ void init_shared_mem(shoom::Shm *shared_mem, shared_mem_create create)
 
     for (;
          shared_mem->Data()[0] != 0;
-         std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000)), shared_mem->Open())
+         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS)), shared_mem->Open())
     {
       if (old_data_once_only)
       {
@@ -199,7 +201,7 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
       break;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1 * 1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS));
   }
 
   fixed_buffer result = {};

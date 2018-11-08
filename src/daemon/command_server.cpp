@@ -379,6 +379,9 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
     loki::use_redirected_cout();
     process_command_vec(args);
     loki::write_redirected_stdout_to_shared_mem();
+
+    if (args.size() == 1 && args[0] == "exit")
+      break;
   }
 #else
   m_command_lookup.start_handling("", get_commands_str(), exit_handler);

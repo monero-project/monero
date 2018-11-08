@@ -8314,6 +8314,9 @@ bool simple_wallet::run()
     loki::use_redirected_cout();
     process_command(args);
     loki::write_redirected_stdout_to_shared_mem();
+
+    if (args.size() == 1 && args[0] == "exit")
+      return true;
   }
 #else
   return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
