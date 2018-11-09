@@ -56,42 +56,6 @@ static shoom::Shm             global_daemon_stdout_shared_mem{"loki_integration_
 static shoom::Shm             global_daemon_stdin_shared_mem {"loki_integration_testing_daemon_stdin",  8192};
 
 enum struct shared_mem_create { yes, no };
-void init_shared_mem(shoom::Shm *shared_mem, shared_mem_create create)
-{
-  if (create == shared_mem_create::yes)
-  {
-    assert(shared_mem->Create() == 0);
-    shared_mem->Data()[0] = 0;
-  }
-  else
-  {
-    bool create_once_only   = true;
-    bool old_data_once_only = true;
-
-    for (;
-         shared_mem->Open() != 0;
-         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS)))
-    {
-      if (create_once_only)
-      {
-        create_once_only = false;
-        printf("Loki Integration Test: Shared memory at: %s not created yet, blocking until companion program initialises it.\n", shared_mem->Path().c_str());
-      }
-    }
-
-    for (;
-         shared_mem->Data()[0] != 0;
-         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS)), shared_mem->Open())
-    {
-      if (old_data_once_only)
-      {
-        old_data_once_only = false;
-        printf("Loki Integration Test: Shared memory at: %s still has remnant data: %s, blocking until companion program clears it out.\n", shared_mem->Path().c_str(), (char *)shared_mem->Data());
-      }
-    }
-  }
-}
-
 void loki::use_standard_cout()   { std::cout.rdbuf(global_std_cout); }
 void loki::use_redirected_cout() { std::cout.rdbuf(global_redirected_cout.rdbuf()); }
 
@@ -105,8 +69,33 @@ void loki::init_integration_test_context(shared_mem_type type)
 
   init                = true;
   global_default_type = type;
-  global_wallet_stdout_shared_mem.Create();
-  global_daemon_stdout_shared_mem.Create();
+
+  if (type == shared_mem_type::daemon)
+  {
+    global_daemon_stdout_shared_mem.Create(shoom::Flag::create);
+    while (global_daemon_stdin_shared_mem.Open() != 0)
+    {
+      static bool once_only = true;
+      if (once_only)
+      {
+        once_only = false;
+        printf("Loki Integration Test: Shared memory %s has not been created yet, blocking ...\n", global_daemon_stdin_shared_mem.Path().c_str());
+      }
+    }
+  }
+  else
+  {
+    global_wallet_stdout_shared_mem.Create(shoom::Flag::create);
+    while (global_wallet_stdin_shared_mem.Open() != 0)
+    {
+      static bool once_only = true;
+      if (once_only)
+      {
+        once_only = false;
+        printf("Loki Integration Test: Shared memory %s has not been created yet, blocking ...\n", global_wallet_stdin_shared_mem.Path().c_str());
+      }
+    }
+  }
   global_std_cout = std::cout.rdbuf();
 
   printf("Loki Integration Test: Hooks initialised into shared memory stdin/stdout\n");
@@ -152,8 +141,6 @@ static shoom::Shm *get_shared_mem(loki::shared_mem_type type, stdin_or_out in_ou
   if (type == loki::shared_mem_type::default_type)
     type = global_default_type;
 
-  assert(type != loki::shared_mem_type::default_type);
-
   shoom::Shm *result = nullptr;
   if (type == loki::shared_mem_type::wallet)
     result = (in_out == stdin_or_out::in) ? &global_wallet_stdin_shared_mem : &global_wallet_stdout_shared_mem;
@@ -166,7 +153,8 @@ static shoom::Shm *get_shared_mem(loki::shared_mem_type type, stdin_or_out in_ou
 void loki::write_to_stdout_shared_mem(char const *buf, int buf_len, shared_mem_type type)
 {
   shoom::Shm *shared_mem = get_shared_mem(type, stdin_or_out::out);
-  make_message(reinterpret_cast<char *>(shared_mem->Data()), shared_mem->Size(), buf, buf_len);
+  if (shared_mem)
+    make_message(reinterpret_cast<char *>(shared_mem->Data()), shared_mem->Size(), buf, buf_len);
 }
 
 void loki::write_to_stdout_shared_mem(std::string const &input, shared_mem_type type)
@@ -210,6 +198,13 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 
 void loki::write_redirected_stdout_to_shared_mem(shared_mem_type type)
 {
+  if (type == loki::shared_mem_type::default_type)
+  {
+    // TODO: This occurs when the wallet prints out information at startup
+    // before we run init code.
+    return;
+  }
+
   std::string output = global_redirected_cout.str();
   global_redirected_cout.flush();
   global_redirected_cout.str("");

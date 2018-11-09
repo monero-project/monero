@@ -21,17 +21,22 @@ enum ShoomError {
   kErrorOpeningFailed = 120,
 };
 
+enum Flag {
+  create              = (1 << 0),
+  clear_on_create     = (1 << 1),
+  create_if_not_exist = (1 << 2),
+};
+
 class Shm {
  public:
   // path should only contain alpha-numeric characters, and is normalized
   // on linux/macOS.
-  explicit Shm(std::string path, size_t size);
+  explicit                  Shm         (std::string path, size_t size);
+  static bool               RegionExists(std::string const &path);
 
   // create a shared memory area and open it for writing
-  inline ShoomError Create() { return CreateOrOpen(true); };
-
-  // open an existing shared memory for reading
-  inline ShoomError Open() { return CreateOrOpen(false); };
+  inline ShoomError         Create(int flag) { return CreateOrOpen(flag); };
+  inline ShoomError         Open  ()         { return CreateOrOpen(0); };
 
   inline size_t             Size() const { return size_; };
   inline const std::string& Path() const { return path_; }
@@ -41,7 +46,7 @@ class Shm {
   ~Shm();
 
  private:
-  ShoomError CreateOrOpen(bool create);
+  ShoomError CreateOrOpen(int flag);
 
   std::string path_;
   uint8_t* data_ = nullptr;
@@ -74,8 +79,10 @@ namespace shoom {
 
 Shm::Shm(std::string path, size_t size) : size_(size) { path_ = "/" + path; };
 
-ShoomError Shm::CreateOrOpen(bool create) {
-  if (create) {
+ShoomError Shm::CreateOrOpen(int flag) {
+
+  int flags = 0;
+  if (flag != 0) {
     // shm segments persist across runs, and macOS will refuse
     // to ftruncate an existing shm segment, so to be on the safe
     // side, we unlink it beforehand.
@@ -86,20 +93,32 @@ ShoomError Shm::CreateOrOpen(bool create) {
         return kErrorCreationFailed;
       }
     }
+
+    flags = (O_CREAT | O_RDWR);
+
+    if (flag & Flag::clear_on_create) {
+      flags |= O_TRUNC;
+    }
+
+    if (flag & Flag::create_if_not_exist) {
+      flags |= O_EXCL;
+    }
+
+  } else {
+    flags = O_RDONLY;
   }
 
-  int flags = create ? (O_CREAT | O_RDWR) : O_RDONLY;
 
   fd_ = shm_open(path_.c_str(), flags, 0755);
   if (fd_ < 0) {
-    if (create) {
+    if (flag != 0) {
       return kErrorCreationFailed;
     } else {
       return kErrorOpeningFailed;
     }
   }
 
-  if (create) {
+  if (flag != 0) {
     // this is the only way to specify the size of a
     // newly-created POSIX shared memory object
     int ret = ftruncate(fd_, size_);
@@ -108,7 +127,7 @@ ShoomError Shm::CreateOrOpen(bool create) {
     }
   }
 
-  int prot = create ? (PROT_READ | PROT_WRITE) : PROT_READ;
+  int prot = (flag != 0) ? (PROT_READ | PROT_WRITE) : PROT_READ;
 
   data_ = static_cast<uint8_t *>(mmap(nullptr,     // addr
                                       size_,       // length
@@ -140,8 +159,9 @@ namespace shoom {
 
 Shm::Shm(std::string path, size_t size) : path_(path), size_(size){};
 
-ShoomError Shm::CreateOrOpen(bool create) {
-  if (create) {
+// TODO(doyle): Fixup
+ShoomError Shm::CreateOrOpen(int flag) {
+  if (flag != 0) {
     DWORD size_high_order = 0;
     DWORD size_low_order = static_cast<DWORD>(size_);
     handle_ = CreateFileMappingA(INVALID_HANDLE_VALUE,  // use paging file
@@ -165,7 +185,7 @@ ShoomError Shm::CreateOrOpen(bool create) {
     }
   }
 
-  DWORD access = create ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ;
+  DWORD access = (flag != 0) ? FILE_MAP_ALL_ACCESS : FILE_MAP_READ;
 
   data_ = static_cast<uint8_t*>(MapViewOfFile(handle_, access, 0, 0, size_));
 

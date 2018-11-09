@@ -8281,7 +8281,6 @@ bool simple_wallet::run()
   message_writer(console_color_green, false) << "Background refresh thread started";
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context(loki::shared_mem_type::wallet);
   for (;;)
   {
     loki::use_standard_cout();
@@ -9421,6 +9420,10 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  loki::init_integration_test_context(loki::shared_mem_type::wallet);
+#endif
 
 #ifdef WIN32
   // Activate UTF-8 support for Boost filesystem classes on Windows
