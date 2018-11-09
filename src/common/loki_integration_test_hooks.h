@@ -1,3 +1,4 @@
+#define LOKI_ENABLE_INTEGRATION_TEST_HOOKS
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
 
 #ifndef LOKI_INTEGRATION_TEST_HOOKS_H
@@ -104,10 +105,8 @@ void loki::init_integration_test_context(shared_mem_type type)
 
   init                = true;
   global_default_type = type;
-  init_shared_mem(&global_wallet_stdout_shared_mem, shared_mem_create::yes);
-  init_shared_mem(&global_daemon_stdout_shared_mem, shared_mem_create::yes);
-  init_shared_mem(&global_wallet_stdin_shared_mem, shared_mem_create::no);
-  init_shared_mem(&global_daemon_stdin_shared_mem, shared_mem_create::no);
+  global_wallet_stdout_shared_mem.Create();
+  global_daemon_stdout_shared_mem.Create();
   global_std_cout = std::cout.rdbuf();
 
   printf("Loki Integration Test: Hooks initialised into shared memory stdin/stdout\n");
