@@ -58,17 +58,6 @@ namespace trezor {
   class device_trezor_base;
 
   /**
-   * Trezor device callbacks
-   */
-  class trezor_callback {
-  public:
-    virtual void on_button_request() {};
-    virtual void on_pin_request(epee::wipeable_string & pin) {};
-    virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase) {};
-    virtual void on_passphrase_state_request(const std::string & state) {};
-  };
-
-  /**
    * TREZOR device template with basic functions
    */
   class device_trezor_base : public hw::core::device_default {
@@ -79,7 +68,7 @@ namespace trezor {
       mutable boost::mutex  command_locker;
 
       std::shared_ptr<Transport> m_transport;
-      std::shared_ptr<trezor_callback> m_callback;
+      i_device_callback * m_callback;
 
       std::string full_name;
 
@@ -218,7 +207,11 @@ namespace trezor {
       return m_transport;
     }
 
-    std::shared_ptr<trezor_callback> getCallback(){
+    void set_callback(i_device_callback * callback) override {
+      m_callback = callback;
+    }
+
+    i_device_callback * get_callback(){
       return m_callback;
     }
 

@@ -98,9 +98,24 @@ namespace tools
     virtual void on_lw_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
     virtual void on_lw_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
     virtual void on_lw_money_spent(uint64_t height, const crypto::hash &txid, uint64_t amount) {}
+    // Device callbacks
+    virtual void on_button_request() {}
+    virtual void on_pin_request(epee::wipeable_string & pin) {}
+    virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase) {}
     // Common callbacks
     virtual void on_pool_tx_removed(const crypto::hash &txid) {}
     virtual ~i_wallet2_callback() {}
+  };
+
+  class wallet_device_callback : public hw::i_device_callback
+  {
+  public:
+    wallet_device_callback(wallet2 * wallet): wallet(wallet) {};
+    void on_button_request() override;
+    void on_pin_request(epee::wipeable_string & pin) override;
+    void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase) override;
+  private:
+    wallet2 * wallet;
   };
 
   struct tx_dust_policy
@@ -154,6 +169,7 @@ namespace tools
   {
     friend class ::Serialization_portability_wallet_Test;
     friend class wallet_keys_unlocker;
+    friend class wallet_device_callback;
   public:
     static constexpr const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
 
@@ -1285,6 +1301,11 @@ namespace tools
     void setup_new_blockchain();
     void create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file);
 
+    wallet_device_callback * get_device_callback();
+    void on_button_request();
+    void on_pin_request(epee::wipeable_string & pin);
+    void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase);
+
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;
@@ -1396,6 +1417,7 @@ namespace tools
     bool m_devices_registered;
 
     std::shared_ptr<tools::Notify> m_tx_notify;
+    std::unique_ptr<wallet_device_callback> m_device_callback;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 26)

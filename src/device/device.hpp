@@ -80,6 +80,14 @@ namespace hw {
            return false;
     }
 
+    class i_device_callback {
+    public:
+        virtual void on_button_request() {}
+        virtual void on_pin_request(epee::wipeable_string & pin) {}
+        virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase) {}
+        virtual ~i_device_callback() = default;
+    };
+
     class device {
     protected:
         std::string  name;
@@ -129,6 +137,7 @@ namespace hw {
         virtual device_type get_type() const = 0;
 
         virtual device_protocol_t device_protocol() const { return PROTOCOL_DEFAULT; };
+        virtual void set_callback(i_device_callback * callback) {};
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */

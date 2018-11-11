@@ -39,7 +39,7 @@ namespace trezor {
 
     const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080, 0x80000000};
 
-    device_trezor_base::device_trezor_base() {
+    device_trezor_base::device_trezor_base(): m_callback(nullptr) {
 
     }
 
@@ -331,10 +331,6 @@ namespace trezor {
     {
       MDEBUG("on_passhprase_state_request");
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-
-      if (m_callback){
-        m_callback->on_passphrase_state_request(msg->state());
-      }
 
       messages::common::PassphraseStateAck m;
       resp = call_raw(&m);
