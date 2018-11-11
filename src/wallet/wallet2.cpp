@@ -10175,11 +10175,11 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
   else
   {
     cryptonote::blobdata tx_data;
-    crypto::hash tx_prefix_hash;
     ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
     THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
         error::wallet_internal_error, "Failed to validate transaction from daemon");
+    tx_hash = cryptonote::get_transaction_hash(tx);
   }
 
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
@@ -10321,11 +10321,11 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
     else
     {
       cryptonote::blobdata tx_data;
-      crypto::hash tx_prefix_hash;
       ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
       THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-      THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+      THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
           error::wallet_internal_error, "Failed to validate transaction from daemon");
+      tx_hash = cryptonote::get_transaction_hash(tx);
     }
 
     THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
@@ -10439,11 +10439,11 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
   else
   {
     cryptonote::blobdata tx_data;
-    crypto::hash tx_prefix_hash;
     ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
     THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
         error::wallet_internal_error, "Failed to validate transaction from daemon");
+    tx_hash = cryptonote::get_transaction_hash(tx);
   }
 
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
