@@ -71,6 +71,7 @@ namespace trezor {
       i_device_callback * m_callback;
 
       std::string full_name;
+      std::vector<unsigned int> m_wallet_deriv_path;
 
       cryptonote::network_type network_type;
 
@@ -81,6 +82,7 @@ namespace trezor {
       void require_connected();
       void call_ping_unsafe();
       void test_ping();
+      void ensure_derivation_path() noexcept;
 
       // Communication methods
 
@@ -176,7 +178,11 @@ namespace trezor {
             msg->add_address_n(x);
           }
         } else {
+          ensure_derivation_path();
           for (unsigned int i : DEFAULT_BIP44_PATH) {
+            msg->add_address_n(i);
+          }
+          for (unsigned int i : m_wallet_deriv_path) {
             msg->add_address_n(i);
           }
         }
@@ -201,7 +207,7 @@ namespace trezor {
     bool reset();
 
     // Default derivation path for Monero
-    static const uint32_t DEFAULT_BIP44_PATH[3];
+    static const uint32_t DEFAULT_BIP44_PATH[2];
 
     std::shared_ptr<Transport> getTransport(){
       return m_transport;
@@ -214,6 +220,8 @@ namespace trezor {
     i_device_callback * get_callback(){
       return m_callback;
     }
+
+    void set_derivation_path(const std::string &deriv_path) override;
 
     /* ======================================================================= */
     /*                              SETUP/TEARDOWN                             */

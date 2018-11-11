@@ -207,6 +207,7 @@ struct options {
   };
   const command_line::arg_descriptor<uint64_t> kdf_rounds = {"kdf-rounds", tools::wallet2::tr("Number of rounds for the key derivation function"), 1};
   const command_line::arg_descriptor<std::string> hw_device = {"hw-device", tools::wallet2::tr("HW device to use"), ""};
+  const command_line::arg_descriptor<std::string> hw_device_derivation_path = {"hw-device-deriv-path", tools::wallet2::tr("HW device wallet derivation path (e.g., SLIP-10)"), ""};
   const command_line::arg_descriptor<std::string> tx_notify = { "tx-notify" , "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" , "" };
 };
 
@@ -259,6 +260,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_host = command_line::get_arg(vm, opts.daemon_host);
   auto daemon_port = command_line::get_arg(vm, opts.daemon_port);
   auto device_name = command_line::get_arg(vm, opts.hw_device);
+  auto device_derivation_path = command_line::get_arg(vm, opts.hw_device_derivation_path);
 
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
       tools::error::wallet_internal_error, tools::wallet2::tr("can't specify daemon host or port more than once"));
@@ -314,6 +316,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
   wallet->device_name(device_name);
+  wallet->device_derivation_path(device_derivation_path);
 
   try
   {
@@ -912,6 +915,11 @@ std::string wallet2::device_name_option(const boost::program_options::variables_
   return command_line::get_arg(vm, options().hw_device);
 }
 
+std::string wallet2::device_derivation_path_option(const boost::program_options::variables_map &vm)
+{
+  return command_line::get_arg(vm, options().hw_device_derivation_path);
+}
+
 void wallet2::init_options(boost::program_options::options_description& desc_params)
 {
   const options opts{};
@@ -928,6 +936,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
   command_line::add_arg(desc_params, opts.hw_device);
+  command_line::add_arg(desc_params, opts.hw_device_derivation_path);
   command_line::add_arg(desc_params, opts.tx_notify);
 }
 
@@ -1089,6 +1098,7 @@ bool wallet2::reconnect_device()
   hw::device &hwdev = lookup_device(m_device_name);
   hwdev.set_name(m_device_name);
   hwdev.set_network_type(m_nettype);
+  hwdev.set_derivation_path(m_device_derivation_path);
   hwdev.set_callback(get_device_callback());
   r = hwdev.init();
   if (!r){
@@ -3160,6 +3170,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value.SetString(m_device_name.c_str(), m_device_name.size());
   json.AddMember("device_name", value, json.GetAllocator());
 
+  value.SetString(m_device_derivation_path.c_str(), m_device_derivation_path.size());
+  json.AddMember("device_derivation_path", value, json.GetAllocator());
+
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -3279,6 +3292,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_device_name = "";
+    m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
     encrypted_secret_keys = false;
   }
@@ -3446,6 +3460,9 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
         m_device_name = m_key_device_type == hw::device::device_type::LEDGER ? "Ledger" : "default";
       }
     }
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_derivation_path, std::string, String, false, std::string());
+    m_device_derivation_path = field_device_derivation_path;
   }
   else
   {
@@ -3460,6 +3477,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     hw::device &hwdev = lookup_device(m_device_name);
     THROW_WALLET_EXCEPTION_IF(!hwdev.set_name(m_device_name), error::wallet_internal_error, "Could not set device name " + m_device_name);
     hwdev.set_network_type(m_nettype);
+    hwdev.set_derivation_path(m_device_derivation_path);
     hwdev.set_callback(get_device_callback());
     THROW_WALLET_EXCEPTION_IF(!hwdev.init(), error::wallet_internal_error, "Could not initialize the device " + m_device_name);
     THROW_WALLET_EXCEPTION_IF(!hwdev.connect(), error::wallet_internal_error, "Could not connect to the device " + m_device_name);
@@ -3967,6 +3985,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   auto &hwdev = lookup_device(device_name);
   hwdev.set_name(device_name);
   hwdev.set_network_type(m_nettype);
+  hwdev.set_derivation_path(m_device_derivation_path);
   hwdev.set_callback(get_device_callback());
 
   m_account.create_from_device(hwdev);
