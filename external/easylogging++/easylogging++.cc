@@ -2191,6 +2191,12 @@ void VRegistry::setFromArgs(const base::utils::CommandLineArgs* commandLineArgs)
 #   define ELPP_DEFAULT_LOGGING_FLAGS 0x0
 #endif // !defined(ELPP_DEFAULT_LOGGING_FLAGS)
 // Storage
+el::base::type::StoragePointer &el::base::Storage::getELPP()
+{
+  if (!el::base::elStorage)
+    el::base::elStorage = new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder()));
+  return el::base::elStorage;
+}
 #if ELPP_ASYNC_LOGGING
 Storage::Storage(const LogBuilderPtr& defaultLogBuilder, base::IWorker* asyncDispatchWorker) :
 #else

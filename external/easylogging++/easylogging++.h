@@ -552,7 +552,7 @@ typedef std::ostream ostream_t;
 typedef unsigned int EnumType;
 typedef unsigned short VerboseLevel;
 typedef unsigned long int LineNumber;
-typedef std::shared_ptr<base::Storage> StoragePointer;
+typedef base::Storage *StoragePointer;
 typedef std::shared_ptr<LogDispatchCallback> LogDispatchCallbackPtr;
 typedef std::shared_ptr<PerformanceTrackingCallback> PerformanceTrackingCallbackPtr;
 typedef std::shared_ptr<LoggerRegistrationCallback> LoggerRegistrationCallbackPtr;
@@ -2734,6 +2734,8 @@ class Storage : base::NoCopy, public base::threading::ThreadSafe {
     return it->second;
   }
 
+  static el::base::type::StoragePointer &getELPP();
+
  private:
   base::RegisteredHitCounters* m_registeredHitCounters;
   base::RegisteredLoggers* m_registeredLoggers;
@@ -2768,7 +2770,7 @@ class Storage : base::NoCopy, public base::threading::ThreadSafe {
   }
 };
 extern ELPP_EXPORT base::type::StoragePointer elStorage;
-#define ELPP el::base::elStorage
+#define ELPP el::base::Storage::getELPP()
 class DefaultLogDispatchCallback : public LogDispatchCallback {
  protected:
   void handle(const LogDispatchData* data);
