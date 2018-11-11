@@ -455,7 +455,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
         }
         else
         {
-          std::vector<transaction> txs;
+          std::vector<std::pair<transaction, blobdata>> txs;
           std::vector<transaction> archived_txs;
 
           archived_txs = bp.txs;
@@ -472,7 +472,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
             // because add_block() calls
             // add_transaction(blk_hash, blk.miner_tx) first, and
             // then a for loop for the transactions in txs.
-            txs.push_back(tx);
+            txs.push_back(std::make_pair(tx, tx_to_blob(tx)));
           }
 
           size_t block_weight;
@@ -486,7 +486,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           try
           {
             uint64_t long_term_block_weight = core.get_blockchain_storage().get_next_long_term_block_weight(block_weight);
-            core.get_blockchain_storage().get_db().add_block(b, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
+            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
           }
           catch (const std::exception& e)
           {

@@ -3345,7 +3345,7 @@ bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) cons
   return check_block_timestamp(timestamps, b, median_ts);
 }
 //------------------------------------------------------------------
-void Blockchain::return_tx_to_pool(std::vector<transaction> &txs)
+void Blockchain::return_tx_to_pool(std::vector<std::pair<transaction, blobdata>> &txs)
 {
   uint8_t version = get_current_hard_fork_version();
   for (auto& tx : txs)
@@ -3356,9 +3356,11 @@ void Blockchain::return_tx_to_pool(std::vector<transaction> &txs)
     // that might not be always true. Unlikely though, and always relaying
     // these again might cause a spike of traffic as many nodes re-relay
     // all the transactions in a popped block when a reorg happens.
-    if (!m_tx_pool.add_tx(tx, tvc, true, true, false, version))
+    const size_t weight = get_transaction_weight(tx.first, tx.second.size());
+    const crypto::hash tx_hash = get_transaction_hash(tx.first);
+    if (!m_tx_pool.add_tx(tx.first, tx_hash, tx.second, weight, tvc, true, true, false, version))
     {
-      MERROR("Failed to return taken transaction with hash: " << get_transaction_hash(tx) << " to tx_pool");
+      MERROR("Failed to return taken transaction with hash: " << get_transaction_hash(tx.first) << " to tx_pool");
     }
   }
 }
@@ -3371,11 +3373,12 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
   for (const auto &txid: txids)
   {
     cryptonote::transaction tx;
+    cryptonote::blobdata txblob;
     size_t tx_weight;
     uint64_t fee;
     bool relayed, do_not_relay, double_spend_seen;
     MINFO("Removing txid " << txid << " from the pool");
-    if(m_tx_pool.have_tx(txid) && !m_tx_pool.take_tx(txid, tx, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
+    if(m_tx_pool.have_tx(txid) && !m_tx_pool.take_tx(txid, tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
     {
       MERROR("Failed to remove txid " << txid << " from the pool");
       res = false;
@@ -3538,7 +3541,7 @@ leave:
   size_t coinbase_weight = get_transaction_weight(bl.miner_tx);
   size_t cumulative_block_weight = coinbase_weight;
 
-  std::vector<transaction> txs;
+  std::vector<std::pair<transaction, blobdata>> txs;
   key_images_container keys;
 
   uint64_t fee_summary = 0;
@@ -3558,6 +3561,7 @@ leave:
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
     transaction tx;
+    blobdata txblob;
     size_t tx_weight = 0;
     uint64_t fee = 0;
     bool relayed = false, do_not_relay = false, double_spend_seen = false;
@@ -3577,7 +3581,7 @@ leave:
     TIME_MEASURE_START(bb);
 
     // get transaction with hash <tx_id> from tx_pool
-    if(!m_tx_pool.take_tx(tx_id, tx, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
+    if(!m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
     {
       MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       bvc.m_verifivation_failed = true;
@@ -3590,7 +3594,7 @@ leave:
     // add the transaction to the temp list of transactions, so we can either
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
-    txs.push_back(tx);
+    txs.push_back(std::make_pair(tx, std::move(txblob)));
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -3691,7 +3695,7 @@ leave:
     try
     {
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
-      new_height = m_db->add_block(bl, block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
+      new_height = m_db->add_block(std::make_pair(bl, block_to_blob(bl)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {
@@ -4770,10 +4774,11 @@ void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get
         uint64_t fee;
         bool relayed, do_not_relay, double_spend_seen;
         transaction pool_tx;
+        blobdata txblob;
         for(const transaction &tx : txs)
         {
           crypto::hash tx_hash = get_transaction_hash(tx);
-          m_tx_pool.take_tx(tx_hash, pool_tx, tx_weight, fee, relayed, do_not_relay, double_spend_seen);
+          m_tx_pool.take_tx(tx_hash, pool_tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen);
         }
       }
     }
