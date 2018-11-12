@@ -8268,6 +8268,11 @@ std::string simple_wallet::get_prompt() const
   return prompt;
 }
 //----------------------------------------------------------------------------------------------------
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#include <thread>
+#endif
+
 bool simple_wallet::run()
 {
   // check and display warning, but go on anyway
@@ -8281,43 +8286,48 @@ bool simple_wallet::run()
   message_writer(console_color_green, false) << "Background refresh thread started";
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  for (;;)
+  auto handle_shared_mem_ins_and_outs = [this]()
   {
-    loki::use_standard_cout();
-    std::cout << get_prompt();
-
-    std::vector<std::string> args;
+    loki::init_integration_test_context(loki::shared_mem_type::wallet);
+    for (;;)
     {
-      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
-      std::cout << cmd.data << std::endl;
+      loki::use_standard_cout();
 
-      char const *start = cmd.data;
-      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
+      std::vector<std::string> args;
       {
-        if (buf_ptr[0] == ' ')
+        loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
+        std::cout << cmd.data << std::endl;
+
+        char const *start = cmd.data;
+        for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
         {
-          std::string result(start, buf_ptr - start);
-          start = buf_ptr + 1;
-          args.push_back(result);
+          if (buf_ptr[0] == ' ')
+          {
+            std::string result(start, buf_ptr - start);
+            start = buf_ptr + 1;
+            args.push_back(result);
+          }
+        }
+
+        if (*start)
+        {
+            std::string last(start);
+            args.push_back(last);
         }
       }
+      loki::use_redirected_cout();
+      this->process_command(args);
+      loki::write_redirected_stdout_to_shared_mem();
 
-      if (*start)
-      {
-          std::string last(start);
-          args.push_back(last);
-      }
+      if (args.size() == 1 && args[0] == "exit")
+        break;
     }
-    loki::use_redirected_cout();
-    process_command(args);
-    loki::write_redirected_stdout_to_shared_mem();
+  };
 
-    if (args.size() == 1 && args[0] == "exit")
-      return true;
-  }
-#else
-  return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
+  static std::thread handle_remote_stdin_out_thread(handle_shared_mem_ins_and_outs);
 #endif
+
+  return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::stop()

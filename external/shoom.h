@@ -145,9 +145,9 @@ ShoomError Shm::CreateOrOpen(int flag) {
 }
 
 Shm::~Shm() {
-  munmap(data_, size_);
-  close(fd_);
-  shm_unlink(path_.c_str());
+  //munmap(data_, size_);
+  //close(fd_);
+  //shm_unlink(path_.c_str());
 }
 
 }  // namespace shoom

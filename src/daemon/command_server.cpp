@@ -35,6 +35,7 @@
 
 #include "common/loki_integration_test_hooks.h"
 
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "daemon"
 
@@ -342,50 +343,57 @@ bool t_command_server::process_command_vec(const std::vector<std::string>& cmd)
   return result;
 }
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#include <thread>
+#endif
+
 bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 {
   if (m_is_rpc) return false;
 
-#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context(loki::shared_mem_type::daemon);
-
-  for (;;)
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  auto handle_shared_mem_ins_and_outs = [this]()
   {
-    loki::use_standard_cout();
-
-    std::vector<std::string> args;
+    loki::init_integration_test_context(loki::shared_mem_type::daemon);
+    for (;;)
     {
-      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
-      std::cout << cmd.data << std::endl;
+      loki::use_standard_cout();
 
-      char const *start = cmd.data;
-      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
+      std::vector<std::string> args;
       {
-        if (buf_ptr[0] == ' ')
+        loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
+        std::cout << cmd.data << std::endl;
+
+        char const *start = cmd.data;
+        for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
         {
-          std::string result(start, buf_ptr - start);
-          start = buf_ptr + 1;
-          args.push_back(result);
+          if (buf_ptr[0] == ' ')
+          {
+            std::string result(start, buf_ptr - start);
+            start = buf_ptr + 1;
+            args.push_back(result);
+          }
+        }
+
+        if (*start)
+        {
+            std::string last(start);
+            args.push_back(last);
         }
       }
+      loki::use_redirected_cout();
+      this->process_command_vec(args);
+      loki::write_redirected_stdout_to_shared_mem();
 
-      if (*start)
-      {
-          std::string last(start);
-          args.push_back(last);
-      }
+      if (args.size() == 1 && args[0] == "exit")
+        break;
     }
-    loki::use_redirected_cout();
-    process_command_vec(args);
-    loki::write_redirected_stdout_to_shared_mem();
+  };
 
-    if (args.size() == 1 && args[0] == "exit")
-      break;
-  }
-#else
-  m_command_lookup.start_handling("", get_commands_str(), exit_handler);
+  static std::thread handle_remote_stdin_out_thread(handle_shared_mem_ins_and_outs);
 #endif
 
+  m_command_lookup.start_handling("", get_commands_str(), exit_handler);
   return true;
 }
 

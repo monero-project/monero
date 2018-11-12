@@ -45,7 +45,7 @@ void         write_redirected_stdout_to_shared_mem(shared_mem_type type = shared
 #define SHOOM_IMPLEMENTATION
 #include "shoom.h"
 
-const int POLL_SHARED_MEM_SLEEP_MS = 16;
+const int POLL_SHARED_MEM_SLEEP_MS = 500;
 
 static std::ostringstream     global_redirected_cout;
 static std::streambuf        *global_std_cout;
@@ -56,8 +56,8 @@ static shoom::Shm             global_daemon_stdout_shared_mem{"loki_integration_
 static shoom::Shm             global_daemon_stdin_shared_mem {"loki_integration_testing_daemon_stdin",  8192};
 
 enum struct shared_mem_create { yes, no };
-void loki::use_standard_cout()   { std::cout.rdbuf(global_std_cout); }
-void loki::use_redirected_cout() { std::cout.rdbuf(global_redirected_cout.rdbuf()); }
+void loki::use_standard_cout()   { if (!global_std_cout) { global_std_cout = std::cout.rdbuf(); } std::cout.rdbuf(global_std_cout); }
+void loki::use_redirected_cout() { if (!global_std_cout) { global_std_cout = std::cout.rdbuf(); } std::cout.rdbuf(global_redirected_cout.rdbuf()); }
 
 void loki::init_integration_test_context(shared_mem_type type)
 {
@@ -85,7 +85,7 @@ void loki::init_integration_test_context(shared_mem_type type)
   }
   else
   {
-    global_wallet_stdout_shared_mem.Create(shoom::Flag::create);
+    global_wallet_stdout_shared_mem.Create(shoom::Flag::create | shoom::Flag::clear_on_create);
     while (global_wallet_stdin_shared_mem.Open() != 0)
     {
       static bool once_only = true;
@@ -154,7 +154,9 @@ void loki::write_to_stdout_shared_mem(char const *buf, int buf_len, shared_mem_t
 {
   shoom::Shm *shared_mem = get_shared_mem(type, stdin_or_out::out);
   if (shared_mem)
+  {
     make_message(reinterpret_cast<char *>(shared_mem->Data()), shared_mem->Size(), buf, buf_len);
+  }
 }
 
 void loki::write_to_stdout_shared_mem(std::string const &input, shared_mem_type type)
@@ -177,6 +179,8 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 
   for (;;)
   {
+    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS));
+
     shared_mem->Open();
     char const *data = reinterpret_cast<char const *>(shared_mem->Data());
     input = parse_message(data, shared_mem->Size(), &timestamp);
@@ -185,8 +189,6 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
       *last_timestamp = timestamp;
       break;
     }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS));
   }
 
   fixed_buffer result = {};
@@ -198,13 +200,6 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 
 void loki::write_redirected_stdout_to_shared_mem(shared_mem_type type)
 {
-  if (type == loki::shared_mem_type::default_type)
-  {
-    // TODO: This occurs when the wallet prints out information at startup
-    // before we run init code.
-    return;
-  }
-
   std::string output = global_redirected_cout.str();
   global_redirected_cout.flush();
   global_redirected_cout.str("");
