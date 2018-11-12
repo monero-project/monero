@@ -92,14 +92,6 @@ namespace cryptonote
   class Blockchain
   {
   public:
-    enum version
-    {
-      version_7 = 7,
-      version_8,
-      version_9,
-      version_10_swarms,
-    };
-
     /**
      * @brief Now-defunct (TODO: remove) struct from in-memory blockchain
      */
@@ -144,7 +136,7 @@ namespace cryptonote
     class ValidateMinerTxHook
     {
     public:
-      virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward) const = 0;
+      virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, block_reward_parts const &reward_parts) const = 0;
     };
 
     /**
@@ -991,6 +983,8 @@ namespace cryptonote
     bool is_within_compiled_block_hash_area(uint64_t height) const;
     bool is_within_compiled_block_hash_area() const { return is_within_compiled_block_hash_area(m_db->height()); }
     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes);
+
+    bool calc_batched_governance_reward(uint64_t height, uint64_t &reward) const;
 
     void lock();
     void unlock();

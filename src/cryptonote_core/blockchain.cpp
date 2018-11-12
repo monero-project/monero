@@ -91,9 +91,9 @@ static const struct {
   time_t time;
 } mainnet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero mainnet
-  { 7, 1, 0, 1503046577 },
-  { 8, 64324, 0, 1533006000 },
-  { 9, 101250, 0, 1537444800 },
+  { network_version_7,               1,      0, 1503046577 },
+  { network_version_8,               64324,  0, 1533006000 },
+  { network_version_9_service_nodes, 101250, 0, 1537444800 },
 };
 
 static const struct {
@@ -103,9 +103,9 @@ static const struct {
   time_t time;
 } testnet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { 7, 1, 0, 1533631121 },
-  { 8, 2, 0, 1533631122 },
-  { 9, 3, 0, 1533631123 },
+  { network_version_7,               1, 0, 1533631121 },
+  { network_version_8,               2, 0, 1533631122 },
+  { network_version_9_service_nodes, 3, 0, 1533631123 },
 };
 
 static const struct {
@@ -115,9 +115,9 @@ static const struct {
   time_t time;
 } stagenet_hard_forks[] = {
   // version 7 from the start of the blockchain, inhereted from Monero testnet
-  { 7, 1, 0, 1341378000 },
-  { 8, 64324, 0, 1533006000 },
-  { 9, 96210, 0, 1536840000 },
+  { network_version_7,               1,     0, 1341378000 },
+  { network_version_8,               64324, 0, 1533006000 },
+  { network_version_9_service_nodes, 96210, 0, 1536840000 },
 };
 
 //------------------------------------------------------------------
@@ -853,7 +853,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     m_difficulties = difficulties;
   }
   size_t target = get_difficulty_target();
-  difficulty_type diff = next_difficulty_v2(timestamps, difficulties, target);
+  difficulty_type diff = next_difficulty_v2(timestamps, difficulties, target, version <= cryptonote::network_version_9_service_nodes);
 
   CRITICAL_REGION_LOCAL1(m_difficulty_lock);
   m_difficulty_for_next_block_top_hash = top_hash;
@@ -1082,7 +1082,7 @@ difficulty_type Blockchain::get_next_difficulty_for_alternative_chain(const std:
   size_t target = DIFFICULTY_TARGET_V2;
 
   // calculate the difficulty target for the block and return it
-  return next_difficulty_v2(timestamps, cumulative_difficulties, target);
+  return next_difficulty_v2(timestamps, cumulative_difficulties, target, get_current_hard_fork_version() <= cryptonote::network_version_9_service_nodes);
 }
 //------------------------------------------------------------------
 // This function does a sanity check on basic things that all miner
@@ -1131,84 +1131,68 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     return false;
   }
 
-  if (version == 3) {
-    for (auto &o: b.miner_tx.vout) {
-      if (!is_valid_decomposed_amount(o.amount)) {
-        MERROR_VER("miner tx output " << print_money(o.amount) << " is not a valid decomposed amount");
-        return false;
-      }
-    }
-  }
-
+  uint64_t height = cryptonote::get_block_height(b);
   std::vector<size_t> last_blocks_weights;
   get_last_n_blocks_weights(last_blocks_weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
-  if (!get_block_reward(epee::misc_utils::median(last_blocks_weights), cumulative_block_weight, already_generated_coins, base_reward, version, cryptonote::get_block_height(b)))
+
+  loki_block_reward_context block_reward_context = {};
+  block_reward_context.fee                       = fee;
+  block_reward_context.height                    = height;
+  if (!calc_batched_governance_reward(height, block_reward_context.batched_governance))
+  {
+    MERROR_VER("Failed to calculate batched governance reward");
+    return false;
+  }
+
+  block_reward_parts reward_parts;
+  if (!get_loki_block_reward(epee::misc_utils::median(last_blocks_weights), cumulative_block_weight, already_generated_coins, version, reward_parts, block_reward_context))
   {
     MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
     return false;
   }
 
   for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
-    if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), get_current_hard_fork_version(), base_reward))
-      return false;
-
-  if (already_generated_coins != 0)
   {
-    uint64_t governance_reward = get_governance_reward(m_db->height(), base_reward);
+    if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), version, reward_parts))
+      return false;
+  }
 
-    if (b.miner_tx.vout.back().amount != governance_reward)
+  if (already_generated_coins != 0 && block_has_governance_output(nettype(), b))
+  {
+    if (version >= network_version_10_bulletproofs && reward_parts.governance == 0)
     {
-      MERROR("Governance reward amount incorrect.  Should be: " << print_money(governance_reward) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+      MERROR("Governance reward should not be 0 after hardfork v10 if this height has a governance output because it is the batched payout height");
       return false;
     }
 
-    std::string governance_wallet_address_str;
-    switch (m_nettype)
+    if (b.miner_tx.vout.back().amount != reward_parts.governance)
     {
-      case STAGENET:
-        governance_wallet_address_str = ::config::stagenet::GOVERNANCE_WALLET_ADDRESS;
-        break;
-      case TESTNET:
-        governance_wallet_address_str = ::config::testnet::GOVERNANCE_WALLET_ADDRESS;
-        break;
-      case FAKECHAIN: case MAINNET:
-        governance_wallet_address_str = ::config::GOVERNANCE_WALLET_ADDRESS;
-        break;
-      default:
-        return false;
+      MERROR("Governance reward amount incorrect.  Should be: " << print_money(reward_parts.governance) << ", is: " << print_money(b.miner_tx.vout.back().amount));
+      return false;
     }
 
-    if (!validate_governance_reward_key(m_db->height(), governance_wallet_address_str, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+    if (!validate_governance_reward_key(m_db->height(), *cryptonote::get_config(m_nettype, version).GOVERNANCE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
     {
       MERROR("Governance reward public key incorrect.");
       return false;
     }
   }
 
+  base_reward = reward_parts.adjusted_base_reward;
   if(base_reward + fee < money_in_use)
   {
-    MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
+    MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
     return false;
   }
-  // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
-  if (m_hardfork->get_current_version() < 2)
-  {
-    if(base_reward + fee != money_in_use)
-    {
-      MDEBUG("coinbase transaction doesn't use full amount of block reward:  spent: " << money_in_use << ",  block reward " << base_reward + fee << "(" << base_reward << "+" << fee << ")");
-      return false;
-    }
-  }
-  else
-  {
-    // from hard fork 2, since a miner can claim less than the full block reward, we update the base_reward
-    // to show the amount of coins that were actually generated, the remainder will be pushed back for later
-    // emission. This modifies the emission curve very slightly.
-    CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
-    if(base_reward + fee != money_in_use)
-      partial_block_reward = true;
-    base_reward = money_in_use - fee;
-  }
+
+  // since a miner can claim less than the full block reward, we update the base_reward
+  // to show the amount of coins that were actually generated, the remainder will be pushed back for later
+  // emission. This modifies the emission curve very slightly.
+  CHECK_AND_ASSERT_MES(money_in_use - fee <= base_reward, false, "base reward calculation bug");
+  if(base_reward != money_in_use)
+    partial_block_reward = true;
+  base_reward = money_in_use - fee;
+
   return true;
 }
 //------------------------------------------------------------------
@@ -1371,10 +1355,18 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = m_hardfork->get_current_version();
 
-  crypto::public_key winner = m_service_node_list.select_winner(b.prev_id);
-  std::vector<std::pair<account_public_address, uint64_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
+  loki_miner_tx_context miner_tx_context(m_nettype,
+                                         m_service_node_list.select_winner(b.prev_id),
+                                         m_service_node_list.get_winner_addresses_and_portions(b.prev_id));
 
-  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, m_nettype, winner, service_node_addresses);
+  if (!calc_batched_governance_reward(height, miner_tx_context.batched_governance))
+  {
+    LOG_ERROR("Failed to calculate batched governance reward");
+    return false;
+  }
+
+  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_tx_context);
+
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_weight = txs_weight + get_transaction_weight(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1383,7 +1375,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, m_nettype, winner, service_node_addresses);
+    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_tx_context);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);
@@ -3086,7 +3078,8 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
   {
     median = m_current_block_cumul_weight_limit / 2;
     already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
-    if (!get_block_reward(median, 1, already_generated_coins, base_reward, version, m_db->height()))
+
+    if (!get_base_block_reward(median, 1, already_generated_coins, base_reward, version, m_db->height()))
       return false;
   }
 
@@ -3149,8 +3142,9 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
     median = min_block_weight;
 
   uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
+
   uint64_t base_reward;
-  if (!get_block_reward(median, 1, already_generated_coins, base_reward, version, m_db->height()))
+  if (!get_base_block_reward(median, 1, already_generated_coins, base_reward, version, m_db->height()))
   {
     MERROR("Failed to determine block reward, using placeholder " << print_money(BLOCK_REWARD_OVERESTIMATE) << " as a high bound");
     base_reward = BLOCK_REWARD_OVERESTIMATE;
@@ -4027,6 +4021,52 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::vector
   MDEBUG("usable: " << usable << " / " << hashes.size());
   CHECK_AND_ASSERT_MES(usable < std::numeric_limits<uint64_t>::max() / 2, 0, "usable is negative");
   return usable;
+}
+
+bool Blockchain::calc_batched_governance_reward(uint64_t height, uint64_t &reward) const
+{
+  reward = 0;
+  int hard_fork_version = get_ideal_hard_fork_version(height);
+  if (hard_fork_version <= network_version_9_service_nodes)
+  {
+    return true;
+  }
+
+  if (!height_has_governance_output(nettype(), hard_fork_version, height))
+  {
+    return true;
+  }
+
+  // Ignore governance reward and payout instead the last
+  // GOVERNANCE_BLOCK_REWARD_INTERVAL number of blocks governance rewards.  We
+  // come back for this height's rewards in the next interval. The reward is
+  // 0 if it's not time to pay out the batched payments
+
+  const cryptonote::config_t &network = cryptonote::get_config(nettype(), hard_fork_version);
+  size_t num_blocks                   = network.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS;
+  uint64_t start_height               = height - num_blocks;
+
+  if (height < num_blocks)
+  {
+    start_height = 0;
+    num_blocks   = height;
+  }
+
+  std::vector<std::pair<cryptonote::blobdata, cryptonote::block>> blocks;
+  if (!get_blocks(start_height, num_blocks, blocks))
+  {
+    LOG_ERROR("Unable to get historical blocks to calculated batched governance payment");
+    return false;
+  }
+
+  for (const auto &it : blocks)
+  {
+    cryptonote::block const &block = it.second;
+    if (block.major_version >= network_version_10_bulletproofs)
+      reward += derive_governance_from_block_reward(nettype(), block);
+  }
+
+  return true;
 }
 
 //------------------------------------------------------------------

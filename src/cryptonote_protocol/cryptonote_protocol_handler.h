@@ -92,7 +92,7 @@ namespace cryptonote
       HANDLE_NOTIFY_T2(NOTIFY_NEW_FLUFFY_BLOCK, &cryptonote_protocol_handler::handle_notify_new_fluffy_block)
       HANDLE_NOTIFY_T2(NOTIFY_REQUEST_FLUFFY_MISSING_TX, &cryptonote_protocol_handler::handle_request_fluffy_missing_tx)
       HANDLE_NOTIFY_T2(NOTIFY_NEW_DEREGISTER_VOTE, &cryptonote_protocol_handler::handle_notify_new_deregister_vote)
-      HANDLE_NOTIFY_T2(NOTIFY_UPTIME_PROOF, &cryptonote_protocol_handler::handle_uptime_proof);
+      HANDLE_NOTIFY_T2(NOTIFY_UPTIME_PROOF, &cryptonote_protocol_handler::handle_uptime_proof)
     END_INVOKE_MAP2()
 
     bool on_idle();

@@ -38,6 +38,7 @@ namespace
         bool bulletproof,
         bool per_output_unlock)
     {
+
         std::uint64_t source_amount = 0;
         std::vector<cryptonote::tx_source_entry> actual_sources;
         for (auto const& source : sources)

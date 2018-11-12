@@ -147,7 +147,7 @@ namespace cryptonote {
   // Cryptonote clones:  #define DIFFICULTY_BLOCKS_COUNT_V2 DIFFICULTY_WINDOW_V2 + 1
 
 
-  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds) {
+  difficulty_type next_difficulty_v2(std::vector<std::uint64_t> timestamps, std::vector<difficulty_type> cumulative_difficulties, size_t target_seconds, bool use_old_lwma) {
 
     const int64_t T = static_cast<int64_t>(target_seconds);
 
@@ -181,7 +181,10 @@ namespace cryptonote {
     // Loop through N most recent blocks. N is most recently solved block.
     for (int64_t i = 1; i <= (int64_t)N; i++) {
       solveTime = static_cast<int64_t>(timestamps[i]) - static_cast<int64_t>(timestamps[i - 1]);
-      solveTime = std::min<int64_t>((T * 7), std::max<int64_t>(solveTime, (-7 * T)));
+
+      if (use_old_lwma) solveTime = std::max<int64_t>(solveTime, (-7 * T));
+      solveTime = std::min<int64_t>(solveTime, (T * 7));
+
       difficulty = cumulative_difficulties[i] - cumulative_difficulties[i - 1];
       LWMA += (solveTime * i) / k;
       sum_inverse_D += 1 / static_cast<double>(difficulty);

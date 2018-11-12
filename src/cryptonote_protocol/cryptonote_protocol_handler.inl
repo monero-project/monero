@@ -687,7 +687,7 @@ namespace cryptonote
     MLOG_P2P_MESSAGE("Received NOTIFY_UPTIME_PROOF");
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
-    if (m_core.handle_uptime_proof(arg.timestamp, arg.pubkey, arg.sig))
+    if (m_core.handle_uptime_proof(arg))
       relay_uptime_proof(arg, context);
     return 1;
   }

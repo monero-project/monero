@@ -429,7 +429,7 @@ namespace service_nodes
     if (iter != m_service_nodes_infos.end())
     {
       int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
-      if (hard_fork_version >= cryptonote::Blockchain::version_10_swarms)
+      if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
       {
         service_node_info const &old_info = iter->second;
         uint64_t expiry_height = old_info.registration_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
@@ -672,13 +672,13 @@ namespace service_nodes
     int hard_fork_version = m_blockchain.get_hard_fork_version(block_height);
 
     uint64_t lock_blocks = get_staking_requirement_lock_blocks(m_blockchain.nettype());
-    if (hard_fork_version >= cryptonote::Blockchain::version_10_swarms)
+    if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
       lock_blocks += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
     if (block_height < lock_blocks)
       return expired_nodes;
 
-    if (hard_fork_version >= cryptonote::Blockchain::version_10_swarms)
+    if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
     {
       for (auto &it : m_service_nodes_infos)
       {
@@ -775,13 +775,18 @@ namespace service_nodes
 
   /// validates the miner TX for the next block
   //
-  bool service_node_list::validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward) const
+  bool service_node_list::validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, cryptonote::block_reward_parts const &reward_parts) const
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     if (hard_fork_version < 9)
       return true;
 
-    uint64_t total_service_node_reward = cryptonote::get_service_node_reward(height, base_reward, hard_fork_version);
+    // NOTE(loki): Service node reward distribution is calculated from the
+    // original amount, i.e. 50% of the original base reward goes to service
+    // nodes not 50% of the reward after removing the governance component (the
+    // adjusted base reward post hardfork 10).
+    uint64_t base_reward = reward_parts.original_base_reward;
+    uint64_t total_service_node_reward = cryptonote::service_node_reward_formula(base_reward, hard_fork_version);
 
     crypto::public_key winner = select_winner(prev_id);
 
@@ -796,8 +801,7 @@ namespace service_nodes
 
     for (size_t i = 0; i < addresses_and_portions.size(); i++)
     {
-      size_t vout_index = miner_tx.vout.size() - 1 /* governance */ - addresses_and_portions.size() + i;
-
+      size_t vout_index = i + 1;
       uint64_t reward = cryptonote::get_portion_of_reward(addresses_and_portions[i].second, total_service_node_reward);
 
       if (miner_tx.vout[vout_index].amount != reward)

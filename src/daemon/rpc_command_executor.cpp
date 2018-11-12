@@ -2086,7 +2086,7 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
     // Print Expiry Info
     {
       uint64_t expiry_height = entry.registration_height + service_nodes::get_staking_requirement_lock_blocks(nettype);
-      if (hard_fork_version >= cryptonote::Blockchain::version_10_swarms)
+      if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
         expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
       if (curr_height)
@@ -2505,7 +2505,15 @@ bool t_rpc_command_executor::prepare_registration()
       return true;
     }
 
-    operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+        // Fix for truncation issue when operator cut = 100 for a pool Service Node.
+    if (operating_cost_percent == 100.0)
+    {
+      operating_cost_portions = STAKING_PORTIONS;
+    }
+    else
+    {
+      operating_cost_portions = (operating_cost_percent / 100.0) * STAKING_PORTIONS;
+    }
 
     const uint64_t min_contribution_portions = std::min(portions_remaining, MIN_PORTIONS);
 
