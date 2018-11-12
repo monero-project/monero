@@ -1266,8 +1266,17 @@ namespace cryptonote
     fee = 0;
     
     //baseline empty block
-    get_block_reward(median_weight, total_weight, already_generated_coins, best_coinbase, version, height);
+    loki_block_reward_context block_reward_context = {};
+    block_reward_context.height                    = height;
+    if (!m_blockchain.calc_batched_governance_reward(height, block_reward_context.batched_governance))
+    {
+      MERROR("Failed to calculated batched governance reward");
+      return false;
+    }
 
+    block_reward_parts reward_parts = {};
+    get_loki_block_reward(median_weight, total_weight, already_generated_coins, version, reward_parts, block_reward_context);
+    best_coinbase = reward_parts.base_miner;
 
     size_t max_total_weight = 2 * median_weight - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     std::unordered_set<crypto::key_image> k_images;
@@ -1297,14 +1306,15 @@ namespace cryptonote
       // start using the optimal filling algorithm from v5
       if (version >= 5)
       {
-        // If we're getting lower coinbase tx,
-        // stop including more tx
-        uint64_t block_reward;
-        if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version, height))
+        // If we're getting lower coinbase tx, stop including more tx
+        block_reward_parts reward_parts_other = {};
+        if(!get_loki_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, version, reward_parts_other, block_reward_context))
         {
           LOG_PRINT_L2("  would exceed maximum block weight");
           continue;
         }
+
+        uint64_t block_reward = reward_parts_other.base_miner;
         coinbase = block_reward + fee + meta.fee;
         if (coinbase < template_accept_threshold(best_coinbase))
         {

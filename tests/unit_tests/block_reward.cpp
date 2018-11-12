@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 
 using namespace cryptonote;
 
@@ -42,17 +43,21 @@ namespace
   protected:
     static const size_t current_block_weight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1 / 2;
 
-    bool m_block_not_too_big;
+    union
+    {
+      bool m_block_not_too_big;
+      bool m_block_reward_calc_success;
+    };
     uint64_t m_block_reward;
   };
 
   #define TEST_ALREADY_GENERATED_COINS(already_generated_coins, expected_reward)                                \
-    m_block_not_too_big = get_block_reward(0, current_block_weight, already_generated_coins, m_block_reward,7,0); \
+    m_block_not_too_big = get_base_block_reward(0, current_block_weight, already_generated_coins, m_block_reward,7,0); \
     ASSERT_TRUE(m_block_not_too_big);                                                                           \
     ASSERT_EQ(m_block_reward, expected_reward);
 
   #define TEST_ALREADY_GENERATED_COINS_V2(already_generated_coins, expected_reward, h)                          \
-    m_block_not_too_big = get_block_reward(0, current_block_weight, already_generated_coins, m_block_reward,8,h); \
+    m_block_not_too_big = get_base_block_reward(0, current_block_weight, already_generated_coins, m_block_reward,8,h); \
     ASSERT_TRUE(m_block_not_too_big);                                                                           \
     ASSERT_EQ(m_block_reward, expected_reward);
 
@@ -86,20 +91,52 @@ namespace
     TEST_ALREADY_GENERATED_COINS(MONEY_SUPPLY - ((1 << 20) - 1), UINT64_C(0));
   }
 
+  TEST_F(block_reward_and_already_generated_coins, reward_parity_between_orig_and_loki_algo)
+  {
+    uint64_t already_generated_coins = UINT64_C(22500000000000000)+116*720*90;
+    m_block_reward_calc_success      = true;
+
+    cryptonote::block_reward_parts        reward_parts_v7   = {};
+    cryptonote::loki_block_reward_context reward_context_v7 = {};
+    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 7, reward_parts_v7, reward_context_v7);
+
+    cryptonote::block_reward_parts        reward_parts_v8   = {};
+    cryptonote::loki_block_reward_context reward_context_v8 = {};
+    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 8, reward_parts_v8, reward_context_v8);
+
+    cryptonote::block_reward_parts        reward_parts_v9   = {};
+    cryptonote::loki_block_reward_context reward_context_v9 = {};
+    m_block_reward_calc_success &= get_loki_block_reward(0, current_block_weight, already_generated_coins, 9, reward_parts_v9, reward_context_v9);
+
+    uint64_t reward_v7_orig = 0;
+    m_block_reward_calc_success &= cryptonote::get_base_block_reward(0, current_block_weight, already_generated_coins, reward_v7_orig, 7, 0);
+
+    uint64_t reward_v8_orig = 0;
+    m_block_reward_calc_success &= cryptonote::get_base_block_reward(0, current_block_weight, already_generated_coins, reward_v8_orig, 8, 0);
+
+    uint64_t reward_v9_orig = 0;
+    m_block_reward_calc_success &= cryptonote::get_base_block_reward(0, current_block_weight, already_generated_coins, reward_v9_orig, 9, 0);
+
+    ASSERT_TRUE(m_block_reward_calc_success);                                                                           \
+    ASSERT_EQ(reward_parts_v7.adjusted_base_reward, reward_v7_orig);
+    ASSERT_EQ(reward_parts_v8.adjusted_base_reward, reward_v8_orig);
+    ASSERT_EQ(reward_parts_v9.adjusted_base_reward, reward_v9_orig);
+  }
+
   //--------------------------------------------------------------------------------------------------------------------
   class block_reward_and_current_block_weight : public ::testing::Test
   {
   protected:
     virtual void SetUp()
     {
-      m_block_not_too_big = get_block_reward(0, 0, already_generated_coins, m_standard_block_reward, 1, 0);
+      m_block_not_too_big = get_base_block_reward(0, 0, already_generated_coins, m_standard_block_reward, 1, 0);
       ASSERT_TRUE(m_block_not_too_big);
       ASSERT_LT(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, m_standard_block_reward);
     }
 
     void do_test(size_t median_block_weight, size_t current_block_weight)
     {
-      m_block_not_too_big = get_block_reward(median_block_weight, current_block_weight, already_generated_coins, m_block_reward, 1, 0);
+      m_block_not_too_big = get_base_block_reward(median_block_weight, current_block_weight, already_generated_coins, m_block_reward, 1, 0);
     }
 
     static const uint64_t already_generated_coins = UINT64_C(22500000000000000);
@@ -183,14 +220,14 @@ namespace
 
       m_last_block_weights_median = 7 * CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
 
-      m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_weights), 0, already_generated_coins, m_standard_block_reward, 1, 0);
+      m_block_not_too_big = get_base_block_reward(epee::misc_utils::median(m_last_block_weights), 0, already_generated_coins, m_standard_block_reward, 1, 0);
       ASSERT_TRUE(m_block_not_too_big);
       ASSERT_LT(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, m_standard_block_reward);
     }
 
     void do_test(size_t current_block_weight)
     {
-      m_block_not_too_big = get_block_reward(epee::misc_utils::median(m_last_block_weights), current_block_weight, already_generated_coins, m_block_reward, 1, 0);
+      m_block_not_too_big = get_base_block_reward(epee::misc_utils::median(m_last_block_weights), current_block_weight, already_generated_coins, m_block_reward, 1, 0);
     }
 
     static const uint64_t already_generated_coins = UINT64_C(22500000000000000);

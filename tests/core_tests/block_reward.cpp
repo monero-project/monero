@@ -272,3 +272,69 @@ bool gen_block_reward::check_block_rewards(cryptonote::core& /*c*/, size_t /*ev_
 
   return true;
 }
+
+gen_batched_governance_reward::gen_batched_governance_reward()
+{
+  REGISTER_CALLBACK_METHOD(gen_batched_governance_reward, check_batched_governance_amount_matches);
+}
+
+static uint64_t expected_total_governance_paid = 0;
+bool gen_batched_governance_reward::generate(std::vector<test_event_entry>& events) const
+{
+  const get_test_options<gen_batched_governance_reward> test_options = {};
+  const config_t &network = cryptonote::get_config(cryptonote::FAKECHAIN, network_version_10_bulletproofs);
+
+  linear_chain_generator batched_governance_generator(events);
+  {
+    batched_governance_generator.rewind_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+
+    uint64_t blocks_to_gen = network.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS - batched_governance_generator.height();
+    batched_governance_generator.rewind_blocks_n(blocks_to_gen);
+  }
+
+  {
+    // NOTE(loki): Since hard fork 8 we have an emissions curve change, so if
+    // you don't atleast progress and generate blocks from hf8 you will run into
+    // problems
+    std::vector<test_event_entry> unused_events;
+    linear_chain_generator no_batched_governance_generator(unused_events);
+    no_batched_governance_generator.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+
+    while(no_batched_governance_generator.height() < batched_governance_generator.height())
+      no_batched_governance_generator.create_block();
+
+    // NOTE(loki): Skip the last block as that is the batched payout height, we
+    // don't include the governance reward of that height, that gets picked up
+    // in the next batch.
+    const std::vector<cryptonote::block>& blockchain = no_batched_governance_generator.blocks();
+    for (size_t block_height = 1; block_height < blockchain.size() - 1; ++block_height)
+    {
+      const cryptonote::block &block = blockchain[block_height];
+      expected_total_governance_paid += block.miner_tx.vout.back().amount;
+    }
+  }
+
+  DO_CALLBACK(events, "check_batched_governance_amount_matches");
+  return true;
+}
+
+bool gen_batched_governance_reward::check_batched_governance_amount_matches(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("gen_batched_governance_reward::check_batched_governance_amount_matches");
+
+  uint64_t height = c.get_current_blockchain_height();
+  std::vector<cryptonote::block> blockchain;
+  if (!c.get_blocks((uint64_t)0, (size_t)height, blockchain))
+    return false;
+
+  uint64_t governance = 0;
+  for (size_t block_height = 1; block_height < blockchain.size(); ++block_height)
+  {
+    const cryptonote::block &block = blockchain[block_height];
+    if (cryptonote::block_has_governance_output(cryptonote::FAKECHAIN, block))
+      governance += block.miner_tx.vout.back().amount;
+  }
+
+  CHECK_EQ(governance, expected_total_governance_paid);
+  return true;
+}

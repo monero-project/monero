@@ -109,6 +109,7 @@ int main(int argc, char* argv[])
       MLOG(el::Level::Info, "Running all tests\n");
     }
 
+
     if (run_all || command_line::get_arg(vm, arg_service_nodes))
     {
       GENERATE_AND_PLAY(gen_service_nodes);
@@ -122,6 +123,8 @@ int main(int argc, char* argv[])
 
     if (run_all)
     {
+      GENERATE_AND_PLAY(gen_batched_governance_reward); // Loki Governance
+
       GENERATE_AND_PLAY(gen_simple_chain_001);
       GENERATE_AND_PLAY(gen_simple_chain_split_1);
       GENERATE_AND_PLAY(gen_chain_switch_1);
@@ -280,7 +283,6 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_2_many_inputs);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234);
       GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234_many_inputs);
-
 #endif
     }
 

@@ -64,7 +64,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
   for (size_t i = 0; i < NUM_MINERS; ++i)
     miner_accounts[i].generate();
 
-  generator.set_hf_version(8);
+  generator.m_hf_version = 8;
   for (size_t n = 0; n < NUM_UNLOCKED_BLOCKS; ++n) {
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, miner_accounts[n % NUM_MINERS],
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
@@ -193,7 +193,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
-  generator.set_hf_version(10);
+  generator.m_hf_version = 10;
   CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes, blk_last, miner_account,
       test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version,
       10, 10, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
@@ -228,9 +228,25 @@ bool gen_bp_tx_validation_base::check_bp(const cryptonote::transaction &tx, size
   return true;
 }
 
+// TODO(doyle): Revisit this. Is there some rule prohibiting a tx fee greater
+// than the block reward? Monero is unaffected because they have multiple
+// outputs of varying sizes in their miner tx, so the tx fee (inputs-outputs)
+// (because they don't use a change addr) doesn't eclipse the reward and doesn't
+// trigger the "base reward calculation bug" assert, whereas we do since we only
+// have 1 output. So my fix is to make it so we don't generate a tx that makes
+// too high of a fee from the change amount.
+
+// Further addendum. In Loki hardfork 10, we also introduce batching governance
+// payments- so most block heights will remove the governance output from the
+// reward. So if we send less than the governance amount (~6ish loki from the
+// start of the chain), then we'll eclipse the reward again and overflow, so
+// most of these tests have again been modified to ensure that we use atleast
+// 6 loki from the block reward.
+//  - 2018/10/29
+
 bool gen_bp_tx_valid_1::generate(std::vector<test_event_entry>& events) const
 {
-  const uint64_t amounts_paid[] = {10, (uint64_t)-1};
+  const uint64_t amounts_paid[] = {MK_COINS(10), (uint64_t)-1};
   const size_t bp_sizes[] = {1, (size_t)-1};
   const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof};
   return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_1"); });
@@ -245,7 +261,7 @@ bool gen_bp_tx_invalid_1_1::generate(std::vector<test_event_entry>& events) cons
 
 bool gen_bp_tx_valid_2::generate(std::vector<test_event_entry>& events) const
 {
-  const uint64_t amounts_paid[] = {5, 5, (uint64_t)-1};
+  const uint64_t amounts_paid[] = {MK_COINS(5), MK_COINS(5), (uint64_t)-1};
   const size_t bp_sizes[] = {2, (size_t)-1};
   const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof};
   return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_2"); });
@@ -253,7 +269,8 @@ bool gen_bp_tx_valid_2::generate(std::vector<test_event_entry>& events) const
 
 bool gen_bp_tx_valid_3::generate(std::vector<test_event_entry>& events) const
 {
-  const uint64_t amounts_paid[] = {50, 50, 50, (uint64_t)-1};
+  // const uint64_t amounts_paid[] = {50, 50, 50, (uint64_t)-1};
+  const uint64_t amounts_paid[] = {MK_COINS(28), MK_COINS(28), MK_COINS(28), (uint64_t)-1};
   const size_t bp_sizes[] = {4, (size_t)-1};
   const rct::RangeProofType range_proof_type[] = { rct::RangeProofPaddedBulletproof };
   return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_3"); });
@@ -261,7 +278,8 @@ bool gen_bp_tx_valid_3::generate(std::vector<test_event_entry>& events) const
 
 bool gen_bp_tx_valid_16::generate(std::vector<test_event_entry>& events) const
 {
-  const uint64_t amounts_paid[] = {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, (uint64_t)-1};
+  // const uint64_t amounts_paid[] = {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, (uint64_t)-1};
+  const uint64_t amounts_paid[] = {MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), (uint64_t)-1};
   const size_t bp_sizes[] = {16, (size_t)-1};
   const rct::RangeProofType range_proof_type[] = { rct::RangeProofPaddedBulletproof };
   return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_16"); });
@@ -283,14 +301,6 @@ bool gen_bp_tx_invalid_16_16::generate(std::vector<test_event_entry>& events) co
 
 bool gen_bp_txs_valid_2_and_2::generate(std::vector<test_event_entry>& events) const
 {
-  // TODO(doyle): Revisit this. Is there some rule prohibiting a tx fee greater
-  // than the block reward? Monero is unaffected because they have multiple
-  // outputs of varying sizes, so the tx fee (inputs-outputs) (because they
-  // don't use a change addr) doesn't eclipse the reward and doesn't trigger the
-  // "base reward calculation bug" assert, whereas we do since we only have
-  // 1 output. So my fix is to make it so we don't generate a tx that makes too
-  // high of a fee from the change amount - 2018/09/09
-
   //const uint64_t amounts_paid[] = {1000, 1000, (size_t)-1, 1000, 1000, (uint64_t)-1};
   const uint64_t amounts_paid[] = {MK_COINS(50), MK_COINS(50), (size_t)-1, MK_COINS(50), MK_COINS(50), (uint64_t)-1};
 
