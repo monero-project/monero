@@ -48,7 +48,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 5
+#define WALLET_RPC_VERSION_MINOR 6
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1058,7 +1058,10 @@ namespace wallet_rpc
   {
     struct request
     {
+      bool hard;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(hard, false);
       END_KV_SERIALIZE_MAP()
     };
 
@@ -1580,9 +1583,11 @@ namespace wallet_rpc
 
     struct response
     {
+      uint32_t offset;
       std::vector<signed_key_image> signed_key_images;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(offset);
         KV_SERIALIZE(signed_key_images);
       END_KV_SERIALIZE_MAP()
     };
@@ -1603,9 +1608,11 @@ namespace wallet_rpc
 
     struct request
     {
+      uint32_t offset;
       std::vector<signed_key_image> signed_key_images;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(offset, (uint32_t)0);
         KV_SERIALIZE(signed_key_images);
       END_KV_SERIALIZE_MAP()
     };

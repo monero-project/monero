@@ -2538,6 +2538,7 @@ simple_wallet::simple_wallet()
                            tr("Show the unspent outputs of a specified address within an optional amount range."));
   m_cmd_binder.set_handler("rescan_bc",
                            boost::bind(&simple_wallet::rescan_blockchain, this, _1),
+                           tr("rescan_bc [hard]"),
                            tr("Rescan the blockchain from scratch, losing any information which can not be recovered from the blockchain itself."));
   m_cmd_binder.set_handler("set_tx_note",
                            boost::bind(&simple_wallet::set_tx_note, this, _1),
@@ -4287,15 +4288,15 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init)
+bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bool is_init)
 {
   if (!try_connect_to_daemon(is_init))
     return true;
 
   LOCK_IDLE_SCOPE();
 
-  if (reset)
-    m_wallet->rescan_blockchain(false);
+  if (reset != ResetNone)
+    m_wallet->rescan_blockchain(reset == ResetHard, false);
 
 #ifdef HAVE_READLINE
   rdln::suspend_readline pause_readline;
@@ -4374,7 +4375,7 @@ bool simple_wallet::refresh(const std::vector<std::string>& args)
         start_height = 0;
     }
   }
-  return refresh_main(start_height, false);
+  return refresh_main(start_height, ResetNone);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::show_balance_unlocked(bool detailed)
@@ -4472,7 +4473,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   tools::wallet2::transfer_container transfers;
   m_wallet->get_transfers(transfers);
 
-  bool transfers_found = false;
+  size_t transfers_found = 0;
   for (const auto& td : transfers)
   {
     if (!filter || available != td.m_spent)
@@ -4485,7 +4486,6 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         if (verbose)
           verbose_string = (boost::format("%68s%68s") % tr("pubkey") % tr("key image")).str();
         message_writer() << boost::format("%21s%8s%12s%8s%16s%68s%16s%s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id") % tr("addr index") % verbose_string;
-        transfers_found = true;
       }
       std::string verbose_string;
       if (verbose)
@@ -4500,6 +4500,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         td.m_txid %
         td.m_subaddr_index.minor %
         verbose_string;
+      ++transfers_found;
     }
   }
 
@@ -4517,6 +4518,10 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
     {
       success_msg_writer() << tr("No incoming unavailable transfers");
     }
+  }
+  else
+  {
+    success_msg_writer() << boost::format("Found %u/%u transfers") % transfers_found % transfers.size();
   }
 
   return true;
@@ -6926,8 +6931,8 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
 bool simple_wallet::accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs)
 {
   std::string extra_message;
-  if (!txs.transfers.empty())
-    extra_message = (boost::format("%u outputs to import. ") % (unsigned)txs.transfers.size()).str();
+  if (!txs.transfers.second.empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)txs.transfers.second.size()).str();
   return accept_loaded_tx([&txs](){return txs.txes.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.txes[n];}, extra_message);
 }
 //----------------------------------------------------------------------------------------------------
@@ -7673,7 +7678,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         pd.m_block_height,
         pd.m_timestamp,
         pd.m_coinbase ? "block" : "in",
-        true,
+        true, // confirmed
+        m_wallet->is_tx_spendtime_unlocked(pd.m_unlock_time, pd.m_block_height),
         pd.m_amount,
         pd.m_tx_hash,
         payment_id,
@@ -7700,11 +7706,13 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
       std::string note = m_wallet->get_tx_note(i->first);
+
       transfers.push_back({
         pd.m_block_height,
         pd.m_timestamp,
         "out",
-        true,
+        true, // confirmed
+        false, // unlocked NOTE(loki): Irrelevant for going out payments
         pd.m_amount_in - change - fee,
         i->first,
         payment_id,
@@ -7734,11 +7742,13 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         std::string double_spend_note;
         if (i->second.m_double_spend_seen)
           double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
+
         transfers.push_back({
           tr("pool"),
           pd.m_timestamp,
           "in",
-          false,
+          false, // confirmed
+          false, // unlocked 
           pd.m_amount,
           pd.m_tx_hash,
           payment_id,
@@ -7777,7 +7787,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
           (is_failed ? tr("failed") : tr("pending")),
           pd.m_timestamp,
           "out",
-          false,
+          false, // confirmed
+          false, // unlocked
           amount - pd.m_change - fee,
           i->first,
           payment_id,
@@ -7847,9 +7858,18 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     
     auto formatter = boost::format("%8.8llu %6.6s %16.16s %20.20s %s %s %14.14s %s %s - %s");
 
+    char const UNLOCKED[] = "unlocked";
+    char const LOCKED[]   = "locked";
+    char const N_A[]      = "-";
+
+    char const *lock_str = N_A;
+    if (transfer.direction == "in" || transfer.direction == "pool")
+      lock_str = (transfer.unlocked) ? UNLOCKED : LOCKED;
+
     message_writer(color, false) << formatter
       % transfer.block
       % transfer.direction
+      % lock_str
       % get_human_readable_timestamp(transfer.timestamp)
       % print_money(transfer.amount)
       % string_tools::pod_to_hex(transfer.hash)
@@ -8090,15 +8110,29 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
 {
-  message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
-  message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
-  std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
-  if(!std::cin.eof())
+  bool hard = false;
+  if (!args_.empty())
   {
-    if (!command_line::is_yes(confirm))
+    if (args_[0] != "hard")
+    {
+      fail_msg_writer() << tr("usage: rescan_bc [hard]");
       return true;
+    }
+    hard = true;
   }
-  return refresh_main(0, true);
+
+  if (hard)
+  {
+    message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
+    message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
+    std::string confirm = input_line(tr("Rescan anyway ? (Y/Yes/N/No): "));
+    if(!std::cin.eof())
+    {
+      if (!command_line::is_yes(confirm))
+        return true;
+    }
+  }
+  return refresh_main(0, hard ? ResetHard : ResetSoft, true);
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::wallet_idle_thread()
@@ -8146,7 +8180,7 @@ bool simple_wallet::run()
   // check and display warning, but go on anyway
   try_connect_to_daemon();
 
-  refresh_main(0, false, true);
+  refresh_main(0, ResetNone, true);
 
   m_auto_refresh_enabled = m_wallet->auto_refresh();
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});

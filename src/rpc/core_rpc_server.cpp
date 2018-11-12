@@ -708,7 +708,6 @@ namespace cryptonote
       res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds;
       res.signature_not_valid = vvc.m_signature_not_valid;
       res.not_enough_votes = vvc.m_not_enough_votes;
-
       const std::string punctuation = res.reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
