@@ -163,7 +163,7 @@ namespace service_nodes
 
     uint64_t height = m_core.get_current_blockchain_height();
     int version     = m_core.get_hard_fork_version(height);
-    if (version >= cryptonote::Blockchain::version_10_swarms && proof.snode_version_major != 2)
+    if (version >= cryptonote::network_version_10_bulletproofs && proof.snode_version_major != 2)
       return false; // NOTE: Only care about major version for now
 
     CRITICAL_REGION_LOCAL(m_lock);

@@ -129,8 +129,8 @@ namespace tools
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
+      get_outs_error_message_index,
       get_service_nodes_error_message_index,
-      get_outs_error_message_index
     };
 
     template<typename Base, int msg_index>
