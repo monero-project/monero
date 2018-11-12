@@ -4341,6 +4341,29 @@ void simple_wallet::on_passphrase_request(bool on_device, epee::wipeable_string 
   passphrase = pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
+void simple_wallet::on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money)
+{
+  // Key image sync after the first refresh
+  if (!m_wallet->get_account().get_device().has_tx_cold_sign()) {
+    return;
+  }
+
+  if (!received_money || m_wallet->get_device_last_key_image_sync() != 0) {
+    return;
+  }
+
+  // Finished first refresh for HW device and money received -> KI sync
+  message_writer() << "\n" << tr("The first refresh has finished for the HW-based wallet with received money. hw_key_images_sync is needed. ");
+
+  std::string accepted = input_line(tr("Do you want to do it now? (Y/Yes/N/No): "));
+  if (std::cin.eof() || !command_line::is_yes(accepted)) {
+    message_writer(console_color_red, false) << tr("hw_key_images_sync skipped. Run command manually before a transfer.");
+    return;
+  }
+
+  key_images_sync_intern();
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bool is_init)
 {
   if (!try_connect_to_daemon(is_init))
@@ -4358,13 +4381,14 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
   message_writer() << tr("Starting refresh...");
 
   uint64_t fetched_blocks = 0;
+  bool received_money = false;
   bool ok = false;
   std::ostringstream ss;
   try
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks);
+    m_wallet->refresh(m_wallet->is_trusted_daemon(), start_height, fetched_blocks, received_money);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -4372,6 +4396,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
     if (is_init)
       print_accounts();
     show_balance_unlocked();
+    on_refresh_finished(start_height, fetched_blocks, is_init, received_money);
   }
   catch (const tools::error::daemon_busy&)
   {
@@ -8134,13 +8159,13 @@ bool simple_wallet::hw_key_images_sync(const std::vector<std::string> &args)
     fail_msg_writer() << tr("hw wallet does not support cold KI sync");
     return true;
   }
-  if (!m_wallet->is_trusted_daemon())
-  {
-    fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
-    return true;
-  }
 
   LOCK_IDLE_SCOPE();
+  key_images_sync_intern();
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+void simple_wallet::key_images_sync_intern(){
   try
   {
     message_writer(console_color_white, false) << tr("Please confirm the key image sync on the device");
@@ -8149,19 +8174,23 @@ bool simple_wallet::hw_key_images_sync(const std::vector<std::string> &args)
     uint64_t height = m_wallet->cold_key_image_sync(spent, unspent);
     if (height > 0)
     {
-      success_msg_writer() << tr("Signed key images imported to height ") << height << ", "
-          << print_money(spent) << tr(" spent, ") << print_money(unspent) << tr(" unspent");
-    } else {
+      success_msg_writer() << tr("Key images synchronized to height ") << height;
+      if (!m_wallet->is_trusted_daemon())
+      {
+        message_writer() << tr("Running untrusted daemon, cannot determine which transaction output is spent. Use a trusted daemon with --trusted-daemon and run rescan_spent");
+      } else
+      {
+        success_msg_writer() << print_money(spent) << tr(" spent, ") << print_money(unspent) << tr(" unspent");
+      }
+    }
+    else {
       fail_msg_writer() << tr("Failed to import key images");
     }
   }
   catch (const std::exception &e)
   {
     fail_msg_writer() << tr("Failed to import key images: ") << e.what();
-    return true;
   }
-
-  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::hw_reconnect(const std::vector<std::string> &args)

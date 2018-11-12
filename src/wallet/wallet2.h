@@ -810,6 +810,7 @@ namespace tools
     bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const;
 
     uint64_t get_last_block_reward() const { return m_last_block_reward; }
+    uint64_t get_device_last_key_image_sync() const { return m_device_last_key_image_sync; }
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -918,6 +919,9 @@ namespace tools
       if(ver < 26)
         return;
       a & m_tx_device;
+      if(ver < 27)
+        return;
+      a & m_device_last_key_image_sync;
     }
 
     /*!
@@ -1388,6 +1392,7 @@ namespace tools
     size_t m_subaddress_lookahead_major, m_subaddress_lookahead_minor;
     std::string m_device_name;
     std::string m_device_derivation_path;
+    uint64_t m_device_last_key_image_sync;
 
     // Aux transaction data from device
     std::unordered_map<crypto::hash, std::string> m_tx_device;
@@ -1424,7 +1429,7 @@ namespace tools
     std::unique_ptr<wallet_device_callback> m_device_callback;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 26)
+BOOST_CLASS_VERSION(tools::wallet2, 27)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 10)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
