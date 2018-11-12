@@ -77,7 +77,7 @@ int ColdOutputsFuzzer::run(const std::string &filename)
   s = std::string("\x01\x16serialization::archive") + s;
   try
   {
-    std::vector<tools::wallet2::transfer_details> outputs;
+    std::pair<size_t, std::vector<tools::wallet2::transfer_details>> outputs;
     std::stringstream iss;
     iss << s;
     boost::archive::portable_binary_iarchive ar(iss);

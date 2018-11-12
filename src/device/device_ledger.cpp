@@ -397,7 +397,7 @@ namespace hw {
            CHECK_AND_ASSERT_THROW_MES(false, " device_ledger::set_mode(unsigned int mode): invalid mode: "<<mode);
         }
         MDEBUG("Switch to mode: " <<mode);
-        return true;
+        return device::set_mode(mode);
     }
 
 

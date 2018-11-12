@@ -126,7 +126,9 @@ class DaemonHandler : public RpcHandler
 
     void handle(const GetRPCVersion::Request& req, GetRPCVersion::Response& res);
 
-    void handle(const GetPerKBFeeEstimate::Request& req, GetPerKBFeeEstimate::Response& res);
+    void handle(const GetFeeEstimate::Request& req, GetFeeEstimate::Response& res);
+
+    void handle(const GetOutputDistribution::Request& req, GetOutputDistribution::Response& res);
 
     std::string handle(const std::string& request);
 

@@ -933,6 +933,17 @@ TEST(Serialization, portability_outputs)
 }
 
 #define UNSIGNED_TX_PREFIX "Loki unsigned tx set\004"
+struct unsigned_tx_set
+{
+  std::vector<tools::wallet2::tx_construction_data> txes;
+  tools::wallet2::transfer_container transfers;
+};
+template <class Archive>
+inline void serialize(Archive &a, unsigned_tx_set &x, const boost::serialization::version_type ver)
+{
+  a & x.txes;
+  a & x.transfers;
+}
 TEST(Serialization, portability_unsigned_tx)
 {
   const bool restricted = false;
@@ -949,7 +960,7 @@ TEST(Serialization, portability_unsigned_tx)
   ASSERT_TRUE(r);
   size_t const magiclen = strlen(UNSIGNED_TX_PREFIX);
   ASSERT_FALSE(strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen));
-  tools::wallet2::unsigned_tx_set exported_txs;
+  unsigned_tx_set exported_txs;
   s = s.substr(magiclen);
   r = false;
 

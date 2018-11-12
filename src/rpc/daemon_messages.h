@@ -28,6 +28,9 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <vector>
+
 #include "message.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/message_data_structs.h"
@@ -110,7 +113,8 @@ BEGIN_RPC_MESSAGE_CLASS(GetTransactions);
     std::vector<crypto::hash> tx_hashes;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    std::unordered_map<crypto::hash, cryptonote::rpc::transaction_info> txs;
+    using txes_map = std::unordered_map<crypto::hash, transaction_info>;
+    txes_map txs;
     std::vector<crypto::hash> missed_hashes;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
@@ -399,12 +403,27 @@ BEGIN_RPC_MESSAGE_CLASS(GetRPCVersion);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
-BEGIN_RPC_MESSAGE_CLASS(GetPerKBFeeEstimate);
+BEGIN_RPC_MESSAGE_CLASS(GetFeeEstimate);
   BEGIN_RPC_MESSAGE_REQUEST;
     uint64_t num_grace_blocks;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    uint64_t estimated_fee_per_kb;
+    uint64_t estimated_base_fee;
+    uint64_t fee_mask;
+    uint32_t size_scale;
+    uint8_t hard_fork_version;
+  END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(GetOutputDistribution);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    std::vector<uint64_t> amounts;
+    uint64_t from_height;
+    uint64_t to_height;
+    bool cumulative;
+  END_RPC_MESSAGE_REQUEST;
+  BEGIN_RPC_MESSAGE_RESPONSE;
+    std::vector<output_distribution> distributions;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 

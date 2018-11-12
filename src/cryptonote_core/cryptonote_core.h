@@ -129,7 +129,7 @@ namespace cryptonote
       * @param relayed whether or not the transaction was relayed to us
       * @param do_not_relay whether to prevent the transaction from being relayed
       *
-      * @return true if the transaction made it to the transaction pool, otherwise false
+      * @return true if the transaction was accepted, false otherwise
       */
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
@@ -145,7 +145,7 @@ namespace cryptonote
       * @param relayed whether or not the transactions were relayed to us
       * @param do_not_relay whether to prevent the transactions from being relayed
       *
-      * @return true if the transactions made it to the transaction pool, otherwise false
+      * @return true if the transactions were accepted, false otherwise
       */
      bool handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
 
@@ -260,10 +260,11 @@ namespace cryptonote
       * @param vm command line parameters
       * @param config_subdir subdirectory for config storage
       * @param test_options configuration options for testing
+      * @param get_checkpoints if set, will be called to get checkpoints data, must return checkpoints data pointer and size or nullptr if there ain't any checkpoints for specific network type
       *
       * @return false if one of the init steps fails, otherwise true
       */
-     bool init(const boost::program_options::variables_map& vm, const char *config_subdir = NULL, const test_options *test_options = NULL);
+     bool init(const boost::program_options::variables_map& vm, const char *config_subdir = NULL, const test_options *test_options = NULL, const GetCheckpointsCallback& get_checkpoints = nullptr);
 
      /**
       * @copydoc Blockchain::reset_and_set_genesis_block
@@ -1042,6 +1043,13 @@ namespace cryptonote
       */
      void do_uptime_proof_call();
 
+     /*
+      * @brief checks block rate, and warns if it's too slow
+      *
+      * @return true on success, false otherwise
+      */
+     bool check_block_rate();
+
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
@@ -1072,6 +1080,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<60*10, true> m_check_disk_space_interval; //!< interval for checking for disk space
      epee::math_helper::once_a_time_seconds<UPTIME_PROOF_BUFFER_IN_SECONDS, true> m_check_uptime_proof_interval; //!< interval for checking our own uptime proof
      epee::math_helper::once_a_time_seconds<30, true> m_uptime_proof_pruner;
+     epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 

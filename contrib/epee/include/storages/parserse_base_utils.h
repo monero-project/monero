@@ -39,12 +39,14 @@ namespace misc_utils
     inline std::string transform_to_escape_sequence(const std::string& src)
     {
       static const char escaped[] = "\b\f\n\r\t\v\"\\/";
-      if (std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped)) == src.end())
+      std::string::const_iterator it = std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped));
+      if (it == src.end())
         return src;
 
       std::string res;
       res.reserve(2 * src.size());
-      for(std::string::const_iterator it = src.begin(); it!=src.end(); ++it)
+      res.assign(src.begin(), it);
+      for(; it!=src.end(); ++it)
       {
         switch(*it)
         {

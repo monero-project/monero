@@ -215,7 +215,7 @@ namespace
     }
     boost::crc_32_type result;
     result.process_bytes(trimmed_words.data(), trimmed_words.length());
-    return result.checksum() % crypto::ElectrumWords::seed_length;
+    return result.checksum() % word_list.size();
   }
 
   /*!
@@ -335,6 +335,7 @@ namespace crypto
           return false;
         }
 
+        w[0] = SWAP32LE(w[0]);
         dst.append((const char*)&w[0], 4);  // copy 4 bytes to position
         memwipe(w, sizeof(w));
       }

@@ -31,6 +31,7 @@
 #include "crypto/hash.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "ringct/rctSigs.h"
+#include "rpc/rpc_handler.h"
 
 #include <unordered_map>
 #include <vector>
@@ -192,6 +193,12 @@ namespace rpc
     uint64_t start_time;
   };
 
+  struct output_distribution
+  {
+    output_distribution_data data;
+    uint64_t amount;
+    bool cumulative;
+  };
 }  // namespace rpc
 
 }  // namespace cryptonote
