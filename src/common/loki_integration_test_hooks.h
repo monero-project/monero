@@ -1,4 +1,3 @@
-#define LOKI_ENABLE_INTEGRATION_TEST_HOOKS
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
 
 #ifndef LOKI_INTEGRATION_TEST_HOOKS_H
@@ -166,12 +165,15 @@ void loki::write_to_stdout_shared_mem(std::string const &input, shared_mem_type 
 
 loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 {
-  static uint64_t wallet_last_timestamp = 0;
-  static uint64_t daemon_last_timestamp = 0;
-
   uint64_t timestamp       = 0;
   uint64_t *last_timestamp = nullptr;
   char const *input        = nullptr;
+
+  static uint64_t wallet_last_timestamp = 0;
+  static uint64_t daemon_last_timestamp = 0;
+
+  if (type == shared_mem_type::default_type)
+    type = global_default_type;
 
   shoom::Shm *shared_mem = get_shared_mem(type, stdin_or_out::in);
   if (type == shared_mem_type::wallet) last_timestamp = &wallet_last_timestamp;
@@ -184,6 +186,7 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
     shared_mem->Open();
     char const *data = reinterpret_cast<char const *>(shared_mem->Data());
     input = parse_message(data, shared_mem->Size(), &timestamp);
+
     if (input && (*last_timestamp) != timestamp)
     {
       *last_timestamp = timestamp;
