@@ -5506,14 +5506,6 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   if (!try_connect_to_daemon())
     return true;
 
-  if (m_wallet->ask_password())
-  {
-    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
-    return true;
-  }
-
-  SCOPED_WALLET_UNLOCK();
-
   std::vector<std::string> local_args = args_;
 
   std::set<uint32_t> subaddr_indices;
@@ -5551,6 +5543,14 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [auto] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <service node pubkey> <signature>");
     return true;
   }
+
+  if (m_wallet->ask_password() && autostake)
+  {
+    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
+    return true;
+  }
+
+  SCOPED_WALLET_UNLOCK();
 
   size_t timestamp_index = local_args.size() - 3;
   size_t key_index = local_args.size() - 2;
@@ -5675,6 +5675,7 @@ bool simple_wallet::stake_main(
   uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
   uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
+  time_t begin_construct_time = time(nullptr);
   std::string err, err2;
   uint64_t bc_height = std::max(m_wallet->get_daemon_blockchain_height(err),
                                 m_wallet->get_daemon_blockchain_target_height(err2));
@@ -5896,6 +5897,15 @@ bool simple_wallet::stake_main(
       }
     }
 
+    time_t end_construct_time = time(nullptr);
+    time_t construct_time     = end_construct_time - begin_construct_time;
+
+    if (!autostake && construct_time > (60 * 10))
+    {
+      fail_msg_writer() << tr("Staking command has timed out due to waiting longer than 10 mins. This prevents the staking transaction from becoming invalid due to blocks mined interim. Please try again");
+      return true;
+    }
+
     // actually commit the transactions
     if (m_wallet->multisig())
     {
@@ -5947,14 +5957,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
   if (!try_connect_to_daemon())
     return true;
 
-  if (m_wallet->ask_password())
-  {
-    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
-    return true;
-  }
-
-  SCOPED_WALLET_UNLOCK()
-
   std::vector<std::string> local_args = args_;
 
   std::set<uint32_t> subaddr_indices;
@@ -5983,6 +5985,14 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("Usage: stake [index=<N1>[,<N2>,...]] [priority] [auto] <service node pubkey> <address> [<amount|percent%>]");
     return true;
   }
+
+  if (m_wallet->ask_password() && autostake)
+  {
+    fail_msg_writer() << tr(ASK_PASSWORD_MUST_BE_OFF_MSG);
+    return true;
+  }
+
+  SCOPED_WALLET_UNLOCK()
 
   crypto::public_key service_node_key;
   if (!epee::string_tools::hex_to_pod(local_args[0], service_node_key))
