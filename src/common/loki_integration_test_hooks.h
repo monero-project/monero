@@ -1,3 +1,4 @@
+#define LOKI_ENABLE_INTEGRATION_TEST_HOOKS
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
 
 #ifndef LOKI_INTEGRATION_TEST_HOOKS_H
@@ -43,8 +44,6 @@ void         write_redirected_stdout_to_shared_mem(shared_mem_type type = shared
 
 #define SHOOM_IMPLEMENTATION
 #include "shoom.h"
-
-const int POLL_SHARED_MEM_SLEEP_MS = 500;
 
 static std::ostringstream     global_redirected_cout;
 static std::streambuf        *global_std_cout;
@@ -181,8 +180,7 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 
   for (;;)
   {
-    std::this_thread::sleep_for(std::chrono::milliseconds(POLL_SHARED_MEM_SLEEP_MS));
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     shared_mem->Open();
     char const *data = reinterpret_cast<char const *>(shared_mem->Data());
     input = parse_message(data, shared_mem->Size(), &timestamp);
