@@ -8286,45 +8286,40 @@ bool simple_wallet::run()
   message_writer(console_color_green, false) << "Background refresh thread started";
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  auto handle_shared_mem_ins_and_outs = [this]()
+  loki::init_integration_test_context(loki::shared_mem_type::wallet);
+  for (;;)
   {
-    loki::init_integration_test_context(loki::shared_mem_type::wallet);
-    for (;;)
+    loki::use_standard_cout();
+
+    std::vector<std::string> args;
     {
-      loki::use_standard_cout();
+      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
+      std::cout << cmd.data << std::endl;
 
-      std::vector<std::string> args;
+      char const *start = cmd.data;
+      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
       {
-        loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
-        std::cout << cmd.data << std::endl;
-
-        char const *start = cmd.data;
-        for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
+        if (buf_ptr[0] == ' ')
         {
-          if (buf_ptr[0] == ' ')
-          {
-            std::string result(start, buf_ptr - start);
-            start = buf_ptr + 1;
-            args.push_back(result);
-          }
-        }
-
-        if (*start)
-        {
-            std::string last(start);
-            args.push_back(last);
+          std::string result(start, buf_ptr - start);
+          start = buf_ptr + 1;
+          args.push_back(result);
         }
       }
-      loki::use_redirected_cout();
-      this->process_command(args);
-      loki::write_redirected_stdout_to_shared_mem();
 
-      if (args.size() == 1 && args[0] == "exit")
-        break;
+      if (*start)
+      {
+          std::string last(start);
+          args.push_back(last);
+      }
     }
-  };
+    loki::use_redirected_cout();
+    this->process_command(args);
+    loki::write_redirected_stdout_to_shared_mem();
 
-  static std::thread handle_remote_stdin_out_thread(handle_shared_mem_ins_and_outs);
+    if (args.size() == 1 && args[0] == "exit")
+      return true;
+  }
 #endif
 
   return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
