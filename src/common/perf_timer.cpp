@@ -110,6 +110,7 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
   {
     MCLOG(level, cat.c_str(), "PERF             ----------");
     performance_timers = new std::vector<LoggingPerformanceTimer*>();
+    performance_timers->reserve(16); // how deep before realloc
   }
   else
   {
