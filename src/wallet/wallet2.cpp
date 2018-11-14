@@ -6841,21 +6841,23 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     //static const double shape = m_testnet ? 17.02 : 17.28;
     static const double scale = 1/1.61;
     std::gamma_distribution<double> gamma(shape, scale);
+    THROW_WALLET_EXCEPTION_IF(rct_offsets.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, error::wallet_internal_error, "Bad offset calculation");
+    uint64_t last_usable_block = rct_offsets.size() - 1;
     auto pick_gamma = [&]()
     {
       double x = gamma(engine);
       x = exp(x);
       uint64_t block_offset = x / DIFFICULTY_TARGET_V2; // this assumes constant target over the whole rct range
-      if (block_offset >= rct_offsets.size() - 1)
+      if (block_offset > last_usable_block - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE)
         return std::numeric_limits<uint64_t>::max(); // bad pick
-      block_offset = rct_offsets.size() - 2 - block_offset;
-      THROW_WALLET_EXCEPTION_IF(block_offset >= rct_offsets.size() - 1, error::wallet_internal_error, "Bad offset calculation");
-      THROW_WALLET_EXCEPTION_IF(rct_offsets[block_offset + 1] < rct_offsets[block_offset],
+      block_offset = last_usable_block - block_offset;
+      THROW_WALLET_EXCEPTION_IF(block_offset > last_usable_block, error::wallet_internal_error, "Bad offset calculation");
+      THROW_WALLET_EXCEPTION_IF(block_offset > 0 && rct_offsets[block_offset] < rct_offsets[block_offset - 1],
           error::get_output_distribution, "Decreasing offsets in rct distribution: " +
-          std::to_string(block_offset) + ": " + std::to_string(rct_offsets[block_offset]) + ", " +
-          std::to_string(block_offset + 1) + ": " + std::to_string(rct_offsets[block_offset + 1]));
+          std::to_string(block_offset - 1) + ": " + std::to_string(rct_offsets[block_offset - 1]) + ", " +
+          std::to_string(block_offset) + ": " + std::to_string(rct_offsets[block_offset]));
       uint64_t first_block_offset = block_offset, last_block_offset = block_offset;
-      for (size_t half_window = 0; half_window < GAMMA_PICK_HALF_WINDOW; ++half_window)
+      for (size_t half_window = 0; half_window <= GAMMA_PICK_HALF_WINDOW; ++half_window)
       {
         // end when we have a non empty block
         uint64_t cum0 = first_block_offset > 0 ? rct_offsets[first_block_offset] - rct_offsets[first_block_offset - 1] : rct_offsets[0];
@@ -6864,19 +6866,24 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         uint64_t cum1 = last_block_offset > 0 ? rct_offsets[last_block_offset] - rct_offsets[last_block_offset - 1] : rct_offsets[0];
         if (cum1 > 1)
           break;
-        if (first_block_offset == 0 && last_block_offset >= rct_offsets.size() - 2)
+        if (first_block_offset == 0 && last_block_offset >= last_usable_block)
           break;
         // expand up to bounds
         if (first_block_offset > 0)
           --first_block_offset;
-        if (last_block_offset < rct_offsets.size() - 1)
+        else
+          return std::numeric_limits<uint64_t>::max(); // bad pick
+        if (last_block_offset < last_usable_block - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE)
           ++last_block_offset;
+        else
+          return std::numeric_limits<uint64_t>::max(); // bad pick
       }
-      const uint64_t n_rct = rct_offsets[last_block_offset] - (first_block_offset == 0 ? 0 : rct_offsets[first_block_offset - 1]);
+      const uint64_t first_rct = first_block_offset == 0 ? 0 : rct_offsets[first_block_offset - 1];
+      const uint64_t n_rct = rct_offsets[last_block_offset] - first_rct;
       if (n_rct == 0)
         return rct_offsets[block_offset] ? rct_offsets[block_offset] - 1 : 0;
-      MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset);
-      return rct_offsets[first_block_offset] + crypto::rand<uint64_t>() % n_rct;
+      MDEBUG("Picking 1/" << n_rct << " in " << (last_block_offset - first_block_offset + 1) << " blocks centered around " << block_offset + rct_start_height);
+      return first_rct + crypto::rand<uint64_t>() % n_rct;
     };
 
     size_t num_selected_transfers = 0;
