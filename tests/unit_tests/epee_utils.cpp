@@ -469,6 +469,22 @@ TEST(StringTools, ParseHex)
   }
 }
 
+TEST(StringTools, ParseNotHex)
+{
+  std::string res;
+  for (size_t i = 0; i < 256; ++i)
+  {
+    std::string inputHexString = std::string(2, static_cast<char>(i));
+    if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
+      ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(inputHexString, res));
+    } else {
+      ASSERT_FALSE(epee::string_tools::parse_hexstr_to_binbuff(inputHexString, res));
+    }
+  }
+
+  ASSERT_FALSE(epee::string_tools::parse_hexstr_to_binbuff(std::string("a"), res));
+}
+
 TEST(StringTools, GetIpString)
 {
   EXPECT_EQ(
