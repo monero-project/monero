@@ -28,7 +28,7 @@
 
 #include <functional>
 #include <random>
-
+#include <algorithm>
 
 #include "ringct/rctSigs.h"
 #include "wallet/wallet2.h"
@@ -48,6 +48,14 @@
 
 namespace service_nodes
 {
+  static uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
+  {
+    uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
+    uint64_t x;
+    do x = mersenne_twister(); while (x >= secureMax);
+    return  x / (secureMax / n);
+  }
+
   uint64_t service_node_info::get_min_contribution() const
   {
     uint64_t result = get_min_node_contribution(staking_requirement, total_reserved);
@@ -280,16 +288,16 @@ namespace service_nodes
     return money_transferred;
   }
 
-  void service_node_list::process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height)
+  bool service_node_list::process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height)
   {
     if (!tx.is_deregister_tx())
-      return;
+      return false;
 
     cryptonote::tx_extra_service_node_deregister deregister;
     if (!cryptonote::get_service_node_deregister_from_tx_extra(tx.extra, deregister))
     {
       LOG_ERROR("Transaction deregister did not have deregister data in tx extra, possibly corrupt tx in blockchain");
-      return;
+      return false;
     }
 
     const auto state = get_quorum_state(deregister.block_height);
@@ -298,20 +306,20 @@ namespace service_nodes
     {
       // TODO(loki): Not being able to find a quorum is fatal! We want better caching abilities.
       LOG_ERROR("Quorum state for height: " << deregister.block_height << ", was not stored by the daemon");
-      return;
+      return false;
     }
 
     if (deregister.service_node_index >= state->nodes_to_test.size())
     {
       LOG_ERROR("Service node index to vote off has become invalid, quorum rules have changed without a hardfork.");
-      return;
+      return false;
     }
 
     const crypto::public_key& key = state->nodes_to_test[deregister.service_node_index];
 
     auto iter = m_service_nodes_infos.find(key);
     if (iter == m_service_nodes_infos.end())
-      return;
+      return false;
 
     if (m_service_node_pubkey && *m_service_node_pubkey == key)
     {
@@ -322,9 +330,210 @@ namespace service_nodes
       LOG_PRINT_L1("Deregistration for service node: " << key);
     }
 
-
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
     m_service_nodes_infos.erase(iter);
+
+    return true;
+  }
+
+  static uint64_t get_new_swarm_id(std::mt19937_64& mt, const std::vector<swarm_id_t>& ids)
+  {
+    uint64_t id_new = QUEUE_SWARM_ID;
+
+    while (id_new == QUEUE_SWARM_ID || ( std::find(ids.begin(), ids.end(), id_new) != ids.end() )) {
+      id_new = uniform_distribution_portable(mt, UINT64_MAX);
+    }
+
+    return id_new;
+  }
+
+  static std::vector<swarm_id_t> get_all_swarms(const std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes)
+  {
+    std::vector<swarm_id_t> all_swarms;
+    all_swarms.reserve(swarm_to_snodes.size());
+    for (const auto& entry : swarm_to_snodes) {
+      all_swarms.push_back(entry.first);
+    }
+    return all_swarms;
+  }
+
+  static crypto::public_key pop_random_snode(std::mt19937_64& mt, std::vector<crypto::public_key>& vec)
+  {
+    const auto idx = uniform_distribution_portable(mt, vec.size());
+    const auto sn_pk = vec.at(idx);
+    auto it = vec.begin();
+    std::advance(it, idx);
+    vec.erase(it);
+    return sn_pk;
+  }
+
+
+  static void calc_swarm_changes(std::map<swarm_id_t, std::vector<crypto::public_key>>& swarm_to_snodes, uint64_t seed)
+  {
+    std::mt19937_64 mersenne_twister(seed);
+
+    std::vector<crypto::public_key> swarm_buffer = swarm_to_snodes[QUEUE_SWARM_ID];
+    swarm_to_snodes.erase(QUEUE_SWARM_ID);
+
+    auto all_swarms = get_all_swarms(swarm_to_snodes);
+    std::sort(all_swarms.begin(), all_swarms.end());
+
+    loki_shuffle(all_swarms, seed);
+
+    const auto cmp_swarm_sizes =
+      [&swarm_to_snodes](swarm_id_t lhs, swarm_id_t rhs) {
+        return swarm_to_snodes.at(lhs).size() < swarm_to_snodes.at(rhs).size();
+      };
+
+    /// 1. If there are any swarms that are about to dissapear -> try to fill them first
+    std::vector<swarm_id_t> starving_swarms;
+    {
+      std::copy_if(all_swarms.begin(),
+                   all_swarms.end(),
+                   std::back_inserter(starving_swarms),
+                   [&swarm_to_snodes](swarm_id_t id) { return swarm_to_snodes.at(id).size() < MIN_SWARM_SIZE; });
+
+      for (const auto swarm_id : starving_swarms) {
+
+        const size_t needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
+
+        for (auto j = 0u; j < needed && !swarm_buffer.empty(); ++j) {
+          const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
+          swarm_to_snodes.at(swarm_id).push_back(sn_pk);
+        }
+
+        if (swarm_buffer.empty()) break;
+      }
+    }
+
+    /// 2. Any starving swarms still left? If yes, steal nodes from larger swarms
+    {
+      bool can_continue = true; /// whether there are still large swarms to steal from
+      for (const auto swarm_id : starving_swarms) {
+
+        if (swarm_to_snodes.at(swarm_id).size() == MIN_SWARM_SIZE) continue;
+
+        const auto needed = MIN_SWARM_SIZE - swarm_to_snodes.at(swarm_id).size();
+
+          for (auto i = 0u; i < needed; ++i) {
+
+            const auto large_swarm =
+              *std::max_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
+
+            if (swarm_to_snodes.at(large_swarm).size() <= MIN_SWARM_SIZE) {
+              can_continue = false;
+              break;
+            }
+
+            const crypto::public_key sn_pk = pop_random_snode(mersenne_twister, swarm_to_snodes.at(large_swarm));
+            swarm_to_snodes.at(swarm_id).push_back(sn_pk);
+        }
+
+        if (!can_continue) break;
+      }
+
+    }
+
+    /// 3. Fill in "unsaturated" swarms (with fewer than max nodes) starting from smallest
+    {
+      while (!swarm_buffer.empty() && !all_swarms.empty()) {
+
+        const swarm_id_t smallest_swarm = *std::min_element(all_swarms.begin(), all_swarms.end(), cmp_swarm_sizes);
+
+        std::vector<crypto::public_key>& swarm = swarm_to_snodes.at(smallest_swarm);
+
+        if (swarm.size() == MAX_SWARM_SIZE) break;
+
+        const auto sn_pk = pop_random_snode(mersenne_twister, swarm_buffer);
+        swarm.push_back(sn_pk);
+      }
+    }
+
+    /// 4. If there are still enough nodes for MAX_SWARM_SIZE + some safety buffer, create a new swarm
+    while (swarm_buffer.size() >= MAX_SWARM_SIZE + SWARM_BUFFER) {
+
+      /// shuffle the queue and select MAX_SWARM_SIZE last elements
+      const auto new_swarm_id = get_new_swarm_id(mersenne_twister, all_swarms);
+
+      loki_shuffle(swarm_buffer, seed + new_swarm_id);
+
+      std::vector<crypto::public_key> selected_snodes;
+
+      for (auto i = 0u; i < MAX_SWARM_SIZE; ++i) {
+
+        /// get next node from the buffer
+        const crypto::public_key fresh_snode = swarm_buffer.back();
+        swarm_buffer.pop_back();
+
+        /// Try replacing nodes in existing swarms
+        if (swarm_to_snodes.size() > 0) {
+          /// a. Select a random swarm
+          const uint64_t swarm_idx = uniform_distribution_portable(mersenne_twister, swarm_to_snodes.size());
+          auto it = swarm_to_snodes.begin();
+          std::advance(it, swarm_idx);
+          std::vector<crypto::public_key>& selected_swarm = it->second;
+
+          /// b. Select a random snode
+          const crypto::public_key snode = pop_random_snode(mersenne_twister, selected_swarm);
+
+          /// c. Swap that node with a node in the queue, the old node will form a new swarm
+          selected_snodes.push_back(snode);
+          selected_swarm.push_back(fresh_snode);
+        } else {
+          /// If there are no existing swarms, create the first swarm directly from the queue
+          selected_snodes.push_back(fresh_snode);
+        }
+      }
+
+      swarm_to_snodes.insert({new_swarm_id, std::move(selected_snodes)});
+    }
+
+    /// 5. If there is a swarm with less than MIN_SWARM_SIZE, decommission that swarm (should almost never happen due to the safety buffer).
+    for (auto entry : swarm_to_snodes) {
+      if (entry.second.size() < MIN_SWARM_SIZE) {
+        LOG_PRINT_L1("swarm " << entry.first << " is DECOMMISSIONED");
+        /// TODO: move data to other swarms, then put snodes back in the queue
+      }
+    }
+
+    /// 6. Put nodes from the buffer back to the "buffer agnostic" data structure
+    swarm_to_snodes.insert({QUEUE_SWARM_ID, std::move(swarm_buffer)});
+  }
+
+  void service_node_list::update_swarms(uint64_t height) {
+
+    crypto::hash hash = m_blockchain.get_block_id_by_height(height);
+    uint64_t seed = 0;
+    std::memcpy(&seed, hash.data, sizeof(seed));
+
+    /// Gather existing swarms from infos
+    std::map<swarm_id_t, std::vector<crypto::public_key>> existing_swarms;
+
+    for (const auto& entry : m_service_nodes_infos) {
+      const auto id = entry.second.swarm_id;
+      existing_swarms[id].push_back(entry.first);
+    }
+
+    calc_swarm_changes(existing_swarms, seed);
+
+    /// Apply changes
+    for (const auto entry : existing_swarms) {
+
+      const swarm_id_t swarm_id = entry.first;
+      const std::vector<crypto::public_key>& snodes = entry.second;
+
+      for (const auto snode : snodes) {
+
+        auto& sn_info = m_service_nodes_infos.at(snode);
+        if (sn_info.swarm_id == swarm_id) continue; /// nothing changed for this snode
+
+        /// modify info and record the change
+        m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(height, snode, sn_info)));
+        sn_info.swarm_id = swarm_id;
+      }
+
+    }
+
   }
 
   bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
@@ -385,6 +594,14 @@ namespace service_nodes
     info.last_reward_transaction_index = index;
     info.total_contributed = 0;
     info.total_reserved = 0;
+
+    const auto hf_version = m_blockchain.get_hard_fork_version(block_height);
+
+    if (hf_version >= cryptonote::network_version_10_bulletproofs) {
+      info.version = service_node_info::version_1_swarms;
+      info.swarm_id = QUEUE_SWARM_ID; /// new nodes go into a "queue swarm"
+    }
+
     info.contributors.clear();
 
     for (size_t i = 0; i < service_node_addresses.size(); i++)
@@ -403,12 +620,12 @@ namespace service_nodes
     return true;
   }
 
-  void service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
+  bool service_node_list::process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index)
   {
     crypto::public_key key;
-    service_node_info info;
+    service_node_info info = {};
     if (!is_registration_tx(tx, block_timestamp, block_height, index, key, info))
-      return;
+      return false;
 
     // NOTE: A node doesn't expire until registration_height + lock blocks excess now which acts as the grace period
     // So it is possible to find the node still in our list.
@@ -422,7 +639,7 @@ namespace service_nodes
         service_node_info const &old_info = iter->second;
         uint64_t expiry_height = old_info.registration_height + get_staking_requirement_lock_blocks(m_blockchain.nettype());
         if (block_height < expiry_height)
-          return;
+          return false;
 
         // NOTE: Node preserves its position in list if it reregisters during grace period.
         registered_during_grace_period = true;
@@ -431,7 +648,7 @@ namespace service_nodes
       }
       else
       {
-        return;
+        return false;
       }
     }
 
@@ -453,6 +670,8 @@ namespace service_nodes
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_new(block_height, key)));
     m_service_nodes_infos[key] = info;
+
+    return true;
   }
 
   bool service_node_list::get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const
@@ -573,6 +792,8 @@ namespace service_nodes
       m_rollback_events.push_front(std::unique_ptr<rollback_event>(new prevent_rollback(cull_height)));
     }
 
+    size_t expired_count = 0;
+
     for (const crypto::public_key& pubkey : get_expired_nodes(block_height))
     {
       auto i = m_service_nodes_infos.find(pubkey);
@@ -588,6 +809,8 @@ namespace service_nodes
         }
 
         m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, pubkey, i->second)));
+
+        expired_count++;
         m_service_nodes_infos.erase(i);
       }
       // Service nodes may expire early if they double staked by accident, so
@@ -607,16 +830,27 @@ namespace service_nodes
       m_service_nodes_infos[winner_pubkey].last_reward_transaction_index = UINT32_MAX;
     }
 
+    size_t registrations = 0;
+    size_t deregistrations = 0;
+
     uint32_t index = 0;
     for (const cryptonote::transaction& tx : txs)
     {
       crypto::public_key key;
       service_node_info info;
       cryptonote::account_public_address address;
-      process_registration_tx(tx, block.timestamp, block_height, index);
+      if (process_registration_tx(tx, block.timestamp, block_height, index)) {
+        registrations++;
+      }
       process_contribution_tx(tx, block_height, index);
-      process_deregistration_tx(tx, block_height);
+      if (process_deregistration_tx(tx, block_height)) {
+        deregistrations++;
+      }
       index++;
+    }
+
+    if (registrations || deregistrations || expired_count) {
+      update_swarms(block_height);
     }
 
     const size_t QUORUM_LIFETIME         = (6 * loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
@@ -703,7 +937,7 @@ namespace service_nodes
       for (const cryptonote::transaction& tx : txs)
       {
         crypto::public_key key;
-        service_node_info info;
+        service_node_info info = {};
         if (is_registration_tx(tx, block.timestamp, expired_nodes_block_height, index, key, info))
         {
           expired_nodes.push_back(key);
@@ -823,15 +1057,8 @@ namespace service_nodes
     return true;
   }
 
-  static uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
-  {
-    uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
-    uint64_t x;
-    do x = mersenne_twister(); while (x >= secureMax);
-    return  x / (secureMax / n);
-  }
-
-  void loki_shuffle(std::vector<size_t>& a, uint64_t seed)
+  template<typename T>
+  void loki_shuffle(std::vector<T>& a, uint64_t seed)
   {
     if (a.size() <= 1) return;
     std::mt19937_64 mersenne_twister(seed);

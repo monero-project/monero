@@ -35,10 +35,18 @@
 
 namespace service_nodes
 {
-  const size_t QUORUM_SIZE                    = 10;
-  const size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
-  const size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
-  const size_t MIN_NODES_TO_TEST              = 50;
+  constexpr size_t QUORUM_SIZE                    = 10;
+  constexpr size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
+  constexpr size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
+  constexpr size_t MIN_NODES_TO_TEST              = 50;
+
+  constexpr size_t MAX_SWARM_SIZE               = 10;
+  // We never create a new swarm unless there are SWARM_BUFFER extra nodes
+  // available in the queue.
+  constexpr size_t SWARM_BUFFER             = 5;
+  // if a swarm has strictly less nodes than this, it is considered unhealthy
+  // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
+  constexpr size_t MIN_SWARM_SIZE               = 5;
 
   class quorum_cop;
 
@@ -53,9 +61,17 @@ namespace service_nodes
     END_SERIALIZE()
   };
 
+  using swarm_id_t = uint64_t;
+
   struct service_node_info // registration information
   {
-    uint8_t version;
+    uint8_t version = version::version_0;
+
+    enum version
+    {
+      version_0,
+      version_1_swarms
+    };
 
     struct contribution
     {
@@ -84,13 +100,14 @@ namespace service_nodes
     uint64_t total_reserved;
     uint64_t staking_requirement;
     uint64_t portions_for_operator;
+    swarm_id_t swarm_id;
     cryptonote::account_public_address operator_address;
 
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
     // the minimum contribution to start a new contributor
     uint64_t get_min_contribution() const;
 
-    service_node_info() : version(0) {}
+    service_node_info() = default;
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
@@ -102,6 +119,9 @@ namespace service_nodes
       VARINT_FIELD(total_reserved)
       VARINT_FIELD(staking_requirement)
       VARINT_FIELD(portions_for_operator)
+      if (version >= service_node_info::version_1_swarms) {
+        VARINT_FIELD(swarm_id)
+      }
       FIELD(operator_address)
     END_SERIALIZE()
   };
@@ -112,7 +132,10 @@ namespace service_nodes
     service_node_info  info;
   };
 
-  void loki_shuffle(std::vector<size_t>& a, uint64_t seed);
+  template<typename T>
+  void loki_shuffle(std::vector<T>& a, uint64_t seed);
+
+  static constexpr uint64_t QUEUE_SWARM_ID = 0;
 
   class service_node_list
     : public cryptonote::Blockchain::BlockAddedHook,
@@ -131,6 +154,8 @@ namespace service_nodes
     crypto::public_key select_winner(const crypto::hash& prev_id) const;
 
     bool is_service_node(const crypto::public_key& pubkey) const;
+
+    void update_swarms(uint64_t height);
 
     /// Note(maxim): this should not affect thread-safety as the returned object is const
     const std::shared_ptr<const quorum_state> get_quorum_state(uint64_t height) const;
@@ -246,9 +271,9 @@ namespace service_nodes
     // Note(maxim): private methods don't have to be protected the mutex
     bool get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const;
 
-    void process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
+    bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
     void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
-    void process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
+    bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
 
     std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 
