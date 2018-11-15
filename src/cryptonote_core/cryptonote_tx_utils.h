@@ -77,10 +77,6 @@ namespace cryptonote
 
   struct block_reward_parts
   {
-    // TODO(loki): There can be a difference between the total reward and the
-    // reward paid out to the service node? This would mean that a user can
-    // specify less portions but still contribute the full amount?
-    // Or was this just a sanity check? I don't think the first case is possible
     uint64_t service_node_total;
     uint64_t service_node_paid;
 

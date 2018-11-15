@@ -410,9 +410,6 @@ namespace cryptonote
     if (loki_context.snode_winner_info.empty()) result.service_node_paid = calculate_sum_of_portions(service_nodes::null_winner,     result.service_node_total);
     else                                        result.service_node_paid = calculate_sum_of_portions(loki_context.snode_winner_info, result.service_node_total);
 
-   // TODO(loki): Having the snode total and paid was probably just a sanity check? If so we can remove the field ..
-    assert(result.service_node_total == result.service_node_paid);
-
     result.adjusted_base_reward = result.original_base_reward;
     if (hard_fork_version >= network_version_10_bulletproofs)
     {
