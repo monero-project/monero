@@ -108,7 +108,8 @@ namespace epee
 
   mlocker::~mlocker()
   {
-    unlock(ptr, len);
+    try { unlock(ptr, len); }
+    catch (...) { /* ignore and do not propagate through the dtor */ }
   }
 
   void mlocker::lock(void *ptr, size_t len)
