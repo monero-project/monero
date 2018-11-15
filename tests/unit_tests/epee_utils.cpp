@@ -456,6 +456,19 @@ TEST(StringTools, PodToHex)
   );
 }
 
+TEST(StringTools, ParseHex)
+{
+  static const char data[] = "a10b68c2";
+  for (size_t i = 0; i < sizeof(data); i += 2)
+  {
+    std::string res;
+    ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(std::string(data, i), res));
+    std::string hex = epee::string_tools::buff_to_hex_nodelimer(res);
+    ASSERT_EQ(hex.size(), i);
+    ASSERT_EQ(memcmp(data, hex.data(), i), 0);
+  }
+}
+
 TEST(StringTools, GetIpString)
 {
   EXPECT_EQ(
