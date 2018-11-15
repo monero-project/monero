@@ -40,6 +40,8 @@
 #include "common_defines.h"
 #include "common/util.h"
 
+#include "cryptonote_core/service_node_rules.h"
+
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
 #include <boost/format.hpp>
@@ -287,6 +289,12 @@ bool Wallet::paymentIdValid(const string &paiment_id)
     if (tools::wallet2::parse_long_payment_id(paiment_id, pid))
         return true;
     return false;
+}
+
+bool Wallet::serviceNodePubkeyValid(const std::string &str)
+{
+    crypto::public_key sn_key;
+    return epee::string_tools::hex_to_pod(str, sn_key);
 }
 
 bool Wallet::addressValid(const std::string &str, NetworkType nettype)
@@ -2319,6 +2327,37 @@ bool WalletImpl::isKeysFileLocked()
 {
     return m_wallet->is_keys_file_locked();
 }
+
+PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str)
+{
+  crypto::public_key sn_key;
+  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key)) {
+    LOG_ERROR("failed to parse service node pubkey");
+    return nullptr;
+  }
+
+  cryptonote::address_parse_info addr_info;
+  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str)) {
+    LOG_ERROR("failed to parse address");
+    return nullptr;
+  }
+
+  uint64_t amount;
+  if (!cryptonote::parse_amount(amount, amount_str)) {
+    LOG_ERROR("amount is wrong: " << amount_str << ", " << "expected number from " << print_money(1)
+              << " to " << print_money(std::numeric_limits<uint64_t>::max()));
+    return nullptr;
+  }
+
+  /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
+  PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
+
+  transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+
+  return transaction;
+}
+
+
 } // namespace
 
 namespace Bitmonero = Monero;

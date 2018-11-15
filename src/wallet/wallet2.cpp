@@ -77,6 +77,8 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 
+#include "cryptonote_core/service_node_rules.h"
+
 extern "C"
 {
 #include "crypto/keccak.h"
@@ -6583,6 +6585,134 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
     return false;
   try { return m_ringdb->blackballed(output); }
   catch (const std::exception &e) { return false; }
+}
+
+bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount) {
+
+  if (addr_info.has_payment_id) {
+    LOG_ERROR("Do not use payment ids for staking.");
+    return false;
+  }
+
+  if (!this->contains_address(addr_info.address)) {
+    LOG_ERROR("The specified address is not owned by this wallet.");
+    return false;
+  }
+
+  if (addr_info.is_subaddress)
+  {
+    LOG_ERROR("Service nodes do not support subaddresses.");
+    return false;
+  }
+
+  /// check that the service node is registered
+  const auto& response = this->get_service_nodes({ epee::string_tools::pod_to_hex(sn_key) });
+  if (response.service_node_states.size() != 1)
+  {
+    LOG_ERROR("Could not find service node in service node list, please make sure it is registered first.");
+    return false;
+  }
+
+  const auto& snode_info = response.service_node_states.front();
+
+  const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
+
+  /// maximum to contribute (unless we have some amount reserved for us)
+  uint64_t max_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
+
+  /// decrease if some reserved for us
+  uint64_t min_contrib_total = service_nodes::get_min_node_contribution(snode_info.staking_requirement, snode_info.total_reserved);
+
+  bool is_preexisting_contributor = false;
+  for (const auto& contributor : snode_info.contributors)
+  {
+    address_parse_info info;
+    if (!cryptonote::get_account_address_from_str(info, m_nettype, contributor.address))
+      continue;
+
+    if (info.address == addr_info.address)
+    {
+      /// reserved for us, so we can contribute some more
+      max_contrib_total += contributor.reserved - contributor.amount;
+      /// in this case we can contribute as little as we want
+      min_contrib_total = 0;
+      is_preexisting_contributor = true;
+    }
+  }
+
+  /// a. Check if there is room for us
+  if (full && !is_preexisting_contributor) {
+      LOG_ERROR("The service node is full.");
+      return false;
+  }
+
+  /// b. Check if the amount is too small
+  if (amount < min_contrib_total) {
+      LOG_ERROR("You must contribute at least " << print_money(min_contrib_total) << " loki to become a contributor for this service node.");
+      return false;
+  }
+
+  /// c. Check if the amount is too big
+  if (amount > max_contrib_total)
+  {
+    LOG_ERROR("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node") << std::endl;
+    LOG_ERROR("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total) << std::endl;
+    amount = max_contrib_total;
+  }
+
+  return true;
+}
+
+std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount)
+{
+  /// check stake parameters (this might adjust the amount)
+  if (!check_stake_allowed(service_node_key, addr_info, amount)) {
+    LOG_ERROR("Invalid stake parameters");
+    return {};
+  }
+
+  const cryptonote::account_public_address& address = addr_info.address;
+
+  std::vector<uint8_t> extra;
+  add_service_node_pubkey_to_tx_extra(extra, service_node_key);
+  add_service_node_contributor_to_tx_extra(extra, address);
+
+  vector<cryptonote::tx_destination_entry> dsts;
+  cryptonote::tx_destination_entry de;
+  de.addr = address;
+  de.is_subaddress = false;
+  de.amount = amount;
+  dsts.push_back(de);
+
+  const uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_nettype);
+
+  const uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
+
+  std::string err, err2;
+  const uint64_t bc_height = std::max(get_daemon_blockchain_height(err),
+                                get_daemon_blockchain_target_height(err2));
+
+  if (!err.empty() || !err2.empty())
+  {
+    LOG_ERROR("unable to get network blockchain height from daemon: " << (err.empty() ? err2 : err));
+    return {};
+  }
+
+  const uint64_t unlock_at_block = bc_height + locked_blocks;
+  const uint32_t priority = adjust_priority(0);
+
+  /// Default values
+  const uint32_t m_current_subaddress_account = 0;
+  std::set<uint32_t> subaddr_indices;
+
+  try {
+    auto ptx_vector = create_transactions_2(dsts, CRYPTONOTE_TX_DEFAULT_MIX, unlock_at_block, priority, extra, m_current_subaddress_account, subaddr_indices, true);
+    if (ptx_vector.size() == 1) { return ptx_vector; }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception raised on creating tx: " << e.what());
+  }
+
+  return {};
 }
 
 bool wallet2::lock_keys_file()

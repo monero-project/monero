@@ -41,6 +41,7 @@
 #include "common/exp2.h"
 
 #include "service_node_list.h"
+#include "service_node_rules.h"
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
@@ -324,19 +325,6 @@ namespace service_nodes
 
     m_rollback_events.push_back(std::unique_ptr<rollback_event>(new rollback_change(block_height, key, iter->second)));
     m_service_nodes_infos.erase(iter);
-  }
-
-  bool check_service_node_portions(const std::vector<uint64_t>& portions)
-  {
-    uint64_t portions_left = STAKING_PORTIONS;
-
-    for (const auto portion : portions) {
-      const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-      if (portion < min_portions || portion > portions_left) return false;
-      portions_left -= portion;
-    }
-
-    return true;
   }
 
   bool service_node_list::is_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index, crypto::public_key& key, service_node_info& info) const
@@ -1271,43 +1259,6 @@ namespace service_nodes
 
     cmd = stream.str();
     return true;
-  }
-
-  uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type nettype)
-  {
-    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS         = 30*24*30;
-    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET = 30*24*2;
-    constexpr static uint32_t STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET = 30;
-
-    switch(nettype) {
-      case cryptonote::TESTNET: return STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET;
-      case cryptonote::FAKECHAIN: return STAKING_REQUIREMENT_LOCK_BLOCKS_FAKENET;
-      default: return STAKING_REQUIREMENT_LOCK_BLOCKS;
-    }
-  }
-
-  uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
-  {
-    if (m_nettype == cryptonote::TESTNET || m_nettype == cryptonote::FAKECHAIN)
-      return COIN * 100;
-
-    uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 101250 : 96210 /* stagenet */;
-    if (height < hardfork_height) height = hardfork_height;
-
-    uint64_t height_adjusted = height - hardfork_height;
-    uint64_t base = 10000 * COIN;
-    uint64_t variable = (35000.0 * COIN) / loki_exp2(height_adjusted/129600.0);
-    uint64_t linear_up = (uint64_t)(5 * COIN * height / 2592) + 8000 * COIN;
-    uint64_t flat = 15000 * COIN;
-    return std::max(base + variable, height < 3628800 ? linear_up : flat);
-  }
-
-  uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
-  {
-    uint64_t hi, lo, resulthi, resultlo;
-    lo = mul128(staking_requirement, portions, &hi);
-    div128_64(hi, lo, STAKING_PORTIONS, &resulthi, &resultlo);
-    return resultlo;
   }
 }
 

@@ -6048,7 +6048,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
 
   if (info.is_subaddress)
   {
-    fail_msg_writer() << tr("Service nodes doesn't support rewards to subaddresses, cannot stake for address: ")
+    fail_msg_writer() << tr("Service nodes do not support rewards to subaddresses, cannot stake for address: ")
                       << local_args[1]
                       << tr("Please use index=[...] if you want to stake funds from particular subaddresses.");
     return true;

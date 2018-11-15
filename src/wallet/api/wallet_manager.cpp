@@ -332,7 +332,7 @@ std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool
     return addresses.front();
 }
 
-std::tuple<bool, std::string, std::string, std::string, std::string> WalletManager::checkUpdates(const std::string &software, std::string subdir)
+std::tuple<bool, std::string, std::string, std::string, std::string> WalletManagerBase::checkUpdates(const std::string &software, std::string subdir)
 {
 #ifdef BUILD_TAG
     static const char buildtag[] = BOOST_PP_STRINGIZE(BUILD_TAG);
@@ -359,7 +359,7 @@ std::tuple<bool, std::string, std::string, std::string, std::string> WalletManag
 
 
 ///////////////////// WalletManagerFactory implementation //////////////////////
-WalletManager *WalletManagerFactory::getWalletManager()
+WalletManagerBase *WalletManagerFactory::getWalletManager()
 {
 
     static WalletManagerImpl * g_walletManager = nullptr;

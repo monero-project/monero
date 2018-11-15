@@ -31,6 +31,7 @@
 #include "blockchain.h"
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
+#include "cryptonote_core/service_node_rules.h"
 
 namespace service_nodes
 {
@@ -287,17 +288,6 @@ namespace service_nodes
   bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
                              const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
-
-  /// Check if portions are sufficiently large (except for the last) and add up to the required amount
-  bool check_service_node_portions(const std::vector<uint64_t>& portions);
-
-  uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type m_nettype);
-
-  uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
-
-  uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
-
-  inline uint64_t get_min_node_contribution(uint64_t staking_requirement, uint64_t total_reserved) { return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS); }
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
   const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner =
