@@ -29,10 +29,8 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
-#include <boost/current_function.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
-#include <random>
 
 #include "string_tools.h"
 #include "file_io_utils.h"
