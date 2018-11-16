@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace epee
 {
   namespace net_utils
@@ -65,6 +67,20 @@ namespace epee
       127.0.0.0 — 127.255.255.255 
       */
       return false;
+    }
+
+    inline
+    bool is_ipv6_local(const std::string& ip)
+    {
+      // ipv6 local addresses start with fc00/7 -- (fcXX or fdXX)
+      return (ip.find("fc") == 0 || ip.find("FC") == 0 || ip.find("fd") == 0 || ip.find("FD") == 0);
+    }
+
+    inline
+    bool is_ipv6_loopback(const std::string& ip)
+    {
+      // ipv6 loopback is ::1
+      return (ip == "::1");
     }
    
   }
