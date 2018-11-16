@@ -581,12 +581,12 @@ std::string simple_wallet::get_command_usage(const std::vector<std::string> &arg
 
 bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  SCOPED_WALLET_UNLOCK();
   // don't log
   PAUSE_READLINE();
   if (m_wallet->key_on_device()) {
     std::cout << "secret: On device. Not available" << std::endl;
   } else {
+    SCOPED_WALLET_UNLOCK();
     printf("secret: ");
     print_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
     putchar('\n');
@@ -603,12 +603,12 @@ bool simple_wallet::spendkey(const std::vector<std::string> &args/* = std::vecto
     fail_msg_writer() << tr("wallet is watch-only and has no spend key");
     return true;
   }
-  SCOPED_WALLET_UNLOCK();
   // don't log
   PAUSE_READLINE();
   if (m_wallet->key_on_device()) {
     std::cout << "secret: On device. Not available" << std::endl;
   } else {
+    SCOPED_WALLET_UNLOCK();
     printf("secret: ");
     print_secret_key(m_wallet->get_account().get_keys().m_spend_secret_key);
     putchar('\n');
@@ -635,8 +635,6 @@ bool simple_wallet::print_seed(bool encrypted)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
-
   multisig = m_wallet->multisig(&ready);
   if (multisig)
   {
@@ -646,7 +644,10 @@ bool simple_wallet::print_seed(bool encrypted)
       return true;
     }
   }
-  else if (!m_wallet->is_deterministic())
+
+  SCOPED_WALLET_UNLOCK();
+
+  if (!multisig && !m_wallet->is_deterministic())
   {
     fail_msg_writer() << tr("wallet is non-deterministic and has no seed");
     return true;
@@ -1075,11 +1076,12 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
-
   const std::string filename = args[0];
   if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
+
+  SCOPED_WALLET_UNLOCK();
+
   try
   {
     cryptonote::blobdata ciphertext = m_wallet->export_multisig();
@@ -1127,8 +1129,6 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
-
   std::vector<cryptonote::blobdata> info;
   for (size_t n = 0; n < args.size(); ++n)
   {
@@ -1142,6 +1142,8 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
     }
     info.push_back(std::move(data));
   }
+
+  SCOPED_WALLET_UNLOCK();
 
   // all read and parsed, actually import
   try
@@ -1280,10 +1282,10 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
-
   if (!try_connect_to_daemon())
     return true;
+
+  SCOPED_WALLET_UNLOCK();
 
   std::string filename = args[0];
   try
@@ -1348,11 +1350,12 @@ bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
-
   std::string filename = args[0];
   if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
+
+  SCOPED_WALLET_UNLOCK();
+
   try
   {
     tools::wallet2::multisig_tx_set txs;
@@ -5683,7 +5686,6 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 {
-  SCOPED_WALLET_UNLOCK();
   if (!try_connect_to_daemon())
     return true;
 
@@ -5830,6 +5832,8 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
        return true; 
      }
   }
+
+  SCOPED_WALLET_UNLOCK();
 
   try
   {
@@ -7942,7 +7946,6 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
   std::string filename = args[0];
   std::string data;
   bool r = epee::file_io_utils::load_file_to_string(filename, data);
@@ -7951,6 +7954,9 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     fail_msg_writer() << tr("failed to read file ") << filename;
     return true;
   }
+
+  SCOPED_WALLET_UNLOCK();
+
   std::string signature = m_wallet->sign(data);
   success_msg_writer() << signature;
   return true;
@@ -8012,10 +8018,11 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
   std::string filename = args[0];
   if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
+
+  SCOPED_WALLET_UNLOCK();
 
   try
   {
@@ -8158,10 +8165,11 @@ bool simple_wallet::export_outputs(const std::vector<std::string> &args)
     return true;
   }
 
-  SCOPED_WALLET_UNLOCK();
   std::string filename = args[0];
   if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
+
+  SCOPED_WALLET_UNLOCK();
 
   try
   {
