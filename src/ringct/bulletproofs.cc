@@ -112,6 +112,7 @@ static void init_exponents()
   if (init_done)
     return;
   std::vector<MultiexpData> data;
+  data.reserve(maxN*maxM*2);
   for (size_t i = 0; i < maxN*maxM; ++i)
   {
     Hi[i] = get_exponent(rct::H, i * 2);
@@ -1056,6 +1057,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
 bool bulletproof_VERIFY(const std::vector<Bulletproof> &proofs)
 {
   std::vector<const Bulletproof*> proof_pointers;
+  proof_pointers.reserve(proofs.size());
   for (const Bulletproof &proof: proofs)
     proof_pointers.push_back(&proof);
   return bulletproof_VERIFY(proof_pointers);
