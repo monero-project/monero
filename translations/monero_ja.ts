@@ -1461,7 +1461,10 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1586"/>
-        <source>Show the incoming transfers, all or filtered by availability and address index.</source>
+        <source>Show the incoming transfers, all or filtered by availability and address index.
+
+Output format:
+Amount, Spent(&quot;T&quot;|&quot;F&quot;), &quot;locked&quot;|&quot;unlocked&quot;, RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image]</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2279,7 +2282,7 @@ your wallet again (your wallet keys are NOT at risk in any case).
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3339"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3381"/>
-        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N&gt;]</source>
+        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N1&gt;[,&lt;N2&gt;[,...]]]</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
