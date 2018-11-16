@@ -191,3 +191,26 @@ public:
 };
 
 template<> struct get_test_options<sn_test_rollback>: public get_test_options<test_service_nodes_base> {};
+
+//-------------------------------------------------------------------------------------------
+
+class test_swarms_basic : public test_service_nodes_base
+{
+public:
+  test_swarms_basic();
+  bool generate(std::vector<test_event_entry>& events);
+
+  bool test_initial_swarms(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_with_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+  bool test_after_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events);
+};
+
+template<>
+struct get_test_options<test_swarms_basic>
+{
+  const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = { std::make_pair(7, 0),
+                                                                 std::make_pair(8, 1),
+                                                                 std::make_pair(9, 2),
+                                                                 std::make_pair(10, 150) };
+  const cryptonote::test_options test_options = { hard_forks };
+};

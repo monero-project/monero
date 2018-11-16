@@ -313,7 +313,10 @@ class linear_chain_generator
 
     cryptonote::block create_block_on_fork(const cryptonote::block& prev, const std::vector<cryptonote::transaction>& txs = {});
 
+    int get_hf_version() const;
+
     void rewind_until_v9();
+    void continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_blocks_n(int n);
     void rewind_blocks();
@@ -427,6 +430,7 @@ class TxBuilder {
 
   /// required fields
   const std::vector<test_event_entry>& m_events;
+  const uint8_t m_hf_version;
   cryptonote::transaction& m_tx;
   const cryptonote::block& m_head;
   const cryptonote::account_base& m_from;
@@ -449,13 +453,15 @@ public:
             const cryptonote::block& head,
             const cryptonote::account_base& from,
             const cryptonote::account_base& to,
-            uint64_t amount)
+            uint64_t amount,
+            uint8_t hf_version = cryptonote::network_version_9_service_nodes)
     : m_events(events)
     , m_tx(tx)
     , m_head(head)
     , m_from(from)
     , m_to(to)
     , m_amount(amount)
+    , m_hf_version(hf_version)
     , m_fee(TESTS_DEFAULT_FEE)
     , m_unlock_time(0)
   {}
@@ -509,7 +515,7 @@ public:
     cryptonote::tx_destination_entry change_addr{ change_amount, m_from.get_keys().m_account_address, is_subaddr };
 
     return cryptonote::construct_tx(
-      m_from.get_keys(), sources, destinations, change_addr, m_extra, m_tx, m_unlock_time, m_is_staking, m_per_output_unlock);
+      m_from.get_keys(), sources, destinations, change_addr, m_extra, m_tx, m_unlock_time, m_hf_version, m_is_staking);
 
   }
 };
@@ -927,18 +933,20 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
                                              uint64_t operator_cut,
                                              const std::vector<cryptonote::account_public_address>& addresses,
                                              const std::vector<uint64_t>& portions,
-                                             const cryptonote::block& head);
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version);
 
 cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
                                                      const cryptonote::account_base& account,
                                                      const cryptonote::keypair& service_node_keys,
-                                                     const cryptonote::block& head);
+                                                     const cryptonote::block& head,
+                                                     uint8_t hf_version);
 
 
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee = 0);
+                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
 
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
   cryptonote::transaction TX_NAME;                                                           \

@@ -30,6 +30,7 @@
 
 #include "chaingen.h"
 #include "service_nodes.h"
+#include "cryptonote_core/service_node_list.h"
 
 using namespace std;
 
@@ -90,6 +91,8 @@ static const std::pair<const char*, const char*> service_node_keys[] = {
 };
 
 static const auto SN_KEYS_COUNT = sizeof(service_node_keys) / sizeof(service_node_keys[0]);
+
+static_assert(SN_KEYS_COUNT == 25, "Need to adjust the key count (for readability)");
 
 cryptonote::keypair get_static_keys(size_t idx) {
 
@@ -601,7 +604,8 @@ bool sn_test_rollback::generate(std::vector<test_event_entry>& events)
   linear_chain_generator gen(events);
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<sn_test_rollback> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -710,4 +714,140 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
   return true;
 
+}
+
+//-----------------------------------------------------------------------------------------------------
+//------------------------------------- Test Swarm Basics ---------------------------------------------
+//-----------------------------------------------------------------------------------------------------
+
+test_swarms_basic::test_swarms_basic() {
+  REGISTER_CALLBACK("test_initial_swarms", test_swarms_basic::test_initial_swarms);
+  REGISTER_CALLBACK("test_with_more_sn", test_swarms_basic::test_with_more_sn);
+  REGISTER_CALLBACK("test_after_deregisters", test_swarms_basic::test_after_deregisters);
+}
+
+bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
+{
+  linear_chain_generator gen(events);
+
+  const get_test_options<test_swarms_basic> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+
+  /// Create some service nodes before hf version 10
+  constexpr size_t init_sn_count = 16;
+
+  gen.rewind_blocks_n(100);
+  gen.rewind_blocks();
+
+  /// register some service nodes
+  std::vector<cryptonote::transaction> reg_txs;
+  for (auto i = 0u; i < init_sn_count; ++i) {
+    const auto sn = get_static_keys(i);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    reg_txs.push_back(tx);
+  }
+
+  gen.create_block(reg_txs);
+
+  /// create a few blocks with active service nodes
+  gen.rewind_blocks_n(5);
+
+  if (gen.get_hf_version() != network_version_9_service_nodes) {
+    std::cerr << "wrong hf version\n";
+    return false;
+  }
+
+  gen.continue_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+
+  /// test that we now have swarms
+  DO_CALLBACK(events, "test_initial_swarms");
+
+  /// rewind some blocks and register more service nodes
+  for (auto i = init_sn_count; i < SN_KEYS_COUNT; ++i) {
+    const auto sn = get_static_keys(i);
+    const auto tx = gen.create_registration_tx(gen.first_miner(), sn);
+    gen.create_block({tx}); 
+  }
+
+  /// test that another swarm has been created
+  DO_CALLBACK(events, "test_with_more_sn");
+
+  /// deregister a few snodes and test that both swarms are alive
+  std::vector<cryptonote::transaction> dereg_txs;
+  for (auto i = 0u; i < service_nodes::SWARM_BUFFER; ++i) {
+    const auto pk = gen.get_test_pk(i);
+    const auto tx = gen.build_deregister(pk).build();
+    dereg_txs.push_back(tx);
+  }
+
+  gen.create_block(dereg_txs);
+
+  DO_CALLBACK(events, "test_after_deregisters");
+
+  return true;
+}
+
+bool test_swarms_basic::test_initial_swarms(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_initial_swarms");
+
+  /// Check that there is one active swarm and the swarm queue is not empty
+  const auto sn_list = c.get_service_node_list_state({});
+
+  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+
+  for (const auto& entry : sn_list) {
+    const auto id = entry.info.swarm_id;
+    swarms[id].push_back(entry.pubkey);
+  }
+
+  /// One of the swarms represent a queue
+  CHECK_EQ(swarms.size(), 2);
+
+  const size_t queue_size = swarms.at(service_nodes::QUEUE_SWARM_ID).size();
+
+  /// No deregisters, so the swarms queue should be full
+  CHECK_TEST_CONDITION(queue_size > service_nodes::SWARM_BUFFER);
+  /// We shouldn't have too many nodes in the queue
+  CHECK_TEST_CONDITION(queue_size < service_nodes::SWARM_BUFFER + service_nodes::MAX_SWARM_SIZE);
+
+  return true;
+}
+
+bool test_swarms_basic::test_with_more_sn(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_with_more_sn");
+
+  const auto sn_list = c.get_service_node_list_state({});
+
+  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+
+  for (const auto& entry : sn_list) {
+    const auto id = entry.info.swarm_id;
+    swarms[id].push_back(entry.pubkey);
+  }
+
+  CHECK_EQ(swarms.size(), 3);
+
+  return true;
+}
+
+bool test_swarms_basic::test_after_deregisters(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry> &events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("test_swarms_basic::test_after_deregisters");
+
+  const auto sn_list = c.get_service_node_list_state({});
+
+  std::map<service_nodes::swarm_id_t, std::vector<crypto::public_key>> swarms;
+
+  for (const auto& entry : sn_list) {
+    const auto id = entry.info.swarm_id;
+    swarms[id].push_back(entry.pubkey);
+  }
+
+  /// The two swarms are still active, but the queue in now showing in the swarms
+  CHECK_TEST_CONDITION(swarms.find(service_nodes::QUEUE_SWARM_ID) == swarms.end());
+  CHECK_EQ(swarms.size(), 2);
+
+  return true;
 }

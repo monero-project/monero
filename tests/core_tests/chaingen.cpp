@@ -88,6 +88,32 @@ void linear_chain_generator::create_block(const std::vector<cryptonote::transact
   blocks_.push_back(blk);
 }
 
+
+void linear_chain_generator::continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
+{
+  assert(gen_.m_hf_version < hard_fork_version);
+
+  for (auto i = 0u; i < hard_forks.size() - 1; ++i) {
+    
+    const uint8_t ver = hard_forks[i].first;
+    const uint64_t height = hard_forks[i].second;
+
+    if (ver < get_hf_version()) continue;
+
+    auto cur_height = blocks_.size();
+    uint64_t next_fork_height = hard_forks[i + 1].second;
+
+    uint64_t blocks_till_next_hardfork = next_fork_height - cur_height;
+
+    rewind_blocks_n(blocks_till_next_hardfork);
+    gen_.m_hf_version = hard_forks[i + 1].first;
+    create_block();
+
+  }
+
+  assert(gen_.m_hf_version == hard_fork_version);
+}
+
 void linear_chain_generator::rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
 {
   if (hard_forks.size() > 1)
@@ -109,6 +135,10 @@ void linear_chain_generator::rewind_until_version(const std::vector<std::pair<ui
 
     assert(gen_.m_hf_version == hard_fork_version);
   }
+}
+
+int linear_chain_generator::get_hf_version() const {
+  return gen_.m_hf_version;
 }
 
 
@@ -209,7 +239,7 @@ cryptonote::transaction linear_chain_generator::create_tx(const cryptonote::acco
                                                           uint64_t fee)
 {
   cryptonote::transaction t;
-  TxBuilder(events_, t, blocks_.back(), miner, acc, amount).with_fee(fee).build();
+  TxBuilder(events_, t, blocks_.back(), miner, acc, amount, gen_.m_hf_version).with_fee(fee).build();
   events_.push_back(t);
   return t;
 }
@@ -222,7 +252,7 @@ cryptonote::transaction linear_chain_generator::create_registration_tx(const cry
 
   const auto reg_idx = registration_buffer_.size();
   registration_buffer_.push_back({ expires, sn_keys, contr, { height(), reg_idx } });
-  return make_default_registration_tx(events_, acc, sn_keys, blocks_.back());
+  return make_default_registration_tx(events_, acc, sn_keys, blocks_.back(), gen_.m_hf_version);
 }
 
 cryptonote::transaction linear_chain_generator::create_registration_tx()
@@ -262,7 +292,7 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
     deregister.votes.push_back({ signature, (uint32_t)voter.idx_in_quorum });
   }
 
-  const auto deregister_tx = make_deregistration_tx(events_, first_miner_, blocks_.back(), deregister, fee);
+  const auto deregister_tx = make_deregistration_tx(events_, first_miner_, blocks_.back(), deregister, gen_.m_hf_version, fee);
 
   events_.push_back(deregister_tx);
 
@@ -619,7 +649,8 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
                                              uint64_t operator_cut,
                                              const std::vector<cryptonote::account_public_address>& addresses,
                                              const std::vector<uint64_t>& portions,
-                                             const cryptonote::block& head)
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version)
 {
     const auto new_height = cryptonote::get_block_height(head) + 1;
     const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height);
@@ -647,7 +678,7 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
     add_service_node_register_to_tx_extra(extra, addresses, operator_cut, portions, exp_timestamp, signature);
     add_service_node_contributor_to_tx_extra(extra, addresses.at(0));
 
-    TxBuilder(events, tx, head, account, account, amount).is_staking(true).with_extra(extra).with_unlock_time(unlock_time).with_per_output_unlock(true).build();
+    TxBuilder(events, tx, head, account, account, amount, hf_version).is_staking(true).with_extra(extra).with_unlock_time(unlock_time).with_per_output_unlock(true).build();
     events.push_back(tx);
     return tx;
 }
@@ -655,7 +686,9 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee)
+                                               const cryptonote::tx_extra_service_node_deregister& deregister,
+                                               uint8_t hf_version,
+                                               uint64_t fee)
 {
   cryptonote::transaction tx;
 
@@ -669,7 +702,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 
   const uint64_t amount = 0;
 
-  if (fee) TxBuilder(events, tx, head, account, account, amount).with_fee(fee).with_extra(extra).with_per_output_unlock(true).build();
+  if (fee) TxBuilder(events, tx, head, account, account, amount, hf_version).with_fee(fee).with_extra(extra).with_per_output_unlock(true).build();
 
   tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
   tx.is_deregister = true;
@@ -680,9 +713,10 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
                                              const cryptonote::account_base& account,
                                              const cryptonote::keypair& service_node_keys,
-                                             const cryptonote::block& head)
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version)
 {
-  return make_registration_tx(events, account, service_node_keys, 0, { account.get_keys().m_account_address }, { STAKING_PORTIONS }, head);
+  return make_registration_tx(events, account, service_node_keys, 0, { account.get_keys().m_account_address }, { STAKING_PORTIONS }, head, hf_version);
 }
 
 struct output_index {
