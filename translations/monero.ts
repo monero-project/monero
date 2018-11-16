@@ -1196,7 +1196,7 @@ This transaction will unlock on block %llu, in approximately %s days (assuming 2
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1356"/>
-        <source>usage: print_ring &lt;key_image|txid&gt;</source>
+        <source>usage: print_ring &lt;key_image&gt; | &lt;txid&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1979,7 +1979,10 @@ Pending or Failed:               &quot;failed&quot;|&quot;pending&quot;, &quot;o
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2534"/>
-        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)</source>
+        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)
+
+Output format:
+Key Image, &quot;absolute&quot;, list of rings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

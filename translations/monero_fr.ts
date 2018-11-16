@@ -2987,8 +2987,11 @@ subaddress-lookahead &lt;major&gt;:&lt;minor&gt;
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2534"/>
-        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)</source>
-        <translation>Afficher le(s) cercle(s) utilisé(s) pour dépenser une image de clé ou une transaction (si la taille de cercle est &gt; 1)</translation>
+        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)
+
+Output format:
+Key Image, &quot;absolute&quot;, list of rings</source>
+        <translation type="unfinished">Afficher le(s) cercle(s) utilisé(s) pour dépenser une image de clé ou une transaction (si la taille de cercle est &gt; 1)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2537"/>
