@@ -308,7 +308,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
     epee::math_helper::once_a_time_seconds<60*30, false> m_peerlist_store_interval;
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
-    epee::math_helper::once_a_time_seconds<900, false> m_incoming_connections_interval;
+    epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
 
     std::string m_bind_ip;
     std::string m_port;
