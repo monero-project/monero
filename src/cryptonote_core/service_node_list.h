@@ -65,8 +65,6 @@ namespace service_nodes
 
   struct service_node_info // registration information
   {
-    uint8_t version = version::version_0;
-
     enum version
     {
       version_0,
@@ -89,6 +87,7 @@ namespace service_nodes
       END_SERIALIZE()
     };
 
+    uint8_t  version = version::version_0;
     uint64_t registration_height;
 
     // block_height and transaction_index are to record when the service node last received a reward.
