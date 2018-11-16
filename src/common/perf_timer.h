@@ -53,7 +53,6 @@ public:
   void resume();
 
   uint64_t value() const { return ticks; }
-void set(uint64_t v){ticks=v;}
 
 protected:
   uint64_t ticks;
