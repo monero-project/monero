@@ -40,6 +40,7 @@ enum test_op
   op_sc_mul,
   op_ge_add_raw,
   op_ge_add_p3_p3,
+  op_zeroCommitCached,
   ops_fast,
 
   op_addKeys,
@@ -55,6 +56,7 @@ enum test_op
   op_addKeys3,
   op_addKeys3_2,
   op_isInMainSubgroup,
+  op_zeroCommitUncached,
 };
 
 template<test_op op>
@@ -111,6 +113,8 @@ public:
       case op_addKeys3: rct::addKeys3(key, scalar0, point0, scalar1, precomp1); break;
       case op_addKeys3_2: rct::addKeys3(key, scalar0, precomp0, scalar1, precomp1); break;
       case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
+      case op_zeroCommitUncached: rct::zeroCommit(9001); break;
+      case op_zeroCommitCached: rct::zeroCommit(9000); break;
       default: return false;
     }
     return true;
