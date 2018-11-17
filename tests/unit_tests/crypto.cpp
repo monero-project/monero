@@ -81,8 +81,14 @@ TEST(Crypto, null_keys)
 {
   char zero[32];
   memset(zero, 0, 32);
-  ASSERT_EQ(memcmp(crypto::null_skey.data, zero, 32), 0);
-  ASSERT_EQ(memcmp(crypto::null_pkey.data, zero, 32), 0);
+
+  const crypto::public_key pub = crypto::null_pkey;
+  const crypto::secret_key sec = crypto::null_skey;
+
+  EXPECT_EQ(memcmp(pub.data, zero, 32), 0);
+  EXPECT_EQ(memcmp(sec.data, zero, 32), 0);
+  EXPECT_EQ(pub, crypto::null_pkey);
+  EXPECT_EQ(sec, crypto::null_skey);
 }
 
 TEST(Crypto, verify_32)

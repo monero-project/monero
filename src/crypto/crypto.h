@@ -96,6 +96,12 @@ namespace crypto {
   };
 #pragma pack(pop)
 
+  template<typename T>
+  struct null_key
+  {
+    operator T() const { return T{}; }
+  };
+
   void hash_to_scalar(const void *data, size_t length, ec_scalar &res);
   void random32_unbiased(unsigned char *bytes);
 
@@ -303,8 +309,8 @@ namespace crypto {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
 
-  const extern crypto::public_key null_pkey;
-  const extern crypto::secret_key null_skey;
+  constexpr const null_key<public_key> null_pkey{};
+  constexpr const null_key<secret_key> null_skey{};
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)

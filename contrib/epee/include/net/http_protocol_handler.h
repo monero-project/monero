@@ -57,6 +57,7 @@ namespace net_utils
 			std::vector<std::string> m_access_control_origins;
 			boost::optional<login> m_user;
 			critical_section m_lock;
+			bool m_access_control_credentials;
 		};
 
 		/************************************************************************/

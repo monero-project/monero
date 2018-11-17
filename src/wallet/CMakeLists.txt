@@ -37,8 +37,8 @@ set(wallet_sources
   node_rpc_proxy.cpp
   message_store.cpp
   message_transporter.cpp
-  wallet_rpc_payments.cpp
-)
+  output_selection.cpp
+  wallet_rpc_payments.cpp)
 
 set(wallet_private_headers
   wallet2.h
@@ -51,6 +51,7 @@ set(wallet_private_headers
   node_rpc_proxy.h
   message_store.h
   message_transporter.h
+  output_selection.h
   wallet_rpc_helpers.h)
 
 monero_private_headers(wallet

@@ -177,6 +177,21 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  boost::optional<std::pair<uint64_t, rct::key>> decode_amount(const rct::key& commitment, const rct::ecdhTuple& info, const crypto::key_derivation& sk, std::size_t index, const bool bulletproof2)
+  {
+    crypto::secret_key scalar{};
+    crypto::derivation_to_scalar(sk, index, scalar);
+
+    rct::ecdhTuple copy{info};
+    rct::ecdhDecode(copy, rct::sk2rct(scalar), bulletproof2);
+
+    rct::key Ctmp;
+    rct::addKeys2(Ctmp, copy.mask, copy.amount, rct::H);
+    if (rct::equalKeys(commitment, Ctmp))
+      return {{rct::h2d(copy.amount), copy.mask}};
+    return boost::none;
+  }
+  //---------------------------------------------------------------
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr)
   {
     account_public_address addr = {null_pkey, null_pkey};

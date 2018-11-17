@@ -39,6 +39,18 @@ namespace hw {
 
         class device_default : public hw::device {
         public:
+            /*! \TODO These 2 functions, and a few others should be elsewhere.
+                Unfortunately, "cryptonote_core", "ringct", and "wallet"
+                libraries all depend on the device library creating a cyclic
+                dependency. None of those libraries should be dependent on
+                the hardware abstraction, it should only be dependent on them.
+            */
+            static void do_encrypt_payment_id(crypto::hash8& out, crypto::key_derivation const& key);
+            static void do_decrypt_payment_id(crypto::hash8& out, crypto::key_derivation const& key)
+            {
+                do_encrypt_payment_id(out, key);
+            }
+
             device_default();
             ~device_default();
 

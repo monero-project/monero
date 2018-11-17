@@ -101,7 +101,7 @@ namespace tools
         {
           for (const auto &kv: headers.m_header_info.m_etc_fields)
             MDEBUG("Header: " << kv.first << ": " << kv.second);
-          ssize_t length;
+          ssize_t length = 0;
           if (epee::string_tools::get_xtype_from_string(length, headers.m_header_info.m_content_length) && length >= 0)
           {
             MINFO("Content-Length: " << length);

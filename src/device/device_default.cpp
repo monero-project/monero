@@ -43,6 +43,18 @@
 namespace hw {
 
     namespace core {
+        void device_default::do_encrypt_payment_id(crypto::hash8& out, const crypto::key_derivation& key)
+        {
+            crypto::hash hash;
+            char data[33]; /* A hash, and an extra byte */
+
+            memcpy(data, &key, 32);
+            data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
+            cn_fast_hash(data, 33, hash);
+
+            for (size_t b = 0; b < 8; ++b)
+                out.data[b] ^= hash.data[b];
+        }
 
         device_default::device_default() { }
 
@@ -337,19 +349,10 @@ namespace hw {
 
         bool  device_default::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
             crypto::key_derivation derivation;
-            crypto::hash hash;
-            char data[33]; /* A hash, and an extra byte */
-
             if (!generate_key_derivation(public_key, secret_key, derivation))
                 return false;
 
-            memcpy(data, &derivation, 32);
-            data[32] = ENCRYPTED_PAYMENT_ID_TAIL;
-            cn_fast_hash(data, 33, hash);
-
-            for (size_t b = 0; b < 8; ++b)
-                payment_id.data[b] ^= hash.data[b];
-
+            do_encrypt_payment_id(payment_id, derivation);
             return true;
         }
 

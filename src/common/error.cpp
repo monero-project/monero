@@ -41,6 +41,10 @@ namespace
         {
             switch (common_error(value))
             {
+                case common_error::configuration:
+                    return "Invalid process configuration";
+                case common_error::crypto_failure:
+                    return "A cryptographic function failed";
                 case common_error::kInvalidArgument:
                     return make_error_code(std::errc::invalid_argument).message();
                 case common_error::kInvalidErrorCode:

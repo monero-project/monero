@@ -678,6 +678,9 @@ namespace net_utils
 					buf += "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n";
 				buf += "Access-Control-Allow-Methods: POST, PUT, GET, OPTIONS\r\n";
 			}
+
+			if (m_config.m_access_control_credentials)
+				buf += "Access-Control-Allow-Credentials: true\r\n";
 		}
 
 		//add additional fields, if it is

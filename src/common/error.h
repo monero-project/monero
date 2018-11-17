@@ -32,8 +32,10 @@
 enum class common_error : int
 {
     // 0 is reserved for no error, as per expect<T>
-    kInvalidArgument = 1, //!< A function argument is invalid
-    kInvalidErrorCode     //!< Default `std::error_code` given to `expect<T>`
+    configuration = 1, //!< Process configuration failure
+    crypto_failure,    //<! A `crypto::` function failed.
+    kInvalidArgument,  //!< A function argument is invalid
+    kInvalidErrorCode, //!< Default `std::error_code` given to `expect<T>`
 };
 
 std::error_category const& common_category() noexcept;

@@ -33,6 +33,7 @@
 //#include <Ws2tcpip.h>
 #include <atomic>
 #include <string>
+#include <atomic>
 #include <boost/version.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>

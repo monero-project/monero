@@ -56,6 +56,7 @@ set(unit_tests_sources
   http.cpp
   keccak.cpp
   levin.cpp
+  light_wallet_server.cpp
   logging.cpp
   long_term_block_weight.cpp
   lmdb.cpp
@@ -106,6 +107,7 @@ target_link_libraries(unit_tests
     cryptonote_protocol
     cryptonote_core
     blockchain_db
+    light_wallet_server-lib
     lmdb_lib
     rpc
     net

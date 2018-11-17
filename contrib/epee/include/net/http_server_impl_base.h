@@ -48,13 +48,19 @@ namespace epee
   {
 
   public:
-    http_server_impl_base()
+    //! allow_credentials => adds HTTP Cors header `Access-Control-Allow-Credentials: true`, use carefully
+    http_server_impl_base(bool allow_credentials = false)
         : m_net_server(epee::net_utils::e_connection_type_RPC)
-    {}
+    {
+        m_net_server.get_config_object().m_access_control_credentials = allow_credentials;
+    }
 
-    explicit http_server_impl_base(boost::asio::io_service& external_io_service)
-        : m_net_server(external_io_service)
-    {}
+    //! allow_credentials => adds HTTP Cors header `Access-Control-Allow-Credentials: true`, use carefully
+    explicit http_server_impl_base(boost::asio::io_service& external_io_service, bool allow_credentials = false)
+        : m_net_server(external_io_service, net_utils::e_connection_type_RPC)
+    {
+      m_net_server.get_config_object().m_access_control_credentials = allow_credentials;
+    }
 
     bool init(std::function<void(size_t, uint8_t*)> rng, const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
       const std::string& bind_ipv6_address = "::", bool use_ipv6 = false, bool require_ipv4 = true,
