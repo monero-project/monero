@@ -37,6 +37,7 @@
 #include "misc_language.h"
 #include "syncobj.h"
 #include "misc_os_dependent.h"
+#include "int-util.h"
 
 #include <random>
 #include <chrono>
@@ -469,7 +470,18 @@ public:
               m_current_head.m_have_to_return_data = false;
               m_current_head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
               m_current_head.m_flags = LEVIN_PACKET_RESPONSE;
+#if BYTE_ORDER == LITTLE_ENDIAN
               std::string send_buff((const char*)&m_current_head, sizeof(m_current_head));
+#else
+              bucket_head2 head = m_current_head;
+              head.m_signature = SWAP64LE(head.m_signature);
+              head.m_cb = SWAP64LE(head.m_cb);
+              head.m_command = SWAP32LE(head.m_command);
+              head.m_return_code = SWAP32LE(head.m_return_code);
+              head.m_flags = SWAP32LE(head.m_flags);
+              head.m_protocol_version = SWAP32LE(head.m_protocol_version);
+              std::string send_buff((const char*)&head, sizeof(head));
+#endif
               send_buff += return_buff;
               CRITICAL_REGION_BEGIN(m_send_lock);
               if(!m_pservice_endpoint->do_send(send_buff.data(), send_buff.size()))
@@ -491,7 +503,7 @@ public:
         {
           if(m_cache_in_buffer.size() < sizeof(bucket_head2))
           {
-            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.data()) != LEVIN_SIGNATURE)
+            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.data()) != SWAP64LE(LEVIN_SIGNATURE))
             {
               MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
               return false;
@@ -500,13 +512,23 @@ public:
             break;
           }
 
-          bucket_head2* phead = (bucket_head2*)m_cache_in_buffer.data();
-          if(LEVIN_SIGNATURE != phead->m_signature)
+#if BYTE_ORDER == LITTLE_ENDIAN
+          bucket_head2& phead = *(bucket_head2*)m_cache_in_buffer.data();
+#else
+          bucket_head2 phead = *(bucket_head2*)m_cache_in_buffer.data();
+          phead.m_signature = SWAP64LE(phead.m_signature);
+          phead.m_cb = SWAP64LE(phead.m_cb);
+          phead.m_command = SWAP32LE(phead.m_command);
+          phead.m_return_code = SWAP32LE(phead.m_return_code);
+          phead.m_flags = SWAP32LE(phead.m_flags);
+          phead.m_protocol_version = SWAP32LE(phead.m_protocol_version);
+#endif
+          if(LEVIN_SIGNATURE != phead.m_signature)
           {
             LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
             return false;
           }
-          m_current_head = *phead;
+          m_current_head = phead;
 
           m_cache_in_buffer.erase(0, sizeof(bucket_head2));
           m_state = stream_state_body;
@@ -566,13 +588,13 @@ public:
       }
 
       bucket_head2 head = {0};
-      head.m_signature = LEVIN_SIGNATURE;
-      head.m_cb = in_buff.size();
+      head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+      head.m_cb = SWAP64LE(in_buff.size());
       head.m_have_to_return_data = true;
 
-      head.m_flags = LEVIN_PACKET_REQUEST;
-      head.m_command = command;
-      head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+      head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+      head.m_command = SWAP32LE(command);
+      head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
       boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
       CRITICAL_REGION_BEGIN(m_send_lock);
@@ -624,13 +646,13 @@ public:
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     bucket_head2 head = {0};
-    head.m_signature = LEVIN_SIGNATURE;
-    head.m_cb = in_buff.size();
+    head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
+    head.m_cb = SWAP64LE(in_buff.size());
     head.m_have_to_return_data = true;
 
-    head.m_flags = LEVIN_PACKET_REQUEST;
-    head.m_command = command;
-    head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
+    head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
+    head.m_command = SWAP32LE(command);
+    head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
 
     boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
     CRITICAL_REGION_BEGIN(m_send_lock);
@@ -698,13 +720,13 @@ public:
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
     bucket_head2 head = {0};
-    head.m_signature = LEVIN_SIGNATURE;
+    head.m_signature = SWAP64LE(LEVIN_SIGNATURE);
     head.m_have_to_return_data = false;
-    head.m_cb = in_buff.size();
+    head.m_cb = SWAP64LE(in_buff.size());
 
-    head.m_command = command;
-    head.m_protocol_version = LEVIN_PROTOCOL_VER_1;
-    head.m_flags = LEVIN_PACKET_REQUEST;
+    head.m_command = SWAP32LE(command);
+    head.m_protocol_version = SWAP32LE(LEVIN_PROTOCOL_VER_1);
+    head.m_flags = SWAP32LE(LEVIN_PACKET_REQUEST);
     CRITICAL_REGION_BEGIN(m_send_lock);
     if(!m_pservice_endpoint->do_send(&head, sizeof(head)))
     {
