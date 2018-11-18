@@ -31,6 +31,7 @@
 
 #include <boost/uuid/uuid_generators.hpp>
 #include "levin_base.h"
+#include "int-util.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -103,7 +104,7 @@ namespace levin
 			case conn_state_reading_head:
 				if(m_cach_in_buffer.size() < sizeof(bucket_head))
 				{
-					if(m_cach_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cach_in_buffer.data()) != LEVIN_SIGNATURE)
+					if(m_cach_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cach_in_buffer.data()) != SWAP64LE(LEVIN_SIGNATURE))
 					{
 						LOG_ERROR_CC(m_conn_context, "Signature mismatch on accepted connection");
 						return false;
@@ -112,13 +113,23 @@ namespace levin
 					break;
 				}
 				{
-					bucket_head* phead = (bucket_head*)m_cach_in_buffer.data();
-					if(LEVIN_SIGNATURE != phead->m_signature)
+#if BYTE_ORDER == LITTLE_ENDIAN
+					bucket_head &phead = *(bucket_head*)m_cach_in_buffer.data();
+#else
+					bucket_head phead = *(bucket_head*)m_cach_in_buffer.data();
+					phead.m_signature = SWAP64LE(phead.m_signature);
+					phead.m_cb = SWAP64LE(phead.m_cb);
+					phead.m_command = SWAP32LE(phead.m_command);
+					phead.m_return_code = SWAP32LE(phead.m_return_code);
+					phead.m_reservedA = SWAP32LE(phead.m_reservedA);
+					phead.m_reservedB = SWAP32LE(phead.m_reservedB);
+#endif
+					if(LEVIN_SIGNATURE != phead.m_signature)
 					{
 						LOG_ERROR_CC(m_conn_context, "Signature mismatch on accepted connection");
 						return false;
 					}
-					m_current_head = *phead;
+					m_current_head = phead;
 				}
 				m_cach_in_buffer.erase(0, sizeof(bucket_head));
 				m_state = conn_state_reading_body;

@@ -35,6 +35,7 @@
 #include "portable_storage_to_json.h"
 #include "portable_storage_from_json.h"
 #include "portable_storage_val_converters.h"
+#include "int-util.h"
 
 namespace epee
 {
@@ -135,8 +136,8 @@ namespace epee
       TRY_ENTRY();
       std::stringstream ss;
       storage_block_header sbh = AUTO_VAL_INIT(sbh);
-      sbh.m_signature_a = PORTABLE_STORAGE_SIGNATUREA;
-      sbh.m_signature_b = PORTABLE_STORAGE_SIGNATUREB;
+      sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
+      sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
       sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
       ss.write((const char*)&sbh, sizeof(storage_block_header));
       pack_entry_to_buff(ss, m_root);
@@ -154,8 +155,8 @@ namespace epee
         return false;
       }
       storage_block_header* pbuff = (storage_block_header*)source.data();
-      if(pbuff->m_signature_a != PORTABLE_STORAGE_SIGNATUREA || 
-        pbuff->m_signature_b != PORTABLE_STORAGE_SIGNATUREB 
+      if(pbuff->m_signature_a != SWAP32LE(PORTABLE_STORAGE_SIGNATUREA) ||
+        pbuff->m_signature_b != SWAP32LE(PORTABLE_STORAGE_SIGNATUREB)
         )
       {
         LOG_ERROR("portable_storage: wrong binary format - signature mismatch");
