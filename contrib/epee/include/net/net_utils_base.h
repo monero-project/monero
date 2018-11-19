@@ -100,11 +100,11 @@ namespace net_utils
 
 		bool equal(const ipv6_network_address& other) const noexcept;
 		bool less(const ipv6_network_address& other) const noexcept;
-		constexpr bool is_same_host(const ipv6_network_address& other) const noexcept
+		bool is_same_host(const ipv6_network_address& other) const noexcept
 		{ return ip() == other.ip(); }
 
-		constexpr std::string ip() const noexcept { return m_ip; }
-		constexpr uint16_t port() const noexcept { return m_port; }
+		std::string ip() const noexcept { return m_ip; }
+		uint16_t port() const noexcept { return m_port; }
 		std::string str() const;
 		std::string host_str() const;
 		bool is_loopback() const;
