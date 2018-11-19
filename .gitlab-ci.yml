@@ -12,6 +12,7 @@ build:windows:
     - windows
   stage: build
   script:
+    - set USE_SINGLE_BUILDDIR=1
     - cat /proc/version
     - make release-static-win64
   artifacts:
@@ -24,6 +25,7 @@ build:osx:
   stage: build
   script:
     - sw_vers
+    - export USE_SINGLE_BUILDDIR=1
     - source ~/Builds/loki_env.sh
     - make -j4 release-static-mac-x86_64
   artifacts:
@@ -36,6 +38,7 @@ build:linux:
     - ubuntu
   stage: build
   script:
+    - export USE_SINGLE_BUILDDIR=1
     # print our runner distro
     - cat /proc/version
     # print the current commit hash
@@ -44,12 +47,3 @@ build:linux:
   artifacts:
     paths:
       - "build/release/bin"
-  # disable cache to ensure reproducible builds
-  # cache:
-  #   paths:
-  #     - "build"
-
-# test:
-#   stage: test
-#   script:
-#     - ./test/testall
