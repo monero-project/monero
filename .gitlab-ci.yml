@@ -12,7 +12,7 @@ build:windows:
     - windows
   stage: build
   script:
-    - set USE_SINGLE_BUILDDIR=1
+    - export USE_SINGLE_BUILDDIR=1
     - cat /proc/version
     - make release-static-win64
   artifacts:
