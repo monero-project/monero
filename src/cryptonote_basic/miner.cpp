@@ -146,7 +146,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::request_block_template()
   {
-    block bl = AUTO_VAL_INIT(bl);
+    block bl;
     difficulty_type di = AUTO_VAL_INIT(di);
     uint64_t height = AUTO_VAL_INIT(height);
     uint64_t expected_reward; //only used for RPC calls - could possibly be useful here too?
