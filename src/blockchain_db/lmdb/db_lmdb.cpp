@@ -4360,13 +4360,16 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
 {
   switch(oldversion) {
   case 0:
-    migrate_0_1(); /* FALLTHRU */
+    migrate_0_1();
+    break;
   case 1:
-    migrate_1_2(); /* FALLTHRU */
+    migrate_1_2();
+    break;
   case 2:
-    migrate_2_3(); /* FALLTHRU */
+    migrate_2_3();
+    break;
   default:
-    ;
+    break;
   }
 }
 
