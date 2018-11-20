@@ -3126,6 +3126,7 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
   if (version >= HF_VERSION_DYNAMIC_FEE)
   {
     median = m_current_block_cumul_weight_limit / 2;
+    const uint64_t blockchain_height = m_db->height();
     already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
     if (!get_block_reward(median, 1, already_generated_coins, base_reward, version))
       return false;
