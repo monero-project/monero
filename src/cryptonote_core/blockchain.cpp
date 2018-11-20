@@ -3559,7 +3559,7 @@ leave:
   txs.reserve(bl.tx_hashes.size());
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
-    transaction tx;
+    transaction tx_tmp;
     blobdata txblob;
     size_t tx_weight = 0;
     uint64_t fee = 0;
@@ -3580,7 +3580,7 @@ leave:
     TIME_MEASURE_START(bb);
 
     // get transaction with hash <tx_id> from tx_pool
-    if(!m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
+    if(!m_tx_pool.take_tx(tx_id, tx_tmp, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen))
     {
       MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       bvc.m_verifivation_failed = true;
@@ -3593,7 +3593,8 @@ leave:
     // add the transaction to the temp list of transactions, so we can either
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
-    txs.push_back(std::make_pair(tx, std::move(txblob)));
+    txs.push_back(std::make_pair(std::move(tx_tmp), std::move(txblob)));
+    transaction &tx = txs.back().first;
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
