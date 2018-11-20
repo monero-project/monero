@@ -172,7 +172,7 @@ namespace net_utils
 
     if (parse_url_ipv6(url_str, content)) return true;
 
-    STATIC_REGEXP_EXPR_1(rexp_match_uri, "^((.*?)://)?(([^/]*)(:(\\d+))?)(/?.*)?", boost::regex::icase | boost::regex::normal);
+    STATIC_REGEXP_EXPR_1(rexp_match_uri, "^((.*?)://)?(([^/:]*)(:(\\d+))?)(/?.*)?", boost::regex::icase | boost::regex::normal);
     //                                     12         34       5 6       7
 
     content.port = 0;
