@@ -54,42 +54,46 @@ namespace
 
 bool gen_ring_signature_1::generate(std::vector<test_event_entry>& events) const
 {
-  uint64_t ts_start = 1338224400;
 
-  GENERATE_ACCOUNT(miner_account);
+  linear_chain_generator gen(events);
+  gen.create_genesis_block();
 
-  //                                                                                                   events
-  MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);                                          //  0
-  MAKE_ACCOUNT(events, some_account_1);                                                                //  1
-  MAKE_ACCOUNT(events, some_account_2);                                                                //  2
-  MAKE_ACCOUNT(events, bob_account);                                                                   //  3
-  MAKE_ACCOUNT(events, alice_account);                                                                 //  4
-  MAKE_NEXT_BLOCK(events, blk_1, blk_0, miner_account);                                                //  5
-  MAKE_NEXT_BLOCK(events, blk_2, blk_1, miner_account);                                                //  6
-  MAKE_NEXT_BLOCK(events, blk_3, blk_2, miner_account);                                                //  7
-  MAKE_NEXT_BLOCK(events, blk_4, blk_3, miner_account);                                                //  8
-  REWIND_BLOCKS(events, blk_5, blk_4, miner_account);                                                  // <N blocks>
-  REWIND_BLOCKS(events, blk_5r, blk_5, miner_account);                                                 // <N blocks>
-  MAKE_TX_LIST_START(events, txs_blk_6, miner_account, bob_account, MK_COINS(1), blk_5);               //  9 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(11) + rnd_11, blk_5);           // 10 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(11) + rnd_11, blk_5);           // 11 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(20) + rnd_20, blk_5);           // 12 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(29) + rnd_29, blk_5);           // 13 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(29) + rnd_29, blk_5);           // 14 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, bob_account, MK_COINS(29) + rnd_29, blk_5);           // 15 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_1, MK_COINS(11) + rnd_11, blk_5);        // 16 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_1, MK_COINS(11) + rnd_11, blk_5);        // 17 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_1, MK_COINS(11) + rnd_11, blk_5);        // 18 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_1, MK_COINS(11) + rnd_11, blk_5);        // 19 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_1, MK_COINS(20) + rnd_20, blk_5);        // 20 + 2N
-  MAKE_TX_LIST(events, txs_blk_6, miner_account, some_account_2, MK_COINS(20) + rnd_20, blk_5);        // 21 + 2N
-  MAKE_NEXT_BLOCK_TX_LIST(events, blk_6, blk_5r, miner_account, txs_blk_6);                            // 22 + 2N
-  DO_CALLBACK(events, "check_balances_1");                                                             // 23 + 2N
-  REWIND_BLOCKS(events, blk_6r, blk_6, miner_account);                                                 // <N blocks>
-  // 129 = 11 + 11 + 20 + 29 + 29 + 29
-  MAKE_TX_MIX(events, tx_0, bob_account, alice_account, MK_COINS(129) + 2 * rnd_11 + rnd_20 + 3 * rnd_29 - TESTS_DEFAULT_FEE, 9, blk_6);  // 24 + 3N
-  MAKE_NEXT_BLOCK_TX1(events, blk_7, blk_6r, miner_account, tx_0);                                     // 25 + 3N
-  DO_CALLBACK(events, "check_balances_2");                                                             // 26 + 3N
+  const auto miner = gen.first_miner();
+  const auto bob = gen.create_account(); /// event 1
+  const auto alice = gen.create_account(); /// event 2
+  const auto some_account_1 = gen.create_account();
+  const auto some_account_2 = gen.create_account();
+
+  /// give the miner some outputs to spend and ulock them
+  gen.rewind_blocks_n(20);
+  gen.rewind_blocks();
+
+  std::vector<cryptonote::transaction> txs;
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(1)) );
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(11) + rnd_11) );
+
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(11) + rnd_11) );
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(20) + rnd_20) );
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(29) + rnd_29) );
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(29) + rnd_29) );
+  txs.push_back( gen.create_tx(miner, bob, MK_COINS(29) + rnd_29) );
+  txs.push_back( gen.create_tx(miner, some_account_1, MK_COINS(11) + rnd_11) );
+  txs.push_back( gen.create_tx(miner, some_account_1, MK_COINS(11) + rnd_11) );
+  txs.push_back( gen.create_tx(miner, some_account_1, MK_COINS(11) + rnd_11) );
+  txs.push_back( gen.create_tx(miner, some_account_1, MK_COINS(11) + rnd_11) );
+  txs.push_back( gen.create_tx(miner, some_account_1, MK_COINS(20) + rnd_20) );
+  txs.push_back( gen.create_tx(miner, some_account_2, MK_COINS(20) + rnd_20) );
+
+  gen.create_block(txs);
+
+  gen.rewind_blocks();
+
+  DO_CALLBACK(events, "check_balances_1");
+
+  auto tx = gen.create_tx(bob, alice, MK_COINS(129) + 2 * rnd_11 + rnd_20 + 3 * rnd_29 - TESTS_DEFAULT_FEE);
+  gen.create_block({tx});
+
+  DO_CALLBACK(events, "check_balances_2");
 
   return true;
 }
@@ -98,11 +102,11 @@ bool gen_ring_signature_1::check_balances_1(cryptonote::core& c, size_t ev_index
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_1::check_balances_1");
 
-  m_bob_account = boost::get<account_base>(events[3]);
-  m_alice_account = boost::get<account_base>(events[4]);
+  m_bob_account = boost::get<account_base>(events[1]);
+  m_alice_account = boost::get<account_base>(events[2]);
 
   std::vector<block> blocks;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
+  bool r = c.get_blocks(0, 1000, blocks);
   CHECK_TEST_CONDITION(r);
 
   std::vector<cryptonote::block> chain;
@@ -120,7 +124,7 @@ bool gen_ring_signature_1::check_balances_2(cryptonote::core& c, size_t ev_index
   DEFINE_TESTS_ERROR_CONTEXT("gen_ring_signature_1::check_balances_2");
 
   std::vector<block> blocks;
-  bool r = c.get_blocks(0, 100 + 2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW, blocks);
+  bool r = c.get_blocks(0, 1000, blocks);
   CHECK_TEST_CONDITION(r);
 
   std::vector<cryptonote::block> chain;

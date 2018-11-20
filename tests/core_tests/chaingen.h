@@ -145,7 +145,7 @@ VARIANT_TAG(binary_archive, serialized_block, 0xcd);
 VARIANT_TAG(binary_archive, serialized_transaction, 0xce);
 VARIANT_TAG(binary_archive, event_visitor_settings, 0xcf);
 
-typedef boost::variant<cryptonote::block, cryptonote::transaction, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
+typedef boost::variant<cryptonote::block, cryptonote::transaction, std::vector<cryptonote::transaction>, cryptonote::account_base, callback_entry, serialized_block, serialized_transaction, event_visitor_settings> test_event_entry;
 typedef std::unordered_map<crypto::hash, const cryptonote::transaction*> map_hash2tx_t;
 
 class test_chain_unit_base
@@ -167,16 +167,25 @@ class test_generator
 public:
   struct block_info
   {
-    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_size)
+    block_info()
+      : prev_id()
+      , already_generated_coins(0)
+      , block_weight(0)
+    {
+    }
+
+    block_info(crypto::hash a_prev_id, uint64_t an_already_generated_coins, size_t a_block_weight, cryptonote::block a_block)
       : prev_id(a_prev_id)
       , already_generated_coins(an_already_generated_coins)
-      , block_size(a_block_size)
+      , block_weight(a_block_weight)
+      , block(a_block)
     {
     }
 
     crypto::hash prev_id;
     uint64_t already_generated_coins;
-    size_t block_size;
+    size_t block_weight;
+    cryptonote::block block;
   };
 
   enum block_fields
@@ -192,15 +201,17 @@ public:
     bf_hf_version= 1 << 8
   };
 
-  void get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const;
-  void get_last_n_block_sizes(std::vector<size_t>& block_sizes, const crypto::hash& head, size_t n) const;
+  void get_block_chain(std::vector<block_info>& blockchain,        const crypto::hash& head, size_t n) const;
+  void get_block_chain(std::vector<cryptonote::block>& blockchain, const crypto::hash& head, size_t n) const;
+
+  void get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const;
   uint64_t get_already_generated_coins(const crypto::hash& blk_id) const;
   uint64_t get_already_generated_coins(const cryptonote::block& blk) const;
 
-  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins);
+  void add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_weights, uint64_t already_generated_coins);
   bool construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
     const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-    std::vector<size_t>& block_sizes, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
+    std::vector<size_t>& block_weights, const std::list<cryptonote::transaction>& tx_list, const crypto::public_key& sn_pub_key = crypto::null_pkey,
     const std::vector<sn_contributor_t>& = {{{crypto::null_pkey, crypto::null_pkey}, STAKING_PORTIONS}});
   bool construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp);
   bool construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev, const cryptonote::account_base& miner_acc,
@@ -215,44 +226,186 @@ public:
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
 
-    explicit test_generator(uint8_t hf_version = 7) : hf_version_(hf_version) {}
+  explicit test_generator(int hf_version = 7) : m_hf_version(hf_version) {}
 
-    void set_hf_version(uint8_t ver) { hf_version_ = ver; }
+  int m_hf_version;
 
 private:
   std::unordered_map<crypto::hash, block_info> m_blocks_info;
-  uint8_t hf_version_;
+};
+
+/// ------------ Service Nodes -----------
+
+struct last_reward_point {
+  uint64_t height;
+  uint64_t priority;
+};
+
+struct sn_registration {
+  uint64_t valid_until; /// block height
+  cryptonote::keypair keys;
+  sn_contributor_t contribution;
+  last_reward_point last_reward;
+};
+
+class sn_list
+{
+  std::vector<sn_registration> sn_owners_;
+
+public:
+
+  const sn_registration& at(size_t idx) const { return sn_owners_.at(idx); }
+
+  const boost::optional<sn_registration> find_registration(const crypto::public_key& pk) const;
+
+  void expire_old(uint64_t height);
+
+  const boost::optional<crypto::public_key> get_winner_pk(uint64_t height);
+
+  size_t size() const { return sn_owners_.size(); }
+
+  void add_registrations(const std::vector<sn_registration>& regs);
+
+  void remove_node(const crypto::public_key& pk);
+};
+
+/// Service node and its index
+struct sn_idx {
+  crypto::public_key sn_pk;
+  /// index in the sorted list of service nodes for a particular block
+  size_t idx_in_quorum;
+};
+
+struct QuorumState {
+  std::vector<sn_idx> voters;
+  std::vector<sn_idx> to_test;
+};
+
+class dereg_tx_builder;
+class linear_chain_generator
+{
+
+  private:
+    test_generator gen_;
+    std::vector<test_event_entry>& events_;
+    std::vector<cryptonote::block> blocks_;
+
+    sn_list sn_list_;
+
+    /// keep new registrations here until the next block
+    std::vector<sn_registration> registration_buffer_;
+
+    cryptonote::account_base first_miner_;
+
+  public:
+    linear_chain_generator(std::vector<test_event_entry> &events)
+      : gen_(), events_(events)
+    { }
+
+    uint64_t                              height() const { return get_block_height(blocks_.back()); }
+    const std::vector<cryptonote::block>& blocks() const { return blocks_; }
+
+    cryptonote::account_base create_account();
+
+    void create_genesis_block();
+
+    void create_block(const std::vector<cryptonote::transaction>& txs = {});
+
+    cryptonote::block create_block_on_fork(const cryptonote::block& prev, const std::vector<cryptonote::transaction>& txs = {});
+
+    int get_hf_version() const;
+
+    void rewind_until_v9();
+    void continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
+    void rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
+    void rewind_blocks_n(int n);
+    void rewind_blocks();
+
+    cryptonote::transaction create_tx(const cryptonote::account_base& miner,
+                                      const cryptonote::account_base& acc,
+                                      uint64_t amount,
+                                      uint64_t fee = TESTS_DEFAULT_FEE);
+
+    cryptonote::transaction create_registration_tx(const cryptonote::account_base& acc, const cryptonote::keypair& sn_keys);
+
+    cryptonote::transaction create_registration_tx();
+
+    const cryptonote::account_base& first_miner() const { return first_miner_; }
+
+    /// Note: should be carefull with returing a reference to vector elements
+    const cryptonote::block& chain_head() const { return blocks_.back(); }
+
+    /// get a copy of the service node list
+    sn_list get_sn_list() const { return sn_list_; }
+
+    void set_sn_list(const sn_list& list) { sn_list_ = list; }
+
+    QuorumState get_quorum_idxs(const cryptonote::block& block) const;
+
+    QuorumState get_quorum_idxs(uint64_t height) const;
+
+    cryptonote::transaction create_deregister_tx(const crypto::public_key& pk, uint64_t height, const std::vector<sn_idx>& voters, uint64_t fee = 0) const;
+
+    dereg_tx_builder build_deregister(const crypto::public_key& pk);
+
+    crypto::public_key get_test_pk(uint32_t idx) const;
+
+    boost::optional<uint32_t> get_idx_in_tested(const crypto::public_key& pk, uint64_t height) const;
+
+    void deregister(const crypto::public_key& pk);
+
+};
+
+class dereg_tx_builder {
+
+  linear_chain_generator& gen_;
+  const crypto::public_key& pk_;
+
+  /// the height at which `pk_` is to be found
+  boost::optional<uint64_t> height_ = boost::none;
+
+  boost::optional<uint64_t> fee_ = boost::none;
+
+  boost::optional<const std::vector<sn_idx>&> voters_ = boost::none;
+
+  public:
+    dereg_tx_builder(linear_chain_generator& gen, const crypto::public_key& pk)
+      : gen_(gen), pk_(pk)
+    {}
+
+    dereg_tx_builder&& with_height(uint64_t height) {
+      height_ = height;
+      return std::move(*this);
+    }
+
+    dereg_tx_builder&& with_fee(uint64_t fee) {
+      fee_ = fee;
+      return std::move(*this);
+    }
+
+    dereg_tx_builder&& with_voters(const std::vector<sn_idx>& voters)
+    {
+      voters_ = voters;
+      return std::move(*this);
+    }
+
+    cryptonote::transaction build()
+    {
+      const auto height = height_ ? *height_ : gen_.height();
+      const auto voters = voters_ ? *voters_ : gen_.get_quorum_idxs(height).voters;
+      return gen_.create_deregister_tx(pk_, height, voters, fee_.value_or(0));
+    }
+
 };
 
 inline cryptonote::difficulty_type get_test_difficulty() {return 1;}
 void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);
 
-bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
-                                          const cryptonote::account_public_address& miner_address,
-                                          size_t height,
-                                          uint64_t already_generated_coins,
-                                          const cryptonote::account_public_address& extra_address);
+crypto::public_key get_output_key(const cryptonote::keypair& txkey, const cryptonote::account_public_address& addr, size_t output_index);
 
 bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
                                  const cryptonote::account_public_address& miner_address, cryptonote::transaction& tx,
                                  uint64_t fee, cryptonote::keypair* p_txkey = 0);
-bool construct_tx_to_key(const std::vector<test_event_entry>& events,
-                         cryptonote::transaction& tx,
-                         const cryptonote::block& blk_head,
-                         const cryptonote::account_base& from,
-                         const cryptonote::account_base& to,
-                         uint64_t amount);
-
-struct register_info {
-  const cryptonote::keypair& service_node_keypair;
-  const std::vector<uint64_t>& portions;
-  uint64_t operator_cut;
-  const std::vector<cryptonote::account_public_address>& addresses;
-};
-
-bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx,
-                         const cryptonote::block& blk_head, const cryptonote::account_base& from, const cryptonote::account_base& to,
-                         uint64_t amount, uint64_t fee, size_t nmix, bool stake=false, const std::vector<uint8_t>& extra = {}, uint64_t unlock_time=0);
 
 cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                             const cryptonote::account_base& acc_from, const cryptonote::account_base& acc_to,
@@ -260,11 +413,112 @@ cryptonote::transaction construct_tx_with_fee(std::vector<test_event_entry>& eve
 
 void get_confirmed_txs(const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx, map_hash2tx_t& confirmed_txs);
 bool find_block_chain(const std::vector<test_event_entry>& events, std::vector<cryptonote::block>& blockchain, map_hash2tx_t& mtx, const crypto::hash& head);
+
+void fill_tx_sources_and_multi_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
+                                            const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                            uint64_t const *amount, int num_amounts, uint64_t fee, size_t nmix,
+                                            std::vector<cryptonote::tx_source_entry>& sources,
+                                            std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t *change_amount = nullptr);
+
 void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                       const cryptonote::account_base& from, const cryptonote::account_base& to,
                                       uint64_t amount, uint64_t fee, size_t nmix,
                                       std::vector<cryptonote::tx_source_entry>& sources,
                                       std::vector<cryptonote::tx_destination_entry>& destinations, uint64_t *change_amount = nullptr);
+
+class TxBuilder {
+
+  /// required fields
+  const std::vector<test_event_entry>& m_events;
+  const uint8_t m_hf_version;
+  cryptonote::transaction& m_tx;
+  const cryptonote::block& m_head;
+  const cryptonote::account_base& m_from;
+  const cryptonote::account_base& m_to;
+  uint64_t m_amount;
+  uint64_t m_fee;
+  uint64_t m_unlock_time;
+  std::vector<uint8_t> m_extra;
+
+  /// optional fields
+  bool m_per_output_unlock = false;
+  bool m_is_staking = false;
+
+  /// this makes sure we didn't forget to build it
+  bool m_finished = false;
+
+public:
+  TxBuilder(const std::vector<test_event_entry>& events,
+            cryptonote::transaction& tx,
+            const cryptonote::block& head,
+            const cryptonote::account_base& from,
+            const cryptonote::account_base& to,
+            uint64_t amount,
+            uint8_t hf_version = cryptonote::network_version_9_service_nodes)
+    : m_events(events)
+    , m_tx(tx)
+    , m_head(head)
+    , m_from(from)
+    , m_to(to)
+    , m_amount(amount)
+    , m_hf_version(hf_version)
+    , m_fee(TESTS_DEFAULT_FEE)
+    , m_unlock_time(0)
+  {}
+
+  TxBuilder&& with_fee(uint64_t fee) {
+    m_fee = fee;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_extra(const std::vector<uint8_t>& extra) {
+    m_extra = extra;
+    return std::move(*this);
+  }
+
+  TxBuilder&& is_staking(bool val) {
+    m_is_staking = val;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_unlock_time(uint64_t val) {
+    m_unlock_time = val;
+    return std::move(*this);
+  }
+
+  TxBuilder&& with_per_output_unlock(bool val) {
+    m_per_output_unlock = val;
+    return std::move(*this);
+  }
+
+  ~TxBuilder() {
+    if (!m_finished) {
+      std::cerr << "Tx building not finished\n";
+      abort();
+    }
+  }
+
+  bool build()
+  {
+    m_finished = true;
+
+    std::vector<cryptonote::tx_source_entry> sources;
+    std::vector<cryptonote::tx_destination_entry> destinations;
+    uint64_t change_amount;
+
+    const auto nmix = 9;
+    fill_tx_sources_and_destinations(
+      m_events, m_head, m_from, m_to, m_amount, m_fee, nmix, sources, destinations, &change_amount);
+
+    const bool is_subaddr = false;
+
+    cryptonote::tx_destination_entry change_addr{ change_amount, m_from.get_keys().m_account_address, is_subaddr };
+
+    return cryptonote::construct_tx(
+      m_from.get_keys(), sources, destinations, change_addr, m_extra, m_tx, m_unlock_time, m_hf_version, m_is_staking);
+
+  }
+};
 
 /// Get the amount transferred to `account` in `tx` as output `i`
 uint64_t get_amount(const cryptonote::account_base& account, const cryptonote::transaction& tx, int i);
@@ -293,6 +547,30 @@ bool check_tx_verification_context(const cryptonote::tx_verification_context& tv
 {
   // SFINAE in action
   return do_check_tx_verification_context(tvc, tx_added, event_index, tx, validator, 0);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+auto do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator, int)
+  -> decltype(validator.check_tx_verification_context(tvcs, tx_added, event_index, txs))
+{
+  return validator.check_tx_verification_context(tvcs, tx_added, event_index, txs);
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool do_check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t /*event_index*/, const std::vector<cryptonote::transaction>& /*txs*/, t_test_class&, long)
+{
+  // Default block verification context check
+  for (const cryptonote::tx_verification_context &tvc: tvcs)
+    if (tvc.m_verifivation_failed)
+      throw std::runtime_error("Transaction verification failed");
+  return true;
+}
+//--------------------------------------------------------------------------
+template<class t_test_class>
+bool check_tx_verification_context(const std::vector<cryptonote::tx_verification_context>& tvcs, size_t tx_added, size_t event_index, const std::vector<cryptonote::transaction>& txs, t_test_class& validator)
+{
+  // SFINAE in action
+  return do_check_tx_verification_context(tvcs, tx_added, event_index, txs, validator, 0);
 }
 //--------------------------------------------------------------------------
 template<class t_test_class>
@@ -368,6 +646,26 @@ public:
     m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_txs_keeped_by_block, false, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = check_tx_verification_context(tvc, tx_added, m_ev_index, tx, m_validator);
+    CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
+    return true;
+  }
+
+  bool operator()(const std::vector<cryptonote::transaction>& txs) const
+  {
+    log_event("cryptonote::transaction");
+
+    std::vector<cryptonote::blobdata> tx_blobs;
+    std::vector<cryptonote::tx_verification_context> tvcs;
+     cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
+    for (const auto &tx: txs)
+    {
+      tx_blobs.push_back(t_serializable_object_to_blob(tx));
+      tvcs.push_back(tvc0);
+    }
+    size_t pool_size = m_c.get_pool_transactions_count();
+    m_c.handle_incoming_txs(tx_blobs, tvcs, m_txs_keeped_by_block, false, false);
+    size_t tx_added = m_c.get_pool_transactions_count() - pool_size;
+    bool r = check_tx_verification_context(tvcs, tx_added, m_ev_index, txs, m_validator);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
     return true;
   }
@@ -472,11 +770,10 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
 //--------------------------------------------------------------------------
 template<typename t_test_class>
 struct get_test_options {
-  const std::pair<uint8_t, uint64_t> hard_forks[2];
+  const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = {{7, 0}};
   const cryptonote::test_options test_options = {
     hard_forks
   };
-  get_test_options():hard_forks{std::make_pair((uint8_t)7, (uint64_t)0), std::make_pair((uint8_t)0, (uint64_t)0)}{}
 };
 
 //--------------------------------------------------------------------------
@@ -533,6 +830,7 @@ inline bool do_replay_file(const std::string& filename)
   }
   return do_replay_events<t_test_class>(events);
 }
+
 //--------------------------------------------------------------------------
 #define GENERATE_ACCOUNT(account) \
     cryptonote::account_base account; \
@@ -545,47 +843,7 @@ inline bool do_replay_file(const std::string& filename)
     { \
       for (size_t msidx = 0; msidx < total; ++msidx) \
         account[msidx].generate(); \
-      std::unordered_set<crypto::public_key> all_multisig_keys; \
-      std::vector<std::vector<crypto::secret_key>> view_keys(total); \
-      std::vector<std::vector<crypto::public_key>> spend_keys(total); \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        for (size_t msidx_inner = 0; msidx_inner < total; ++msidx_inner) \
-        { \
-          if (msidx_inner != msidx) \
-          { \
-            crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_view_secret_key); \
-            view_keys[msidx].push_back(vkh); \
-            crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx_inner].get_keys().m_spend_secret_key); \
-            crypto::public_key pskh; \
-            crypto::secret_key_to_public_key(skh, pskh); \
-            spend_keys[msidx].push_back(pskh); \
-          } \
-        } \
-      } \
-      for (size_t msidx = 0; msidx < total; ++msidx) \
-      { \
-        std::vector<crypto::secret_key> multisig_keys; \
-        crypto::secret_key spend_skey; \
-        crypto::public_key spend_pkey; \
-        if (threshold == total) \
-          cryptonote::generate_multisig_N_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        else \
-          cryptonote::generate_multisig_N1_N(account[msidx].get_keys(), spend_keys[msidx], multisig_keys, (rct::key&)spend_skey, (rct::key&)spend_pkey); \
-        crypto::secret_key view_skey = cryptonote::generate_multisig_view_secret_key(account[msidx].get_keys().m_view_secret_key, view_keys[msidx]); \
-        account[msidx].make_multisig(view_skey, spend_skey, spend_pkey, multisig_keys); \
-        for (const auto &k: multisig_keys) \
-          all_multisig_keys.insert(rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k)))); \
-      } \
-      if (threshold < total) \
-      { \
-        std::vector<crypto::public_key> spend_public_keys; \
-        for (const auto &k: all_multisig_keys) \
-          spend_public_keys.push_back(k); \
-        crypto::public_key spend_pkey = cryptonote::generate_multisig_N1_N_spend_public_key(spend_public_keys); \
-        for (size_t msidx = 0; msidx < total; ++msidx) \
-          account[msidx].finalize_multisig(spend_pkey); \
-      } \
+      make_multisig_accounts(account, threshold); \
     } while(0)
 
 #define MAKE_ACCOUNT(VEC_EVENTS, account) \
@@ -675,22 +933,24 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
                                              uint64_t operator_cut,
                                              const std::vector<cryptonote::account_public_address>& addresses,
                                              const std::vector<uint64_t>& portions,
-                                             const cryptonote::block& head);
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version);
 
 cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
                                                      const cryptonote::account_base& account,
                                                      const cryptonote::keypair& service_node_keys,
-                                                     const cryptonote::block& head);
+                                                     const cryptonote::block& head,
+                                                     uint8_t hf_version);
 
 
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee = 0);
+                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
 
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
-  cryptonote::transaction TX_NAME;                                                             \
-  construct_tx_to_key(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX); \
+  cryptonote::transaction TX_NAME;                                                           \
+  TxBuilder(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT).build();                            \
   VEC_EVENTS.push_back(TX_NAME);
 
 #define MAKE_TX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, HEAD) MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, 9, HEAD)
@@ -698,7 +958,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 #define MAKE_TX_MIX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD)             \
   {                                                                                      \
     cryptonote::transaction t;                                                             \
-    construct_tx_to_key(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT, TESTS_DEFAULT_FEE, NMIX); \
+    TxBuilder(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT).build();                            \
     SET_NAME.push_back(t);                                                               \
     VEC_EVENTS.push_back(t);                                                             \
   }
@@ -739,6 +999,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
     }
 
 #define GENERATE_AND_PLAY(genclass)                                                                        \
+  if (filter.empty() || boost::regex_match(std::string(#genclass), match, boost::regex(filter)))           \
   {                                                                                                        \
     std::vector<test_event_entry> events;                                                                  \
     ++tests_count;                                                                                         \

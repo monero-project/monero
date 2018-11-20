@@ -3707,9 +3707,8 @@ void sc_muladd(unsigned char *s, const unsigned char *a, const unsigned char *b,
   s[31] = s11 >> 17;
 }
 
-/* Assumes that a != INT64_MIN */
 static int64_t signum(int64_t a) {
-  return (a >> 63) - ((-a) >> 63);
+  return a > 0 ? 1 : a < 0 ? -1 : 0;
 }
 
 int sc_check(const unsigned char *s) {
@@ -3729,4 +3728,17 @@ int sc_isnonzero(const unsigned char *s) {
     s[9] | s[10] | s[11] | s[12] | s[13] | s[14] | s[15] | s[16] | s[17] |
     s[18] | s[19] | s[20] | s[21] | s[22] | s[23] | s[24] | s[25] | s[26] |
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
+}
+
+int ge_p3_is_point_at_infinity(const ge_p3 *p) {
+  // X = 0 and Y == Z
+  int n;
+  for (n = 0; n < 10; ++n)
+  {
+    if (p->X[n] | p->T[n])
+      return 0;
+    if (p->Y[n] != p->Z[n])
+      return 0;
+  }
+  return 1;
 }

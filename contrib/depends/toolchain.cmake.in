@@ -1,0 +1,88 @@
+# Set the system name, either Darwin, Linux, or Windows
+SET(CMAKE_SYSTEM_NAME @depends@)
+SET(CMAKE_BUILD_TYPE release)
+
+SET(STATIC true)
+SET(UNBOUND_STATIC true)
+
+# where is the target environment 
+SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
+
+SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
+
+SET(LRELEASE_PATH @prefix@/native/bin CACHE FILEPATH "path to lrelease" FORCE)
+
+SET(Readline_ROOT_DIR @prefix@)
+
+SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
+SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
+SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
+
+SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
+SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
+
+SET(ZMQ_INCLUDE_PATH @prefix@/include)
+SET(ZMQ_LIB @prefix@/lib/libzmq.a)
+
+SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT ON)
+SET(BOOST_IGNORE_SYSTEM_PATH ON)
+SET(BOOST_ROOT @prefix@)
+SET(BOOST_LIBRARYDIR @prefix@/lib)
+SET(BOOST_IGNORE_SYSTEM_PATHS_DEFAULT OFF)
+SET(BOOST_NO_SYSTEM_PATHS TRUE)
+SET(BOOST_USE_STATIC_LIBS TRUE)
+SET(BOOST_USE_STATIC_RUNTIME TRUE)
+
+SET(OpenSSL_DIR @prefix@/lib)
+SET(ARCHITECTURE @arch@)
+
+# for libraries and headers in the target directories
+set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
+set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
+set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
+
+# specify the cross compiler to be used. Darwin uses clang provided by the SDK.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  SET(CMAKE_C_COMPILER @prefix@/native/bin/clang)
+  SET(CMAKE_C_COMPILER_TARGET x86_64-apple-darwin11)
+  SET(CMAKE_CXX_COMPILER @prefix@/native/bin/clang++ -stdlib=libc++)
+  SET(CMAKE_CXX_COMPILER_TARGET x86_64-apple-darwin11)
+  SET(_CMAKE_TOOLCHAIN_PREFIX x86_64-apple-darwin11-)
+  SET(APPLE True)
+  SET(BUILD_TAG "mac-x64")
+  SET(BUILD_64 ON)
+  SET(BREW OFF)
+  SET(PORT OFF)
+  SET(CMAKE_OSX_SYSROOT "@sdk@/MacOSX10.11.sdk/")
+  SET(CMAKE_OSX_DEPLOYMENT_TARGET "10.08")
+  SET(CMAKE_CXX_STANDARD 11)
+  SET(CMAKE_OSX_ARCHITECTURES "x86_64")
+  SET(LLVM_ENABLE_PIC OFF)
+  SET(LLVM_ENABLE_PIE OFF)
+else()
+  SET(CMAKE_C_COMPILER @CC@)
+  SET(CMAKE_CXX_COMPILER @CXX@)
+endif()
+
+if(ARCHITECTURE STREQUAL "arm")
+  set(ARCH "armv7-a")
+  set(ARM ON)
+  set(ARM_ID "armv7-a")
+  set(BUILD_64 OFF)
+  set(CMAKE_BUILD_TYPE release)
+  set(BUILD_TAG "linux-armv7")
+  set(ARM7)
+elseif(ARCHITECTURE STREQUAL "aarch64")
+  set(ARCH "armv8-a")
+  set(ARM ON)
+  set(ARM_ID "armv8-a")
+  set(BUILD_TAG "linux-armv8")
+  set(BUILD_64 ON)
+endif()
+
+if(ARCHITECTURE STREQUAL "i686" AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  SET(LINUX_32 ON)
+endif()
+
+#Create a new global cmake flag that indicates building with depends
+set (DEPENDS true)

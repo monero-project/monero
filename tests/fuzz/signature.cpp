@@ -64,6 +64,7 @@ int SignatureFuzzer::init()
       std::cerr << "failed to parse address" << std::endl;
       return 1;
     }
+    address = info.address;
   }
   catch (const std::exception &e)
   {
@@ -91,6 +92,8 @@ int SignatureFuzzer::run(const std::string &filename)
 
 int main(int argc, const char **argv)
 {
+  TRY_ENTRY();
   SignatureFuzzer fuzzer;
   return run_fuzzer(argc, argv, fuzzer);
+  CATCH_ENTRY_L0("main", 1);
 }

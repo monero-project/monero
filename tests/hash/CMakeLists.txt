@@ -43,8 +43,14 @@ set_property(TARGET hash-tests
   PROPERTY
     FOLDER "tests")
 
+# NOTE(loki): We merged in cn_slow_hash_2 from monero, but we're currently on CryptonightHeavy, so only need slow and slow-1
+# foreach (hash IN ITEMS fast slow slow-1 slow-2 tree extra-blake extra-groestl extra-jh extra-skein)
 foreach (hash IN ITEMS fast slow slow-1 tree extra-blake extra-groestl extra-jh extra-skein)
   add_test(
     NAME    "hash-${hash}"
     COMMAND hash-tests "${hash}" "${CMAKE_CURRENT_SOURCE_DIR}/tests-${hash}.txt")
 endforeach ()
+
+add_test(
+  NAME    "hash-variant2-int-sqrt"
+  COMMAND hash-tests "variant2_int_sqrt")

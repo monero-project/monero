@@ -671,8 +671,7 @@ TEST(Serialization, serializes_ringct_types)
 TEST(Serialization, portability_wallet)
 {
   const cryptonote::network_type nettype = cryptonote::TESTNET;
-  const bool restricted = false;
-  tools::wallet2 w(nettype, restricted);
+  tools::wallet2 w(nettype);
   const boost::filesystem::path wallet_file = unit_test::data_dir / "wallet_testnet";
   string password = "test";
   bool r = false;
@@ -816,12 +815,35 @@ TEST(Serialization, portability_outputs)
   ASSERT_TRUE(r);
   const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
   ASSERT_FALSE(data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen));
-  data = w.decrypt_with_view_secret_key(std::string(data, magiclen));
-
+  // decrypt (copied from wallet2::decrypt)
+  auto decrypt = [] (const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated) -> string
+  {
+    const size_t prefix_size = sizeof(chacha_iv) + (authenticated ? sizeof(crypto::signature) : 0);
+    if(ciphertext.size() < prefix_size)
+      return {};
+    crypto::chacha_key key;
+    crypto::generate_chacha_key(&skey, sizeof(skey), key, 1);
+    const crypto::chacha_iv &iv = *(const crypto::chacha_iv*)&ciphertext[0];
+    std::string plaintext;
+    plaintext.resize(ciphertext.size() - prefix_size);
+    if (authenticated)
+    {
+      crypto::hash hash;
+      crypto::cn_fast_hash(ciphertext.data(), ciphertext.size() - sizeof(signature), hash);
+      crypto::public_key pkey;
+      crypto::secret_key_to_public_key(skey, pkey);
+      const crypto::signature &signature = *(const crypto::signature*)&ciphertext[ciphertext.size() - sizeof(crypto::signature)];
+      if(!crypto::check_signature(hash, pkey, signature))
+        return {};
+    }
+    crypto::chacha8(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, &plaintext[0]);
+    return plaintext;
+  };
   crypto::secret_key view_secret_key;
   epee::string_tools::hex_to_pod("cb979d21cde0fbcafb9ff083791a6771b750534948ede6d66058609884b27604", view_secret_key);
   bool authenticated = true;
-
+  data = decrypt(std::string(data, magiclen), view_secret_key, authenticated);
+  ASSERT_FALSE(data.empty());
   // check public view/spend keys
   const size_t headerlen = 2 * sizeof(crypto::public_key);
   ASSERT_FALSE(data.size() < headerlen);
@@ -911,6 +933,17 @@ TEST(Serialization, portability_outputs)
 }
 
 #define UNSIGNED_TX_PREFIX "Loki unsigned tx set\004"
+struct unsigned_tx_set
+{
+  std::vector<tools::wallet2::tx_construction_data> txes;
+  tools::wallet2::transfer_container transfers;
+};
+template <class Archive>
+inline void serialize(Archive &a, unsigned_tx_set &x, const boost::serialization::version_type ver)
+{
+  a & x.txes;
+  a & x.transfers;
+}
 TEST(Serialization, portability_unsigned_tx)
 {
   const bool restricted = false;
@@ -927,7 +960,7 @@ TEST(Serialization, portability_unsigned_tx)
   ASSERT_TRUE(r);
   size_t const magiclen = strlen(UNSIGNED_TX_PREFIX);
   ASSERT_FALSE(strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen));
-  tools::wallet2::unsigned_tx_set exported_txs;
+  unsigned_tx_set exported_txs;
   s = s.substr(magiclen);
   r = false;
 

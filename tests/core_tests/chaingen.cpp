@@ -51,7 +51,327 @@ using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
 
+bool operator<(const last_reward_point& lhs, const last_reward_point& rhs) {
+  if (lhs.height != rhs.height) {
+    return lhs.height < rhs.height;
+  }
 
+  return lhs.priority < rhs.priority;
+}
+
+dereg_tx_builder linear_chain_generator::build_deregister(const crypto::public_key& pk)
+{
+  return dereg_tx_builder(*this, pk);
+}
+
+cryptonote::account_base linear_chain_generator::create_account()
+{
+  cryptonote::account_base account;
+  account.generate();
+  events_.push_back(account);
+  return account;
+}
+
+void linear_chain_generator::create_genesis_block()
+{
+  constexpr uint64_t ts_start = 1338224400;
+  first_miner_.generate();
+  cryptonote::block gen_block;
+  gen_.construct_block(gen_block, first_miner_, ts_start);
+  events_.push_back(gen_block);
+  blocks_.push_back(gen_block);
+}
+
+void linear_chain_generator::create_block(const std::vector<cryptonote::transaction>& txs)
+{
+  const auto blk = create_block_on_fork(blocks_.back(), txs);
+  blocks_.push_back(blk);
+}
+
+
+void linear_chain_generator::continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
+{
+  assert(gen_.m_hf_version < hard_fork_version);
+
+  for (auto i = 0u; i < hard_forks.size() - 1; ++i) {
+    
+    const uint8_t ver = hard_forks[i].first;
+    const uint64_t height = hard_forks[i].second;
+
+    if (ver < get_hf_version()) continue;
+
+    auto cur_height = blocks_.size();
+    uint64_t next_fork_height = hard_forks[i + 1].second;
+
+    uint64_t blocks_till_next_hardfork = next_fork_height - cur_height;
+
+    rewind_blocks_n(blocks_till_next_hardfork);
+    gen_.m_hf_version = hard_forks[i + 1].first;
+    create_block();
+
+  }
+
+  assert(gen_.m_hf_version == hard_fork_version);
+}
+
+void linear_chain_generator::rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
+{
+  if (hard_forks.size() > 1)
+  {
+    gen_.m_hf_version = hard_forks[0].first;
+    if (blocks_.size() == 0) create_genesis_block();
+
+    for (size_t i = 0; i < hard_forks.size() - 1 && gen_.m_hf_version != hard_fork_version; ++i)
+    {
+      uint64_t curr_fork_height = hard_forks[i].second;
+      uint64_t next_fork_height = hard_forks[i + 1].second;
+      assert(next_fork_height > curr_fork_height);
+
+      uint64_t blocks_till_next_hardfork = next_fork_height - curr_fork_height;
+      rewind_blocks_n(blocks_till_next_hardfork - 1);
+      gen_.m_hf_version = hard_forks[i + 1].first;
+      create_block();
+    }
+
+    assert(gen_.m_hf_version == hard_fork_version);
+  }
+}
+
+int linear_chain_generator::get_hf_version() const {
+  return gen_.m_hf_version;
+}
+
+
+void linear_chain_generator::rewind_until_v9()
+{
+  gen_.m_hf_version = 8;
+  create_block();
+  gen_.m_hf_version = 9;
+  create_block();
+}
+
+void linear_chain_generator::rewind_blocks_n(int n)
+{
+  for (auto i = 0; i < n; ++i) {
+    create_block();
+  }
+}
+
+void linear_chain_generator::rewind_blocks()
+{
+  rewind_blocks_n(CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+}
+
+cryptonote::block linear_chain_generator::create_block_on_fork(const cryptonote::block& prev,
+                                                               const std::vector<cryptonote::transaction>& txs)
+{
+
+  const auto height = get_block_height(prev) + 1;
+
+  const auto& winner_pk = sn_list_.get_winner_pk(height);
+
+  const auto& sn_pk = winner_pk ? *winner_pk : crypto::null_pkey;
+
+  std::vector<sn_contributor_t> contribs = { { { crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS } };
+
+  if (winner_pk) {
+    const auto& reg = sn_list_.find_registration(*winner_pk);
+    if (reg) {
+      contribs = { reg->contribution };
+    }
+  }
+
+  cryptonote::block blk;
+  gen_.construct_block(blk, prev, first_miner_, { txs.begin(), txs.end() }, sn_pk, contribs);
+  events_.push_back(blk);
+
+  /// now we can add sn from the buffer to be used in consequent nodes
+  sn_list_.add_registrations(registration_buffer_);
+  registration_buffer_.clear();
+  sn_list_.expire_old(height);
+
+  return blk;
+}
+
+QuorumState linear_chain_generator::get_quorum_idxs(const cryptonote::block& block) const
+{
+  if (sn_list_.size() <= service_nodes::QUORUM_SIZE) {
+    std::cerr << "Not enough service nodes\n";
+    return {};
+  }
+
+  std::vector<size_t> pub_keys_indexes;
+  {
+    uint64_t seed = 0;
+    const crypto::hash block_hash = cryptonote::get_block_hash(block);
+    std::memcpy(&seed, block_hash.data, std::min(sizeof(seed), sizeof(block_hash.data)));
+
+    pub_keys_indexes.resize(sn_list_.size());
+    for (size_t i = 0; i < pub_keys_indexes.size(); i++) {
+      pub_keys_indexes[i] = i;
+    }
+
+    service_nodes::loki_shuffle(pub_keys_indexes, seed);
+  }
+
+  QuorumState quorum;
+
+  for (auto i = 0u; i < service_nodes::QUORUM_SIZE; ++i) {
+    quorum.voters.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
+  }
+
+  for (auto i = service_nodes::QUORUM_SIZE; i < pub_keys_indexes.size(); ++i) {
+    quorum.to_test.push_back({ sn_list_.at(pub_keys_indexes[i]).keys.pub, i });
+  }
+
+  return quorum;
+}
+
+QuorumState linear_chain_generator::get_quorum_idxs(uint64_t height) const
+{
+  const auto block = blocks_.at(height);
+  return get_quorum_idxs(block);
+}
+
+cryptonote::transaction linear_chain_generator::create_tx(const cryptonote::account_base& miner,
+                                                          const cryptonote::account_base& acc,
+                                                          uint64_t amount,
+                                                          uint64_t fee)
+{
+  cryptonote::transaction t;
+  TxBuilder(events_, t, blocks_.back(), miner, acc, amount, gen_.m_hf_version).with_fee(fee).build();
+  events_.push_back(t);
+  return t;
+}
+
+cryptonote::transaction linear_chain_generator::create_registration_tx(const cryptonote::account_base& acc,
+                                                                       const cryptonote::keypair& sn_keys)
+{
+  const sn_contributor_t contr = { acc.get_keys().m_account_address, STAKING_PORTIONS };
+  const uint32_t expires = height() + service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
+
+  const auto reg_idx = registration_buffer_.size();
+  registration_buffer_.push_back({ expires, sn_keys, contr, { height(), reg_idx } });
+  return make_default_registration_tx(events_, acc, sn_keys, blocks_.back(), gen_.m_hf_version);
+}
+
+cryptonote::transaction linear_chain_generator::create_registration_tx()
+{
+  const auto sn_keys = keypair::generate(hw::get_device("default"));
+
+  return create_registration_tx(first_miner_, sn_keys);
+}
+
+cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypto::public_key& pk,
+                                                                     uint64_t height,
+                                                                     const std::vector<sn_idx>& voters,
+                                                                     uint64_t fee) const
+{
+
+  cryptonote::tx_extra_service_node_deregister deregister;
+  deregister.block_height = height;
+
+  const auto idx = get_idx_in_tested(pk, height);
+
+  if (!idx) { MERROR("service node could not be found in the servcie node list"); throw std::exception(); }
+
+  deregister.service_node_index = *idx; /// idx inside nodes to test
+
+  /// need to create MIN_VOTES_TO_KICK_SERVICE_NODE (7) votes
+  for (const auto voter : voters) {
+
+    const auto reg = sn_list_.find_registration(voter.sn_pk);
+
+    if (!reg) return {};
+
+    const auto pk = reg->keys.pub;
+    const auto sk = reg->keys.sec;
+    const auto signature =
+      loki::service_node_deregister::sign_vote(deregister.block_height, deregister.service_node_index, pk, sk);
+
+    deregister.votes.push_back({ signature, (uint32_t)voter.idx_in_quorum });
+  }
+
+  const auto deregister_tx = make_deregistration_tx(events_, first_miner_, blocks_.back(), deregister, gen_.m_hf_version, fee);
+
+  events_.push_back(deregister_tx);
+
+  return deregister_tx;
+}
+
+crypto::public_key linear_chain_generator::get_test_pk(uint32_t idx) const
+{
+  const auto& to_test = get_quorum_idxs(height()).to_test;
+
+  return to_test.at(idx).sn_pk;
+}
+
+boost::optional<uint32_t> linear_chain_generator::get_idx_in_tested(const crypto::public_key& pk, uint64_t height) const
+{
+  const auto& to_test = get_quorum_idxs(height).to_test;
+
+  for (const auto& sn : to_test) {
+    if (sn.sn_pk == pk) return sn.idx_in_quorum - service_nodes::QUORUM_SIZE;
+  }
+
+  return boost::none;
+}
+
+void linear_chain_generator::deregister(const crypto::public_key& pk) {
+  sn_list_.remove_node(pk);
+}
+
+inline void sn_list::remove_node(const crypto::public_key& pk)
+{
+  const auto it =
+    std::find_if(sn_owners_.begin(), sn_owners_.end(), [pk](const sn_registration& sn) { return sn.keys.pub == pk; });
+  if (it != sn_owners_.end()) sn_owners_.erase(it); else abort();
+}
+
+inline void sn_list::add_registrations(const std::vector<sn_registration>& regs)
+{
+  sn_owners_.insert(sn_owners_.begin(), regs.begin(), regs.end());
+
+  std::sort(sn_owners_.begin(), sn_owners_.end(),
+  [](const sn_registration &a, const sn_registration &b) {
+    return memcmp(reinterpret_cast<const void*>(&a.keys.pub), reinterpret_cast<const void*>(&b.keys.pub),
+    sizeof(a.keys.pub)) < 0;
+  });
+}
+
+inline void sn_list::expire_old(uint64_t height)
+{
+  /// remove_if is stable, no need for re-sorting
+  const auto new_end = std::remove_if(
+    sn_owners_.begin(), sn_owners_.end(), [height](const sn_registration& reg) { return reg.valid_until < height; });
+
+  sn_owners_.erase(new_end, sn_owners_.end());
+}
+
+inline const boost::optional<sn_registration> sn_list::find_registration(const crypto::public_key& pk) const
+{
+  const auto it =
+    std::find_if(sn_owners_.begin(), sn_owners_.end(), [pk](const sn_registration& sn) { return sn.keys.pub == pk; });
+
+  if (it == sn_owners_.end()) return boost::none;
+
+  return *it;
+}
+
+inline const boost::optional<crypto::public_key> sn_list::get_winner_pk(uint64_t height)
+{
+  if (sn_owners_.empty()) return boost::none;
+
+  auto it =
+    std::min_element(sn_owners_.begin(), sn_owners_.end(), [](const sn_registration& lhs, const sn_registration& rhs) {
+      return lhs.last_reward < rhs.last_reward;
+    });
+
+  it->last_reward.height = height;
+
+  return it->keys.pub;
+}
+/// --------------------------------------------------------------
 void test_generator::get_block_chain(std::vector<block_info>& blockchain, const crypto::hash& head, size_t n) const
 {
   crypto::hash curr = head;
@@ -70,13 +390,32 @@ void test_generator::get_block_chain(std::vector<block_info>& blockchain, const 
   std::reverse(blockchain.begin(), blockchain.end());
 }
 
-void test_generator::get_last_n_block_sizes(std::vector<size_t>& block_sizes, const crypto::hash& head, size_t n) const
+// TODO(loki): Copypasta
+void test_generator::get_block_chain(std::vector<cryptonote::block>& blockchain, const crypto::hash& head, size_t n) const
+{
+  crypto::hash curr = head;
+  while (null_hash != curr && blockchain.size() < n)
+  {
+    auto it = m_blocks_info.find(curr);
+    if (m_blocks_info.end() == it)
+    {
+      throw std::runtime_error("block hash wasn't found");
+    }
+
+    blockchain.push_back(it->second.block);
+    curr = it->second.prev_id;
+  }
+
+  std::reverse(blockchain.begin(), blockchain.end());
+}
+
+void test_generator::get_last_n_block_weights(std::vector<size_t>& block_weights, const crypto::hash& head, size_t n) const
 {
   std::vector<block_info> blockchain;
   get_block_chain(blockchain, head, n);
   BOOST_FOREACH(auto& bi, blockchain)
   {
-    block_sizes.push_back(bi.block_size);
+    block_weights.push_back(bi.block_weight);
   }
 }
 
@@ -96,22 +435,58 @@ uint64_t test_generator::get_already_generated_coins(const cryptonote::block& bl
   return get_already_generated_coins(blk_hash);
 }
 
-void test_generator::add_block(const cryptonote::block& blk, size_t tsx_size, std::vector<size_t>& block_sizes, uint64_t already_generated_coins)
+void test_generator::add_block(const cryptonote::block& blk, size_t txs_weight, std::vector<size_t>& block_weights, uint64_t already_generated_coins)
 {
-  const size_t block_size = tsx_size + get_object_blobsize(blk.miner_tx);
+  const size_t block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+
   uint64_t block_reward;
-  cryptonote::get_block_reward(misc_utils::median(block_sizes), block_size, already_generated_coins, block_reward, hf_version_, 0);
-  m_blocks_info.insert({get_block_hash(blk), block_info(blk.prev_id, already_generated_coins + block_reward, block_size)});
+  cryptonote::get_base_block_reward(misc_utils::median(block_weights), block_weight, already_generated_coins, block_reward, m_hf_version, 0);
+
+  m_blocks_info.insert({get_block_hash(blk), block_info(blk.prev_id, already_generated_coins + block_reward, block_weight, blk)});
+}
+
+static void manual_calc_batched_governance(const test_generator &generator, const crypto::hash &head, loki_miner_tx_context &miner_tx_context, int hard_fork_version, uint64_t height)
+{
+  miner_tx_context.batched_governance = 0;
+
+  if (hard_fork_version >= cryptonote::network_version_10_bulletproofs &&
+      cryptonote::height_has_governance_output(cryptonote::FAKECHAIN, hard_fork_version, height))
+  {
+    const cryptonote::config_t &network = cryptonote::get_config(cryptonote::FAKECHAIN, hard_fork_version);
+    uint64_t num_blocks                 = network.GOVERNANCE_REWARD_INTERVAL_IN_BLOCKS;
+    uint64_t start_height               = height - num_blocks;
+
+    if (height < num_blocks)
+    {
+      start_height = 0;
+      num_blocks   = height;
+    }
+
+    std::vector<block> blockchain;
+    blockchain.reserve(num_blocks);
+    generator.get_block_chain(blockchain, head, num_blocks);
+
+    for (const block &entry : blockchain)
+    {
+      uint64_t block_height = cryptonote::get_block_height(entry);
+      if (block_height < start_height)
+        continue;
+
+      if (entry.major_version >= network_version_10_bulletproofs)
+        miner_tx_context.batched_governance += cryptonote::derive_governance_from_block_reward(cryptonote::FAKECHAIN, entry);
+    }
+  }
+
 }
 
 bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, const crypto::hash& prev_id,
                                      const cryptonote::account_base& miner_acc, uint64_t timestamp, uint64_t already_generated_coins,
-                                     std::vector<size_t>& block_sizes, const std::list<cryptonote::transaction>& tx_list,
+                                     std::vector<size_t>& block_weights, const std::list<cryptonote::transaction>& tx_list,
                                      const crypto::public_key& sn_pub_key /* = crypto::null_key */, const std::vector<sn_contributor_t>& sn_infos)
 {
   /// a temporary workaround
-  blk.major_version = hf_version_;
-  blk.minor_version = hf_version_;
+  blk.major_version = m_hf_version;
+  blk.minor_version = m_hf_version;
   blk.timestamp = timestamp;
   blk.prev_id = prev_id;
 
@@ -124,53 +499,56 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
   }
 
   uint64_t total_fee = 0;
-  size_t txs_size = 0;
+  size_t txs_weight = 0;
   BOOST_FOREACH(auto& tx, tx_list)
   {
     uint64_t fee = 0;
     bool r = get_tx_fee(tx, fee);
     CHECK_AND_ASSERT_MES(r, false, "wrong transaction passed to construct_block");
     total_fee += fee;
-    txs_size += get_object_blobsize(tx);
+    txs_weight += get_transaction_weight(tx);
   }
 
   blk.miner_tx = AUTO_VAL_INIT(blk.miner_tx);
-  size_t target_block_size = txs_size + get_object_blobsize(blk.miner_tx);
+  size_t target_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+
+  cryptonote::loki_miner_tx_context miner_tx_context(cryptonote::FAKECHAIN, sn_pub_key, sn_infos);
+  manual_calc_batched_governance(*this, prev_id, miner_tx_context, m_hf_version, height);
+
   while (true)
   {
-
-    if (!construct_miner_tx(height, misc_utils::median(block_sizes), already_generated_coins, target_block_size, total_fee, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), hf_version_, cryptonote::MAINNET, sn_pub_key, sn_infos))
+    if (!construct_miner_tx(height, misc_utils::median(block_weights), already_generated_coins, target_block_weight, total_fee, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), m_hf_version, miner_tx_context))
       return false;
 
-    size_t actual_block_size = txs_size + get_object_blobsize(blk.miner_tx);
-    if (target_block_size < actual_block_size)
+    size_t actual_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+    if (target_block_weight < actual_block_weight)
     {
-      target_block_size = actual_block_size;
+      target_block_weight = actual_block_weight;
     }
-    else if (actual_block_size < target_block_size)
+    else if (actual_block_weight < target_block_weight)
     {
-      size_t delta = target_block_size - actual_block_size;
+      size_t delta = target_block_weight - actual_block_weight;
       blk.miner_tx.extra.resize(blk.miner_tx.extra.size() + delta, 0);
-      actual_block_size = txs_size + get_object_blobsize(blk.miner_tx);
-      if (actual_block_size == target_block_size)
+      actual_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+      if (actual_block_weight == target_block_weight)
       {
         break;
       }
       else
       {
-        CHECK_AND_ASSERT_MES(target_block_size < actual_block_size, false, "Unexpected block size");
-        delta = actual_block_size - target_block_size;
+        CHECK_AND_ASSERT_MES(target_block_weight < actual_block_weight, false, "Unexpected block size");
+        delta = actual_block_weight - target_block_weight;
         blk.miner_tx.extra.resize(blk.miner_tx.extra.size() - delta);
-        actual_block_size = txs_size + get_object_blobsize(blk.miner_tx);
-        if (actual_block_size == target_block_size)
+        actual_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+        if (actual_block_weight == target_block_weight)
         {
           break;
         }
         else
         {
-          CHECK_AND_ASSERT_MES(actual_block_size < target_block_size, false, "Unexpected block size");
+          CHECK_AND_ASSERT_MES(actual_block_weight < target_block_weight, false, "Unexpected block size");
           blk.miner_tx.extra.resize(blk.miner_tx.extra.size() + delta, 0);
-          target_block_size = txs_size + get_object_blobsize(blk.miner_tx);
+          target_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
         }
       }
     }
@@ -187,16 +565,16 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
   while (!miner::find_nonce_for_given_block(blk, get_test_difficulty(), height))
     blk.timestamp++;
 
-  add_block(blk, txs_size, block_sizes, already_generated_coins);
+  add_block(blk, txs_weight, block_weights, already_generated_coins);
 
   return true;
 }
 
 bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::account_base& miner_acc, uint64_t timestamp)
 {
-  std::vector<size_t> block_sizes;
+  std::vector<size_t> block_weights;
   std::list<cryptonote::transaction> tx_list;
-  return construct_block(blk, 0, null_hash, miner_acc, timestamp, 0, block_sizes, tx_list);
+  return construct_block(blk, 0, null_hash, miner_acc, timestamp, 0, block_weights, tx_list);
 }
 
 bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::block& blk_prev,
@@ -209,10 +587,10 @@ bool test_generator::construct_block(cryptonote::block& blk, const cryptonote::b
   // Keep difficulty unchanged
   uint64_t timestamp = blk_prev.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN;
   uint64_t already_generated_coins = get_already_generated_coins(prev_id);
-  std::vector<size_t> block_sizes;
-  get_last_n_block_sizes(block_sizes, prev_id, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
+  std::vector<size_t> block_weights;
+  get_last_n_block_weights(block_weights, prev_id, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
-  return construct_block(blk, height, prev_id, miner_acc, timestamp, already_generated_coins, block_sizes, tx_list, sn_pub_key, sn_infos);
+  return construct_block(blk, height, prev_id, miner_acc, timestamp, already_generated_coins, block_weights, tx_list, sn_pub_key, sn_infos);
 }
 
 bool test_generator::construct_block_manually(block& blk, const block& prev_block, const account_base& miner_acc,
@@ -221,7 +599,7 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
                                               const crypto::hash& prev_id/* = crypto::hash()*/, const difficulty_type& diffic/* = 1*/,
                                               const transaction& miner_tx/* = transaction()*/,
                                               const std::vector<crypto::hash>& tx_hashes/* = std::vector<crypto::hash>()*/,
-                                              size_t txs_sizes/* = 0*/)
+                                              size_t txs_weight/* = 0*/)
 {
   blk.major_version = actual_params & bf_major_ver ? major_ver : CURRENT_BLOCK_MAJOR_VERSION;
   blk.minor_version = actual_params & bf_minor_ver ? minor_ver : CURRENT_BLOCK_MINOR_VERSION;
@@ -231,17 +609,20 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
 
   size_t height = get_block_height(prev_block) + 1;
   uint64_t already_generated_coins = get_already_generated_coins(prev_block);
-  std::vector<size_t> block_sizes;
-  get_last_n_block_sizes(block_sizes, get_block_hash(prev_block), CRYPTONOTE_REWARD_BLOCKS_WINDOW);
+  std::vector<size_t> block_weights;
+  get_last_n_block_weights(block_weights, get_block_hash(prev_block), CRYPTONOTE_REWARD_BLOCKS_WINDOW);
   if (actual_params & bf_miner_tx)
   {
     blk.miner_tx = miner_tx;
   }
   else
   {
-    size_t current_block_size = txs_sizes + get_object_blobsize(blk.miner_tx);
     // TODO: This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
-    if (!construct_miner_tx(height, misc_utils::median(block_sizes), already_generated_coins, current_block_size, 0, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), hf_version_))
+    cryptonote::loki_miner_tx_context miner_tx_context(cryptonote::FAKECHAIN);
+    manual_calc_batched_governance(*this, prev_id, miner_tx_context, m_hf_version, height);
+
+    size_t current_block_weight = txs_weight + get_transaction_weight(blk.miner_tx);
+    if (!construct_miner_tx(height, misc_utils::median(block_weights), already_generated_coins, current_block_weight, 0, miner_acc.get_keys().m_account_address, blk.miner_tx, blobdata(), m_hf_version, miner_tx_context))
       return false;
   }
 
@@ -250,16 +631,16 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
   difficulty_type a_diffic = actual_params & bf_diffic ? diffic : get_test_difficulty();
   fill_nonce(blk, a_diffic, height);
 
-  add_block(blk, txs_sizes, block_sizes, already_generated_coins);
+  add_block(blk, txs_weight, block_weights, already_generated_coins);
 
   return true;
 }
 
 bool test_generator::construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
                                                  const cryptonote::account_base& miner_acc,
-                                                 const std::vector<crypto::hash>& tx_hashes, size_t txs_size)
+                                                 const std::vector<crypto::hash>& tx_hashes, size_t txs_weight)
 {
-  return construct_block_manually(blk, prev_block, miner_acc, bf_tx_hashes, 0, 0, 0, crypto::hash(), 0, transaction(), tx_hashes, txs_size);
+  return construct_block_manually(blk, prev_block, miner_acc, bf_tx_hashes, 0, 0, 0, crypto::hash(), 0, transaction(), tx_hashes, txs_weight);
 }
 
 cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& events,
@@ -268,7 +649,8 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
                                              uint64_t operator_cut,
                                              const std::vector<cryptonote::account_public_address>& addresses,
                                              const std::vector<uint64_t>& portions,
-                                             const cryptonote::block& head)
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version)
 {
     const auto new_height = cryptonote::get_block_height(head) + 1;
     const auto staking_requirement = service_nodes::get_staking_requirement(cryptonote::FAKECHAIN, new_height);
@@ -296,8 +678,7 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
     add_service_node_register_to_tx_extra(extra, addresses, operator_cut, portions, exp_timestamp, signature);
     add_service_node_contributor_to_tx_extra(extra, addresses.at(0));
 
-    construct_tx_to_key(
-      events, tx, head, account, account, amount, TESTS_DEFAULT_FEE, 9, true /* staking */, extra, unlock_time);
+    TxBuilder(events, tx, head, account, account, amount, hf_version).is_staking(true).with_extra(extra).with_unlock_time(unlock_time).with_per_output_unlock(true).build();
     events.push_back(tx);
     return tx;
 }
@@ -305,7 +686,9 @@ cryptonote::transaction make_registration_tx(std::vector<test_event_entry>& even
 cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entry>& events,
                                                const cryptonote::account_base& account,
                                                const cryptonote::block& head,
-                                               const cryptonote::tx_extra_service_node_deregister& deregister, uint64_t fee)
+                                               const cryptonote::tx_extra_service_node_deregister& deregister,
+                                               uint8_t hf_version,
+                                               uint64_t fee)
 {
   cryptonote::transaction tx;
 
@@ -317,10 +700,9 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
     return {};
   }
 
-  const uint64_t unlock_time = 0;
   const uint64_t amount = 0;
 
-  if (fee) construct_tx_to_key(events, tx, head, account, account, amount, fee, 9, false /* staking */, extra, unlock_time);
+  if (fee) TxBuilder(events, tx, head, account, account, amount, hf_version).with_fee(fee).with_extra(extra).with_per_output_unlock(true).build();
 
   tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
   tx.is_deregister = true;
@@ -331,9 +713,10 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 cryptonote::transaction make_default_registration_tx(std::vector<test_event_entry>& events,
                                              const cryptonote::account_base& account,
                                              const cryptonote::keypair& service_node_keys,
-                                             const cryptonote::block& head)
+                                             const cryptonote::block& head,
+                                             uint8_t hf_version)
 {
-  return make_registration_tx(events, account, service_node_keys, 0, { account.get_keys().m_account_address }, { STAKING_PORTIONS }, head);
+  return make_registration_tx(events, account, service_node_keys, 0, { account.get_keys().m_account_address }, { STAKING_PORTIONS }, head, hf_version);
 }
 
 struct output_index {
@@ -419,11 +802,10 @@ uint64_t get_amount(const cryptonote::account_base& account, const cryptonote::t
     switch (tx.rct_signatures.type)
     {
     case rct::RCTTypeSimple:
-    case rct::RCTTypeSimpleBulletproof:
+    case rct::RCTTypeBulletproof:
       money_transferred = rct::decodeRctSimple(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
       break;
     case rct::RCTTypeFull:
-    case rct::RCTTypeFullBulletproof:
       money_transferred = rct::decodeRct(tx.rct_signatures, rct::sk2rct(scalar1), i, hwdev);
       break;
     case rct::RCTTypeNull:
@@ -634,11 +1016,10 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
             crypto::secret_key amount_key;
             crypto::derivation_to_scalar(derivation, oi.out_no, amount_key);
-            if (tx.rct_signatures.type == rct::RCTTypeSimple || tx.rct_signatures.type == rct::RCTTypeSimpleBulletproof)
+            if (tx.rct_signatures.type == rct::RCTTypeSimple || tx.rct_signatures.type == rct::RCTTypeBulletproof)
                 rct::decodeRctSimple(
                   tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
-            else if (tx.rct_signatures.type == rct::RCTTypeFull ||
-                     tx.rct_signatures.type == rct::RCTTypeFullBulletproof)
+            else if (tx.rct_signatures.type == rct::RCTTypeFull)
                 rct::decodeRct(
                   tx.rct_signatures, rct::sk2rct(amount_key), oi.out_no, ts.mask, hw::get_device("default"));
         }
@@ -662,24 +1043,31 @@ bool fill_tx_destination(tx_destination_entry &de, const cryptonote::account_bas
     return true;
 }
 
-void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
-                                      const cryptonote::account_base& from, const cryptonote::account_base& to,
-                                      uint64_t amount, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
-                                      std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
+void fill_tx_sources_and_multi_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
+                                            const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                            uint64_t const *amount, int num_amounts, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
+                                            std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
 {
   sources.clear();
   destinations.clear();
 
-  if (!fill_tx_sources(sources, events, blk_head, from, amount + fee, nmix))
+  uint64_t total_amount = fee;
+  for (int i = 0; i < num_amounts; ++i)
+    total_amount += amount[i];
+
+  if (!fill_tx_sources(sources, events, blk_head, from, total_amount, nmix))
     throw std::runtime_error("couldn't fill transaction sources");
 
-  tx_destination_entry de;
-  if (!fill_tx_destination(de, to, amount))
-    throw std::runtime_error("couldn't fill transaction destination");
-  destinations.push_back(de);
+  for (int i = 0; i < num_amounts; ++i)
+  {
+    tx_destination_entry de;
+    if (!fill_tx_destination(de, to, amount[i]))
+      throw std::runtime_error("couldn't fill transaction destination");
+    destinations.push_back(de);
+  }
 
   tx_destination_entry de_change;
-  uint64_t cash_back = get_inputs_amount(sources) - (amount + fee);
+  uint64_t cash_back = get_inputs_amount(sources) - (total_amount);
   if (0 < cash_back)
   {
     if (!fill_tx_destination(de_change, from, cash_back))
@@ -690,6 +1078,16 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
   if (change_amount) *change_amount = (cash_back > 0) ? cash_back : 0;
 }
 
+void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const block& blk_head,
+                                      const cryptonote::account_base& from, const cryptonote::account_base& to,
+                                      uint64_t amount, uint64_t fee, size_t nmix, std::vector<tx_source_entry>& sources,
+                                      std::vector<tx_destination_entry>& destinations, uint64_t *change_amount)
+{
+  uint64_t *amounts = &amount;
+  int num_amounts   = 1;
+  fill_tx_sources_and_multi_destinations(events, blk_head, from, to, amounts, num_amounts, fee, nmix, sources, destinations, change_amount);
+}
+
 void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t height)
 {
   blk.nonce = 0;
@@ -697,155 +1095,22 @@ void fill_nonce(cryptonote::block& blk, const difficulty_type& diffic, uint64_t 
     blk.timestamp++;
 }
 
-static crypto::public_key get_output_key(const keypair& txkey,
-                                         const cryptonote::account_public_address& addr,
-                                         size_t output_index)
+crypto::public_key get_output_key(const keypair& txkey,
+                                  const cryptonote::account_public_address& addr,
+                                  size_t output_index)
 {
     crypto::key_derivation derivation;
     crypto::generate_key_derivation(addr.m_view_public_key, txkey.sec, derivation);
     crypto::public_key out_eph_public_key;
-    crypto::derive_public_key(derivation, 1, addr.m_spend_public_key, out_eph_public_key);
+    crypto::derive_public_key(derivation, output_index, addr.m_spend_public_key, out_eph_public_key);
     return out_eph_public_key;
-}
-
-bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
-                                          const cryptonote::account_public_address& miner_address,
-                                          size_t height,
-                                          uint64_t already_generated_coins,
-                                          const cryptonote::account_public_address& extra_address)
-{
-
-
-    keypair txkey = keypair::generate(hw::get_device("default"));
-    add_tx_pub_key_to_extra(tx, txkey.pub);
-
-    keypair gov_key = get_deterministic_keypair_from_height(height);
-    if (already_generated_coins != 0) {
-        add_tx_pub_key_to_extra(tx, gov_key.pub);
-    }
-
-    txin_gen in;
-    in.height = height;
-    tx.vin.push_back(in);
-
-    // This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
-    uint64_t block_reward;
-    if (!get_block_reward(0, 0, already_generated_coins, block_reward, 1, 0)) {
-        LOG_PRINT_L0("Block is too big");
-        return false;
-    }
-
-    const int hard_fork_version = 7;
-
-    uint64_t governance_reward = 0;
-    if (already_generated_coins != 0) {
-        governance_reward = get_governance_reward(height, block_reward);
-        block_reward -= governance_reward;
-    }
-
-    tx.version = 1;
-    tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
-
-    /// half of the miner reward goes to the other account 
-    const auto miner_reward = block_reward / 2;
-
-    /// miner reward
-    tx.vout.push_back({miner_reward, get_output_key(txkey, miner_address, 0)});
-
-    /// extra reward
-    tx.vout.push_back({miner_reward, get_output_key(txkey, extra_address, 1)});
-
-    /// governance reward
-    if (already_generated_coins != 0) {
-
-        cryptonote::address_parse_info governance_wallet_address;
-        cryptonote::get_account_address_from_str(
-          governance_wallet_address, cryptonote::MAINNET, ::config::GOVERNANCE_WALLET_ADDRESS);
-
-        crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
-
-        if (!get_deterministic_output_key(
-              governance_wallet_address.address, gov_key, tx.vout.size(), out_eph_public_key)) {
-            MERROR("Failed to generate deterministic output key for governance wallet output creation");
-            return false;
-        }
-
-        tx.vout.push_back({governance_reward, out_eph_public_key});
-        tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
-    }
-
-    return true;
-}
-
-bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins,
-                                 const account_public_address& miner_address, transaction& tx, uint64_t fee,
-                                 keypair* p_txkey/* = 0*/)
-{
-  keypair txkey;
-  txkey = keypair::generate(hw::get_device("default"));
-  add_tx_pub_key_to_extra(tx, txkey.pub);
-
-  if (0 != p_txkey)
-    *p_txkey = txkey;
-
-  txin_gen in;
-  in.height = height;
-  tx.vin.push_back(in);
-
-  // This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
-  uint64_t block_reward;
-  if (!get_block_reward(0, 0, already_generated_coins, block_reward, 1, 0))
-  {
-    LOG_PRINT_L0("Block is too big");
-    return false;
-  }
-  block_reward += fee;
-
-  crypto::key_derivation derivation;
-  crypto::public_key out_eph_public_key;
-  crypto::generate_key_derivation(miner_address.m_view_public_key, txkey.sec, derivation);
-  crypto::derive_public_key(derivation, 0, miner_address.m_spend_public_key, out_eph_public_key);
-
-  tx_out out;
-  out.amount = block_reward;
-  out.target = txout_to_key(out_eph_public_key);
-  tx.vout.push_back(out);
-
-  tx.version = 1;
-  tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
-
-  return true;
-}
-
-bool construct_tx_to_key(const std::vector<test_event_entry>& events,
-                         cryptonote::transaction& tx,
-                         const block& blk_head,
-                         const cryptonote::account_base& from,
-                         const cryptonote::account_base& to,
-                         uint64_t amount)
-{
-    return construct_tx_to_key(events, tx, blk_head, from, to, amount, TESTS_DEFAULT_FEE, 9);
-}
-
-bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx, const block& blk_head,
-                         const cryptonote::account_base& from, const cryptonote::account_base& to, uint64_t amount,
-                         uint64_t fee, size_t nmix, bool stake, const std::vector<uint8_t>& extra, uint64_t unlock_time)
-{
-  vector<tx_source_entry> sources;
-  vector<tx_destination_entry> destinations;
-
-  uint64_t change_amount;
-  fill_tx_sources_and_destinations(events, blk_head, from, to, amount, fee, nmix, sources, destinations, &change_amount);
-  tx_destination_entry change_addr{change_amount, from.get_keys().m_account_address, false /* is subaddr */ };
-
-  return cryptonote::construct_tx(from.get_keys(), sources, destinations, change_addr, extra, tx, unlock_time, stake, true);
 }
 
 transaction construct_tx_with_fee(std::vector<test_event_entry>& events, const block& blk_head,
                                   const account_base& acc_from, const account_base& acc_to, uint64_t amount, uint64_t fee)
 {
   transaction tx;
-  construct_tx_to_key(events, tx, blk_head, acc_from, acc_to, amount, fee, 9);
+  TxBuilder(events, tx, blk_head, acc_from, acc_to, amount).with_fee(fee).build();
   events.push_back(tx);
   return tx;
 }

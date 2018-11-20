@@ -46,6 +46,9 @@ public:
     static threadpool instance;
     return instance;
   }
+  static threadpool *getNewForUnitTests(unsigned max_threads = 0) {
+    return new threadpool(max_threads);
+  }
 
   // The waiter lets the caller know when all of its
   // tasks are completed.
@@ -56,7 +59,7 @@ public:
     public:
     void inc();
     void dec();
-    void wait();  //! Wait for a set of tasks to finish.
+    void wait(threadpool *tpool);  //! Wait for a set of tasks to finish.
     waiter() : num(0){}
     ~waiter();
   };
@@ -64,28 +67,29 @@ public:
   // Submit a task to the pool. The waiter pointer may be
   // NULL if the caller doesn't care to wait for the
   // task to finish.
-  void submit(waiter *waiter, std::function<void()> f);
+  void submit(waiter *waiter, std::function<void()> f, bool leaf = false);
 
-  int get_max_concurrency();
+  unsigned int get_max_concurrency() const;
 
+  ~threadpool();
   void stop();
-  void start();
+  void start(unsigned int max_threads = 0);
 
   private:
-    threadpool();
-    ~threadpool();
+    threadpool(unsigned int max_threads = 0);
     typedef struct entry {
       waiter *wo;
       std::function<void()> f;
+      bool leaf;
     } entry;
     std::deque<entry> queue;
     boost::condition_variable has_work;
     boost::mutex mutex;
     std::vector<boost::thread> threads;
-    int active;
-    int max;
+    unsigned int active;
+    unsigned int max;
     bool running;
-    void run();
+    void run(bool flush = false);
 };
 
 }

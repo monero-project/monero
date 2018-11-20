@@ -37,7 +37,9 @@
 namespace cryptonote
 {
   rpc_args::descriptors::descriptors()
-     : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify IP to bind RPC server"), "127.0.0.1"})
+     : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify IPv4 address to bind RPC server"), "127.0.0.1"})
+     , rpc_bind_ipv6_address({"rpc-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind RPC server"), "::1"})
+     , rpc_no_ipv6({"rpc-no-ipv6", rpc_args::tr("Don't bind ipv6"), false})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
      , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
      , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing"), ""})
@@ -49,6 +51,8 @@ namespace cryptonote
   {
     const descriptors arg{};
     command_line::add_arg(desc, arg.rpc_bind_ip);
+    command_line::add_arg(desc, arg.rpc_bind_ipv6_address);
+    command_line::add_arg(desc, arg.rpc_no_ipv6);
     command_line::add_arg(desc, arg.rpc_login);
     command_line::add_arg(desc, arg.confirm_external_bind);
     command_line::add_arg(desc, arg.rpc_access_control_origins);
@@ -60,6 +64,8 @@ namespace cryptonote
     rpc_args config{};
     
     config.bind_ip = command_line::get_arg(vm, arg.rpc_bind_ip);
+    config.bind_ipv6_address = command_line::get_arg(vm, arg.rpc_bind_ipv6_address);
+    config.no_ipv6 = command_line::get_arg(vm, arg.rpc_no_ipv6);
     if (!config.bind_ip.empty())
     {
       // always parse IP here for error consistency
@@ -82,11 +88,17 @@ namespace cryptonote
       }
     }
 
-    if (command_line::has_arg(vm, arg.rpc_login))
+    const char *env_rpc_login = nullptr;
+    const bool has_rpc_arg = command_line::has_arg(vm, arg.rpc_login);
+    const bool use_rpc_env = !has_rpc_arg && (env_rpc_login = getenv("RPC_LOGIN")) != nullptr && strlen(env_rpc_login) > 0;
+    boost::optional<tools::login> login{};
+    if (has_rpc_arg || use_rpc_env)
     {
-      config.login = tools::login::parse(command_line::get_arg(vm, arg.rpc_login), true, [](bool verify) {
-        return tools::password_container::prompt(verify, "RPC server password");
-      });
+      config.login = tools::login::parse(
+          has_rpc_arg ? command_line::get_arg(vm, arg.rpc_login) : std::string(env_rpc_login), true, [](bool verify) {
+            return tools::password_container::prompt(verify, "RPC server password");
+          });
+
       if (!config.login)
         return boost::none;
 
@@ -102,7 +114,7 @@ namespace cryptonote
     {
       if (!config.login)
       {
-        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RFC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
+        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RPC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
         return boost::none;
       }
 

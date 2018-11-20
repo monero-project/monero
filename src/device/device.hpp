@@ -47,12 +47,14 @@
 #include "crypto/crypto.h"
 #include "crypto/chacha.h"
 #include "ringct/rctTypes.h"
+#include "cryptonote_config.h"
+
 
 #ifndef USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 1
 #endif
 
-#if !defined(HAVE_PCSC) 
+#if !defined(HAVE_HIDAPI) 
 #undef  USE_DEVICE_LEDGER
 #define USE_DEVICE_LEDGER 0
 #endif
@@ -78,14 +80,13 @@ namespace hw {
            return false;
     }
 
-
     class device {
     protected:
         std::string  name;
 
     public:
 
-        device()  {}
+        device(): mode(NONE)  {}
         device(const device &hwdev) {}
         virtual ~device()   {}
 
@@ -95,6 +96,19 @@ namespace hw {
             TRANSACTION_CREATE_REAL,
             TRANSACTION_CREATE_FAKE,
             TRANSACTION_PARSE
+        };
+        enum device_type
+        {
+          SOFTWARE = 0,
+          LEDGER = 1,
+          TREZOR = 2
+        };
+
+
+        enum device_protocol_t {
+            PROTOCOL_DEFAULT,
+            PROTOCOL_PROXY,     // Originally defined by Ledger
+            PROTOCOL_COLD,      // Originally defined by Trezor
         };
 
         /* ======================================================================= */
@@ -109,8 +123,12 @@ namespace hw {
         virtual bool connect(void) = 0;
         virtual bool disconnect(void) = 0;
 
-        virtual bool  set_mode(device_mode mode) = 0;
+        virtual bool set_mode(device_mode mode) { this->mode = mode; return true; }
+        virtual device_mode get_mode() const { return mode; }
 
+        virtual device_type get_type() const = 0;
+
+        virtual device_protocol_t device_protocol() const { return PROTOCOL_DEFAULT; };
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
@@ -125,7 +143,7 @@ namespace hw {
         /* ======================================================================= */
         virtual bool  get_public_address(cryptonote::account_public_address &pubkey) = 0;
         virtual bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey)  = 0;
-        virtual bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key) = 0;
+        virtual bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) = 0;
 
         /* ======================================================================= */
         /*                               SUB ADDRESS                               */
@@ -194,6 +212,14 @@ namespace hw {
         virtual bool  mlsag_sign(const rct::key &c, const rct::keyV &xx, const rct::keyV &alpha, const size_t rows, const size_t dsRows, rct::keyV &ss) = 0;
 
         virtual bool  close_tx(void) = 0;
+
+        virtual bool  has_ki_cold_sync(void) const { return false; }
+        virtual bool  has_tx_cold_sign(void) const { return false; }
+
+        virtual void  set_network_type(cryptonote::network_type network_type) { }
+
+    protected:
+        device_mode mode;
     } ;
 
     struct reset_mode {
@@ -202,6 +228,17 @@ namespace hw {
         ~reset_mode() { hwref.set_mode(hw::device::NONE);}
     };
 
-    device& get_device(const std::string device_descriptor) ;
+    class device_registry {
+    private:
+      std::map<std::string, std::unique_ptr<device>> registry;
+
+    public:
+      device_registry();
+      bool register_device(const std::string & device_name, device * hw_device);
+      device& get_device(const std::string & device_descriptor);
+    };
+
+    device& get_device(const std::string & device_descriptor);
+    bool register_device(const std::string & device_name, device * hw_device);
 }
 

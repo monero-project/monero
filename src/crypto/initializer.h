@@ -43,8 +43,8 @@
 #elif defined(_MSC_VER)
 #include <assert.h>
 #include <stdlib.h>
-// http://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
-// http://msdn.microsoft.com/en-us/library/bb918180.aspx
+// https://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
+// https://msdn.microsoft.com/en-us/library/bb918180.aspx
 #pragma section(".CRT$XCT", read)
 #define INITIALIZER(name) \
   static void __cdecl name(void); \

@@ -263,14 +263,8 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::BlockHeaderResp
 void toJsonValue(rapidjson::Document& doc, const rct::rctSig& i, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& i, rct::rctSig& sig);
 
-void toJsonValue(rapidjson::Document& doc, const rct::ctkey& key, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, rct::ctkey& key);
-
 void toJsonValue(rapidjson::Document& doc, const rct::ecdhTuple& tuple, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, rct::ecdhTuple& tuple);
-
-void toJsonValue(rapidjson::Document& doc, const rct::rctSigPrunable& sig, rapidjson::Value& val);
-void fromJsonValue(const rapidjson::Value& val, rct::rctSigPrunable& sig);
 
 void toJsonValue(rapidjson::Document& doc, const rct::rangeSig& sig, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, rct::rangeSig& sig);
@@ -286,6 +280,9 @@ void fromJsonValue(const rapidjson::Value& val, rct::mgSig& sig);
 
 void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::DaemonInfo& info, rapidjson::Value& val);
 void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& info);
+
+void toJsonValue(rapidjson::Document& doc, const cryptonote::rpc::output_distribution& dist, rapidjson::Value& val);
+void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::output_distribution& dist);
 
 template <typename Map>
 typename std::enable_if<sfinae::is_map_like<Map>::value, void>::type toJsonValue(rapidjson::Document& doc, const Map& map, rapidjson::Value& val);

@@ -137,7 +137,7 @@ struct txpool_tx_meta_t
 {
   crypto::hash max_used_block_id;
   crypto::hash last_failed_id;
-  uint64_t blob_size;
+  uint64_t weight;
   uint64_t fee;
   uint64_t max_used_block_height;
   uint64_t last_failed_height;
@@ -148,6 +148,7 @@ struct txpool_tx_meta_t
   uint8_t relayed;
   uint8_t do_not_relay;
   uint8_t double_spend_seen: 1;
+  uint8_t bf_padding: 7;
 
   uint8_t padding[76]; // till 192 bytes
 };
@@ -357,15 +358,16 @@ private:
    * subclass of DB_EXCEPTION
    *
    * @param blk the block to be added
-   * @param block_size the size of the block (transactions and all)
+   * @param block_weight the weight of the block (transactions and all)
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
    */
   virtual void add_block( const block& blk
-                , const size_t& block_size
+                , size_t block_weight
                 , const difficulty_type& cumulative_difficulty
                 , const uint64_t& coins_generated
+                , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
                 ) = 0;
 
@@ -374,7 +376,7 @@ private:
    *
    * The subclass implementing this will remove the block data from the top
    * block in the chain.  The data to be removed is that which was added in
-   * BlockchainDB::add_block(const block& blk, const size_t& block_size, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
+   * BlockchainDB::add_block(const block& blk, size_t block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated, const crypto::hash& blk_hash)
    *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
@@ -542,7 +544,7 @@ public:
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
 
   /**
    * @brief An empty destructor.
@@ -653,6 +655,20 @@ public:
    * @return a list of filenames
    */
   virtual std::vector<std::string> get_filenames() const = 0;
+
+  /**
+   * @brief remove file(s) storing the database
+   *
+   * This function is for resetting the database (for core tests, functional tests, etc).
+   * The function reset() is not usable because it needs to open the database file first
+   * which can fail if the existing database file is in an incompatible format.
+   * As such, this function needs to be called before calling open().
+   *
+   * @param folder    The path of the folder containing the database file(s) which must not end with slash '/'.
+   *
+   * @return          true if the operation is succesfull
+   */
+  virtual bool remove_data_file(const std::string& folder) const = 0;
 
   // return the name of the folder the db's file(s) should reside in
   /**
@@ -773,7 +789,7 @@ public:
    * subclass of DB_EXCEPTION
    *
    * @param blk the block to be added
-   * @param block_size the size of the block (transactions and all)
+   * @param block_weight the size of the block (transactions and all)
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param txs the transactions in the block
@@ -781,7 +797,7 @@ public:
    * @return the height of the chain post-addition
    */
   virtual uint64_t add_block( const block& blk
-                            , const size_t& block_size
+                            , size_t block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<transaction>& txs
@@ -891,6 +907,20 @@ public:
   virtual uint64_t get_block_timestamp(const uint64_t& height) const = 0;
 
   /**
+   * @brief fetch a block's cumulative number of rct outputs
+   *
+   * The subclass should return the numer of rct outputs in the blockchain
+   * up to the block with the given height (inclusive).
+   *
+   * If the block does not exist, the subclass should throw BLOCK_DNE
+   *
+   * @param height the height requested
+   *
+   * @return the cumulative number of rct outputs
+   */
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const = 0;
+
+  /**
    * @brief fetch the top block's timestamp
    *
    * The subclass should return the timestamp of the most recent block.
@@ -900,18 +930,18 @@ public:
   virtual uint64_t get_top_block_timestamp() const = 0;
 
   /**
-   * @brief fetch a block's size
+   * @brief fetch a block's weight
    *
-   * The subclass should return the size of the block with the
+   * The subclass should return the weight of the block with the
    * given height.
    *
    * If the block does not exist, the subclass should throw BLOCK_DNE
    *
    * @param height the height requested
    *
-   * @return the size
+   * @return the weight
    */
-  virtual size_t get_block_size(const uint64_t& height) const = 0;
+  virtual size_t get_block_weight(const uint64_t& height) const = 0;
 
   /**
    * @brief fetch a block's cumulative difficulty
@@ -1248,23 +1278,6 @@ public:
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) const = 0;
 
   /**
-   * @brief get some of an output's data
-   *
-   * The subclass should return the public key, unlock time, and block height
-   * for the output with the given global index, collected in a struct.
-   *
-   * If the output cannot be found, the subclass should throw OUTPUT_DNE.
-   *
-   * If any of these parts cannot be found, but some are, the subclass
-   * should throw DB_ERROR with a message stating as much.
-   *
-   * @param global_index the output's index (global)
-   *
-   * @return the requested output data
-   */
-  virtual output_data_t get_output_key(const uint64_t& global_index) const = 0;
-
-  /**
    * @brief gets an output's tx hash and index
    *
    * The subclass should return the hash of the transaction which created the
@@ -1550,6 +1563,13 @@ public:
    * @return true if in read-only mode, otherwise false
    */
   virtual bool is_read_only() const = 0;
+
+  /**
+   * @brief get disk space requirements
+   *
+   * @return the size required
+   */
+  virtual uint64_t get_database_size() const = 0;
 
   // TODO: this should perhaps be (or call) a series of functions which
   // progressively update through version updates

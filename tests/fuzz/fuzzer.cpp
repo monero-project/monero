@@ -46,11 +46,17 @@ static int __AFL_LOOP(int)
 
 int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
 {
+  TRY_ENTRY();
+
   if (argc < 2)
   {
     std::cout << "usage: " << argv[0] << " " << "<filename>" << std::endl;
     return 1;
   }
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  __AFL_INIT();
+#endif
 
   int ret = fuzzer.init();
   if (ret)
@@ -65,4 +71,6 @@ int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
   }
 
   return 0;
+
+  CATCH_ENTRY_L0("run_fuzzer", 1);
 }

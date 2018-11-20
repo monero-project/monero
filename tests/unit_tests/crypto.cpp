@@ -73,3 +73,26 @@ TEST(Crypto, Ostream)
   EXPECT_TRUE(is_formatted<crypto::key_derivation>());
   EXPECT_TRUE(is_formatted<crypto::key_image>());
 }
+
+TEST(Crypto, null_keys)
+{
+  char zero[32];
+  memset(zero, 0, 32);
+  ASSERT_EQ(memcmp(crypto::null_skey.data, zero, 32), 0);
+  ASSERT_EQ(memcmp(crypto::null_pkey.data, zero, 32), 0);
+}
+
+TEST(Crypto, verify_32)
+{
+  // all bytes are treated the same, so we can brute force just one byte
+  unsigned char k0[32] = {0}, k1[32] = {0};
+  for (unsigned int i0 = 0; i0 < 256; ++i0)
+  {
+    k0[0] = i0;
+    for (unsigned int i1 = 0; i1 < 256; ++i1)
+    {
+      k1[0] = i1;
+      ASSERT_EQ(!crypto_verify_32(k0, k1), i0 == i1);
+    }
+  }
+}

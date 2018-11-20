@@ -198,8 +198,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0");
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0");
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0", uint32_t port_ipv6 = 0, const std::string address_v6 = "::", bool no_ipv6 = false);
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", const std::string& port_ipv6 = "", const std::string address_v6 = "::", bool no_ipv6 = false);
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
@@ -227,6 +227,7 @@ namespace net_utils
     typename t_protocol_handler::config_type& get_config_object(){return m_config;}
 
     int get_binded_port(){return m_port;}
+    int get_binded_port_ipv6(){return m_port_ipv6;}
 
     long get_connections_count() const
     {
@@ -246,7 +247,6 @@ namespace net_utils
                                                           m_timer(io_serice)
       {}
       boost::asio::deadline_timer m_timer;
-      uint64_t m_period;
     };
 
     template <class t_handler>
@@ -262,25 +262,27 @@ namespace net_utils
       {
         return m_handler();
       }
+      uint64_t m_period;
     };
 
     template<class t_handler>
     bool add_idle_handler(t_handler t_callback, uint64_t timeout_ms)
       {
-        boost::shared_ptr<idle_callback_conext_base> ptr(new idle_callback_conext<t_handler>(io_service_, t_callback, timeout_ms));
+        boost::shared_ptr<idle_callback_conext<t_handler>> ptr(new idle_callback_conext<t_handler>(io_service_, t_callback, timeout_ms));
         //needed call handler here ?...
         ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
-        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler, this, ptr));
+        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
         return true;
       }
 
-    bool global_timer_handler(/*const boost::system::error_code& err, */boost::shared_ptr<idle_callback_conext_base> ptr)
+    template<class t_handler>
+    bool global_timer_handler(/*const boost::system::error_code& err, */boost::shared_ptr<idle_callback_conext<t_handler>> ptr)
     {
       //if handler return false - he don't want to be called anymore
       if(!ptr->call_handler())
         return true;
       ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
-      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler, this, ptr));
+      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
       return true;
     }
 
@@ -299,6 +301,7 @@ namespace net_utils
     bool worker_thread();
     /// Handle completion of an asynchronous accept operation.
     void handle_accept(const boost::system::error_code& e);
+    void handle_accept_v6(const boost::system::error_code& e);
 
     bool is_thread_worker();
 
@@ -308,12 +311,15 @@ namespace net_utils
 
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;
+    boost::asio::ip::tcp::acceptor acceptor_v6;
 
     std::atomic<bool> m_stop_signal_sent;
     uint32_t m_port;
+    uint32_t m_port_ipv6;
 	std::atomic<long> m_sock_count;
 	std::atomic<long> m_sock_number;
     std::string m_address;
+    std::string m_address_v6;
     std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
     size_t m_threads_count;
     i_connection_filter* m_pfilter;
@@ -326,6 +332,7 @@ namespace net_utils
 
     /// The next connection to be accepted
     connection_ptr new_connection_;
+    connection_ptr new_connection_v6;
 
     boost::mutex connections_mutex;
     std::set<connection_ptr> connections_;

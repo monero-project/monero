@@ -47,7 +47,6 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "misc_language.h"
-#include "tx_extra.h"
 #include "ringct/rctTypes.h"
 #include "device/device.hpp"
 
@@ -196,6 +195,7 @@ namespace cryptonote
 
   public:
     transaction_prefix(){}
+    bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
     uint64_t get_unlock_time(size_t out_index) const
     {
       if (version >= version_3_per_output_unlock_times)
@@ -236,7 +236,6 @@ namespace cryptonote
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
     bool is_blob_size_valid() const { return blob_size_valid.load(std::memory_order_acquire); }
     void set_blob_size_valid(bool v) const { blob_size_valid.store(v,std::memory_order_release); }
-    bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
 
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())

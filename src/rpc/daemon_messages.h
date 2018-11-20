@@ -28,6 +28,9 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <vector>
+
 #include "message.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "rpc/message_data_structs.h"
@@ -44,7 +47,7 @@ class classname \
     class Request : public Message \
     { \
       public: \
-        Request() { } \
+        Request() { *this = {}; } \
         ~Request() { } \
         rapidjson::Value toJson(rapidjson::Document& doc) const; \
         void fromJson(rapidjson::Value& val);
@@ -53,7 +56,7 @@ class classname \
     class Response : public Message \
     { \
       public: \
-        Response() { } \
+        Response() { *this = {}; } \
         ~Response() { } \
         rapidjson::Value toJson(rapidjson::Document& doc) const; \
         void fromJson(rapidjson::Value& val);
@@ -61,14 +64,6 @@ class classname \
 #define END_RPC_MESSAGE_REQUEST };
 #define END_RPC_MESSAGE_RESPONSE };
 #define END_RPC_MESSAGE_CLASS };
-
-#define COMMA() ,
-
-// NOTE: when using a type with multiple template parameters,
-// replace any comma in the template specifier with the macro
-// above, or the preprocessor will eat the comma in a bad way.
-#define RPC_MESSAGE_MEMBER(type, name) type name;
-
 
 namespace cryptonote
 {
@@ -80,46 +75,47 @@ BEGIN_RPC_MESSAGE_CLASS(GetHeight);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(uint64_t, height);
+    uint64_t height;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 
 BEGIN_RPC_MESSAGE_CLASS(GetBlocksFast);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::list<crypto::hash>, block_ids);
-    RPC_MESSAGE_MEMBER(uint64_t, start_height);
-    RPC_MESSAGE_MEMBER(bool, prune);
+    std::list<crypto::hash> block_ids;
+    uint64_t start_height;
+    bool prune;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::block_with_transactions>, blocks);
-    RPC_MESSAGE_MEMBER(uint64_t, start_height);
-    RPC_MESSAGE_MEMBER(uint64_t, current_height);
-    RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::block_output_indices>, output_indices);
+    std::vector<cryptonote::rpc::block_with_transactions> blocks;
+    uint64_t start_height;
+    uint64_t current_height;
+    std::vector<cryptonote::rpc::block_output_indices> output_indices;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 
 BEGIN_RPC_MESSAGE_CLASS(GetHashesFast);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::list<crypto::hash>, known_hashes);
-    RPC_MESSAGE_MEMBER(uint64_t, start_height);
+    std::list<crypto::hash> known_hashes;
+    uint64_t start_height;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, hashes);
-    RPC_MESSAGE_MEMBER(uint64_t, start_height);
-    RPC_MESSAGE_MEMBER(uint64_t, current_height);
+    std::vector<crypto::hash> hashes;
+    uint64_t start_height;
+    uint64_t current_height;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 
 BEGIN_RPC_MESSAGE_CLASS(GetTransactions);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, tx_hashes);
+    std::vector<crypto::hash> tx_hashes;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::unordered_map<crypto::hash COMMA() cryptonote::rpc::transaction_info>, txs);
-    RPC_MESSAGE_MEMBER(std::vector<crypto::hash>, missed_hashes);
+    using txes_map = std::unordered_map<crypto::hash, transaction_info>;
+    txes_map txs;
+    std::vector<crypto::hash> missed_hashes;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -131,50 +127,50 @@ BEGIN_RPC_MESSAGE_CLASS(KeyImagesSpent);
     SPENT_IN_POOL = 2,
   };
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<crypto::key_image>, key_images);
+    std::vector<crypto::key_image> key_images;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, spent_status);
+    std::vector<uint64_t> spent_status;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 
 BEGIN_RPC_MESSAGE_CLASS(GetTxGlobalOutputIndices);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(crypto::hash, tx_hash);
+    crypto::hash tx_hash;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, output_indices);
+    std::vector<uint64_t> output_indices;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 
 BEGIN_RPC_MESSAGE_CLASS(GetRandomOutputsForAmounts);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, amounts);
-    RPC_MESSAGE_MEMBER(uint64_t, count);
+    std::vector<uint64_t> amounts;
+    uint64_t count;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<amount_with_random_outputs>, amounts_with_outputs);
+    std::vector<amount_with_random_outputs> amounts_with_outputs;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(SendRawTx);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(cryptonote::transaction, tx);
-    RPC_MESSAGE_MEMBER(bool, relay);
+    cryptonote::transaction tx;
+    bool relay;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(bool, relayed);
+    bool relayed;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(StartMining);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::string, miner_address);
-    RPC_MESSAGE_MEMBER(uint64_t, threads_count);
-    RPC_MESSAGE_MEMBER(bool, do_background_mining);
-    RPC_MESSAGE_MEMBER(bool, ignore_battery);
+    std::string miner_address;
+    uint64_t threads_count;
+    bool do_background_mining;
+    bool ignore_battery;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
   END_RPC_MESSAGE_RESPONSE;
@@ -184,7 +180,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetInfo);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(DaemonInfo, info);
+    DaemonInfo info;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -199,11 +195,11 @@ BEGIN_RPC_MESSAGE_CLASS(MiningStatus);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(bool, active);
-    RPC_MESSAGE_MEMBER(uint64_t, speed);
-    RPC_MESSAGE_MEMBER(uint64_t, threads_count);
-    RPC_MESSAGE_MEMBER(std::string, address);
-    RPC_MESSAGE_MEMBER(bool, is_background_mining_enabled);
+    bool active;
+    uint64_t speed;
+    uint64_t threads_count;
+    std::string address;
+    bool is_background_mining_enabled;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -216,10 +212,10 @@ END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetBlockHash);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(uint64_t, height);
+    uint64_t height;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(crypto::hash, hash);
+    crypto::hash hash;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -241,34 +237,34 @@ BEGIN_RPC_MESSAGE_CLASS(GetLastBlockHeader);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(cryptonote::rpc::BlockHeaderResponse, header);
+    cryptonote::rpc::BlockHeaderResponse header;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetBlockHeaderByHash);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(crypto::hash, hash);
+    crypto::hash hash;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(cryptonote::rpc::BlockHeaderResponse, header);
+    cryptonote::rpc::BlockHeaderResponse header;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetBlockHeaderByHeight);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(uint64_t, height);
+    uint64_t height;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(cryptonote::rpc::BlockHeaderResponse, header);
+    cryptonote::rpc::BlockHeaderResponse header;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetBlockHeadersByHeight);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, heights);
+    std::vector<uint64_t> heights;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::BlockHeaderResponse>, headers);
+    std::vector<cryptonote::rpc::BlockHeaderResponse> headers;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -283,8 +279,8 @@ BEGIN_RPC_MESSAGE_CLASS(GetPeerList);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<peer>, white_list);
-    RPC_MESSAGE_MEMBER(std::vector<peer>, gray_list);
+    std::vector<peer> white_list;
+    std::vector<peer> gray_list;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -297,7 +293,7 @@ END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(SetLogLevel);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(int8_t, level);
+    int8_t level;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
   END_RPC_MESSAGE_RESPONSE;
@@ -307,8 +303,8 @@ BEGIN_RPC_MESSAGE_CLASS(GetTransactionPool);
     BEGIN_RPC_MESSAGE_REQUEST;
     END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::tx_in_pool>, transactions);
-    RPC_MESSAGE_MEMBER(key_images_with_tx_hashes, key_images);
+    std::vector<cryptonote::rpc::tx_in_pool> transactions;
+    key_images_with_tx_hashes key_images;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -349,10 +345,10 @@ END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(HardForkInfo);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(uint8_t, version);
+    uint8_t version;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(hard_fork_info, info);
+    hard_fork_info info;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -379,23 +375,23 @@ END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetOutputHistogram);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, amounts);
-    RPC_MESSAGE_MEMBER(uint64_t, min_count);
-    RPC_MESSAGE_MEMBER(uint64_t, max_count);
-    RPC_MESSAGE_MEMBER(bool, unlocked);
-    RPC_MESSAGE_MEMBER(uint64_t, recent_cutoff);
+    std::vector<uint64_t> amounts;
+    uint64_t min_count;
+    uint64_t max_count;
+    bool unlocked;
+    uint64_t recent_cutoff;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<output_amount_count>, histogram);
+    std::vector<output_amount_count> histogram;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
 BEGIN_RPC_MESSAGE_CLASS(GetOutputKeys);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(std::vector<output_amount_and_index>, outputs);
+    std::vector<output_amount_and_index> outputs;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(std::vector<output_key_mask_unlocked>, keys);
+    std::vector<output_key_mask_unlocked> keys;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
@@ -403,16 +399,31 @@ BEGIN_RPC_MESSAGE_CLASS(GetRPCVersion);
   BEGIN_RPC_MESSAGE_REQUEST;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(uint32_t, version);
+    uint32_t version;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 
-BEGIN_RPC_MESSAGE_CLASS(GetPerKBFeeEstimate);
+BEGIN_RPC_MESSAGE_CLASS(GetFeeEstimate);
   BEGIN_RPC_MESSAGE_REQUEST;
-    RPC_MESSAGE_MEMBER(uint64_t, num_grace_blocks);
+    uint64_t num_grace_blocks;
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
-    RPC_MESSAGE_MEMBER(uint64_t, estimated_fee_per_kb);
+    uint64_t estimated_base_fee;
+    uint64_t fee_mask;
+    uint32_t size_scale;
+    uint8_t hard_fork_version;
+  END_RPC_MESSAGE_RESPONSE;
+END_RPC_MESSAGE_CLASS;
+
+BEGIN_RPC_MESSAGE_CLASS(GetOutputDistribution);
+  BEGIN_RPC_MESSAGE_REQUEST;
+    std::vector<uint64_t> amounts;
+    uint64_t from_height;
+    uint64_t to_height;
+    bool cumulative;
+  END_RPC_MESSAGE_REQUEST;
+  BEGIN_RPC_MESSAGE_RESPONSE;
+    std::vector<output_distribution> distributions;
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;
 

@@ -461,7 +461,7 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="105"/>
-        <source> requires RFC server password --</source>
+        <source> requires RPC server password --</source>
         <translation> kräver lösenord till RPC-server --</translation>
     </message>
 </context>
@@ -1699,7 +1699,7 @@ Om argumentet &quot;tag_description&quot; anges, så tilldelas taggen &lt;taggna
  refresh-type &lt;full|optimize-coinbase|no-coinbase|default>
    Set the wallet&apos;s refresh behaviour.
  priority [0|1|2|3|4]
-   Set the fee too default/unimportant/normal/elevated/priority.
+   Set the fee to default/unimportant/normal/elevated/priority.
  confirm-missing-payment-id &lt;1|0>
  ask-password &lt;1|0>
  unit &lt;monero|millinero|micronero|nanonero|piconero>
@@ -1855,7 +1855,16 @@ Annars bevisar du reserven för det minsta möjliga belopp över &lt;belopp&gt; 
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1758"/>
-        <source>Show the incoming/outgoing transfers within an optional height range.</source>
+        <source>Show the incoming/outgoing transfers within an optional height range.
+
+Output format:
+In or Coinbase:    Block Number, &quot;block&quot;|&quot;in&quot;,              Time, Amount,  Transaction Hash, Payment ID, Subaddress Index,                     &quot;-&quot;, Note\
+Out:               Block Number, &quot;out&quot;,                     Time, Amount*, Transaction Hash, Payment ID, Fee, Destinations, Input addresses**, &quot;-&quot;, Note
+Pool:                            &quot;pool&quot;, &quot;in&quot;,              Time, Amount,  Transaction Hash, Payment Id, Subaddress Index,                     &quot;-&quot;, Note, Double Spend Note\
+Pending or Failed:               &quot;failed&quot;|&quot;pending&quot;, &quot;out&quot;, Time, Amount*, Transaction Hash, Payment ID, Fee, Input addresses**,               &quot;-&quot;, Note
+
+* Excluding change and fee.
+** Set of address indices used as inputs in this transfer.</source>
         <translation>Visa inkommande/utgående överföringar inom ett valfritt höjdintervall.</translation>
     </message>
     <message>

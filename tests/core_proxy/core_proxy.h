@@ -79,7 +79,7 @@ namespace tests
     bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
     bool handle_incoming_txs(const std::vector<cryptonote::blobdata>& tx_blobs, std::vector<cryptonote::tx_verification_context>& tvc, bool keeped_by_block, bool relayed, bool do_not_relay);
     bool handle_incoming_block(const cryptonote::blobdata& block_blob, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true);
-    bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
+    bool handle_uptime_proof(const cryptonote::NOTIFY_UPTIME_PROOF::request &proof);
     void pause_mine(){}
     void resume_mine(){}
     bool on_idle(){return true;}
@@ -102,8 +102,10 @@ namespace tests
     uint8_t get_ideal_hard_fork_version() const { return 0; }
     uint8_t get_ideal_hard_fork_version(uint64_t height) const { return 0; }
     uint8_t get_hard_fork_version(uint64_t height) const { return 0; }
+    uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return 0; }
     cryptonote::difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return 0; }
     bool fluffy_blocks_enabled() const { return false; }
+    uint64_t prevalidate_block_hashes(uint64_t height, const std::list<crypto::hash> &hashes) { return 0; }
     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes) { return 0; }
 
     // TODO(loki): Write tests

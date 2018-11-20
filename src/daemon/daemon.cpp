@@ -76,17 +76,15 @@ public:
     protocol.set_p2p_endpoint(p2p.get());
     core.set_protocol(protocol.get());
 
-    const auto testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-    const auto stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
     const auto restricted = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc);
     const auto main_rpc_port = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
-    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : cryptonote::MAINNET, main_rpc_port, "core"});
+    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, main_rpc_port, "core"});
 
     auto restricted_rpc_port_arg = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
     if(!command_line::is_arg_defaulted(vm, restricted_rpc_port_arg))
     {
       auto restricted_rpc_port = command_line::get_arg(vm, restricted_rpc_port_arg);
-      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : cryptonote::MAINNET, restricted_rpc_port, "restricted"});
+      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, restricted_rpc_port, "restricted"});
     }
   }
 };
@@ -136,7 +134,19 @@ bool t_daemon::run(bool interactive)
   {
     throw std::runtime_error{"Can't run stopped daemon"};
   }
-  tools::signal_handler::install(std::bind(&daemonize::t_daemon::stop_p2p, this));
+
+  std::atomic<bool> stop(false), shutdown(false);
+  boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
+    while (!stop)
+      epee::misc_utils::sleep_no_w(100);
+    if (shutdown)
+      this->stop_p2p();
+  });
+  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+    stop = true;
+    stop_thread.join();
+  });
+  tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
 
   try
   {

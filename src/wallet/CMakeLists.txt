@@ -58,6 +58,7 @@ target_link_libraries(wallet
     common
     cryptonote_core
     mnemonics
+    device_trezor
     ${LMDB_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
@@ -86,12 +87,13 @@ loki_add_executable(wallet_rpc_server
 target_link_libraries(wallet_rpc_server
   PRIVATE
     wallet
-    epee
     rpc_base
     cryptonote_core
     cncrypto
     common
     version
+    daemonizer
+    ${EPEE_READLINE}
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -119,7 +121,8 @@ if (BUILD_GUI_DEPS)
             ringct
             ringct_basic
             checkpoints
-            version)
+            version
+            device_trezor)
 
     foreach(lib ${libs_to_merge})
         list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt

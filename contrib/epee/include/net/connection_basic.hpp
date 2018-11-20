@@ -92,7 +92,6 @@ class connection_basic { // not-templated base class for rapid developmet of som
     critical_section m_send_que_lock;
     std::list<std::string> m_send_que;
     volatile bool m_is_multithreaded;
-    double m_start_time;
     /// Strand to ensure the connection's handlers are not called concurrently.
     boost::asio::io_service::strand strand_;
     /// Socket for the connection.
@@ -111,8 +110,6 @@ class connection_basic { // not-templated base class for rapid developmet of som
 
 		void logger_handle_net_write(size_t size); // network data written
 		void logger_handle_net_read(size_t size); // network data read
-
-		void set_start_time();
 
 		// config for rate limit
 		

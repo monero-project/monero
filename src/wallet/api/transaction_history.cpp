@@ -92,6 +92,14 @@ std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
     return m_history;
 }
 
+static reward_type from_pay_type(tools::pay_type ptype) {
+    switch (ptype) {
+        case tools::pay_type::service_node: return reward_type::service_node;
+        case tools::pay_type::miner: return reward_type::miner;
+        default: reward_type::unspecified;
+    }
+}
+
 void TransactionHistoryImpl::refresh()
 {
     // multithreaded access:
@@ -136,6 +144,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
         ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_reward_type = from_pay_type(pd.m_type);
         m_history.push_back(ti);
 
     }
@@ -236,6 +245,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
+        ti->m_reward_type = from_pay_type(pd.m_type);
         m_history.push_back(ti);
         
         LOG_PRINT_L1(__FUNCTION__ << ": Unconfirmed payment found " << pd.m_amount);

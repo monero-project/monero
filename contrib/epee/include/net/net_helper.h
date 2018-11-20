@@ -106,7 +106,8 @@ namespace net_utils
 			~blocked_mode_client()
 		{
 			//profile_tools::local_coast lc("~blocked_mode_client()", 3);
-			shutdown();
+			try { shutdown(); }
+			catch(...) { /* ignore */ }
 		}
 
     inline
@@ -135,14 +136,44 @@ namespace net_utils
 				//////////////////////////////////////////////////////////////////////////
 
 				boost::asio::ip::tcp::resolver resolver(m_io_service);
-				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
-				boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve(query);
+
+				boost::asio::ip::tcp::resolver::iterator iterator;
 				boost::asio::ip::tcp::resolver::iterator end;
+
+				boost::asio::ip::tcp::resolver::query query6(boost::asio::ip::tcp::v6(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
+
+				boost::system::error_code resolve_error;
+
+				try
+				{
+				  iterator = resolver.resolve(query6, resolve_error);
+				}
+				//resolving ipv4 address as ipv6 throws, catch here and move on
+				catch (const boost::system::system_error& e)
+				{
+				  if (resolve_error != boost::asio::error::host_not_found &&
+				      resolve_error != boost::asio::error::host_not_found_try_again)
+				  {
+				    throw;
+				  }
+				}
+				catch (...)
+				{
+				  throw;
+				}
+
 				if(iterator == end)
 				{
-					LOG_ERROR("Failed to resolve " << addr);
-					return false;
+				  boost::asio::ip::tcp::resolver::query query(boost::asio::ip::tcp::v4(), addr, port, boost::asio::ip::tcp::resolver::query::canonical_name);
+				  iterator = resolver.resolve(query);
+
+				  if (iterator == end)
+				  {
+				    LOG_ERROR("Failed to resolve " << addr);
+				    return false;
+				  }
 				}
+
 
 				//////////////////////////////////////////////////////////////////////////
 

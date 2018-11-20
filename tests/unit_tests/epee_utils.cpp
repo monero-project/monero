@@ -45,6 +45,7 @@
 #include "boost/archive/portable_binary_oarchive.hpp"
 #include "hex.h"
 #include "net/net_utils_base.h"
+#include "net/local_ip.h"
 #include "p2p/net_peerlist_boost_serialization.h"
 #include "span.h"
 #include "string_tools.h"
@@ -165,11 +166,16 @@ TEST(Span, Traits)
 TEST(Span, MutableConstruction)
 {
   struct no_conversion{};
+  struct inherited : no_conversion {};
 
   EXPECT_TRUE(std::is_constructible<epee::span<char>>());
   EXPECT_TRUE((std::is_constructible<epee::span<char>, char*, std::size_t>()));
   EXPECT_FALSE((std::is_constructible<epee::span<char>, const char*, std::size_t>()));
   EXPECT_FALSE((std::is_constructible<epee::span<char>, unsigned char*, std::size_t>()));
+
+  EXPECT_TRUE(std::is_constructible<epee::span<no_conversion>>());
+  EXPECT_TRUE((std::is_constructible<epee::span<no_conversion>, no_conversion*, std::size_t>()));
+  EXPECT_FALSE((std::is_constructible<epee::span<no_conversion>, inherited*, std::size_t>()));
 
   EXPECT_TRUE((can_construct<epee::span<char>, std::nullptr_t>()));
   EXPECT_TRUE((can_construct<epee::span<char>, char(&)[1]>()));
@@ -192,11 +198,18 @@ TEST(Span, MutableConstruction)
 TEST(Span, ImmutableConstruction)
 {
   struct no_conversion{};
+  struct inherited : no_conversion {};
 
   EXPECT_TRUE(std::is_constructible<epee::span<const char>>());
   EXPECT_TRUE((std::is_constructible<epee::span<const char>, char*, std::size_t>()));
   EXPECT_TRUE((std::is_constructible<epee::span<const char>, const char*, std::size_t>()));
   EXPECT_FALSE((std::is_constructible<epee::span<const char>, unsigned char*, std::size_t>()));
+
+  EXPECT_TRUE(std::is_constructible<epee::span<const no_conversion>>());
+  EXPECT_TRUE((std::is_constructible<epee::span<const no_conversion>, const no_conversion*, std::size_t>()));
+  EXPECT_TRUE((std::is_constructible<epee::span<const no_conversion>, no_conversion*, std::size_t>()));
+  EXPECT_FALSE((std::is_constructible<epee::span<const no_conversion>, const inherited*, std::size_t>()));
+  EXPECT_FALSE((std::is_constructible<epee::span<const no_conversion>, inherited*, std::size_t>()));
 
   EXPECT_FALSE((can_construct<epee::span<const char>, std::string>()));
   EXPECT_FALSE((can_construct<epee::span<const char>, std::vector<char>>()));
@@ -230,7 +243,6 @@ TEST(Span, NoExcept)
   const epee::span<char> clvalue(data);
   EXPECT_TRUE(noexcept(epee::span<char>()));
   EXPECT_TRUE(noexcept(epee::span<char>(nullptr)));
-  EXPECT_TRUE(noexcept(epee::span<char>(nullptr, 0)));
   EXPECT_TRUE(noexcept(epee::span<char>(data)));
   EXPECT_TRUE(noexcept(epee::span<char>(lvalue)));
   EXPECT_TRUE(noexcept(epee::span<char>(clvalue)));
@@ -283,6 +295,25 @@ TEST(Span, Writing)
   EXPECT_TRUE(boost::range::equal(expected, span));
 }
 
+TEST(Span, RemovePrefix)
+{
+  const  std::array<unsigned, 4> expected{0, 1, 2, 3};
+  auto span = epee::to_span(expected);
+
+  EXPECT_EQ(expected.begin(), span.begin());
+  EXPECT_EQ(expected.end(), span.end());
+
+  EXPECT_EQ(2u, span.remove_prefix(2));
+  EXPECT_EQ(expected.begin() + 2, span.begin());
+  EXPECT_EQ(expected.end(), span.end());
+
+  EXPECT_EQ(2u, span.remove_prefix(3));
+  EXPECT_EQ(span.begin(), span.end());
+  EXPECT_EQ(expected.end(), span.begin());
+
+  EXPECT_EQ(0u, span.remove_prefix(100));
+}
+
 TEST(Span, ToByteSpan)
 {
   const char expected[] = {56, 44, 11, 5};
@@ -317,6 +348,30 @@ TEST(Span, AsByteSpan)
   );
 }
 
+TEST(Span, AsMutByteSpan)
+{
+  struct some_pod { char value[4]; };
+  some_pod actual {};
+
+  auto span = epee::as_mut_byte_span(actual);
+  boost::range::iota(span, 1);
+  EXPECT_TRUE(
+    boost::range::equal(
+      std::array<unsigned char, 4>{{1, 2, 3, 4}}, actual.value
+    )
+  );
+}
+
+TEST(Span, ToMutSpan)
+{
+  std::vector<unsigned> mut;
+  mut.resize(4);
+
+  auto span = epee::to_mut_span(mut);
+  boost::range::iota(span, 1);
+  EXPECT_EQ((std::vector<unsigned>{1, 2, 3, 4}), mut);
+}
+
 TEST(ToHex, String)
 {
   EXPECT_TRUE(epee::to_hex::string(nullptr).empty());
@@ -329,6 +384,7 @@ TEST(ToHex, String)
   EXPECT_EQ(
     std_to_hex(all_bytes), epee::to_hex::string(epee::to_span(all_bytes))
   );
+
 }
 
 TEST(ToHex, Array)
@@ -647,4 +703,35 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_FALSE(loopback.is_same_host(address1));
   EXPECT_THROW(address1.as<epee::net_utils::ipv4_network_address>(), std::bad_cast);
   EXPECT_NO_THROW(address1.as<custom_address>());
+}
+
+static bool is_local(const char *s)
+{
+  uint32_t ip;
+  CHECK_AND_ASSERT_THROW_MES(epee::string_tools::get_ip_int32_from_string(ip, s), std::string("Invalid IP address: ") + s);
+  return epee::net_utils::is_ip_local(ip);
+}
+
+TEST(NetUtils, PrivateRanges)
+{
+  ASSERT_EQ(is_local("10.0.0.0"), true);
+  ASSERT_EQ(is_local("10.255.0.0"), true);
+  ASSERT_EQ(is_local("127.0.0.0"), false); // loopback is not considered local
+  ASSERT_EQ(is_local("192.167.255.255"), false);
+  ASSERT_EQ(is_local("192.168.0.0"), true);
+  ASSERT_EQ(is_local("192.168.255.255"), true);
+  ASSERT_EQ(is_local("192.169.0.0"), false);
+  ASSERT_EQ(is_local("172.0.0.0"), false);
+  ASSERT_EQ(is_local("172.15.255.255"), false);
+  ASSERT_EQ(is_local("172.16.0.0"), true);
+  ASSERT_EQ(is_local("172.16.255.255"), true);
+  ASSERT_EQ(is_local("172.31.255.255"), true);
+  ASSERT_EQ(is_local("172.32.0.0"), false);
+  ASSERT_EQ(is_local("0.0.0.0"), false);
+  ASSERT_EQ(is_local("255.255.255.254"), false);
+  ASSERT_EQ(is_local("11.255.255.255"), false);
+  ASSERT_EQ(is_local("0.0.0.10"), false);
+  ASSERT_EQ(is_local("0.0.168.192"), false);
+  ASSERT_EQ(is_local("0.0.30.172"), false);
+  ASSERT_EQ(is_local("0.0.30.127"), false);
 }

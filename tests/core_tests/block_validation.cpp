@@ -40,24 +40,24 @@ namespace
                           std::vector<difficulty_type>& cummulative_difficulties, test_generator& generator,
                           size_t new_block_count, const block &blk_last, const account_base& miner_account)
   {
-    difficulty_type commulative_diffic = cummulative_difficulties.empty() ? 0 : cummulative_difficulties.back();
+    difficulty_type cummulative_diffic = cummulative_difficulties.empty() ? 0 : cummulative_difficulties.back();
     block blk_prev = blk_last;
     for (size_t i = 0; i < new_block_count; ++i)
     {
       block blk_next;
-      difficulty_type diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2);
+      difficulty_type diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2, false /*use_old_lwma*/);
       if (!generator.construct_block_manually(blk_next, blk_prev, miner_account,
         test_generator::bf_timestamp | test_generator::bf_diffic, 0, 0, blk_prev.timestamp, crypto::hash(), diffic))
         return false;
 
-      commulative_diffic += diffic;
+      cummulative_diffic += diffic;
       if (timestamps.size() == DIFFICULTY_WINDOW_V2)
       {
         timestamps.erase(timestamps.begin());
         cummulative_difficulties.erase(cummulative_difficulties.begin());
       }
       timestamps.push_back(blk_next.timestamp);
-      cummulative_difficulties.push_back(commulative_diffic);
+      cummulative_difficulties.push_back(cummulative_diffic);
 
       events.push_back(blk_next);
       blk_prev = blk_next;
@@ -170,12 +170,12 @@ bool gen_block_invalid_nonce::generate(std::vector<test_event_entry>& events) co
   BLOCK_VALIDATION_INIT_GENERATE();
 
   std::vector<uint64_t> timestamps;
-  std::vector<difficulty_type> commulative_difficulties;
-  if (!lift_up_difficulty(events, timestamps, commulative_difficulties, generator, 4, blk_0, miner_account))
+  std::vector<difficulty_type> cummulative_difficulties;
+  if (!lift_up_difficulty(events, timestamps, cummulative_difficulties, generator, 4, blk_0, miner_account))
     return false;
 
   // Create invalid nonce
-  difficulty_type diffic = next_difficulty_v2(timestamps, commulative_difficulties,DIFFICULTY_TARGET_V2);
+  difficulty_type diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2, false /*use_old_lwma*/);
   assert(1 < diffic);
   const block& blk_last = boost::get<block>(events.back());
   uint64_t timestamp = blk_last.timestamp;
@@ -329,11 +329,12 @@ bool gen_block_miner_tx_has_2_tx_gen_in::generate(std::vector<test_event_entry>&
 bool gen_block_miner_tx_has_2_in::generate(std::vector<test_event_entry>& events) const
 {
   BLOCK_VALIDATION_INIT_GENERATE();
-  REWIND_BLOCKS(events, blk_0r, blk_0, miner_account);
+  REWIND_BLOCKS_N(events, blk_0a, blk_0, miner_account, 10);
+  REWIND_BLOCKS(events, blk_0r, blk_0a, miner_account);
 
   transaction tmp_tx;
 
-  if (!construct_tx_to_key(events, tmp_tx, blk_0r, miner_account, miner_account, blk_0.miner_tx.vout[0].amount))
+  if (!TxBuilder(events, tmp_tx, blk_0r, miner_account, miner_account, blk_0.miner_tx.vout[0].amount).build())
     return false;
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0r);
@@ -360,7 +361,7 @@ bool gen_block_miner_tx_with_txin_to_key::generate(std::vector<test_event_entry>
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 
   transaction tmp_tx;
-  if (!construct_tx_to_key(events, tmp_tx, blk_1r, miner_account, miner_account, blk_1.miner_tx.vout[0].amount))
+  if (!TxBuilder(events, tmp_tx, blk_1r, miner_account, miner_account, blk_1.miner_tx.vout[0].amount).build())
     return false;
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_1);
@@ -407,6 +408,72 @@ bool gen_block_miner_tx_has_no_out::generate(std::vector<test_event_entry>& even
 
   return true;
 }
+
+static bool construct_miner_tx_with_extra_output(cryptonote::transaction& tx,
+                                                 const cryptonote::account_public_address& miner_address,
+                                                 size_t height,
+                                                 uint64_t already_generated_coins,
+                                                 const cryptonote::account_public_address& extra_address)
+{
+    keypair txkey = keypair::generate(hw::get_device("default"));
+    add_tx_pub_key_to_extra(tx, txkey.pub);
+
+    keypair gov_key = get_deterministic_keypair_from_height(height);
+    if (already_generated_coins != 0) {
+        add_tx_pub_key_to_extra(tx, gov_key.pub);
+    }
+
+    txin_gen in;
+    in.height = height;
+    tx.vin.push_back(in);
+
+    // This will work, until size of constructed block is less then CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE
+    const int hard_fork_version = 7; // NOTE(loki): We know this test doesn't need the new block reward formula
+    uint64_t block_reward;
+    if (!get_base_block_reward(0, 0, already_generated_coins, block_reward, 1, 0)) {
+        LOG_PRINT_L0("Block is too big");
+        return false;
+    }
+
+    uint64_t governance_reward = 0;
+    if (already_generated_coins != 0) {
+        governance_reward = governance_reward_formula(block_reward);
+        block_reward -= governance_reward;
+    }
+
+    tx.version = 1;
+    tx.unlock_time = height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
+
+    /// half of the miner reward goes to the other account 
+    const auto miner_reward = block_reward / 2;
+
+    /// miner reward
+    tx.vout.push_back({miner_reward, get_output_key(txkey, miner_address, 0)});
+
+    /// extra reward
+    tx.vout.push_back({miner_reward, get_output_key(txkey, extra_address, 1)});
+
+    /// governance reward
+    if (already_generated_coins != 0) {
+        const cryptonote::network_type nettype = cryptonote::FAKECHAIN;
+        cryptonote::address_parse_info governance_wallet_address;
+        cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype, hard_fork_version).GOVERNANCE_WALLET_ADDRESS);
+
+        crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
+
+        if (!get_deterministic_output_key(
+              governance_wallet_address.address, gov_key, tx.vout.size(), out_eph_public_key)) {
+            MERROR("Failed to generate deterministic output key for governance wallet output creation");
+            return false;
+        }
+
+        tx.vout.push_back({governance_reward, out_eph_public_key});
+        tx.output_unlock_times.push_back(height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+    }
+
+    return true;
+}
+
 
 bool gen_block_miner_tx_has_out_to_alice::generate(std::vector<test_event_entry>& events) const
 {
@@ -521,7 +588,7 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   do
   {
     blk_last = boost::get<block>(events.back());
-    diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2);
+    diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2, false /*use_old_lwma*/);
     if (!lift_up_difficulty(events, timestamps, cummulative_difficulties, generator, 1, blk_last, miner_account))
       return false;
     std::cout << "Block #" << events.size() << ", difficulty: " << diffic << std::endl;
@@ -535,11 +602,11 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   block blk_test;
   std::vector<crypto::hash> tx_hashes;
   tx_hashes.push_back(get_transaction_hash(tx_0));
-  size_t txs_size = get_object_blobsize(tx_0);
-  diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2);
+  size_t txs_weight = get_transaction_weight(tx_0);
+  diffic = next_difficulty_v2(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V2, false /*use_old_lwma*/);
   if (!generator.construct_block_manually(blk_test, blk_last, miner_account,
     test_generator::bf_diffic | test_generator::bf_timestamp | test_generator::bf_tx_hashes, 0, 0, blk_last.timestamp,
-    crypto::hash(), diffic, transaction(), tx_hashes, txs_size))
+    crypto::hash(), diffic, transaction(), tx_hashes, txs_weight))
     return false;
 
   blobdata blob = t_serializable_object_to_blob(blk_test);

@@ -33,8 +33,7 @@
 #include <cstddef>
 #include <string>
 #include "device.hpp"
-#include <PCSC/winscard.h>
-#include <PCSC/wintypes.h>
+#include "device_io_hid.hpp"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
 
@@ -84,19 +83,23 @@ namespace hw {
         mutable boost::recursive_mutex   device_locker;
         mutable boost::mutex   command_locker;
 
-        //PCSC management 
-        std::string  full_name;
-        SCARDCONTEXT hContext;
-        SCARDHANDLE  hCard;
-        DWORD        length_send;
-        BYTE         buffer_send[BUFFER_SEND_SIZE];
-        DWORD        length_recv;
-        BYTE         buffer_recv[BUFFER_RECV_SIZE];
-        unsigned int id;
+        //IO
+        hw::io::device_io_hid hw_device;
+        std::string   full_name;        
+        unsigned int  length_send;
+        unsigned char buffer_send[BUFFER_SEND_SIZE];
+        unsigned int  length_recv;
+        unsigned char buffer_recv[BUFFER_RECV_SIZE];
+        unsigned int  sw;
+        unsigned int  id;
         void logCMD(void);
         void logRESP(void);
-        unsigned int  exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
+        unsigned int exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
         void reset_buffer(void);
+        int  set_command_header(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
+        int  set_command_header_noopt(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
+        void send_simple(unsigned char ins, unsigned char p1 = 0x00);
+
 
         // hw running mode
         device_mode mode;
@@ -119,7 +122,7 @@ namespace hw {
         device_ledger(const device_ledger &device) = delete ;
         device_ledger& operator=(const device_ledger &device) = delete;
 
-        explicit operator bool() const override {return this->hContext != 0;}
+        explicit operator bool() const override {return this->connected(); }
 
         bool  reset(void);
 
@@ -133,8 +136,12 @@ namespace hw {
         bool release() override;
         bool connect(void) override;
         bool disconnect() override;
+        bool connected(void) const;
 
-        bool  set_mode(device_mode mode) override;
+        bool set_mode(device_mode mode) override;
+
+        device_type get_type() const override {return device_type::LEDGER;};
+        device_protocol_t device_protocol() const override { return PROTOCOL_PROXY; };
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
@@ -148,7 +155,7 @@ namespace hw {
         /* ======================================================================= */
         bool  get_public_address(cryptonote::account_public_address &pubkey) override;
         bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) override;
-        bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key) override;
+        bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) override;
 
 
         /* ======================================================================= */

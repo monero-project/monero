@@ -33,28 +33,32 @@ set(device_sources
   log.cpp
   )
 
-if(PCSC_FOUND)
-  set(device_sources ${device_sources} device_ledger.cpp)
+if(HIDAPI_FOUND)
+  set(device_sources 
+    ${device_sources} 
+    device_ledger.cpp
+    device_io_hid.cpp
+    )
 endif()
 
 set(device_headers
   device.hpp
+  device_io.hpp
   device_default.hpp
+  device_cold.hpp
   log.hpp
  )
 
-if(PCSC_FOUND)
-  set(device_headers ${device_headers} device_ledger.hpp)
+if(HIDAPI_FOUND)
+  set(device_headers 
+    ${device_headers} 
+    device_ledger.hpp
+    device_io_hid.hpp
+    )
 endif()
 
 set(device_private_headers)
 
-
-if(PER_BLOCK_CHECKPOINT)
-  set(Blocks "blocks")
-else()
-  set(Blocks "")
-endif()
 
 loki_private_headers(device
   ${device_private_headers})
@@ -66,10 +70,10 @@ loki_add_library(device
 
 target_link_libraries(device
   PUBLIC
-    ${PCSC_LIBRARIES}
+    ${HIDAPI_LIBRARIES}
     cncrypto
     ringct_basic
     ${OPENSSL_CRYPTO_LIBRARIES}
+    ${Boost_SERIALIZATION_LIBRARY}
   PRIVATE
-    ${Blocks}
     ${EXTRA_LIBRARIES})
