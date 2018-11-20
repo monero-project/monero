@@ -78,6 +78,7 @@ using namespace epee;
 #include "device_trezor/device_trezor.hpp"
 
 #include "cryptonote_core/service_node_rules.h"
+#include "common/loki_integration_test_hooks.h"
 
 extern "C"
 {
@@ -194,6 +195,11 @@ struct options {
   const command_line::arg_descriptor<std::string> daemon_login = {"daemon-login", tools::wallet2::tr("Specify username[:password] for daemon RPC client"), "", true};
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  const command_line::arg_descriptor<bool> fakenet = {"fakenet", tools::wallet2::tr("For loki integration tests, fakenet"), false};
+#endif
+
   const command_line::arg_descriptor<std::string, false, true, 2> shared_ringdb_dir = {
     "shared-ringdb-dir", tools::wallet2::tr("Set shared ring database path"),
     get_default_ringdb_path(),
@@ -252,7 +258,19 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  if (command_line::get_arg(vm, opts.fakenet))
+  {
+    if (testnet || stagenet)
+    {
+      assert(true); // developer error
+    }
+    nettype = FAKECHAIN;
+  }
+#endif
+
   const uint64_t kdf_rounds = command_line::get_arg(vm, opts.kdf_rounds);
   THROW_WALLET_EXCEPTION_IF(kdf_rounds == 0, tools::error::wallet_internal_error, "KDF rounds must not be 0");
 
@@ -909,6 +927,9 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_login);
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  command_line::add_arg(desc_params, opts.fakenet);
+#endif
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
   command_line::add_arg(desc_params, opts.hw_device);
@@ -12044,6 +12065,8 @@ uint64_t wallet2::get_segregation_fork_height() const
     return TESTNET_SEGREGATION_FORK_HEIGHT;
   if (m_nettype == STAGENET)
     return STAGENET_SEGREGATION_FORK_HEIGHT;
+  if (m_nettype == FAKECHAIN)
+    return SEGREGATION_FORK_HEIGHT;
   THROW_WALLET_EXCEPTION_IF(m_nettype != MAINNET, tools::error::wallet_internal_error, "Invalid network type");
 
   if (m_segregation_height > 0)

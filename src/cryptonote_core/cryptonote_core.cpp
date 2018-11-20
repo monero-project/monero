@@ -423,12 +423,6 @@ namespace cryptonote
   {
     start_time = std::time(nullptr);
 
-    const bool regtest = command_line::get_arg(vm, arg_regtest_on);
-    if (test_options != NULL || regtest)
-    {
-      m_nettype = FAKECHAIN;
-    }
-
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     const std::string arg_integration_test_override_hardforks = command_line::get_arg(vm, arg_integration_test_hardforks_override);
 
@@ -459,6 +453,12 @@ namespace cryptonote
       test_options = &integration_hardfork_override;
     }
 #endif
+
+    const bool regtest = command_line::get_arg(vm, arg_regtest_on);
+    if (test_options != NULL || regtest)
+    {
+      m_nettype = FAKECHAIN;
+    }
 
     bool r = handle_command_line(vm);
     std::string m_config_folder_mempool = m_config_folder;
