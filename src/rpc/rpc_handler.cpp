@@ -26,7 +26,7 @@ namespace rpc
   }
 
   boost::optional<output_distribution_data>
-    RpcHandler::get_output_distribution(core& src, std::uint64_t amount, std::uint64_t from_height, std::uint64_t to_height, bool cumulative)
+    RpcHandler::get_output_distribution(const std::function<bool(uint64_t, uint64_t, uint64_t, uint64_t&, std::vector<uint64_t>&, uint64_t&)> &f, uint64_t amount, uint64_t from_height, uint64_t to_height, bool cumulative)
   {
       static struct D
       {
@@ -43,7 +43,7 @@ namespace rpc
 
       std::vector<std::uint64_t> distribution;
       std::uint64_t start_height, base;
-      if (!src.get_output_distribution(amount, from_height, to_height, start_height, distribution, base))
+      if (!f(amount, from_height, to_height, start_height, distribution, base))
         return boost::none;
 
       if (to_height > 0 && to_height >= from_height)
