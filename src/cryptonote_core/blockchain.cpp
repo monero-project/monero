@@ -3474,11 +3474,10 @@ leave:
 #if defined(PER_BLOCK_CHECKPOINT)
   if (m_db->height() < m_blocks_hash_check.size())
   {
-    auto hash = get_block_hash(bl);
     const auto &expected_hash = m_blocks_hash_check[m_db->height()];
     if (expected_hash != crypto::null_hash)
     {
-      if (memcmp(&hash, &expected_hash, sizeof(hash)) != 0)
+      if (memcmp(&id, &expected_hash, sizeof(hash)) != 0)
       {
         MERROR_VER("Block with id is INVALID: " << id << ", expected " << expected_hash);
         bvc.m_verifivation_failed = true;
