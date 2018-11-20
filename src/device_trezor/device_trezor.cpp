@@ -97,7 +97,14 @@ namespace trezor {
         auto res = get_view_key();
         CHECK_AND_ASSERT_MES(res->watch_key().size() == 32, false, "Trezor returned invalid view key");
 
+        // Trezor does not make use of spendkey of the device API.
+        // Ledger loads encrypted spendkey, Trezor loads null key (never leaves device).
+        // In the test (debugging mode) we need to leave this field intact as it is already set by
+        // the debugging code and need to remain same for the testing purposes.
+#ifndef WITH_TREZOR_DEBUGGING
         spendkey = crypto::null_skey; // not given
+#endif
+
         memcpy(viewkey.data, res->watch_key().data(), 32);
 
         return true;
@@ -362,13 +369,9 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(m_features, "Device state not initialized");  // make sure the caller did not reset features
       const bool nonce_required = init_msg->tsx_data().has_payment_id() && init_msg->tsx_data().payment_id().size() > 0;
 
-      if (nonce_required){
+      if (nonce_required && init_msg->tsx_data().payment_id().size() == 8){
         // Versions 2.0.9 and lower do not support payment ID
-        CHECK_AND_ASSERT_THROW_MES(m_features->has_major_version() && m_features->has_minor_version() && m_features->has_patch_version(), "Invalid Trezor firmware version information");
-        const uint32_t vma = m_features->major_version();
-        const uint32_t vmi = m_features->minor_version();
-        const uint32_t vpa = m_features->patch_version();
-        if (vma < 2 || (vma == 2 && vmi == 0 && vpa <= 9)) {
+        if (get_version() <= pack_version(2, 0, 9)) {
           throw exc::TrezorException("Trezor firmware 2.0.9 and lower does not support transactions with short payment IDs or integrated addresses. Please update.");
         }
       }

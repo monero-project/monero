@@ -42,6 +42,10 @@
 #include "cryptonote_config.h"
 #include "trezor.hpp"
 
+#ifdef WITH_TREZOR_DEBUGGING
+#include "trezor/debug_link.hpp"
+#endif
+
 //automatic lock one more level on device ensuring the current thread is allowed to use it
 #define AUTO_LOCK_CMD() \
   /* lock both mutexes without deadlock*/ \
@@ -56,6 +60,23 @@ namespace trezor {
 
 #ifdef WITH_DEVICE_TREZOR
   class device_trezor_base;
+
+#ifdef WITH_TREZOR_DEBUGGING
+    class trezor_debug_callback {
+    public:
+      trezor_debug_callback()=default;
+      explicit trezor_debug_callback(std::shared_ptr<Transport> & debug_transport);
+
+      void on_button_request();
+      void on_pin_request(epee::wipeable_string &pin);
+      void on_passphrase_request(bool on_device, epee::wipeable_string &passphrase);
+      void on_passphrase_state_request(const std::string &state);
+      void on_disconnect();
+    protected:
+      std::shared_ptr<DebugLink> m_debug_link;
+    };
+
+#endif
 
   /**
    * TREZOR device template with basic functions
@@ -76,6 +97,13 @@ namespace trezor {
       std::shared_ptr<messages::management::Features> m_features;  // features from the last device reset
 
       cryptonote::network_type network_type;
+
+#ifdef WITH_TREZOR_DEBUGGING
+      std::shared_ptr<trezor_debug_callback> m_debug_callback;
+      bool m_debug;
+
+      void setup_debug();
+#endif
 
       //
       // Internal methods
@@ -103,7 +131,7 @@ namespace trezor {
        * @throws UnexpectedMessageException if the response message type is different than expected.
        * Exception contains message type and the message itself.
        */
-      template<class t_message>
+      template<class t_message=google::protobuf::Message>
       std::shared_ptr<t_message>
       client_exchange(const std::shared_ptr<const google::protobuf::Message> &req,
                       const boost::optional<messages::MessageType> & resp_type = boost::none,
@@ -229,6 +257,12 @@ namespace trezor {
       return m_features;
     }
 
+    uint64_t get_version() const {
+      CHECK_AND_ASSERT_THROW_MES(m_features, "Features not loaded");
+      CHECK_AND_ASSERT_THROW_MES(m_features->has_major_version() && m_features->has_minor_version() && m_features->has_patch_version(), "Invalid Trezor firmware version information");
+      return pack_version(m_features->major_version(), m_features->minor_version(), m_features->patch_version());
+    }
+
     void set_derivation_path(const std::string &deriv_path) override;
 
     /* ======================================================================= */
@@ -268,6 +302,23 @@ namespace trezor {
     void on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg);
     void on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg);
     void on_passphrase_state_request(GenericMessage & resp, const messages::common::PassphraseStateRequest * msg);
+
+#ifdef WITH_TREZOR_DEBUGGING
+    void set_debug(bool debug){
+      m_debug = debug;
+    }
+
+    void set_debug_callback(std::shared_ptr<trezor_debug_callback> & debug_callback){
+      m_debug_callback = debug_callback;
+    }
+
+    void wipe_device();
+    void init_device();
+    void load_device(const std::string & mnemonic, const std::string & pin="", bool passphrase_protection=false,
+        const std::string & label="test", const std::string & language="english",
+        bool skip_checksum=false, bool expand=false);
+
+#endif
   };
 
 #endif

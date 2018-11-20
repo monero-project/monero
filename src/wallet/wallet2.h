@@ -67,6 +67,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
 class Serialization_portability_wallet_Test;
+class wallet_accessor_test;
 
 namespace tools
 {
@@ -171,6 +172,7 @@ namespace tools
   class wallet2
   {
     friend class ::Serialization_portability_wallet_Test;
+    friend class ::wallet_accessor_test;
     friend class wallet_keys_unlocker;
     friend class wallet_device_callback;
   public:

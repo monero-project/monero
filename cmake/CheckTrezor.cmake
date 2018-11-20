@@ -1,6 +1,8 @@
 OPTION(USE_DEVICE_TREZOR "Trezor support compilation" ON)
 OPTION(USE_DEVICE_TREZOR_LIBUSB "Trezor LibUSB compilation" ON)
 OPTION(USE_DEVICE_TREZOR_UDP_RELEASE "Trezor UdpTransport in release mode" OFF)
+OPTION(USE_DEVICE_TREZOR_DEBUG "Trezor Debugging enabled" OFF)
+OPTION(TREZOR_DEBUG "Main trezor debugging switch" OFF)
 
 # Helper function to fix cmake < 3.6.0 FindProtobuf variables
 function(_trezor_protobuf_fix_vars)
@@ -53,6 +55,14 @@ if (USE_DEVICE_TREZOR)
         set(Protobuf_FOUND 1)  # override found if all rquired info was provided by variables
     endif()
 
+    if(TREZOR_DEBUG)
+        set(USE_DEVICE_TREZOR_DEBUG 1)
+    endif()
+
+    # Compile debugging support (for tests)
+    if (USE_DEVICE_TREZOR_DEBUG)
+        add_definitions(-DWITH_TREZOR_DEBUGGING=1)
+    endif()
 else()
     message(STATUS "Trezor support disabled by USE_DEVICE_TREZOR")
 endif()
@@ -106,7 +116,12 @@ endif()
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON AND Protobuf_COMPILE_TEST_PASSED)
     set(ENV{PROTOBUF_INCLUDE_DIRS} "${Protobuf_INCLUDE_DIR}")
     set(ENV{PROTOBUF_PROTOC_EXECUTABLE} "${Protobuf_PROTOC_EXECUTABLE}")
-    execute_process(COMMAND ${TREZOR_PYTHON} tools/build_protob.py WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../src/device_trezor/trezor RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
+    set(TREZOR_PROTOBUF_PARAMS "")
+    if (USE_DEVICE_TREZOR_DEBUG)
+        set(TREZOR_PROTOBUF_PARAMS "--debug")
+    endif()
+    
+    execute_process(COMMAND ${TREZOR_PYTHON} tools/build_protob.py ${TREZOR_PROTOBUF_PARAMS} WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../src/device_trezor/trezor RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(RET)
         message(WARNING "Trezor protobuf messages could not be regenerated (err=${RET}, python ${PYTHON})."
                 "OUT: ${OUT}, ERR: ${ERR}."
