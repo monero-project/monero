@@ -2582,11 +2582,13 @@ std::vector<crypto::hash> BlockchainLMDB::get_hashes_range(const uint64_t& h1, c
   return v;
 }
 
-crypto::hash BlockchainLMDB::top_block_hash() const
+crypto::hash BlockchainLMDB::top_block_hash(uint64_t *block_height) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   uint64_t m_height = height();
+  if (block_height)
+    *block_height = m_height - 1;
   if (m_height != 0)
   {
     return get_block_hash_from_height(m_height - 1);
