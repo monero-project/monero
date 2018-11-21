@@ -973,9 +973,13 @@ namespace cryptonote
       const size_t weight = get_transaction_weight(results[i].tx, it->size());
       ok &= add_new_tx(results[i].tx, results[i].hash, results[i].prefix_hash, weight, tvc[i], keeped_by_block, relayed, do_not_relay);
       if(tvc[i].m_verifivation_failed)
-      {MERROR_VER("Transaction verification failed: " << results[i].hash);}
+      {
+        MERROR_VER("Transaction verification failed: " << results[i].hash);
+      }
       else if(tvc[i].m_verifivation_impossible)
-      {MERROR_VER("Transaction verification impossible: " << results[i].hash);}
+      {
+        MERROR_VER("Transaction verification impossible: " << results[i].hash);
+      }
 
       if(tvc[i].m_added_to_pool)
         MDEBUG("tx added: " << results[i].hash);
