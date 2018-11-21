@@ -334,7 +334,7 @@ bool gen_block_miner_tx_has_2_in::generate(std::vector<test_event_entry>& events
 
   transaction tmp_tx;
 
-  if (!TxBuilder(events, tmp_tx, blk_0r, miner_account, miner_account, blk_0.miner_tx.vout[0].amount).build())
+  if (!TxBuilder(events, tmp_tx, blk_0r, miner_account, miner_account, blk_0.miner_tx.vout[0].amount, cryptonote::network_version_7).build())
     return false;
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_0r);
@@ -361,7 +361,7 @@ bool gen_block_miner_tx_with_txin_to_key::generate(std::vector<test_event_entry>
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 
   transaction tmp_tx;
-  if (!TxBuilder(events, tmp_tx, blk_1r, miner_account, miner_account, blk_1.miner_tx.vout[0].amount).build())
+  if (!TxBuilder(events, tmp_tx, blk_1r, miner_account, miner_account, blk_1.miner_tx.vout[0].amount, cryptonote::network_version_7).build())
     return false;
 
   MAKE_MINER_TX_MANUALLY(miner_tx, blk_1);

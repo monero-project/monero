@@ -103,16 +103,16 @@ gen_simple_chain_001::gen_simple_chain_001()
   REGISTER_CALLBACK("verify_callback_2", gen_simple_chain_001::verify_callback_2);
 }
 
-void make_rct_tx(eventV& events,
-                 std::vector<cryptonote::transaction>& txs,
-                 const cryptonote::block& blk_head,
-                 const cryptonote::account_base& from,
-                 const cryptonote::account_base& to,
-                 uint64_t amount)
+static void make_rct_tx(eventV& events,
+                        std::vector<cryptonote::transaction>& txs,
+                        const cryptonote::block& blk_head,
+                        const cryptonote::account_base& from,
+                        const cryptonote::account_base& to,
+                        uint64_t amount)
 {
     txs.emplace_back();
 
-    bool success = TxBuilder(events, txs.back(), blk_head, from, to, amount).build();
+    bool success = TxBuilder(events, txs.back(), blk_head, from, to, amount, cryptonote::network_version_7).build();
     /// TODO: beter error message
     if (!success) throw std::exception();
     events.push_back(txs.back());
