@@ -7691,14 +7691,14 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         pd.m_timestamp,
         pd.m_type,
         true, // confirmed
-        m_wallet->is_tx_spendtime_unlocked(pd.m_unlock_time, pd.m_block_height),
         pd.m_amount,
         pd.m_tx_hash,
         payment_id,
         0,
         {{destination, pd.m_amount, pd.m_unlock_time}},
         {pd.m_subaddr_index.minor},
-        note
+        note,
+        m_wallet->is_tx_spendtime_unlocked(pd.m_unlock_time, pd.m_block_height),
       });
     }
   }
@@ -7750,14 +7750,14 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         pd.m_timestamp,
         type,
         true, // confirmed
-        !locked,
         pd.m_amount_in - change - fee,
         i->first,
         payment_id,
         fee,
         destinations,
         pd.m_subaddr_indices,
-        note
+        note,
+        !locked,
       });
     }
   }
@@ -7777,23 +7777,24 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
           payment_id = payment_id.substr(0,16);
         std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
+        std::string destination = m_wallet->get_subaddress_as_str({m_current_subaddress_account, pd.m_subaddr_index.minor});
         std::string double_spend_note;
         if (i->second.m_double_spend_seen)
           double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
 
         transfers.push_back({
-          tr("pool"),
+          "pool",
           pd.m_timestamp,
           tools::pay_type::in,
           false, // confirmed
-          false, // unlocked
           pd.m_amount,
           pd.m_tx_hash,
           payment_id,
           0,
-          {{"-", pd.m_amount}},
+          {{destination, pd.m_amount}},
           {pd.m_subaddr_index.minor},
-          note + double_spend_note
+          note + double_spend_note,
+          false, // unlocked
         });
       }
     }
@@ -7828,18 +7829,18 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
       if ((failed && is_failed) || (!is_failed && pending)) {
         transfers.push_back({
-          (is_failed ? tr("failed") : tr("pending")),
+          (is_failed ? "failed" : "pending"),
           pd.m_timestamp,
           tools::pay_type::out,
           false, // confirmed
-          false, // unlocked
           amount - pd.m_change - fee,
           i->first,
           payment_id,
           fee,
           destinations,
           pd.m_subaddr_indices,
-          note
+          note,
+          false, // unlocked
         });
       }
     }
@@ -7916,10 +7917,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     
     auto formatter = boost::format("%8.8llu %6.6s %8.8s %16.16s %20.20s %s %s %14.14s %s %s - %s");
 
-    char const UNLOCKED[] = "unlocked";
-    char const LOCKED[]   = "locked";
-    char const *lock_str = (transfer.unlocked) ? UNLOCKED : LOCKED;
-
+    char const *lock_str = (transfer.unlocked) ? "unlocked" : "locked";
     message_writer(color, false) << formatter
       % transfer.block
       % tools::pay_type_string(transfer.type)

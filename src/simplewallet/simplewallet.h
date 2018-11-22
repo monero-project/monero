@@ -263,7 +263,6 @@ namespace cryptonote
       uint64_t timestamp;
       tools::pay_type type;
       bool confirmed;
-      bool unlocked;
       uint64_t amount;
       crypto::hash hash;
       std::string payment_id;
@@ -271,6 +270,7 @@ namespace cryptonote
       std::vector<dest_output> outputs;
       std::set<uint32_t> index;
       std::string note;
+      bool unlocked;
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
 
