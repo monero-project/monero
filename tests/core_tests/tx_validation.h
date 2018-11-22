@@ -114,17 +114,17 @@ struct gen_tx_input_wo_key_offsets : public get_tx_validation_base
   bool generate(std::vector<test_event_entry>& events) const;
 };
 
-struct gen_tx_key_offest_points_to_foreign_key : public get_tx_validation_base
+struct gen_tx_key_offset_points_to_foreign_key : public get_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
 
-struct gen_tx_sender_key_offest_not_exist : public get_tx_validation_base
+struct gen_tx_sender_key_offset_not_exist : public get_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
 
-struct gen_tx_mixed_key_offest_not_exist : public get_tx_validation_base
+struct gen_tx_mixed_key_offset_not_exist : public get_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
