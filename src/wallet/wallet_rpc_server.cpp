@@ -985,7 +985,11 @@ namespace tools
     {
       res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
       if (req.get_tx_keys)
+      {
         res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+        for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
+          res.tx_key_list.back() += epee::string_tools::pod_to_hex(additional_tx_key);
+      }
     }
 
     if (req.export_raw)
@@ -1745,11 +1749,42 @@ namespace tools
       if (req.key_type.compare("mnemonic") == 0)
       {
         epee::wipeable_string seed;
-        if (!m_wallet->get_seed(seed))
+        bool ready;
+        if (m_wallet->multisig(&ready))
         {
+          if (!ready)
+          {
+            er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG;
+            er.message = "This wallet is multisig, but not yet finalized";
+            return false;
+          }
+          if (!m_wallet->get_multisig_seed(seed))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to get multisig seed.";
+            return false;
+          }
+        }
+        else
+        {
+          if (m_wallet->watch_only())
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WATCH_ONLY;
+            er.message = "The wallet is watch-only. Cannot display seed.";
+            return false;
+          }
+          if (!m_wallet->is_deterministic())
+          {
             er.code = WALLET_RPC_ERROR_CODE_NON_DETERMINISTIC;
             er.message = "The wallet is non-deterministic. Cannot display seed.";
             return false;
+          }
+          if (!m_wallet->get_seed(seed))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "Failed to get seed.";
+            return false;
+          }
         }
         res.key = std::string(seed.data(), seed.size()); // send to the network, then wipe RAM :D
       }

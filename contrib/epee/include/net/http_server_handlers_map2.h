@@ -39,7 +39,7 @@
               epee::net_utils::http::http_response_info& response, \
               context_type& m_conn_context) \
 {\
-  LOG_PRINT_L2("HTTP [" << m_conn_context.m_remote_address.host_str() << "] " << query_info.m_http_method_str << " " << query_info.m_URI); \
+  MINFO("HTTP [" << m_conn_context.m_remote_address.host_str() << "] " << query_info.m_http_method_str << " " << query_info.m_URI); \
   response.m_response_code = 200; \
   response.m_response_comment = "Ok"; \
   if(!handle_http_request_map(query_info, response, m_conn_context)) \
@@ -68,6 +68,7 @@
       CHECK_AND_ASSERT_MES(parse_res, false, "Failed to parse json: \r\n" << query_info.m_body); \
       uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
       boost::value_initialized<command_type::response> resp;\
+      MINFO(m_conn_context << "calling " << s_pattern); \
       if(!callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp))) \
       { \
         LOG_ERROR("Failed to " << #callback_f << "()"); \
@@ -95,6 +96,7 @@
       CHECK_AND_ASSERT_MES(parse_res, false, "Failed to parse bin body data, body size=" << query_info.m_body.size()); \
       uint64_t ticks1 = misc_utils::get_tick_count(); \
       boost::value_initialized<command_type::response> resp;\
+      MINFO(m_conn_context << "calling " << s_pattern); \
       if(!callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp))) \
       { \
         LOG_ERROR("Failed to " << #callback_f << "()"); \
@@ -179,6 +181,7 @@
   epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
   fail_resp.jsonrpc = "2.0"; \
   fail_resp.id = req.id; \
+  MINFO(m_conn_context << "Calling RPC method " << method_name); \
   if(!callback_f(req.params, resp.result, fail_resp.error)) \
   { \
     epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
@@ -197,6 +200,7 @@
   epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \
   fail_resp.jsonrpc = "2.0"; \
   fail_resp.id = req.id; \
+  MINFO(m_conn_context << "calling RPC method " << method_name); \
   if(!callback_f(req.params, resp.result, fail_resp.error, m_conn_context, response_info)) \
   { \
     epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
@@ -210,6 +214,7 @@
     else if(callback_name == method_name) \
 { \
   PREPARE_OBJECTS_FROM_JSON(command_type) \
+  MINFO(m_conn_context << "calling RPC method " << method_name); \
   if(!callback_f(req.params, resp.result)) \
   { \
     epee::json_rpc::error_response fail_resp = AUTO_VAL_INIT(fail_resp); \

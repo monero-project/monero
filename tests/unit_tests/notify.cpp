@@ -49,7 +49,8 @@ TEST(notify, works)
     tmp = "/tmp";
   static const char *filename = "monero-notify-unit-test-XXXXXX";
   const size_t len = strlen(tmp) + 1 + strlen(filename);
-  char *name_template = (char*)malloc(len + 1);
+  std::unique_ptr<char[]> name_template_((char*)malloc(len + 1));
+  char *name_template = name_template_.get();
   ASSERT_TRUE(name_template != NULL);
   snprintf(name_template, len + 1, "%s/%s", tmp, filename);
   int fd = mkstemp(name_template);
@@ -75,5 +76,4 @@ TEST(notify, works)
   ASSERT_TRUE(s == "1111111111111111111111111111111111111111111111111111111111111111");
 
   boost::filesystem::remove(name_template);
-  free(name_template);
 }

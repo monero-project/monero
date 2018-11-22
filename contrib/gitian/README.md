@@ -17,19 +17,6 @@ More independent Gitian builders are needed, which is why this guide exists.
 It is preferred you follow these steps yourself instead of using someone else's
 VM image to avoid 'contaminating' the build.
 
-Table of Contents
-------------------
-
-Please note that these instructions have been forked from bitcoin's gitian build
-instructions. Please also consult their documentation, when running into problems.
-The signing is left as inherited from bitcoin at the moment.
-
-- [Preparing the Gitian builder host](#preparing-the-gitian-builder-host)
-- [Getting and building the inputs](#getting-and-building-the-inputs)
-- [Building Binaries](#building-bitcoin-core)
-- [Signing externally](#signing-externally)
-- [Uploading signatures](#uploading-signatures)
-
 Preparing the Gitian builder host
 ---------------------------------
 
@@ -93,10 +80,10 @@ cp loki/contrib/gitian/gitian-build.py .
 Setup the required environment, you only need to do this once:
 
 ```
-./gitian-build.py --setup loki-user 1.0.4
+./gitian-build.py --setup loki-user x.x.x
 ```
 
-Where `loki-user` is your Github name and `1.0.4` is the version tag you want to build (without `v`).
+Where `loki-user` is your Github name and `x.x.x` is the version tag you want to build.
 
 While gitian and this build script does provide a way for you to sign the build directly, it is recommended to sign in a seperate step. 
 This script is only there for convenience. Seperate steps for building can still be taken.
@@ -113,7 +100,7 @@ Build Binaries
 -----------------------------
 To build the most recent tag:
 
- `./gitian-build.py --detach-sign --no-commit -b loki-user 1.0.4`
+ `./gitian-build.py --detach-sign --no-commit -b loki-user 2.0.0`
 
 To speed up the build, use `-j 5 -m 5000` as the first arguments, where `5` is the number of CPU's you allocated to the VM plus one, and 5000 is a little bit less than then the MB's of RAM you allocated. If there is memory corruption on your machine, try to tweak these values.
 
@@ -123,7 +110,7 @@ If you do detached, offline signing, you need to copy these uncommited changes t
 
 ```
 export NAME=loki-user
-export VERSION=1.0.4
+export VERSION=2.0.0
 gpg --output $VERSION-linux/$NAME/loki-linux-$VERSION-build.assert.sig --detach-sign $VERSION-linux/$NAME/loki-linux-$VERSION-build.assert
 gpg --output $VERSION-osx-unsigned/$NAME/loki-osx-$VERSION-build.assert.sig --detach-sign $VERSION-osx-unsigned/$NAME/loki-osx-$VERSION-build.assert
 gpg --output $VERSION-win-unsigned/$NAME/loki-win-$VERSION-build.assert.sig --detach-sign $VERSION-win-unsigned/$NAME/loki-win-$VERSION-build.assert
@@ -133,9 +120,9 @@ Make a pull request (both the `.assert` and `.assert.sig` files) to the
 [loki-project/gitian.sigs](https://github.com/loki-project/gitian.sigs/) repository:
 
 ```
-git checkout -b 1.0.4
-git commit -S -a -m "Add $NAME 1.0.4"
-git push --set-upstream $NAME 1.0.4
+git checkout -b 2.0.0
+git commit -S -a -m "Add $NAME 2.0.0"
+git push --set-upstream $NAME 2.0.0
 ```
 
 ```bash

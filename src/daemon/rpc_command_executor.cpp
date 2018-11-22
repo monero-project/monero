@@ -588,8 +588,8 @@ bool t_rpc_command_executor::print_blockchain_info(uint64_t start_block_index, u
   for (auto & header : res.headers)
   {
     if (!first)
-      std::cout << std::endl;
-    std::cout
+      tools::msg_writer() << "" << std::endl;
+    tools::msg_writer()
       << "height: " << header.height << ", timestamp: " << header.timestamp
       << ", size: " << header.block_size << ", weight: " << header.block_weight << ", transactions: " << header.num_txes << std::endl
       << "major version: " << (unsigned)header.major_version << ", minor version: " << (unsigned)header.minor_version << std::endl
@@ -1378,7 +1378,7 @@ bool t_rpc_command_executor::out_peers(uint64_t limit)
 		}
 	}
 
-	std::cout << "Max number of out peers set to " << limit << std::endl;
+	tools::msg_writer() << "Max number of out peers set to " << limit << std::endl;
 
 	return true;
 }
@@ -1410,7 +1410,7 @@ bool t_rpc_command_executor::in_peers(uint64_t limit)
 		}
 	}
 
-	std::cout << "Max number of in peers set to " << limit << std::endl;
+	tools::msg_writer() << "Max number of in peers set to " << limit << std::endl;
 
 	return true;
 }
