@@ -121,7 +121,7 @@ public:
   virtual bool get_service_node_data(std::string& data) { return false; }
   virtual void clear_service_node_data() {}
 
-  virtual void add_txpool_tx(const transaction &tx, const txpool_tx_meta_t& details) {}
+  virtual void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t& details) {}
   virtual void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t& details) {}
   virtual uint64_t get_txpool_tx_count(bool include_unrelayed_txes = true) const { return 0; }
   virtual bool txpool_has_tx(const crypto::hash &txid) const { return false; }
