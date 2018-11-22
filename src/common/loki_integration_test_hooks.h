@@ -102,13 +102,15 @@ void loki::init_integration_test_context(shared_mem_type type)
 uint32_t const MSG_MAGIC_BYTES = 0x7428da3f;
 static void make_message(char *msg_buf, int msg_buf_len, char const *msg_data, int msg_data_len)
 {
-  uint64_t timestamp = time(nullptr);
-  int total_len      = static_cast<int>(sizeof(timestamp) + sizeof(MSG_MAGIC_BYTES) + msg_data_len);
+  static int32_t cmd_index = 0;
+  cmd_index++;
+
+  int total_len             = static_cast<int>(sizeof(cmd_index) + sizeof(MSG_MAGIC_BYTES) + msg_data_len);
   assert(total_len < msg_buf_len);
 
   char *ptr = msg_buf;
-  memcpy(ptr, &timestamp, sizeof(timestamp));
-  ptr += sizeof(timestamp);
+  memcpy(ptr, &cmd_index, sizeof(cmd_index));
+  ptr += sizeof(cmd_index);
 
   memcpy(ptr, (char *)&MSG_MAGIC_BYTES, sizeof(MSG_MAGIC_BYTES));
   ptr += sizeof(MSG_MAGIC_BYTES);
@@ -119,11 +121,11 @@ static void make_message(char *msg_buf, int msg_buf_len, char const *msg_data, i
   msg_buf[total_len] = 0;
 }
 
-static char const *parse_message(char const *msg_buf, int msg_buf_len, uint64_t *timestamp)
+static char const *parse_message(char const *msg_buf, int msg_buf_len, uint32_t *cmd_index)
 {
   char const *ptr = msg_buf;
-  *timestamp = *((uint64_t const *)ptr);
-  ptr += sizeof(*timestamp);
+  *cmd_index = *((decltype(cmd_index))ptr);
+  ptr += sizeof(*cmd_index);
 
   if ((*(uint32_t const *)ptr) != MSG_MAGIC_BYTES)
     return nullptr;
@@ -145,16 +147,14 @@ static shoom::Shm *get_shared_mem(loki::shared_mem_type type, stdin_or_out in_ou
   else
     result = (in_out == stdin_or_out::in) ? &global_daemon_stdin_shared_mem : &global_daemon_stdout_shared_mem;
 
+  assert(result);
   return result;
 }
 
 void loki::write_to_stdout_shared_mem(char const *buf, int buf_len, shared_mem_type type)
 {
   shoom::Shm *shared_mem = get_shared_mem(type, stdin_or_out::out);
-  if (shared_mem)
-  {
-    make_message(reinterpret_cast<char *>(shared_mem->Data()), shared_mem->Size(), buf, buf_len);
-  }
+  make_message(reinterpret_cast<char *>(shared_mem->Data()), shared_mem->Size(), buf, buf_len);
 }
 
 void loki::write_to_stdout_shared_mem(std::string const &input, shared_mem_type type)
@@ -164,32 +164,32 @@ void loki::write_to_stdout_shared_mem(std::string const &input, shared_mem_type 
 
 loki::fixed_buffer loki::read_from_stdin_shared_mem(shared_mem_type type)
 {
-  uint64_t timestamp       = 0;
-  uint64_t *last_timestamp = nullptr;
-  char const *input        = nullptr;
-
-  static uint64_t wallet_last_timestamp = 0;
-  static uint64_t daemon_last_timestamp = 0;
+  static uint32_t wallet_last_cmd_index = 0;
+  static uint32_t daemon_last_cmd_index = 0;
+  uint32_t *last_cmd_index = nullptr;
+  char const *input       = nullptr;
 
   if (type == shared_mem_type::default_type)
     type = global_default_type;
 
   shoom::Shm *shared_mem = get_shared_mem(type, stdin_or_out::in);
-  if (type == shared_mem_type::wallet) last_timestamp = &wallet_last_timestamp;
-  else                                 last_timestamp = &daemon_last_timestamp;
+  if (type == shared_mem_type::wallet) last_cmd_index = &wallet_last_cmd_index;
+  else                                 last_cmd_index = &daemon_last_cmd_index;
 
   for (;;)
   {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     shared_mem->Open();
-    char const *data = reinterpret_cast<char const *>(shared_mem->Data());
-    input = parse_message(data, shared_mem->Size(), &timestamp);
 
-    if (input && (*last_timestamp) != timestamp)
+    char const *data   = reinterpret_cast<char const *>(shared_mem->Data());
+    uint32_t cmd_index = 0;
+    input              = parse_message(data, shared_mem->Size(), &cmd_index);
+
+    if (input && *last_cmd_index < cmd_index)
     {
-      *last_timestamp = timestamp;
+      *last_cmd_index = cmd_index;
       break;
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   fixed_buffer result = {};
