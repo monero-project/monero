@@ -388,7 +388,7 @@ public:
     log_event("cryptonote::block");
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
-    m_c.handle_incoming_block(t_serializable_object_to_blob(b), bvc);
+    m_c.handle_incoming_block(t_serializable_object_to_blob(b), &b, bvc);
     bool r = check_block_verification_context(bvc, m_ev_index, b, m_validator);
     CHECK_AND_NO_ASSERT_MES(r, false, "block verification context check failed");
     return r;
@@ -411,7 +411,7 @@ public:
     log_event("serialized_block");
 
     cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
-    m_c.handle_incoming_block(sr_block.data, bvc);
+    m_c.handle_incoming_block(sr_block.data, NULL, bvc);
 
     cryptonote::block blk;
     std::stringstream ss;

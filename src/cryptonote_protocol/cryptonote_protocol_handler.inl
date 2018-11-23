@@ -419,7 +419,13 @@ namespace cryptonote
     std::vector<block_complete_entry> blocks;
     blocks.push_back(arg.b);
     std::vector<block> pblocks;
-    m_core.prepare_handle_incoming_blocks(blocks, pblocks);
+    if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
+    {
+      LOG_PRINT_CCONTEXT_L1("Block verification failed: prepare_handle_incoming_blocks failed, dropping connection");
+      drop_connection(context, false, false);
+      m_core.resume_mine();
+      return 1;
+    }
     for(auto tx_blob_it = arg.b.txs.begin(); tx_blob_it!=arg.b.txs.end();tx_blob_it++)
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
@@ -699,7 +705,12 @@ namespace cryptonote
         std::vector<block_complete_entry> blocks;
         blocks.push_back(b);
         std::vector<block> pblocks;
-        m_core.prepare_handle_incoming_blocks(blocks, pblocks);
+        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
+        {
+          LOG_PRINT_CCONTEXT_L0("Failure in prepare_handle_incoming_blocks");
+          m_core.resume_mine();
+          return 1;
+        }
           
         block_verification_context bvc = boost::value_initialized<block_verification_context>();
         m_core.handle_incoming_block(arg.b.block, pblocks.empty() ? NULL : &pblocks[0], bvc); // got block from handle_notify_new_block
@@ -1177,7 +1188,11 @@ namespace cryptonote
           }
 
           std::vector<block> pblocks;
-          m_core.prepare_handle_incoming_blocks(blocks, pblocks);
+          if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
+          {
+            LOG_ERROR_CCONTEXT("Failure in prepare_handle_incoming_blocks");
+            return 1;
+          }
           if (!pblocks.empty() && pblocks.size() != blocks.size())
           {
             m_core.cleanup_handle_incoming_blocks();

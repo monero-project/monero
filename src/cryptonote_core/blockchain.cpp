@@ -3889,11 +3889,9 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc)
+bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  //copy block here to let modify block.target
-  block bl = bl_;
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
@@ -4296,14 +4294,12 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
           if (block.prev_id != tophash)
           {
             MDEBUG("Skipping prepare blocks. New blocks don't belong to chain.");
+            blocks.clear();
             return true;
           }
         }
         if (have_block(get_block_hash(block)))
-        {
           blocks_exist = true;
-          break;
-        }
 
         std::advance(it, 1);
       }
@@ -4317,10 +4313,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         return false;
 
       if (have_block(get_block_hash(block)))
-      {
         blocks_exist = true;
-        break;
-      }
 
       std::advance(it, 1);
     }
@@ -4356,7 +4349,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   if (blocks_exist)
   {
-    MDEBUG("Skipping prepare blocks. Blocks exist.");
+    MDEBUG("Skipping remainder of prepare blocks. Blocks exist.");
     return true;
   }
 
