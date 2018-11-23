@@ -592,7 +592,7 @@ namespace tools
     /*!
      * \brief Finalizes creation of a multisig wallet
      */
-    bool finalize_multisig(const epee::wipeable_string &password, std::unordered_set<crypto::public_key> pkeys, std::vector<crypto::public_key> signers);
+    bool finalize_multisig(const epee::wipeable_string &password, const std::unordered_set<crypto::public_key> &pkeys, std::vector<crypto::public_key> signers);
     /*!
      * Get a packaged multisig information string
      */
@@ -1045,7 +1045,7 @@ namespace tools
      * \param  account_indices  Indices of accounts.
      * \param  tag              Tag's name. If empty, the accounts become untagged.
      */
-    void set_account_tag(const std::set<uint32_t> account_indices, const std::string& tag);
+    void set_account_tag(const std::set<uint32_t> &account_indices, const std::string& tag);
     /*!
      * \brief  Set the label of the given tag.
      * \param  tag            Tag's name (which must be non-empty).

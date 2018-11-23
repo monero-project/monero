@@ -4292,7 +4292,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   return make_multisig(password, secret_keys, public_keys, threshold);
 }
 
-bool wallet2::finalize_multisig(const epee::wipeable_string &password, std::unordered_set<crypto::public_key> pkeys, std::vector<crypto::public_key> signers)
+bool wallet2::finalize_multisig(const epee::wipeable_string &password, const std::unordered_set<crypto::public_key> &pkeys, std::vector<crypto::public_key> signers)
 {
   exchange_multisig_keys(password, pkeys, signers);
   return true;
@@ -10420,7 +10420,7 @@ const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& w
   return m_account_tags;
 }
 
-void wallet2::set_account_tag(const std::set<uint32_t> account_indices, const std::string& tag)
+void wallet2::set_account_tag(const std::set<uint32_t> &account_indices, const std::string& tag)
 {
   for (uint32_t account_index : account_indices)
   {
