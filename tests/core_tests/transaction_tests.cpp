@@ -54,9 +54,6 @@ bool test_transaction_generation_and_ring_signature()
   account_base miner_acc6;
   miner_acc6.generate();
 
-  std::string add_str = miner_acc3.get_public_address_str(MAINNET);
-
-
   account_base rv_acc;
   rv_acc.generate();
   account_base rv_acc2;
