@@ -981,11 +981,15 @@ namespace cryptonote
   {
     if (t.version == 1)
       return false;
+    static const crypto::hash empty_hash = { (char)0x70, (char)0xa4, (char)0x85, (char)0x5d, (char)0x04, (char)0xd8, (char)0xfa, (char)0x7b, (char)0x3b, (char)0x27, (char)0x82, (char)0xca, (char)0x53, (char)0xb6, (char)0x00, (char)0xe5, (char)0xc0, (char)0x03, (char)0xc7, (char)0xdc, (char)0xb2, (char)0x7d, (char)0x7e, (char)0x92, (char)0x3c, (char)0x23, (char)0xf7, (char)0x86, (char)0x01, (char)0x46, (char)0xd2, (char)0xc5 };
     const unsigned int unprunable_size = t.unprunable_size;
     if (blob && unprunable_size)
     {
       CHECK_AND_ASSERT_MES(unprunable_size <= blob->size(), false, "Inconsistent transaction unprunable and blob sizes");
-      cryptonote::get_blob_hash(epee::span<const char>(blob->data() + unprunable_size, blob->size() - unprunable_size), res);
+      if (blob->size() - unprunable_size == 0)
+        res = empty_hash;
+      else
+        cryptonote::get_blob_hash(epee::span<const char>(blob->data() + unprunable_size, blob->size() - unprunable_size), res);
     }
     else
     {
@@ -997,7 +1001,10 @@ namespace cryptonote
       const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
       bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
       CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
-      cryptonote::get_blob_hash(ss.str(), res);
+      if (ss.str().empty())
+        res = empty_hash;
+      else
+        cryptonote::get_blob_hash(ss.str(), res);
     }
     return true;
   }
