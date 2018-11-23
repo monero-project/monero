@@ -352,9 +352,8 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
   if (m_is_rpc) return false;
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  auto handle_shared_mem_ins_and_outs = [this]()
+  auto handle_shared_mem_ins_and_outs = [&]()
   {
-    loki::init_integration_test_context(loki::shared_mem_type::daemon);
     for (;;)
     {
       loki::use_standard_cout();
@@ -382,14 +381,13 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
         }
       }
       loki::use_redirected_cout();
-      this->process_command_vec(args);
+      process_command_vec(args);
       loki::write_redirected_stdout_to_shared_mem();
 
       if (args.size() == 1 && args[0] == "exit")
         break;
     }
   };
-
   static std::thread handle_remote_stdin_out_thread(handle_shared_mem_ins_and_outs);
 #endif
 

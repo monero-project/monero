@@ -37,6 +37,8 @@
 #include "string_tools.h"
 #include "version.h"
 
+#include "common/loki_integration_test_hooks.h"
+
 #if defined(WIN32)
 #include <crtdbg.h>
 #endif
@@ -107,7 +109,6 @@ namespace wallet_args
     const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", wallet_args::tr("Specify log file"), ""};
     const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "", true};
 
-
     std::string lang = i18n_get_language();
     tools::on_startup();
 #ifdef NDEBUG
@@ -128,6 +129,11 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_max_concurrency);
     command_line::add_arg(desc_params, arg_config_file);
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    command_line::add_arg(desc_params, loki::arg_integration_test_shared_mem_stdin);
+    command_line::add_arg(desc_params, loki::arg_integration_test_shared_mem_stdout);
+#endif
+
     i18n_set_language("translations", "loki", lang);
 
     po::options_description desc_all;
@@ -138,6 +144,18 @@ namespace wallet_args
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
       po::store(parser.run(), vm);
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+      {
+        std::string const &arg_shared_mem_stdin  = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdin);
+        std::string const &arg_shared_mem_stdout = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdout);
+        assert(arg_shared_mem_stdin.size() > 0 && arg_shared_mem_stdout.size() > 0);
+        static shoom::Shm stdin_shared_mem (arg_shared_mem_stdin, 8192);
+        static shoom::Shm stdout_shared_mem(arg_shared_mem_stdout, 8192);
+
+        loki::init_integration_test_context(&stdin_shared_mem, &stdout_shared_mem);
+      }
+#endif
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {

@@ -157,7 +157,6 @@ namespace
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
   const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
-
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
   std::string input_line(const std::string& prompt)
@@ -167,8 +166,8 @@ namespace
     loki::use_redirected_cout();
     std::cout << prompt;
 
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
-    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
+    loki::write_redirected_stdout_to_shared_mem();
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     buf.reserve(buffer.len);
     buf = buffer.data;
 #else
@@ -193,8 +192,8 @@ namespace
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     loki::use_redirected_cout();
     std::cout << prompt;
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
-    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::wallet);
+    loki::write_redirected_stdout_to_shared_mem();
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     epee::wipeable_string buf = buffer.data;
 #else
 
@@ -231,7 +230,7 @@ namespace
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     loki::use_redirected_cout();
     std::cout << prompt << ": NOTE(loki): Passwords not supported, defaulting to empty password";
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::wallet);
+    loki::write_redirected_stdout_to_shared_mem();
     tools::password_container pwd_container(std::string(""));
 #else
   #ifdef HAVE_READLINE
@@ -8286,7 +8285,6 @@ bool simple_wallet::run()
   message_writer(console_color_green, false) << "Background refresh thread started";
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context(loki::shared_mem_type::wallet);
   for (;;)
   {
     loki::use_standard_cout();
@@ -9425,10 +9423,6 @@ void simple_wallet::commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
-
-#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-  loki::init_integration_test_context(loki::shared_mem_type::wallet);
-#endif
 
 #ifdef WIN32
   // Activate UTF-8 support for Boost filesystem classes on Windows

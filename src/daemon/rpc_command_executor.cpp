@@ -141,8 +141,8 @@ namespace {
 
     std::string result;
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    loki::write_redirected_stdout_to_shared_mem(loki::shared_mem_type::daemon);
-    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem(loki::shared_mem_type::daemon);
+    loki::write_redirected_stdout_to_shared_mem();
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     result.reserve(buffer.len);
     result = buffer.data;
 #else
