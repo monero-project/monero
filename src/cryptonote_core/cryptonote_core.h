@@ -146,20 +146,21 @@ namespace cryptonote
       * optionally updates the miner's block template.
       *
       * @param block_blob the block to be added
+      * @param block the block to be added, or NULL
       * @param bvc return-by-reference metadata context about the block's validity
       * @param update_miner_blocktemplate whether or not to update the miner's block template
       *
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
       *
       * @note see Blockchain::prepare_handle_incoming_blocks
       */
-     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks);
+     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks);
 
      /**
       * @copydoc Blockchain::cleanup_handle_incoming_blocks

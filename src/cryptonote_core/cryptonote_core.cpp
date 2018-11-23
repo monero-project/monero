@@ -1330,7 +1330,8 @@ namespace cryptonote
       m_miner.resume();
       return false;
     }
-    prepare_handle_incoming_blocks(blocks);
+    std::vector<block> pblocks;
+    prepare_handle_incoming_blocks(blocks, pblocks);
     m_blockchain_storage.add_new_block(b, bvc);
     cleanup_handle_incoming_blocks(true);
     //anyway - update miner template
@@ -1381,10 +1382,10 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks)
+  bool core::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry, std::vector<block> &blocks)
   {
     m_incoming_tx_lock.lock();
-    m_blockchain_storage.prepare_handle_incoming_blocks(blocks);
+    m_blockchain_storage.prepare_handle_incoming_blocks(blocks_entry, blocks);
     return true;
   }
 
@@ -1401,7 +1402,7 @@ namespace cryptonote
   }
 
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_block(const blobdata& block_blob, block_verification_context& bvc, bool update_miner_blocktemplate)
+  bool core::handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, bool update_miner_blocktemplate)
   {
     TRY_ENTRY();
 
@@ -1417,14 +1418,18 @@ namespace cryptonote
       return false;
     }
 
-    block b = AUTO_VAL_INIT(b);
-    if(!parse_and_validate_block_from_blob(block_blob, b))
+    block lb;
+    if (!b)
     {
-      LOG_PRINT_L1("Failed to parse and validate new block");
-      bvc.m_verifivation_failed = true;
-      return false;
+      if(!parse_and_validate_block_from_blob(block_blob, lb))
+      {
+        LOG_PRINT_L1("Failed to parse and validate new block");
+        bvc.m_verifivation_failed = true;
+        return false;
+      }
+      b = &lb;
     }
-    add_new_block(b, bvc);
+    add_new_block(*b, bvc);
     if(update_miner_blocktemplate && bvc.m_added_to_main_chain)
        update_miner_block_template();
     return true;
