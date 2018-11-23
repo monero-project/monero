@@ -638,6 +638,7 @@ block Blockchain::pop_block_from_blockchain()
 
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
+MDEBUG("clearing");
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
@@ -2258,12 +2259,14 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
 //------------------------------------------------------------------
 void Blockchain::on_new_tx_from_block(const cryptonote::transaction &tx)
 {
+MDEBUG("on_new_tx_from_block: db height " << m_db->height() << ", m_blocks_hash_check size " << m_blocks_hash_check.size() << ", tx " << get_transaction_hash(tx));
 #if defined(PER_BLOCK_CHECKPOINT)
   // check if we're doing per-block checkpointing
   if (m_db->height() < m_blocks_hash_check.size())
   {
     TIME_MEASURE_START(a);
     m_blocks_txs_check.push_back(get_transaction_hash(tx));
+MDEBUG("pushed, now " << m_blocks_txs_check.size());
     TIME_MEASURE_FINISH(a);
     if(m_show_time_stats)
     {
@@ -3450,9 +3453,14 @@ leave:
     {
       // ND: if fast_check is enabled for blocks, there is no need to check
       // the transaction inputs, but do some sanity checks anyway.
+const bool flag = tx_index >= m_blocks_txs_check.size();
       if (tx_index >= m_blocks_txs_check.size() || memcmp(&m_blocks_txs_check[tx_index++], &tx_id, sizeof(tx_id)) != 0)
       {
         MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+MERROR_VER("tx_index: " << tx_index << ", flag " << flag);
+MERROR_VER("tx_id: " << tx_id);
+MERROR_VER("m_blocks_txs_check: " << m_blocks_txs_check.size());
+for (const auto &h: m_blocks_txs_check) MERROR_VER("  : " << h);
         //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
         add_block_as_invalid(bl, id);
         MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
@@ -3468,6 +3476,7 @@ leave:
     cumulative_block_weight += tx_weight;
   }
 
+MDEBUG("clearing");
   m_blocks_txs_check.clear();
 
   TIME_MEASURE_START(vmt);
@@ -3591,6 +3600,7 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
     m_db->block_txn_stop();
+MDEBUG("clearing");
     m_blocks_txs_check.clear();
     return false;
   }
@@ -3602,6 +3612,7 @@ bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc
     bvc.m_added_to_main_chain = false;
     m_db->block_txn_stop();
     bool r = handle_alternative_block(bl, id, bvc);
+MDEBUG("clearing");
     m_blocks_txs_check.clear();
     return r;
     //never relay alternative blocks
@@ -3759,6 +3770,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   TIME_MEASURE_FINISH(t1);
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
+MDEBUG("clearing");
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
