@@ -1026,7 +1026,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   // equivalent of strstr, but with arbitrary bytes (ie, NULs)
   // This does not differentiate between "not found" and "found at offset 0"
-  uint64_t slow_memmem(const void* start_buff, size_t buflen,const void* pat,size_t patlen)
+  size_t slow_memmem(const void* start_buff, size_t buflen,const void* pat,size_t patlen)
   {
     const void* buf = start_buff;
     const void* end=(const char*)buf+buflen;
