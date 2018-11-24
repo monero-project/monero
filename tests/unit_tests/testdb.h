@@ -142,5 +142,6 @@ public:
   virtual bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   virtual bool update_pruning() { return true; }
   virtual bool check_pruning() { return true; }
+  virtual void prune_outputs(uint64_t amount) {}
 };
 

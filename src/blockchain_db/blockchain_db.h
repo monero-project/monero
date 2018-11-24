@@ -1406,6 +1406,13 @@ public:
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const = 0;
 
   /**
+   * @brief prune output data for the given amount
+   *
+   * @param amount the amount for which to prune data
+   */
+  virtual void prune_outputs(uint64_t amount) = 0;
+
+  /**
    * @brief runs a function over all txpool transactions
    *
    * The subclass should run the passed function for each txpool tx it has
