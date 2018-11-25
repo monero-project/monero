@@ -2326,4 +2326,27 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_POP_BLOCKS
+  {
+    struct request
+    {
+      uint64_t nblocks;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(nblocks);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }

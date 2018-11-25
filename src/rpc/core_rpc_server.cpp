@@ -2021,6 +2021,18 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_pop_blocks(const COMMAND_RPC_POP_BLOCKS::request& req, COMMAND_RPC_POP_BLOCKS::response& res)
+  {
+    PERF_TIMER(on_pop_blocks);
+
+    m_core.get_blockchain_storage().pop_blocks(req.nblocks);
+
+    res.height = m_core.get_current_blockchain_height();
+    res.status = CORE_RPC_STATUS_OK;
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_relay_tx);

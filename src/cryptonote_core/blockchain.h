@@ -967,6 +967,13 @@ namespace cryptonote
      */
     std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
 
+    /**
+     * @brief removes blocks from the top of the blockchain
+     *
+     * @param nblocks number of blocks to be removed
+     */
+    void pop_blocks(uint64_t nblocks);
+
   private:
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage

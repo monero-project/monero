@@ -282,6 +282,12 @@ t_command_server::t_command_server(
     , "Print information about the blockchain sync state."
     );
     m_command_lookup.set_handler(
+      "pop_blocks"
+    , std::bind(&t_command_parser_executor::pop_blocks, &m_parser, p::_1)
+    , "pop_blocks <nblocks>"
+    , "Remove blocks from end of blockchain"
+    );
+    m_command_lookup.set_handler(
       "version"
     , std::bind(&t_command_parser_executor::version, &m_parser, p::_1)
     , "Print version information."

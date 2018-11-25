@@ -576,6 +576,38 @@ bool Blockchain::deinit()
   return true;
 }
 //------------------------------------------------------------------
+// This function removes blocks from the top of blockchain.
+// It starts a batch and calls private method pop_block_from_blockchain().
+void Blockchain::pop_blocks(uint64_t nblocks)
+{
+  uint64_t i;
+  CRITICAL_REGION_LOCAL(m_tx_pool);
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
+  while (!m_db->batch_start())
+  {
+    m_blockchain_lock.unlock();
+    m_tx_pool.unlock();
+    epee::misc_utils::sleep_no_w(1000);
+    m_tx_pool.lock();
+    m_blockchain_lock.lock();
+  }
+
+  try
+  {
+    for (i=0; i < nblocks; ++i)
+    {
+      pop_block_from_blockchain();
+    }
+  }
+  catch (const std::exception& e)
+  {
+    LOG_ERROR("Error when popping blocks, only " << i << " blocks are popped: " << e.what());
+  }
+
+  m_db->batch_stop();
+}
+//------------------------------------------------------------------
 // This function tells BlockchainDB to remove the top block from the
 // blockchain and then returns all transactions (except the miner tx, of course)
 // from it to the tx_pool
