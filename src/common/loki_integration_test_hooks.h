@@ -178,6 +178,7 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem()
   result.len = strlen(input);
   assert(result.len <= fixed_buffer::SIZE);
   memcpy(result.data, input, result.len);
+  result.data[result.len] = 0;
   return result;
 }
 
