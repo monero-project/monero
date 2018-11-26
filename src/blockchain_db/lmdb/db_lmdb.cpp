@@ -1350,6 +1350,15 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 #if VERSION > 0
     else if (db_version < VERSION)
     {
+      if (mdb_flags & MDB_RDONLY)
+      {
+        txn.abort();
+        mdb_env_close(m_env);
+        m_open = false;
+        MFATAL("Existing lmdb database needs to be converted, which cannot be done on a read-only database.");
+        MFATAL("Please run monerod once to convert the database.");
+        return;
+      }
       // Note that there was a schema change within version 0 as well.
       // See commit e5d2680094ee15889934fe28901e4e133cda56f2 2015/07/10
       // We don't handle the old format previous to that commit.
