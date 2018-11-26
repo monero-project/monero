@@ -32,7 +32,7 @@
 
 #include "trezor/trezor_defs.hpp"
 
-#ifdef HAVE_PROTOBUF
+#ifdef WITH_DEVICE_TREZOR
 #include "trezor/transport.hpp"
 #include "trezor/messages/messages.pb.h"
 #include "trezor/messages/messages-common.pb.h"
