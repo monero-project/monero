@@ -91,11 +91,15 @@ namespace misc_utils
       */
       inline void match_string2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, std::string& val)
       {
-        val.clear();
-        val.reserve(std::distance(star_end_string, buf_end));
         bool escape_mode = false;
         std::string::const_iterator it = star_end_string;
         ++it;
+        std::string::const_iterator fi = it;
+        while (fi != buf_end && *fi != '\\' && *fi != '\"')
+          ++fi;
+        val.assign(it, fi);
+        val.reserve(std::distance(star_end_string, buf_end));
+        it = fi;
         for(;it != buf_end;it++)
         {
           if(escape_mode/*prev_ch == '\\'*/)
