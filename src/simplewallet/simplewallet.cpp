@@ -3899,7 +3899,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
     // If no port has been provided, use the default from config
     if (!match[3].length())
     {
-      int daemon_port = m_wallet->nettype() == cryptonote::TESTNET ? config::testnet::RPC_DEFAULT_PORT : m_wallet->nettype() == cryptonote::STAGENET ? config::stagenet::RPC_DEFAULT_PORT : config::RPC_DEFAULT_PORT;
+      int daemon_port = get_config(m_wallet->nettype()).RPC_DEFAULT_PORT;
       daemon_url = match[1] + match[2] + std::string(":") + std::to_string(daemon_port);
     } else {
       daemon_url = args[0];
@@ -4024,7 +4024,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, bool reset, bool is_init
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
     epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
-    m_wallet->refresh(start_height, fetched_blocks);
+    m_wallet->refresh(is_daemon_trusted(), start_height, fetched_blocks);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -4592,6 +4592,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   vector<cryptonote::tx_destination_entry> dsts;
+  size_t num_subaddresses = 0;
   for (size_t i = 0; i < local_args.size(); i += 2)
   {
     cryptonote::address_parse_info info;
@@ -4603,6 +4604,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
     de.addr = info.address;
     de.is_subaddress = info.is_subaddress;
+    num_subaddresses += info.is_subaddress;
 
     if (info.has_payment_id)
     {
@@ -4635,7 +4637,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && dsts.size() > num_subaddresses)
   {
      std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
@@ -4955,6 +4957,20 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
       commit_or_save(ptx_vector, m_do_not_relay);
     }
   }
+  catch (const tools::error::not_enough_unlocked_money& e)
+  {
+    fail_msg_writer() << tr("Not enough money in unlocked balance");
+    std::string accepted = input_line((boost::format(tr("Discarding %s of unmixable outputs that cannot be spent, which can be undone by \"rescan_spent\".  Is this okay?  (Y/Yes/N/No): ")) % print_money(e.available())).str());
+    if (std::cin.eof())
+      return true;
+    if (command_line::is_yes(accepted))
+    {
+      try
+      {
+        m_wallet->discard_unmixable_outputs(is_daemon_trusted());
+      } catch (...) {}
+    }
+  }
   catch (const std::exception &e)
   {
     handle_transfer_exception(std::current_exception(), is_daemon_trusted());
@@ -5086,7 +5102,7 @@ bool simple_wallet::sweep_main(uint64_t below, const std::vector<std::string> &a
   }
 
   // prompt is there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
   {
      std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
@@ -5308,7 +5324,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   }
 
   // prompt if there is no payment id and confirmation is required
-  if (!payment_id_seen && m_wallet->confirm_missing_payment_id())
+  if (!payment_id_seen && m_wallet->confirm_missing_payment_id() && !info.is_subaddress)
   {
      std::string accepted = input_line(tr("No payment id is included with this transaction. Is this okay?  (Y/Yes/N/No): "));
      if (std::cin.eof())
@@ -6539,7 +6555,7 @@ void simple_wallet::wallet_idle_thread()
       {
         uint64_t fetched_blocks;
         if (try_connect_to_daemon(true))
-          m_wallet->refresh(0, fetched_blocks);
+          m_wallet->refresh(is_daemon_trusted(), 0, fetched_blocks);
       }
       catch(...) {}
       m_auto_refresh_refreshing = false;
@@ -7432,8 +7448,12 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       if (pd.m_unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
       {
         uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
+        uint64_t last_block_reward = m_wallet->get_last_block_reward();
+        uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
+        else if (suggested_threshold > 0)
+          success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations (" << suggested_threshold << " suggested threshold)";
         else
           success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations";
       }

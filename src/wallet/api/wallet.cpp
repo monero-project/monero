@@ -720,6 +720,7 @@ bool WalletImpl::close(bool store)
         LOG_PRINT_L1("Calling wallet::stop...");
         m_wallet->stop();
         LOG_PRINT_L1("wallet::stop done");
+        m_wallet->deinit();
         result = true;
         clearStatus();
     } catch (const std::exception &e) {
@@ -1966,7 +1967,7 @@ void WalletImpl::doRefresh()
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
         if (m_wallet->light_wallet() || daemonSynced()) {
-            m_wallet->refresh();
+            m_wallet->refresh(trustedDaemon());
             if (!m_synchronized) {
                 m_synchronized = true;
             }

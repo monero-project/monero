@@ -39,13 +39,13 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, NetworkType nettype);
-    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype);
+                          const std::string &language, NetworkType nettype) override;
+    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
                                        const std::string &mnemonic,
                                        NetworkType nettype,
-                                       uint64_t restoreHeight);
+                                       uint64_t restoreHeight) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
                                              const std::string &language,
@@ -53,9 +53,9 @@ public:
                                              uint64_t restoreHeight,
                                              const std::string &addressString,
                                              const std::string &viewKeyString,
-                                             const std::string &spendKeyString = "");
+                                             const std::string &spendKeyString = "") override;
     // next two methods are deprecated - use the above version which allow setting of a password
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight);
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
     // deprecated: use createWalletFromKeys(..., password, ...) instead
     virtual Wallet * createWalletFromKeys(const std::string &path, 
                                                     const std::string &language,
@@ -63,29 +63,29 @@ public:
                                                     uint64_t restoreHeight,
                                                     const std::string &addressString,
                                                     const std::string &viewKeyString,
-                                                    const std::string &spendKeyString = "");
+                                                    const std::string &spendKeyString = "") override;
     virtual Wallet * createWalletFromDevice(const std::string &path,
                                             const std::string &password,
                                             NetworkType nettype,
                                             const std::string &deviceName,
                                             uint64_t restoreHeight = 0,
                                             const std::string &subaddressLookahead = "") override;
-    virtual bool closeWallet(Wallet *wallet, bool store = true);
-    bool walletExists(const std::string &path);
-    bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key) const;
-    std::vector<std::string> findWallets(const std::string &path);
-    std::string errorString() const;
-    void setDaemonAddress(const std::string &address);
-    bool connected(uint32_t *version = NULL);
-    uint64_t blockchainHeight();
-    uint64_t blockchainTargetHeight();
-    uint64_t networkDifficulty();
-    double miningHashRate();
-    uint64_t blockTarget();
-    bool isMining();
-    bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true);
-    bool stopMining();
-    std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const;
+    virtual bool closeWallet(Wallet *wallet, bool store = true) override;
+    bool walletExists(const std::string &path) override;
+    bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key) const override;
+    std::vector<std::string> findWallets(const std::string &path) override;
+    std::string errorString() const override;
+    void setDaemonAddress(const std::string &address) override;
+    bool connected(uint32_t *version = NULL) override;
+    uint64_t blockchainHeight() override;
+    uint64_t blockchainTargetHeight() override;
+    uint64_t networkDifficulty() override;
+    double miningHashRate() override;
+    uint64_t blockTarget() override;
+    bool isMining() override;
+    bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) override;
+    bool stopMining() override;
+    std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const override;
 
 private:
     WalletManagerImpl() {}
