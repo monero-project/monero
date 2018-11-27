@@ -175,11 +175,6 @@ int main(int argc, char* argv[])
   }
 
   const std::string input = command_line::get_arg(vm, arg_input);
-  if (input.empty())
-  {
-    LOG_PRINT_L0("No input given");
-    return 1;
-  }
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   std::unique_ptr<Blockchain> core_storage;
@@ -210,8 +205,50 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
 
-  LOG_PRINT_L0("Loading known spent data...");
-  const std::map<uint64_t, uint64_t> known_spent_outputs = load_outputs(input);
+  std::map<uint64_t, uint64_t> known_spent_outputs;
+  if (input.empty())
+  {
+    std::map<uint64_t, std::pair<uint64_t, uint64_t>> outputs;
+
+    LOG_PRINT_L0("Scanning for known spent data...");
+    db->for_all_transactions([&](const crypto::hash &txid, const cryptonote::transaction &tx){
+      const bool miner_tx = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
+      for (const auto &in: tx.vin)
+      {
+        if (in.type() != typeid(txin_to_key))
+          continue;
+        const auto &txin = boost::get<txin_to_key>(in);
+        if (txin.amount == 0)
+          continue;
+
+        outputs[txin.amount].second++;
+      }
+
+      for (const auto &out: tx.vout)
+      {
+        uint64_t amount = out.amount;
+        if (miner_tx && tx.version >= 2)
+          amount = 0;
+        if (amount == 0)
+          continue;
+        if (out.target.type() != typeid(txout_to_key))
+          continue;
+
+        outputs[amount].first++;
+      }
+      return true;
+    }, true);
+
+    for (const auto &i: outputs)
+    {
+      known_spent_outputs[i.first] = i.second.second;
+    }
+  }
+  else
+  {
+    LOG_PRINT_L0("Loading known spent data...");
+    known_spent_outputs = load_outputs(input);
+  }
 
   LOG_PRINT_L0("Pruning known spent data...");
 
