@@ -36,6 +36,7 @@
 #include "cryptonote_basic.h"
 #include "difficulty.h"
 #include "math_helper.h"
+#include "atomic_lock.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -66,7 +67,6 @@ namespace cryptonote
     bool start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background = false, bool ignore_battery = false);
     uint64_t get_speed() const;
     uint32_t get_threads_count() const;
-    void send_stop_signal();
     bool stop();
     bool is_mining() const;
     const account_public_address& get_mining_address() const;
@@ -100,7 +100,7 @@ namespace cryptonote
     static constexpr uint64_t BACKGROUND_MINING_MIN_MINER_EXTRA_SLEEP_MILLIS            = 5;
 
   private:
-    bool worker_thread();
+    bool worker_thread(uint32_t thread_index);
     bool request_block_template();
     void  merge_hr();
     
@@ -113,21 +113,25 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
 
+    enum class status : int
+    {
+      stopped,
+      running,
+      stopping
+    };
 
-    volatile uint32_t m_stop;
+
+    epee::atomic_lock<status> m_status;
     epee::critical_section m_template_lock;
     block m_template;
     std::atomic<uint32_t> m_template_no;
     std::atomic<uint32_t> m_starter_nonce;
     difficulty_type m_diffic;
     uint64_t m_height;
-    volatile uint32_t m_thread_index; 
     volatile uint32_t m_threads_total;
     std::atomic<int32_t> m_pausers_count;
-    epee::critical_section m_miners_count_lock;
 
-    std::list<boost::thread> m_threads;
-    epee::critical_section m_threads_lock;
+    std::vector<boost::thread> m_threads;
     i_miner_handler* m_phandler;
     account_public_address m_mine_address;
     epee::math_helper::once_a_time_seconds<5> m_update_block_template_interval;
@@ -147,7 +151,7 @@ namespace cryptonote
 
     bool set_is_background_mining_enabled(bool is_background_mining_enabled);
     void set_ignore_battery(bool ignore_battery);
-    bool background_worker_thread();
+    void background_worker_thread();
     std::atomic<bool> m_is_background_mining_enabled;
     bool m_ignore_battery;
     boost::mutex m_is_background_mining_enabled_mutex;

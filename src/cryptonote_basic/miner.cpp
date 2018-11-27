@@ -96,11 +96,11 @@ namespace cryptonote
   }
 
 
-  miner::miner(i_miner_handler* phandler):m_stop(1),
+  miner::miner(i_miner_handler* phandler):
+    m_status(status::stopped),
     m_template(boost::value_initialized<block>()),
     m_template_no(0),
     m_diffic(0),
-    m_thread_index(0),
     m_phandler(phandler),
     m_height(0),
     m_pausers_count(0),
@@ -281,7 +281,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::is_mining() const
   {
-    return !m_stop;
+    return m_status.is(status::running);
   }
   //-----------------------------------------------------------------------------------------------------
   const account_public_address& miner::get_mining_address() const
@@ -295,32 +295,26 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::start(const account_public_address& adr, size_t threads_count, const boost::thread::attributes& attrs, bool do_background, bool ignore_battery)
   {
-    m_mine_address = adr;
-    m_threads_total = static_cast<uint32_t>(threads_count);
-    m_starter_nonce = crypto::rand<uint32_t>();
-    CRITICAL_REGION_LOCAL(m_threads_lock);
-    if(is_mining())
+    if (!m_status.try_lock(status::stopped, status::running))
     {
       LOG_ERROR("Starting miner but it's already started");
       return false;
     }
 
-    if(!m_threads.empty())
-    {
-      LOG_ERROR("Unable to start miner because there are active mining threads");
-      return false;
-    }
+    m_mine_address = adr;
+    m_threads_total = static_cast<uint32_t>(threads_count);
+    m_starter_nonce = crypto::rand<uint32_t>();
 
     request_block_template();//lets update block template
 
-    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
-    boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
     set_is_background_mining_enabled(do_background);
     set_ignore_battery(ignore_battery);
+
+    m_threads.reserve(threads_count);
     
-    for(size_t i = 0; i != threads_count; i++)
+    while (m_threads.size() < threads_count)
     {
-      m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
+      m_threads.emplace_back(attrs, boost::bind(&miner::worker_thread, this, m_threads.size()));
     }
 
     LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
@@ -349,23 +343,15 @@ namespace cryptonote
     }
   }
   //-----------------------------------------------------------------------------------------------------
-  void miner::send_stop_signal()
-  {
-    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
-  }
-  //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
     MTRACE("Miner has received stop signal");
 
-    if (!is_mining())
+    if (!m_status.try_lock(status::running, status::stopping))
     {
-      MDEBUG("Not mining - nothing to stop" );
+      MDEBUG("Not mining - nothing to stop");
       return true;
     }
-
-    send_stop_signal();
-    CRITICAL_REGION_LOCAL(m_threads_lock);
 
     // In case background mining was active and the miner threads are waiting
     // on the background miner to signal start. 
@@ -381,6 +367,10 @@ namespace cryptonote
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
+
+    // we are no longer running
+    m_status.lock(status::stopped);
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -414,39 +404,38 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   void miner::pause()
   {
-    CRITICAL_REGION_LOCAL(m_miners_count_lock);
-    MDEBUG("miner::pause: " << m_pausers_count << " -> " << (m_pausers_count + 1));
-    ++m_pausers_count;
-    if(m_pausers_count == 1 && is_mining())
+    auto pausers_count = m_pausers_count.fetch_add(1);
+    MDEBUG("miner::pause: " << pausers_count << " -> " << (pausers_count + 1));
+    if(pausers_count == 0 && is_mining())
       MDEBUG("MINING PAUSED");
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::resume()
   {
-    CRITICAL_REGION_LOCAL(m_miners_count_lock);
-    MDEBUG("miner::resume: " << m_pausers_count << " -> " << (m_pausers_count - 1));
-    --m_pausers_count;
-    if(m_pausers_count < 0)
+    auto pausers_count = m_pausers_count.fetch_sub(1);
+    MDEBUG("miner::resume: " << pausers_count << " -> " << (pausers_count - 1));
+    if(pausers_count <= 0)
     {
-      m_pausers_count = 0;
+      m_pausers_count.fetch_add(1);
       MERROR("Unexpected miner::resume() called");
     }
-    if(!m_pausers_count && is_mining())
+    else if(pausers_count == 1 && is_mining())
+    {
       MDEBUG("MINING RESUMED");
+    }
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::worker_thread()
+  bool miner::worker_thread(uint32_t thread_index)
   {
-    uint32_t th_local_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index);
-    MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
-    MGINFO("Miner thread was started ["<< th_local_index << "]");
-    uint32_t nonce = m_starter_nonce + th_local_index;
+    MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(thread_index) + "]");
+    MGINFO("Miner thread was started ["<< thread_index << "]");
+    uint32_t nonce = m_starter_nonce + thread_index;
     uint64_t height = 0;
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
     slow_hash_allocate_state();
-    while(!m_stop)
+    while(m_status.is(status::running))
     {
       if(m_pausers_count)//anti split workaround
       {
@@ -456,15 +445,14 @@ namespace cryptonote
       else if( m_is_background_mining_enabled )
       {
         misc_utils::sleep_no_w(m_miner_extra_sleep);
-        while( !m_is_background_mining_started )
+        while( !m_is_background_mining_started && m_status.is(status::running) )
         {
           MGINFO("background mining is enabled, but not started, waiting until start triggers");
           boost::unique_lock<boost::mutex> started_lock( m_is_background_mining_started_mutex );        
           m_is_background_mining_started_cond.wait( started_lock );
-          if( m_stop ) break;
         }
         
-        if( m_stop ) continue;         
+        if( !m_status.is(status::running) ) continue;         
       }
 
       if(local_template_ver != m_template_no)
@@ -475,7 +463,7 @@ namespace cryptonote
         height = m_height;
         CRITICAL_REGION_END();
         local_template_ver = m_template_no;
-        nonce = m_starter_nonce + th_local_index;
+        nonce = m_starter_nonce + thread_index;
       }
 
       if(!local_template_ver)//no any set_block_template call
@@ -508,7 +496,7 @@ namespace cryptonote
       ++m_hashes;
     }
     slow_hash_free_state();
-    MGINFO("Miner thread stopped ["<< th_local_index << "]");
+    MGINFO("Miner thread stopped ["<< thread_index << "]");
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -579,7 +567,7 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::background_worker_thread()
+  void miner::background_worker_thread()
   {
     uint64_t prev_total_time, current_total_time;
     uint64_t prev_idle_time, current_idle_time;
@@ -589,10 +577,10 @@ namespace cryptonote
     if(!get_system_times(prev_total_time, prev_idle_time))
     {
       LOG_ERROR("get_system_times call failed, background mining will NOT work!");
-      return false;
+      return;
     }
     
-    while(!m_stop)
+    while(m_status.is(status::running))
     {
         
       try
@@ -730,8 +718,6 @@ namespace cryptonote
         prev_idle_time = current_idle_time;
       }
     }
-
-    return true;
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::get_system_times(uint64_t& total_time, uint64_t& idle_time)
