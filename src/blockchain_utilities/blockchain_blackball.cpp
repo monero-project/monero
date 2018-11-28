@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <set>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
 #include "common/unordered_containers_boost_serialization.h"
@@ -246,29 +247,29 @@ static void init(std::string cache_filename)
   tx_active = true;
 
   dbr = mdb_dbi_open(txn, "relative_rings", MDB_CREATE | MDB_INTEGERKEY, &dbi_relative_rings);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_relative_rings: " + std::string(mdb_strerror(dbr)));
   mdb_set_compare(txn, dbi_relative_rings, compare_hash32);
 
   dbr = mdb_dbi_open(txn, "outputs", MDB_CREATE | MDB_INTEGERKEY, &dbi_outputs);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_outputs: " + std::string(mdb_strerror(dbr)));
   mdb_set_compare(txn, dbi_outputs, compare_double64);
 
   dbr = mdb_dbi_open(txn, "processed_txidx", MDB_CREATE, &dbi_processed_txidx);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_processed_txidx: " + std::string(mdb_strerror(dbr)));
 
   dbr = mdb_dbi_open(txn, "spent", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi_spent);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_spent: " + std::string(mdb_strerror(dbr)));
   mdb_set_dupsort(txn, dbi_spent, compare_uint64);
 
   dbr = mdb_dbi_open(txn, "per_amount", MDB_CREATE | MDB_INTEGERKEY, &dbi_per_amount);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_per_amount: " + std::string(mdb_strerror(dbr)));
   mdb_set_compare(txn, dbi_per_amount, compare_uint64);
 
   dbr = mdb_dbi_open(txn, "ring_instances", MDB_CREATE, &dbi_ring_instances);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_ring_instances: " + std::string(mdb_strerror(dbr)));
 
   dbr = mdb_dbi_open(txn, "stats", MDB_CREATE, &dbi_stats);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi_stats: " + std::string(mdb_strerror(dbr)));
 
   dbr = mdb_txn_commit(txn);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
@@ -356,7 +357,7 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
   dbr = mdb_dbi_open(txn, "txs_pruned", MDB_INTEGERKEY, &dbi);
   if (dbr)
     dbr = mdb_dbi_open(txn, "txs", MDB_INTEGERKEY, &dbi);
-  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi (txs_pruned or txs): " + std::string(mdb_strerror(dbr)));
   dbr = mdb_cursor_open(txn, dbi, &cur);
   if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
   MDB_stat stat;
@@ -550,7 +551,7 @@ static uint64_t find_first_diverging_transaction(const std::string &first_filena
     dbr = mdb_dbi_open(txn[i], "txs_pruned", MDB_INTEGERKEY, &dbi[i]);
     if (dbr)
       dbr = mdb_dbi_open(txn[i], "txs", MDB_INTEGERKEY, &dbi[i]);
-    if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+    if (dbr) throw std::runtime_error("Failed to open LMDB dbi (txs_pruned or txs): " + std::string(mdb_strerror(dbr)));
     dbr = mdb_cursor_open(txn[i], dbi[i], &cur[i]);
     if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
     MDB_stat stat;
@@ -957,7 +958,7 @@ static void open_db(const std::string &filename, MDB_env **env, MDB_txn **txn, M
 
   int dbr = mdb_env_create(env);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
-  dbr = mdb_env_set_maxdbs(*env, 1);
+  dbr = mdb_env_set_maxdbs(*env, 2);
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = filename;
   MINFO("Opening monero blockchain at " << actual_filename);
@@ -969,7 +970,7 @@ static void open_db(const std::string &filename, MDB_env **env, MDB_txn **txn, M
   CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
 
   dbr = mdb_dbi_open(*txn, "output_amounts", MDB_CREATE | MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, dbi);
-  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi (output_amounts): " + std::string(mdb_strerror(dbr)));
   mdb_set_dupsort(*txn, *dbi, compare_uint64);
 
   dbr = mdb_cursor_open(*txn, *dbi, cur);
@@ -1032,7 +1033,7 @@ static crypto::hash get_genesis_block_hash(const std::string &filename)
 
   dbr = mdb_dbi_open(txn, "block_info", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, &dbi);
   mdb_set_dupsort(txn, dbi, compare_uint64);
-  if (dbr) throw std::runtime_error("Failed to open LMDB dbi: " + std::string(mdb_strerror(dbr)));
+  if (dbr) throw std::runtime_error("Failed to open LMDB dbi (block_info): " + std::string(mdb_strerror(dbr)));
   uint64_t zero = 0;
   MDB_val k = { sizeof(uint64_t), (void*)&zero}, v;
   dbr = mdb_get(txn, dbi, &k, &v);
@@ -1099,6 +1100,88 @@ static std::vector<std::pair<uint64_t, uint64_t>> load_outputs(const std::string
   }
   fclose(f);
   return outputs;
+}
+
+static std::unordered_set<crypto::public_key> load_outputs_keys(const std::string &filename)
+{
+  std::unordered_set<crypto::public_key> outputs;
+  crypto::public_key pubkey;
+  FILE *f;
+
+  f = fopen(filename.c_str(), "r");
+  if (!f)
+  {
+    MERROR("Failed to load outputs from " << filename << ": " << strerror(errno));
+    return {};
+  }
+  while (1)
+  {
+    char s[256];
+    if (!fgets(s, sizeof(s), f))
+      break;
+    if (feof(f))
+      break;
+    std::string S(s);
+    epee::string_tools::trim_right(S);
+    if (!epee::string_tools::hex_to_pod(S, pubkey))
+    {
+      MERROR("Bad format in " << filename);
+      continue;
+    }
+
+    outputs.insert(pubkey);
+  }
+  fclose(f);
+  return outputs;
+}
+
+static void add_output_keys(MDB_env *env, MDB_txn *txn, std::vector<std::pair<uint64_t, uint64_t>> &outputs, const std::unordered_set<crypto::public_key> &pubkeys)
+{
+  std::map<uint64_t, uint64_t> count;
+  MDB_cursor *cur;
+  MDB_dbi dbi;
+  size_t found = 0;
+
+  int dbr = mdb_dbi_open(txn, "txs_pruned", MDB_INTEGERKEY, &dbi);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB dbi (txs_pruned): " + std::string(mdb_strerror(dbr)));
+
+  dbr = mdb_cursor_open(txn, dbi, &cur);
+  CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to open LMDB cursor: " + std::string(mdb_strerror(dbr)));
+
+  MDB_cursor_op op = MDB_FIRST;
+  MDB_val k, v;
+  while (1)
+  {
+    dbr = mdb_cursor_get(cur, &k, &v, op);
+    op = MDB_NEXT;
+    if (dbr == MDB_NOTFOUND)
+      break;
+    CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to enumerate txs_pruned: " + std::string(mdb_strerror(dbr)));
+    cryptonote::blobdata bd;
+    bd.assign((const char*)v.mv_data, v.mv_size);
+    cryptonote::transaction tx;
+    CHECK_AND_ASSERT_THROW_MES(parse_and_validate_tx_base_from_blob(bd, tx), "Failed to parse transaction from blob");
+    const bool is_miner_tx = cryptonote::is_coinbase(tx);
+    for (const auto &vout: tx.vout)
+    {
+      CHECK_AND_ASSERT_THROW_MES(vout.target.type() == typeid(cryptonote::txout_to_key),
+          "Unsupported output type in tx " + epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(tx)));
+      const cryptonote::txout_to_key &out_to_key = boost::get<cryptonote::txout_to_key>(vout.target);
+      uint64_t amount = (is_miner_tx && tx.version >= 2) ? 0 : vout.amount;
+      if (pubkeys.find(out_to_key.key) != pubkeys.end())
+      {
+        outputs.push_back(std::make_pair(amount, count[amount]));
+        ++found;
+      }
+      ++count[amount];
+    }
+  }
+
+  mdb_cursor_close(cur);
+  mdb_dbi_close(env, dbi);
+
+  if (found != pubkeys.size())
+    MWARNING((pubkeys.size() - found) << " user specified output keys were not found");
 }
 
 static bool export_spent_outputs(MDB_cursor *cur, const std::string &filename)
@@ -1267,6 +1350,7 @@ int main(int argc, char* argv[])
   , "fast:1000"
   };
   const command_line::arg_descriptor<std::string> arg_extra_spent_list = {"extra-spent-list", "Optional list of known spent outputs",""};
+  const command_line::arg_descriptor<std::string> arg_extra_spent_keys = {"extra-spent-keys", "Optional list of known spent output public keys",""};
   const command_line::arg_descriptor<std::string> arg_export = {"export", "Filename to export the backball list to"};
   const command_line::arg_descriptor<std::string> arg_reduced_rings_path = {"reduced-rings-path", "Path where to save reduced rings files"};
   const command_line::arg_descriptor<bool> arg_force_chain_reaction_pass = {"force-chain-reaction-pass", "Run the chain reaction pass even if no new blockchain data was processed"};
@@ -1279,6 +1363,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_verbose);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_extra_spent_list);
+  command_line::add_arg(desc_cmd_sett, arg_extra_spent_keys);
   command_line::add_arg(desc_cmd_sett, arg_export);
   command_line::add_arg(desc_cmd_sett, arg_reduced_rings_path);
   command_line::add_arg(desc_cmd_sett, arg_force_chain_reaction_pass);
@@ -1327,7 +1412,7 @@ int main(int argc, char* argv[])
   std::string opt_export = command_line::get_arg(vm, arg_export);
   std::string opt_reduced_rings_paths = command_line::get_arg(vm, arg_reduced_rings_path);
   std::string extra_spent_list = command_line::get_arg(vm, arg_extra_spent_list);
-  std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
+  std::string extra_spent_keys = command_line::get_arg(vm, arg_extra_spent_keys);
 
 
   std::string db_sync_mode = command_line::get_arg(vm, arg_db_sync_mode);
@@ -1348,6 +1433,8 @@ int main(int argc, char* argv[])
   init(cache_dir);
 
   LOG_PRINT_L0("Scanning for spent outputs...");
+
+  std::vector<std::pair<uint64_t, uint64_t>> extra_spent_outputs;
 
   const uint64_t start_blackballed_outputs = get_num_spent_outputs();
 
@@ -1429,6 +1516,12 @@ int main(int argc, char* argv[])
     dbr = mdb_txn_commit(txn);
     CHECK_AND_ASSERT_THROW_MES(!dbr, "Failed to commit txn creating/opening database: " + std::string(mdb_strerror(dbr)));
     goto skip_secondary_passes;
+  }
+  extra_spent_outputs = extra_spent_list.empty() ? std::vector<std::pair<uint64_t, uint64_t>>() : load_outputs(extra_spent_list);
+  if (!extra_spent_keys.empty())
+  {
+    std::unordered_set<crypto::public_key> pubkeys = load_outputs_keys(extra_spent_keys);
+    add_output_keys(env0, txn0, extra_spent_outputs, pubkeys);
   }
 
   if (!extra_spent_outputs.empty())
