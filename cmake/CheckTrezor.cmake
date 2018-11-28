@@ -56,7 +56,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
         endif()
 
         if(USE_DEVICE_TREZOR_UDP_RELEASE)
-            add_definitions(-DWITH_DEVICE_TREZOR_UDP_RELEASE=1)
+            add_definitions(-DUSE_DEVICE_TREZOR_UDP_RELEASE=1)
         endif()
 
         if (Protobuf_INCLUDE_DIR)

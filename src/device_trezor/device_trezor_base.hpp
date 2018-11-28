@@ -70,8 +70,10 @@ namespace trezor {
       std::shared_ptr<Transport> m_transport;
       i_device_callback * m_callback;
 
-      std::string full_name;
+      std::string m_full_name;
       std::vector<unsigned int> m_wallet_deriv_path;
+      std::string m_device_state;  // returned after passphrase entry, session
+      std::shared_ptr<messages::management::Features> m_features;  // features from the last device reset
 
       cryptonote::network_type network_type;
 
@@ -80,8 +82,10 @@ namespace trezor {
       //
 
       void require_connected();
+      void require_initialized();
       void call_ping_unsafe();
       void test_ping();
+      void device_state_reset_unsafe();
       void ensure_derivation_path() noexcept;
 
       // Communication methods
@@ -130,7 +134,7 @@ namespace trezor {
         // Scoped session closer
         BOOST_SCOPE_EXIT_ALL(&, this) {
           if (open_session){
-            this->getTransport()->close();
+            this->get_transport()->close();
           }
         };
 
@@ -209,7 +213,7 @@ namespace trezor {
     // Default derivation path for Monero
     static const uint32_t DEFAULT_BIP44_PATH[2];
 
-    std::shared_ptr<Transport> getTransport(){
+    std::shared_ptr<Transport> get_transport(){
       return m_transport;
     }
 
@@ -219,6 +223,10 @@ namespace trezor {
 
     i_device_callback * get_callback(){
       return m_callback;
+    }
+
+    std::shared_ptr<messages::management::Features> & get_features() {
+      return m_features;
     }
 
     void set_derivation_path(const std::string &deriv_path) override;
@@ -249,6 +257,11 @@ namespace trezor {
      * Device ping, no-throw
      */
     bool ping();
+
+    /**
+     * Performs Initialize call to the Trezor, resets to known state.
+     */
+    void device_state_reset();
 
     // Protocol callbacks
     void on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg);
