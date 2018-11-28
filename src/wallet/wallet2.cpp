@@ -1675,7 +1675,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           auto iter = std::find_if(
               tx_money_got_in_outs.begin(),
               tx_money_got_in_outs.end(),
-              [&tx_scan_info,&tx,&o](const tx_money_got_in_out& value)
+              [&tx_scan_info,&o](const tx_money_got_in_out& value)
               {
                 return value.index == tx_scan_info[o].received->index &&
                   value.amount == tx_scan_info[o].amount &&
