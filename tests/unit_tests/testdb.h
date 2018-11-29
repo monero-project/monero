@@ -85,6 +85,7 @@ public:
   virtual cryptonote::transaction get_tx(const crypto::hash& h) const { return cryptonote::transaction(); }
   virtual bool get_tx(const crypto::hash& h, cryptonote::transaction &tx) const { return false; }
   virtual uint64_t get_tx_count() const { return 0; }
+  virtual uint64_t get_output_count() const { return 0; }
   virtual std::vector<cryptonote::transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const { return std::vector<cryptonote::transaction>(); }
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const { return 0; }
   virtual uint64_t get_num_outputs(const uint64_t& amount) const { return 1; }

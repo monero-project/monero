@@ -938,7 +938,7 @@ uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
   check_open();
   mdb_txn_cursors *m_cursors = &m_wcursors;
   uint64_t m_height = height();
-  uint64_t m_num_outputs = num_outputs();
+  uint64_t m_num_outputs = get_output_count();
 
   int result = 0;
 
@@ -2224,7 +2224,7 @@ uint64_t BlockchainLMDB::height() const
   return db_stats.ms_entries;
 }
 
-uint64_t BlockchainLMDB::num_outputs() const
+uint64_t BlockchainLMDB::get_output_count() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();

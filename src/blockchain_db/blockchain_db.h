@@ -1189,6 +1189,15 @@ public:
   virtual uint64_t get_tx_count() const = 0;
 
   /**
+   * @brief fetches the total number of outputs ever
+   *
+   * The subclass should return a count of all the outputs from all the transactions
+   *
+   * @return the number of outputs in the blockchain
+   */
+  virtual uint64_t get_output_count() const = 0;
+
+  /**
    * @brief fetches a list of transactions based on their hashes
    *
    * The subclass should attempt to fetch each transaction referred to by

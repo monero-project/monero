@@ -235,6 +235,7 @@ public:
   virtual bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const;
 
   virtual uint64_t get_tx_count() const;
+  virtual uint64_t get_output_count() const;
 
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;
 
@@ -348,8 +349,6 @@ private:
   virtual void add_spent_key(const crypto::key_image& k_image);
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
-
-  uint64_t num_outputs() const;
 
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);
