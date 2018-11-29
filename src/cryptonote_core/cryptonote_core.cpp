@@ -1903,6 +1903,11 @@ namespace cryptonote
       return true;
     }
 
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    MDEBUG("Not checking block rate, integration test mode");
+    return true;
+#endif
+
     static constexpr double threshold = 1. / (864000 / DIFFICULTY_TARGET_V2); // one false positive every 10 days
 
     const time_t now = time(NULL);
