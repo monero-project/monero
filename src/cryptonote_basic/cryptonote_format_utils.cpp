@@ -379,11 +379,19 @@ namespace cryptonote
   //---------------------------------------------------------------
   uint64_t get_transaction_weight(const transaction &tx)
   {
-    std::ostringstream s;
-    binary_archive<true> a(s);
-    ::serialization::serialize(a, const_cast<transaction&>(tx));
-    const cryptonote::blobdata blob = s.str();
-    return get_transaction_weight(tx, blob.size());
+    size_t blob_size;
+    if (tx.is_blob_size_valid())
+    {
+      blob_size = tx.blob_size;
+    }
+    else
+    {
+      std::ostringstream s;
+      binary_archive<true> a(s);
+      ::serialization::serialize(a, const_cast<transaction&>(tx));
+      blob_size = s.str().size();
+    }
+    return get_transaction_weight(tx, blob_size);
   }
   //---------------------------------------------------------------
   bool get_tx_fee(const transaction& tx, uint64_t & fee)
