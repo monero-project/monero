@@ -2202,6 +2202,7 @@ el::base::type::StoragePointer el::base::Storage::getELPP()
 {
   return getresetELPP(false);
 }
+static struct EnsureELPP { EnsureELPP() { el::base::Storage::getELPP(); } } ensureELPP;
 #if ELPP_ASYNC_LOGGING
 Storage::Storage(const LogBuilderPtr& defaultLogBuilder, base::IWorker* asyncDispatchWorker) :
 #else
