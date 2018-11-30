@@ -47,7 +47,6 @@ static size_t query_page_size()
     MERROR("Failed to determine page size");
     return 0;
   }
-  MINFO("Page size: " << ret);
   return ret;
 #else
 #warning Missing query_page_size implementation
