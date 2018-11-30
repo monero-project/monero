@@ -434,6 +434,64 @@ static bool parse_db_sync_mode(std::string db_sync_mode, uint64_t &db_flags)
   return true;
 }
 
+static void measure(BlockchainDB *db)
+{
+  std::vector<size_t> full_sizes, prunable_sizes;
+  uint64_t blockchain_height = db->height();
+  for (uint64_t h = 0; h < blockchain_height; ++h)
+  {
+    size_t full_size = 0, prunable_size = 0;
+    cryptonote::transaction tx;
+    cryptonote::blobdata bd;
+    cryptonote::block b = db->get_block_from_height(h);
+    db->get_pruned_tx_blob(get_transaction_hash(b.miner_tx), bd);
+    full_size += bd.size();
+    db->get_prunable_tx_blob(get_transaction_hash(b.miner_tx), bd);
+    full_size += bd.size();
+    prunable_size += bd.size();
+    for (const crypto::hash &txid: b.tx_hashes)
+    {
+      db->get_pruned_tx_blob(txid, bd);
+      full_size += bd.size();
+      db->get_prunable_tx_blob(txid, bd);
+      full_size += bd.size();
+      prunable_size += bd.size();
+    }
+    full_sizes.push_back(full_size);
+    prunable_sizes.push_back(prunable_size);
+  }
+
+  MINFO(full_sizes.size() << " blocks");
+  for (size_t stripe_size = 8; stripe_size <= 262144; stripe_size *= 2)
+  {
+    size_t sf[8], sp[8];
+    memset(sf, 0, sizeof(sf));
+    memset(sp, 0, sizeof(sp));
+    for (size_t i = 0; i < full_sizes.size(); ++i)
+    {
+      sf[(i / stripe_size) % 8] += full_sizes[i];
+      sp[(i / stripe_size) % 8] += prunable_sizes[i];
+    }
+    size_t minsf = std::numeric_limits<size_t>::max(), maxsf = 0, totalf = 0;
+    size_t minsp = std::numeric_limits<size_t>::max(), maxsp = 0, totalp = 0;
+    for (size_t i = 0; i < 8; ++i)
+    {
+      minsf = std::min(minsf, sf[i]);
+      maxsf = std::max(maxsf, sf[i]);
+      totalf += sf[i];
+      minsp = std::min(minsp, sf[i]);
+      maxsp = std::max(maxsp, sf[i]);
+      totalp += sp[i];
+    }
+    const float MB = 1024.0f * 1024.0f;
+    std::stringstream ss;
+    ss << stripe_size << "\t" << totalf/MB << "\t" << totalp/MB << "\t" << minsf/MB << "\t" << maxsf/MB << "\t" << minsp/MB << "\t" << maxsp/MB;
+    for (size_t i = 0; i < 8; ++i)
+      ss << "\t" << sf[i] << "\t" << sp[i] << "\t" << 100.f * (totalf - sp[i]) / totalf;
+    MINFO(ss.str());
+  }
+}
+
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -455,6 +513,7 @@ int main(int argc, char* argv[])
   , "fast:1000"
   };
   const command_line::arg_descriptor<bool> arg_copy_pruned_database  = {"copy-pruned-database",  "Copy database anyway if already pruned"};
+  const command_line::arg_descriptor<bool> arg_measure  = {"measure",  "measure"};
 
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
@@ -462,6 +521,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_copy_pruned_database);
+  command_line::add_arg(desc_cmd_sett, arg_measure);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   po::options_description desc_options("Allowed options");
@@ -497,6 +557,7 @@ int main(int argc, char* argv[])
   bool opt_stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
   network_type net_type = opt_testnet ? TESTNET : opt_stagenet ? STAGENET : MAINNET;
   bool opt_copy_pruned_database = command_line::get_arg(vm, arg_copy_pruned_database);
+  bool opt_measure = command_line::get_arg(vm, arg_measure);
   std::string data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
   while (boost::ends_with(data_dir, "/") || boost::ends_with(data_dir, "\\"))
     data_dir.pop_back();
@@ -507,6 +568,24 @@ int main(int argc, char* argv[])
   {
     MERROR("Invalid db sync mode: " << db_sync_mode);
     return 1;
+  }
+
+  if (opt_measure)
+  {
+    MINFO("Measuring...");
+    MDB_env *env = NULL;
+    BlockchainDB* db = new_db();
+    if (db == NULL)
+    {
+      MERROR("Failed to create database");
+      throw std::runtime_error("Failed to create database");
+    }
+    boost::filesystem::path path = boost::filesystem::path(data_dir) / db->get_db_name();
+    db->open(path.string(), DBF_RDONLY);
+    measure(db);
+    db->close();
+    delete db;
+    return 0;
   }
 
   // If we wanted to use the memory pool, we would set up a fake_core.
