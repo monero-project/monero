@@ -56,17 +56,16 @@ namespace hw {
       return std::string("NULL path");
     }
 
-    device_io_hid::device_io_hid(unsigned short c, unsigned char t, unsigned int ps, unsigned int to) : 
+    device_io_hid::device_io_hid(unsigned short c, unsigned char t, unsigned int ps) : 
       channel(c), 
       tag(t), 
       packet_size(ps), 
-      timeout(to),
       usb_vid(0),
       usb_pid(0),
       usb_device(NULL) {
     }
 
-    device_io_hid::device_io_hid() : device_io_hid(DEFAULT_CHANNEL, DEFAULT_TAG, DEFAULT_PACKET_SIZE, DEFAULT_TIMEOUT) {
+    device_io_hid::device_io_hid() : device_io_hid(DEFAULT_CHANNEL, DEFAULT_TAG, DEFAULT_PACKET_SIZE) {
     }
 
     void device_io_hid::io_hid_log(int read, unsigned char* buffer, int block_len) {
@@ -177,7 +176,7 @@ namespace hw {
 
       //get first response
       memset(buffer, 0, sizeof(buffer));
-      hid_ret = hid_read_timeout(this->usb_device, buffer, MAX_BLOCK, this->timeout);
+      hid_ret = hid_read(this->usb_device, buffer, MAX_BLOCK);
       ASSERT_X(hid_ret>=0, "Unable to read hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
       result = (unsigned int)hid_ret;
       io_hid_log(1, buffer, result); 
@@ -188,7 +187,7 @@ namespace hw {
         if (result != 0) {
           break;
         }
-        hid_ret = hid_read_timeout(this->usb_device, buffer + offset, MAX_BLOCK, this->timeout);
+        hid_ret = hid_read(this->usb_device, buffer + offset, MAX_BLOCK);
         ASSERT_X(hid_ret>=0, "Unable to receive hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
         result = (unsigned int)hid_ret;
         io_hid_log(1, buffer + offset, result);
