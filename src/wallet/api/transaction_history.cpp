@@ -96,7 +96,7 @@ static reward_type from_pay_type(tools::pay_type ptype) {
     switch (ptype) {
         case tools::pay_type::service_node: return reward_type::service_node;
         case tools::pay_type::miner: return reward_type::miner;
-        default: reward_type::unspecified;
+        default: return reward_type::unspecified;
     }
 }
 

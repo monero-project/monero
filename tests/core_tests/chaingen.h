@@ -430,7 +430,7 @@ class TxBuilder {
 
   /// required fields
   const std::vector<test_event_entry>& m_events;
-  const uint8_t m_hf_version;
+  const size_t m_hf_version;
   cryptonote::transaction& m_tx;
   const cryptonote::block& m_head;
   const cryptonote::account_base& m_from;
@@ -454,7 +454,7 @@ public:
             const cryptonote::account_base& from,
             const cryptonote::account_base& to,
             uint64_t amount,
-            uint8_t hf_version = cryptonote::network_version_9_service_nodes)
+            uint8_t hf_version)
     : m_events(events)
     , m_tx(tx)
     , m_head(head)
@@ -948,9 +948,10 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
                                                const cryptonote::block& head,
                                                const cryptonote::tx_extra_service_node_deregister& deregister, uint8_t hf_version, uint64_t fee);
 
+// NOTE(loki): These macros assume hardfork version 7 and are from the old Monero testing code
 #define MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, NMIX, HEAD)                       \
   cryptonote::transaction TX_NAME;                                                           \
-  TxBuilder(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT).build();                            \
+  TxBuilder(VEC_EVENTS, TX_NAME, HEAD, FROM, TO, AMOUNT, cryptonote::network_version_7).build(); \
   VEC_EVENTS.push_back(TX_NAME);
 
 #define MAKE_TX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, HEAD) MAKE_TX_MIX(VEC_EVENTS, TX_NAME, FROM, TO, AMOUNT, 9, HEAD)
@@ -958,7 +959,7 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
 #define MAKE_TX_MIX_LIST(VEC_EVENTS, SET_NAME, FROM, TO, AMOUNT, NMIX, HEAD)             \
   {                                                                                      \
     cryptonote::transaction t;                                                             \
-    TxBuilder(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT).build();                            \
+    TxBuilder(VEC_EVENTS, t, HEAD, FROM, TO, AMOUNT, cryptonote::network_version_7).build(); \
     SET_NAME.push_back(t);                                                               \
     VEC_EVENTS.push_back(t);                                                             \
   }
