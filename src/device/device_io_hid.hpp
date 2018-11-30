@@ -67,7 +67,6 @@ namespace hw {
       unsigned short channel;
       unsigned char  tag;
       unsigned int   packet_size; 
-      unsigned int   timeout;
 
       unsigned int   usb_vid;
       unsigned int   usb_pid;
@@ -92,9 +91,8 @@ namespace hw {
       static const unsigned short DEFAULT_CHANNEL     = 0x0001;
       static const unsigned char  DEFAULT_TAG         = 0x01;
       static const unsigned int   DEFAULT_PACKET_SIZE = 64;
-      static const unsigned int   DEFAULT_TIMEOUT     = 120000;
 
-      device_io_hid(unsigned short channel, unsigned char tag, unsigned int packet_zize, unsigned int timeout);
+      device_io_hid(unsigned short channel, unsigned char tag, unsigned int packet_zize);
       device_io_hid();
       ~device_io_hid() {};
 
