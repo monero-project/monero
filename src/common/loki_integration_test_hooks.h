@@ -110,16 +110,13 @@ void loki::init_integration_test_context(shoom::Shm *stdin_shared_mem, shoom::Sh
 uint32_t const MSG_MAGIC_BYTES = 0x7428da3f;
 static void make_message(char *msg_buf, int msg_buf_len, char const *msg_data, int msg_data_len)
 {
-  static int32_t cmd_index = 0;
+  static uint32_t cmd_index = 0;
   cmd_index++;
 
   int total_len             = static_cast<int>(sizeof(cmd_index) + sizeof(MSG_MAGIC_BYTES) + msg_data_len);
   assert(total_len < msg_buf_len);
 
-  char *ptr = msg_buf;
-  memcpy(ptr, &cmd_index, sizeof(cmd_index));
-  ptr += sizeof(cmd_index);
-
+  char *ptr = msg_buf + sizeof(cmd_index);
   memcpy(ptr, (char *)&MSG_MAGIC_BYTES, sizeof(MSG_MAGIC_BYTES));
   ptr += sizeof(MSG_MAGIC_BYTES);
 
@@ -127,6 +124,7 @@ static void make_message(char *msg_buf, int msg_buf_len, char const *msg_data, i
   ptr += sizeof(msg_data);
 
   msg_buf[total_len] = 0;
+  memcpy(msg_buf, &cmd_index, sizeof(cmd_index)); // Write the cmd index last to avoid race condition
 }
 
 static char const *parse_message(char const *msg_buf, int msg_buf_len, uint32_t *cmd_index)

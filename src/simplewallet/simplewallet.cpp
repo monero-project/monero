@@ -5655,7 +5655,9 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
         return true;
     }
 
+#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS) // NOTE: Allow us to issue commands like exit when integration testing, by not disabling cmd_handler in stop()
     stop();
+#endif
 
 #ifndef WIN32 // NOTE: Fork not supported on Windows
     if (m_wallet->fork_on_autostake())
@@ -6152,7 +6154,10 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       success_msg_writer(false/*color*/) << "\n";
     }
 
+#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS) // NOTE: Allow us to issue commands like exit when integration testing, by not disabling cmd_handler in stop()
     stop();
+#endif
+
 #ifndef WIN32 // NOTE: Fork not supported on Windows
     if (m_wallet->fork_on_autostake())
     {
