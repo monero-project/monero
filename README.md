@@ -172,7 +172,7 @@ Install all dependencies at once on Debian/Ubuntu:
 
 Install all dependencies at once on OSX:
 
-``` brew upgrade && brew install gcc cmake pkg-config boost zmq libpgm unbound libsodium miniupnpc libunwind-headers xz readline ldns expat doxygen graphviz && brew cleanup ```
+``` brew update && brew install cmake pkg-config boost zmq libpgm unbound libsodium miniupnpc libunwind-headers xz readline ldns expat doxygen graphviz && brew cleanup ```
 
 ### Cloning the repository
 
