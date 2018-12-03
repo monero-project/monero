@@ -894,6 +894,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_key_reuse_mitigation2(true),
   m_segregation_height(0),
   m_ignore_fractional_outputs(true),
+  m_track_uses(false),
   m_is_initialized(false),
   m_kdf_rounds(kdf_rounds),
   is_old_file_format(false),
@@ -1448,6 +1449,7 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data)
 {
+  PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
   // (that is, the prunable stuff may or may not be included)
   if (!miner_tx && !pool)
@@ -1780,11 +1782,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   {
     if(in.type() != typeid(cryptonote::txin_to_key))
       continue;
-    auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
+    const cryptonote::txin_to_key &in_to_key = boost::get<cryptonote::txin_to_key>(in);
+    auto it = m_key_images.find(in_to_key.k_image);
     if(it != m_key_images.end())
     {
       transfer_details& td = m_transfers[it->second];
-      uint64_t amount = boost::get<cryptonote::txin_to_key>(in).amount;
+      uint64_t amount = in_to_key.amount;
       if (amount > 0)
       {
         if(amount != td.amount())
@@ -1813,6 +1816,20 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         set_spent(it->second, height);
         if (0 != m_callback)
           m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index);
+      }
+    }
+
+    if (!pool && m_track_uses)
+    {
+      PERF_TIMER(track_uses);
+      std::vector<uint64_t> offsets = cryptonote::relative_output_offsets_to_absolute(in_to_key.key_offsets);
+      for (transfer_details &td: m_transfers)
+      {
+        if ((td.is_rct() ? 0 : td.amount()) != in_to_key.amount)
+          continue;
+        for (uint64_t offset: offsets)
+          if (offset == td.m_global_output_index)
+            td.m_uses.push_back(std::make_pair(height, txid));
       }
     }
   }
@@ -3183,6 +3200,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_ignore_fractional_outputs ? 1 : 0);
   json.AddMember("ignore_fractional_outputs", value2, json.GetAllocator());
 
+  value2.SetInt(m_track_uses ? 1 : 0);
+  json.AddMember("track_uses", value2, json.GetAllocator());
+
   value2.SetUint(m_subaddress_lookahead_major);
   json.AddMember("subaddress_lookahead_major", value2, json.GetAllocator());
 
@@ -3329,6 +3349,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_key_reuse_mitigation2 = true;
     m_segregation_height = 0;
     m_ignore_fractional_outputs = true;
+    m_track_uses = false;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_original_keys_available = false;
@@ -3481,6 +3502,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_segregation_height = field_segregation_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_fractional_outputs, int, Int, false, true);
     m_ignore_fractional_outputs = field_ignore_fractional_outputs;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, track_uses, int, Int, false, false);
+    m_track_uses = field_track_uses;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_major, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MAJOR);
     m_subaddress_lookahead_major = field_subaddress_lookahead_major;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);

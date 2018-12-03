@@ -146,7 +146,7 @@ namespace
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
   const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted]");
   const char* USAGE_SHOW_BALANCE("balance [detail]");
-  const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [index=<N1>[,<N2>[,...]]]");
+  const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
   const char* USAGE_PAYMENT_ID("payment_id");
   const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]");
@@ -2488,6 +2488,19 @@ bool simple_wallet::set_ignore_fractional_outputs(const std::vector<std::string>
   return true;
 }
 
+bool simple_wallet::set_track_uses(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->track_uses(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
+  }
+  return true;
+}
+
 bool simple_wallet::set_device_name(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -3032,6 +3045,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "subaddress-lookahead = " << lookahead.first << ":" << lookahead.second;
     success_msg_writer() << "segregation-height = " << m_wallet->segregation_height();
     success_msg_writer() << "ignore-fractional-outputs = " << m_wallet->ignore_fractional_outputs();
+    success_msg_writer() << "track-uses = " << m_wallet->track_uses();
     success_msg_writer() << "device_name = " << m_wallet->device_name();
     return true;
   }
@@ -3088,6 +3102,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("subaddress-lookahead", set_subaddress_lookahead, tr("<major>:<minor>"));
     CHECK_SIMPLE_VARIABLE("segregation-height", set_segregation_height, tr("unsigned integer"));
     CHECK_SIMPLE_VARIABLE("ignore-fractional-outputs", set_ignore_fractional_outputs, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("track-uses", set_track_uses, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("device-name", set_device_name, tr("<device_name[:device_spec]>"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
@@ -4813,6 +4828,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   bool filter = false;
   bool available = false;
   bool verbose = false;
+  bool uses = false;
   if (local_args.size() > 0)
   {
     if (local_args[0] == "available")
@@ -4828,11 +4844,21 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
       local_args.erase(local_args.begin());
     }
   }
-  if (local_args.size() > 0 && local_args[0] == "verbose")
+  while (local_args.size() > 0)
   {
-    verbose = true;
+    if (local_args[0] == "verbose")
+      verbose = true;
+    else if (local_args[0] == "uses")
+      uses = true;
+    else
+    {
+      fail_msg_writer() << tr("Invalid keyword: ") << local_args.front();
+      break;
+    }
     local_args.erase(local_args.begin());
   }
+
+  const uint64_t blockchain_height = m_wallet->get_blockchain_current_height();
 
   PAUSE_READLINE();
 
@@ -4867,9 +4893,16 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
           verbose_string = (boost::format("%68s%68s") % tr("pubkey") % tr("key image")).str();
         message_writer() << boost::format("%21s%8s%12s%8s%16s%68s%16s%s") % tr("amount") % tr("spent") % tr("unlocked") % tr("ringct") % tr("global index") % tr("tx id") % tr("addr index") % verbose_string;
       }
-      std::string verbose_string;
+      std::string extra_string;
       if (verbose)
-        verbose_string = (boost::format("%68s%68s") % td.get_public_key() % (td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : td.m_key_image_partial ? (epee::string_tools::pod_to_hex(td.m_key_image) + "/p") : std::string(64, '?'))).str();
+        extra_string += (boost::format("%68s%68s") % td.get_public_key() % (td.m_key_image_known ? epee::string_tools::pod_to_hex(td.m_key_image) : td.m_key_image_partial ? (epee::string_tools::pod_to_hex(td.m_key_image) + "/p") : std::string(64, '?'))).str();
+      if (uses)
+      {
+        std::vector<uint64_t> heights;
+        for (const auto &e: td.m_uses) heights.push_back(e.first);
+        const std::pair<std::string, std::string> line = show_outputs_line(heights, blockchain_height, td.m_spent_height);
+        extra_string += tr("Heights: ") + line.first + "\n" + line.second;
+      }
       message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
         print_money(td.amount()) %
@@ -4879,7 +4912,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         td.m_global_output_index %
         td.m_txid %
         td.m_subaddr_index.minor %
-        verbose_string;
+        extra_string;
       ++transfers_found;
     }
   }
@@ -5031,6 +5064,33 @@ bool simple_wallet::rescan_spent(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+std::pair<std::string, std::string> simple_wallet::show_outputs_line(const std::vector<uint64_t> &heights, uint64_t blockchain_height, uint64_t highlight_height) const
+{
+  std::stringstream ostr;
+
+  for (uint64_t h: heights)
+    blockchain_height = std::max(blockchain_height, h);
+
+  for (size_t j = 0; j < heights.size(); ++j)
+    ostr << (heights[j] == highlight_height ? " *" : " ") << heights[j];
+
+  // visualize the distribution, using the code by moneroexamples onion-monero-viewer
+  const uint64_t resolution = 79;
+  std::string ring_str(resolution, '_');
+  for (size_t j = 0; j < heights.size(); ++j)
+  {
+    uint64_t pos = (heights[j] * resolution) / blockchain_height;
+    ring_str[pos] = 'o';
+  }
+  if (highlight_height < blockchain_height)
+  {
+    uint64_t pos = (highlight_height * resolution) / blockchain_height;
+    ring_str[pos] = '*';
+  }
+
+  return std::make_pair(ostr.str(), ring_str);
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr)
 {
   uint32_t version;
@@ -5101,21 +5161,18 @@ bool simple_wallet::print_ring_members(const std::vector<tools::wallet2::pending
         }
       }
       ostr << tr("\nOriginating block heights: ");
-      for (size_t j = 0; j < absolute_offsets.size(); ++j)
-        ostr << tr(j == source.real_output ? " *" : " ") << res.outs[j].height;
       spent_key_height[i] = res.outs[source.real_output].height;
       spent_key_txid  [i] = res.outs[source.real_output].txid;
-      // visualize the distribution, using the code by moneroexamples onion-monero-viewer
-      const uint64_t resolution = 79;
-      std::string ring_str(resolution, '_');
+      std::vector<uint64_t> heights(absolute_offsets.size(), 0);
+      uint64_t highlight_height = std::numeric_limits<uint64_t>::max();
       for (size_t j = 0; j < absolute_offsets.size(); ++j)
       {
-        uint64_t pos = (res.outs[j].height * resolution) / blockchain_height;
-        ring_str[pos] = 'o';
+        heights[j] = res.outs[j].height;
+        if (j == source.real_output)
+          highlight_height = heights[j];
       }
-      uint64_t pos = (res.outs[source.real_output].height * resolution) / blockchain_height;
-      ring_str[pos] = '*';
-      ostr << tr("\n|") << ring_str << tr("|\n");
+      std::pair<std::string, std::string> ring_str = show_outputs_line(heights, highlight_height);
+      ostr << ring_str.first << tr("\n|") << ring_str.second << tr("|\n");
     }
     // warn if rings contain keys originating from the same tx or temporally very close block heights
     bool are_keys_from_same_tx      = false;
