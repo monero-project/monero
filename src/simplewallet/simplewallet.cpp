@@ -2579,8 +2579,8 @@ simple_wallet::simple_wallet()
                            tr("Verify a signature on the contents of a file."));
   m_cmd_binder.set_handler("export_key_images",
                            boost::bind(&simple_wallet::export_key_images, this, _1),
-                           tr("export_key_images <file>"),
-                           tr("Export a signed set of key images to a <file>."));
+                           tr("export_key_images <file> [requested-only]"),
+                           tr("Export a signed set of key images to a <file>. By default exports all key images. If 'requested-only' is specified export key images for outputs not previously imported."));
   m_cmd_binder.set_handler("import_key_images",
                            boost::bind(&simple_wallet::import_key_images, this, _1),
                            tr("import_key_images <file>"),
@@ -8911,9 +8911,9 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if (args.size() != 1)
+  if (args.size() != 1 && args.size() != 2)
   {
-    fail_msg_writer() << tr("usage: export_key_images <filename>");
+    fail_msg_writer() << tr("usage: export_key_images <filename> [requested-only]");
     return true;
   }
   if (m_wallet->watch_only())
@@ -8927,9 +8927,12 @@ bool simple_wallet::export_key_images(const std::vector<std::string> &args)
   if (m_wallet->confirm_export_overwrite() && !check_file_overwrite(filename))
     return true;
 
+  /// whether to export requested key images only
+  bool requested_only = (args.size() == 2 && args[1] == "requested-only");
+
   try
   {
-    if (!m_wallet->export_key_images(filename))
+    if (!m_wallet->export_key_images(filename, requested_only))
     {
       fail_msg_writer() << tr("failed to save file ") << filename;
       return true;
