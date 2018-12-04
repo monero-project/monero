@@ -55,7 +55,8 @@ public:
   {
     if (m_ok)
     {
-      mp_http_client->disconnect();
+      try { mp_http_client->disconnect(); }
+      catch (...) { /* do not propagate through dtor */ }
     }
   }
 

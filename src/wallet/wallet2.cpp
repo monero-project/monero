@@ -830,7 +830,12 @@ wallet_keys_unlocker::~wallet_keys_unlocker()
 {
   if (!locked)
     return;
-  w.encrypt_keys(key);
+  try { w.encrypt_keys(key); }
+  catch (...)
+  {
+    MERROR("Failed to re-encrypt wallet keys");
+    // do not propagate through dtor, we'd crash
+  }
 }
 
 wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
