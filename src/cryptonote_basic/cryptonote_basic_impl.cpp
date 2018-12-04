@@ -322,7 +322,7 @@ namespace cryptonote {
 }
 
 //--------------------------------------------------------------------------------
-bool parse_hash256(const std::string str_hash, crypto::hash& hash)
+bool parse_hash256(const std::string &str_hash, crypto::hash& hash)
 {
   std::string buf;
   bool res = epee::string_tools::parse_hexstr_to_binbuff(str_hash, buf);

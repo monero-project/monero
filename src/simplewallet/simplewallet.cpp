@@ -6733,7 +6733,6 @@ static std::string get_human_readable_timestamp(uint64_t ts)
   struct tm tm;
   epee::misc_utils::get_gmt_time(tt, tm);
   uint64_t now = time(NULL);
-  uint64_t diff = ts > now ? ts - now : now - ts;
   strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
   return std::string(buffer);
 }

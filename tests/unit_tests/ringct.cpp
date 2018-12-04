@@ -968,8 +968,6 @@ static rctSig make_sig()
 #define TEST_rctSig_elements(name, op) \
 TEST(ringct, rctSig_##name) \
 { \
-  const uint64_t inputs[] = {1000, 1000}; \
-  const uint64_t outputs[] = {1000, 1000}; \
   rct::rctSig sig = make_sig(); \
   ASSERT_TRUE(rct::verRct(sig)); \
   op; \

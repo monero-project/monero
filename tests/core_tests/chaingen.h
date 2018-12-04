@@ -511,7 +511,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
   get_test_options<t_test_class> gto;
-  if (!c.init(vm, NULL, &gto.test_options))
+  if (!c.init(vm, &gto.test_options))
   {
     MERROR("Failed to init core");
     return false;

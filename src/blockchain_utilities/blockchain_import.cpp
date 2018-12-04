@@ -764,7 +764,7 @@ int main(int argc, char* argv[])
 #else
   const GetCheckpointsCallback& get_checkpoints = nullptr;
 #endif
-  if (!core.init(vm, nullptr, nullptr, get_checkpoints))
+  if (!core.init(vm, nullptr, get_checkpoints))
   {
     std::cerr << "Failed to initialize core" << ENDL;
     return 1;

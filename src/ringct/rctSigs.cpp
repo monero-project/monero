@@ -444,7 +444,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, key txnFeeKey, hw::device &hwdev) {
+    mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, const key &txnFeeKey, hw::device &hwdev) {
         mgSig mg;
         //setup vars
         size_t cols = pubs.size();
@@ -534,7 +534,7 @@ namespace rct {
     //   this shows that sum inputs = sum outputs
     //Ver:    
     //   verifies the above sig is created corretly
-    bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, key txnFeeKey, const key &message) {
+    bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, const key &txnFeeKey, const key &message) {
         PERF_TIMER(verRctMG);
         //setup vars
         size_t cols = pubs.size();

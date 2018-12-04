@@ -789,8 +789,6 @@ namespace hw {
         }
 
         #ifdef DEBUG_HWDEVICE
-        bool recover_x = recover;
-        const crypto::secret_key recovery_key_x = recovery_key;
         crypto::public_key pub_x;
         crypto::secret_key sec_x;
         #endif
