@@ -234,7 +234,7 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
     }
     time_t tt = blk.timestamp;
     char timebuf[64];
-    gmtime_r(&tt, &currtm);
+    epee::misc_utils::get_gmt_time(tt, currtm);
     if (!prevtm.tm_year)
       prevtm = currtm;
     // catch change of day
