@@ -6844,7 +6844,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
       std::string destination = m_wallet->get_subaddress_as_str({m_current_subaddress_account, pd.m_subaddr_index.minor});
       const std::string type = pd.m_coinbase ? tr("block") : tr("in");
-      const bool unlocked = m_wallet->is_tx_spendtime_unlocked(pd.m_unlock_time, pd.m_block_height);
+      const bool unlocked = m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
       transfers.push_back({
         pd.m_block_height,
         pd.m_timestamp,
