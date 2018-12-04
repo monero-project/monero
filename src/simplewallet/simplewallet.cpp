@@ -1409,7 +1409,7 @@ bool simple_wallet::print_ring(const std::vector<std::string> &args)
   crypto::hash txid;
   if (args.size() != 1)
   {
-    fail_msg_writer() << tr("usage: print_ring <key_image|txid>");
+    fail_msg_writer() << tr("usage: print_ring <key_image> | <txid>");
     return true;
   }
 
@@ -2348,7 +2348,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("incoming_transfers",
                            boost::bind(&simple_wallet::show_incoming_transfers, this, _1),
                            tr("incoming_transfers [available|unavailable] [verbose] [index=<N1>[,<N2>[,...]]]"),
-                           tr("Show the incoming transfers, all or filtered by availability and address index."));
+                           tr("Show the incoming transfers, all or filtered by availability and address index.\n\n"
+                              "Output format:\n"
+                              "Amount, Spent(\"T\"|\"F\"), \"locked\"|\"unlocked\", RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image] "));
   m_cmd_binder.set_handler("payments",
                            boost::bind(&simple_wallet::show_payments, this, _1),
                            tr("payments <PID_1> [<PID_2> ... <PID_N>]"),
@@ -2656,7 +2658,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("print_ring",
                            boost::bind(&simple_wallet::print_ring, this, _1),
                            tr("print_ring <key_image> | <txid>"),
-                           tr("Print the ring(s) used to spend a given key image or transaction (if the ring size is > 1)"));
+                           tr("Print the ring(s) used to spend a given key image or transaction (if the ring size is > 1)\n\n"
+                              "Output format:\n"
+                              "Key Image, \"absolute\", list of rings"));
   m_cmd_binder.set_handler("set_ring",
                            boost::bind(&simple_wallet::set_ring, this, _1),
                            tr("set_ring <filename> | ( <key_image> absolute|relative <index> [<index>...] )"),
@@ -4440,7 +4444,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
 {
   if (args.size() > 3)
   {
-    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N>]");
+    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N1>[,<N2>[,...]]]");
     return true;
   }
   auto local_args = args;
@@ -4482,7 +4486,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
 
   if (local_args.size() > 0)
   {
-    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N>]");
+    fail_msg_writer() << tr("usage: incoming_transfers [available|unavailable] [verbose] [index=<N1>[,<N2>[,...]]]");
     return true;
   }
 
