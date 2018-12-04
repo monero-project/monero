@@ -1078,7 +1078,7 @@ namespace cryptonote
       return false;
     }
 
-    block b = AUTO_VAL_INIT(b);
+    block b;
     cryptonote::blobdata blob_reserve;
     blob_reserve.resize(req.reserve_size, 0);
     if(!m_core.get_block_template(b, info.address, res.difficulty, res.height, res.expected_reward, blob_reserve))
@@ -1149,7 +1149,7 @@ namespace cryptonote
     
     // Fixing of high orphan issue for most pools
     // Thanks Boolberry!
-    block b = AUTO_VAL_INIT(b);
+    block b;
     if(!parse_and_validate_block_from_blob(blockblob, b))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
@@ -1217,7 +1217,7 @@ namespace cryptonote
         error_resp.message = "Wrong block blob";
         return false;
       }
-      block b = AUTO_VAL_INIT(b);
+      block b;
       if(!parse_and_validate_block_from_blob(blockblob, b))
       {
         error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;

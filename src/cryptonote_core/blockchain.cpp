@@ -404,7 +404,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   if(!m_db->height())
   {
     MINFO("Blockchain not loaded, generating genesis block.");
-    block bl = boost::value_initialized<block>();
+    block bl;
     block_verification_context bvc = boost::value_initialized<block_verification_context>();
     generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
     add_new_block(bl, bvc);
