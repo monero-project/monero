@@ -198,8 +198,8 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string address = "0.0.0.0", uint32_t port_ipv6 = 0, const std::string address_v6 = "::", bool no_ipv6 = false);
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", const std::string& port_ipv6 = "", const std::string address_v6 = "::", bool no_ipv6 = false);
+    bool init_server(uint32_t port, const std::string address = "0.0.0.0", uint32_t port_ipv6 = 0, const std::string address_v6 = "::", bool use_ipv6 = false);
+    bool init_server(const std::string port,  const std::string& address = "0.0.0.0", const std::string& port_ipv6 = "", const std::string address_v6 = "::", bool use_ipv6 = false);
 
     /// Run the server's io_service loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());

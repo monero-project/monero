@@ -238,7 +238,7 @@ namespace tools
     auto rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
       rng, std::move(bind_port), std::move(rpc_config->bind_ip),
-      std::move(rpc_config->bind_ipv6_address), std::move(rpc_config->no_ipv6),
+      std::move(rpc_config->bind_ipv6_address), std::move(rpc_config->use_ipv6),
       std::move(rpc_config->access_control_origins), std::move(http_login)
     );
   }
@@ -2463,7 +2463,7 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = m_wallet->export_key_images();
+      std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = m_wallet->export_key_images(false /* requested_ki_only */);
       res.offset = ski.first;
       res.signed_key_images.resize(ski.second.size());
       for (size_t n = 0; n < ski.second.size(); ++n)
