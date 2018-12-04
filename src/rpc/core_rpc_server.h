@@ -70,10 +70,9 @@ namespace cryptonote
     bool init(
         const boost::program_options::variables_map& vm,
         const bool restricted,
-        const network_type nettype,
         const std::string& port
       );
-    network_type nettype() const { return m_nettype; }
+    network_type nettype() const { return m_core.get_nettype(); }
 
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
 

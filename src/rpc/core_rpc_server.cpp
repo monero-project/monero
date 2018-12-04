@@ -91,12 +91,10 @@ namespace cryptonote
   bool core_rpc_server::init(
       const boost::program_options::variables_map& vm
       , const bool restricted
-      , const network_type nettype
       , const std::string& port
     )
   {
     m_restricted = restricted;
-    m_nettype = nettype;
     m_net_server.set_threads_prefix("RPC");
 
     auto rpc_config = cryptonote::rpc_args::process(vm);
@@ -191,10 +189,13 @@ namespace cryptonote
     res.rpc_connections_count = get_connections_count();
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
-    res.mainnet = m_nettype == MAINNET;
-    res.testnet = m_nettype == TESTNET;
-    res.stagenet = m_nettype == STAGENET;
-    res.nettype = m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : m_nettype == STAGENET ? "stagenet" : "fakechain";
+
+    cryptonote::network_type net_type = nettype();
+    res.mainnet = net_type == MAINNET;
+    res.testnet = net_type == TESTNET;
+    res.stagenet = net_type == STAGENET;
+    res.nettype = net_type == MAINNET ? "mainnet" : net_type == TESTNET ? "testnet" : net_type == STAGENET ? "stagenet" : "fakechain";
+
     res.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1);
     res.block_size_limit = res.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
     res.block_size_median = res.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
@@ -750,7 +751,7 @@ namespace cryptonote
     PERF_TIMER(on_start_mining);
     CHECK_CORE_READY();
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, m_nettype, req.miner_address))
+    if(!get_account_address_from_str(info, nettype(), req.miner_address))
     {
       res.status = "Failed, wrong address";
       LOG_PRINT_L0(res.status);
@@ -831,7 +832,7 @@ namespace cryptonote
       res.speed = lMiner.get_speed();
       res.threads_count = lMiner.get_threads_count();
       const account_public_address& lMiningAdr = lMiner.get_mining_address();
-      res.address = get_account_address_as_str(m_nettype, false, lMiningAdr);
+      res.address = get_account_address_as_str(nettype(), false, lMiningAdr);
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -1064,7 +1065,7 @@ namespace cryptonote
 
     cryptonote::address_parse_info info;
 
-    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, m_nettype, req.wallet_address))
+    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, nettype(), req.wallet_address))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS;
       error_resp.message = "Failed to parse wallet address";
@@ -1590,10 +1591,13 @@ namespace cryptonote
     res.rpc_connections_count = get_connections_count();
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
-    res.mainnet = m_nettype == MAINNET;
-    res.testnet = m_nettype == TESTNET;
-    res.stagenet = m_nettype == STAGENET;
-    res.nettype = m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : m_nettype == STAGENET ? "stagenet" : "fakechain";
+
+    cryptonote::network_type net_type = nettype();
+    res.mainnet = net_type == MAINNET;
+    res.testnet = net_type == TESTNET;
+    res.stagenet = net_type == STAGENET;
+    res.nettype = net_type == MAINNET ? "mainnet" : net_type == TESTNET ? "testnet" : net_type == STAGENET ? "stagenet" : "fakechain";
+
     res.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1);
     res.block_size_limit = res.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
     res.block_size_median = res.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();
