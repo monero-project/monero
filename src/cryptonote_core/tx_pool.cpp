@@ -40,7 +40,7 @@
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "common/boost_serialization_helper.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "misc_language.h"
 #include "warnings.h"
 #include "common/perf_timer.h"
