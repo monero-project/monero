@@ -134,6 +134,12 @@ if (BUILD_GUI_DEPS)
     endif()
     install(TARGETS wallet_merged
         ARCHIVE DESTINATION ${lib_folder})
+
+    install(FILES ${TREZOR_DEP_LIBS}
+            DESTINATION ${lib_folder})
+    file(WRITE "trezor_link_flags.txt" ${TREZOR_DEP_LINKER})
+    install(FILES "trezor_link_flags.txt"
+            DESTINATION ${lib_folder})
 endif()
 
 add_subdirectory(api)

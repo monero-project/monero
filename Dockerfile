@@ -20,7 +20,8 @@ RUN set -ex && \
         automake \
         bzip2 \
         xsltproc \
-        gperf
+        gperf \
+        unzip
 
 WORKDIR /usr/local
 
@@ -146,6 +147,20 @@ RUN set -ex \
     && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
     && make \
     && make install
+
+# Protobuf
+ARG PROTOBUF_VERSION=v3.6.1
+ARG PROTOBUF_HASH=48cb18e5c419ddd23d9badcfe4e9df7bde1979b2
+RUN set -ex \
+    && git clone https://github.com/protocolbuffers/protobuf -b ${PROTOBUF_VERSION} \
+    && cd protobuf \
+    && test `git rev-parse HEAD` = ${PROTOBUF_HASH} || exit 1 \
+    && git submodule update --init --recursive \
+    && ./autogen.sh \
+    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
+    && make \
+    && make install \
+    && ldconfig
 
 WORKDIR /src
 COPY . .

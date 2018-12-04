@@ -67,14 +67,6 @@ set(trezor_private_headers)
 if(DEVICE_TREZOR_READY)
     message(STATUS "Trezor support enabled")
 
-    add_definitions(-DPROTOBUF_INLINE_NOT_IN_HEADERS=0)
-
-    set(TREZOR_LIBUSB_LIBRARIES "")
-    if(LibUSB_COMPILE_TEST_PASSED)
-        list(APPEND TREZOR_LIBUSB_LIBRARIES ${LibUSB_LIBRARIES})
-        message(STATUS "Trezor compatible LibUSB found at: ${LibUSB_INCLUDE_DIRS}")
-    endif()
-
     monero_private_headers(device_trezor
             ${device_private_headers})
 
