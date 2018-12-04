@@ -297,7 +297,7 @@ namespace nodetool
     bool m_hide_my_port;
     bool m_no_igd;
     bool m_offline;
-    bool m_no_ipv6;
+    bool m_use_ipv6;
     std::atomic<bool> m_save_graph;
     std::atomic<bool> is_closing;
     std::unique_ptr<boost::thread> mPeersLoggerThread;
@@ -348,7 +348,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
     extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6;
-    extern const command_line::arg_descriptor<bool>        arg_p2p_no_ipv6;
+    extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
     extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer;

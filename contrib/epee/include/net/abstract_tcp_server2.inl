@@ -844,7 +844,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port, const std::string address, uint32_t port_ipv6, const std::string address_v6, bool no_ipv6)
+  bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port, const std::string address, uint32_t port_ipv6, const std::string address_v6, bool use_ipv6)
   {
     TRY_ENTRY();
     m_stop_signal_sent = false;
@@ -877,7 +877,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 	    boost::asio::placeholders::error));
     }
 
-    if (!no_ipv6)
+    if (use_ipv6)
     {
       if (port_ipv6 == 0) port_ipv6 = m_port; // default arg means bind to same port as ipv4
 
@@ -920,7 +920,7 @@ PRAGMA_WARNING_DISABLE_VS(4355)
 PUSH_WARNINGS
 DISABLE_GCC_WARNING(maybe-uninitialized)
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port,  const std::string& address, const std::string& port_ipv6, const std::string address_v6, bool no_ipv6)
+  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port,  const std::string& address, const std::string& port_ipv6, const std::string address_v6, bool use_ipv6)
   {
     uint32_t p = 0;
     uint32_t p6 = 0;
@@ -938,7 +938,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     {
       p6 = p;
     }
-    return this->init_server(p, address, p6, address_v6, no_ipv6);
+    return this->init_server(p, address, p6, address_v6, use_ipv6);
   }
 POP_WARNINGS
   //---------------------------------------------------------------------------------
