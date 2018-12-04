@@ -1382,8 +1382,8 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
   {
     // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
     LOG_PRINT_L0("Transaction extra has unsupported format: " << txid);
-    tx_cache_data.tx_extra_fields.clear();
-    return;
+    if (tx_cache_data.tx_extra_fields.empty())
+      return;
   }
 
   // Don't try to extract tx public key if tx has no ouputs
