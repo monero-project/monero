@@ -29,6 +29,9 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#ifdef _WIN32
+ #define __STDC_FORMAT_MACROS // NOTE(loki): Explicitly define the PRIu64 macro on Mingw
+#endif
 
 #include "wallet.h"
 #include "pending_transaction.h"
