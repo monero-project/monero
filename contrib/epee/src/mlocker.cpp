@@ -114,6 +114,8 @@ namespace epee
 
   void mlocker::lock(void *ptr, size_t len)
   {
+    TRY_ENTRY();
+
     size_t page_size = get_page_size();
     if (page_size == 0)
       return;
@@ -124,10 +126,14 @@ namespace epee
     for (size_t page = first; page <= last; ++page)
       lock_page(page);
     ++num_locked_objects;
+
+    CATCH_ENTRY_L1("mlocker::lock", void());
   }
 
   void mlocker::unlock(void *ptr, size_t len)
   {
+    TRY_ENTRY();
+
     size_t page_size = get_page_size();
     if (page_size == 0)
       return;
@@ -137,6 +143,8 @@ namespace epee
     for (size_t page = first; page <= last; ++page)
       unlock_page(page);
     --num_locked_objects;
+
+    CATCH_ENTRY_L1("mlocker::lock", void());
   }
 
   size_t mlocker::get_num_locked_pages()
