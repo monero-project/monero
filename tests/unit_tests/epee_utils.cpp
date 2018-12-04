@@ -456,6 +456,35 @@ TEST(StringTools, PodToHex)
   );
 }
 
+TEST(StringTools, ParseHex)
+{
+  static const char data[] = "a10b68c2";
+  for (size_t i = 0; i < sizeof(data); i += 2)
+  {
+    std::string res;
+    ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(std::string(data, i), res));
+    std::string hex = epee::string_tools::buff_to_hex_nodelimer(res);
+    ASSERT_EQ(hex.size(), i);
+    ASSERT_EQ(memcmp(data, hex.data(), i), 0);
+  }
+}
+
+TEST(StringTools, ParseNotHex)
+{
+  std::string res;
+  for (size_t i = 0; i < 256; ++i)
+  {
+    std::string inputHexString = std::string(2, static_cast<char>(i));
+    if ((i >= '0' && i <= '9') || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f')) {
+      ASSERT_TRUE(epee::string_tools::parse_hexstr_to_binbuff(inputHexString, res));
+    } else {
+      ASSERT_FALSE(epee::string_tools::parse_hexstr_to_binbuff(inputHexString, res));
+    }
+  }
+
+  ASSERT_FALSE(epee::string_tools::parse_hexstr_to_binbuff(std::string("a"), res));
+}
+
 TEST(StringTools, GetIpString)
 {
   EXPECT_EQ(
