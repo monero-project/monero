@@ -81,6 +81,9 @@ using namespace epee;
 #include <boost/asio.hpp>
 #include <openssl/sha.h>
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "util"
+
 namespace tools
 {
   std::function<void(int)> signal_handler::m_handler;
