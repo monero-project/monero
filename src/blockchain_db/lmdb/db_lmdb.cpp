@@ -3106,7 +3106,7 @@ uint64_t BlockchainLMDB::add_block(const block& blk, size_t block_weight, const 
   check_open();
   uint64_t m_height = height();
 
-  if (m_height % 1000 == 0)
+  if (m_height % 1024 == 0)
   {
     // for batch mode, DB resize check is done at start of batch transaction
     if (! m_batch_active && need_resize())
