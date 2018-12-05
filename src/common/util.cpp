@@ -84,6 +84,29 @@ using namespace epee;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "util"
 
+namespace
+{
+
+#ifndef _WIN32
+static int flock_exnb(int fd)
+{
+  struct flock fl;
+  int ret;
+
+  memset(&fl, 0, sizeof(fl));
+  fl.l_type = F_WRLCK;
+  fl.l_whence = SEEK_SET;
+  fl.l_start = 0;
+  fl.l_len = 0;
+  ret = fcntl(fd, F_SETLK, &fl);
+  if (ret < 0)
+    MERROR("Error locking fd " << fd << ": " << errno << " (" << strerror(errno) << ")");
+  return ret;
+}
+#endif
+
+}
+
 namespace tools
 {
   std::function<void(int)> signal_handler::m_handler;
@@ -184,7 +207,7 @@ namespace tools
         struct stat wstats = {};
         if (fstat(fdw, std::addressof(wstats)) == 0 &&
             rstats.st_dev == wstats.st_dev && rstats.st_ino == wstats.st_ino &&
-            flock(fdw, (LOCK_EX | LOCK_NB)) == 0 && ftruncate(fdw, 0) == 0)
+            flock_exnb(fdw) == 0 && ftruncate(fdw, 0) == 0)
         {
           std::FILE* file = fdopen(fdw, "w");
           if (file) return {file, std::move(name)};
@@ -237,10 +260,10 @@ namespace tools
       MERROR("Failed to open " << filename << ": " << std::error_code(GetLastError(), std::system_category()));
     }
 #else
-    m_fd = open(filename.c_str(), O_RDONLY | O_CREAT | O_CLOEXEC, 0666);
+    m_fd = open(filename.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0666);
     if (m_fd != -1)
     {
-      if (flock(m_fd, LOCK_EX | LOCK_NB) == -1)
+      if (flock_exnb(m_fd) == -1)
       {
         MERROR("Failed to lock " << filename << ": " << std::strerror(errno));
         close(m_fd);
