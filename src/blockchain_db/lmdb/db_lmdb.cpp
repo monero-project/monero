@@ -1112,29 +1112,6 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-blobdata BlockchainLMDB::output_to_blob(const tx_out& output) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  blobdata b;
-  if (!t_serializable_object_to_blob(output, b))
-    throw1(DB_ERROR("Error serializing output to blob"));
-  return b;
-}
-
-tx_out BlockchainLMDB::output_from_blob(const blobdata& blob) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  std::stringstream ss;
-  ss << blob;
-  binary_archive<false> ba(ss);
-  tx_out o;
-
-  if (!(::serialization::serialize(ba, o)))
-    throw1(DB_ERROR("Error deserializing tx output blob"));
-
-  return o;
-}
-
 void BlockchainLMDB::check_open() const
 {
 //  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
