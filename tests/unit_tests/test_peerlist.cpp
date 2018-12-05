@@ -42,7 +42,7 @@ TEST(peer_list, peer_list_general)
 #define ADD_GRAY_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple; ple.last_seen=last_seen_;ple.adr = addr_; ple.id = id_;plm.append_with_peer_gray(ple);}  
 #define ADD_WHITE_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple;ple.last_seen=last_seen_; ple.adr = addr_; ple.id = id_;plm.append_with_peer_white(ple);}  
 
-#define PRINT_HEAD(step) {std::list<nodetool::peerlist_entry> bs_head; bool r = plm.get_peerlist_head(bs_head, 100);std::cout << "step " << step << ": " << bs_head.size() << std::endl;}
+#define PRINT_HEAD(step) {std::vector<nodetool::peerlist_entry> bs_head; bool r = plm.get_peerlist_head(bs_head, 100);std::cout << "step " << step << ": " << bs_head.size() << std::endl;}
 
   ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,1, 8080), 121241, 34345);
   ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 121241, 34345);
@@ -58,7 +58,7 @@ TEST(peer_list, peer_list_general)
   size_t gray_list_size = plm.get_gray_peers_count();
   ASSERT_EQ(gray_list_size, 1);
 
-  std::list<nodetool::peerlist_entry> bs_head;
+  std::vector<nodetool::peerlist_entry> bs_head;
   bool r = plm.get_peerlist_head(bs_head, 100);
   std::cout << bs_head.size() << std::endl;
   ASSERT_TRUE(r);
@@ -78,7 +78,7 @@ TEST(peer_list, merge_peer_lists)
   //ADD_NODE_TO_PL("\2", \3, 0x\1, (1353346618 -(\4*60*60*24+\5*60*60+\6*60+\7 )));\n
   nodetool::peerlist_manager plm;
   plm.init(false);
-  std::list<nodetool::peerlist_entry> outer_bs;
+  std::vector<nodetool::peerlist_entry> outer_bs;
 #define ADD_NODE_TO_PL(ip_, port_, id_, timestamp_) {  nodetool::peerlist_entry ple; epee::string_tools::get_ip_int32_from_string(ple.adr.ip, ip_); ple.last_seen = timestamp_; ple.adr.port = port_; ple.id = id_;outer_bs.push_back(ple);}  
 
 
