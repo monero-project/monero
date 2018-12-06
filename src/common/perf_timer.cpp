@@ -33,8 +33,12 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "perf"
 
+#define PERF_LOG_ALWAYS(level, cat, x) \
+  el::base::Writer(level, __FILE__, __LINE__, ELPP_FUNC, el::base::DispatchAction::FileOnlyLog).construct(cat) << x
 #define PERF_LOG(level, cat, x) \
-  ELPP_WRITE_LOG(el::base::Writer, level, el::base::DispatchAction::FileOnlyLog, cat) << x
+  do { \
+    if (ELPP->vRegistry()->allowed(level, cat)) PERF_LOG_ALWAYS(level, cat, x); \
+  } while(0)
 
 namespace tools
 {
@@ -109,9 +113,11 @@ PerformanceTimer::PerformanceTimer(bool paused): started(true), paused(paused)
 
 LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std::string &cat, uint64_t unit, el::Level l): PerformanceTimer(), name(s), cat(cat), unit(unit), level(l)
 {
+  const bool log = ELPP->vRegistry()->allowed(level, cat.c_str());
   if (!performance_timers)
   {
-    PERF_LOG(level, cat.c_str(), "PERF             ----------");
+    if (log)
+      PERF_LOG_ALWAYS(level, cat.c_str(), "PERF             ----------");
     performance_timers = new std::vector<LoggingPerformanceTimer*>();
     performance_timers->reserve(16); // how deep before realloc
   }
@@ -120,8 +126,11 @@ LoggingPerformanceTimer::LoggingPerformanceTimer(const std::string &s, const std
     LoggingPerformanceTimer *pt = performance_timers->back();
     if (!pt->started && !pt->paused)
     {
-      size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
-      PERF_LOG(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      if (log)
+      {
+        size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused) ++size;
+        PERF_LOG_ALWAYS(pt->level, cat.c_str(), "PERF           " << std::string((size-1) * 2, ' ') << "  " << pt->name);
+      }
       pt->started = true;
     }
   }
@@ -138,10 +147,14 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
 {
   pause();
   performance_timers->pop_back();
-  char s[12];
-  snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
-  size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
-  PERF_LOG(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  const bool log = ELPP->vRegistry()->allowed(level, cat.c_str());
+  if (log)
+  {
+    char s[12];
+    snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
+    size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
+    PERF_LOG_ALWAYS(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
+  }
   if (performance_timers->empty())
   {
     delete performance_timers;
