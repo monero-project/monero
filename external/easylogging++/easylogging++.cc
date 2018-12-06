@@ -2699,6 +2699,12 @@ Writer& Writer::construct(int count, const char* loggerIds, ...) {
   return *this;
 }
 
+Writer& Writer::construct(const char *loggerId) {
+  initializeLogger(ELPP->registeredLoggers()->get(loggerId, ELPP->hasFlag(LoggingFlag::CreateLoggerAutomatically)));
+  m_messageBuilder.initialize(m_logger);
+  return *this;
+}
+
 void Writer::initializeLogger(const std::string& loggerId, bool lookup, bool needLock) {
   if (lookup) {
     m_logger = ELPP->registeredLoggers()->get(loggerId, ELPP->hasFlag(LoggingFlag::CreateLoggerAutomatically));
@@ -2724,6 +2730,19 @@ void Writer::initializeLogger(const std::string& loggerId, bool lookup, bool nee
     } else {
       m_proceed = m_logger->enabled(m_level);
     }
+  }
+}
+
+void Writer::initializeLogger(Logger *logger, bool needLock) {
+  m_logger = logger;
+  if (m_logger == nullptr) {
+    m_proceed = false;
+  } else {
+    if (needLock) {
+      m_logger->acquireLock();  // This should not be unlocked by checking m_proceed because
+      // m_proceed can be changed by lines below
+    }
+    m_proceed = true;
   }
 }
 
