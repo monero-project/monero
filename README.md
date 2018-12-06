@@ -18,7 +18,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Vulnerability disclosure
 
-- Check out our [Vulnerability Response Process](https://github.com/loki-project/Meta/blob/master/VULNERABILITY_RESPONSE_LOKI.md), encourages prompt disclosure of any Vulnerabilities
+- Check out our [Vulnerability Response Process](https://loki-project.github.io/loki-docs/Contributing/VULNERABILITY_RESPONSE_LOKI), encourages prompt disclosure of any Vulnerabilities
 
 ## Information
 

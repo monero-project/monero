@@ -1008,6 +1008,8 @@ namespace tools
     void confirm_non_default_ring_size(bool always) { m_confirm_non_default_ring_size = always; }
     const std::string & device_name() const { return m_device_name; }
     void device_name(const std::string & device_name) { m_device_name = device_name; }
+    bool fork_on_autostake() const { return m_fork_on_autostake; }
+    void fork_on_autostake(bool value) { m_fork_on_autostake = value; }
 
     bool get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys) const;
     void set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys);
@@ -1128,8 +1130,8 @@ namespace tools
     void import_payments_out(const std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>> &confirmed_payments);
     std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
     void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
-    bool export_key_images(const std::string &filename) const;
-    std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> export_key_images() const;
+    bool export_key_images(const std::string &filename, bool requested_only) const;
+    std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> export_key_images(bool requested_only) const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
     uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
     bool import_key_images(std::vector<crypto::key_image> key_images);
@@ -1412,6 +1414,7 @@ namespace tools
     std::unordered_set<crypto::hash> m_scanned_pool_txs[2];
     size_t m_subaddress_lookahead_major, m_subaddress_lookahead_minor;
     std::string m_device_name;
+    bool m_fork_on_autostake;
 
     // Aux transaction data from device
     std::unordered_map<crypto::hash, std::string> m_tx_device;

@@ -250,7 +250,6 @@ namespace cryptonote
     uint8_t default_threshold_percent;
 
     uint8_t original_version;
-
     std::vector<Params> heights;
 
     std::deque<uint8_t> versions; /* rolling window of the last N blocks' versions */

@@ -57,7 +57,7 @@ namespace epee
 
     bool init(std::function<void(size_t, uint8_t*)> rng, const std::string& bind_port = "0",
       const std::string& bind_ip = "0.0.0.0",
-      const std::string& bind_ipv6_address = "::", bool no_ipv6 = false,
+      const std::string& bind_ipv6_address = "::", bool use_ipv6 = false,
       std::vector<std::string> access_control_origins = std::vector<std::string>(),
       boost::optional<net_utils::http::login> user = boost::none)
     {
@@ -76,7 +76,7 @@ namespace epee
       m_net_server.get_config_object().m_user = std::move(user);
 
       MGINFO("Binding on " << bind_ip << ":" << bind_port);
-      bool res = m_net_server.init_server(bind_port, bind_ip, bind_port, bind_ipv6_address, no_ipv6);
+      bool res = m_net_server.init_server(bind_port, bind_ip, bind_port, bind_ipv6_address, use_ipv6);
       if(!res)
       {
         LOG_ERROR("Failed to bind server");

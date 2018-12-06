@@ -853,6 +853,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_segregation_height(0),
   m_ignore_fractional_outputs(true),
   m_is_initialized(false),
+  m_fork_on_autostake(true),
   m_kdf_rounds(kdf_rounds),
   is_old_file_format(false),
   m_watch_only(false),
@@ -1675,7 +1676,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           auto iter = std::find_if(
               tx_money_got_in_outs.begin(),
               tx_money_got_in_outs.end(),
-              [&tx_scan_info,&tx,&o](const tx_money_got_in_out& value)
+              [&tx_scan_info,&o](const tx_money_got_in_out& value)
               {
                 return value.index == tx_scan_info[o].received->index &&
                   value.amount == tx_scan_info[o].amount &&
@@ -10720,10 +10721,10 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
   return crypto::null_pkey;
 }
 
-bool wallet2::export_key_images(const std::string &filename) const
+bool wallet2::export_key_images(const std::string &filename, bool requested_only) const
 {
   PERF_TIMER(export_key_images);
-  std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images();
+  std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images(requested_only);
   std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
   const uint32_t offset = ski.first;
@@ -10750,14 +10751,18 @@ bool wallet2::export_key_images(const std::string &filename) const
 }
 
 //----------------------------------------------------------------------------------------------------
-std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images() const
+std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images(bool requested_only) const
 {
   PERF_TIMER(export_key_images_raw);
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
 
   size_t offset = 0;
-  while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
-    ++offset;
+
+  if (requested_only)
+  {
+    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
+      ++offset;
+  }
 
   ski.reserve(m_transfers.size() - offset);
   for (size_t n = offset; n < m_transfers.size(); ++n)

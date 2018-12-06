@@ -72,7 +72,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_bind_ipv6_address);
     command_line::add_arg(desc, arg_p2p_bind_port, false);
     command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false);
-    command_line::add_arg(desc, arg_p2p_no_ipv6);
+    command_line::add_arg(desc, arg_p2p_use_ipv6);
     command_line::add_arg(desc, arg_p2p_external_port);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
@@ -272,7 +272,7 @@ namespace nodetool
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     m_no_igd = command_line::get_arg(vm, arg_no_igd);
     m_offline = command_line::get_arg(vm, cryptonote::arg_offline);
-    m_no_ipv6 = command_line::get_arg(vm, arg_p2p_no_ipv6);
+    m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {
@@ -571,18 +571,18 @@ namespace nodetool
 
     //try to bind
     MINFO("Binding (IPv4) on " << m_bind_ip << ":" << m_port);
-    if (!m_no_ipv6)
+    if (m_use_ipv6)
     {
       MINFO("Binding (IPv6) on " << m_bind_ipv6_address << ":" << m_port_ipv6);
     }
 
-    res = m_net_server.init_server(m_port, m_bind_ip, m_port_ipv6, m_bind_ipv6_address, m_no_ipv6);
+    res = m_net_server.init_server(m_port, m_bind_ip, m_port_ipv6, m_bind_ipv6_address, m_use_ipv6);
     CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
 
     m_listening_port = m_net_server.get_binded_port();
     MLOG_GREEN(el::Level::Info, "Net service bound to " << m_bind_ip << ":" << m_listening_port);
 
-    if (!m_no_ipv6)
+    if (m_use_ipv6)
     {
       m_listening_port_ipv6 = m_net_server.get_binded_port_ipv6();
       MLOG_GREEN(el::Level::Info, "Net service bound to " << m_bind_ipv6_address << ":" << m_listening_port_ipv6);
@@ -595,7 +595,7 @@ namespace nodetool
     if(!m_no_igd)
     {
       add_upnp_port_mapping_v4(m_listening_port);
-      if (!m_no_ipv6)
+      if (m_use_ipv6)
       {
 	add_upnp_port_mapping_v6(m_listening_port);
       }
