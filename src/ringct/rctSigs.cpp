@@ -469,7 +469,6 @@ namespace rct {
     //Ver:    
     //   verifies the above sig is created corretly
     mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, const multisig_kLRki *kLRki, key *mscout, unsigned int index, const key &txnFeeKey, hw::device &hwdev) {
-        mgSig mg;
         //setup vars
         size_t cols = pubs.size();
         CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
@@ -527,7 +526,6 @@ namespace rct {
     //       a_out, Cout is for the output commitment
     //       index is the signing index..
     mgSig proveRctMGSimple(const key &message, const ctkeyV & pubs, const ctkey & inSk, const key &a , const key &Cout, const multisig_kLRki *kLRki, key *mscout, unsigned int index, hw::device &hwdev) {
-        mgSig mg;
         //setup vars
         size_t rows = 1;
         size_t cols = pubs.size();
@@ -793,7 +791,6 @@ namespace rct {
         rv.p.bulletproofs.clear();
         if (bulletproof)
         {
-            std::vector<uint64_t> proof_amounts;
             size_t n_amounts = outamounts.size();
             size_t amounts_proved = 0;
             if (rct_config.range_proof_type == RangeProofPaddedBulletproof)

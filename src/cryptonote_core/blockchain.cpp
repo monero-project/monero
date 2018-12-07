@@ -1746,7 +1746,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
   for (auto& bl: blocks)
   {
     std::vector<crypto::hash> missed_tx_ids;
-    std::vector<cryptonote::blobdata> txs;
 
     rsp.blocks.push_back(block_complete_entry());
     block_complete_entry& e = rsp.blocks.back();
@@ -1774,7 +1773,6 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     e.block = std::move(bl.first);
   }
   //get and pack other transactions, if needed
-  std::vector<cryptonote::blobdata> txs;
   get_transactions_blobs(arg.txs, rsp.txs, rsp.missed_ids);
 
   m_db->block_txn_stop();
