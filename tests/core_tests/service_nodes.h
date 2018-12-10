@@ -40,9 +40,9 @@ class test_service_nodes_base : public test_chain_unit_base {};
 template<>
 struct get_test_options<test_service_nodes_base>
 {
-  const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = { std::make_pair(7, 1),
-                                                                 std::make_pair(8, 2),
-                                                                 std::make_pair(9, 3) };
+  const std::vector<std::pair<uint8_t, uint64_t>> hard_forks = { std::make_pair(7, 0),
+                                                                 std::make_pair(8, 1),
+                                                                 std::make_pair(9, 2) };
   const cryptonote::test_options test_options = { hard_forks };
 };
 

@@ -1060,11 +1060,7 @@ namespace cryptonote
 
     cryptonote::address_parse_info info;
 
-<<<<<<< HEAD
     if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, m_core.get_nettype(), req.wallet_address))
-=======
-    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, nettype(), req.wallet_address))
->>>>>>> a605c0d
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS;
       error_resp.message = "Failed to parse wallet address";

@@ -161,7 +161,7 @@ bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, c
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
   std::vector<block> blocks;
-  size_t count = 16 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+  size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
   bool r = c.get_blocks((uint64_t)0, count, blocks);
   CHECK_TEST_CONDITION(r);
   std::vector<cryptonote::block> chain;
@@ -189,7 +189,7 @@ bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, cons
   const auto stake_lock_time = service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
 
   std::vector<block> blocks;
-  size_t count = 16 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
+  size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
   bool r = c.get_blocks((uint64_t)0, count, blocks);
   CHECK_TEST_CONDITION(r);
   std::vector<cryptonote::block> chain;

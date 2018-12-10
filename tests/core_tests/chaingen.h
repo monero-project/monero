@@ -757,6 +757,9 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
   push_core_event_visitor<t_test_class> visitor(cr, events, validator);
   for(size_t i = 1; i < events.size() && r; ++i)
   {
+      if ( i == 155) {
+          volatile int break_here = 5;
+      }
     visitor.event_index(i);
     r = boost::apply_visitor(visitor, events[i]);
   }
