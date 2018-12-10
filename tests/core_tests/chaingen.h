@@ -315,8 +315,6 @@ class linear_chain_generator
 
     int get_hf_version() const;
 
-    void rewind_until_v9();
-    void continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_blocks_n(int n);
     void rewind_blocks();

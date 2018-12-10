@@ -123,30 +123,31 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
 {
 
   linear_chain_generator gen(events);
-  gen.create_genesis_block();                           //  1
+  gen.create_genesis_block();
 
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  gen.rewind_until_v9();                                //  3
-  gen.rewind_blocks_n(10);                              // 13
+  const get_test_options<gen_service_nodes> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
+  gen.rewind_blocks_n(10);
 
-  gen.rewind_blocks();                                  // 13 + N
+  gen.rewind_blocks();
 
   const auto tx0 = gen.create_tx(miner, alice, MK_COINS(101));
-  gen.create_block({tx0});                              // 14 + N
+  gen.create_block({tx0});
 
-  gen.rewind_blocks();                                  // 14 + 2N
+  gen.rewind_blocks();
 
   const auto reg_tx = gen.create_registration_tx(alice, m_alice_service_node_keys);
 
-  gen.create_block({reg_tx});                           // 15 + 2N
+  gen.create_block({reg_tx});
 
   DO_CALLBACK(events, "check_registered");
 
   for (auto i = 0u; i < service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN); ++i) {
     gen.create_block();
-  } // 15 + 2N + M
+  }
 
   DO_CALLBACK(events, "check_expired");
 
@@ -160,7 +161,7 @@ bool gen_service_nodes::check_registered(cryptonote::core& c, size_t ev_index, c
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
   std::vector<block> blocks;
-  size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+  size_t count = 16 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
   bool r = c.get_blocks((uint64_t)0, count, blocks);
   CHECK_TEST_CONDITION(r);
   std::vector<cryptonote::block> chain;
@@ -188,7 +189,7 @@ bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, cons
   const auto stake_lock_time = service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
 
   std::vector<block> blocks;
-  size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
+  size_t count = 16 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
   bool r = c.get_blocks((uint64_t)0, count, blocks);
   CHECK_TEST_CONDITION(r);
   std::vector<cryptonote::block> chain;
@@ -222,7 +223,8 @@ bool test_prefer_deregisters::generate(std::vector<test_event_entry> &events)
   const auto miner = gen.first_miner();
   const auto alice = gen.create_account();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_prefer_deregisters> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(60);
@@ -305,7 +307,8 @@ bool test_zero_fee_deregister::generate(std::vector<test_event_entry> &events)
 
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_zero_fee_deregister> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(20);
@@ -347,7 +350,8 @@ bool test_deregister_safety_buffer::generate(std::vector<test_event_entry> &even
 
   const auto miner = gen.first_miner();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_deregister_safety_buffer> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// give miner some outputs to spend and unlock them
   gen.rewind_blocks_n(40);
@@ -455,7 +459,8 @@ bool test_deregisters_on_split::generate(std::vector<test_event_entry> &events)
   linear_chain_generator gen(events);
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<test_deregisters_on_split> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -560,7 +565,8 @@ bool deregister_too_old::generate(std::vector<test_event_entry>& events)
   linear_chain_generator gen(events);
   gen.create_genesis_block();
 
-  gen.rewind_until_v9();
+  const get_test_options<deregister_too_old> test_options = {};
+  gen.rewind_until_version(test_options.hard_forks, network_version_9_service_nodes);
 
   /// generate some outputs and unlock them
   gen.rewind_blocks_n(20);
@@ -757,7 +763,7 @@ bool test_swarms_basic::generate(std::vector<test_event_entry>& events)
     return false;
   }
 
-  gen.continue_until_version(test_options.hard_forks, network_version_10_bulletproofs);
+  gen.rewind_until_version(test_options.hard_forks, network_version_10_bulletproofs);
 
   /// test that we now have swarms
   DO_CALLBACK(events, "test_initial_swarms");
