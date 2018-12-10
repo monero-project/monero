@@ -155,7 +155,8 @@ namespace net_utils
     //this should be the last one, because it could be wait on destructor, while other activities possible on other threads
     t_protocol_handler m_protocol_handler;
     //typename t_protocol_handler::config_type m_dummy_config;
-    std::list<boost::shared_ptr<connection<t_protocol_handler> > > m_self_refs; // add_ref/release support
+    size_t m_reference_count = 0; // reference count managed through add_ref/release support
+    boost::shared_ptr<connection<t_protocol_handler> > m_self_ref; // the reference to hold
     critical_section m_self_refs_lock;
     critical_section m_chunking_lock; // held while we add small chunks of the big do_send() to small do_send_chunk()
     critical_section m_shutdown_lock; // held while shutting down

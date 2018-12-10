@@ -2,33 +2,28 @@
 
 ## Messages rebuild
 
-Install `protoc` for your distribution.
+Install `protoc` for your distribution. Requirements:
 
 - `protobuf-compiler`
 - `libprotobuf-dev`
-- `libprotoc-dev`
-- `python-protobuf`
+- `python`
 
-Python 3 is required. If you don't have python 3 quite an easy way is
-to use [pyenv].
 
-It is also advised to create own python virtual environment so dependencies
-are installed in this project-related virtual environment.
+Soft requirement: Python 3, can be easily installed with [pyenv].
 
-```bash
-python -m venv /
-```
+### Python 2
 
-Make sure your python has `protobuf` package installed
+Workaround if there is no Python3 available:
 
 ```bash
-pip install protobuf
+pip install backports.tempfile
 ```
 
-Regenerate messages:
+### Regenerate messages
 
-```
-./venv/bin/python3 src/device_trezor/trezor/tools/build_protob.py
+```bash
+cd src/device_trezor/trezor
+python tools/build_protob.py
 ```
 
 The messages regeneration is done also automatically via cmake.

@@ -2931,10 +2931,11 @@ bool wallet2::get_rct_distribution(uint64_t &start_height, std::vector<uint64_t>
   cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response res = AUTO_VAL_INIT(res);
   req.amounts.push_back(0);
   req.from_height = 0;
-  req.cumulative = true;
+  req.cumulative = false;
   req.binary = true;
+  req.compress = true;
   m_daemon_rpc_mutex.lock();
-  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_distribution", req, res, m_http_client, rpc_timeout);
+  bool r = net_utils::invoke_http_bin("/get_output_distribution.bin", req, res, m_http_client, rpc_timeout);
   m_daemon_rpc_mutex.unlock();
   if (!r)
   {
@@ -2961,6 +2962,8 @@ bool wallet2::get_rct_distribution(uint64_t &start_height, std::vector<uint64_t>
     MWARNING("Failed to request output distribution: results are not for amount 0");
     return false;
   }
+  for (size_t i = 1; i < res.distributions[0].data.distribution.size(); ++i)
+    res.distributions[0].data.distribution[i] += res.distributions[0].data.distribution[i-1];
   start_height = res.distributions[0].data.start_height;
   distribution = std::move(res.distributions[0].data.distribution);
   return true;
@@ -3224,7 +3227,6 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   account_data = buffer.GetString();
 
   // Encrypt the entire JSON object.
-  crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
   std::string cipher;
   cipher.resize(account_data.size());
   keys_file_data.iv = crypto::rand<crypto::chacha_iv>();
@@ -7335,6 +7337,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     }
 
     // get the keys for those
+    req.get_txid = false;
     m_daemon_rpc_mutex.lock();
     bool r = epee::net_utils::invoke_http_bin("/get_outs.bin", req, daemon_resp, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();

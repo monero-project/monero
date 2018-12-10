@@ -1354,6 +1354,15 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 #if VERSION > 0
     else if (db_version < VERSION)
     {
+      if (mdb_flags & MDB_RDONLY)
+      {
+        txn.abort();
+        mdb_env_close(m_env);
+        m_open = false;
+        MFATAL("Existing lmdb database needs to be converted, which cannot be done on a read-only database.");
+        MFATAL("Please run monerod once to convert the database.");
+        return;
+      }
       // Note that there was a schema change within version 0 as well.
       // See commit e5d2680094ee15889934fe28901e4e133cda56f2 2015/07/10
       // We don't handle the old format previous to that commit.
@@ -3203,8 +3212,11 @@ void BlockchainLMDB::get_output_tx_and_index_from_global(const std::vector<uint6
   TXN_POSTFIX_RDONLY();
 }
 
-void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial) const
+void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial) const
 {
+  if (amounts.size() != 1 && amounts.size() != offsets.size())
+    throw0(DB_ERROR("Invalid sizes of amounts and offets"));
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   TIME_MEASURE_START(db3);
   check_open();
@@ -3215,10 +3227,11 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
 
   RCURSOR(output_amounts);
 
-  MDB_val_set(k, amount);
-  for (const uint64_t &index : offsets)
+  for (size_t i = 0; i < offsets.size(); ++i)
   {
-    MDB_val_set(v, index);
+    const uint64_t amount = amounts.size() == 1 ? amounts[0] : amounts[i];
+    MDB_val_set(k, amount);
+    MDB_val_set(v, offsets[i]);
 
     auto get_result = mdb_cursor_get(m_cur_output_amounts, &k, &v, MDB_GET_BOTH);
     if (get_result == MDB_NOTFOUND)
@@ -3228,7 +3241,7 @@ void BlockchainLMDB::get_output_key(const uint64_t &amount, const std::vector<ui
         MDEBUG("Partial result: " << outputs.size() << "/" << offsets.size());
         break;
       }
-      throw1(OUTPUT_DNE((std::string("Attempting to get output pubkey by global index (amount ") + boost::lexical_cast<std::string>(amount) + ", index " + boost::lexical_cast<std::string>(index) + ", count " + boost::lexical_cast<std::string>(get_num_outputs(amount)) + "), but key does not exist (current height " + boost::lexical_cast<std::string>(height()) + ")").c_str()));
+      throw1(OUTPUT_DNE((std::string("Attempting to get output pubkey by global index (amount ") + boost::lexical_cast<std::string>(amount) + ", index " + boost::lexical_cast<std::string>(offsets[i]) + ", count " + boost::lexical_cast<std::string>(get_num_outputs(amount)) + "), but key does not exist (current height " + boost::lexical_cast<std::string>(height()) + ")").c_str()));
     }
     else if (get_result)
       throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output pubkey from the db", get_result).c_str()));
