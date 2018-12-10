@@ -34,8 +34,6 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/limits.hpp>
-#include "include_base_utils.h"
 #include "misc_language.h"
 #include "syncobj.h"
 #include "cryptonote_basic_impl.h"
@@ -55,19 +53,22 @@
   #include <mach/mach_host.h>
   #include <AvailabilityMacros.h>
   #include <TargetConditionals.h>
-#endif
-
-#ifdef __FreeBSD__
-#include <devstat.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <machine/apm_bios.h>
-#include <stdio.h>
-#include <sys/resource.h>
-#include <sys/sysctl.h>
-#include <sys/times.h>
-#include <sys/types.h>
-#include <unistd.h>
+#elif defined(__linux__)
+  #include <unistd.h>
+  #include <sys/resource.h>
+  #include <sys/times.h>
+  #include <time.h>
+#elif defined(__FreeBSD__)
+  #include <devstat.h>
+  #include <errno.h>
+  #include <fcntl.h>
+  #include <machine/apm_bios.h>
+  #include <stdio.h>
+  #include <sys/resource.h>
+  #include <sys/sysctl.h>
+  #include <sys/times.h>
+  #include <sys/types.h>
+  #include <unistd.h>
 #endif
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
@@ -145,7 +146,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::request_block_template()
   {
-    block bl = AUTO_VAL_INIT(bl);
+    block bl;
     difficulty_type di = AUTO_VAL_INIT(di);
     uint64_t height = AUTO_VAL_INIT(height);
     uint64_t expected_reward; //only used for RPC calls - could possibly be useful here too?

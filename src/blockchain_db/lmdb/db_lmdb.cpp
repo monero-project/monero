@@ -30,10 +30,8 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
-#include <boost/current_function.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
-#include <random>
 
 #include "string_tools.h"
 #include "file_io_utils.h"
@@ -4377,16 +4375,12 @@ void BlockchainLMDB::migrate_2_3()
 
 void BlockchainLMDB::migrate(const uint32_t oldversion)
 {
-  switch(oldversion) {
-  case 0:
-    migrate_0_1(); /* FALLTHRU */
-  case 1:
-    migrate_1_2(); /* FALLTHRU */
-  case 2:
-    migrate_2_3(); /* FALLTHRU */
-  default:
-    ;
-  }
+  if (oldversion < 1)
+    migrate_0_1();
+  if (oldversion < 2)
+    migrate_1_2();
+  if (oldversion < 3)
+    migrate_2_3();
 }
 
 

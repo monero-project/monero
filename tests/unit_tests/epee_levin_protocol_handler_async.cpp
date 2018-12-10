@@ -294,7 +294,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_initial
 TEST_F(positive_test_connection_to_levin_protocol_handler_calls, concurent_handler_initialization_and_destruction_is_correct)
 {
   const size_t connection_count = 10000;
-  auto create_and_destroy_connections = [this, connection_count]()
+  auto create_and_destroy_connections = [this]()
   {
     std::vector<test_connection_ptr> connections(connection_count);
     for (size_t i = 0; i < connection_count; ++i)

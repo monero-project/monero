@@ -36,7 +36,6 @@
 #define _ABSTRACT_TCP_SERVER2_H_ 
 
 
-#include <boost/asio.hpp>
 #include <string>
 #include <vector>
 #include <boost/noncopyable.hpp>

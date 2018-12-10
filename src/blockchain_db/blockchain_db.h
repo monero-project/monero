@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include <list>
 #include <string>
 #include <exception>
 #include <boost/program_options.hpp>

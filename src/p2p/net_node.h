@@ -38,7 +38,9 @@
 
 #include "cryptonote_config.h"
 #include "warnings.h"
-#include "net/levin_server_cp2.h"
+#include "net/abstract_tcp_server2.h"
+#include "net/levin_protocol_handler.h"
+#include "net/levin_protocol_handler_async.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "net_peerlist.h"

@@ -1060,7 +1060,11 @@ namespace cryptonote
 
     cryptonote::address_parse_info info;
 
+<<<<<<< HEAD
     if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, m_core.get_nettype(), req.wallet_address))
+=======
+    if(!req.wallet_address.size() || !cryptonote::get_account_address_from_str(info, nettype(), req.wallet_address))
+>>>>>>> a605c0d
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_WALLET_ADDRESS;
       error_resp.message = "Failed to parse wallet address";
@@ -1073,7 +1077,7 @@ namespace cryptonote
       return false;
     }
 
-    block b = AUTO_VAL_INIT(b);
+    block b;
     cryptonote::blobdata blob_reserve;
     blob_reserve.resize(req.reserve_size, 0);
     if(!m_core.get_block_template(b, info.address, res.difficulty, res.height, res.expected_reward, blob_reserve))
@@ -1144,7 +1148,7 @@ namespace cryptonote
     
     // Fixing of high orphan issue for most pools
     // Thanks Boolberry!
-    block b = AUTO_VAL_INIT(b);
+    block b;
     if(!parse_and_validate_block_from_blob(blockblob, b))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
@@ -1212,7 +1216,7 @@ namespace cryptonote
         error_resp.message = "Wrong block blob";
         return false;
       }
-      block b = AUTO_VAL_INIT(b);
+      block b;
       if(!parse_and_validate_block_from_blob(blockblob, b))
       {
         error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB;
@@ -1586,10 +1590,13 @@ namespace cryptonote
     res.rpc_connections_count = get_connections_count();
     res.white_peerlist_size = m_p2p.get_peerlist_manager().get_white_peers_count();
     res.grey_peerlist_size = m_p2p.get_peerlist_manager().get_gray_peers_count();
-    res.mainnet = m_nettype == MAINNET;
-    res.testnet = m_nettype == TESTNET;
-    res.stagenet = m_nettype == STAGENET;
-    res.nettype = m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : m_nettype == STAGENET ? "stagenet" : "fakechain";
+
+    cryptonote::network_type net_type = nettype();
+    res.mainnet = net_type == MAINNET;
+    res.testnet = net_type == TESTNET;
+    res.stagenet = net_type == STAGENET;
+    res.nettype = net_type == MAINNET ? "mainnet" : net_type == TESTNET ? "testnet" : net_type == STAGENET ? "stagenet" : "fakechain";
+
     res.cumulative_difficulty = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1);
     res.block_size_limit = res.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
     res.block_size_median = res.block_weight_median = m_core.get_blockchain_storage().get_current_cumulative_block_weight_median();

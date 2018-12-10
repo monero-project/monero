@@ -31,7 +31,6 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
 
@@ -39,7 +38,6 @@ using namespace epee;
 #include <iomanip>
 
 #include "cryptonote_core.h"
-#include "common/command_line.h"
 #include "common/util.h"
 #include "common/updates.h"
 #include "common/download.h"
@@ -48,7 +46,6 @@ using namespace epee;
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
-#include "cryptonote_tx_utils.h"
 #include "misc_language.h"
 #include "file_io_utils.h"
 #include <csignal>

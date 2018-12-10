@@ -1469,8 +1469,11 @@ Denna transaktion låses upp vid block %llu, om ungefär %s dagar (förutsatt en
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1586"/>
-        <source>Show the incoming transfers, all or filtered by availability and address index.</source>
-        <translation>Visa inkommande överföringar: alla eller filtrerade efter tillgänglighet och adressindex.</translation>
+        <source>Show the incoming transfers, all or filtered by availability and address index.
+
+Output format:
+Amount, Spent(&quot;T&quot;|&quot;F&quot;), &quot;locked&quot;|&quot;unlocked&quot;, RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image]</source>
+        <translation type="unfinished">Visa inkommande överföringar: alla eller filtrerade efter tillgänglighet och adressindex.</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="1589"/>
@@ -2351,8 +2354,8 @@ din plånbok igen (din plånboks nycklar är dock INTE hotade i vilket fall som 
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3339"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3381"/>
-        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N&gt;]</source>
-        <translation>användning: incoming_transfers [available|unavailable] [verbose] [index=&lt;N&gt;]</translation>
+        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N1&gt;[,&lt;N2&gt;[,...]]]</source>
+        <translation>användning: incoming_transfers [available|unavailable] [verbose] [index=&lt;N1&gt;[,&lt;N2&gt;[,...]]]</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="3400"/>
