@@ -32,6 +32,7 @@
 #include "ringct/rctOps.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 
 #include <boost/thread/locks.hpp> 
 #include <boost/thread/lock_guard.hpp>
@@ -67,10 +68,12 @@ namespace hw {
     /* ===                        Keymap                                ==== */
     /* ===================================================================== */
 
-    ABPkeys::ABPkeys(const rct::key& A, const rct::key& B, const bool is_subaddr, const size_t real_output_index, const rct::key& P, const rct::key& AK) {
+    ABPkeys::ABPkeys(const rct::key& A, const rct::key& B, const bool is_subaddr,  const bool is_change, const bool need_additional_txkeys,  const size_t real_output_index, const rct::key& P, const rct::key& AK) {
       Aout = A;
       Bout = B;
       is_subaddress = is_subaddr;
+      is_change_address = is_change;
+      additional_key = need_additional_txkeys;
       index = real_output_index;
       Pout = P;
       AKout = AK;
@@ -80,6 +83,8 @@ namespace hw {
       Aout = keys.Aout;
       Bout = keys.Bout;
       is_subaddress = keys.is_subaddress;
+      is_change_address = keys.is_change_address;
+      additional_key = keys.additional_key;
       index = keys.index;
       Pout = keys.Pout;
       AKout = keys.AKout;
@@ -137,6 +142,8 @@ namespace hw {
 
     static int device_id = 0;
 
+    #define PROTOCOL_VERSION                    2
+
     #define INS_NONE                            0x00
     #define INS_RESET                           0x02
 
@@ -168,6 +175,7 @@ namespace hw {
     #define INS_STEALTH                         0x76
     #define INS_BLIND                           0x78
     #define INS_UNBLIND                         0x7A
+    #define INS_GEN_TXOUT_KEYS                  0x7B
     #define INS_VALIDATE                        0x7C
     #define INS_MLSAG                           0x7E
     #define INS_CLOSE_TX                        0x80
@@ -268,7 +276,7 @@ namespace hw {
     int device_ledger::set_command_header(unsigned char ins, unsigned char p1, unsigned char p2) {
       reset_buffer();
       int offset = 0;
-      this->buffer_send[0] = 0x00;
+      this->buffer_send[0] = PROTOCOL_VERSION;
       this->buffer_send[1] = ins;
       this->buffer_send[2] = p1;
       this->buffer_send[3] = p2;
@@ -1160,10 +1168,139 @@ namespace hw {
         return true;
     }
 
-    bool device_ledger::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const size_t real_output_index,
-                                               const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
-        AUTO_LOCK_CMD();
-        key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), is_subaddress, real_output_index, rct::pk2rct(out_eph_public_key), amount_key));
+
+    bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                                       const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
+                                                       const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
+                                                       std::vector<crypto::public_key> &additional_tx_public_keys,
+                                                       std::vector<rct::key> &amount_keys,
+                                                       crypto::public_key &out_eph_public_key) {
+      AUTO_LOCK_CMD();
+
+      #ifdef DEBUG_HWDEVICE
+      const size_t                             &tx_version_x                   = tx_version;
+      const cryptonote::account_keys           sender_account_keys_x          = sender_account_keys;
+      memmove((void*)sender_account_keys_x.m_view_secret_key.data, dbg_viewkey.data, 32);
+
+      const crypto::public_key                 &txkey_pub_x                    = txkey_pub;
+      const crypto::secret_key                 &tx_key_x                       = tx_key;
+      const cryptonote::tx_destination_entry   &dst_entr_x                     = dst_entr;
+      const boost::optional<cryptonote::account_public_address> &change_addr_x = change_addr;
+      const size_t                             &output_index_x                 = output_index;
+      const bool                               &need_additional_txkeys_x       = need_additional_txkeys;
+      const std::vector<crypto::secret_key>    &additional_tx_keys_x           = additional_tx_keys;
+      std::vector<crypto::public_key>          additional_tx_public_keys_x;
+      std::vector<rct::key>                    amount_keys_x;
+      crypto::public_key                       out_eph_public_key_x;
+      this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x,
+                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
+      #endif
+
+      // make additional tx pubkey if necessary
+      cryptonote::keypair additional_txkey;
+      if (need_additional_txkeys) {
+          additional_txkey.sec = additional_tx_keys[output_index];
+      }
+
+      //compute derivation, out_eph_public_key, and amount key in one shot on device, to ensure checkable link
+      const crypto::secret_key *sec;
+      bool is_change;
+
+      if (change_addr && dst_entr.addr == *change_addr)
+      {
+        // sending change to yourself; derivation = a*R
+        is_change = true;
+        sec = &sender_account_keys.m_view_secret_key;
+      }
+      else
+      {
+        is_change = false;
+        if (dst_entr.is_subaddress && need_additional_txkeys) {
+          sec = &additional_txkey.sec;
+        } else {
+          sec = &tx_key;
+        }
+      }
+
+      int offset = set_command_header_noopt(INS_GEN_TXOUT_KEYS);
+      //tx_version
+      this->buffer_send[offset+0] = tx_version>>24;
+      this->buffer_send[offset+1] = tx_version>>16;
+      this->buffer_send[offset+2] = tx_version>>8;
+      this->buffer_send[offset+3] = tx_version>>0;
+      offset += 4;
+      //tx_sec
+      memmove(&this->buffer_send[offset], sec->data, 32);
+      offset += 32;
+      //Aout
+      memmove(&this->buffer_send[offset], dst_entr.addr.m_view_public_key.data, 32);
+      offset += 32;
+      //Bout
+      memmove(&this->buffer_send[offset], dst_entr.addr.m_spend_public_key.data, 32);
+      offset += 32;
+      //output index
+      this->buffer_send[offset+0] = output_index>>24;
+      this->buffer_send[offset+1] = output_index>>16;
+      this->buffer_send[offset+2] = output_index>>8;
+      this->buffer_send[offset+3] = output_index>>0;
+      offset += 4;
+      //is_change,
+      this->buffer_send[offset] = is_change;
+      offset++;
+      //is_subaddress
+      this->buffer_send[offset] = dst_entr.is_subaddress;
+      offset++;
+      //need_additional_key
+      this->buffer_send[offset] = need_additional_txkeys;
+      offset++;
+
+      this->buffer_send[4] = offset-5;
+      this->length_send = offset;
+      this->exchange();
+
+      offset = 0;
+      unsigned int recv_len = this->length_recv;
+      if (need_additional_txkeys)
+      {
+        ASSERT_X(recv_len>=32, "Not enought data from device");
+        memmove(additional_txkey.pub.data, &this->buffer_recv[offset], 32);
+        additional_tx_public_keys.push_back(additional_txkey.pub);
+        offset += 32;
+        recv_len -= 32;
+      }
+      if (tx_version > 1)
+      {
+        ASSERT_X(recv_len>=32, "Not enought data from device");
+        crypto::secret_key scalar1;
+        memmove(scalar1.data, &this->buffer_recv[offset],32);
+        amount_keys.push_back(rct::sk2rct(scalar1));
+        offset += 32;
+        recv_len -= 32;
+      }
+      ASSERT_X(recv_len>=32, "Not enought data from device");
+      memmove(out_eph_public_key.data, &this->buffer_recv[offset], 32);
+      recv_len -= 32;
+
+      // add ABPkeys
+      this->add_output_key_mapping(dst_entr.addr.m_view_public_key, dst_entr.addr.m_spend_public_key, dst_entr.is_subaddress, is_change,
+                                   need_additional_txkeys, output_index,
+                                   amount_keys.back(), out_eph_public_key);
+
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check32("generate_output_ephemeral_keys", "amount_key", (const char*)amount_keys_x.back().bytes, (const char*)hw::ledger::decrypt(amount_keys.back()).bytes);
+      if (need_additional_txkeys) {
+        hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_keys_x.back().data, additional_tx_keys.back().data);
+      }
+      hw::ledger::check32("generate_output_ephemeral_keys", "out_eph_public_key", out_eph_public_key_x.data, out_eph_public_key.data);
+      #endif
+
+      return true;
+    }
+
+    bool  device_ledger::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const bool is_change,
+                                                const bool need_additional, const size_t real_output_index,
+                                                const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
+        key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), is_subaddress, is_change, need_additional, real_output_index, rct::pk2rct(out_eph_public_key), amount_key));
         return true;
     }
 
@@ -1328,6 +1465,9 @@ namespace hw {
             //is_subaddress
             this->buffer_send[offset] = outKeys.is_subaddress;
             offset++;
+            //is_change_address
+            this->buffer_send[offset] = outKeys.is_change_address;
+            offset++;
             //Aout
             memmove(this->buffer_send+offset, outKeys.Aout.bytes, 32);
             offset+=32;
@@ -1348,8 +1488,8 @@ namespace hw {
           //k
           memmove(this->buffer_send+offset, data+kv_offset,32);
           offset += 32;
-          //v
           kv_offset += 32;
+          //v
           memmove(this->buffer_send+offset, data+kv_offset,32);
           offset += 32;
           kv_offset += 32;
