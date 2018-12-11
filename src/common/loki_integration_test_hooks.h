@@ -157,19 +157,16 @@ loki::fixed_buffer loki::read_from_stdin_shared_mem()
 
   for (;;)
   {
-    if (global_stdin_shared_mem->Open() == shoom::ShoomError::kOK)
-    {
-      char const *data   = reinterpret_cast<char const *>(global_stdin_shared_mem->Data());
-      uint32_t cmd_index = 0;
-      input              = parse_message(data, global_stdin_shared_mem->Size(), &cmd_index);
-
-      if (input && last_cmd_index < cmd_index)
-      {
-        last_cmd_index = cmd_index;
-        break;
-      }
-    }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    char const *data   = reinterpret_cast<char const *>(global_stdin_shared_mem->Data());
+    uint32_t cmd_index = 0;
+    input              = parse_message(data, global_stdin_shared_mem->Size(), &cmd_index);
+
+    if (input && last_cmd_index < cmd_index)
+    {
+      last_cmd_index = cmd_index;
+      break;
+    }
   }
 
   fixed_buffer result = {};

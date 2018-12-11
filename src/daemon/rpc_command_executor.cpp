@@ -2343,11 +2343,22 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
     {
       if (args.size() > 0)
       {
-        tools::msg_writer() << "No service node is currently known on the network for: ";
+        int str_size = 0;
         for (const std::string &arg : args)
+          str_size += arg.size();
+
+        std::string buffer;
+        buffer.reserve(str_size);
+        for (size_t i = 0; i < args.size(); ++i)
         {
-          tools::msg_writer() << arg;
+          std::string const &arg = args[i];
+          buffer.append(arg);
+
+          if (i < args.size() - 1)
+            buffer.append(", ");
         }
+
+        tools::msg_writer() << "No service node is currently known on the network: " << buffer;
       }
       else
       {
