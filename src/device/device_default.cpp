@@ -349,6 +349,10 @@ namespace hw {
             return true;
         }
 
+        rct::key device_default::genCommitmentMask(const rct::key &amount_key) {
+            return rct::genCommitmentMask(amount_key);
+        }
+
         bool  device_default::ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec, bool short_amount) {
             rct::ecdhEncode(unmasked, sharedSec, short_amount);
             return true;
