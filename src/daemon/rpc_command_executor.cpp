@@ -105,18 +105,13 @@ namespace {
 
   char const *get_date_time(time_t t)
   {
-      static char buf[128];
-      buf[0] = 0;
+    static char buf[128];
+    buf[0] = 0;
 
-      struct tm tm;
-#ifdef WIN32
-      gmtime_s(&tm, &t);
-#else
-      gmtime_r(&t, &tm);
-#endif
-
-      strftime(buf, sizeof(buf), "%Y-%m-%d %I:%M:%S %p", &tm);
-      return buf;
+    struct tm tm;
+    epee::misc_utils::get_gmt_time(t, tm);
+    strftime(buf, sizeof(buf), "%Y-%m-%d %I:%M:%S %p", &tm);
+    return buf;
   }
 
   std::string get_time_hms(time_t t)
