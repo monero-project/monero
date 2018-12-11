@@ -1655,7 +1655,7 @@ output_data_t BlockchainBDB::get_output_key(const uint64_t& global_index) const
     return v;
 }
 
-output_data_t BlockchainBDB::get_output_key(const uint64_t& amount, const uint64_t& index)
+output_data_t BlockchainBDB::get_output_key(const uint64_t& amount, const uint64_t& index) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     check_open();
