@@ -1131,8 +1131,10 @@ skip:
               if(tvc[i].m_verifivation_failed)
               {
                 if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
+                  cryptonote::transaction tx;
+                  parse_and_validate_tx_from_blob(*it, tx); // must succeed if we got here
                   LOG_ERROR_CCONTEXT("transaction verification failed on NOTIFY_RESPONSE_GET_OBJECTS, tx_id = "
-                      << epee::string_tools::pod_to_hex(get_blob_hash(*it)) << ", dropping connection");
+                      << epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(tx)) << ", dropping connection");
                   drop_connection(context, false, true);
                   return 1;
                 }))
@@ -1806,9 +1808,9 @@ skip:
     if (add_fail)
       m_p2p->add_host_fail(context.m_remote_address);
 
-    m_p2p->drop_connection(context);
-
     m_block_queue.flush_spans(context.m_connection_id, flush_all_spans);
+
+    m_p2p->drop_connection(context);
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

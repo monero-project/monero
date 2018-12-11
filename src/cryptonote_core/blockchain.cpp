@@ -47,7 +47,7 @@
 #include "misc_language.h"
 #include "profile_tools.h"
 #include "file_io_utils.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "common/threadpool.h"
 #include "common/boost_serialization_helper.h"
 #include "warnings.h"
@@ -922,7 +922,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   m_hardfork->reorganize_from_chain_height(rollback_height);
 
   MINFO("Rollback to height " << rollback_height << " was successful.");
-  if (original_chain.size())
+  if (!original_chain.empty())
   {
     MINFO("Restoration to previous blockchain successful as well.");
   }
@@ -1518,7 +1518,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
     // if block to be added connects to known blocks that aren't part of the
     // main chain -- that is, if we're adding on to an alternate chain
-    if(alt_chain.size())
+    if(!alt_chain.empty())
     {
       // make sure alt chain doesn't somehow start past the end of the main chain
       CHECK_AND_ASSERT_MES(m_db->height() > alt_chain.front()->second.height, false, "main blockchain wrong height");
@@ -1896,7 +1896,7 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 
   // make sure the request includes at least the genesis block, otherwise
   // how can we expect to sync from the client that the block list came from?
-  if(!qblock_ids.size())
+  if(qblock_ids.empty())
   {
     MCERROR("net.p2p", "Client sent wrong NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << qblock_ids.size() << ", dropping connection");
     return false;

@@ -45,7 +45,7 @@
 //#define VERBOSE
 
 #ifdef TEST_ORIGINAL
-uint64_t slow_memmem_original(void* start_buff, size_t buflen,void* pat,size_t patlen)
+size_t slow_memmem_original(void* start_buff, size_t buflen,void* pat,size_t patlen)
 {
   void* buf = start_buff;
   void* end=(char*)buf+buflen-patlen;
@@ -63,7 +63,7 @@ uint64_t slow_memmem_original(void* start_buff, size_t buflen,void* pat,size_t p
 #define slow_memmem slow_memmem_original
 #else
 namespace cryptonote {
-  uint64_t slow_memmem(const void* start_buff, size_t buflen,const void* pat,size_t patlen);
+  size_t slow_memmem(const void* start_buff, size_t buflen,const void* pat,size_t patlen);
 }
 using namespace cryptonote;
 #endif
@@ -73,7 +73,7 @@ static const struct {
   const char *buf;
   size_t patlen;
   const char *pat;
-  uint64_t res;
+  size_t res;
 } T[]={
   {0,"",0,"",0},
   {1,"",0,"",0},
@@ -117,7 +117,7 @@ TEST(slowmem,Success)
     memcpy(buf,T[n].buf,T[n].buflen);
     void *pat=malloc(T[n].patlen);
     memcpy(pat,T[n].pat,T[n].patlen);
-    uint64_t res=slow_memmem(buf,T[n].buflen,pat,T[n].patlen);
+    size_t res=slow_memmem(buf,T[n].buflen,pat,T[n].patlen);
     free(pat);
     free(buf);
     ASSERT_EQ(res,T[n].res);

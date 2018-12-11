@@ -68,31 +68,16 @@ public:
     m_core.set_cryptonote_protocol(&protocol);
   }
 
-  std::string get_config_subdir() const
-  {
-    bool testnet = command_line::get_arg(m_vm_HACK, cryptonote::arg_testnet_on);
-    bool stagenet = command_line::get_arg(m_vm_HACK, cryptonote::arg_stagenet_on);
-    bool mainnet = !testnet && !stagenet;
-    std::string port = command_line::get_arg(m_vm_HACK, nodetool::arg_p2p_bind_port);
-    if ((mainnet && port != std::to_string(::config::P2P_DEFAULT_PORT))
-        || (testnet && port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))
-        || (stagenet && port != std::to_string(::config::stagenet::P2P_DEFAULT_PORT))) {
-      return port;
-    }
-    return std::string();
-  }
-
   bool run()
   {
     //initialize core here
     MGINFO("Initializing core...");
-    std::string config_subdir = get_config_subdir();
 #if defined(PER_BLOCK_CHECKPOINT)
     const cryptonote::GetCheckpointsCallback& get_checkpoints = blocks::GetCheckpointsData;
 #else
     const cryptonote::GetCheckpointsCallback& get_checkpoints = nullptr;
 #endif
-    if (!m_core.init(m_vm_HACK, config_subdir.empty() ? NULL : config_subdir.c_str(), nullptr, get_checkpoints))
+    if (!m_core.init(m_vm_HACK, nullptr, get_checkpoints))
     {
       return false;
     }

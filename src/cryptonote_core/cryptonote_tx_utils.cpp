@@ -43,7 +43,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "cryptonote_core/service_node_list.h"
 
 using namespace crypto;
@@ -459,7 +459,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, rct::RangeProofType range_proof_type, rct::multisig_out *msout, bool per_output_unlock, bool shuffle_outs)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, rct::RangeProofType range_proof_type, rct::multisig_out *msout, bool per_output_unlock, bool shuffle_outs)
   {
     hw::device &hwdev = sender_account_keys.get_device();
 
@@ -916,7 +916,7 @@ namespace cryptonote
     return r;
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, uint8_t hf_version, bool is_staking)
+  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, uint64_t unlock_time, uint8_t hf_version, bool is_staking)
   {
      std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
      subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0,0};

@@ -49,7 +49,7 @@ TEST(notify, works)
     tmp = "/tmp";
   static const char *filename = "monero-notify-unit-test-XXXXXX";
   const size_t len = strlen(tmp) + 1 + strlen(filename);
-  std::unique_ptr<char[]> name_template_((char*)malloc(len + 1));
+  std::unique_ptr<char[]> name_template_(new char[len + 1]);
   char *name_template = name_template_.get();
   ASSERT_TRUE(name_template != NULL);
   snprintf(name_template, len + 1, "%s/%s", tmp, filename);

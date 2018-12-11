@@ -42,7 +42,7 @@
 #include <unordered_map>
 #include "wipeable_string.h"
 #include "misc_language.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "mnemonics/electrum-words.h"
 #include <boost/crc.hpp>
 
