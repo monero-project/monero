@@ -345,6 +345,8 @@ private:
 
   void remove_output(const uint64_t amount, const uint64_t& out_index);
 
+  virtual void prune_outputs(uint64_t amount);
+
   virtual void add_spent_key(const crypto::key_image& k_image);
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
