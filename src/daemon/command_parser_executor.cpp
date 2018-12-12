@@ -674,6 +674,31 @@ bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
   return m_executor.sync_info();
 }
 
+bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
+{
+  if (args.size() != 1)
+  {
+    std::cout << "Exactly one parameter is needed" << std::endl;
+    return false;
+  }
+
+  try
+  {
+    uint64_t nblocks = boost::lexical_cast<uint64_t>(args[0]);
+    if (nblocks < 1)
+    {
+      std::cout << "number of blocks must be greater than 0" << std::endl;
+      return false;
+    }
+    return m_executor.pop_blocks(nblocks);
+  }
+  catch (const boost::bad_lexical_cast&)
+  {
+    std::cout << "number of blocks must be a number greater than 0" << std::endl;
+  }
+  return false;
+}
+
 bool t_command_parser_executor::version(const std::vector<std::string>& args)
 {
   std::cout << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")" << std::endl;
