@@ -104,5 +104,6 @@ namespace tests
     cryptonote::difficulty_type get_block_cumulative_difficulty(uint64_t height) const { return 0; }
     bool fluffy_blocks_enabled() const { return false; }
     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes) { return 0; }
+    bool pad_transactions() const { return false; }
   };
 }
