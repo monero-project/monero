@@ -523,12 +523,14 @@ namespace cryptonote
 
     if (m_nettype == FAKECHAIN)
     {
+#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS) // In integration mode, don't delete the DB. This should be explicitly done in the tests. Otherwise the more likely behaviour is persisting the DB across multiple daemons in the same test.
       // reset the db by removing the database file before opening it
       if (!db->remove_data_file(filename))
       {
         MERROR("Failed to remove data file in " << filename);
         return false;
       }
+#endif
     }
 
     try
