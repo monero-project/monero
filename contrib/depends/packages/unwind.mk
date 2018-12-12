@@ -1,6 +1,6 @@
 package=unwind
 $(package)_version=1.2
-$(package)_download_path=http://download.savannah.nongnu.org/releases/libunwind
+$(package)_download_path=https://download.savannah.nongnu.org/releases/libunwind
 $(package)_file_name=lib$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=1de38ffbdc88bd694d10081865871cd2bfbb02ad8ef9e1606aee18d65532b992
 

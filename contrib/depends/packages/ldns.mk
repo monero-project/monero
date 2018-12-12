@@ -1,6 +1,6 @@
 package=ldns
 $(package)_version=1.6.17
-$(package)_download_path=http://www.nlnetlabs.nl/downloads/ldns/
+$(package)_download_path=https://www.nlnetlabs.nl/downloads/ldns/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=8b88e059452118e8949a2752a55ce59bc71fa5bc414103e17f5b6b06f9bcc8cd
 $(package)_dependencies=openssl
