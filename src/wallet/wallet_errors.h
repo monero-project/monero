@@ -219,6 +219,14 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct password_entry_failed : public wallet_runtime_error
+    {
+      explicit password_entry_failed(std::string&& loc, const std::string &msg = "Password entry failed")
+        : wallet_runtime_error(std::move(loc), msg)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     const char* const file_error_messages[] = {
       "file already exists",
       "file not found",

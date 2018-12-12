@@ -57,9 +57,8 @@ namespace trezor {
    */
   class device_trezor : public hw::trezor::device_trezor_base, public hw::device_cold {
     protected:
-      // To speed up blockchain parsing the view key maybe handle here.
-      crypto::secret_key viewkey;
-      bool has_view_key;
+      void transaction_pre_check(std::shared_ptr<messages::monero::MoneroTransactionInitRequest> init_msg);
+      void transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data);
 
     public:
       device_trezor();
