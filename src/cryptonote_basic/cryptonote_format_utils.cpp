@@ -1152,6 +1152,13 @@ namespace cryptonote
       blob = &bd;
     }
 
+    bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
+    if (!hash_result)
+      return false;
+
+    if (get_block_height(b) != 202612)
+      return true;
+
     // EXCEPTION FOR BLOCK 202612
     const std::string correct_blob_hash_202612 = "3a8a2b3a29b50fc86ff73dd087ea43c6f0d6b8f936c849194d5c84c737903966";
     const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
@@ -1162,9 +1169,7 @@ namespace cryptonote
       string_tools::hex_to_pod(existing_block_id_202612, res);
       return true;
     }
-    bool hash_result = get_object_hash(get_block_hashing_blob(b), res);
 
-    if (hash_result)
     {
       // make sure that we aren't looking at a block with the 202612 block id but not the correct blobdata
       if (string_tools::pod_to_hex(res) == existing_block_id_202612)
