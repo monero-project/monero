@@ -993,7 +993,8 @@ namespace cryptonote
         return 1;
       }
 
-      if(!parse_and_validate_block_from_blob(block_entry.block, b))
+      crypto::hash block_hash;
+      if(!parse_and_validate_block_from_blob(block_entry.block, b, block_hash))
       {
         LOG_ERROR_CCONTEXT("sent wrong block: failed to parse and validate block: "
           << epee::string_tools::buff_to_hex_nodelimer(block_entry.block) << ", dropping connection");
@@ -1012,7 +1013,6 @@ namespace cryptonote
       if (start_height == std::numeric_limits<uint64_t>::max())
         start_height = boost::get<txin_gen>(b.miner_tx.vin[0]).height;
 
-      const crypto::hash block_hash = get_block_hash(b);
       auto req_it = context.m_requested_objects.find(block_hash);
       if(req_it == context.m_requested_objects.end())
       {
@@ -1119,13 +1119,13 @@ namespace cryptonote
               << ", we need " << previous_height);
 
           block new_block;
-          if (!parse_and_validate_block_from_blob(blocks.back().block, new_block))
+          crypto::hash last_block_hash;
+          if (!parse_and_validate_block_from_blob(blocks.back().block, new_block, last_block_hash))
           {
             MERROR(context << "Failed to parse block, but it should already have been parsed");
             m_block_queue.remove_spans(span_connection_id, start_height);
             continue;
           }
-          const crypto::hash last_block_hash = cryptonote::get_block_hash(new_block);
           if (m_core.have_block(last_block_hash))
           {
             const uint64_t subchain_height = start_height + blocks.size();

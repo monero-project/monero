@@ -1143,12 +1143,19 @@ namespace cryptonote
     return blob;
   }
   //---------------------------------------------------------------
-  bool calculate_block_hash(const block& b, crypto::hash& res)
+  bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata *blob)
   {
+    blobdata bd;
+    if (!blob)
+    {
+      bd = block_to_blob(b);
+      blob = &bd;
+    }
+
     // EXCEPTION FOR BLOCK 202612
     const std::string correct_blob_hash_202612 = "3a8a2b3a29b50fc86ff73dd087ea43c6f0d6b8f936c849194d5c84c737903966";
     const std::string existing_block_id_202612 = "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698";
-    crypto::hash block_blob_hash = get_blob_hash(block_to_blob(b));
+    crypto::hash block_blob_hash = get_blob_hash(*blob);
 
     if (string_tools::pod_to_hex(block_blob_hash) == correct_blob_hash_202612)
     {
@@ -1239,7 +1246,7 @@ namespace cryptonote
     return p;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, crypto::hash *block_hash)
   {
     std::stringstream ss;
     ss << b_blob;
@@ -1248,7 +1255,24 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");
     b.invalidate_hashes();
     b.miner_tx.invalidate_hashes();
+    if (block_hash)
+    {
+      calculate_block_hash(b, *block_hash, &b_blob);
+      ++block_hashes_calculated_count;
+      b.hash = *block_hash;
+      b.set_hash_valid(true);
+    }
     return true;
+  }
+  //---------------------------------------------------------------
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b)
+  {
+    return parse_and_validate_block_from_blob(b_blob, b, NULL);
+  }
+  //---------------------------------------------------------------
+  bool parse_and_validate_block_from_blob(const blobdata& b_blob, block& b, crypto::hash &block_hash)
+  {
+    return parse_and_validate_block_from_blob(b_blob, b, &block_hash);
   }
   //---------------------------------------------------------------
   blobdata block_to_blob(const block& b)
