@@ -82,6 +82,34 @@
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT                         DIFFICULTY_WINDOW + DIFFICULTY_LAG
 
+// Premine code
+// You can read more about the premine structure at https://x-cash.org/
+#define PREMINE_BLOCK_HEIGHT								1
+#define PREMINE_BLOCK_REWARD							((uint64_t)(40000000000000000))
+
+// LWMA difficulty V8
+#define HF_VERSION_LWMA_DIFFICULTY 8
+#define HF_VERSION_LWMA_DIFFICULTY_BLOCK_HEIGHT 95085
+#define HF_VERSION_LWMA_STARTING_DIFFICULTY 30000000
+#define DIFFICULTY_TARGET_V8 60 // seconds
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V8 30 // (11)
+#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V8 60*4 // (60*10)
+#define DIFFICULTY_WINDOW_V8 120 // (60)
+#define DIFFICULTY_BLOCKS_COUNT_V8 121 //DIFFICULTY_WINDOW_V8 + 1 has to be +1 so N = N
+
+// LWMA difficulty V9
+#define DIFFICULTY_WINDOW_V9                            120
+#define DIFFICULTY_BLOCKS_COUNT_V9                      121
+#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V9           60*4
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V9            30
+#define DIFFICULTY_TARGET_V9                            60  // seconds
+
+// LWMA difficulty V10
+#define DIFFICULTY_WINDOW_V10                            120
+#define DIFFICULTY_BLOCKS_COUNT_V10                      121
+#define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V10           60*4
+#define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW_V10            11
+#define DIFFICULTY_TARGET_V10                            60  // seconds
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1   DIFFICULTY_TARGET_V1 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
