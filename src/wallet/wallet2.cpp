@@ -293,7 +293,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
 
   if (daemon_host.empty())
-    daemon_host = "localhost";
+    daemon_host = "localhost"; // changeme
 
   if (!daemon_port)
   {
@@ -11946,10 +11946,10 @@ uint64_t wallet2::get_segregation_fork_height() const
   {
     // All four MoneroPulse domains have DNSSEC on and valid
     static const std::vector<std::string> dns_urls = {
-        "localhost",
-        "localhost",
-        "localhost",
-        "localhost"
+        "localhost", // changeme
+        "localhost", // changeme
+        "localhost", // changeme
+        "localhost" // changeme
     };
 
     const uint64_t current_height = get_blockchain_current_height();
