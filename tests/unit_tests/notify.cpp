@@ -47,7 +47,7 @@ TEST(notify, works)
   const char *tmp = getenv("TEMP");
   if (!tmp)
     tmp = "/tmp";
-  static const char *filename = "monero-notify-unit-test-XXXXXX";
+  static const char *filename = "venue-notify-unit-test-XXXXXX";
   const size_t len = strlen(tmp) + 1 + strlen(filename);
   std::unique_ptr<char[]> name_template_(new char[len + 1]);
   char *name_template = name_template_.get();
