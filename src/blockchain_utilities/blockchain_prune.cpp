@@ -434,11 +434,39 @@ static bool parse_db_sync_mode(std::string db_sync_mode, uint64_t &db_flags)
   return true;
 }
 
-static void measure(BlockchainDB *db)
+static void measure(BlockchainDB *db, const std::string &already_measured_data)
 {
   std::vector<size_t> full_sizes, prunable_sizes;
+
+  if (!already_measured_data.empty())
+  {
+    FILE *f = fopen(already_measured_data.c_str(), "r");
+    if (!f)
+    {
+      MERROR("File not found: " << already_measured_data);
+      throw std::runtime_error("File not found");
+    }
+    while (!feof(f))
+    {
+      size_t fh, ff, fp;
+      if (fscanf(f, "%zu %zu %zu\n", &fh, &ff, &fp) != 3)
+      {
+        MERROR("Invalid data in file: " << already_measured_data);
+        throw std::runtime_error("Invalid data");
+      }
+      if (fh != full_sizes.size())
+      {
+        MERROR("Invalid height in file: " << already_measured_data);
+        throw std::runtime_error("Invalid height");
+      }
+      full_sizes.push_back(ff);
+      prunable_sizes.push_back(fp);
+    }
+    fclose(f);
+  }
+
   uint64_t blockchain_height = db->height();
-  for (uint64_t h = 0; h < blockchain_height; ++h)
+  for (uint64_t h = full_sizes.size(); h < blockchain_height; ++h)
   {
     size_t full_size = 0, prunable_size = 0;
     cryptonote::transaction tx;
@@ -459,15 +487,47 @@ static void measure(BlockchainDB *db)
     }
     full_sizes.push_back(full_size);
     prunable_sizes.push_back(prunable_size);
+    MGINFO("height " << h << " " << full_size << " " << prunable_size);
   }
 
   MINFO(full_sizes.size() << " blocks");
+  MINFO("full chain:");
   for (size_t stripe_size = 8; stripe_size <= 262144; stripe_size *= 2)
   {
     size_t sf[8], sp[8];
     memset(sf, 0, sizeof(sf));
     memset(sp, 0, sizeof(sp));
     for (size_t i = 0; i < full_sizes.size(); ++i)
+    {
+      sf[(i / stripe_size) % 8] += full_sizes[i];
+      sp[(i / stripe_size) % 8] += prunable_sizes[i];
+    }
+    size_t minsf = std::numeric_limits<size_t>::max(), maxsf = 0, totalf = 0;
+    size_t minsp = std::numeric_limits<size_t>::max(), maxsp = 0, totalp = 0;
+    for (size_t i = 0; i < 8; ++i)
+    {
+      minsf = std::min(minsf, sf[i]);
+      maxsf = std::max(maxsf, sf[i]);
+      totalf += sf[i];
+      minsp = std::min(minsp, sf[i]);
+      maxsp = std::max(maxsp, sf[i]);
+      totalp += sp[i];
+    }
+    const float MB = 1024.0f * 1024.0f;
+    std::stringstream ss;
+    ss << stripe_size << "\t" << totalf/MB << "\t" << totalp/MB << "\t" << minsf/MB << "\t" << maxsf/MB << "\t" << minsp/MB << "\t" << maxsp/MB;
+    for (size_t i = 0; i < 8; ++i)
+      ss << "\t" << sf[i] << "\t" << sp[i] << "\t" << 100.f * (totalf - sp[i]) / totalf;
+    MINFO(ss.str());
+  }
+  MINFO("Last full stripe set:");
+  for (size_t stripe_size = 8; stripe_size <= 262144; stripe_size *= 2)
+  {
+    size_t sf[8], sp[8];
+    memset(sf, 0, sizeof(sf));
+    memset(sp, 0, sizeof(sp));
+    size_t H = full_sizes.size() - full_sizes.size() % (8*stripe_size);
+    for (size_t i = 0; i < H; ++i)
     {
       sf[(i / stripe_size) % 8] += full_sizes[i];
       sp[(i / stripe_size) % 8] += prunable_sizes[i];
@@ -514,6 +574,7 @@ int main(int argc, char* argv[])
   };
   const command_line::arg_descriptor<bool> arg_copy_pruned_database  = {"copy-pruned-database",  "Copy database anyway if already pruned"};
   const command_line::arg_descriptor<bool> arg_measure  = {"measure",  "measure"};
+  const command_line::arg_descriptor<std::string> arg_already_measured_data  = {"already-measured-data",  "already measured data", ""};
 
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
@@ -522,6 +583,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_db_sync_mode);
   command_line::add_arg(desc_cmd_sett, arg_copy_pruned_database);
   command_line::add_arg(desc_cmd_sett, arg_measure);
+  command_line::add_arg(desc_cmd_sett, arg_already_measured_data);
   command_line::add_arg(desc_cmd_only, command_line::arg_help);
 
   po::options_description desc_options("Allowed options");
@@ -558,6 +620,7 @@ int main(int argc, char* argv[])
   network_type net_type = opt_testnet ? TESTNET : opt_stagenet ? STAGENET : MAINNET;
   bool opt_copy_pruned_database = command_line::get_arg(vm, arg_copy_pruned_database);
   bool opt_measure = command_line::get_arg(vm, arg_measure);
+  std::string opt_already_measured_data = command_line::get_arg(vm, arg_already_measured_data);
   std::string data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
   while (boost::ends_with(data_dir, "/") || boost::ends_with(data_dir, "\\"))
     data_dir.pop_back();
@@ -582,7 +645,7 @@ int main(int argc, char* argv[])
     }
     boost::filesystem::path path = boost::filesystem::path(data_dir) / db->get_db_name();
     db->open(path.string(), DBF_RDONLY);
-    measure(db);
+    measure(db, opt_already_measured_data);
     db->close();
     delete db;
     return 0;
