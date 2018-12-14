@@ -99,6 +99,24 @@ namespace cryptonote {
     }
 
     uint64_t full_reward_zone = get_min_block_weight(version);
+    
+     // Premine code
+    // You can read more about the premine structure at https://x-cash.org/
+    if (height == PREMINE_BLOCK_HEIGHT && already_generated_coins < PREMINE_BLOCK_REWARD)
+    {
+        base_reward = PREMINE_BLOCK_REWARD;
+    }
+    else 
+    {
+       base_reward = (MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor;
+    }
+
+    if (base_reward < FINAL_SUBSIDY_PER_MINUTE*target_minutes)
+    {
+      base_reward = FINAL_SUBSIDY_PER_MINUTE*target_minutes;
+    }
+
+    uint64_t full_reward_zone = get_min_block_weight(version);
 
     //make it soft
     if (median_weight < full_reward_zone) {
