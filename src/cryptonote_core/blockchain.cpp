@@ -2400,9 +2400,22 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
     if (borromean)
     {
-      MERROR_VER("Borromean range proofs are not allowed after v10");
-      tvc.m_invalid_output = true;
-      return false;
+      uint64_t hf10_height = m_hardfork->get_earliest_ideal_height_for_version(network_version_10_bulletproofs);
+      uint64_t curr_height = this->get_current_blockchain_height();
+      if (curr_height == hf10_height)
+      {
+        // NOTE(loki): Allow the hardforking block to contain a borromean proof
+        // incase there were some transactions in the TX Pool that were
+        // generated pre-HF10 rules. Note, this isn't bulletproof. If there were
+        // more than 1 blocks worth of borromean proof TX's sitting in the pool
+        // this isn't going to work.
+      }
+      else
+      {
+        MERROR_VER("Borromean range proofs are not allowed after v10");
+        tvc.m_invalid_output = true;
+        return false;
+      }
     }
   }
 
