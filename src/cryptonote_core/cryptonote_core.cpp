@@ -1220,6 +1220,11 @@ namespace cryptonote
     return m_blockchain_storage.get_tx_outputs_gindexs(tx_id, indexs);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const
+  {
+    return m_blockchain_storage.get_tx_outputs_gindexs(tx_id, n_txes, indexs);
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::pause_mine()
   {
     m_miner.pause();

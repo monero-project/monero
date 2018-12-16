@@ -1019,7 +1019,8 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
-  std::vector<uint64_t> amount_output_indices = get_tx_amount_output_indices(tx_id);
+  std::vector<std::vector<uint64_t>> amount_output_indices_set = get_tx_amount_output_indices(tx_id, 1);
+  const std::vector<uint64_t> &amount_output_indices = amount_output_indices_set.front();
 
   if (amount_output_indices.empty())
   {
@@ -2628,7 +2629,7 @@ tx_out_index BlockchainLMDB::get_output_tx_and_index(const uint64_t& amount, con
   return indices[0];
 }
 
-std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const uint64_t tx_id) const
+std::vector<std::vector<uint64_t>> BlockchainLMDB::get_tx_amount_output_indices(uint64_t tx_id, size_t n_txes) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
 
@@ -2637,34 +2638,39 @@ std::vector<uint64_t> BlockchainLMDB::get_tx_amount_output_indices(const uint64_
   TXN_PREFIX_RDONLY();
   RCURSOR(tx_outputs);
 
-  int result = 0;
   MDB_val_set(k_tx_id, tx_id);
   MDB_val v;
-  std::vector<uint64_t> amount_output_indices;
+  std::vector<std::vector<uint64_t>> amount_output_indices_set;
+  amount_output_indices_set.reserve(n_txes);
 
-  result = mdb_cursor_get(m_cur_tx_outputs, &k_tx_id, &v, MDB_SET);
-  if (result == MDB_NOTFOUND)
-    LOG_PRINT_L0("WARNING: Unexpected: tx has no amount indices stored in "
-        "tx_outputs, but it should have an empty entry even if it's a tx without "
-        "outputs");
-  else if (result)
-    throw0(DB_ERROR(lmdb_error("DB error attempting to get data for tx_outputs[tx_index]", result).c_str()));
-
-  const uint64_t* indices = (const uint64_t*)v.mv_data;
-  int num_outputs = v.mv_size / sizeof(uint64_t);
-
-  amount_output_indices.reserve(num_outputs);
-  for (int i = 0; i < num_outputs; ++i)
+  MDB_cursor_op op = MDB_SET;
+  while (n_txes-- > 0)
   {
-    // LOG_PRINT_L0("amount output index[" << 2*i << "]" << ": " << paired_indices[2*i] << "  global output index: " << paired_indices[2*i+1]);
-    amount_output_indices.push_back(indices[i]);
+    int result = mdb_cursor_get(m_cur_tx_outputs, &k_tx_id, &v, op);
+    if (result == MDB_NOTFOUND)
+      LOG_PRINT_L0("WARNING: Unexpected: tx has no amount indices stored in "
+          "tx_outputs, but it should have an empty entry even if it's a tx without "
+          "outputs");
+    else if (result)
+      throw0(DB_ERROR(lmdb_error("DB error attempting to get data for tx_outputs[tx_index]", result).c_str()));
+
+    op = MDB_NEXT;
+
+    const uint64_t* indices = (const uint64_t*)v.mv_data;
+    size_t num_outputs = v.mv_size / sizeof(uint64_t);
+
+    amount_output_indices_set.resize(amount_output_indices_set.size() + 1);
+    std::vector<uint64_t> &amount_output_indices = amount_output_indices_set.back();
+    amount_output_indices.reserve(num_outputs);
+    for (size_t i = 0; i < num_outputs; ++i)
+    {
+      amount_output_indices.push_back(indices[i]);
+    }
   }
-  indices = nullptr;
 
   TXN_POSTFIX_RDONLY();
-  return amount_output_indices;
+  return amount_output_indices_set;
 }
-
 
 bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
 {

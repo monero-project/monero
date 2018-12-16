@@ -252,7 +252,7 @@ public:
   virtual tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const;
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<tx_out_index> &indices) const;
 
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const;
+  virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_id, size_t n_txes) const;
 
   virtual bool has_key_image(const crypto::key_image& img) const;
 
