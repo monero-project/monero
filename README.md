@@ -615,6 +615,12 @@ See [README.i18n.md](README.i18n.md).
 
 ## Using Tor
 
+> There is a new, still experimental, [integration with Tor](ANONYMITY_NETWORKS.md). The
+> feature allows connecting over IPv4 and Tor simulatenously - IPv4 is used for
+> relaying blocks and relaying transactions received by peers whereas Tor is
+> used solely for relaying transactions received over local RPC. This provides
+> privacy and better protection against surrounding node (sybil) attacks.
+
 While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by
 setting the following configuration parameters and environment variables:
 

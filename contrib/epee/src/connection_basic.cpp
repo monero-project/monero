@@ -103,7 +103,7 @@ namespace net_utils
 // connection_basic_pimpl
 // ================================================================================================
 	
-connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name) { }
+connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_throttle(name), m_peer_number(0) { }
 
 // ================================================================================================
 // connection_basic
@@ -113,27 +113,31 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_service& io_service, std::atomic<long> &ref_sock_count, std::atomic<long> &sock_number)
-	: 
+connection_basic::connection_basic(boost::asio::ip::tcp::socket&& socket, boost::shared_ptr<socket_stats> stats)
+	:
+	m_stats(std::move(stats)),
 	mI( new connection_basic_pimpl("peer") ),
-	strand_(io_service),
-	socket_(io_service),
+	strand_(socket.get_io_service()),
+	socket_(std::move(socket)),
 	m_want_close_connection(false), 
-	m_was_shutdown(false),
-	m_ref_sock_count(ref_sock_count)
-{ 
-	++ref_sock_count; // increase the global counter
-	mI->m_peer_number = sock_number.fetch_add(1); // use, and increase the generated number
+	m_was_shutdown(false)
+{
+	// add nullptr checks if removed
+	CHECK_AND_ASSERT_THROW_MES(bool(m_stats), "stats shared_ptr cannot be null");
+
+	++(m_stats->sock_count); // increase the global counter
+	mI->m_peer_number = m_stats->sock_number.fetch_add(1); // use, and increase the generated number
 
 	std::string remote_addr_str = "?";
 	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
 
-	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_ref_sock_count);
+	_note("Spawned connection p2p#"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_stats->sock_count);
 }
 
 connection_basic::~connection_basic() noexcept(false) {
+	--(m_stats->sock_count);
+
 	std::string remote_addr_str = "?";
-	m_ref_sock_count--;
 	try { boost::system::error_code e; remote_addr_str = socket_.remote_endpoint(e).address().to_string(); } catch(...){} ;
 	_note("Destructing connection p2p#"<<mI->m_peer_number << " to " << remote_addr_str);
 }
