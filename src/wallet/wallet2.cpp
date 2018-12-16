@@ -2744,13 +2744,16 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   bool first = true;
   while(m_run.load(std::memory_order_relaxed))
   {
+    uint64_t next_blocks_start_height;
+    std::vector<cryptonote::block_complete_entry> next_blocks;
+    std::vector<parsed_block> next_parsed_blocks;
+    bool error;
     try
     {
       // pull the next set of blocks while we're processing the current one
-      uint64_t next_blocks_start_height;
-      std::vector<cryptonote::block_complete_entry> next_blocks;
-      std::vector<parsed_block> next_parsed_blocks;
-      bool error = false;
+      error = false;
+      next_blocks.clear();
+      next_parsed_blocks.clear();
       added_blocks = 0;
       if (!first && blocks.empty())
       {
@@ -2787,6 +2790,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           get_short_chain_history(short_chain_history);
           start_height = stop_height;
           throw std::runtime_error(""); // loop again
+        }
+        catch (const std::exception &e)
+        {
+          MERROR("Error parsing blocks: " << e.what());
+          error = true;
         }
         blocks_fetched += added_blocks;
       }
