@@ -2151,7 +2151,6 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   const cryptonote::account_keys &keys = m_account.get_keys();
 
   auto gender = [&](wallet2::is_out_data &iod) {
-    boost::unique_lock<hw::device> hwdev_lock(hwdev);
     if (!hwdev.generate_key_derivation(iod.pkey, keys.m_view_secret_key, iod.derivation))
     {
       MWARNING("Failed to generate key derivation from tx pubkey, skipping");
@@ -2160,12 +2159,16 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
     }
   };
 
-  for (auto &slot: tx_cache_data)
+  for (size_t i = 0; i < tx_cache_data.size(); ++i)
   {
-    for (auto &iod: slot.primary)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
-    for (auto &iod: slot.additional)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
+    tpool.submit(&waiter, [&hwdev, &gender, &tx_cache_data, i]() {
+      auto &slot = tx_cache_data[i];
+      boost::unique_lock<hw::device> hwdev_lock(hwdev);
+      for (auto &iod: slot.primary)
+        gender(iod);
+      for (auto &iod: slot.additional)
+        gender(iod);
+    }, true);
   }
   waiter.wait(&tpool);
 
