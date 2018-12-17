@@ -503,7 +503,7 @@ Packages are available for
         brew tap sammy007/aeon
         brew install aeon -v
 
-* (**TODO**) ~Docker~
+* Docker
 
         # Build using all available cores
         docker build -t aeon .
