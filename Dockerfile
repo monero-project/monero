@@ -116,14 +116,14 @@ RUN set -ex && \
 COPY --from=builder /src/build/release/bin/* /usr/local/bin/
 
 # Contains the blockchain
-VOLUME /root/.bitmonero
+VOLUME /root/.aeon
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# monero-wallet-cli
+# aeon-wallet-cli
 VOLUME /wallet
 
 EXPOSE 11180
 EXPOSE 11181
 
-ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=11180", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=11181", "--non-interactive", "--confirm-external-bind"]
+ENTRYPOINT ["aeond", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=11180", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=11181", "--non-interactive", "--confirm-external-bind"]

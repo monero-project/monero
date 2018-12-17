@@ -82,8 +82,8 @@ RUN git clone https://github.com/zeromq/zeromq4-1.git \
 
 RUN ln -s /opt/android/openssl/libcrypto.a /opt/android/openssl/libssl.a ${TOOLCHAIN_DIR}/arm-linux-androideabi/lib/armv7-a
 
-RUN git clone https://github.com/monero-project/monero.git \
-    && cd monero \
+RUN git clone https://github.com/aeonix/aeon.git \
+    && cd aeon \
     && mkdir -p build/release \
     && CC=clang CXX=clang++ \
          BOOST_ROOT=${WORKDIR}/boost_${BOOST_VERSION} BOOST_LIBRARYDIR=${WORKDIR}/boost_${BOOST_VERSION}/android32/lib/ \
