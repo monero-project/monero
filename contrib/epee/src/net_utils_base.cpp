@@ -1,7 +1,9 @@
 
 #include "net/net_utils_base.h"
-#include "string_tools.h"
 
+#include <boost/uuid/uuid_io.hpp>
+
+#include "string_tools.h"
 #include "net/local_ip.h"
 
 namespace epee { namespace net_utils
@@ -73,7 +75,7 @@ namespace epee { namespace net_utils
   std::string print_connection_context(const connection_context_base& ctx)
   {
     std::stringstream ss;
-    ss << ctx.m_remote_address.str() << " " << epee::string_tools::get_str_from_guid_a(ctx.m_connection_id) << (ctx.m_is_income ? " INC":" OUT");
+    ss << ctx.m_remote_address.str() << " " << ctx.m_connection_id << (ctx.m_is_income ? " INC":" OUT");
     return ss.str();
   }
 
