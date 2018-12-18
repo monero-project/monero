@@ -1139,6 +1139,7 @@ namespace cryptonote
       difficulty_type difficulty;
       difficulty_type cumulative_difficulty;
       uint64_t reward;
+      uint64_t miner_reward;
       uint64_t block_size;
       uint64_t block_weight;
       uint64_t num_txes;
@@ -1157,6 +1158,7 @@ namespace cryptonote
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(cumulative_difficulty)
         KV_SERIALIZE(reward)
+        KV_SERIALIZE(miner_reward)
         KV_SERIALIZE(block_size)
         KV_SERIALIZE_OPT(block_weight, (uint64_t)0)
         KV_SERIALIZE(num_txes)
