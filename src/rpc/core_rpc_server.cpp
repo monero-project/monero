@@ -1262,6 +1262,7 @@ namespace cryptonote
     response.difficulty = m_core.get_blockchain_storage().block_difficulty(height);
     response.cumulative_difficulty = response.block_weight = m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(height);
     response.reward = get_block_reward(blk);
+    response.miner_reward = blk.miner_tx.vout[0].amount;
     response.block_size = response.block_weight = m_core.get_blockchain_storage().get_db().get_block_weight(height);
     response.num_txes = blk.tx_hashes.size();
     response.pow_hash = fill_pow_hash ? string_tools::pod_to_hex(get_block_longhash(blk, height)) : "";
@@ -2058,6 +2059,62 @@ namespace cryptonote
     return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_quorum_state_batched(const COMMAND_RPC_GET_QUORUM_STATE_BATCHED::request& req, COMMAND_RPC_GET_QUORUM_STATE_BATCHED::response& res, epee::json_rpc::error& error_resp)
+  {
+    PERF_TIMER(on_get_quorum_state_batched);
+
+    const uint64_t cur_height = m_core.get_current_blockchain_height();
+
+    const uint64_t height_begin = std::max(req.height_begin, cur_height - loki::service_node_deregister::QUORUM_LIFETIME);
+    const uint64_t height_end = std::min(req.height_end, cur_height);
+
+    if (height_begin > height_end)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message = "height_end cannot be smaller than height_begin";
+      return true;
+    }
+
+    boost::optional<uint64_t> failed_height = boost::none;
+
+    res.quorum_entries.reserve(height_end - height_begin + 1);
+    for (auto h = height_begin; h <= height_end; ++h)
+    {
+      const auto quorum_state = m_core.get_quorum_state(h);
+
+      if (!quorum_state) {
+        failed_height = h;
+        break;
+      }
+
+      res.quorum_entries.push_back({});
+
+      auto &entry = res.quorum_entries.back();
+
+      entry.height = h;
+      entry.quorum_nodes.reserve(quorum_state->quorum_nodes.size());
+      entry.nodes_to_test.reserve(quorum_state->nodes_to_test.size());
+
+      for (const auto &key : quorum_state->quorum_nodes)
+        entry.quorum_nodes.push_back(epee::string_tools::pod_to_hex(key));
+
+      for (const auto &key : quorum_state->nodes_to_test)
+        entry.nodes_to_test.push_back(epee::string_tools::pod_to_hex(key));
+
+    }
+
+    if (failed_height) {
+      error_resp.code     = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+      error_resp.message  = "Block height: ";
+      error_resp.message += std::to_string(*failed_height);
+      error_resp.message += ", returned null hash or failed to derive quorum list";
+    } else {
+      res.status = CORE_RPC_STATUS_OK;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp)
   {
     PERF_TIMER(on_get_service_node_key);
@@ -2324,6 +2381,13 @@ namespace cryptonote
     }
 
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_all_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp)
+  {
+    auto req_all = req;
+    req_all.service_node_pubkeys.clear();
+    return on_get_service_nodes(req_all, res, error_resp);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp)

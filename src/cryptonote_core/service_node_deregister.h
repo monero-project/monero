@@ -55,6 +55,7 @@ namespace loki
   {
     const uint64_t VOTE_LIFETIME_BY_HEIGHT       = (60 * 60 * 2) / DIFFICULTY_TARGET_V2;
     const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
+    const size_t    QUORUM_LIFETIME         = (6 * loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
 
     struct vote
     {

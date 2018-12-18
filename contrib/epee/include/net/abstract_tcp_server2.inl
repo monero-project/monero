@@ -1107,11 +1107,12 @@ POP_WARNINGS
     {
     if (!e)
     {
-		if (m_connection_type == e_connection_type_RPC) {
-			MDEBUG("New server for RPC connections");
-			new_connection_->setRpcStation(); // hopefully this is not needed actually
-		}
-		connection_ptr conn(std::move(new_connection_));
+      if (m_connection_type == e_connection_type_RPC)
+      {
+	MDEBUG("New server for RPC connections");
+	new_connection_->setRpcStation(); // hopefully this is not needed actually
+      }
+      connection_ptr conn(std::move(new_connection_));
       new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
       acceptor_.async_accept(new_connection_->socket(),
         boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
@@ -1133,6 +1134,14 @@ POP_WARNINGS
     {
       MERROR("Exception in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e.what());
     }
+
+    // error path, if e or exception
+    _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
+    misc_utils::sleep_no_w(100);
+    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_.async_accept(new_connection_->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+      boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1157,6 +1166,7 @@ POP_WARNINGS
 
       conn->start(true, 1 < m_threads_count);
       conn->save_dbg_log();
+      return;
     }
     else
     {
@@ -1171,9 +1181,9 @@ POP_WARNINGS
     // error path, if e or exception
     _erro("Some problems at accept: " << e.message() << ", connections_count = " << m_sock_count);
     misc_utils::sleep_no_w(100);
-    new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
-    acceptor_.async_accept(new_connection_->socket(),
-      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept, this,
+    new_connection_v6.reset(new connection<t_protocol_handler>(io_service_, m_config, m_sock_count, m_sock_number, m_pfilter, m_connection_type));
+    acceptor_v6.async_accept(new_connection_v6->socket(),
+      boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept_v6, this,
       boost::asio::placeholders::error));
   }
   //---------------------------------------------------------------------------------
