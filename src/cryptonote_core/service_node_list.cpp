@@ -153,16 +153,12 @@ namespace service_nodes
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
     const auto &it = m_quorum_states.find(height);
-    if (it == m_quorum_states.end())
-    {
-      // TODO(loki): Not being able to find the quorum is going to be a fatal error.
-    }
-    else
+    if (it != m_quorum_states.end())
     {
       return it->second;
     }
 
-    return std::make_shared<quorum_state>();
+    return nullptr;
   }
 
   std::vector<service_node_pubkey_info> service_node_list::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
@@ -853,7 +849,8 @@ namespace service_nodes
       update_swarms(block_height);
     }
 
-    const size_t QUORUM_LIFETIME         = (6 * loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT);
+    const size_t QUORUM_LIFETIME = loki::service_node_deregister::QUORUM_LIFETIME;
+
     // save six times the quorum lifetime, to be sure. also to help with debugging.
     const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;
 

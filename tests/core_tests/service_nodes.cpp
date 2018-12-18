@@ -686,6 +686,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
     get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);
 
     const auto quorum_state = c.get_quorum_state(deregistration.block_height);
+    CHECK_TEST_CONDITION(quorum_state);
     const auto pk_a = quorum_state->nodes_to_test.at(deregistration.service_node_index);
 
     /// Check present

@@ -2309,6 +2309,46 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_GET_QUORUM_STATE_BATCHED
+  {
+    struct request
+    {
+      /// both inclusive
+      uint64_t height_begin;
+      uint64_t height_end;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height_begin)
+        KV_SERIALIZE(height_end)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response_entry
+    {
+      uint64_t height;
+      std::vector<std::string> quorum_nodes;
+      std::vector<std::string> nodes_to_test;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(quorum_nodes)
+        KV_SERIALIZE(nodes_to_test)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::vector<response_entry> quorum_entries;
+      bool untrusted;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(quorum_entries)
+        KV_SERIALIZE(untrusted)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
   struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
   {
     struct request
