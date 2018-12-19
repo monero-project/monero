@@ -142,9 +142,9 @@ public:
   virtual bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   virtual bool update_pruning() { return true; }
   virtual bool check_pruning() { return true; }
-
   virtual void set_service_node_data(const std::string& data) {}
   virtual bool get_service_node_data(std::string& data) { return false; }
   virtual void clear_service_node_data() {}
+  virtual void prune_outputs(uint64_t amount) {}
 };
 

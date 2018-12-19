@@ -121,7 +121,8 @@ namespace trezor {
         const boost::optional<cryptonote::network_type> & network_type){
       AUTO_LOCK_CMD();
       require_connected();
-      test_ping();
+      device_state_reset_unsafe();
+      require_initialized();
 
       auto req = std::make_shared<messages::monero::MoneroGetAddress>();
       this->set_msg_addr<messages::monero::MoneroGetAddress>(req.get(), path, network_type);
@@ -136,7 +137,8 @@ namespace trezor {
         const boost::optional<cryptonote::network_type> & network_type){
       AUTO_LOCK_CMD();
       require_connected();
-      test_ping();
+      device_state_reset_unsafe();
+      require_initialized();
 
       auto req = std::make_shared<messages::monero::MoneroGetWatchKey>();
       this->set_msg_addr<messages::monero::MoneroGetWatchKey>(req.get(), path, network_type);
@@ -152,7 +154,8 @@ namespace trezor {
     {
       AUTO_LOCK_CMD();
       require_connected();
-      test_ping();
+      device_state_reset_unsafe();
+      require_initialized();
 
       std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> req;
 
@@ -238,12 +241,11 @@ namespace trezor {
         cpend.construction_data = cdata.tx_data;
 
         // Transaction check
-        cryptonote::blobdata tx_blob;
-        cryptonote::transaction tx_deserialized;
-        bool r = cryptonote::t_serializable_object_to_blob(cpend.tx, tx_blob);
-        CHECK_AND_ASSERT_THROW_MES(r, "Transaction serialization failed");
-        r = cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx_deserialized);
-        CHECK_AND_ASSERT_THROW_MES(r, "Transaction deserialization failed");
+        try {
+          transaction_check(cdata, aux_data);
+        } catch(const std::exception &e){
+          throw exc::ProtocolException(std::string("Transaction verification failed: ") + e.what());
+        }
 
         std::string key_images;
         bool all_are_txin_to_key = std::all_of(cdata.tx.vin.begin(), cdata.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
@@ -283,7 +285,8 @@ namespace trezor {
     {
       AUTO_LOCK_CMD();
       require_connected();
-      test_ping();
+      device_state_reset_unsafe();
+      require_initialized();
 
       CHECK_AND_ASSERT_THROW_MES(idx < unsigned_tx.txes.size(), "Invalid transaction index");
       signer = std::make_shared<protocol::tx::Signer>(wallet, &unsigned_tx, idx, &aux_data);
@@ -294,6 +297,7 @@ namespace trezor {
       // Step: Init
       auto init_msg = signer->step_init();
       this->set_msg_addr(init_msg.get());
+      transaction_pre_check(init_msg);
 
       auto response = this->client_exchange<messages::monero::MoneroTransactionInitAck>(init_msg);
       signer->step_init_ack(response);
@@ -349,6 +353,59 @@ namespace trezor {
       auto final_msg = signer->step_final();
       auto ack_final = this->client_exchange<messages::monero::MoneroTransactionFinalAck>(final_msg);
       signer->step_final_ack(ack_final);
+    }
+
+    void device_trezor::transaction_pre_check(std::shared_ptr<messages::monero::MoneroTransactionInitRequest> init_msg)
+    {
+      CHECK_AND_ASSERT_THROW_MES(init_msg, "TransactionInitRequest is empty");
+      CHECK_AND_ASSERT_THROW_MES(init_msg->has_tsx_data(), "TransactionInitRequest has no transaction data");
+      CHECK_AND_ASSERT_THROW_MES(m_features, "Device state not initialized");  // make sure the caller did not reset features
+      const bool nonce_required = init_msg->tsx_data().has_payment_id() && init_msg->tsx_data().payment_id().size() > 0;
+
+      if (nonce_required){
+        // Versions 2.0.9 and lower do not support payment ID
+        CHECK_AND_ASSERT_THROW_MES(m_features->has_major_version() && m_features->has_minor_version() && m_features->has_patch_version(), "Invalid Trezor firmware version information");
+        const uint32_t vma = m_features->major_version();
+        const uint32_t vmi = m_features->minor_version();
+        const uint32_t vpa = m_features->patch_version();
+        if (vma < 2 || (vma == 2 && vmi == 0 && vpa <= 9)) {
+          throw exc::TrezorException("Trezor firmware 2.0.9 and lower does not support transactions with short payment IDs or integrated addresses. Please update.");
+        }
+      }
+    }
+
+    void device_trezor::transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data)
+    {
+      // Simple serialization check
+      cryptonote::blobdata tx_blob;
+      cryptonote::transaction tx_deserialized;
+      bool r = cryptonote::t_serializable_object_to_blob(tdata.tx, tx_blob);
+      CHECK_AND_ASSERT_THROW_MES(r, "Transaction serialization failed");
+      r = cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx_deserialized);
+      CHECK_AND_ASSERT_THROW_MES(r, "Transaction deserialization failed");
+
+      // Extras check
+      std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+      cryptonote::tx_extra_nonce nonce;
+
+      r = cryptonote::parse_tx_extra(tdata.tx.extra, tx_extra_fields);
+      CHECK_AND_ASSERT_THROW_MES(r, "tx.extra parsing failed");
+
+      const bool nonce_required = tdata.tsx_data.has_payment_id() && tdata.tsx_data.payment_id().size() > 0;
+      const bool has_nonce = cryptonote::find_tx_extra_field_by_type(tx_extra_fields, nonce);
+      CHECK_AND_ASSERT_THROW_MES(has_nonce == nonce_required, "Transaction nonce presence inconsistent");
+
+      if (nonce_required){
+        const std::string & payment_id = tdata.tsx_data.payment_id();
+        if (payment_id.size() == 32){
+          crypto::hash payment_id_long{};
+          CHECK_AND_ASSERT_THROW_MES(cryptonote::get_payment_id_from_tx_extra_nonce(nonce.nonce, payment_id_long), "Long payment ID not present");
+
+        } else if (payment_id.size() == 8){
+          crypto::hash8 payment_id_short{};
+          CHECK_AND_ASSERT_THROW_MES(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(nonce.nonce, payment_id_short), "Short payment ID not present");
+        }
+      }
     }
 
 #else //WITH_DEVICE_TREZOR

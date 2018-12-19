@@ -30,9 +30,8 @@
 #include "common/command_line.h"
 #include "common/varint.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
-#include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/blockchain.h"
+#include "blockchain_objects.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/db_types.h"
 #include "version.h"
@@ -139,20 +138,8 @@ int main(int argc, char* argv[])
   }
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  struct BlockchainObjects // This is done this way because of the circular constructors.
-  {
-    Blockchain m_blockchain;
-    tx_memory_pool m_mempool;
-    service_nodes::service_node_list m_service_node_list;
-    loki::deregister_vote_pool m_deregister_vote_pool;
-    BlockchainObjects() :
-      m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
-      m_service_node_list(m_blockchain),
-      m_mempool(m_blockchain) { }
-  };
-
-  BlockchainObjects *blockchain_objects = new BlockchainObjects();
-  Blockchain *core_storage = &blockchain_objects->m_blockchain;
+  blockchain_objects_t blockchain_objects = {};
+  Blockchain *core_storage = &blockchain_objects.m_blockchain;
   BlockchainDB *db = new_db(db_type);
   if (db == NULL)
   {

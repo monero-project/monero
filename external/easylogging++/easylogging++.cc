@@ -2191,17 +2191,13 @@ void VRegistry::setFromArgs(const base::utils::CommandLineArgs* commandLineArgs)
 #   define ELPP_DEFAULT_LOGGING_FLAGS 0x0
 #endif // !defined(ELPP_DEFAULT_LOGGING_FLAGS)
 // Storage
-el::base::type::StoragePointer getresetELPP(bool reset)
+el::base::type::StoragePointer &el::base::Storage::getELPP()
 {
-  static el::base::type::StoragePointer p(new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder())));
-  if (reset)
-    p = NULL;
-  return p;
+  if (!el::base::elStorage)
+    el::base::elStorage = new el::base::Storage(el::LogBuilderPtr(new el::base::DefaultLogBuilder()));
+  return el::base::elStorage;
 }
-el::base::type::StoragePointer el::base::Storage::getELPP()
-{
-  return getresetELPP(false);
-}
+static struct EnsureELPP { EnsureELPP() { el::base::Storage::getELPP(); } } ensureELPP;
 #if ELPP_ASYNC_LOGGING
 Storage::Storage(const LogBuilderPtr& defaultLogBuilder, base::IWorker* asyncDispatchWorker) :
 #else
@@ -2250,7 +2246,6 @@ Storage::Storage(const LogBuilderPtr& defaultLogBuilder) :
 
 Storage::~Storage(void) {
   ELPP_INTERNAL_INFO(4, "Destroying storage");
-  getresetELPP(true);
 #if ELPP_ASYNC_LOGGING
   ELPP_INTERNAL_INFO(5, "Replacing log dispatch callback to synchronous");
   uninstallLogDispatchCallback<base::AsyncLogDispatchCallback>(std::string("AsyncLogDispatchCallback"));

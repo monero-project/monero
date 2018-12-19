@@ -1,6 +1,6 @@
 package=libusb
 $(package)_version=1.0.22
-$(package)_download_path=http://sourceforge.net/projects/libusb/files/libusb-1.0/libusb-$($(package)_version)/
+$(package)_download_path=https://sourceforge.net/projects/libusb/files/libusb-1.0/libusb-$($(package)_version)/
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
 $(package)_sha256_hash=75aeb9d59a4fdb800d329a545c2e6799f732362193b465ea198f2aa275518157
 

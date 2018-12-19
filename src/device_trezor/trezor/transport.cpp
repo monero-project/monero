@@ -840,7 +840,7 @@ namespace trezor{
       throw exc::DeviceAcquireException("Unable to claim libusb device");
     }
 
-    m_conn_count += 1;
+    m_conn_count = 1;
     m_proto->session_begin(*this);
     
 #undef TREZOR_DESTROY_SESSION
