@@ -61,6 +61,7 @@
 #include "wallet_errors.h"
 #include "common/password.h"
 #include "node_rpc_proxy.h"
+#include "message_store.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -674,7 +675,7 @@ namespace tools
     bool init(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, uint64_t upper_transaction_weight_limit = 0, bool ssl = false, bool trusted_daemon = false);
 
-    void stop() { m_run.store(false, std::memory_order_relaxed); }
+    void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
@@ -1218,6 +1219,11 @@ namespace tools
     bool unblackball_output(const std::pair<uint64_t, uint64_t> &output);
     bool is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const;
 
+    // MMS -------------------------------------------------------------------------------------------------
+    mms::message_store& get_message_store() { return m_message_store; };
+    const mms::message_store& get_message_store() const { return m_message_store; };
+    mms::multisig_wallet_state get_multisig_wallet_state() const;
+
     bool lock_keys_file();
     bool unlock_keys_file();
     bool is_keys_file_locked() const;
@@ -1320,6 +1326,7 @@ namespace tools
     std::string m_daemon_address;
     std::string m_wallet_file;
     std::string m_keys_file;
+    std::string m_mms_file;
     epee::net_utils::http::http_simple_client m_http_client;
     hashchain m_blockchain;
     std::unordered_map<crypto::hash, unconfirmed_transfer_details> m_unconfirmed_txs;
@@ -1420,6 +1427,11 @@ namespace tools
 
     uint64_t m_last_block_reward;
     std::unique_ptr<tools::file_locker> m_keys_file_locker;
+    
+    mms::message_store m_message_store;
+    bool m_original_keys_available;
+    cryptonote::account_public_address m_original_address;
+    crypto::secret_key m_original_view_secret_key;
 
     crypto::chacha_key m_cache_key;
     boost::optional<epee::wipeable_string> m_encrypt_keys_after_refresh;

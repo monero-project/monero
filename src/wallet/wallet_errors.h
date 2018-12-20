@@ -821,6 +821,31 @@ namespace tools
       std::string m_wallet_file;
     };
     //----------------------------------------------------------------------------------------------------
+    struct mms_error : public wallet_logic_error
+    {
+    protected:
+      explicit mms_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct no_connection_to_bitmessage : public mms_error
+    {
+      explicit no_connection_to_bitmessage(std::string&& loc, const std::string& address)
+        : mms_error(std::move(loc), "no connection to PyBitmessage at address " + address)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct bitmessage_api_error : public mms_error
+    {
+      explicit bitmessage_api_error(std::string&& loc, const std::string& error_string)
+        : mms_error(std::move(loc), "PyBitmessage returned " + error_string)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
 
 #if !defined(_MSC_VER)
 

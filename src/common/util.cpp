@@ -58,6 +58,7 @@
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "wipeable_string.h"
+#include "misc_os_dependent.h"
 using namespace epee;
 
 #include "crypto/crypto.h"
@@ -1025,4 +1026,15 @@ std::string get_nix_version_display_string()
 #endif
   }
 
+  std::string get_human_readable_timestamp(uint64_t ts)
+  {
+    char buffer[64];
+    if (ts < 1234567890)
+      return "<unknown>";
+    time_t tt = ts;
+    struct tm tm;
+    misc_utils::get_gmt_time(tt, tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
+    return std::string(buffer);
+  }
 }

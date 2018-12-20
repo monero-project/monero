@@ -226,7 +226,7 @@ struct options {
   const command_line::arg_descriptor<std::string> tx_notify = { "tx-notify" , "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" , "" };
 };
 
-void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
+void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file, std::string &mms_file)
 {
   keys_file = file_path;
   wallet_file = file_path;
@@ -238,6 +238,7 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
   {//provided wallet file name
     keys_file += ".keys";
   }
+  mms_file = file_path + ".mms";
 }
 
 uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier)
@@ -330,6 +331,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   wallet->init(std::move(daemon_address), std::move(login), 0, false, *trusted_daemon);
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
+  wallet->get_message_store().set_options(vm);
   wallet->device_name(device_name);
   wallet->device_derivation_path(device_derivation_path);
 
@@ -907,6 +909,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_light_wallet_connected(false),
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
+  m_original_keys_available(false),
+  m_message_store(),
   m_key_device_type(hw::device::device_type::SOFTWARE),
   m_ring_history_saved(false),
   m_ringdb(),
@@ -956,6 +960,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.stagenet);
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
+  mms::message_store::init_options(desc_params);
   command_line::add_arg(desc_params, opts.hw_device);
   command_line::add_arg(desc_params, opts.hw_device_derivation_path);
   command_line::add_arg(desc_params, opts.tx_notify);
@@ -3184,6 +3189,9 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetUint(m_subaddress_lookahead_minor);
   json.AddMember("subaddress_lookahead_minor", value2, json.GetAllocator());
 
+  value2.SetInt(m_original_keys_available ? 1 : 0);
+  json.AddMember("original_keys_available", value2, json.GetAllocator());
+
   value2.SetUint(1);
   json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
 
@@ -3193,6 +3201,18 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value.SetString(m_device_derivation_path.c_str(), m_device_derivation_path.size());
   json.AddMember("device_derivation_path", value, json.GetAllocator());
 
+  std::string original_address;
+  std::string original_view_secret_key;
+  if (m_original_keys_available)
+  {  
+    original_address = get_account_address_as_str(m_nettype, false, m_original_address);
+    value.SetString(original_address.c_str(), original_address.length());
+    json.AddMember("original_address", value, json.GetAllocator());
+    original_view_secret_key = epee::string_tools::pod_to_hex(m_original_view_secret_key);
+    value.SetString(original_view_secret_key.c_str(), original_view_secret_key.length());
+    json.AddMember("original_view_secret_key", value, json.GetAllocator());
+  }
+  
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -3311,6 +3331,7 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_ignore_fractional_outputs = true;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
+    m_original_keys_available = false;
     m_device_name = "";
     m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
@@ -3483,6 +3504,35 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_derivation_path, std::string, String, false, std::string());
     m_device_derivation_path = field_device_derivation_path;
+    
+    if (json.HasMember("original_keys_available"))
+    {
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_keys_available, int, Int, false, false);
+      m_original_keys_available = field_original_keys_available;
+      if (m_original_keys_available)
+      {
+        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_address, std::string, String, true, std::string());
+        address_parse_info info;
+        bool ok = get_account_address_from_str(info, m_nettype, field_original_address);
+        if (!ok)
+        {
+          LOG_ERROR("Failed to parse original_address from JSON");
+          return false;
+        }
+        m_original_address = info.address;
+        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_view_secret_key, std::string, String, true, std::string());
+        ok = epee::string_tools::hex_to_pod(field_original_view_secret_key, m_original_view_secret_key);
+        if (!ok)
+        {
+          LOG_ERROR("Failed to parse original_view_secret_key from JSON");
+          return false;
+        }
+      }
+    }
+    else
+    {
+      m_original_keys_available = false;
+    }
   }
   else
   {
@@ -3809,6 +3859,10 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
+  // Not possible to restore a multisig wallet that is able to activate the MMS
+  // (because the original keys are not (yet) part of the restore info)
+  m_original_keys_available = false;
+
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
   setup_new_blockchain();
 
@@ -3846,6 +3900,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -3934,6 +3989,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -3974,6 +4030,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -4015,6 +4072,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   setup_keys(password);
   m_device_name = device_name;
 
@@ -4126,6 +4184,15 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
       // Need to store middle keys to be able to proceed in case of wallet shutdown.
       m_multisig_derivations = derivations;
     }
+  }
+  
+  if (!m_original_keys_available)
+  {
+    // Save the original i.e. non-multisig keys so the MMS can continue to use them to encrypt and decrypt messages
+    // (making a wallet multisig overwrites those keys, see account_base::make_multisig)
+    m_original_address = m_account.get_keys().m_account_address;
+    m_original_view_secret_key = m_account.get_keys().m_view_secret_key;
+    m_original_keys_available = true;
   }
 
   clear();
@@ -4560,8 +4627,8 @@ void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
 {
-  std::string keys_file, wallet_file;
-  do_prepare_file_names(file_path, keys_file, wallet_file);
+  std::string keys_file, wallet_file, mms_file;
+  do_prepare_file_names(file_path, keys_file, wallet_file, mms_file);
 
   boost::system::error_code ignore;
   keys_file_exists = boost::filesystem::exists(keys_file, ignore);
@@ -4615,7 +4682,7 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
 {
-  do_prepare_file_names(file_path, m_keys_file, m_wallet_file);
+  do_prepare_file_names(file_path, m_keys_file, m_wallet_file, m_mms_file);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4808,6 +4875,8 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     MERROR("Failed to save rings, will try again next time");
   }
+  
+  m_message_store.read_from_file(get_multisig_wallet_state(), m_mms_file);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::trim_hashchain()
@@ -4913,6 +4982,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   const std::string old_file = m_wallet_file;
   const std::string old_keys_file = m_keys_file;
   const std::string old_address_file = m_wallet_file + ".address.txt";
+  const std::string old_mms_file = m_mms_file;
 
   // save keys to the new file
   // if we here, main wallet file is saved and we only need to save keys and address files
@@ -4942,6 +5012,14 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     if (!r) {
       LOG_ERROR("error removing file: " << old_address_file);
     }
+    // remove old message store file
+    if (boost::filesystem::exists(old_mms_file))
+    {
+      r = boost::filesystem::remove(old_mms_file);
+      if (!r) {
+        LOG_ERROR("error removing file: " << old_mms_file);
+      }
+    }
   } else {
     // save to new file
 #ifdef WIN32
@@ -4967,6 +5045,14 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     std::error_code e = tools::replace_file(new_file, m_wallet_file);
     THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   }
+  
+  if (m_message_store.get_active())
+  {
+    // While the "m_message_store" object of course always exist, a file for the message
+    // store should only exist if the MMS is really active
+    m_message_store.write_to_file(get_multisig_wallet_state(), m_mms_file);
+  }
+  
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::balance(uint32_t index_major) const
@@ -12028,6 +12114,29 @@ uint64_t wallet2::get_segregation_fork_height() const
 //----------------------------------------------------------------------------------------------------
 void wallet2::generate_genesis(cryptonote::block& b) const {
   cryptonote::generate_genesis_block(b, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
+}
+//----------------------------------------------------------------------------------------------------
+mms::multisig_wallet_state wallet2::get_multisig_wallet_state() const
+{
+  mms::multisig_wallet_state state;
+  state.nettype = m_nettype;
+  state.multisig = multisig(&state.multisig_is_ready);
+  state.has_multisig_partial_key_images = has_multisig_partial_key_images();
+  state.multisig_rounds_passed = m_multisig_rounds_passed;
+  state.num_transfer_details = m_transfers.size();
+  if (state.multisig)
+  {
+    THROW_WALLET_EXCEPTION_IF(!m_original_keys_available, error::wallet_internal_error, "MMS use not possible because own original Monero address not available");
+    state.address = m_original_address;
+    state.view_secret_key = m_original_view_secret_key;
+  }
+  else
+  {
+    state.address = m_account.get_keys().m_account_address;
+    state.view_secret_key = m_account.get_keys().m_view_secret_key;
+  }
+  state.mms_file=m_mms_file;
+  return state;
 }
 //----------------------------------------------------------------------------------------------------
 wallet_device_callback * wallet2::get_device_callback()
