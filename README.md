@@ -19,11 +19,11 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Development resources
 
-- Web: [aeon.cash](http://aeon.cash)
+- Web: [aeon.cash](https://aeon.cash)
 - Bitcointalk: https://bitcointalk.org/index.php?topic=641696.0
 - Reddit: https://www.reddit.com/r/Aeon
 - GitHub: [https://github.com/aeonix/aeon](https://github.com/aeonix/aeon)
-- IRC: [#aeon on Freenode](http://webchat.freenode.net/?randomnick=1&channels=%23aeon&prompt=1&uio=d4)
+- IRC: [#aeon on Freenode](https://webchat.freenode.net/?randomnick=1&channels=%23aeon&prompt=1&uio=d4)
 - Discord: https://discord.gg/TM8mEsx
 
 ## Vulnerability response
@@ -71,12 +71,12 @@ The Bitcoin donation address is: `12Cyjf3qV6qLyXdzpLSLPdRFPUVidvnzFM`
 Core development funding and/or some supporting services are also graciously provided by sponsors:
 
 [<img width="80" src="https://static.getmonero.org/images/sponsors/mymonero.png"/>](https://mymonero.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](http://kitware.com)
-[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](http://dome9.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](http://araxis.com)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](http://www.jetbrains.com/)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](http://www.navicat.com/)
-[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](http://www.symas.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/kitware.png?1"/>](https://kitware.com)
+[<img width="100" src="https://static.getmonero.org/images/sponsors/dome9.png"/>](https://dome9.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/araxis.png"/>](https://araxis.com)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/jetbrains.png"/>](https://www.jetbrains.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/navicat.png"/>](https://www.navicat.com/)
+[<img width="150" src="https://static.getmonero.org/images/sponsors/symas.png"/>](https://www.symas.com/)
 
 There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=641696.0).
 
@@ -115,30 +115,32 @@ library archives (`.a`).
 | Dep          | Min. version  | Vendored | Debian/Ubuntu pkg  | Arch pkg     | Fedora            | Optional | Purpose        |
 | ------------ | ------------- | -------- | ------------------ | ------------ | ----------------- | -------- | -------------- |
 | GCC          | 4.7.3         | NO       | `build-essential`  | `base-devel` | `gcc`             | NO       |                |
-| CMake        | 3.0.0         | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
+| CMake        | 3.5           | NO       | `cmake`            | `cmake`      | `cmake`           | NO       |                |
 | pkg-config   | any           | NO       | `pkg-config`       | `base-devel` | `pkgconf`         | NO       |                |
 | Boost        | 1.58          | NO       | `libboost-all-dev` | `boost`      | `boost-devel`     | NO       | C++ libraries  |
 | OpenSSL      | basically any | NO       | `libssl-dev`       | `openssl`    | `openssl-devel`   | NO       | sha256 sum     |
 | libzmq       | 3.0.0         | NO       | `libzmq3-dev`      | `zeromq`     | `cppzmq-devel`    | NO       | ZeroMQ library |
+| OpenPGM      | ?             | NO       | `libpgm-dev`       | `libpgm`     | `openpgm-devel`   | NO       | For ZeroMQ     |
+| libnorm[2]   | ?             | NO       | `libnorm-dev`      |              |               `   | YES      | For ZeroMQ     |
 | libunbound   | 1.4.16        | YES      | `libunbound-dev`   | `unbound`    | `unbound-devel`   | NO       | DNS resolver   |
-| libsodium    | ?             | NO       | `libsodium-dev`    | ?            | `libsodium-devel` | NO       | cryptography   |
-| libminiupnpc | 2.0           | YES      | `libminiupnpc-dev` | `miniupnpc`  | `miniupnpc-devel` | YES      | NAT punching   |
+| libsodium    | ?             | NO       | `libsodium-dev`    | `libsodium`  | `libsodium-devel` | NO       | cryptography   |
 | libunwind    | any           | NO       | `libunwind8-dev`   | `libunwind`  | `libunwind-devel` | YES      | Stack traces   |
 | liblzma      | any           | NO       | `liblzma-dev`      | `xz`         | `xz-devel`        | YES      | For libunwind  |
 | libreadline  | 6.3.0         | NO       | `libreadline6-dev` | `readline`   | `readline-devel`  | YES      | Input editing  |
 | ldns         | 1.6.17        | NO       | `libldns-dev`      | `ldns`       | `ldns-devel`      | YES      | SSL toolkit    |
 | expat        | 1.1           | NO       | `libexpat1-dev`    | `expat`      | `expat-devel`     | YES      | XML parsing    |
-| GTest        | 1.5           | YES      | `libgtest-dev`^    | `gtest`      | `gtest-devel`     | YES      | Test suite     |
+| GTest        | 1.5           | YES      | `libgtest-dev`[1]  | `gtest`      | `gtest-devel`     | YES      | Test suite     |
 | Doxygen      | any           | NO       | `doxygen`          | `doxygen`    | `doxygen`         | YES      | Documentation  |
 | Graphviz     | any           | NO       | `graphviz`         | `graphviz`   | `graphviz`        | YES      | Documentation  |
 | pcsclite     | ?             | NO       | `libpcsclite-dev`  | ?            | `pcsc-lite pcsc-lite-devel` | NO | Ledger     |          
 
 
-[^] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
+[1] On Debian/Ubuntu `libgtest-dev` only includes sources and headers. You must
 build the library binary manually. This can be done with the following command ```sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake . && sudo make && sudo mv libg* /usr/lib/ ```
+[2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
 Install all dependencies at once on Debian/Ubuntu: 
-``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libminiupnpc-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev ```
+``` sudo apt update && sudo apt install build-essential cmake git pkg-config libboost-all-dev libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev liblzma-dev libreadline6-dev libldns-dev libexpat1-dev doxygen graphviz libpcsclite-dev libpgm-dev```
 ### Cloning the repository
 
 Clone recursively to pull-in needed submodule(s):
@@ -215,9 +217,11 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 ```	
 	sudo /etc/init.d/dphys-swapfile stop  
 	sudo nano /etc/dphys-swapfile  
-	CONF_SWAPSIZE=1024  
+	CONF_SWAPSIZE=2048
 	sudo /etc/init.d/dphys-swapfile start  
 ```
+* If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "max_usb_current=1" to /boot/config.txt
+
 * Clone Aeon and checkout most recent release version:
 ```
         git clone https://github.com/aeonix/aeon.git
@@ -247,7 +251,7 @@ If you are using the older Raspbian Jessie image, compiling Aeon is a bit more c
 ```	
 	sudo /etc/init.d/dphys-swapfile stop  
 	sudo nano /etc/dphys-swapfile  
-	CONF_SWAPSIZE=1024  
+	CONF_SWAPSIZE=2048  
 	sudo /etc/init.d/dphys-swapfile start  
 ```
 
@@ -264,7 +268,7 @@ If you are using the older Raspbian Jessie image, compiling Aeon is a bit more c
 ```
 * Wait ~8 hours
 ```
-	sudo ./bjam install
+	sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
 ```
 * Wait ~4 hours
 
@@ -273,14 +277,14 @@ If you are using the older Raspbian Jessie image, compiling Aeon is a bit more c
 #### On Windows:
 
 Binaries for Windows are built on Windows using the MinGW toolchain within
-[MSYS2 environment](http://msys2.github.io). The MSYS2 environment emulates a
+[MSYS2 environment](https://www.msys2.org). The MSYS2 environment emulates a
 POSIX system. The toolchain runs within the environment and *cross-compiles*
 binaries that can run outside of the environment as a regular Windows
 application.
 
 **Preparing the build environment**
 
-* Download and install the [MSYS2 installer](http://msys2.github.io), either the 64-bit or the 32-bit package, depending on your system.
+* Download and install the [MSYS2 installer](https://www.msys2.org), either the 64-bit or the 32-bit package, depending on your system.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
 * Update packages using pacman:  
 
@@ -355,7 +359,7 @@ We expect to add Aeon into the ports tree in the near future, which will aid in 
 
 This has been tested on OpenBSD 5.8.
 
-You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ miniupnpc gtest`.
+You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ gtest`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -368,7 +372,7 @@ To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/pat
 
 #### OpenBSD >= 6.2
 
-You will need to add a few packages to your system. `pkg_add cmake miniupnpc zeromq libiconv`.
+You will need to add a few packages to your system. `pkg_add cmake zeromq libiconv`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -452,14 +456,14 @@ Then you can run make as usual.
 
 ### On Linux for Android (using docker):
 
-**TODO: Needs confirmation!**
-
-        # Build image (select android64.Dockerfile for aarch64)
-        cd utils/build_scripts/ && docker build -f android32.Dockerfile -t aeon-android .
+        # Build image (for ARM 32-bit)
+        docker build -f utils/build_scripts/android32.Dockerfile -t aeon-android .
+        # Build image (for ARM 64-bit)
+        docker build -f utils/build_scripts/android64.Dockerfile -t aeon-android .
         # Create container
         docker create -it --name aeon-android aeon-android bash
         # Get binaries
-        docker cp aeon-android:/opt/android/aeon/build/release/bin .
+        docker cp aeon-android:/src/build/release/bin .
 
 ### Building portable statically linked binaries
 
@@ -497,12 +501,12 @@ Packages are available for
 
         guix package -i aeon
 
-* OS X via [Homebrew](http://brew.sh)
+* OS X via [Homebrew](https://brew.sh)
 
         brew tap sammy007/aeon
         brew install aeon -v
 
-* (**TODO**) ~Docker~
+* Docker
 
         # Build using all available cores
         docker build -t aeon .
@@ -515,6 +519,9 @@ Packages are available for
 
         # or in background
         docker run -it -d -v /aeon/chain:/root/.aeon -v /aeon/wallet:/wallet -p 11180:11180 aeon
+
+* The build needs 3 GB space.
+* Wait one  hour or more
 
 Packaging for your favorite distribution would be a welcome contribution!
 
@@ -634,9 +641,19 @@ Type `run` to run aeond
 
 ### Analysing memory corruption
 
-We use the tool `valgrind` for this.
+There are two tools available:
 
-Run with `valgrind /path/to/aeond`. It will be slow.
+* ASAN
+
+Configure Aeon with the -D SANITIZE=ON cmake flag, eg:
+
+    cd build/debug && cmake -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug ../..
+
+You can then run the aeon tools normally. Performance will typically halve.
+
+* valgrind
+
+Install valgrind and run as `valgrind /path/to/aeond`. It will be very slow.
 
 ### LMDB
 

@@ -17,14 +17,30 @@ RUN set -ex && \
         curl \
         libtool-bin \
         autoconf \
-        automake
+        automake \
+        bzip2 \
+        xsltproc \
+        gperf
 
 WORKDIR /usr/local
 
+#Cmake
+ARG CMAKE_VERSION=3.13.0
+ARG CMAKE_VERSION_DOT=v3.13
+ARG CMAKE_HASH=4058b2f1a53c026564e8936698d56c3b352d90df067b195cb749a97a3d273c90 
+RUN set -ex \
+    && curl -s -O https://cmake.org/files/${CMAKE_VERSION_DOT}/cmake-${CMAKE_VERSION}.tar.gz \
+    && echo "${CMAKE_HASH}  cmake-${CMAKE_VERSION}.tar.gz" | sha256sum -c \
+    && tar -xzf cmake-${CMAKE_VERSION}.tar.gz \
+    && cd cmake-${CMAKE_VERSION} \
+    && ./configure \
+    && make \
+    && make install
+
 ## Boost
-ARG BOOST_VERSION=1_66_0
-ARG BOOST_VERSION_DOT=1.66.0
-ARG BOOST_HASH=5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9
+ARG BOOST_VERSION=1_68_0
+ARG BOOST_VERSION_DOT=1.68.0
+ARG BOOST_HASH=7f6130bc3cf65f56a618888ce9d5ea704fa10b462be126ad053e80e553d6d8b7
 RUN set -ex \
     && curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
     && echo "${BOOST_HASH}  boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
@@ -35,21 +51,22 @@ RUN set -ex \
 ENV BOOST_ROOT /usr/local/boost_${BOOST_VERSION}
 
 # OpenSSL
-ARG OPENSSL_VERSION=1.0.2n
-ARG OPENSSL_HASH=370babb75f278c39e0c50e8c4e7493bc0f18db6867478341a832a982fd15a8fe
+ARG OPENSSL_VERSION=1.1.0j
+ARG OPENSSL_HASH=31bec6c203ce1a8e93d5994f4ed304c63ccf07676118b6634edded12ad1b3246
 RUN set -ex \
     && curl -s -O https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
     && echo "${OPENSSL_HASH}  openssl-${OPENSSL_VERSION}.tar.gz" | sha256sum -c \
     && tar -xzf openssl-${OPENSSL_VERSION}.tar.gz \
     && cd openssl-${OPENSSL_VERSION} \
     && ./Configure linux-x86_64 no-shared --static -fPIC \
-    && make build_crypto build_ssl \
+    && make build_generated \
+    && make libcrypto.a \
     && make install
 ENV OPENSSL_ROOT_DIR=/usr/local/openssl-${OPENSSL_VERSION}
 
 # ZMQ
-ARG ZMQ_VERSION=v4.2.3
-ARG ZMQ_HASH=3226b8ebddd9c6c738ba42986822c26418a49afb
+ARG ZMQ_VERSION=v4.2.5
+ARG ZMQ_HASH=d062edd8c142384792955796329baf1e5a3377cd
 RUN set -ex \
     && git clone https://github.com/zeromq/libzmq.git -b ${ZMQ_VERSION} \
     && cd libzmq \
@@ -61,9 +78,10 @@ RUN set -ex \
     && ldconfig
 
 # zmq.hpp
-ARG CPPZMQ_HASH=6aa3ab686e916cb0e62df7fa7d12e0b13ae9fae6
+ARG CPPZMQ_VERSION=v4.3.0
+ARG CPPZMQ_HASH=213da0b04ae3b4d846c9abc46bab87f86bfb9cf4
 RUN set -ex \
-    && git clone https://github.com/zeromq/cppzmq.git -b ${ZMQ_VERSION} \
+    && git clone https://github.com/zeromq/cppzmq.git -b ${CPPZMQ_VERSION} \
     && cd cppzmq \
     && test `git rev-parse HEAD` = ${CPPZMQ_HASH} || exit 1 \
     && mv *.hpp /usr/local/include
@@ -93,11 +111,49 @@ RUN set -ex \
     && make check \
     && make install
 
+# Udev
+ARG UDEV_VERSION=v3.2.6
+ARG UDEV_HASH=0c35b136c08d64064efa55087c54364608e65ed6
+RUN set -ex \
+    && git clone https://github.com/gentoo/eudev -b ${UDEV_VERSION} \
+    && cd eudev \
+    && test `git rev-parse HEAD` = ${UDEV_HASH} || exit 1 \
+    && ./autogen.sh \
+    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --disable-gudev --disable-introspection --disable-hwdb --disable-manpages --disable-shared \
+    && make \
+    && make install
+
+# Libusb
+ARG USB_VERSION=v1.0.22
+ARG USB_HASH=0034b2afdcdb1614e78edaa2a9e22d5936aeae5d
+RUN set -ex \
+    && git clone https://github.com/libusb/libusb.git -b ${USB_VERSION} \
+    && cd libusb \
+    && test `git rev-parse HEAD` = ${USB_HASH} || exit 1 \
+    && ./autogen.sh \
+    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --disable-shared \
+    && make \
+    && make install
+
+# Hidapi
+ARG HIDAPI_VERSION=hidapi-0.8.0-rc1
+ARG HIDAPI_HASH=40cf516139b5b61e30d9403a48db23d8f915f52c
+RUN set -ex \
+    && git clone https://github.com/signal11/hidapi -b ${HIDAPI_VERSION} \
+    && cd hidapi \
+    && test `git rev-parse HEAD` = ${HIDAPI_HASH} || exit 1 \
+    && ./bootstrap \
+    && CFLAGS="-fPIC" CXXFLAGS="-fPIC" ./configure --enable-static --disable-shared \
+    && make \
+    && make install
+
 WORKDIR /src
 COPY . .
 
+ENV USE_SINGLE_BUILDDIR=1
 ARG NPROC
 RUN set -ex && \
+    git submodule init && git submodule update && \
     rm -rf build && \
     if [ -z "$NPROC" ] ; \
     then make -j$(nproc) release-static ; \
@@ -112,18 +168,18 @@ RUN set -ex && \
     apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt
-
-COPY --from=builder /src/build/release/bin/* /usr/local/bin/
+COPY --from=builder /src/build/release/bin /usr/local/bin/
 
 # Contains the blockchain
-VOLUME /root/.bitmonero
+VOLUME /root/.aeon
 
 # Generate your wallet via accessing the container and run:
 # cd /wallet
-# monero-wallet-cli
+# aeon-wallet-cli
 VOLUME /wallet
 
 EXPOSE 11180
 EXPOSE 11181
 
-ENTRYPOINT ["monerod", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=11180", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=11181", "--non-interactive", "--confirm-external-bind"]
+ENTRYPOINT ["aeond", "--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=11180", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=11181", "--non-interactive", "--confirm-external-bind"]
+
