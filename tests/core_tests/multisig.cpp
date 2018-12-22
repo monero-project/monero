@@ -644,28 +644,28 @@ bool gen_multisig_tx_invalid_45_5_23_no_threshold::generate(std::vector<test_eve
   return generate_with(events, 2, mixin, amount_paid, false, 4, 5, 5, {2, 3}, NULL, NULL);
 }
 
-bool gen_multisig_tx_valid_24_1_no_signers::generate(std::vector<test_event_entry>& events) const
+bool gen_multisig_tx_invalid_24_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const size_t mixin = 4;
   const uint64_t amount_paid = 10000;
   return generate_with(events, 2, mixin, amount_paid, false, 2, 4, 1, {}, NULL, NULL);
 }
 
-bool gen_multisig_tx_valid_25_1_no_signers::generate(std::vector<test_event_entry>& events) const
+bool gen_multisig_tx_invalid_25_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const size_t mixin = 4;
   const uint64_t amount_paid = 10000;
   return generate_with(events, 2, mixin, amount_paid, false, 2, 5, 1, {}, NULL, NULL);
 }
 
-bool gen_multisig_tx_valid_48_1_no_signers::generate(std::vector<test_event_entry>& events) const
+bool gen_multisig_tx_invalid_48_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const size_t mixin = 4;
   const uint64_t amount_paid = 10000;
   return generate_with(events, 2, mixin, amount_paid, false, 4, 8, 1, {}, NULL, NULL);
 }
 
-bool gen_multisig_tx_valid_48_1_23_no_threshold::generate(std::vector<test_event_entry>& events) const
+bool gen_multisig_tx_invalid_48_1_23_no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const size_t mixin = 4;
   const uint64_t amount_paid = 10000;
