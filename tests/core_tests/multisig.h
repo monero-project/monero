@@ -234,26 +234,26 @@ struct gen_multisig_tx_invalid_45_5_23_no_threshold: public gen_multisig_tx_vali
 };
 template<> struct get_test_options<gen_multisig_tx_invalid_45_5_23_no_threshold>: public get_test_options<gen_multisig_tx_validation_base> {};
 
-struct gen_multisig_tx_valid_24_1_no_signers: public gen_multisig_tx_validation_base
+struct gen_multisig_tx_invalid_24_1_no_signers: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_multisig_tx_valid_24_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
+template<> struct get_test_options<gen_multisig_tx_invalid_24_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
 
-struct gen_multisig_tx_valid_25_1_no_signers: public gen_multisig_tx_validation_base
+struct gen_multisig_tx_invalid_25_1_no_signers: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_multisig_tx_valid_25_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
+template<> struct get_test_options<gen_multisig_tx_invalid_25_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
 
-struct gen_multisig_tx_valid_48_1_no_signers: public gen_multisig_tx_validation_base
+struct gen_multisig_tx_invalid_48_1_no_signers: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_multisig_tx_valid_48_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
+template<> struct get_test_options<gen_multisig_tx_invalid_48_1_no_signers>: public get_test_options<gen_multisig_tx_validation_base> {};
 
-struct gen_multisig_tx_valid_48_1_23_no_threshold: public gen_multisig_tx_validation_base
+struct gen_multisig_tx_invalid_48_1_23_no_threshold: public gen_multisig_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_multisig_tx_valid_48_1_23_no_threshold>: public get_test_options<gen_multisig_tx_validation_base> {};
+template<> struct get_test_options<gen_multisig_tx_invalid_48_1_23_no_threshold>: public get_test_options<gen_multisig_tx_validation_base> {};
