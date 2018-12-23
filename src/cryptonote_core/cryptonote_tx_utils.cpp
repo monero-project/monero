@@ -260,8 +260,8 @@ namespace cryptonote
     }
     else
     {
-      LOG_ERROR("Failed to parse tx extra");
-      return false;
+      MWARNING("Failed to parse tx extra");
+      tx_extra_fields.clear();
     }
 
     struct input_generation_context_data
