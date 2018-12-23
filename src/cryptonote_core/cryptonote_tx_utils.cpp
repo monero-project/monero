@@ -226,13 +226,15 @@ namespace cryptonote
     std::vector<tx_extra_field> tx_extra_fields;
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
+      bool add_dummy_payment_id = true;
       tx_extra_nonce extra_nonce;
       if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
-        crypto::hash8 payment_id = null_hash8;
-        if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+        crypto::hash payment_id = null_hash;
+        crypto::hash8 payment_id8 = null_hash8;
+        if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
         {
-          LOG_PRINT_L2("Encrypting payment id " << payment_id);
+          LOG_PRINT_L2("Encrypting payment id " << payment_id8);
           crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
           if (view_key_pub == null_pkey)
           {
@@ -240,21 +242,53 @@ namespace cryptonote
             return false;
           }
 
-          if (!hwdev.encrypt_payment_id(payment_id, view_key_pub, tx_key))
+          if (!hwdev.encrypt_payment_id(payment_id8, view_key_pub, tx_key))
           {
             LOG_ERROR("Failed to encrypt payment id");
             return false;
           }
 
           std::string extra_nonce;
-          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
           remove_field_from_tx_extra(tx.extra, typeid(tx_extra_nonce));
           if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
           {
             LOG_ERROR("Failed to add encrypted payment id to tx extra");
             return false;
           }
-          LOG_PRINT_L1("Encrypted payment ID: " << payment_id);
+          LOG_PRINT_L1("Encrypted payment ID: " << payment_id8);
+          add_dummy_payment_id = false;
+        }
+        else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+        {
+          add_dummy_payment_id = false;
+        }
+      }
+
+      // we don't add one if we've got more than the usual 1 destination plus change
+      if (destinations.size() > 2)
+        add_dummy_payment_id = false;
+
+      if (add_dummy_payment_id)
+      {
+        // if we have neither long nor short payment id, add a dummy short one,
+        // this should end up being the vast majority of txes as time goes on
+        std::string extra_nonce;
+        crypto::hash8 payment_id8 = null_hash8;
+        crypto::public_key view_key_pub = get_destination_view_key_pub(destinations, change_addr);
+        if (view_key_pub == null_pkey)
+        {
+          LOG_ERROR("Failed to get key to encrypt dummy payment id with");
+        }
+        else
+        {
+          hwdev.encrypt_payment_id(payment_id8, view_key_pub, tx_key);
+          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
+          if (!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+          {
+            LOG_ERROR("Failed to add dummy encrypted payment id to tx extra");
+            // continue anyway
+          }
         }
       }
     }
