@@ -1407,9 +1407,11 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
             if (amount) {
                 vector<cryptonote::tx_destination_entry> dsts;
                 cryptonote::tx_destination_entry de;
+                de.original = dst_addr;
                 de.addr = info.address;
                 de.amount = *amount;
                 de.is_subaddress = info.is_subaddress;
+                de.is_integrated = info.has_payment_id;
                 dsts.push_back(de);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
                                                                           adjusted_priority,

@@ -5394,6 +5394,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         info.has_payment_id = true;
       }
       de.amount = amount;
+      de.original = local_args[i];
       ++i;
     }
     else if (i + 1 < local_args.size())
@@ -5406,6 +5407,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
         return false;
       }
+      de.original = local_args[i];
       i += 2;
     }
     else
@@ -5424,6 +5426,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
     de.addr = info.address;
     de.is_subaddress = info.is_subaddress;
+    de.is_integrated = info.has_payment_id;
     num_subaddresses += info.is_subaddress;
 
     if (info.has_payment_id || !payment_id_uri.empty())
