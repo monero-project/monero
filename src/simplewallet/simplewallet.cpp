@@ -7137,6 +7137,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       const std::string type = pd.m_coinbase ? tr("block") : tr("in");
       const bool unlocked = m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
       transfers.push_back({
+        type,
         pd.m_block_height,
         pd.m_timestamp,
         type,
@@ -7169,6 +7170,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         payment_id = payment_id.substr(0,16);
       std::string note = m_wallet->get_tx_note(i->first);
       transfers.push_back({
+        "out",
         pd.m_block_height,
         pd.m_timestamp,
         "out",
@@ -7205,6 +7207,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         if (i->second.m_double_spend_seen)
           double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
         transfers.push_back({
+          "pool",
           "pool",
           pd.m_timestamp,
           "in",
@@ -7245,6 +7248,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
       if ((failed && is_failed) || (!is_failed && pending)) {
         transfers.push_back({
+          (is_failed ? "failed" : "pending"),
           (is_failed ? "failed" : "pending"),
           pd.m_timestamp,
           "out",
@@ -7293,7 +7297,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   for (const auto& transfer : all_transfers)
   {
-    const auto color = transfer.confirmed ? ((transfer.direction == "in" || transfer.direction == "block") ? console_color_green : console_color_magenta) : console_color_white;
+    const auto color = transfer.type == "failed" ? console_color_red : transfer.confirmed ? ((transfer.direction == "in" || transfer.direction == "block") ? console_color_green : console_color_magenta) : console_color_default;
 
     std::string destinations = "-";
     if (!transfer.outputs.empty())

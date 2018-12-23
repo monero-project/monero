@@ -254,6 +254,7 @@ namespace cryptonote
 
     struct transfer_view
     {
+      std::string type;
       boost::variant<uint64_t, std::string> block;
       uint64_t timestamp;
       std::string direction;
