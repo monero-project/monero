@@ -918,7 +918,7 @@ namespace cryptonote
      * @param outputs return-by-reference the outputs collected
      */
     void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets,
-        std::vector<output_data_t> &outputs, const std::vector<output_data_t> &extra_tx_map) const;
+        std::vector<output_data_t> &outputs) const;
 
     /**
      * @brief computes the "short" and "long" hashes for a set of blocks
