@@ -5133,19 +5133,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       payment_id_seen = true;
       message_writer() << tr("Unencrypted payment IDs are bad for privacy: ask the recipient to use subaddresses instead");
     }
-    else
-    {
-      crypto::hash8 payment_id8;
-      if (tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8))
-      {
-        std::string extra_nonce;
-        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
-        r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-        local_args.pop_back();
-        payment_id_seen = true;
-      }
-    }
-
     if(!r)
     {
       fail_msg_writer() << tr("payment id failed to encode");
@@ -5791,18 +5778,6 @@ bool simple_wallet::sweep_main(uint64_t below, bool locked, const std::vector<st
       r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
       payment_id_seen = true;
     }
-    else
-    {
-      crypto::hash8 payment_id8;
-      r = tools::wallet2::parse_short_payment_id(payment_id_str, payment_id8);
-      if(r)
-      {
-        std::string extra_nonce;
-        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
-        r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-        payment_id_seen = true;
-      }
-    }
 
     if(!r && local_args.size() == 3)
     {
@@ -6054,10 +6029,6 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     if (tools::wallet2::parse_long_payment_id(local_args.back(), payment_id))
     {
       set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-    }
-    else if(tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
-    {
-      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id8);
     }
     else
     {
@@ -8055,8 +8026,8 @@ bool simple_wallet::address_book(const std::vector<std::string> &args/* = std::v
       }
       else if (tools::wallet2::parse_short_payment_id(args[3], info.payment_id))
       {
-        memcpy(payment_id.data, info.payment_id.data, 8);
-        description_start += 2;
+        fail_msg_writer() << tr("Short payment IDs are to be used within an integrated address only");
+        return true;
       }
       else
       {
