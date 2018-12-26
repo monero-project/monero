@@ -663,7 +663,7 @@ bool t_rpc_command_executor::print_height() {
   return true;
 }
 
-bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
+bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash, bool include_hex) {
   cryptonote::COMMAND_RPC_GET_BLOCK::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
@@ -689,13 +689,15 @@ bool t_rpc_command_executor::print_block_by_hash(crypto::hash block_hash) {
     }
   }
 
+  if (include_hex)
+    tools::success_msg_writer() << res.blob << std::endl;
   print_block_header(res.block_header);
   tools::success_msg_writer() << res.json << ENDL;
 
   return true;
 }
 
-bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
+bool t_rpc_command_executor::print_block_by_height(uint64_t height, bool include_hex) {
   cryptonote::COMMAND_RPC_GET_BLOCK::request req;
   cryptonote::COMMAND_RPC_GET_BLOCK::response res;
   epee::json_rpc::error error_resp;
@@ -721,6 +723,8 @@ bool t_rpc_command_executor::print_block_by_height(uint64_t height) {
     }
   }
 
+  if (include_hex)
+    tools::success_msg_writer() << res.blob << std::endl;
   print_block_header(res.block_header);
   tools::success_msg_writer() << res.json << ENDL;
 
