@@ -50,6 +50,7 @@
 #include "p2p/net_peerlist_boost_serialization.h"
 #include "span.h"
 #include "string_tools.h"
+#include "storages/parserse_base_utils.h"
 
 namespace
 {
@@ -833,3 +834,86 @@ TEST(net_buffer, move)
   ASSERT_TRUE(!memcmp(span.data() + 1, std::string(4000, '0').c_str(), 4000));
 }
 
+TEST(parsing, isspace)
+{
+  ASSERT_FALSE(epee::misc_utils::parse::isspace(0));
+  for (int c = 1; c < 256; ++c)
+  {
+    ASSERT_EQ(epee::misc_utils::parse::isspace(c), strchr("\r\n\t\f\v ", c) != NULL);
+  }
+}
+
+TEST(parsing, isdigit)
+{
+  ASSERT_FALSE(epee::misc_utils::parse::isdigit(0));
+  for (int c = 1; c < 256; ++c)
+  {
+    ASSERT_EQ(epee::misc_utils::parse::isdigit(c), strchr("0123456789", c) != NULL);
+  }
+}
+
+TEST(parsing, number)
+{
+  boost::string_ref val;
+  std::string s;
+  std::string::const_iterator i;
+
+  // the parser expects another character to end the number, and accepts things
+  // that aren't numbers, as it's meant as a pre-filter for strto* functions,
+  // so we just check that numbers get accepted, but don't test non numbers
+
+  s = "0 ";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "0");
+
+  s = "000 ";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "000");
+
+  s = "10x";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "10");
+
+  s = "10.09/";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "10.09");
+
+  s = "-1.r";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "-1.");
+
+  s = "-49.;";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "-49.");
+
+  s = "0.78/";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "0.78");
+
+  s = "33E9$";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "33E9");
+
+  s = ".34e2=";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, ".34e2");
+
+  s = "-9.34e-2=";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "-9.34e-2");
+
+  s = "+9.34e+03=";
+  i = s.begin();
+  epee::misc_utils::parse::match_number(i, s.end(), val);
+  ASSERT_EQ(val, "+9.34e+03");
+}
