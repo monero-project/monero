@@ -834,21 +834,21 @@ namespace net_utils
 				const char *ptr = m_header_cache.c_str();
 				CHECK_AND_ASSERT_MES(!memcmp(ptr, "HTTP/", 5), false, "Invalid first response line: " + m_header_cache);
 				ptr += 5;
-				CHECK_AND_ASSERT_MES(isdigit(*ptr), false, "Invalid first response line: " + m_header_cache);
+				CHECK_AND_ASSERT_MES(epee::misc_utils::parse::isdigit(*ptr), false, "Invalid first response line: " + m_header_cache);
 				unsigned long ul;
 				char *end;
 				ul = strtoul(ptr, &end, 10);
 				CHECK_AND_ASSERT_MES(ul <= INT_MAX && *end =='.', false, "Invalid first response line: " + m_header_cache);
 				m_response_info.m_http_ver_hi = ul;
 				ptr = end + 1;
-				CHECK_AND_ASSERT_MES(isdigit(*ptr), false, "Invalid first response line: " + m_header_cache + ", ptr: " << ptr);
+				CHECK_AND_ASSERT_MES(epee::misc_utils::parse::isdigit(*ptr), false, "Invalid first response line: " + m_header_cache + ", ptr: " << ptr);
 				ul = strtoul(ptr, &end, 10);
 				CHECK_AND_ASSERT_MES(ul <= INT_MAX && isblank(*end), false, "Invalid first response line: " + m_header_cache + ", ptr: " << ptr);
 				m_response_info.m_http_ver_lo = ul;
 				ptr = end + 1;
 				while (isblank(*ptr))
 					++ptr;
-				CHECK_AND_ASSERT_MES(isdigit(*ptr), false, "Invalid first response line: " + m_header_cache);
+				CHECK_AND_ASSERT_MES(epee::misc_utils::parse::isdigit(*ptr), false, "Invalid first response line: " + m_header_cache);
 				ul = strtoul(ptr, &end, 10);
 				CHECK_AND_ASSERT_MES(ul >= 100 && ul <= 999 && isspace(*end), false, "Invalid first response line: " + m_header_cache);
 				m_response_info.m_response_code = ul;

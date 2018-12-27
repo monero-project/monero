@@ -42,6 +42,8 @@
 #include <type_traits>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include "misc_log_ex.h"
+#include "storages/parserse_base_utils.h"
 #include "hex.h"
 #include "memwipe.h"
 #include "mlocker.h"
@@ -126,7 +128,7 @@ DISABLE_GCC_WARNING(maybe-uninitialized)
     {
       for (char c : str_id)
       {
-        if (!std::isdigit(c))
+        if (!epee::misc_utils::parse::isdigit(c))
           return false;
       }
     }
