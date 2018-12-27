@@ -31,7 +31,8 @@
 #include <boost/variant.hpp>
 #include <boost/any.hpp>
 #include <string>
-#include <list>
+#include <vector>
+#include <deque>
 
 #define PORTABLE_STORAGE_SIGNATUREA 0x01011101
 #define PORTABLE_STORAGE_SIGNATUREB 0x01020101 // bender's nightmare 
@@ -70,6 +71,9 @@ namespace epee
   namespace serialization
   {
     struct section;
+
+    template<typename T> struct entry_container { typedef std::vector<T> type; static void reserve(type &t, size_t n) { t.reserve(n); } };
+    template<> struct entry_container<bool> { typedef std::deque<bool> type; static void reserve(type &t, size_t n) {} };
 
     /************************************************************************/
     /*                                                                      */
@@ -119,8 +123,13 @@ namespace epee
         return m_array.back();
       }
 
-      std::list<t_entry_type> m_array;
-      mutable typename std::list<t_entry_type>::const_iterator m_it;
+      void reserve(size_t n)
+      {
+        entry_container<t_entry_type>::reserve(m_array, n);
+      }
+
+      typename entry_container<t_entry_type>::type m_array;
+      mutable typename entry_container<t_entry_type>::type::const_iterator m_it;
     };
 
 
