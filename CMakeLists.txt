@@ -42,7 +42,7 @@ endif()
 cmake_minimum_required(VERSION 2.8.7)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-project(monero)
+project(triton)
 
 function (die msg)
   if (NOT WIN32)
