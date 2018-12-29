@@ -359,6 +359,7 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #if defined(ELPP_SYSLOG)
 #   include <syslog.h>
 #endif  // defined(ELPP_SYSLOG)
+#include <climits>
 #include <ctime>
 #include <cstring>
 #include <cstdlib>
@@ -406,6 +407,7 @@ ELPP_INTERNAL_DEBUGGING_OUT_INFO << ELPP_INTERNAL_DEBUGGING_MSG(internalInfoStre
 #include <sstream>
 #include <memory>
 #include <type_traits>
+#include <atomic>
 #if ELPP_THREADING_ENABLED
 #  if ELPP_USE_STD_THREADING
 #      include <mutex>
@@ -2451,6 +2453,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
     base::threading::ScopedLock scopedLock(lock());
     m_categories.clear();
     m_cached_allowed_categories.clear();
+    m_lowest_priority = INT_MAX;
   }
 
   inline void clearModules(void) {
@@ -2495,6 +2498,7 @@ class VRegistry : base::NoCopy, public base::threading::ThreadSafe {
   std::map<std::string, int> m_cached_allowed_categories;
   std::string m_categoriesString;
   std::string m_filenameCommonPrefix;
+  std::atomic<int> m_lowest_priority;
 };
 }  // namespace base
 class LogMessage {
