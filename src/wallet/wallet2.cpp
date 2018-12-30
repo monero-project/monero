@@ -192,6 +192,37 @@ namespace
 
     return false;
   }
+
+  void add_reason(std::string &reasons, const char *reason)
+  {
+    if (!reasons.empty())
+      reasons += ", ";
+    reasons += reason;
+  }
+
+  std::string get_text_reason(const cryptonote::COMMAND_RPC_SEND_RAW_TX::response &res)
+  {
+      std::string reason;
+      if (res.low_mixin)
+        add_reason(reason, "bad ring size");
+      if (res.double_spend)
+        add_reason(reason, "double spend");
+      if (res.invalid_input)
+        add_reason(reason, "invalid input");
+      if (res.invalid_output)
+        add_reason(reason, "invalid output");
+      if (res.too_big)
+        add_reason(reason, "too big");
+      if (res.overspend)
+        add_reason(reason, "overspend");
+      if (res.fee_too_low)
+        add_reason(reason, "fee too low");
+      if (res.not_rct)
+        add_reason(reason, "tx is not ringct");
+      if (res.not_relayed)
+        add_reason(reason, "tx was not relayed");
+      return reason;
+  }
 }
 
 namespace
@@ -581,19 +612,6 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
     return {std::move(wallet), tools::password_container(password)};
   }
   return {nullptr, tools::password_container{}};
-}
-
-static void throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method)
-{
-  // no error
-  if (!status)
-    return;
-
-  // empty string -> not connection
-  THROW_WALLET_EXCEPTION_IF(status->empty(), tools::error::no_connection_to_daemon, method);
-
-  THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
-  THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, *status);
 }
 
 std::string strjoin(const std::vector<size_t> &V, const char *sep)
@@ -2089,7 +2107,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, get_rpc_status(res.status));
   THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
       "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
       boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
@@ -2111,7 +2129,7 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gethashes.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gethashes.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, get_rpc_status(res.status));
 
   blocks_start_height = res.start_height;
   hashes = std::move(res.m_block_ids);
@@ -2573,7 +2591,7 @@ void wallet2::update_pool_state(bool refreshed)
     }
     else
     {
-      LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << res.status);
+      LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << get_rpc_status(res.status));
     }
   }
   MTRACE("update_pool_state end");
@@ -5222,7 +5240,7 @@ void wallet2::rescan_spent()
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
     THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, get_rpc_status(daemon_resp.status));
     THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != n_outputs, error::wallet_internal_error,
       "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
       std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(n_outputs));
@@ -5551,7 +5569,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "submit_raw_tx");
     // MyMonero and OpenMonero use different status strings
-    THROW_WALLET_EXCEPTION_IF(ores.status != "OK" && ores.status != "success" , error::tx_rejected, ptx.tx, ores.status, ores.error);
+    THROW_WALLET_EXCEPTION_IF(ores.status != "OK" && ores.status != "success" , error::tx_rejected, ptx.tx, get_rpc_status(ores.status), ores.error);
   }
   else
   {
@@ -5565,7 +5583,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
     THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
+    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, get_rpc_status(daemon_send_resp.status), get_text_reason(daemon_send_resp));
     // sanity checks
     for (size_t idx: ptx.selected_transfers)
     {
@@ -6456,7 +6474,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
       THROW_WALLET_EXCEPTION_IF(getbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
-      THROW_WALLET_EXCEPTION_IF(getbh_res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, getbh_res.status);
+      THROW_WALLET_EXCEPTION_IF(getbh_res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, get_rpc_status(getbh_res.status));
       if (getbh_res.headers.size() != N)
       {
         MERROR("Bad blockheaders size");
@@ -6918,7 +6936,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
       THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
+      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, get_rpc_status(resp_t.status));
     }
 
     // if we want to segregate fake outs pre or post fork, get distribution
@@ -6941,7 +6959,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
       THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_distribution");
-      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_output_distribution, resp_t.status);
+      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_output_distribution, get_rpc_status(resp_t.status));
 
       // check we got all data
       for(size_t idx: selected_transfers)
@@ -7340,7 +7358,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_outs.bin");
     THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_outs_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_outs_error, get_rpc_status(daemon_resp.status));
     THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != req.outputs.size(), error::wallet_internal_error,
       "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
       std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(req.outputs.size()));
@@ -10488,7 +10506,10 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err) const
   boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
   if (result)
   {
-    err = *result;
+    if (m_trusted_daemon)
+      err = *result;
+    else
+      err = "daemon error";
     return 0;
   }
 
@@ -10503,7 +10524,10 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
   const auto result = m_node_rpc_proxy.get_target_height(target_height);
   if (result && *result != CORE_RPC_STATUS_OK)
   {
-    err= *result;
+    if (m_trusted_daemon)
+      err = *result;
+    else
+      err = "daemon error";
     return 0;
   }
   return target_height;
@@ -11944,7 +11968,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
       else if (res.status == CORE_RPC_STATUS_BUSY)
         oss << "daemon is busy";
       else
-        oss << res.status;
+        oss << get_rpc_status(res.status);
       throw std::runtime_error(oss.str());
     }
     cryptonote::block blk_min, blk_mid, blk_max;
@@ -12163,4 +12187,27 @@ void wallet2::on_passphrase_request(bool on_device, epee::wipeable_string & pass
   if (0 != m_callback)
     m_callback->on_passphrase_request(on_device, passphrase);
 }
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::get_rpc_status(const std::string &s) const
+{
+  if (m_trusted_daemon)
+    return s;
+  return "<error>";
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method) const
+{
+  // no error
+  if (!status)
+    return;
+
+  MERROR("RPC error: " << method << ": status " << *status);
+
+  // empty string -> not connection
+  THROW_WALLET_EXCEPTION_IF(status->empty(), tools::error::no_connection_to_daemon, method);
+
+  THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
+  THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, m_trusted_daemon ? *status : "daemon error");
+}
+
 }

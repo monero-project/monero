@@ -1321,6 +1321,9 @@ namespace tools
     void on_pin_request(epee::wipeable_string & pin);
     void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase);
 
+    std::string get_rpc_status(const std::string &s) const;
+    void throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method) const;
+
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;

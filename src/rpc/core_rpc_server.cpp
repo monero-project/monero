@@ -703,31 +703,31 @@ namespace cryptonote
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
       res.status = "Failed";
-      res.reason = "";
+      std::string reason = "";
       if ((res.low_mixin = tvc.m_low_mixin))
-        add_reason(res.reason, "bad ring size");
+        add_reason(reason, "bad ring size");
       if ((res.double_spend = tvc.m_double_spend))
-        add_reason(res.reason, "double spend");
+        add_reason(reason, "double spend");
       if ((res.invalid_input = tvc.m_invalid_input))
-        add_reason(res.reason, "invalid input");
+        add_reason(reason, "invalid input");
       if ((res.invalid_output = tvc.m_invalid_output))
-        add_reason(res.reason, "invalid output");
+        add_reason(reason, "invalid output");
       if ((res.too_big = tvc.m_too_big))
-        add_reason(res.reason, "too big");
+        add_reason(reason, "too big");
       if ((res.overspend = tvc.m_overspend))
-        add_reason(res.reason, "overspend");
+        add_reason(reason, "overspend");
       if ((res.fee_too_low = tvc.m_fee_too_low))
-        add_reason(res.reason, "fee too low");
+        add_reason(reason, "fee too low");
       if ((res.not_rct = tvc.m_not_rct))
-        add_reason(res.reason, "tx is not ringct");
-      const std::string punctuation = res.reason.empty() ? "" : ": ";
+        add_reason(reason, "tx is not ringct");
+      const std::string punctuation = reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << reason);
       }
       else
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << reason);
       }
       return true;
     }

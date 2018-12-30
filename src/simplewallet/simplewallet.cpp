@@ -451,7 +451,7 @@ namespace
     }
     catch (const tools::error::tx_rejected& e)
     {
-      fail_msg_writer() << (boost::format(sw::tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) << e.status();
+      fail_msg_writer() << (boost::format(sw::tr("transaction %s was rejected by daemon")) % get_transaction_hash(e.tx()));
       std::string reason = e.reason();
       if (!reason.empty())
         fail_msg_writer() << sw::tr("Reason: ") << reason;
