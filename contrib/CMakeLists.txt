@@ -26,10 +26,5 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# warnings are cleared only for GCC on Linux
-if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
-  add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
-endif()
-
 add_subdirectory(epee)
 
