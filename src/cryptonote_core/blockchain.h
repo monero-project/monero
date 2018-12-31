@@ -121,6 +121,11 @@ namespace cryptonote
     Blockchain(tx_memory_pool& tx_pool);
 
     /**
+     * @brief Blockchain destructor
+     */
+    ~Blockchain();
+
+    /**
      * @brief Initialize the Blockchain state
      *
      * @param db a pointer to the backing store to use for the blockchain

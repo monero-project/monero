@@ -171,6 +171,11 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
 //------------------------------------------------------------------
+Blockchain::~Blockchain()
+{
+  deinit();
+}
+//------------------------------------------------------------------
 bool Blockchain::have_tx(const crypto::hash &id) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -550,15 +555,13 @@ bool Blockchain::deinit()
   // as this should be called if handling a SIGSEGV, need to check
   // if m_db is a NULL pointer (and thus may have caused the illegal
   // memory operation), otherwise we may cause a loop.
-  if (m_db == NULL)
-  {
-    throw DB_ERROR("The db pointer is null in Blockchain, the blockchain may be corrupt!");
-  }
-
   try
   {
-    m_db->close();
-    MTRACE("Local blockchain read/write activity stopped successfully");
+    if (m_db)
+    {
+      m_db->close();
+      MTRACE("Local blockchain read/write activity stopped successfully");
+    }
   }
   catch (const std::exception& e)
   {
