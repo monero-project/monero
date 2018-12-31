@@ -6348,8 +6348,18 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
     local_args.pop_back();
   }
   // get amount and pop
-  amount_str = local_args.back();
-  local_args.pop_back();
+  uint64_t amount;
+  bool ok = cryptonote::parse_amount(amount, local_args.back());
+  if (ok && amount != 0)
+  {
+    amount_str = local_args.back();
+    local_args.pop_back();
+  }
+  else
+  { 
+    fail_msg_writer() << tr("amount is wrong: ") << local_args.back() << ", " << tr("expected number from 0 to ") << print_money(std::numeric_limits<uint64_t>::max());
+    return true;
+  }
   // push back address, amount, payment id
   std::string address_str;
   if (m_wallet->nettype() != cryptonote::MAINNET)
