@@ -2130,24 +2130,23 @@ static int priority(Level level) {
   return 7;
 }
 
-bool VRegistry::allowed(Level level, const char* category) {
+bool VRegistry::allowed(Level level, const std::string &category) {
   base::threading::ScopedLock scopedLock(lock());
-  const std::string scategory = category;
-  const std::map<std::string, int>::const_iterator it = m_cached_allowed_categories.find(scategory);
+  const std::map<std::string, int>::const_iterator it = m_cached_allowed_categories.find(category);
   if (it != m_cached_allowed_categories.end())
     return priority(level) <= it->second;
-  if (m_categories.empty() || category == nullptr) {
+  if (m_categories.empty()) {
     return false;
   } else {
     std::vector<std::pair<std::string, Level>>::const_reverse_iterator it = m_categories.rbegin();
     for (; it != m_categories.rend(); ++it) {
-      if (base::utils::Str::wildCardMatch(category, it->first.c_str())) {
+      if (base::utils::Str::wildCardMatch(category.c_str(), it->first.c_str())) {
         const int p = priority(it->second);
-        m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), p));
+        m_cached_allowed_categories.insert(std::make_pair(category, p));
         return priority(level) <= p;
       }
     }
-    m_cached_allowed_categories.insert(std::make_pair(std::move(scategory), -1));
+    m_cached_allowed_categories.insert(std::make_pair(category, -1));
     return false;
   }
 }
@@ -2715,7 +2714,7 @@ void Writer::initializeLogger(const std::string& loggerId, bool lookup, bool nee
     }
     if (ELPP->hasFlag(LoggingFlag::HierarchicalLogging)) {
       m_proceed = m_level == Level::Verbose ? m_logger->enabled(m_level) :
-                  ELPP->vRegistry()->allowed(m_level, loggerId.c_str());
+                  ELPP->vRegistry()->allowed(m_level, loggerId);
     } else {
       m_proceed = m_logger->enabled(m_level);
     }
