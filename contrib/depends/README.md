@@ -53,6 +53,16 @@ Download it from apple, or search for it on github. Create a new directoty calle
 directory and place the entire MacOSX10.11.sdk folder in it. The depends build will then pick it up automatically
 (without requiring SDK_PATH). 
 
+
+#Mingw builds
+
+Building for 32/64bit mingw requires switching alternatives to a posix mode
+
+```bash
+update-alternatives --set x86_64-w64-mingw32-g++ x86_64-w64-mingw32-g++-posix
+update-alternatives --set x86_64-w64-mingw32-gcc x86_64-w64-mingw32-gcc-posix
+```
+
 ### Other documentation
 
 - [description.md](description.md): General description of the depends system

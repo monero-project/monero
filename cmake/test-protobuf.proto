@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+message Success {
+    optional string message = 1;
+}
