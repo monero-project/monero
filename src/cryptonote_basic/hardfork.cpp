@@ -222,7 +222,6 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
   if (height >= db.height())
     return false;
 
-  db.set_batch_transactions(true);
   bool stop_batch = db.batch_start();
 
   versions.clear();
