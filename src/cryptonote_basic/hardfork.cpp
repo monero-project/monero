@@ -305,6 +305,29 @@ bool HardFork::rescan_from_chain_height(uint64_t height)
   return rescan_from_block_height(height - 1);
 }
 
+void HardFork::on_block_popped(uint64_t nblocks)
+{
+  CHECK_AND_ASSERT_THROW_MES(nblocks > 0, "nblocks must be greater than 0");
+
+  CRITICAL_REGION_LOCAL(lock);
+
+  const uint64_t new_chain_height = db.height();
+  const uint64_t old_chain_height = new_chain_height + nblocks;
+  uint8_t version;
+  uint64_t height;
+  for (height = old_chain_height - 1; height >= new_chain_height; --height)
+  {
+    versions.pop_back();
+    version = db.get_hard_fork_version(height);
+    versions.push_front(version);
+  }
+
+  // does not take voting into account
+  for (current_fork_index = heights.size() - 1; current_fork_index > 0; --current_fork_index)
+    if (height >= heights[current_fork_index].height)
+      break;
+}
+
 int HardFork::get_voted_fork_index(uint64_t height) const
 {
   CRITICAL_REGION_LOCAL(lock);

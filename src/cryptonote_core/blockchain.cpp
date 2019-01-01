@@ -641,6 +641,9 @@ block Blockchain::pop_block_from_blockchain()
     throw;
   }
 
+  // make sure the hard fork object updates its current version
+  m_hardfork->on_block_popped(1);
+
   // return transactions from popped block to the tx_pool
   for (transaction& tx : popped_txs)
   {
@@ -651,12 +654,7 @@ block Blockchain::pop_block_from_blockchain()
       // FIXME: HardFork
       // Besides the below, popping a block should also remove the last entry
       // in hf_versions.
-      //
-      // FIXME: HardFork
-      // This is not quite correct, as we really want to add the txes
-      // to the pool based on the version determined after all blocks
-      // are popped.
-      uint8_t version = get_current_hard_fork_version();
+      uint8_t version = get_ideal_hard_fork_version(m_db->height());
 
       // We assume that if they were in a block, the transactions are already
       // known to the network as a whole. However, if we had mined that block,
