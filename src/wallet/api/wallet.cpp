@@ -941,6 +941,12 @@ uint64_t WalletImpl::approximateBlockChainHeight() const
 {
     return m_wallet->get_approximate_blockchain_height();
 }
+
+uint64_t WalletImpl::estimateBlockChainHeight() const
+{
+    return m_wallet->estimate_blockchain_height();
+}
+
 uint64_t WalletImpl::daemonBlockChainHeight() const
 {
     if(m_wallet->light_wallet()) {
