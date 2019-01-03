@@ -1,3 +1,44 @@
+# Contributing to Aeon
+
+Being a fork of Monero, Aeon shares most of its codebase with Monero while making a few critical modifications such
+that it can offer a unique alternative to Monero. The codebase is intentionally kept close to Monero's in order to
+benefit from the higher code reliability due to the larger source of peer reviewing available in Monero.
+
+## Merging upstream patches
+
+The above goal is achieved through the continuous effort of merging upstream improvements. Anyone with sufficient
+knowledge are encouraged to contribute in this effort. In order to ensure the consistency of the changes (which greatly
+helps new developers easily navigate through the commit log and cross-reference between the two repositories) as well
+as to properly credit the original author, please use the `git cherry-pick` command.
+
+It is also highly recommended to postfix the first line of the commit message with the corresponding pull request
+number so that one can easily reference the original Monero PR. For example, if you are to merge the upstream PR 4356
+which has two commits with the following commit messages:
+
+    Docker android: use common prefix
+    Docker android: add libsodium
+
+then, make the corresponding commit messages as follows:
+
+    Docker android: use common prefix /monero#4356
+    Docker android: add libsodium /monero#4356
+
+Note that the postfix is added to the first line of each commit message. Also, please make some reasonable effort to
+keep the ordering of merging patches consistent with the original so that potential issues like merge conflicts etc.
+are prevented, although this is not a strict requirement.
+
+## Proposing changes
+
+The above effort is faciliated by avoiding the creation of unnecessary differences in the repository. This implies that
+**any proposed changes which also apply to Monero should be submitted to Monero.** Specifically, please send a pull
+request to Monero first, then send a corresponding PR to Aeon by cherry-picking, as described above. If your Monero PR
+is merged, your corresponding Aeon PR will then be merged subsequently.
+
+If you are to propose some changes that are specific to Aeon and distinct from Monero, submit a pull request directly
+to Aeon and justify your changes by laying out how they are *more* or *uniquely* applicable to Aeon. With a good
+justification the burden of increased maintenance cost as described above can be overcome.
+
+
 # Contributing to Monero
 
 A good way to help is to test, and report bugs. See
