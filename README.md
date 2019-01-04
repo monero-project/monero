@@ -638,7 +638,7 @@ allow inbound connections. Full example:
 
 ## Debugging
 
-This section contains general instructions for debugging failed installs or problems encountered with Monero. First ensure you are running the latest version built from the Github repo.
+This section contains general instructions for debugging failed installs or problems encountered with Monero. First, ensure you are running the latest version built from the Github repo.
 
 ### Obtaining stack traces and core dumps on Unix systems
 
@@ -666,7 +666,7 @@ Run the build.
 
 When it terminates with an output along the lines of "Segmentation fault (core dumped)", there should be a core dump file in the same directory as monerod. It may be named just `core`, or `core.xxxx` with numbers appended.
 
-You can now analyse this core dump with `gdb` as follows:
+You can now analyze this core dump with `gdb` as follows:
 
 `gdb /path/to/monerod /path/to/dumpfile`
 
