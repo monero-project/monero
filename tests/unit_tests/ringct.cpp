@@ -843,8 +843,8 @@ TEST(ringct, ecdh_roundtrip)
     t0.amount = d2h(amount);
 
     t1 = t0;
-    ecdhEncode(t1, k);
-    ecdhDecode(t1, k);
+    ecdhEncode(t1, k, true);
+    ecdhDecode(t1, k, true);
     ASSERT_TRUE(t0.mask == t1.mask);
     ASSERT_TRUE(equalKeys(t0.mask, t1.mask));
     ASSERT_TRUE(t0.amount == t1.amount);

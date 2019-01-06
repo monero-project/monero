@@ -283,7 +283,20 @@ namespace rct {
             return false;
           for (size_t i = 0; i < outputs; ++i)
           {
-            FIELDS(ecdhInfo[i])
+            if (type == RCTTypeBulletproof2)
+            {
+              ar.begin_object();
+              FIELD_N("mask", ecdhInfo[i].mask);
+              if (!typename Archive<W>::is_saving())
+                memset(ecdhInfo[i].amount.bytes, 0, sizeof(ecdhInfo[i].amount.bytes));
+              crypto::hash8 &amount = (crypto::hash8&)ecdhInfo[i].amount;
+              FIELD(amount);
+              ar.end_object();
+            }
+            else
+            {
+              FIELDS(ecdhInfo[i])
+            }
             if (outputs - i > 1)
               ar.delimit_array();
           }
