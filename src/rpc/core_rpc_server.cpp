@@ -857,11 +857,11 @@ namespace cryptonote
   bool core_rpc_server::on_get_peer_list(const COMMAND_RPC_GET_PEER_LIST::request& req, COMMAND_RPC_GET_PEER_LIST::response& res)
   {
     PERF_TIMER(on_get_peer_list);
-    std::list<nodetool::peerlist_entry> white_list;
-    std::list<nodetool::peerlist_entry> gray_list;
+    std::vector<nodetool::peerlist_entry> white_list;
+    std::vector<nodetool::peerlist_entry> gray_list;
     m_p2p.get_peerlist_manager().get_peerlist_full(gray_list, white_list);
 
-
+    res.white_list.reserve(white_list.size());
     for (auto & entry : white_list)
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
@@ -871,6 +871,7 @@ namespace cryptonote
         res.white_list.emplace_back(entry.id, entry.adr.str(), entry.last_seen);
     }
 
+    res.gray_list.reserve(gray_list.size());
     for (auto & entry : gray_list)
     {
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)

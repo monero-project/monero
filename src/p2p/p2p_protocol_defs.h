@@ -114,7 +114,7 @@ namespace nodetool
 #pragma pack(pop)
 
   inline 
-  std::string print_peerlist_to_string(const std::list<peerlist_entry>& pl)
+  std::string print_peerlist_to_string(const std::vector<peerlist_entry>& pl)
   {
     time_t now_time = 0;
     time(&now_time);
@@ -189,7 +189,7 @@ namespace nodetool
     {
       basic_node_data node_data;
       t_playload_type payload_data;
-      std::list<peerlist_entry> local_peerlist_new;
+      std::vector<peerlist_entry> local_peerlist_new;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(node_data)
@@ -198,7 +198,7 @@ namespace nodetool
         {
           // saving: save both, so old and new peers can understand it
           KV_SERIALIZE(local_peerlist_new)
-          std::list<peerlist_entry_base<network_address_old>> local_peerlist;
+          std::vector<peerlist_entry_base<network_address_old>> local_peerlist;
           for (const auto &p: this_ref.local_peerlist_new)
           {
             if (p.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
@@ -217,7 +217,7 @@ namespace nodetool
           // loading: load old list only if there is no new one
           if (!epee::serialization::selector<is_store>::serialize(this_ref.local_peerlist_new, stg, hparent_section, "local_peerlist_new"))
           {
-            std::list<peerlist_entry_base<network_address_old>> local_peerlist;
+            std::vector<peerlist_entry_base<network_address_old>> local_peerlist;
             epee::serialization::selector<is_store>::serialize_stl_container_pod_val_as_blob(local_peerlist, stg, hparent_section, "local_peerlist");
             for (const auto &p: local_peerlist)
               ((response&)this_ref).local_peerlist_new.push_back(peerlist_entry({epee::net_utils::ipv4_network_address(p.adr.ip, p.adr.port), p.id, p.last_seen}));
@@ -248,7 +248,7 @@ namespace nodetool
     {
       uint64_t local_time;
       t_playload_type payload_data;
-      std::list<peerlist_entry> local_peerlist_new;
+      std::vector<peerlist_entry> local_peerlist_new;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(local_time)
@@ -257,7 +257,7 @@ namespace nodetool
         {
           // saving: save both, so old and new peers can understand it
           KV_SERIALIZE(local_peerlist_new)
-          std::list<peerlist_entry_base<network_address_old>> local_peerlist;
+          std::vector<peerlist_entry_base<network_address_old>> local_peerlist;
           for (const auto &p: this_ref.local_peerlist_new)
           {
             if (p.adr.get_type_id() == epee::net_utils::ipv4_network_address::ID)
@@ -276,7 +276,7 @@ namespace nodetool
           // loading: load old list only if there is no new one
           if (!epee::serialization::selector<is_store>::serialize(this_ref.local_peerlist_new, stg, hparent_section, "local_peerlist_new"))
           {
-            std::list<peerlist_entry_base<network_address_old>> local_peerlist;
+            std::vector<peerlist_entry_base<network_address_old>> local_peerlist;
             epee::serialization::selector<is_store>::serialize_stl_container_pod_val_as_blob(local_peerlist, stg, hparent_section, "local_peerlist");
             for (const auto &p: local_peerlist)
               ((response&)this_ref).local_peerlist_new.push_back(peerlist_entry({epee::net_utils::ipv4_network_address(p.adr.ip, p.adr.port), p.id, p.last_seen}));
@@ -389,9 +389,9 @@ namespace nodetool
 
     struct response
     {
-      std::list<peerlist_entry> local_peerlist_white; 
-      std::list<peerlist_entry> local_peerlist_gray; 
-      std::list<connection_entry> connections_list; 
+      std::vector<peerlist_entry> local_peerlist_white; 
+      std::vector<peerlist_entry> local_peerlist_gray; 
+      std::vector<connection_entry> connections_list; 
       peerid_type my_id;
       uint64_t    local_time;
       BEGIN_KV_SERIALIZE_MAP()
