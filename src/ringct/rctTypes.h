@@ -320,7 +320,10 @@ namespace rct {
           if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2)
           {
             uint32_t nbp = bulletproofs.size();
-            FIELD(nbp)
+            if (type == RCTTypeBulletproof2)
+              VARINT_FIELD(nbp)
+            else
+              FIELD(nbp)
             ar.tag("bp");
             ar.begin_array();
             if (nbp > outputs)
