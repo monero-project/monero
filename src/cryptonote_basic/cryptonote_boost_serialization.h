@@ -45,6 +45,8 @@
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 
+BOOST_CLASS_VERSION(rct::ecdhTuple, 1)
+
 //namespace cryptonote {
 namespace boost
 {
@@ -248,7 +250,15 @@ namespace boost
   inline void serialize(Archive &a, rct::ecdhTuple &x, const boost::serialization::version_type ver)
   {
     a & x.mask;
-    a & x.amount;
+    if (ver < 1)
+    {
+      a & x.amount;
+      return;
+    }
+    crypto::hash8 &amount = (crypto::hash8&)x.amount;
+    if (!Archive::is_saving::value)
+      memset(&x.amount, 0, sizeof(x.amount));
+    a & amount;
     // a & x.senderPk; // not serialized, as we do not use it in monero currently
   }
 

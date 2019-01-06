@@ -302,13 +302,13 @@ namespace hw {
             return true;
         }
 
-        bool  device_default::ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec) {
-            rct::ecdhEncode(unmasked, sharedSec);
+        bool  device_default::ecdhEncode(rct::ecdhTuple & unmasked, const rct::key & sharedSec, bool short_amount) {
+            rct::ecdhEncode(unmasked, sharedSec, short_amount);
             return true;
         }
 
-        bool  device_default::ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec) {
-            rct::ecdhDecode(masked, sharedSec);
+        bool  device_default::ecdhDecode(rct::ecdhTuple & masked, const rct::key & sharedSec, bool short_amount) {
+            rct::ecdhDecode(masked, sharedSec, short_amount);
             return true;
         }
 
