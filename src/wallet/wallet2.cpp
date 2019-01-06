@@ -5325,6 +5325,10 @@ void wallet2::rescan_blockchain(bool hard, bool refresh)
     m_transfers.clear();
     m_key_images.clear();
     m_pub_keys.clear();
+    m_unconfirmed_txs.clear();
+    m_payments.clear();
+    m_confirmed_txs.clear();
+    m_unconfirmed_payments.clear();
     m_scanned_pool_txs[0].clear();
     m_scanned_pool_txs[1].clear();
 
