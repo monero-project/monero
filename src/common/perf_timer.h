@@ -51,8 +51,8 @@ public:
   ~PerformanceTimer();
   void pause();
   void resume();
-
-  uint64_t value() const { return ticks; }
+  void reset();
+  uint64_t value() const;
 
 protected:
   uint64_t ticks;
