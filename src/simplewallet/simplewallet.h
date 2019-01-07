@@ -167,7 +167,6 @@ namespace cryptonote
     bool sweep_below(const std::vector<std::string> &args);
     bool sweep_single(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);
-    bool donate(const std::vector<std::string> &args);
     bool sign_transfer(const std::vector<std::string> &args);
     bool submit_transfer(const std::vector<std::string> &args);
     std::vector<std::vector<cryptonote::tx_destination_entry>> split_amounts(
@@ -248,6 +247,8 @@ namespace cryptonote
     bool print_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr);
     std::string get_prompt() const;
     bool print_seed(bool encrypted);
+    void key_images_sync_intern();
+    void on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money);
 
     struct transfer_view
     {
@@ -262,7 +263,6 @@ namespace cryptonote
       uint64_t timestamp;
       tools::pay_type type;
       bool confirmed;
-      bool unlocked;
       uint64_t amount;
       crypto::hash hash;
       std::string payment_id;
@@ -270,6 +270,7 @@ namespace cryptonote
       std::vector<dest_output> outputs;
       std::set<uint32_t> index;
       std::string note;
+      bool unlocked;
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
 
@@ -301,6 +302,9 @@ namespace cryptonote
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index);
     virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx);
     virtual boost::optional<epee::wipeable_string> on_get_password(const char *reason);
+    virtual void on_button_request();
+    virtual void on_pin_request(epee::wipeable_string & pin);
+    virtual void on_passphrase_request(bool on_device, epee::wipeable_string & passphrase);
     //----------------------------------------------------------
 
     friend class refresh_progress_reporter_t;

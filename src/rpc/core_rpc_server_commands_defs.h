@@ -37,6 +37,40 @@
 #include "cryptonote_config.h"
 #include "cryptonote_core/service_node_deregister.h"
 #include "rpc/rpc_handler.h"
+#include "common/varint.h"
+#include "common/perf_timer.h"
+
+namespace
+{
+  template<typename T>
+  std::string compress_integer_array(const std::vector<T> &v)
+  {
+    std::string s;
+    s.resize(v.size() * (sizeof(T) * 8 / 7 + 1));
+    char *ptr = (char*)s.data();
+    for (const T &t: v)
+      tools::write_varint(ptr, t);
+    s.resize(ptr - s.data());
+    return s;
+  }
+
+  template<typename T>
+  std::vector<T> decompress_integer_array(const std::string &s)
+  {
+    std::vector<T> v;
+    v.reserve(s.size());
+    int read = 0;
+    const std::string::const_iterator end = s.end();
+    for (std::string::const_iterator i = s.begin(); i != end; std::advance(i, read))
+    {
+      T t;
+      read = tools::read_varint(std::string::const_iterator(i), s.end(), t);
+      CHECK_AND_ASSERT_THROW_MES(read > 0 && read <= 256, "Error decompressing data");
+      v.push_back(t);
+    }
+    return v;
+  }
+}
 
 namespace cryptonote
 {
@@ -53,7 +87,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 1
+#define CORE_RPC_VERSION_MINOR 2
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -700,9 +734,11 @@ namespace cryptonote
     struct request
     {
       std::vector<get_outputs_out> outputs;
+      bool get_txid;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(outputs)
+        KV_SERIALIZE_OPT(get_txid, true)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -909,6 +945,7 @@ namespace cryptonote
       bool was_bootstrap_ever_used;
       uint64_t database_size;
       bool update_available;
+      std::string version;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
@@ -943,6 +980,7 @@ namespace cryptonote
         KV_SERIALIZE(was_bootstrap_ever_used)
         KV_SERIALIZE(database_size)
         KV_SERIALIZE(update_available)
+        KV_SERIALIZE(version)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -2241,6 +2279,7 @@ namespace cryptonote
       uint64_t to_height;
       bool cumulative;
       bool binary;
+      bool compress;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amounts)
@@ -2248,6 +2287,7 @@ namespace cryptonote
         KV_SERIALIZE_OPT(to_height, (uint64_t)0)
         KV_SERIALIZE_OPT(cumulative, false)
         KV_SERIALIZE_OPT(binary, true)
+        KV_SERIALIZE_OPT(compress, false)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -2255,14 +2295,38 @@ namespace cryptonote
     {
       rpc::output_distribution_data data;
       uint64_t amount;
+      std::string compressed_data;
       bool binary;
+      bool compress;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
         KV_SERIALIZE_N(data.start_height, "start_height")
         KV_SERIALIZE(binary)
+        KV_SERIALIZE(compress)
         if (this_ref.binary)
-          KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
+        {
+          if (is_store)
+          {
+            if (this_ref.compress)
+            {
+              const_cast<std::string&>(this_ref.compressed_data) = compress_integer_array(this_ref.data.distribution);
+              KV_SERIALIZE(compressed_data)
+            }
+            else
+              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
+          }
+          else
+          {
+            if (this_ref.compress)
+            {
+              KV_SERIALIZE(compressed_data)
+              const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = decompress_integer_array<uint64_t>(this_ref.compressed_data);
+            }
+            else
+              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
+          }
+        }
         else
           KV_SERIALIZE_N(data.distribution, "distribution")
         KV_SERIALIZE_N(data.base, "base")
@@ -2388,6 +2452,29 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(service_node_pubkey)
         KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_POP_BLOCKS
+  {
+    struct request
+    {
+      uint64_t nblocks;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(nblocks);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(height)
       END_KV_SERIALIZE_MAP()
     };
   };

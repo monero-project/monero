@@ -82,6 +82,17 @@ loki_private_headers(blockchain_usage
 
 
 
+set(blockchain_prune_known_spent_data_sources
+  blockchain_prune_known_spent_data.cpp
+  )
+
+set(blockchain_prune_known_spent_data_private_headers)
+
+loki_private_headers(blockchain_prune_known_spent_data
+	  ${blockchain_prune_known_spent_data_private_headers})
+
+
+
 set(blockchain_ancestry_sources
   blockchain_ancestry.cpp
   )
@@ -266,3 +277,25 @@ set_property(TARGET blockchain_stats
 	PROPERTY
 	OUTPUT_NAME "loki-blockchain-stats")
 install(TARGETS blockchain_stats DESTINATION bin)
+
+loki_add_executable(blockchain_prune_known_spent_data
+  ${blockchain_prune_known_spent_data_sources}
+  ${blockchain_prune_known_spent_data_private_headers})
+
+target_link_libraries(blockchain_prune_known_spent_data
+  PRIVATE
+    cryptonote_core
+    blockchain_db
+    p2p
+    version
+    epee
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES})
+
+set_property(TARGET blockchain_prune_known_spent_data
+	PROPERTY
+	OUTPUT_NAME "loki-blockchain-prune-known-spent-data")
+install(TARGETS blockchain_prune_known_spent_data DESTINATION bin)

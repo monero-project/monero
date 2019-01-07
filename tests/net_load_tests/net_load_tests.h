@@ -137,7 +137,6 @@ namespace net_load_tests
   public:
     open_close_test_helper(test_tcp_server& tcp_server, size_t open_request_target, size_t max_opened_connection_count)
       : m_tcp_server(tcp_server)
-      , m_open_request_target(open_request_target)
       , m_max_opened_connection_count(max_opened_connection_count)
       , m_opened_connection_count(0)
       , m_next_opened_conn_idx(0)
@@ -203,7 +202,6 @@ namespace net_load_tests
 
   private:
     test_tcp_server& m_tcp_server;
-    size_t m_open_request_target;
     size_t m_max_opened_connection_count;
     std::atomic<size_t> m_opened_connection_count;
     std::atomic<size_t> m_next_opened_conn_idx;

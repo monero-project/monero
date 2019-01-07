@@ -2,8 +2,6 @@
 #include "net/net_utils_base.h"
 #include "string_tools.h"
 
-#include <cstring>
-#include <typeindex>
 #include "net/local_ip.h"
 
 namespace epee { namespace net_utils

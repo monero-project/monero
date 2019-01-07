@@ -42,22 +42,11 @@
 #define INCLUDED_p2p_connection_basic_hpp
 
 
-#include <boost/asio.hpp>
 #include <string>
-#include <vector>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
 #include <atomic>
+#include <memory>
 
 #include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
-#include <boost/thread/thread.hpp>
-
-#include <memory>
 
 #include "net/net_utils_base.h"
 #include "syncobj.h"

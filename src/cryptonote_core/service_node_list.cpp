@@ -34,7 +34,7 @@
 #include "wallet/wallet2.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_basic/tx_extra.h"
-#include "common/int-util.h"
+#include "int-util.h"
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
 #include "service_node_quorum_cop.h"
@@ -1464,12 +1464,9 @@ namespace service_nodes
     {
       stream << "\n\n";
       time_t tt = exp_timestamp;
+
       struct tm tm;
-#ifdef WIN32
-      gmtime_s(&tm, &tt);
-#else
-      gmtime_r(&tt, &tm);
-#endif
+      epee::misc_utils::get_gmt_time(tt, tm);
 
       char buffer[128];
       strftime(buffer, sizeof(buffer), "%Y-%m-%d %I:%M:%S %p", &tm);

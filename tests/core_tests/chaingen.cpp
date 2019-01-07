@@ -89,66 +89,39 @@ void linear_chain_generator::create_block(const std::vector<cryptonote::transact
 }
 
 
-void linear_chain_generator::continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
+void linear_chain_generator::rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
 {
   assert(gen_.m_hf_version < hard_fork_version);
 
-  for (auto i = 0u; i < hard_forks.size() - 1; ++i) {
-    
-    const uint8_t ver = hard_forks[i].first;
-    const uint64_t height = hard_forks[i].second;
+  if (blocks_.size() == 0)
+    create_genesis_block();
 
-    if (ver < get_hf_version()) continue;
+  size_t start_index;
+  for (start_index = 0; start_index < hard_forks.size(); ++start_index)
+  {
+    const uint8_t version = hard_forks[start_index].first;
+    if (version > gen_.m_hf_version) break;
+  }
 
-    auto cur_height = blocks_.size();
-    uint64_t next_fork_height = hard_forks[i + 1].second;
-
+  for (size_t i = start_index; i < hard_forks.size() && gen_.m_hf_version < hard_fork_version; ++i)
+  {
+    auto cur_height                    = blocks_.size();
+    uint64_t next_fork_height          = hard_forks[i].second;
     uint64_t blocks_till_next_hardfork = next_fork_height - cur_height;
 
     rewind_blocks_n(blocks_till_next_hardfork);
-    gen_.m_hf_version = hard_forks[i + 1].first;
+    gen_.m_hf_version = hard_forks[i].first;
     create_block();
 
   }
 
-  assert(gen_.m_hf_version == hard_fork_version);
-}
-
-void linear_chain_generator::rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version)
-{
-  if (hard_forks.size() > 1)
-  {
-    gen_.m_hf_version = hard_forks[0].first;
-    if (blocks_.size() == 0) create_genesis_block();
-
-    for (size_t i = 0; i < hard_forks.size() - 1 && gen_.m_hf_version != hard_fork_version; ++i)
-    {
-      uint64_t curr_fork_height = hard_forks[i].second;
-      uint64_t next_fork_height = hard_forks[i + 1].second;
-      assert(next_fork_height > curr_fork_height);
-
-      uint64_t blocks_till_next_hardfork = next_fork_height - curr_fork_height;
-      rewind_blocks_n(blocks_till_next_hardfork - 1);
-      gen_.m_hf_version = hard_forks[i + 1].first;
-      create_block();
-    }
-
-    assert(gen_.m_hf_version == hard_fork_version);
-  }
+  assert(gen_.m_hf_version >= hard_fork_version);
 }
 
 int linear_chain_generator::get_hf_version() const {
   return gen_.m_hf_version;
 }
 
-
-void linear_chain_generator::rewind_until_v9()
-{
-  gen_.m_hf_version = 8;
-  create_block();
-  gen_.m_hf_version = 9;
-  create_block();
-}
 
 void linear_chain_generator::rewind_blocks_n(int n)
 {
@@ -287,7 +260,7 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
     const auto pk = reg->keys.pub;
     const auto sk = reg->keys.sec;
     const auto signature =
-      loki::service_node_deregister::sign_vote(deregister.block_height, deregister.service_node_index, pk, sk);
+      service_nodes::deregister_vote::sign_vote(deregister.block_height, deregister.service_node_index, pk, sk);
 
     deregister.votes.push_back({ signature, (uint32_t)voter.idx_in_quorum });
   }

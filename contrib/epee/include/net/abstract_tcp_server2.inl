@@ -32,16 +32,13 @@
 
 
 
-//#include "net_utils_base.h"
-#include <boost/lambda/bind.hpp>
+#include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
-#include <boost/thread/thread.hpp> // TODO
 #include <boost/thread/condition_variable.hpp> // TODO
 #include "warnings.h"
 #include "string_tools.h"
@@ -247,7 +244,8 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     //_dbg3("[sock " << socket_.native_handle() << "] add_ref 2, m_peer_number=" << mI->m_peer_number);
     if(m_was_shutdown)
       return false;
-    m_self_refs.push_back(self);
+    ++m_reference_count;
+    m_self_ref = std::move(self);
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::add_ref()", false);
   }
@@ -259,10 +257,12 @@ PRAGMA_WARNING_DISABLE_VS(4355)
     boost::shared_ptr<connection<t_protocol_handler> >  back_connection_copy;
     LOG_TRACE_CC(context, "[sock " << socket_.native_handle() << "] release");
     CRITICAL_REGION_BEGIN(m_self_refs_lock);
-    CHECK_AND_ASSERT_MES(m_self_refs.size(), false, "[sock " << socket_.native_handle() << "] m_self_refs empty at connection<t_protocol_handler>::release() call");
-    //erasing from container without additional copy can cause start deleting object, including m_self_refs
-    back_connection_copy = m_self_refs.back();
-    m_self_refs.pop_back();
+    CHECK_AND_ASSERT_MES(m_reference_count, false, "[sock " << socket_.native_handle() << "] m_reference_count already at 0 at connection<t_protocol_handler>::release() call");
+    // is this the last reference?
+    if (--m_reference_count == 0) {
+        // move the held reference to a local variable, keeping the object alive until the function terminates
+        std::swap(back_connection_copy, m_self_ref);
+    }
     CRITICAL_REGION_END();
     return true;
     CATCH_ENTRY_L0("connection<t_protocol_handler>::release()", false);

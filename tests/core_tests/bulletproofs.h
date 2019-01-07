@@ -103,7 +103,6 @@ struct get_test_options<gen_bp_tx_validation_base> {
     std::make_pair(7, 0),
     std::make_pair(8, 1),
     std::make_pair(10, gen_bp_tx_validation_base::NUM_UNLOCKED_BLOCKS + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 1),
-    std::make_pair(0, 0),
   };
 
   const cryptonote::test_options test_options = {

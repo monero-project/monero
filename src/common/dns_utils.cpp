@@ -34,12 +34,11 @@
 #include <stdlib.h>
 #include "include_base_utils.h"
 #include <random>
-#include <boost/filesystem/fstream.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/optional.hpp>
 using namespace epee;
-namespace bf = boost::filesystem;
 
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "net.dns"
@@ -120,10 +119,25 @@ get_builtin_ds(void)
 namespace tools
 {
 
-// fuck it, I'm tired of dealing with getnameinfo()/inet_ntop/etc
-std::string ipv4_to_string(const char* src, size_t len)
+static const char *get_record_name(int record_type)
 {
-  assert(len >= 4);
+  switch (record_type)
+  {
+    case DNS_TYPE_A: return "A";
+    case DNS_TYPE_TXT: return "TXT";
+    case DNS_TYPE_AAAA: return "AAAA";
+    default: return "unknown";
+  }
+}
+
+// fuck it, I'm tired of dealing with getnameinfo()/inet_ntop/etc
+boost::optional<std::string> ipv4_to_string(const char* src, size_t len)
+{
+  if (len < 4)
+  {
+    MERROR("Invalid IPv4 address: " << std::string(src, len));
+    return boost::none;
+  }
 
   std::stringstream ss;
   unsigned int bytes[4];
@@ -141,9 +155,13 @@ std::string ipv4_to_string(const char* src, size_t len)
 
 // this obviously will need to change, but is here to reflect the above
 // stop-gap measure and to make the tests pass at least...
-std::string ipv6_to_string(const char* src, size_t len)
+boost::optional<std::string> ipv6_to_string(const char* src, size_t len)
 {
-  assert(len >= 8);
+  if (len < 8)
+  {
+    MERROR("Invalid IPv4 address: " << std::string(src, len));
+    return boost::none;
+  }
 
   std::stringstream ss;
   unsigned int bytes[8];
@@ -163,8 +181,10 @@ std::string ipv6_to_string(const char* src, size_t len)
   return ss.str();
 }
 
-std::string txt_to_string(const char* src, size_t len)
+boost::optional<std::string> txt_to_string(const char* src, size_t len)
 {
+  if (len == 0)
+    return boost::none;
   return std::string(src+1, len-1);
 }
 
@@ -267,7 +287,7 @@ DNSResolver::~DNSResolver()
   }
 }
 
-std::vector<std::string> DNSResolver::get_record(const std::string& url, int record_type, std::string (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid)
+std::vector<std::string> DNSResolver::get_record(const std::string& url, int record_type, boost::optional<std::string> (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid)
 {
   std::vector<std::string> addresses;
   dnssec_available = false;
@@ -284,13 +304,18 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   // call DNS resolver, blocking.  if return value not zero, something went wrong
   if (!ub_resolve(m_data->m_ub_context, string_copy(url.c_str()), record_type, DNS_CLASS_IN, &result))
   {
-    dnssec_available = (result->secure || (!result->secure && result->bogus));
+    dnssec_available = (result->secure || result->bogus);
     dnssec_valid = result->secure && !result->bogus;
     if (result->havedata)
     {
       for (size_t i=0; result->data[i] != NULL; i++)
       {
-        addresses.push_back((*reader)(result->data[i], result->len[i]));
+        boost::optional<std::string> res = (*reader)(result->data[i], result->len[i]);
+        if (res)
+        {
+          MINFO("Found \"" << *res << "\" in " << get_record_name(record_type) << " record for " << url);
+          addresses.push_back(*res);
+        }
       }
     }
   }

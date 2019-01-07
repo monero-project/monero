@@ -28,50 +28,22 @@
 //
 
 #include "device_trezor_base.hpp"
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/regex.hpp>
 
 namespace hw {
 namespace trezor {
 
-#if WITH_DEVICE_TREZOR
+#ifdef WITH_DEVICE_TREZOR
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "device.trezor"
+#define TREZOR_BIP44_HARDENED_ZERO 0x80000000
 
-    std::shared_ptr<google::protobuf::Message> trezor_protocol_callback::on_button_request(const messages::common::ButtonRequest * msg){
-      MDEBUG("on_button_request");
-      device.on_button_request();
-      return std::make_shared<messages::common::ButtonAck>();
-    }
+    const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080};
 
-    std::shared_ptr<google::protobuf::Message> trezor_protocol_callback::on_pin_matrix_request(const messages::common::PinMatrixRequest * msg){
-      MDEBUG("on_pin_request");
-      epee::wipeable_string pin;
-      device.on_pin_request(pin);
-      auto resp = std::make_shared<messages::common::PinMatrixAck>();
-      resp->set_pin(pin.data(), pin.size());
-      return resp;
-    }
-
-    std::shared_ptr<google::protobuf::Message> trezor_protocol_callback::on_passphrase_request(const messages::common::PassphraseRequest * msg){
-      MDEBUG("on_passhprase_request");
-      epee::wipeable_string passphrase;
-      device.on_passphrase_request(msg->on_device(), passphrase);
-      auto resp = std::make_shared<messages::common::PassphraseAck>();
-      if (!msg->on_device()){
-        resp->set_passphrase(passphrase.data(), passphrase.size());
-      }
-      return resp;
-    }
-
-    std::shared_ptr<google::protobuf::Message> trezor_protocol_callback::on_passphrase_state_request(const messages::common::PassphraseStateRequest * msg){
-      MDEBUG("on_passhprase_state_request");
-      device.on_passphrase_state_request(msg->state());
-      return std::make_shared<messages::common::PassphraseStateAck>();
-    }
-
-    const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080, 0x80000000};
-
-    device_trezor_base::device_trezor_base() {
+    device_trezor_base::device_trezor_base(): m_callback(nullptr) {
 
     }
 
@@ -93,7 +65,7 @@ namespace trezor {
     }
 
     bool device_trezor_base::set_name(const std::string & name) {
-      this->full_name = name;
+      this->m_full_name = name;
       this->name = "";
 
       auto delim = name.find(':');
@@ -105,10 +77,10 @@ namespace trezor {
     }
 
     const std::string device_trezor_base::get_name() const {
-      if (this->full_name.empty()) {
+      if (this->m_full_name.empty()) {
         return std::string("<disconnected:").append(this->name).append(">");
       }
-      return this->full_name;
+      return this->m_full_name;
     }
 
     bool device_trezor_base::init() {
@@ -117,9 +89,6 @@ namespace trezor {
         return false;
       }
 
-      if (!m_protocol_callback){
-        m_protocol_callback = std::make_shared<trezor_protocol_callback>(*this);
-      }
       return true;
     }
 
@@ -170,6 +139,9 @@ namespace trezor {
     }
 
     bool device_trezor_base::disconnect() {
+      m_device_state.clear();
+      m_features.reset();
+
       if (m_transport){
         try {
           m_transport->close();
@@ -224,6 +196,25 @@ namespace trezor {
       }
     }
 
+    void device_trezor_base::require_initialized(){
+      if (!m_features){
+        throw exc::TrezorException("Device state not initialized");
+      }
+
+      if (m_features->has_bootloader_mode() && m_features->bootloader_mode()){
+        throw exc::TrezorException("Device is in the bootloader mode");
+      }
+
+      if (m_features->has_firmware_present() && !m_features->firmware_present()){
+        throw exc::TrezorException("Device has no firmware loaded");
+      }
+
+      // Hard requirement on initialized field, has to be there.
+      if (!m_features->has_initialized() || !m_features->initialized()){
+        throw exc::TrezorException("Device is not initialized");
+      }
+    }
+
     void device_trezor_base::call_ping_unsafe(){
       auto pingMsg = std::make_shared<messages::management::Ping>();
       pingMsg->set_message("PING");
@@ -242,6 +233,82 @@ namespace trezor {
       } catch(exc::TrezorException const& e){
         MINFO("Trezor does not respond: " << e.what());
         throw exc::DeviceNotResponsiveException(std::string("Trezor not responding: ") + e.what());
+      }
+    }
+
+    void device_trezor_base::write_raw(const google::protobuf::Message * msg){
+      require_connected();
+      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
+      this->get_transport()->write(*msg);
+    }
+
+    GenericMessage device_trezor_base::read_raw(){
+      require_connected();
+      std::shared_ptr<google::protobuf::Message> msg_resp;
+      hw::trezor::messages::MessageType msg_resp_type;
+
+      this->get_transport()->read(msg_resp, &msg_resp_type);
+      return GenericMessage(msg_resp_type, msg_resp);
+    }
+
+    GenericMessage device_trezor_base::call_raw(const google::protobuf::Message * msg) {
+      write_raw(msg);
+      return read_raw();
+    }
+
+    bool device_trezor_base::message_handler(GenericMessage & input){
+      // Later if needed this generic message handler can be replaced by a pointer to
+      // a protocol message handler which by default points to the device class which implements
+      // the default handler.
+      switch(input.m_type){
+        case messages::MessageType_ButtonRequest:
+          on_button_request(input, dynamic_cast<const messages::common::ButtonRequest*>(input.m_msg.get()));
+          return true;
+        case messages::MessageType_PassphraseRequest:
+          on_passphrase_request(input, dynamic_cast<const messages::common::PassphraseRequest*>(input.m_msg.get()));
+          return true;
+        case messages::MessageType_PassphraseStateRequest:
+          on_passphrase_state_request(input, dynamic_cast<const messages::common::PassphraseStateRequest*>(input.m_msg.get()));
+          return true;
+        case messages::MessageType_PinMatrixRequest:
+          on_pin_request(input, dynamic_cast<const messages::common::PinMatrixRequest*>(input.m_msg.get()));
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    void device_trezor_base::ensure_derivation_path() noexcept {
+      if (m_wallet_deriv_path.empty()){
+        m_wallet_deriv_path.push_back(TREZOR_BIP44_HARDENED_ZERO);  // default 0'
+      }
+    }
+
+    void device_trezor_base::set_derivation_path(const std::string &deriv_path){
+      this->m_wallet_deriv_path.clear();
+
+      if (deriv_path.empty() || deriv_path == "-"){
+        ensure_derivation_path();
+        return;
+      }
+
+      CHECK_AND_ASSERT_THROW_MES(deriv_path.size() <= 255, "Derivation path is too long");
+
+      std::vector<std::string> fields;
+      boost::split(fields, deriv_path, boost::is_any_of("/"));
+      CHECK_AND_ASSERT_THROW_MES(fields.size() <= 10, "Derivation path is too long");
+
+      boost::regex rgx("^([0-9]+)'?$");
+      boost::cmatch match;
+
+      this->m_wallet_deriv_path.reserve(fields.size());
+      for(const std::string & cur : fields){
+        const bool ok = boost::regex_match(cur.c_str(), match, rgx);
+        CHECK_AND_ASSERT_THROW_MES(ok, "Invalid wallet code: " << deriv_path << ". Invalid path element: " << cur);
+        CHECK_AND_ASSERT_THROW_MES(match[0].length() > 0, "Invalid wallet code: " << deriv_path << ". Invalid path element: " << cur);
+
+        const unsigned long cidx = std::stoul(match[0].str()) | TREZOR_BIP44_HARDENED_ZERO;
+        this->m_wallet_deriv_path.push_back((unsigned int)cidx);
       }
     }
 
@@ -269,32 +336,89 @@ namespace trezor {
       return false;
     }
 
-    void device_trezor_base::on_button_request()
+    void device_trezor_base::device_state_reset_unsafe()
     {
+      require_connected();
+      auto initMsg = std::make_shared<messages::management::Initialize>();
+
+      if(!m_device_state.empty()) {
+        initMsg->set_allocated_state(&m_device_state);
+      }
+
+      m_features = this->client_exchange<messages::management::Features>(initMsg);
+      initMsg->release_state();
+    }
+
+    void device_trezor_base::device_state_reset()
+    {
+      AUTO_LOCK_CMD();
+      device_state_reset_unsafe();
+    }
+
+    void device_trezor_base::on_button_request(GenericMessage & resp, const messages::common::ButtonRequest * msg)
+    {
+      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
+      MDEBUG("on_button_request, code: " << msg->code());
+
+      messages::common::ButtonAck ack;
+      write_raw(&ack);
+
       if (m_callback){
         m_callback->on_button_request();
       }
+
+      resp = read_raw();
     }
 
-    void device_trezor_base::on_pin_request(epee::wipeable_string & pin)
+    void device_trezor_base::on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg)
     {
+      MDEBUG("on_pin_request");
+      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
+
+      epee::wipeable_string pin;
+
       if (m_callback){
         m_callback->on_pin_request(pin);
       }
+
+      // TODO: remove PIN from memory
+      messages::common::PinMatrixAck m;
+      m.set_pin(pin.data(), pin.size());
+      resp = call_raw(&m);
     }
 
-    void device_trezor_base::on_passphrase_request(bool on_device, epee::wipeable_string & passphrase)
+    void device_trezor_base::on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg)
     {
+      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
+      MDEBUG("on_passhprase_request, on device: " << msg->on_device());
+      epee::wipeable_string passphrase;
+
       if (m_callback){
-        m_callback->on_passphrase_request(on_device, passphrase);
+        m_callback->on_passphrase_request(msg->on_device(), passphrase);
       }
+
+      messages::common::PassphraseAck m;
+      if (!msg->on_device()){
+        // TODO: remove passphrase from memory
+        m.set_passphrase(passphrase.data(), passphrase.size());
+      }
+
+      if (!m_device_state.empty()){
+        m.set_allocated_state(&m_device_state);
+      }
+
+      resp = call_raw(&m);
+      m.release_state();
     }
 
-    void device_trezor_base::on_passphrase_state_request(const std::string & state)
+    void device_trezor_base::on_passphrase_state_request(GenericMessage & resp, const messages::common::PassphraseStateRequest * msg)
     {
-      if (m_callback){
-        m_callback->on_passphrase_state_request(state);
-      }
+      MDEBUG("on_passhprase_state_request");
+      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
+
+      m_device_state = msg->state();
+      messages::common::PassphraseStateAck m;
+      resp = call_raw(&m);
     }
 
 #endif //WITH_DEVICE_TREZOR

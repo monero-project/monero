@@ -194,7 +194,17 @@ namespace cryptonote
     END_SERIALIZE()
 
   public:
-    transaction_prefix(){}
+    transaction_prefix(){ set_null(); }
+    void set_null()
+    {
+      version = 1;
+      unlock_time = 0;
+      vin.clear();
+      vout.clear();
+      extra.clear();
+      output_unlock_times.clear();
+      is_deregister = false;
+    }
     bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
     uint64_t get_unlock_time(size_t out_index) const
     {
@@ -335,19 +345,12 @@ namespace cryptonote
   inline
   transaction::~transaction()
   {
-    //set_null();
   }
 
   inline
   void transaction::set_null()
   {
-    version = 1;
-    unlock_time = 0;
-    output_unlock_times.clear();
-    is_deregister = false;
-    vin.clear();
-    vout.clear();
-    extra.clear();
+    transaction_prefix::set_null();
     signatures.clear();
     rct_signatures = {};
     rct_signatures.type = rct::RCTTypeNull;

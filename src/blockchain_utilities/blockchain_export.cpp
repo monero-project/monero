@@ -30,9 +30,8 @@
 #include "bootstrap_file.h"
 #include "blocksdat_file.h"
 #include "common/command_line.h"
-#include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "blockchain_db/blockchain_db.h"
+#include "blockchain_objects.h"
 #include "blockchain_db/db_types.h"
 #include "version.h"
 
@@ -138,36 +137,10 @@ int main(int argc, char* argv[])
     output_file_path = boost::filesystem::path(m_config_folder) / "export" / BLOCKCHAIN_RAW;
   LOG_PRINT_L0("Export output file: " << output_file_path.string());
 
-  // If we wanted to use the memory pool, we would set up a fake_core.
-
-  // Use Blockchain instead of lower-level BlockchainDB for two reasons:
-  // 1. Blockchain has the init() method for easy setup
-  // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
-  //
-  // cannot match blockchain_storage setup above with just one line,
-  // e.g.
-  //   Blockchain* core_storage = new Blockchain(NULL);
-  // because unlike blockchain_storage constructor, which takes a pointer to
-  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-
-  // This is done this way because of the circular constructors.
-  struct BlockchainObjects
-  {
-    Blockchain m_blockchain;
-    tx_memory_pool m_mempool;
-    service_nodes::service_node_list    m_service_node_list;
-    service_nodes::deregister_vote_pool m_deregister_vote_pool;
-    BlockchainObjects() :
-      m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
-      m_service_node_list(m_blockchain),
-      m_mempool(m_blockchain) { }
-  };
-  BlockchainObjects* blockchain_objects = new BlockchainObjects();
-  Blockchain* core_storage = &(blockchain_objects->m_blockchain);
-  tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
-
-  BlockchainDB* db = new_db(db_type);
+  blockchain_objects_t blockchain_objects = {};
+  Blockchain *core_storage = &blockchain_objects.m_blockchain;
+  BlockchainDB *db = new_db(db_type);
   if (db == NULL)
   {
     LOG_ERROR("Attempted to use non-existent database type: " << db_type);

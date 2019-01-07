@@ -1541,8 +1541,11 @@ Cette transaction sera déverrouillée au bloc %llu, dans approximativement %s j
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2247"/>
-        <source>Show the incoming transfers, all or filtered by availability and address index.</source>
-        <translation>Afficher les transferts entrants, tous ou filtrés par disponibilité et index d&apos;adresse.</translation>
+        <source>Show the incoming transfers, all or filtered by availability and address index.
+
+Output format:
+Amount, Spent(&quot;T&quot;|&quot;F&quot;), &quot;locked&quot;|&quot;unlocked&quot;, RingCT, Global Index, Transaction Hash, Address Index, [Public Key, Key Image]</source>
+        <translation type="unfinished">Afficher les transferts entrants, tous ou filtrés par disponibilité et index d&apos;adresse.</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2250"/>
@@ -2271,8 +2274,8 @@ votre portefeuille à nouveau (mais les clés de votre portefeuille ne risquent 
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4317"/>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4359"/>
-        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N&gt;]</source>
-        <translation>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N&gt;]</translation>
+        <source>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N1&gt;[,&lt;N2&gt;[,...]]]</source>
+        <translation>usage: incoming_transfers [available|unavailable] [verbose] [index=&lt;N1&gt;[,&lt;N2&gt;[,...]]]</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="4378"/>
@@ -2984,8 +2987,11 @@ subaddress-lookahead &lt;major&gt;:&lt;minor&gt;
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2534"/>
-        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)</source>
-        <translation>Afficher le(s) cercle(s) utilisé(s) pour dépenser une image de clé ou une transaction (si la taille de cercle est &gt; 1)</translation>
+        <source>Print the ring(s) used to spend a given key image or transaction (if the ring size is &gt; 1)
+
+Output format:
+Key Image, &quot;absolute&quot;, list of rings</source>
+        <translation type="unfinished">Afficher le(s) cercle(s) utilisé(s) pour dépenser une image de clé ou une transaction (si la taille de cercle est &gt; 1)</translation>
     </message>
     <message>
         <location filename="../src/simplewallet/simplewallet.cpp" line="2537"/>

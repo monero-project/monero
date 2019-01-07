@@ -28,10 +28,6 @@
 #include "misc_log_ex.h"
 #include "common/threadpool.h"
 
-#include <cassert>
-#include <limits>
-#include <stdexcept>
-
 #include "cryptonote_config.h"
 #include "common/util.h"
 
