@@ -12,7 +12,7 @@ struct blockchain_objects_t
   cryptonote::Blockchain m_blockchain;
   cryptonote::tx_memory_pool m_mempool;
   service_nodes::service_node_list m_service_node_list;
-  loki::deregister_vote_pool m_deregister_vote_pool;
+  service_nodes::deregister_vote_pool m_deregister_vote_pool;
   blockchain_objects_t() :
     m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
     m_service_node_list(m_blockchain),

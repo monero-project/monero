@@ -37,7 +37,7 @@
 #include "int-util.h"
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
-#include "quorum_cop.h"
+#include "service_node_quorum_cop.h"
 #include "common/exp2.h"
 
 #include "service_node_list.h"
@@ -848,8 +848,6 @@ namespace service_nodes
     if (registrations || deregistrations || expired_count) {
       update_swarms(block_height);
     }
-
-    const size_t QUORUM_LIFETIME = loki::service_node_deregister::QUORUM_LIFETIME;
 
     // save six times the quorum lifetime, to be sure. also to help with debugging.
     const size_t cache_state_from_height = (block_height < QUORUM_LIFETIME) ? 0 : block_height - QUORUM_LIFETIME;

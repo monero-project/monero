@@ -260,7 +260,7 @@ cryptonote::transaction linear_chain_generator::create_deregister_tx(const crypt
     const auto pk = reg->keys.pub;
     const auto sk = reg->keys.sec;
     const auto signature =
-      loki::service_node_deregister::sign_vote(deregister.block_height, deregister.service_node_index, pk, sk);
+      service_nodes::deregister_vote::sign_vote(deregister.block_height, deregister.service_node_index, pk, sk);
 
     deregister.votes.push_back({ signature, (uint32_t)voter.idx_in_quorum });
   }

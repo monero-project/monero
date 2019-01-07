@@ -35,6 +35,7 @@
 #include "cryptonote_core/blockchain.h"
 #include "testdb.h"
 
+#include "blockchain_utilities/blockchain_objects.h"
 #include "cryptonote_core/service_node_list.h"
 #include "cryptonote_core/service_node_deregister.h"
 
@@ -72,21 +73,7 @@ public:
 
 bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base)
 {
-  struct blockchain_objects
-  {
-    cryptonote::Blockchain m_blockchain;
-    cryptonote::tx_memory_pool m_mempool;
-    service_nodes::service_node_list m_service_node_list;
-    loki::deregister_vote_pool m_deregister_vote_pool;
-    blockchain_objects() :
-      m_blockchain(m_mempool, m_service_node_list, m_deregister_vote_pool),
-      m_service_node_list(m_blockchain),
-      m_mempool(m_blockchain) { }
-  };
-
-  std::unique_ptr<blockchain_objects> bc;
-  bc.reset(new blockchain_objects());
-
+  blockchain_objects_t bc;
   struct get_test_options {
     const std::vector<std::pair<uint8_t, uint64_t>> hard_forks;
     const cryptonote::test_options test_options = {
@@ -94,7 +81,7 @@ bool get_output_distribution(uint64_t amount, uint64_t from, uint64_t to, uint64
     };
     get_test_options():hard_forks{{std::make_pair((uint8_t)0, (uint64_t)0)}}{}
   } opts;
-  cryptonote::Blockchain *blockchain = &bc->m_blockchain;
+  cryptonote::Blockchain *blockchain = &bc.m_blockchain;
   bool r = blockchain->init(new TestDB(test_distribution_size), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL);
   return r && blockchain->get_output_distribution(amount, from, to, start_height, distribution, base);
 }

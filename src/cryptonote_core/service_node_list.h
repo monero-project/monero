@@ -32,21 +32,22 @@
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
+#include "cryptonote_core/service_node_deregister.h"
 
 namespace service_nodes
 {
   constexpr size_t QUORUM_SIZE                    = 10;
+  constexpr size_t QUORUM_LIFETIME                = (6 * deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
   constexpr size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
   constexpr size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
   constexpr size_t MIN_NODES_TO_TEST              = 50;
-
-  constexpr size_t MAX_SWARM_SIZE               = 10;
+  constexpr size_t MAX_SWARM_SIZE                 = 10;
   // We never create a new swarm unless there are SWARM_BUFFER extra nodes
   // available in the queue.
-  constexpr size_t SWARM_BUFFER             = 5;
+  constexpr size_t SWARM_BUFFER                   = 5;
   // if a swarm has strictly less nodes than this, it is considered unhealthy
   // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
-  constexpr size_t MIN_SWARM_SIZE               = 5;
+  constexpr size_t MIN_SWARM_SIZE                 = 5;
 
   class quorum_cop;
 

@@ -182,15 +182,15 @@ TEST(service_nodes, vote_validation)
   }
 
   // Valid vote
-  loki::service_node_deregister::vote valid_vote = {};
+  service_nodes::deregister_vote valid_vote = {};
   {
     valid_vote.block_height         = 10;
     valid_vote.service_node_index   = 1;
     valid_vote.voters_quorum_index  = voter_index;
-    valid_vote.signature            = loki::service_node_deregister::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    valid_vote.signature            = service_nodes::deregister_vote::sign_vote(valid_vote.block_height, valid_vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, valid_vote, vvc, state);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc, &valid_vote));
 
@@ -201,10 +201,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote                = valid_vote;
     vote.voters_quorum_index = state.quorum_nodes.size() + 10;
-    vote.signature           = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    vote.signature           = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -212,10 +212,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote               = valid_vote;
     vote.service_node_index = state.nodes_to_test.size() + 10;
-    vote.signature          = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
+    vote.signature          = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, service_node_voter.pub, service_node_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -223,10 +223,10 @@ TEST(service_nodes, vote_validation)
   {
     auto vote                       = valid_vote;
     cryptonote::keypair other_voter = cryptonote::keypair::generate(hw::get_device("default"));
-    vote.signature                  = loki::service_node_deregister::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
+    vote.signature                  = service_nodes::deregister_vote::sign_vote(vote.block_height, vote.service_node_index, other_voter.pub, other_voter.sec);
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_vote(cryptonote::MAINNET, vote, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_vote(cryptonote::MAINNET, vote, vvc, state);
     ASSERT_FALSE(result);
   }
 }
@@ -262,12 +262,12 @@ TEST(service_nodes, tx_extra_deregister_validation)
       cryptonote::tx_extra_service_node_deregister::vote vote = {};
 
       vote.voters_quorum_index = i;
-      vote.signature           = loki::service_node_deregister::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
+      vote.signature           = service_nodes::deregister_vote::sign_vote(valid_deregister.block_height, valid_deregister.service_node_index, voter->pub, voter->sec);
       valid_deregister.votes.push_back(vote);
     }
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, valid_deregister, vvc, state);
     if (!result)
       printf("%s\n", cryptonote::print_vote_verification_context(vvc));
     ASSERT_TRUE(result);
@@ -280,7 +280,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
       deregister.votes.pop_back();
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -290,7 +290,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0] = deregister.votes[1];
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -300,7 +300,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0].signature = deregister.votes[1].signature;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -310,7 +310,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.votes[0].voters_quorum_index = state.quorum_nodes.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 
@@ -320,7 +320,7 @@ TEST(service_nodes, tx_extra_deregister_validation)
     deregister.service_node_index = state.nodes_to_test.size() + 10;
 
     cryptonote::vote_verification_context vvc = {};
-    bool result = loki::service_node_deregister::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
+    bool result = service_nodes::deregister_vote::verify_deregister(cryptonote::MAINNET, deregister, vvc, state);
     ASSERT_FALSE(result);
   }
 }

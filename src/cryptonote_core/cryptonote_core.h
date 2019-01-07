@@ -39,11 +39,11 @@
 #include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/command_line.h"
-#include "service_node_deregister.h"
 #include "tx_pool.h"
 #include "blockchain.h"
+#include "service_node_deregister.h"
 #include "service_node_list.h"
-#include "quorum_cop.h"
+#include "service_node_quorum_cop.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_basic/cryptonote_stat_info.h"
@@ -224,7 +224,7 @@ namespace cryptonote
      /**
       * @brief mark the deregister vote as having been relayed in the vote pool
       */
-     virtual void set_deregister_votes_relayed(const std::vector<loki::service_node_deregister::vote>& votes);
+     virtual void set_deregister_votes_relayed(const std::vector<service_nodes::deregister_vote>& votes);
 
      /**
       * @brief gets the miner instance
@@ -831,7 +831,7 @@ namespace cryptonote
 
       * @return Whether the vote was added to the partial deregister pool
       */
-     bool add_deregister_vote(const loki::service_node_deregister::vote& vote, vote_verification_context &vvc);
+     bool add_deregister_vote(const service_nodes::deregister_vote& vote, vote_verification_context &vvc);
 
      /**
       * @brief Get the keypair for this service node.
@@ -1060,11 +1060,12 @@ namespace cryptonote
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
-     loki::deregister_vote_pool m_deregister_vote_pool;
      tx_memory_pool m_mempool; //!< transaction pool instance
      Blockchain m_blockchain_storage; //!< Blockchain instance
-     service_nodes::service_node_list m_service_node_list;
-     service_nodes::quorum_cop m_quorum_cop;
+
+     service_nodes::deregister_vote_pool m_deregister_vote_pool;
+     service_nodes::service_node_list    m_service_node_list;
+     service_nodes::quorum_cop           m_quorum_cop;
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 

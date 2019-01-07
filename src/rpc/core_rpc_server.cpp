@@ -2065,7 +2065,7 @@ namespace cryptonote
 
     const uint64_t cur_height = m_core.get_current_blockchain_height();
 
-    const uint64_t height_begin = std::max(req.height_begin, cur_height - loki::service_node_deregister::QUORUM_LIFETIME);
+    const uint64_t height_begin = std::max(req.height_begin, cur_height - service_nodes::QUORUM_LIFETIME);
     const uint64_t height_end = std::min(req.height_end, cur_height);
 
     if (height_begin > height_end)
