@@ -130,18 +130,3 @@ TEST(device, ecdh32)
   ASSERT_EQ(tuple2.senderPk, tuple.senderPk);
 }
 
-TEST(device, ecdh8)
-{
-  hw::core::device_default dev;
-  rct::ecdhTuple tuple, tuple2;
-  rct::key key = rct::skGen();
-  tuple.mask = rct::skGen();
-  tuple.amount = rct::skGen();
-  tuple.senderPk = rct::pkGen();
-  tuple2 = tuple;
-  dev.ecdhEncode(tuple, key, true);
-  dev.ecdhDecode(tuple, key, true);
-  ASSERT_EQ(tuple2.mask, tuple.mask);
-  ASSERT_EQ(tuple2.amount, tuple.amount);
-  ASSERT_EQ(tuple2.senderPk, tuple.senderPk);
-}

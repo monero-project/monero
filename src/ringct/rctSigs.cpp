@@ -45,18 +45,12 @@ using namespace std;
 #define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
 
 namespace rct {
-    Bulletproof proveRangeBulletproof(key &C, key &mask, uint64_t amount)
+    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, const std::vector<key> &sk)
     {
-        mask = rct::skGen();
-        Bulletproof proof = bulletproof_PROVE(amount, mask);
-        CHECK_AND_ASSERT_THROW_MES(proof.V.size() == 1, "V has not exactly one element");
-        C = proof.V[0];
-        return proof;
-    }
-
-    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts)
-    {
-        masks = rct::skvGen(amounts.size());
+        CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
+        masks.resize(amounts.size());
+        for (size_t i = 0; i < masks.size(); ++i)
+            masks[i] = genCommitmentMask(sk[i]);
         Bulletproof proof = bulletproof_PROVE(amounts, masks);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
@@ -762,7 +756,8 @@ namespace rct {
             if (rct_config.range_proof_type == RangeProofPaddedBulletproof)
             {
                 rct::keyV C, masks;
-                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts));
+                const std::vector<key> keys(amount_keys.begin(), amount_keys.end());
+                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys));
                 #ifdef DBG
                 CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
                 #endif
@@ -782,7 +777,10 @@ namespace rct {
                 std::vector<uint64_t> batch_amounts(batch_size);
                 for (i = 0; i < batch_size; ++i)
                   batch_amounts[i] = outamounts[i + amounts_proved];
-                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts));
+                std::vector<key> keys(batch_size);
+                for (size_t j = 0; j < batch_size; ++j)
+                  keys[j] = amount_keys[amounts_proved + j];
+                rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys));
             #ifdef DBG
                 CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
             #endif

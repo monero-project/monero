@@ -831,27 +831,6 @@ TEST(ringct, HPow2)
 
 static const xmr_amount test_amounts[]={0, 1, 2, 3, 4, 5, 10000, 10000000000000000000ull, 10203040506070809000ull, 123456789123456789};
 
-TEST(ringct, ecdh_roundtrip)
-{
-  key k;
-  ecdhTuple t0, t1;
-
-  for (auto amount: test_amounts) {
-    skGen(k);
-
-    t0.mask = skGen();
-    t0.amount = d2h(amount);
-
-    t1 = t0;
-    ecdhEncode(t1, k, true);
-    ecdhDecode(t1, k, true);
-    ASSERT_TRUE(t0.mask == t1.mask);
-    ASSERT_TRUE(equalKeys(t0.mask, t1.mask));
-    ASSERT_TRUE(t0.amount == t1.amount);
-    ASSERT_TRUE(equalKeys(t0.amount, t1.amount));
-  }
-}
-
 TEST(ringct, d2h)
 {
   key k, P1;
