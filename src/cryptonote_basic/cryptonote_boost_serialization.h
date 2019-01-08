@@ -262,7 +262,6 @@ namespace boost
       memset(&x.amount, 0, sizeof(x.amount));
     }
     a & amount;
-    // a & x.senderPk; // not serialized, as we do not use it in monero currently
   }
 
   template <class Archive>

@@ -550,12 +550,10 @@ TEST(Serialization, serializes_ringct_types)
 
   ecdh0.mask = rct::skGen();
   ecdh0.amount = rct::skGen();
-  ecdh0.senderPk = rct::skGen();
   ASSERT_TRUE(serialization::dump_binary(ecdh0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, ecdh1));
   ASSERT_TRUE(!memcmp(&ecdh0.mask, &ecdh1.mask, sizeof(ecdh0.mask)));
   ASSERT_TRUE(!memcmp(&ecdh0.amount, &ecdh1.amount, sizeof(ecdh0.amount)));
-  // senderPk is not serialized
 
   for (size_t n = 0; n < 64; ++n)
   {

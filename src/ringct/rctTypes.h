@@ -120,17 +120,14 @@ namespace rct {
     // If the pedersen commitment to an amount is C = aG + bH,
     // "mask" contains a 32 byte key a
     // "amount" contains a hex representation (in 32 bytes) of a 64 bit number
-    // "senderPk" is not the senders actual public key, but a one-time public key generated for
     // the purpose of the ECDH exchange
     struct ecdhTuple {
         key mask;
         key amount;
-        key senderPk;
 
         BEGIN_SERIALIZE_OBJECT()
           FIELD(mask) // not saved from v2 BPs
           FIELD(amount)
-          // FIELD(senderPk) // not serialized, as we do not use it in monero currently
         END_SERIALIZE()
     };
 

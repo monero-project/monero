@@ -121,12 +121,10 @@ TEST(device, ecdh32)
   rct::key key = rct::skGen();
   tuple.mask = rct::skGen();
   tuple.amount = rct::skGen();
-  tuple.senderPk = rct::pkGen();
   tuple2 = tuple;
   dev.ecdhEncode(tuple, key, false);
   dev.ecdhDecode(tuple, key, false);
   ASSERT_EQ(tuple2.mask, tuple.mask);
   ASSERT_EQ(tuple2.amount, tuple.amount);
-  ASSERT_EQ(tuple2.senderPk, tuple.senderPk);
 }
 
