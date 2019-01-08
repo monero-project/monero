@@ -128,7 +128,7 @@ namespace rct {
         key senderPk;
 
         BEGIN_SERIALIZE_OBJECT()
-          FIELD(mask)
+          FIELD(mask) // not saved from v2 BPs
           FIELD(amount)
           // FIELD(senderPk) // not serialized, as we do not use it in monero currently
         END_SERIALIZE()
@@ -286,7 +286,6 @@ namespace rct {
             if (type == RCTTypeBulletproof2)
             {
               ar.begin_object();
-              FIELD_N("mask", ecdhInfo[i].mask);
               if (!typename Archive<W>::is_saving())
                 memset(ecdhInfo[i].amount.bytes, 0, sizeof(ecdhInfo[i].amount.bytes));
               crypto::hash8 &amount = (crypto::hash8&)ecdhInfo[i].amount;

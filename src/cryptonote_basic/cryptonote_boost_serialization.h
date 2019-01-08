@@ -249,15 +249,18 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, rct::ecdhTuple &x, const boost::serialization::version_type ver)
   {
-    a & x.mask;
     if (ver < 1)
     {
+      a & x.mask;
       a & x.amount;
       return;
     }
     crypto::hash8 &amount = (crypto::hash8&)x.amount;
     if (!Archive::is_saving::value)
+    {
+      memset(&x.mask, 0, sizeof(x.mask));
       memset(&x.amount, 0, sizeof(x.amount));
+    }
     a & amount;
     // a & x.senderPk; // not serialized, as we do not use it in monero currently
   }

@@ -79,9 +79,12 @@ namespace
 }
 
 namespace rct {
-    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts)
+    Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk)
     {
-        masks = rct::skvGen(amounts.size());
+        CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
+        masks.resize(amounts.size());
+        for (size_t i = 0; i < masks.size(); ++i)
+            masks[i] = genCommitmentMask(sk[i]);
         Bulletproof proof = bulletproof_PROVE(amounts, masks);
         CHECK_AND_ASSERT_THROW_MES(proof.V.size() == amounts.size(), "V does not have the expected size");
         C = proof.V;
@@ -803,7 +806,8 @@ namespace rct {
                 }
                 else
                 {
-                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts));
+                    const epee::span<const key> keys{&amount_keys[0], amount_keys.size()};
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, outamounts, keys));
                     #ifdef DBG
                     CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
                     #endif
@@ -831,7 +835,8 @@ namespace rct {
                 }
                 else
                 {
-                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts));
+                    const epee::span<const key> keys{&amount_keys[amounts_proved], batch_size};
+                    rv.p.bulletproofs.push_back(proveRangeBulletproof(C, masks, batch_amounts, keys));
                 #ifdef DBG
                     CHECK_AND_ASSERT_THROW_MES(verBulletproof(rv.p.bulletproofs.back()), "verBulletproof failed on newly created proof");
                 #endif

@@ -672,36 +672,56 @@ namespace rct {
     // where C= aG + bH
     static key ecdhHash(const key &k)
     {
-      char data[38];
-      rct::key hash;
-      memcpy(data, "amount", 6);
-      memcpy(data + 6, &k, sizeof(k));
-      cn_fast_hash(hash, data, sizeof(data));
-      return hash;
+        char data[38];
+        rct::key hash;
+        memcpy(data, "amount", 6);
+        memcpy(data + 6, &k, sizeof(k));
+        cn_fast_hash(hash, data, sizeof(data));
+        return hash;
     }
     static void xor8(key &v, const key &k)
     {
-      for (int i = 0; i < 8; ++i)
-        v.bytes[i] ^= k.bytes[i];
+        for (int i = 0; i < 8; ++i)
+            v.bytes[i] ^= k.bytes[i];
     }
-    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool short_amount) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
+    key genCommitmentMask(const key &sk)
+    {
+        char data[15 + sizeof(key)];
+        memcpy(data, "commitment_mask", 15);
+        memcpy(data + 15, &sk, sizeof(sk));
+        key scalar;
+        hash_to_scalar(scalar, data, sizeof(data));
+        return scalar;
+    }
+
+    void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool v2) {
         //encode
-        sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
-        if (short_amount)
+        if (v2)
+        {
+          unmasked.mask = zero();
           xor8(unmasked.amount, ecdhHash(sharedSec));
+        }
         else
+        {
+          key sharedSec1 = hash_to_scalar(sharedSec);
+          key sharedSec2 = hash_to_scalar(sharedSec1);
+          sc_add(unmasked.mask.bytes, unmasked.mask.bytes, sharedSec1.bytes);
           sc_add(unmasked.amount.bytes, unmasked.amount.bytes, sharedSec2.bytes);
+        }
     }
-    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool short_amount) {
-        key sharedSec1 = hash_to_scalar(sharedSec);
-        key sharedSec2 = hash_to_scalar(sharedSec1);
+    void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool v2) {
         //decode
-        sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
-        if (short_amount)
+        if (v2)
+        {
+          masked.mask = genCommitmentMask(sharedSec);
           xor8(masked.amount, ecdhHash(sharedSec));
+        }
         else
+        {
+          key sharedSec1 = hash_to_scalar(sharedSec);
+          key sharedSec2 = hash_to_scalar(sharedSec1);
+          sc_sub(masked.mask.bytes, masked.mask.bytes, sharedSec1.bytes);
           sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
+        }
     }
 }
