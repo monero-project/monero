@@ -398,7 +398,7 @@ You will have to add the serialization, date_time, and regex modules to Boost wh
 
 To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
 
-#### OpenBSD >= 6.2
+#### OpenBSD 6.2 and 6.3
 
 You will need to add a few packages to your system. `pkg_add cmake zeromq libiconv`.
 
@@ -443,8 +443,6 @@ echo 'using clang : : c++ : <cxxflags>"-fvisibility=hidden -fPIC" <linkflags>"" 
 doas ./b2 -d0 runtime-link=shared threadapi=pthread threading=multi link=static variant=release --layout=tagged --build-type=complete --user-config=user-config.jam -sNO_BZIP2=1 -sICONV_PATH=/usr/local --prefix=/usr/local install
 ```
 
-Build cppzmq
-
 Build the cppzmq bindings.
 
 We assume you are compiling with a non-root user and you have `doas` enabled.
@@ -470,6 +468,23 @@ doas make install
 ```
 
 Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static`
+
+#### OpenBSD >= 6.4
+
+You will need to add a few packages to your system. `pkg_add cmake gmake zeromq cppzmq libiconv boost`.
+
+The doxygen and graphviz packages are optional and require the xbase set.
+
+Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
+
+Note: you may encounter the following error, when compiling the latest version of monero as a normal user:
+
+```
+LLVM ERROR: out of memory
+c++: error: unable to execute command: Abort trap (core dumped)
+```
+
+Then you need to increase the data ulimit size to 2GB and try again: `ulimit -d 2000000`
 
 ### On Solaris:
 
