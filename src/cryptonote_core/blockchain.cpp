@@ -1073,6 +1073,11 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
 
   m_hardfork->reorganize_from_chain_height(split_height);
 
+  std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
+  if (reorg_notify)
+    reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
+        "%n", std::to_string(m_db->height() - split_height).c_str(), NULL);
+
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
   return true;
 }
