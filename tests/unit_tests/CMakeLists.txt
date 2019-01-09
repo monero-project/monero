@@ -62,6 +62,7 @@ set(unit_tests_sources
   mul_div.cpp
   multiexp.cpp
   multisig.cpp
+  notify.cpp
   parse_amount.cpp
   random.cpp
   serialization.cpp

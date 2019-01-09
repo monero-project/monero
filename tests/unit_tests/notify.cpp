@@ -26,53 +26,65 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/algorithm/string.hpp>
-#include <stdarg.h>
-#include "misc_log_ex.h"
+#ifdef __GLIBC__
+#include <sys/stat.h>
+#endif
+
+#include "gtest/gtest.h"
+
+#include <boost/filesystem.hpp>
+
+#include "misc_language.h"
+#include "string_tools.h"
 #include "file_io_utils.h"
-#include "spawn.h"
-#include "notify.h"
+#include "common/notify.h"
 
-namespace tools
+TEST(notify, works)
 {
+#ifdef __GLIBC__
+  mode_t prevmode = umask(077);
+#endif
+  const char *tmp = getenv("TEMP");
+  if (!tmp)
+    tmp = "/tmp";
+  static const char *filename = "monero-notify-unit-test-XXXXXX";
+  const size_t len = strlen(tmp) + 1 + strlen(filename);
+  std::unique_ptr<char[]> name_template_(new char[len + 1]);
+  char *name_template = name_template_.get();
+  ASSERT_TRUE(name_template != NULL);
+  snprintf(name_template, len + 1, "%s/%s", tmp, filename);
+  int fd = mkstemp(name_template);
+#ifdef __GLIBC__
+  umask(prevmode);
+#endif
+  ASSERT_TRUE(fd >= 0);
+  close(fd);
 
-/*
-  TODO: 
-  - Improve tokenization to handle paths containing whitespaces, quotes, etc.
-  - Windows unicode support (implies implementing unicode command line parsing code)
-*/
-Notify::Notify(const char *spec)
-{
-  CHECK_AND_ASSERT_THROW_MES(spec, "Null spec");
+  const std::string spec = epee::string_tools::get_current_module_folder() + "/test_notifier"
+#ifdef _WIN32
+      + ".exe"
+#endif
+      + " " + name_template + " %s";
 
-  boost::split(args, spec, boost::is_any_of(" "));
-  CHECK_AND_ASSERT_THROW_MES(args.size() > 0, "Failed to parse spec");
-  filename = args[0];
-  CHECK_AND_ASSERT_THROW_MES(epee::file_io_utils::is_file_exist(filename), "File not found: " << filename);
-}
+  tools::Notify notify(spec.c_str());
+  notify.notify("%s", "1111111111111111111111111111111111111111111111111111111111111111", NULL);
 
-static void replace(std::vector<std::string> &v, const char *tag, const char *s)
-{
-  for (std::string &str: v)
-    boost::replace_all(str, tag, s);
-}
-
-int Notify::notify(const char *tag, const char *s, ...)
-{
-  std::vector<std::string> margs = args;
-
-  replace(margs, tag, s);
-
-  va_list ap;
-  va_start(ap, s);
-  while ((tag = va_arg(ap, const char*)))
+  bool ok = false;
+  for (int i = 0; i < 10; ++i)
   {
-    s = va_arg(ap, const char*);
-    replace(margs, tag, s);
+    epee::misc_utils::sleep_no_w(100);
+
+    std::string s;
+    if (epee::file_io_utils::load_file_to_string(name_template, s))
+    {
+      if (s == "1111111111111111111111111111111111111111111111111111111111111111")
+      {
+        ok = true;
+        break;
+      }
+      std::cout << "got: [" << s << "]" << std::endl;
+    }
   }
-  va_end(ap);
-
-  return tools::spawn(filename.c_str(), margs, false);
-}
-
+  boost::filesystem::remove(name_template);
+  ASSERT_TRUE(ok);
 }
