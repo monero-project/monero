@@ -322,7 +322,7 @@ namespace hw {
     }
 
     const std::string device_ledger::get_name() const {
-      if (this->full_name.empty() || !this->connected()) {
+      if (!this->connected()) {
         return std::string("<disconnected:").append(this->name).append(">");
       }
       return this->name;

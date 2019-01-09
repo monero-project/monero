@@ -85,7 +85,6 @@ namespace hw {
 
         //IO
         hw::io::device_io_hid hw_device;
-        std::string   full_name;        
         unsigned int  length_send;
         unsigned char buffer_send[BUFFER_SEND_SIZE];
         unsigned int  length_recv;
