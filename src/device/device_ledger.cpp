@@ -176,7 +176,7 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 120000) {
+    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 2000) {
       this->id = device_id++;
       this->reset_buffer();      
       this->mode = NONE;
@@ -235,6 +235,9 @@ namespace hw {
     /*                                     IO                                  */
     /* ======================================================================= */
 
+    #define IO_SW_DENY    0x6982
+    #define IO_SECRET_KEY 0x02
+
       void device_ledger::logCMD() {
       if (apdu_verbose) {
         char  strbuffer[1024];
@@ -283,7 +286,12 @@ namespace hw {
 
     void device_ledger::send_simple(unsigned char ins, unsigned char p1) {
       this->length_send = set_command_header_noopt(ins, p1);
-      this->exchange();
+      if (ins == INS_GET_KEY && p1 == IO_SECRET_KEY) {
+        // export view key user input
+        this->exchange_wait_on_input();
+      } else {
+        this->exchange();
+      }
     }
 
     bool device_ledger::reset() {
@@ -294,7 +302,7 @@ namespace hw {
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
       logCMD();
 
-      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE);
+      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
       ASSERT_X(this->length_recv>=2, "Communication error, less than tow bytes received");
 
       this->length_recv -= 2;
@@ -303,6 +311,25 @@ namespace hw {
 
       logRESP();
       return this->sw;
+    }
+
+    unsigned int device_ledger::exchange_wait_on_input(unsigned int ok, unsigned int mask) {
+      logCMD();
+      unsigned int deny = 0;
+      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, true);
+      ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
+
+      this->length_recv -= 2;
+      this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
+      if (this->sw == IO_SW_DENY) {
+        // cancel on device
+        deny = 1;
+      } else {
+        ASSERT_SW(this->sw,ok,msk);
+      }
+
+      logRESP();
+      return deny;
     }
 
     void device_ledger::reset_buffer() {
@@ -1260,7 +1287,8 @@ namespace hw {
 
         this->buffer_send[4] = offset-5;
         this->length_send = offset;
-        this->exchange();
+        // check fee user input
+        CHECK_AND_ASSERT_THROW_MES(this->exchange_wait_on_input() == 0, "Fee denied on device.");
 
         //pseudoOuts
         if (type == rct::RCTTypeSimple) {
@@ -1328,7 +1356,8 @@ namespace hw {
 
           this->buffer_send[4] = offset-5;
           this->length_send = offset;
-          this->exchange();
+          // check transaction user input
+          CHECK_AND_ASSERT_THROW_MES(this->exchange_wait_on_input() == 0, "Transaction denied on device.");
           #ifdef DEBUG_HWDEVICE
           hw::ledger::log_hexbuffer("Prehash AKV input", (char*)&this->buffer_recv[64], 3*32);
           #endif
