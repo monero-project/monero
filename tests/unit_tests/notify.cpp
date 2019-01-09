@@ -45,7 +45,7 @@ TEST(notify, works)
   const std::string spec = epee::string_tools::get_current_module_folder() + "/test_notifier " + name_template + " %s";
 
   tools::Notify notify(spec.c_str());
-  notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
+  notify.notify("%s", "1111111111111111111111111111111111111111111111111111111111111111", NULL);
 
   epee::misc_utils::sleep_no_w(100);
 
