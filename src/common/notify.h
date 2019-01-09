@@ -39,7 +39,7 @@ class Notify
 public:
   Notify(const char *spec);
 
-  int notify(const char *parameter);
+  int notify(const char *tag, const char *s, ...);
 
 private:
   std::string filename;

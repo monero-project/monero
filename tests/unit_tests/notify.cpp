@@ -67,7 +67,7 @@ TEST(notify, works)
       + " " + name_template + " %s";
 
   tools::Notify notify(spec.c_str());
-  notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
+  notify.notify("%s", "1111111111111111111111111111111111111111111111111111111111111111", NULL);
 
   bool ok = false;
   for (int i = 0; i < 10; ++i)
