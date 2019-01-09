@@ -173,6 +173,13 @@ namespace cryptonote
   , "Run a program for each new block, '%s' will be replaced by the block hash"
   , ""
   };
+  static const command_line::arg_descriptor<std::string> arg_reorg_notify = {
+    "reorg-notify"
+  , "Run a program for each reorg, '%s' will be replaced by the split height, "
+    "'%h' will be replaced by the new blockchain height, and '%n' will be "
+    "replaced by the number of new blocks in the new chain"
+  , ""
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -282,6 +289,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_max_txpool_size);
     command_line::add_arg(desc, arg_block_notify);
+    command_line::add_arg(desc, arg_reorg_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -559,6 +567,16 @@ namespace cryptonote
     catch (const std::exception &e)
     {
       MERROR("Failed to parse block notify spec");
+    }
+
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_reorg_notify))
+        m_blockchain_storage.set_reorg_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_reorg_notify).c_str())));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse reorg notify spec");
     }
 
     const cryptonote::test_options::hard_fork_t regtest_hard_forks[3] = { {1, 0, 0}, {Blockchain::get_hard_fork_heights(MAINNET).back().version, 1, 0}, {0, 0, 0} };
