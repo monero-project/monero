@@ -49,6 +49,8 @@ Notify::Notify(const char *spec)
 
   boost::split(args, spec, boost::is_any_of(" "));
   CHECK_AND_ASSERT_THROW_MES(args.size() > 0, "Failed to parse spec");
+  if (strchr(spec, '\'') || strchr(spec, '\"') || strchr(spec, '\\'))
+    MWARNING("A notification spec contains a quote or backslash: note that these are handled verbatim, which may not be the intent");
   filename = args[0];
   CHECK_AND_ASSERT_THROW_MES(epee::file_io_utils::is_file_exist(filename), "File not found: " << filename);
 }
