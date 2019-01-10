@@ -2331,24 +2331,31 @@ bool WalletImpl::isKeysFileLocked()
     return m_wallet->is_keys_file_locked();
 }
 
-PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str)
+PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str, std::string& error_msg)
 {
   crypto::public_key sn_key;
-  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key)) {
-    LOG_ERROR("failed to parse service node pubkey");
+  if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key))
+  {
+    error_msg = "Failed to parse service node pubkey";
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
   cryptonote::address_parse_info addr_info;
-  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str)) {
-    LOG_ERROR("failed to parse address");
+  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str))
+  {
+    error_msg = "Failed to parse the contributor's address";
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
   uint64_t amount;
-  if (!cryptonote::parse_amount(amount, amount_str)) {
-    LOG_ERROR("amount is wrong: " << amount_str << ", " << "expected number from " << print_money(1)
-              << " to " << print_money(std::numeric_limits<uint64_t>::max()));
+  if (!cryptonote::parse_amount(amount, amount_str))
+  {
+    stringstream str;
+    str << boost::format("Incorrect amount: %1%, expected a nubmber from %2% to %3%") % amount_str % print_money(1) % print_money(std::numeric_limits<uint64_t>::max());
+    error_msg = str.str();
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
@@ -2356,6 +2363,13 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
   transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+
+  // TODO: provide a more helpful error in this case
+  if (transaction->m_pending_tx.empty())
+  {
+    error_msg = "Failed to create a stake transaction";
+    return nullptr;
+  }
 
   return transaction;
 }
