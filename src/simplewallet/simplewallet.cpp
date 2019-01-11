@@ -5608,9 +5608,11 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
   std::vector<uint64_t> portions;
   uint64_t portions_for_operator;
   bool autostake;
-  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, autostake))
+  std::string err_msg;
+  if (!service_nodes::convert_registration_args(m_wallet->nettype(), address_portions_args, addresses, portions, portions_for_operator, autostake, err_msg))
   {
     fail_msg_writer() << tr("Could not convert registration args");
+    if (err_msg != "") fail_msg_writer() << err_msg;
     fail_msg_writer() << tr("Usage: register_service_node [index=<N1>[,<N2>,...]] [priority] [auto] <operator cut> <address1> <fraction1> [<address2> <fraction2> [...]] <expiration timestamp> <service node pubkey> <signature>");
     return true;
   }

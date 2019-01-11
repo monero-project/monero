@@ -27,4 +27,9 @@ uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 /// Check if portions are sufficiently large (except for the last) and add up to the required amount
 bool check_service_node_portions(const std::vector<uint64_t>& portions);
 
+// Returns lowest x such that (staking_requirement * x/STAKING_PORTIONS) >= amount
+uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount);
+
+bool get_portions_from_percent_str(std::string cut_str, uint64_t& portions);
+
 }
