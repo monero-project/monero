@@ -111,7 +111,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     for(int i = 0; amounts_paid[i] != (uint64_t)-1; ++i) ++amounts_paid_len;
 
     uint64_t change_amount;
-    fill_tx_sources_and_multi_destinations(events, blk_last, from, to, amounts_paid, amounts_paid_len, TESTS_DEFAULT_FEE, CRYPTONOTE_TX_DEFAULT_MIX, sources, destinations, &change_amount);
+    fill_tx_sources_and_multi_destinations(events, blk_last, from, to, amounts_paid, amounts_paid_len, TESTS_DEFAULT_FEE, CRYPTONOTE_DEFAULT_TX_MIXIN, sources, destinations, &change_amount);
     tx_destination_entry change_addr{change_amount, from.get_keys().m_account_address, false /* is subaddr */ };
 
     // NOTE(loki): Monero tests presume the generated TX doesn't have change so remove it from our output.
