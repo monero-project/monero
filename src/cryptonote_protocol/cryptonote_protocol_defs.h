@@ -148,9 +148,11 @@ namespace cryptonote
     struct request
     {
       std::vector<blobdata>   txs;
+      std::string _; // padding
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
+        KV_SERIALIZE(_)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -292,7 +294,7 @@ namespace cryptonote
 
     struct request
     {
-      std::vector<loki::service_node_deregister::vote> votes;
+      std::vector<service_nodes::deregister_vote> votes;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(votes)
       END_KV_SERIALIZE_MAP()

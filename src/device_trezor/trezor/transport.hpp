@@ -239,6 +239,59 @@ namespace trezor {
     udp::endpoint m_endpoint;
   };
 
+#ifdef WITH_DEVICE_TREZOR_WEBUSB
+#include <libusb.h>
+
+  class WebUsbTransport : public Transport {
+  public:
+
+    explicit WebUsbTransport(
+        boost::optional<libusb_device_descriptor*> descriptor = boost::none,
+        boost::optional<std::shared_ptr<Protocol>> proto = boost::none
+    );
+
+    virtual ~WebUsbTransport();
+
+    static const char * PATH_PREFIX;
+
+    std::string get_path() const override;
+    void enumerate(t_transport_vect & res) override;
+
+    void open() override;
+    void close() override;
+
+    void write(const google::protobuf::Message &req) override;
+    void read(std::shared_ptr<google::protobuf::Message> & msg, messages::MessageType * msg_type=nullptr) override;
+
+    void write_chunk(const void * buff, size_t size) override;
+    size_t read_chunk(void * buff, size_t size) override;
+
+    std::ostream& dump(std::ostream& o) const override;
+
+  private:
+    void require_device() const;
+    void require_connected() const;
+    int get_interface() const;
+    unsigned char get_endpoint() const;
+
+    int m_conn_count;
+    std::shared_ptr<Protocol> m_proto;
+
+    libusb_context        *m_usb_session;
+    libusb_device         *m_usb_device;
+    libusb_device_handle  *m_usb_device_handle;
+    std::unique_ptr<libusb_device_descriptor> m_usb_device_desc;
+    std::vector<uint8_t> m_port_numbers;
+    int m_bus_id;
+    int m_device_addr;
+
+#ifdef WITH_TREZOR_DEBUG
+    bool m_debug_mode;
+#endif
+  };
+
+#endif
+
   //
   // General helpers
   //
@@ -288,6 +341,20 @@ namespace trezor {
    * Throws corresponding failure exception.
    */
   [[ noreturn ]] void throw_failure_exception(const messages::common::Failure * failure);
+
+  /**
+   * Generic message holder, type + obj
+   */
+  class GenericMessage {
+  public:
+    GenericMessage(): m_empty(true) {}
+    GenericMessage(messages::MessageType m_type, const std::shared_ptr<google::protobuf::Message> &m_msg);
+    bool empty() const { return m_empty; }
+
+    hw::trezor::messages::MessageType m_type;
+    std::shared_ptr<google::protobuf::Message> m_msg;
+    bool m_empty;
+  };
 
   /**
    * Simple wrapper for write-read message exchange with expected message response type.

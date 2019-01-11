@@ -31,7 +31,6 @@
 #include "password.h"
 
 #include <iostream>
-#include <memory.h>
 #include <stdio.h>
 
 #if defined(_WIN32)
@@ -41,8 +40,6 @@
 #include <termios.h>
 #include <unistd.h>
 #endif
-
-#include "memwipe.h"
 
 #define EOT 0x4
 

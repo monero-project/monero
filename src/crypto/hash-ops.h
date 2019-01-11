@@ -37,7 +37,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "common/int-util.h"
+#include "int-util.h"
 #include "warnings.h"
 
 static inline void *padd(void *p, size_t i) {

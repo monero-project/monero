@@ -1,9 +1,9 @@
 #include "readline_buffer.h"
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <unistd.h>
 #include <iostream>
-#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_guard.hpp>
 #include <boost/algorithm/string.hpp>
 
 static void install_line_handler();

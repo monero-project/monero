@@ -48,7 +48,8 @@ set(common_sources
   spawn.cpp
   threadpool.cpp
   updates.cpp
-  aligned.c)
+  aligned.c
+  combinator.cpp)
 
 if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
@@ -69,7 +70,6 @@ set(common_private_headers
   error.h
   expect.h
   http_connection.h
-  int-util.h
   loki_integration_test_hooks.h
   notify.h
   pod-class.h
@@ -86,7 +86,8 @@ set(common_private_headers
   stack_trace.h
   threadpool.h
   updates.h
-  aligned.h)
+  aligned.h
+  combinator.h)
 
 loki_private_headers(common
   ${common_private_headers})

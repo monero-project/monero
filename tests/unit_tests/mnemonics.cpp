@@ -75,7 +75,6 @@ namespace
    */
   void test_language(const Language::Base &language)
   {
-    const std::vector<std::string> &word_list = language.get_word_list();
     epee::wipeable_string w_seed = "", w_return_seed = "";
     std::string seed, return_seed;
     // Generate a random seed without checksum

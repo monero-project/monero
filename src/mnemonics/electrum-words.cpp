@@ -37,22 +37,14 @@
  */
 
 #include <string>
-#include <cassert>
-#include <map>
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
-#include <boost/algorithm/string.hpp>
 #include "wipeable_string.h"
 #include "misc_language.h"
-#include "crypto/crypto.h"  // for declaration of crypto::secret_key
-#include <fstream>
-#include "common/int-util.h"
+#include "int-util.h"
 #include "mnemonics/electrum-words.h"
-#include <stdexcept>
-#include <boost/filesystem.hpp>
 #include <boost/crc.hpp>
-#include <boost/algorithm/string/join.hpp>
 
 #include "chinese_simplified.h"
 #include "english.h"

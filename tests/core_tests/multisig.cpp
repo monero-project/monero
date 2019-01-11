@@ -482,167 +482,167 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 bool gen_multisig_tx_valid_22_1_2::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 2, 1, {2}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 2, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_22_1_2_many_inputs::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 4, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 2, 1, {2}, NULL, NULL);
+  return generate_with(events, 4, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 2, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_22_2_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 2, 2, {1}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 2, 2, {1}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_33_1_23::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 3, 3, 1, {2, 3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 3, 3, 1, {2, 3}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_33_3_21::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 3, 3, 3, {2, 1}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 3, 3, 3, {2, 1}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_23_1_2::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 3, 1, {2}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 3, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_23_1_3::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 3, 1, {3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 3, 1, {3}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_23_2_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 3, 2, {1}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 3, 2, {1}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_23_2_3::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 3, 2, {3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 3, 2, {3}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_45_1_234::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 4, 5, 1, {2, 3, 4}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 4, 5, 1, {2, 3, 4}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_45_4_135_many_inputs::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 4, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 4, 5, 4, {1, 3, 5}, NULL, NULL);
+  return generate_with(events, 4, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 4, 5, 4, {1, 3, 5}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_89_3_1245789::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 8, 9, 3, {1, 2, 4, 5, 7, 8, 9}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 8, 9, 3, {1, 2, 4, 5, 7, 8, 9}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_24_1_2::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
+    return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_24_1_2_many_inputs::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 4, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
+    return generate_with(events, 4, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 4, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_25_1_2::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
+    return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_25_1_2_many_inputs::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 4, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
+    return generate_with(events, 4, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 2, 5, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_48_1_234::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
+    return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_48_1_234_many_inputs::generate(std::vector<test_event_entry>& events) const
 {
     const uint64_t amount_paid = 10000;
-    return generate_with(events, 4, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
+    return generate_with(events, 4, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, true, 4, 8, 1, {2, 3, 4}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_22_1__no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 2, 2, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 2, 2, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_33_1__no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 3, 3, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 3, 3, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_33_1_2_no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 3, 3, 1, {2}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 3, 3, 1, {2}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_33_1_3_no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 3, 3, 1, {3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 3, 3, 1, {3}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_23_1__no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 2, 3, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 2, 3, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_invalid_45_5_23_no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 4, 5, 5, {2, 3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 4, 5, 5, {2, 3}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_24_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 2, 4, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 2, 4, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_25_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 2, 5, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 2, 5, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_48_1_no_signers::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 4, 8, 1, {}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 4, 8, 1, {}, NULL, NULL);
 }
 
 bool gen_multisig_tx_valid_48_1_23_no_threshold::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amount_paid = 10000;
-  return generate_with(events, 2, CRYPTONOTE_TX_DEFAULT_MIX, amount_paid, false, 4, 8, 1, {2, 3}, NULL, NULL);
+  return generate_with(events, 2, CRYPTONOTE_DEFAULT_TX_MIXIN, amount_paid, false, 4, 8, 1, {2, 3}, NULL, NULL);
 }

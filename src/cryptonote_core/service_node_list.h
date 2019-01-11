@@ -32,21 +32,22 @@
 #include <boost/variant.hpp>
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
+#include "cryptonote_core/service_node_deregister.h"
 
 namespace service_nodes
 {
   constexpr size_t QUORUM_SIZE                    = 10;
+  constexpr size_t QUORUM_LIFETIME                = (6 * deregister_vote::DEREGISTER_LIFETIME_BY_HEIGHT);
   constexpr size_t MIN_VOTES_TO_KICK_SERVICE_NODE = 7;
   constexpr size_t NTH_OF_THE_NETWORK_TO_TEST     = 100;
   constexpr size_t MIN_NODES_TO_TEST              = 50;
-
-  constexpr size_t MAX_SWARM_SIZE               = 10;
+  constexpr size_t MAX_SWARM_SIZE                 = 10;
   // We never create a new swarm unless there are SWARM_BUFFER extra nodes
   // available in the queue.
-  constexpr size_t SWARM_BUFFER             = 5;
+  constexpr size_t SWARM_BUFFER                   = 5;
   // if a swarm has strictly less nodes than this, it is considered unhealthy
   // and nearby swarms will mirror it's data. It will disappear, and is already considered gone.
-  constexpr size_t MIN_SWARM_SIZE               = 5;
+  constexpr size_t MIN_SWARM_SIZE                 = 5;
 
   class quorum_cop;
 
@@ -309,9 +310,9 @@ namespace service_nodes
   uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
   bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
-  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake);
+  bool convert_registration_args(cryptonote::network_type nettype, std::vector<std::string> args, std::vector<cryptonote::account_public_address>& addresses, std::vector<uint64_t>& portions, uint64_t& portions_for_operator, bool& autostake, boost::optional<std::string&> err_msg);
   bool make_registration_cmd(cryptonote::network_type nettype, const std::vector<std::string> args, const crypto::public_key& service_node_pubkey,
-                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly);
+                             const crypto::secret_key service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
 
   const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
   const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner =

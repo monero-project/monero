@@ -32,14 +32,11 @@
 
 #include <cstddef>
 #include <iostream>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/lock_guard.hpp>
 #include <boost/optional.hpp>
 #include <type_traits>
 #include <vector>
 
 #include "common/pod-class.h"
-#include "common/util.h"
 #include "memwipe.h"
 #include "mlocker.h"
 #include "generic-ops.h"

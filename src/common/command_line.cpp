@@ -31,10 +31,7 @@
 #include "command_line.h"
 #include <boost/algorithm/string/compare.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <unordered_set>
 #include "common/i18n.h"
-#include "cryptonote_config.h"
-#include "string_tools.h"
 
 namespace command_line
 {

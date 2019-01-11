@@ -112,7 +112,7 @@ static void make_wallets(std::vector<tools::wallet2>& wallets, unsigned int M)
   }
 
   for (auto& wallet: wallets) {
-    ASSERT_FALSE(wallet.multisig() || wallet.multisig() || wallet.multisig());
+    ASSERT_FALSE(wallet.multisig());
   }
 
   std::vector<std::string> mxis;

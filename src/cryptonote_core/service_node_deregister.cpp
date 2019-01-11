@@ -33,7 +33,6 @@
 #include "cryptonote_basic/verification_context.h"
 #include "cryptonote_basic/connection_context.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
-#include "cryptonote_core/service_node_list.h"
 #include "cryptonote_core/blockchain.h"
 
 #include "misc_log_ex.h"
@@ -46,8 +45,7 @@
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "service_nodes"
 
-
-namespace loki
+namespace service_nodes
 {
   static crypto::hash make_hash_from(uint64_t block_height, uint32_t service_node_index)
   {
@@ -63,20 +61,20 @@ namespace loki
     return result;
   }
 
-  crypto::signature service_node_deregister::sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec)
+  crypto::signature deregister_vote::sign_vote(uint64_t block_height, uint32_t service_node_index, const crypto::public_key& pub, const crypto::secret_key& sec)
   {
     crypto::signature result;
     crypto::generate_signature(make_hash_from(block_height, service_node_index), pub, sec, result);
     return result;
   }
 
-  bool service_node_deregister::verify_vote_signature(uint64_t block_height, uint32_t service_node_index, crypto::public_key p, crypto::signature s)
+  bool deregister_vote::verify_vote_signature(uint64_t block_height, uint32_t service_node_index, crypto::public_key const &p, crypto::signature const &s)
   {
     std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs{ std::make_pair(p, s) };
     return verify_votes_signature(block_height, service_node_index, keys_and_sigs);
   }
 
-  bool service_node_deregister::verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs)
+  bool deregister_vote::verify_votes_signature(uint64_t block_height, uint32_t service_node_index, const std::vector<std::pair<crypto::public_key, crypto::signature>>& keys_and_sigs)
   {
     crypto::hash hash = make_hash_from(block_height, service_node_index);
     for (auto& key_and_sig : keys_and_sigs)
@@ -125,7 +123,7 @@ namespace loki
       keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
     }
 
-    bool r = service_node_deregister::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
+    bool r = deregister_vote::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
     if (!r)
     {
       LOG_PRINT_L1("Invalid signatures for votes");
@@ -135,7 +133,7 @@ namespace loki
     return r;
   }
 
-  bool service_node_deregister::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
+  bool deregister_vote::verify_deregister(cryptonote::network_type nettype, const cryptonote::tx_extra_service_node_deregister& deregister,
                                                   cryptonote::vote_verification_context &vvc,
                                                   const service_nodes::quorum_state &quorum_state)
   {
@@ -150,8 +148,8 @@ namespace loki
     return result;
   }
 
-  bool service_node_deregister::verify_vote(cryptonote::network_type nettype, const vote& v, cryptonote::vote_verification_context &vvc,
-                                            const service_nodes::quorum_state &quorum_state)
+  bool deregister_vote::verify_vote(cryptonote::network_type nettype, const deregister_vote& v, cryptonote::vote_verification_context &vvc,
+                                    const service_nodes::quorum_state &quorum_state)
   {
     cryptonote::tx_extra_service_node_deregister deregister;
     deregister.block_height = v.block_height;
@@ -160,12 +158,12 @@ namespace loki
     return verify_votes_helper(nettype, deregister, vvc, quorum_state);
   }
 
-  void deregister_vote_pool::set_relayed(const std::vector<service_node_deregister::vote>& votes)
+  void deregister_vote_pool::set_relayed(const std::vector<deregister_vote>& votes)
   {
     CRITICAL_REGION_LOCAL(m_lock);
     const time_t now = time(NULL);
 
-    for (const service_node_deregister::vote &find_vote : votes)
+    for (const deregister_vote &find_vote : votes)
     {
       deregister_group desired_group   = {};
       desired_group.block_height       = find_vote.block_height;
@@ -174,7 +172,7 @@ namespace loki
       auto deregister_entry = m_deregisters.find(desired_group);
       if (deregister_entry != m_deregisters.end())
       {
-        std::vector<deregister> &deregister_vector = deregister_entry->second;
+        std::vector<deregister_pool_entry> &deregister_vector = deregister_entry->second;
         for (auto &deregister : deregister_vector)
         {
           if (deregister.m_vote.voters_quorum_index == find_vote.voters_quorum_index)
@@ -187,7 +185,7 @@ namespace loki
     }
   }
 
-  std::vector<service_node_deregister::vote> deregister_vote_pool::get_relayable_votes() const
+  std::vector<deregister_vote> deregister_vote_pool::get_relayable_votes() const
   {
     CRITICAL_REGION_LOCAL(m_lock);
     const cryptonote::cryptonote_connection_context fake_context = AUTO_VAL_INIT(fake_context);
@@ -196,11 +194,11 @@ namespace loki
     const time_t now       = time(NULL);
     const time_t THRESHOLD = 60 * 2;
 
-    std::vector<service_node_deregister::vote> result;
+    std::vector<deregister_vote> result;
     for (const auto &deregister_entry : m_deregisters)
     {
-      const std::vector<deregister>& deregister_vector = deregister_entry.second;
-      for (const deregister &entry : deregister_vector)
+      const std::vector<deregister_pool_entry>& deregister_vector = deregister_entry.second;
+      for (const deregister_pool_entry &entry : deregister_vector)
       {
         const time_t last_sent = now - entry.m_time_last_sent_p2p;
         if (last_sent > THRESHOLD)
@@ -212,12 +210,12 @@ namespace loki
     return result;
   }
 
-  bool deregister_vote_pool::add_vote(const service_node_deregister::vote& new_vote,
+  bool deregister_vote_pool::add_vote(const deregister_vote& new_vote,
                                       cryptonote::vote_verification_context& vvc,
                                       const service_nodes::quorum_state &quorum_state,
                                       cryptonote::transaction &tx)
   {
-    if (!service_node_deregister::verify_vote(m_nettype, new_vote, vvc, quorum_state))
+    if (!deregister_vote::verify_vote(m_nettype, new_vote, vvc, quorum_state))
     {
       LOG_PRINT_L1("Signature verification failed for deregister vote");
       return false;
@@ -225,7 +223,7 @@ namespace loki
 
     CRITICAL_REGION_LOCAL(m_lock);
     time_t const now = time(NULL);
-    std::vector<deregister> *deregister_votes;
+    std::vector<deregister_pool_entry> *deregister_votes;
     {
       deregister_group desired_group   = {};
       desired_group.block_height       = new_vote.block_height;
@@ -246,7 +244,7 @@ namespace loki
     if (new_deregister_is_unique)
     {
       vvc.m_added_to_pool = true;
-      deregister_votes->emplace_back(deregister(0 /*time_last_sent_p2p*/, new_vote));
+      deregister_votes->emplace_back(deregister_pool_entry(0 /*time_last_sent_p2p*/, new_vote));
 
       if (deregister_votes->size() >= service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
       {
@@ -303,13 +301,13 @@ namespace loki
 
   void deregister_vote_pool::remove_expired_votes(uint64_t height)
   {
-    if (height < service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+    if (height < deregister_vote::VOTE_LIFETIME_BY_HEIGHT)
     {
       return;
     }
 
     CRITICAL_REGION_LOCAL(m_lock);
-    uint64_t minimum_height = height - service_node_deregister::VOTE_LIFETIME_BY_HEIGHT;
+    uint64_t minimum_height = height - deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
     for (auto it = m_deregisters.begin(); it != m_deregisters.end();)
     {
       const deregister_group &deregister_for = it->first;
@@ -323,5 +321,5 @@ namespace loki
       }
     }
   }
-}; // namespace loki
+}; // namespace service_nodes
 

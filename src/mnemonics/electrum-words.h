@@ -41,7 +41,6 @@
 
 #include <string>
 #include <cstdint>
-#include <map>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
 
 namespace epee {  class wipeable_string; }

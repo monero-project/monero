@@ -315,8 +315,6 @@ class linear_chain_generator
 
     int get_hf_version() const;
 
-    void rewind_until_v9();
-    void continue_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_until_version(const std::vector<std::pair<uint8_t, uint64_t>> &hard_forks, int hard_fork_version);
     void rewind_blocks_n(int n);
     void rewind_blocks();
@@ -759,6 +757,9 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
   push_core_event_visitor<t_test_class> visitor(cr, events, validator);
   for(size_t i = 1; i < events.size() && r; ++i)
   {
+      if ( i == 155) {
+          volatile int break_here = 5;
+      }
     visitor.event_index(i);
     r = boost::apply_visitor(visitor, events[i]);
   }
@@ -797,7 +798,7 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
   // FIXME: make sure that vm has arg_testnet_on set to true or false if
   // this test needs for it to be so.
   get_test_options<t_test_class> gto;
-  if (!c.init(vm, NULL, &gto.test_options))
+  if (!c.init(vm, &gto.test_options))
   {
     MERROR("Failed to init core");
     return false;

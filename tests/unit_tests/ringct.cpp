@@ -968,8 +968,6 @@ static rctSig make_sig()
 #define TEST_rctSig_elements(name, op) \
 TEST(ringct, rctSig_##name) \
 { \
-  const uint64_t inputs[] = {1000, 1000}; \
-  const uint64_t outputs[] = {1000, 1000}; \
   rct::rctSig sig = make_sig(); \
   ASSERT_TRUE(rct::verRct(sig)); \
   op; \
@@ -1084,6 +1082,25 @@ TEST(ringct, zeroCommmit)
   const rct::key b = rct::scalarmultH(rct::d2h(amount));
   const rct::key manual = rct::addKeys(a, b);
   ASSERT_EQ(z, manual);
+}
+
+static rct::key uncachedZeroCommit(uint64_t amount)
+{
+  const rct::key am = rct::d2h(amount);
+  const rct::key bH = rct::scalarmultH(am);
+  return rct::addKeys(rct::G, bH);
+}
+
+TEST(ringct, zeroCommitCache)
+{
+  ASSERT_EQ(rct::zeroCommit(0), uncachedZeroCommit(0));
+  ASSERT_EQ(rct::zeroCommit(1), uncachedZeroCommit(1));
+  ASSERT_EQ(rct::zeroCommit(2), uncachedZeroCommit(2));
+  ASSERT_EQ(rct::zeroCommit(10), uncachedZeroCommit(10));
+  ASSERT_EQ(rct::zeroCommit(200), uncachedZeroCommit(200));
+  ASSERT_EQ(rct::zeroCommit(1000000000), uncachedZeroCommit(1000000000));
+  ASSERT_EQ(rct::zeroCommit(3000000000000), uncachedZeroCommit(3000000000000));
+  ASSERT_EQ(rct::zeroCommit(900000000000000), uncachedZeroCommit(900000000000000));
 }
 
 TEST(ringct, H)
