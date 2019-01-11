@@ -7979,10 +7979,24 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
     // ignore unconfirmed transfers in running balance
     if (transfer.confirmed)
     {
-      if (transfer.type == tools::pay_type::in)
-        running_balance += transfer.amount;
-      else
-        running_balance -= transfer.amount + transfer.fee;
+      switch (transfer.type)
+      {
+        case tools::pay_type::in:
+        case tools::pay_type::miner:
+        case tools::pay_type::service_node:
+        case tools::pay_type::governance:
+          running_balance += transfer.amount;
+          break;
+        case tools::pay_type::stake:
+          running_balance -= transfer.fee;
+          break;
+        case tools::pay_type::out:
+          running_balance -= transfer.amount + transfer.fee;
+          break;
+        default:
+          fail_msg_writer() << tr("Warning: Unhandled pay type, this is most likely a developer error, please report it to the Loki developers.");
+          break;
+      }
     }
 
     char const UNLOCKED[] = "unlocked";
