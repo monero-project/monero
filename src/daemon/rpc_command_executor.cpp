@@ -2356,8 +2356,7 @@ static uint64_t get_actual_amount(uint64_t amount, uint64_t portions)
 
 bool t_rpc_command_executor::prepare_registration()
 {
-  // RAII-style class to temporarily clear categories and restore upon destruction (i.e. upon
-  // returning).
+  // RAII-style class to temporarily clear categories and restore upon destruction (i.e. upon returning).
   struct clear_log_categories {
     std::string categories;
     clear_log_categories() { categories = mlog_get_categories(); mlog_set_categories(""); }
@@ -2365,38 +2364,102 @@ bool t_rpc_command_executor::prepare_registration()
   };
   auto scoped_log_cats = std::unique_ptr<clear_log_categories>(new clear_log_categories());
 
-  cryptonote::COMMAND_RPC_GET_INFO::request req;
-  cryptonote::COMMAND_RPC_GET_INFO::response res;
-  cryptonote::network_type nettype = cryptonote::UNDEFINED;
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request keyreq = {};
-  cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response keyres = {};
-  std::string key_fail_message = "Cannot get service node key. Make sure you are running daemon with --service-node flag";
-  std::string info_fail_message = "Could not get current blockchain info";
-
-  if (m_is_rpc)
+  // Check if the daemon was started in Service Node or not
   {
-    if (!m_rpc_client->json_rpc_request(keyreq, keyres, "get_service_node_key", key_fail_message.c_str()) ||
-        !m_rpc_client->rpc_request(req, res, "/getinfo", info_fail_message.c_str()))
-      return true;
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::request keyreq = {};
+    cryptonote::COMMAND_RPC_GET_SERVICE_NODE_KEY::response keyres = {};
+    std::string const fail_msg = "Cannot get service node key. Make sure you are running daemon with --service-node flag";
 
-    if (res.mainnet) nettype       = cryptonote::MAINNET;
-    else if (res.stagenet) nettype = cryptonote::STAGENET;
-    else if (res.testnet) nettype  = cryptonote::TESTNET;
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->json_rpc_request(keyreq, keyres, "get_service_node_key", fail_msg))
+        return true;
+    }
+    else
+    {
+      epee::json_rpc::error error_resp;
+      if (!m_rpc_server->on_get_service_node_key(keyreq, keyres, error_resp) || keyres.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << make_error(fail_msg, error_resp.message);
+        return true;
+      }
+    }
   }
-  else
+
+  // Query the latest known block height and nettype
+  uint64_t block_height            = 0;
+  cryptonote::network_type nettype = cryptonote::UNDEFINED;
   {
-    epee::json_rpc::error error_resp;
-    if (!m_rpc_server->on_get_service_node_key(keyreq, keyres, error_resp) || keyres.status != CORE_RPC_STATUS_OK)
+    cryptonote::COMMAND_RPC_GET_INFO::request req;
+    cryptonote::COMMAND_RPC_GET_INFO::response res;
+    std::string const info_fail_message = "Could not get current blockchain info";
+
+    if (m_is_rpc)
     {
-      tools::fail_msg_writer() << make_error(key_fail_message, error_resp.message);
-      return true;
+
+      if (!m_rpc_client->rpc_request(req, res, "/getinfo", info_fail_message.c_str()))
+        return true;
+
+      if      (res.mainnet) nettype  = cryptonote::MAINNET;
+      else if (res.stagenet) nettype = cryptonote::STAGENET;
+      else if (res.testnet) nettype  = cryptonote::TESTNET;
     }
-    if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
+    else
     {
-      tools::fail_msg_writer() << make_error(info_fail_message, res.status);
-      return true;
+      if (!m_rpc_server->on_get_info(req, res) || res.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << make_error(info_fail_message, res.status);
+        return true;
+      }
+      nettype = m_rpc_server->nettype();
     }
-    nettype = m_rpc_server->nettype();
+    block_height = std::max(res.height, res.target_height);
+  }
+
+  // Query the latest block we've synced and check that the timestamp is sensible, issue a warning if not
+  {
+    cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::request req  = {};
+    cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::response res = {};
+    std::string const fail_msg = "Get latest block failed, unable to check sync status";
+
+    if (m_is_rpc)
+    {
+      if (!m_rpc_client->json_rpc_request(req, res, "get_last_block_header", fail_msg))
+        return true;
+    }
+    else
+    {
+      epee::json_rpc::error error_resp;
+      if (!m_rpc_server->on_get_last_block_header(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+      {
+        tools::fail_msg_writer() << make_error(fail_msg, res.status);
+        return true;
+      }
+    }
+
+    cryptonote::block_header_response const &header = res.block_header;
+    uint64_t const now                              = time(nullptr);
+
+    if (now >= header.timestamp)
+    {
+      uint64_t delta = now - header.timestamp;
+      if (delta > (60 * 60))
+      {
+        tools::fail_msg_writer() << "The last block this Service Node knows about was at least " << get_human_time_ago(header.timestamp, now)
+                                 << "\nYour node is possibly desynced from the network or still syncing to the network."
+                                 << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
+      }
+    }
+
+    if (block_height >= header.height)
+    {
+      uint64_t delta = block_height - header.height;
+      if (delta > 15)
+      {
+        tools::fail_msg_writer() << "The last block this Service Node synced is " << delta << " blocks away from the longest chain we know about."
+                                 << "\n\nRegistering this node may result in a deregistration due to being out of date with the network\n";
+      }
+    }
   }
 
 #ifdef HAVE_READLINE
@@ -2410,7 +2473,6 @@ bool t_rpc_command_executor::prepare_registration()
   std::vector<std::string> addresses;
   std::vector<uint64_t> contributions;
 
-  const uint64_t block_height = std::max(res.height, res.target_height);
   const uint64_t staking_requirement =
     std::max(service_nodes::get_staking_requirement(nettype, block_height),
              service_nodes::get_staking_requirement(nettype, block_height + 30 * 24)); // allow 1 day
