@@ -7737,7 +7737,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
 
         // NOTE: If any output is locked at all, consider the transfer locked.
         uint64_t lock_duration = unlock_time - pd.m_block_height;
-        locked |= (!m_wallet->is_tx_spendtime_unlocked(pd.m_unlock_time, pd.m_block_height));
+        locked |= (!m_wallet->is_transfer_unlocked(unlock_time, pd.m_block_height));
         if (lock_duration >= staking_duration) type = tools::pay_type::stake;
       }
 
