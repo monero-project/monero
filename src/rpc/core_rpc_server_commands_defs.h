@@ -2307,7 +2307,8 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
+
+  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
   {
     struct request
     {
@@ -2316,6 +2317,43 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(args)
         KV_SERIALIZE(make_friendly)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      std::string registration_cmd;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(registration_cmd)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD
+  { 
+    struct contribution_t {
+      std::string address;
+      uint64_t amount;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(amount)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct request
+    {
+      bool autostake;
+      std::string operator_cut;
+      std::vector<contribution_t> contributions;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(autostake)
+        KV_SERIALIZE(operator_cut)
+        KV_SERIALIZE(contributions)
       END_KV_SERIALIZE_MAP()
     };
 

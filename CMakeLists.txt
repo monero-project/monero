@@ -303,7 +303,7 @@ option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
 
 # This is a CMake built-in switch that concerns internal libraries
 if (NOT DEFINED BUILD_SHARED_LIBS AND NOT STATIC AND CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
-    set(BUILD_SHARED_LIBS ON)
+  set(BUILD_SHARED_LIBS ON)
 endif()
 
 if (BUILD_SHARED_LIBS)
