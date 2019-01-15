@@ -17,10 +17,9 @@ tools::scoped_message_writer::~scoped_message_writer()
     m_flush = false;
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    loki::use_redirected_cout();
     std::cout << m_oss.str();
-    loki::use_standard_cout();
     loki::write_redirected_stdout_to_shared_mem();
+    return;
 #endif
 
     MCLOG_FILE(m_log_level, "msgwriter", m_oss.str());
@@ -30,9 +29,7 @@ tools::scoped_message_writer::~scoped_message_writer()
     }
     else
     {
-#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
       PAUSE_READLINE();
-#endif
       set_console_color(m_color, m_bright);
       std::cout << m_oss.str();
       epee::reset_console_color();

@@ -2459,7 +2459,8 @@ bool t_rpc_command_executor::print_sn_key()
     }
   }
 
-  tools::success_msg_writer() << "Service Node Public Key: " << res.service_node_pubkey;
+  std::string const msg_buf = "Service Node Public Key: " + res.service_node_pubkey;
+  tools::success_msg_writer() << msg_buf;
   return true;
 }
 
@@ -2632,12 +2633,8 @@ bool t_rpc_command_executor::prepare_registration()
   }
   else
   {
-    std::string operating_cost_string;
-    std::cout << "What percentage of the total staking reward would the operator like to reserve as an operator fee [0-100]%: ";
-    std::cin >> operating_cost_string;
-
+    std::string operating_cost_string = input_line("What percentage of the total staking reward would the operator like to reserve as an operator fee [0-100]%: ");
     bool res = service_nodes::get_portions_from_percent_str(operating_cost_string, operating_cost_portions);
-
     if (!res) {
       std::cout << "Invalid value: " << operating_cost_string << ". Should be between [0-100]" << std::endl;
       return true;
@@ -2722,13 +2719,7 @@ bool t_rpc_command_executor::prepare_registration()
     }
 
     std::cout << "Enter the loki address for " << contributor_name << ": ";
-    std::string address_string;
-    // the addresses will be validated later down the line
-    if(!(std::cin >> address_string))
-    {
-      std::cout << "Invalid address. Aborted." << std::endl;
-      return true;
-    }
+    std::string address_string = input_line();
     addresses.push_back(address_string);
   }
 

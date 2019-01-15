@@ -360,38 +360,29 @@ bool t_command_server::start_handling(std::function<void(void)> exit_handler)
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
   auto handle_shared_mem_ins_and_outs = [&]()
   {
+    // TODO(doyle): Hack, don't hook into input until the daemon has completely initialised, i.e. you can print the status
+    while(!loki::core_is_idle) {}
+    mlog_set_categories("");
+
     for (;;)
     {
-      loki::use_standard_cout();
-
-      std::vector<std::string> args;
+      loki::fixed_buffer const input = loki::read_from_stdin_shared_mem();
+      std::vector<std::string> args  = loki::separate_stdin_to_space_delim_args(&input);
       {
-        loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
-        std::cout << cmd.data << std::endl;
-
-        char const *start = cmd.data;
-        for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
-        {
-          if (buf_ptr[0] == ' ')
-          {
-            std::string result(start, buf_ptr - start);
-            start = buf_ptr + 1;
-            args.push_back(result);
-          }
-        }
-
-        if (*start)
-        {
-            std::string last(start);
-            args.push_back(last);
-        }
+        boost::unique_lock<boost::mutex> scoped_lock(loki::integration_test_mutex);
+        loki::use_standard_cout();
+        std::cout << input.data << std::endl;
+        loki::use_redirected_cout();
       }
-      loki::use_redirected_cout();
-      process_command_vec(args);
-      loki::write_redirected_stdout_to_shared_mem();
 
+      process_command_vec(args);
       if (args.size() == 1 && args[0] == "exit")
+      {
+        loki::deinit_integration_test_context();
         break;
+      }
+
+      loki::write_redirected_stdout_to_shared_mem();
     }
   };
   static std::thread handle_remote_stdin_out_thread(handle_shared_mem_ins_and_outs);

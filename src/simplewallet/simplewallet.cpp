@@ -163,9 +163,7 @@ namespace
   {
     std::string buf;
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    loki::use_redirected_cout();
     std::cout << prompt;
-
     loki::write_redirected_stdout_to_shared_mem();
     loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     buf.reserve(buffer.len);
@@ -177,11 +175,11 @@ namespace
 #endif
 
     std::cout << prompt;
-  #ifdef _WIN32
-      buf = tools::input_line_win();
-  #else
-      std::getline(std::cin, buf);
-  #endif
+#ifdef _WIN32
+    buf = tools::input_line_win();
+#else
+    std::getline(std::cin, buf);
+#endif
 #endif
 
     return epee::string_tools::trim(buf);
@@ -190,16 +188,15 @@ namespace
   epee::wipeable_string input_secure_line(const std::string& prompt)
   {
 #if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    loki::use_redirected_cout();
     std::cout << prompt;
     loki::write_redirected_stdout_to_shared_mem();
     loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
     epee::wipeable_string buf = buffer.data;
 #else
 
-  #ifdef HAVE_READLINE
+#ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
-  #endif
+#endif
     auto pwd_container = tools::password_container::prompt(false, prompt.c_str(), false);
     if (!pwd_container)
     {
@@ -228,7 +225,6 @@ namespace
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    loki::use_redirected_cout();
     std::cout << prompt << ": NOTE(loki): Passwords not supported, defaulting to empty password";
     loki::write_redirected_stdout_to_shared_mem();
     tools::password_container pwd_container(std::string(""));
@@ -8301,36 +8297,23 @@ bool simple_wallet::run()
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
   for (;;)
   {
-    loki::use_standard_cout();
-
-    std::vector<std::string> args;
+    loki::fixed_buffer const input = loki::read_from_stdin_shared_mem();
+    std::vector<std::string> args  = loki::separate_stdin_to_space_delim_args(&input);
     {
-      loki::fixed_buffer cmd = loki::read_from_stdin_shared_mem();
-      std::cout << cmd.data << std::endl;
-
-      char const *start = cmd.data;
-      for (char const *buf_ptr = start; *buf_ptr; ++buf_ptr)
-      {
-        if (buf_ptr[0] == ' ')
-        {
-          std::string result(start, buf_ptr - start);
-          start = buf_ptr + 1;
-          args.push_back(result);
-        }
-      }
-
-      if (*start)
-      {
-          std::string last(start);
-          args.push_back(last);
-      }
+      boost::unique_lock<boost::mutex> scoped_lock(loki::integration_test_mutex);
+      loki::use_standard_cout();
+      std::cout << input.data << std::endl;
+      loki::use_redirected_cout();
     }
-    loki::use_redirected_cout();
-    this->process_command(args);
-    loki::write_redirected_stdout_to_shared_mem();
 
+    this->process_command(args);
     if (args.size() == 1 && args[0] == "exit")
+    {
+      loki::deinit_integration_test_context();
       return true;
+    }
+
+    loki::write_redirected_stdout_to_shared_mem();
   }
 #endif
 

@@ -130,8 +130,7 @@ namespace wallet_args
     command_line::add_arg(desc_params, arg_config_file);
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
-    command_line::add_arg(desc_params, loki::arg_integration_test_shared_mem_stdin);
-    command_line::add_arg(desc_params, loki::arg_integration_test_shared_mem_stdout);
+    command_line::add_arg(desc_params, loki::arg_integration_test_shared_mem_name);
 #endif
 
     i18n_set_language("translations", "loki", lang);
@@ -147,13 +146,8 @@ namespace wallet_args
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
       {
-        std::string const &arg_shared_mem_stdin  = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdin);
-        std::string const &arg_shared_mem_stdout = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdout);
-        assert(arg_shared_mem_stdin.size() > 0 && arg_shared_mem_stdout.size() > 0);
-        static shoom::Shm stdin_shared_mem (arg_shared_mem_stdin, 8192);
-        static shoom::Shm stdout_shared_mem(arg_shared_mem_stdout, 8192);
-
-        loki::init_integration_test_context(&stdin_shared_mem, &stdout_shared_mem);
+        const std::string arg_shared_mem_name = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_name);
+        loki::init_integration_test_context(arg_shared_mem_name);
       }
 #endif
 

@@ -305,8 +305,7 @@ namespace cryptonote
 
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
     command_line::add_arg(desc, loki::arg_integration_test_hardforks_override);
-    command_line::add_arg(desc, loki::arg_integration_test_shared_mem_stdin);
-    command_line::add_arg(desc, loki::arg_integration_test_shared_mem_stdout);
+    command_line::add_arg(desc, loki::arg_integration_test_shared_mem_name);
 #endif
 
     miner::init_options(desc);
@@ -451,12 +450,8 @@ namespace cryptonote
       test_options = &integration_hardfork_override;
 
     {
-      const std::string arg_shared_mem_stdin  = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdin);
-      const std::string arg_shared_mem_stdout = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_stdout);
-      assert(arg_shared_mem_stdout.size() > 0 && arg_shared_mem_stdin.size() > 0);
-      static shoom::Shm stdin_shared_mem (arg_shared_mem_stdin, 8192);
-      static shoom::Shm stdout_shared_mem(arg_shared_mem_stdout, 8192);
-      loki::init_integration_test_context(&stdin_shared_mem, &stdout_shared_mem);
+      const std::string arg_shared_mem_name = command_line::get_arg(vm, loki::arg_integration_test_shared_mem_name);
+      loki::init_integration_test_context(arg_shared_mem_name);
     }
 #endif
 
@@ -1696,6 +1691,11 @@ namespace cryptonote
 
     m_miner.on_idle();
     m_mempool.on_idle();
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    loki::core_is_idle = true;
+#endif
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------
