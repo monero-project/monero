@@ -91,9 +91,9 @@ public:
 
   bool print_height();
 
-  bool print_block_by_hash(crypto::hash block_hash);
+  bool print_block_by_hash(crypto::hash block_hash, bool include_hex);
 
-  bool print_block_by_height(uint64_t height);
+  bool print_block_by_height(uint64_t height, bool include_hex);
 
   bool print_transaction(crypto::hash transaction_hash, bool include_hex, bool include_json);
 
