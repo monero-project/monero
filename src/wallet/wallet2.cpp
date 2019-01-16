@@ -4493,6 +4493,23 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
 
 bool wallet2::finalize_multisig(const epee::wipeable_string &password, const std::unordered_set<crypto::public_key> &pkeys, std::vector<crypto::public_key> signers)
 {
+  bool ready;
+  uint32_t threshold, total;
+  if (!multisig(&ready, &threshold, &total))
+  {
+    MERROR("This is not a multisig wallet");
+    return false;
+  }
+  if (ready)
+  {
+    MERROR("This multisig wallet is already finalized");
+    return false;
+  }
+  if (threshold + 1 != total)
+  {
+    MERROR("finalize_multisig should only be used for N-1/N wallets, use exchange_multisig_keys instead");
+    return false;
+  }
   exchange_multisig_keys(password, pkeys, signers);
   return true;
 }
