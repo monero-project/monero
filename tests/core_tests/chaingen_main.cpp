@@ -229,10 +229,10 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_2_many_inputs);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234);
     GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_234_many_inputs);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_no_signers);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_no_signers);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_no_signers);
-    GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_23_no_threshold);
+    GENERATE_AND_PLAY(gen_multisig_tx_invalid_24_1_no_signers);
+    GENERATE_AND_PLAY(gen_multisig_tx_invalid_25_1_no_signers);
+    GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_no_signers);
+    GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_23_no_threshold);
 
     GENERATE_AND_PLAY(gen_bp_tx_valid_1);
     GENERATE_AND_PLAY(gen_bp_tx_invalid_1_1);
