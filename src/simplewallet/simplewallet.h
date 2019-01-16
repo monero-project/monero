@@ -369,6 +369,7 @@ namespace cryptonote
     std::string m_mnemonic_language;
     std::string m_import_path;
     std::string m_subaddress_lookahead;
+    std::string m_restore_date;  // optional - converted to m_restore_height
 
     epee::wipeable_string m_electrum_seed;  // electrum-style seed parameter
 

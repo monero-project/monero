@@ -136,6 +136,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_non_deterministic = {"non-deterministic", sw::tr("Generate non-deterministic view and spend keys"), false};
   const command_line::arg_descriptor<bool> arg_allow_mismatched_daemon_version = {"allow-mismatched-daemon-version", sw::tr("Allow communicating with a daemon that uses a different RPC version"), false};
   const command_line::arg_descriptor<uint64_t> arg_restore_height = {"restore-height", sw::tr("Restore from specific blockchain height"), 0};
+  const command_line::arg_descriptor<std::string> arg_restore_date = {"restore-date", sw::tr("Restore from estimated blockchain height on specified date"), ""};
   const command_line::arg_descriptor<bool> arg_do_not_relay = {"do-not-relay", sw::tr("The newly created transaction will not be relayed to the monero network"), false};
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
@@ -3260,6 +3261,28 @@ static bool might_be_partial_seed(const epee::wipeable_string &words)
   return seed.size() < 24;
 }
 //----------------------------------------------------------------------------------------------------
+static bool datestr_to_int(const std::string &heightstr, uint16_t &year, uint8_t &month, uint8_t &day)
+{
+  if (heightstr.size() != 10 || heightstr[4] != '-' || heightstr[7] != '-')
+  {
+    fail_msg_writer() << tr("date format must be YYYY-MM-DD");
+    return false;
+  }
+  try
+  {
+    year  = boost::lexical_cast<uint16_t>(heightstr.substr(0,4));
+    // lexical_cast<uint8_t> won't work because uint8_t is treated as character type
+    month = boost::lexical_cast<uint16_t>(heightstr.substr(5,2));
+    day   = boost::lexical_cast<uint16_t>(heightstr.substr(8,2));
+  }
+  catch (const boost::bad_lexical_cast &)
+  {
+    fail_msg_writer() << tr("bad height parameter: ") << heightstr;
+    return false;
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
@@ -3700,7 +3723,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           tools::scoped_message_writer wrt = tools::msg_writer();
           wrt << tr("No restore height is specified.");
           wrt << tr("Assumed you are creating a new account, restore will be done from current estimated blockchain height.");
-          wrt << tr("Use --restore-height if you want to restore an already setup account from a specific height");
+          wrt << tr("Use --restore-height or --restore-date if you want to restore an already setup account from a specific height");
         }
         std::string confirm = input_line(tr("Is this okay?  (Y/Yes/N/No): "));
         if (std::cin.eof() || !command_line::is_yes(confirm))
@@ -3729,7 +3752,26 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
     if (m_restoring && m_generate_from_json.empty() && m_generate_from_device.empty())
     {
-      m_wallet->explicit_refresh_from_block_height(!command_line::is_arg_defaulted(vm, arg_restore_height));
+      m_wallet->explicit_refresh_from_block_height(!(command_line::is_arg_defaulted(vm, arg_restore_height) ||
+        command_line::is_arg_defaulted(vm, arg_restore_date)));
+      if (command_line::is_arg_defaulted(vm, arg_restore_height) && !command_line::is_arg_defaulted(vm, arg_restore_date))
+      {
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        if (!datestr_to_int(m_restore_date, year, month, day))
+          return false;
+        try
+        {
+          m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
+          success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+        }
+        catch (const std::runtime_error& e)
+        {
+          fail_msg_writer() << e.what();
+          return false;
+        }
+      }
     }
     if (!m_wallet->explicit_refresh_from_block_height() && m_restoring)
     {
@@ -3761,20 +3803,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
             fail_msg_writer() << tr("bad m_restore_height parameter: ") << heightstr;
             continue;
           }
-          if (heightstr.size() != 10 || heightstr[4] != '-' || heightstr[7] != '-')
-          {
-            fail_msg_writer() << tr("date format must be YYYY-MM-DD");
-            continue;
-          }
           uint16_t year;
           uint8_t month;  // 1, 2, ..., 12
           uint8_t day;    // 1, 2, ..., 31
           try
           {
-            year  = boost::lexical_cast<uint16_t>(heightstr.substr(0,4));
-            // lexical_cast<uint8_t> won't work because uint8_t is treated as character type
-            month = boost::lexical_cast<uint16_t>(heightstr.substr(5,2));
-            day   = boost::lexical_cast<uint16_t>(heightstr.substr(8,2));
+            if (!datestr_to_int(heightstr, year, month, day))
+              return false;
             m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
             success_msg_writer() << tr("Restore height is: ") << m_restore_height;
             std::string confirm = input_line(tr("Is this okay?  (Y/Yes/N/No): "));
@@ -3861,6 +3896,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
   m_allow_mismatched_daemon_version = command_line::get_arg(vm, arg_allow_mismatched_daemon_version);
   m_restore_height                = command_line::get_arg(vm, arg_restore_height);
+  m_restore_date                  = command_line::get_arg(vm, arg_restore_date);
   m_do_not_relay                  = command_line::get_arg(vm, arg_do_not_relay);
   m_subaddress_lookahead          = command_line::get_arg(vm, arg_subaddress_lookahead);
   m_use_english_language_names    = command_line::get_arg(vm, arg_use_english_language_names);
@@ -3872,6 +3908,14 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
                                     !m_generate_from_device.empty() ||
                                     m_restore_deterministic_wallet ||
                                     m_restore_multisig_wallet;
+
+  if (!command_line::is_arg_defaulted(vm, arg_restore_date))
+  {
+    uint16_t year;
+    uint8_t month, day;
+    if (!datestr_to_int(m_restore_date, year, month, day))
+      return false;
+  }
 
   return true;
 }
@@ -8924,6 +8968,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_allow_mismatched_daemon_version);
   command_line::add_arg(desc_params, arg_restore_height);
+  command_line::add_arg(desc_params, arg_restore_date);
   command_line::add_arg(desc_params, arg_do_not_relay);
   command_line::add_arg(desc_params, arg_create_address_file);
   command_line::add_arg(desc_params, arg_subaddress_lookahead);
