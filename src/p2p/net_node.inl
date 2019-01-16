@@ -1516,7 +1516,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::relay_notify_to_list(int command, const std::string& data_buff, const std::list<boost::uuids::uuid> &connections)
+  bool node_server<t_payload_net_handler>::relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, const std::list<boost::uuids::uuid> &connections)
   {
     for(const auto& c_id: connections)
     {
@@ -1526,7 +1526,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::relay_notify_to_all(int command, const std::string& data_buff, const epee::net_utils::connection_context_base& context)
+  bool node_server<t_payload_net_handler>::relay_notify_to_all(int command, const epee::span<const uint8_t> data_buff, const epee::net_utils::connection_context_base& context)
   {
     std::list<boost::uuids::uuid> connections;
     m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
@@ -1545,14 +1545,14 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::invoke_notify_to_peer(int command, const std::string& req_buff, const epee::net_utils::connection_context_base& context)
+  bool node_server<t_payload_net_handler>::invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context)
   {
     int res = m_net_server.get_config_object().notify(command, req_buff, context.m_connection_id);
     return res > 0;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::invoke_command_to_peer(int command, const std::string& req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context)
+  bool node_server<t_payload_net_handler>::invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context)
   {
     int res = m_net_server.get_config_object().invoke(command, req_buff, resp_buff, context.m_connection_id);
     return res > 0;

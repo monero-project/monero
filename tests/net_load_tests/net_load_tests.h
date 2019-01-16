@@ -62,7 +62,7 @@ namespace net_load_tests
     {
     }
 
-    virtual int invoke(int command, const std::string& in_buff, std::string& buff_out, test_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, test_connection_context& context)
     {
       //m_invoke_counter.inc();
       //std::unique_lock<std::mutex> lock(m_mutex);
@@ -73,7 +73,7 @@ namespace net_load_tests
       return LEVIN_OK;
     }
 
-    virtual int notify(int command, const std::string& in_buff, test_connection_context& context)
+    virtual int notify(int command, const epee::span<const uint8_t> in_buff, test_connection_context& context)
     {
       //m_notify_counter.inc();
       //std::unique_lock<std::mutex> lock(m_mutex);
