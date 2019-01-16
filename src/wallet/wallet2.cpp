@@ -10862,14 +10862,17 @@ bool wallet2::export_key_images(const std::string &filename) const
 }
 
 //----------------------------------------------------------------------------------------------------
-std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images() const
+std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> wallet2::export_key_images(bool all) const
 {
   PERF_TIMER(export_key_images_raw);
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
 
   size_t offset = 0;
-  while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
-    ++offset;
+  if (!all)
+  {
+    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
+      ++offset;
+  }
 
   ski.reserve(m_transfers.size() - offset);
   for (size_t n = offset; n < m_transfers.size(); ++n)
