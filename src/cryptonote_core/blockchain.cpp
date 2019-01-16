@@ -3853,33 +3853,11 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 }
 
 //------------------------------------------------------------------
-void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, const std::vector<output_data_t> &extra_tx_map) const
+void Blockchain::output_scan_worker(const uint64_t amount, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs) const
 {
   try
   {
     m_db->get_output_key(epee::span<const uint64_t>(&amount, 1), offsets, outputs, true);
-    if (outputs.size() < offsets.size())
-    {
-      const uint64_t n_outputs = m_db->get_num_outputs(amount);
-      for (size_t i = outputs.size(); i < offsets.size(); ++i)
-      {
-        uint64_t idx = offsets[i];
-        if (idx < n_outputs)
-        {
-          MWARNING("Index " << idx << " not found in db for amount " << amount << ", but it is less than the number of entries");
-          break;
-        }
-        else if (idx < n_outputs + extra_tx_map.size())
-        {
-          outputs.push_back(extra_tx_map[idx - n_outputs]);
-        }
-        else
-        {
-          MWARNING("missed " << amount << "/" << idx << " in " << extra_tx_map.size() << " (chain " << n_outputs << ")");
-          break;
-        }
-      }
-    }
   }
   catch (const std::exception& e)
   {
@@ -3994,34 +3972,6 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::vector
 //    vs [k_image, output_keys] (m_scan_table). This is faster because it takes advantage of bulk queries
 //    and is threaded if possible. The table (m_scan_table) will be used later when querying output
 //    keys.
-static bool update_output_map(std::map<uint64_t, std::vector<output_data_t>> &extra_tx_map, const transaction &tx, uint64_t height, bool miner)
-{
-  MTRACE("Blockchain::" << __func__);
-  for (size_t i = 0; i < tx.vout.size(); ++i)
-  {
-    const auto &out = tx.vout[i];
-    if (out.target.type() != typeid(txout_to_key))
-      continue;
-    const txout_to_key &out_to_key = boost::get<txout_to_key>(out.target);
-    rct::key commitment;
-    uint64_t amount = out.amount;
-    if (miner && tx.version == 2)
-    {
-      commitment = rct::zeroCommit(amount);
-      amount = 0;
-    }
-    else if (tx.version > 1)
-    {
-      CHECK_AND_ASSERT_MES(i < tx.rct_signatures.outPk.size(), false, "Invalid outPk size");
-      commitment = tx.rct_signatures.outPk[i].mask;
-    }
-    else
-      commitment = rct::zero();
-    extra_tx_map[amount].push_back(output_data_t{out_to_key.key, tx.unlock_time, height, commitment});
-  }
-  return true;
-}
-
 bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete_entry> &blocks_entry)
 {
   MTRACE("Blockchain::" << __func__);
@@ -4190,7 +4140,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   // [input] stores all absolute_offsets for each amount
   std::map<uint64_t, std::vector<uint64_t>> offset_map;
   // [output] stores all output_data_t for each absolute_offset
-  std::map<uint64_t, std::vector<output_data_t>> tx_map, extra_tx_map;
+  std::map<uint64_t, std::vector<output_data_t>> tx_map;
   std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
 #define SCAN_TABLE_QUIT(m) \
@@ -4207,8 +4157,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     if (m_cancel)
       return false;
 
-    if (!update_output_map(extra_tx_map, blocks[block_index].miner_tx, height + block_index, true))
-      SCAN_TABLE_QUIT("Error building extra tx map.");
     for (const auto &tx_blob : entry.txs)
     {
       if (tx_index >= txes.size())
@@ -4267,8 +4215,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
           offset_map[in_to_key.amount].push_back(offset);
 
       }
-      if (!update_output_map(extra_tx_map, tx, height + block_index, false))
-        SCAN_TABLE_QUIT("Error building extra tx map.");
     }
     ++block_index;
   }
@@ -4293,7 +4239,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     for (size_t i = 0; i < amounts.size(); i++)
     {
       uint64_t amount = amounts[i];
-      tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount]), std::cref(extra_tx_map[amount])), true);
+      tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount])), true);
     }
     waiter.wait(&tpool);
   }
@@ -4302,7 +4248,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     for (size_t i = 0; i < amounts.size(); i++)
     {
       uint64_t amount = amounts[i];
-      output_scan_worker(amount, offset_map[amount], tx_map[amount], extra_tx_map[amount]);
+      output_scan_worker(amount, offset_map[amount], tx_map[amount]);
     }
   }
 
