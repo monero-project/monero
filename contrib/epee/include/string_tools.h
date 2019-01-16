@@ -40,8 +40,6 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include "hex.h"
@@ -83,34 +81,6 @@ namespace epee
 {
 namespace string_tools
 {
-	//----------------------------------------------------------------------------
-	inline std::string get_str_from_guid_a(const boost::uuids::uuid& rid)
-	{
-		return boost::lexical_cast<std::string>(rid);
-	}
-	//----------------------------------------------------------------------------
-	inline bool get_guid_from_string(OUT boost::uuids::uuid& inetifer, const std::string& str_id)
-	{
-		std::string local_str_id = str_id;
-		if(local_str_id.size() < 36)
-			return false;
-
-		if('{' == *local_str_id.begin())
-			local_str_id.erase(0, 1);
-
-		if('}' == *(--local_str_id.end()))
-			local_str_id.erase(--local_str_id.end());
-
-		try
-		{
-			inetifer = boost::lexical_cast<boost::uuids::uuid>(local_str_id);
-			return true;
-		}
-		catch(...)
-		{
-			return false;
-		}
-	}
   //----------------------------------------------------------------------------
   inline std::string buff_to_hex_nodelimer(const std::string& src)
   {
