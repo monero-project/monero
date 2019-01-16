@@ -1166,6 +1166,7 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
         uint32_t threshold, total;
         m_wallet->multisig(NULL, &threshold, &total);
         success_msg_writer() << tr("Multisig wallet has been successfully created. Current wallet type: ") << threshold << "/" << total;
+        success_msg_writer() << tr("Multisig address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
       }
     }
     catch (const std::exception &e)
