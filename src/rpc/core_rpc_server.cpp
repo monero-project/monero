@@ -252,19 +252,11 @@ namespace cryptonote
       pruned_size += bd.first.first.size();
       unpruned_size += bd.first.first.size();
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
-      res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-      if (!req.no_miner_tx)
-      {
-        bool r = m_core.get_tx_outputs_gindexs(bd.first.second, res.output_indices.back().indices.back().indices);
-        if (!r)
-        {
-          res.status = "Failed";
-          return false;
-        }
-      }
       ntxes += bd.second.size();
+      res.output_indices.back().indices.reserve(1 + bd.second.size());
+      if (req.no_miner_tx)
+        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
       res.blocks.back().txs.reserve(bd.second.size());
-      res.output_indices.back().indices.reserve(bd.second.size());
       for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
         unpruned_size += i->second.size();
@@ -272,14 +264,25 @@ namespace cryptonote
         i->second.clear();
         i->second.shrink_to_fit();
         pruned_size += res.blocks.back().txs.back().size();
+      }
 
-        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        bool r = m_core.get_tx_outputs_gindexs(i->first, res.output_indices.back().indices.back().indices);
+      const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
+      if (n_txes_to_lookup > 0)
+      {
+        std::vector<std::vector<uint64_t>> indices;
+        bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? bd.second.front().first : bd.first.second, n_txes_to_lookup, indices);
         if (!r)
         {
           res.status = "Failed";
           return false;
         }
+        if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
+        {
+          res.status = "Failed";
+          return false;
+        }
+        for (size_t i = 0; i < indices.size(); ++i)
+          res.output_indices.back().indices.push_back({std::move(indices[i])});
       }
     }
 

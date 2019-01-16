@@ -1329,10 +1329,11 @@ public:
    * If an output cannot be found, the subclass should throw OUTPUT_DNE.
    *
    * @param tx_id a transaction ID
+   * @param n_txes how many txes to get data for, starting with tx_id
    *
    * @return a list of amount-specific output indices
    */
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const = 0;
+  virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_id, size_t n_txes = 1) const = 0;
 
   /**
    * @brief check if a key image is stored as spent

@@ -534,6 +534,7 @@ namespace cryptonote
       * @note see Blockchain::get_tx_outputs_gindexs
       */
      bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
+     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
      /**
       * @copydoc Blockchain::get_tail_id

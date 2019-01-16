@@ -2298,6 +2298,22 @@ bool Blockchain::check_for_double_spend(const transaction& tx, key_images_contai
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  uint64_t tx_index;
+  if (!m_db->tx_exists(tx_id, tx_index))
+  {
+    MERROR_VER("get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
+    return false;
+  }
+  indexs = m_db->get_tx_amount_output_indices(tx_index, n_txes);
+  CHECK_AND_ASSERT_MES(n_txes == indexs.size(), false, "Wrong indexs size");
+
+  return true;
+}
+//------------------------------------------------------------------
 bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2308,16 +2324,9 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
     MERROR_VER("get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
     return false;
   }
-
-  // get amount output indexes, currently referred to in parts as "output global indices", but they are actually specific to amounts
-  indexs = m_db->get_tx_amount_output_indices(tx_index);
-  if (indexs.empty())
-  {
-    // empty indexs is only valid if the vout is empty, which is legal but rare
-    cryptonote::transaction tx = m_db->get_tx(tx_id);
-    CHECK_AND_ASSERT_MES(tx.vout.empty(), false, "internal error: global indexes for transaction " << tx_id << " is empty, and tx vout is not");
-  }
-
+  std::vector<std::vector<uint64_t>> indices = m_db->get_tx_amount_output_indices(tx_index, 1);
+  CHECK_AND_ASSERT_MES(indices.size() == 1, false, "Wrong indices size");
+  indexs = indices.front();
   return true;
 }
 //------------------------------------------------------------------
