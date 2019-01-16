@@ -2017,7 +2017,7 @@ namespace nodetool
       return false;
 
     if (!m_peerlist.get_random_gray_peer(pe)) {
-        return false;
+        return true;
     }
 
     bool success = check_connection_and_handshake_with_peer(pe.adr, pe.last_seen);
