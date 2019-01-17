@@ -35,11 +35,6 @@ if (WIN32 OR STATIC)
   add_definitions(-DMINIUPNP_STATICLIB)
 endif ()
 
-# warnings are cleared only for GCC on Linux
-if (NOT (MINGW OR APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
-  add_compile_options("${WARNINGS_AS_ERRORS_FLAG}") # applies only to targets that follow
-endif()
-
 function (loki_private_headers group)
   source_group("${group}\\Private"
     FILES
