@@ -904,6 +904,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_multisig(false),
   m_multisig_threshold(0),
   m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex),
+  m_account_public_address{crypto::null_pkey, crypto::null_pkey},
   m_subaddress_lookahead_major(SUBADDRESS_LOOKAHEAD_MAJOR),
   m_subaddress_lookahead_minor(SUBADDRESS_LOOKAHEAD_MINOR),
   m_light_wallet(false),
@@ -920,6 +921,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_last_block_reward(0),
   m_encrypt_keys_after_refresh(boost::none),
   m_unattended(unattended),
+  m_devices_registered(false),
   m_device_last_key_image_sync(0)
 {
 }
@@ -2268,7 +2270,6 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   const cryptonote::account_keys &keys = m_account.get_keys();
 
   auto gender = [&](wallet2::is_out_data &iod) {
-    boost::unique_lock<hw::device> hwdev_lock(hwdev);
     if (!hwdev.generate_key_derivation(iod.pkey, keys.m_view_secret_key, iod.derivation))
     {
       MWARNING("Failed to generate key derivation from tx pubkey, skipping");
@@ -2277,12 +2278,16 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
     }
   };
 
-  for (auto &slot: tx_cache_data)
+  for (size_t i = 0; i < tx_cache_data.size(); ++i)
   {
-    for (auto &iod: slot.primary)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
-    for (auto &iod: slot.additional)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
+    tpool.submit(&waiter, [&hwdev, &gender, &tx_cache_data, i]() {
+      auto &slot = tx_cache_data[i];
+      boost::unique_lock<hw::device> hwdev_lock(hwdev);
+      for (auto &iod: slot.primary)
+        gender(iod);
+      for (auto &iod: slot.additional)
+        gender(iod);
+    }, true);
   }
   waiter.wait(&tpool);
 
@@ -2382,11 +2387,10 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
     THROW_WALLET_EXCEPTION_IF(prev_blocks.size() != prev_parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
 
     // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-    std::vector<parsed_block>::const_reverse_iterator i = prev_parsed_blocks.rbegin();
-    for (size_t n = 0; n < std::min((size_t)3, prev_parsed_blocks.size()); ++n)
+    auto s = std::next(prev_parsed_blocks.rbegin(), std::min((size_t)3, prev_parsed_blocks.size())).base();
+    for (; s != prev_parsed_blocks.end(); ++s)
     {
-      short_chain_history.push_front(i->hash);
-      ++i;
+      short_chain_history.push_front(s->hash);
     }
 
     // pull the new blocks
@@ -2873,13 +2877,16 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   bool first = true;
   while(m_run.load(std::memory_order_relaxed))
   {
+    uint64_t next_blocks_start_height;
+    std::vector<cryptonote::block_complete_entry> next_blocks;
+    std::vector<parsed_block> next_parsed_blocks;
+    bool error;
     try
     {
       // pull the next set of blocks while we're processing the current one
-      uint64_t next_blocks_start_height;
-      std::vector<cryptonote::block_complete_entry> next_blocks;
-      std::vector<parsed_block> next_parsed_blocks;
-      bool error = false;
+      error = false;
+      next_blocks.clear();
+      next_parsed_blocks.clear();
       added_blocks = 0;
       if (!first && blocks.empty())
       {
@@ -2916,6 +2923,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           get_short_chain_history(short_chain_history);
           start_height = stop_height;
           throw std::runtime_error(""); // loop again
+        }
+        catch (const std::exception &e)
+        {
+          MERROR("Error parsing blocks: " << e.what());
+          error = true;
         }
         blocks_fetched += added_blocks;
       }
@@ -11004,9 +11016,6 @@ std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> 
   for (size_t n = offset; n < m_transfers.size(); ++n)
   {
     const transfer_details &td = m_transfers[n];
-
-    crypto::hash hash;
-    crypto::cn_fast_hash(&td.m_key_image, sizeof(td.m_key_image), hash);
 
     // get ephemeral public key
     const cryptonote::tx_out &out = td.m_tx.vout[td.m_internal_output_index];

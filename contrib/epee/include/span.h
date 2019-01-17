@@ -163,4 +163,12 @@ namespace epee
     static_assert(!has_padding<T>(), "source type may have padding");
     return {reinterpret_cast<std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
+
+  //! make a span from a std::string
+  template<typename T>
+  span<const T> strspan(const std::string &s) noexcept
+  {
+    static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected type");
+    return {reinterpret_cast<const T*>(s.data()), s.size()};
+  }
 }

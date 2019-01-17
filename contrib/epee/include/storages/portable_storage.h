@@ -35,6 +35,7 @@
 #include "portable_storage_to_json.h"
 #include "portable_storage_from_json.h"
 #include "portable_storage_val_converters.h"
+#include "span.h"
 #include "int-util.h"
 
 namespace epee
@@ -81,7 +82,8 @@ namespace epee
 
       //-------------------------------------------------------------------------------
       bool		store_to_binary(binarybuffer& target);
-      bool		load_from_binary(const binarybuffer& target);
+      bool		load_from_binary(const epee::span<const uint8_t> target);
+      bool		load_from_binary(const std::string& target) { return load_from_binary(epee::strspan<uint8_t>(target)); }
       template<class trace_policy>
       bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
       bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
@@ -146,7 +148,7 @@ namespace epee
       CATCH_ENTRY("portable_storage::store_to_binary", false)
     }
     inline
-    bool portable_storage::load_from_binary(const binarybuffer& source)
+    bool portable_storage::load_from_binary(const epee::span<const uint8_t> source)
     {
       m_root.m_entries.clear();
       if(source.size() < sizeof(storage_block_header))
