@@ -6860,8 +6860,8 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
   /// c. Check if the amount is too big
   if (amount > max_contrib_total)
   {
-    LOG_ERROR("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node") << std::endl;
-    LOG_ERROR("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total) << std::endl;
+    LOG_ERROR("You may only contribute up to " << print_money(max_contrib_total) << tr(" more loki to this service node") << std::endl);
+    LOG_ERROR("Reducing your stake from " << print_money(amount) << tr(" to ") << print_money(max_contrib_total) << std::endl);
     amount = max_contrib_total;
   }
 
