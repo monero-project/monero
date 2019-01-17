@@ -187,10 +187,10 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1__no_threshold);
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_2_no_threshold);
       GENERATE_AND_PLAY(gen_multisig_tx_invalid_33_1_3_no_threshold);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_24_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_25_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_no_signers);
-      GENERATE_AND_PLAY(gen_multisig_tx_valid_48_1_23_no_threshold);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_24_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_25_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_no_signers);
+      GENERATE_AND_PLAY(gen_multisig_tx_invalid_48_1_23_no_threshold);
 
       // Bulletproof Tests
       GENERATE_AND_PLAY(gen_bp_tx_valid_1);
@@ -239,9 +239,9 @@ int main(int argc, char* argv[])
 
       GENERATE_AND_PLAY(gen_v2_tx_mixable_0_mixin);
       GENERATE_AND_PLAY(gen_v2_tx_mixable_low_mixin);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
-  //    GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_only);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_one);
+      GENERATE_AND_PLAY(gen_v2_tx_unmixable_two);
       GENERATE_AND_PLAY(gen_v2_tx_dust);
 
       GENERATE_AND_PLAY(gen_rct_tx_valid_from_pre_rct);
