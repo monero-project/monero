@@ -37,8 +37,8 @@ namespace trezor {
 
 #ifdef WITH_DEVICE_TREZOR
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "device.trezor"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "device.trezor"
 #define TREZOR_BIP44_HARDENED_ZERO 0x80000000
 
     const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080};
