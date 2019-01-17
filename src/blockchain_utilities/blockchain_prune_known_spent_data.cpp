@@ -180,8 +180,8 @@ int main(int argc, char* argv[])
   const std::string input = command_line::get_arg(vm, arg_input);
 
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
-  blockchain_objects_t blockchain_objects = {};
-  Blockchain *core_storage = &blockchain_objects.m_blockchain;
+  blockchain_objects_t *blockchain_objects = new blockchain_objects_t();
+  Blockchain *core_storage = &blockchain_objects->m_blockchain;
   BlockchainDB *db = new_db(db_type);
   if (db == NULL)
   {
