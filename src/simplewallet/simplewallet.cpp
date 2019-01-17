@@ -8096,7 +8096,6 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
 
       std::string destination = m_wallet->get_subaddress_as_str({m_current_subaddress_account, pd.m_subaddr_index.minor});
       transfers.push_back({
-        type,
         pd.m_block_height,
         pd.m_timestamp,
         pd.m_type,
@@ -8156,7 +8155,6 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       std::string note = m_wallet->get_tx_note(i->first);
 
       transfers.push_back({
-        "out",
         pd.m_block_height,
         pd.m_timestamp,
         type,
@@ -8194,7 +8192,6 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
           double_spend_note = tr("[Double spend seen on the network: this transaction may or may not end up being mined] ");
 
         transfers.push_back({
-          "pool",
           "pool",
           pd.m_timestamp,
           tools::pay_type::in,
@@ -8241,7 +8238,6 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       bool is_failed = pd.m_state == tools::wallet2::unconfirmed_transfer_details::failed;
       if ((failed && is_failed) || (!is_failed && pending)) {
         transfers.push_back({
-          (is_failed ? "failed" : "pending"),
           (is_failed ? "failed" : "pending"),
           pd.m_timestamp,
           tools::pay_type::out,
@@ -8305,7 +8301,11 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       }
     }
 
-    if (!transfer.confirmed) color = console_color_white;
+    if (transfer.block.type() == typeid(std::string))
+    {
+      const std::string& block_str = boost::get<std::string>(transfer.block);
+      if (block_str == "failed") color = console_color_red;
+    }
 
     std::string destinations = "-";
     if (!transfer.outputs.empty())
