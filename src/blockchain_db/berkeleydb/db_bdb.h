@@ -392,24 +392,6 @@ private:
   virtual void drop_hard_fork_info();
 
   /**
-   * @brief convert a tx output to a blob for storage
-   *
-   * @param output the output to convert
-   *
-   * @return the resultant blob
-   */
-  blobdata output_to_blob(const tx_out& output) const;
-
-  /**
-   * @brief convert a tx output blob to a tx output
-   *
-   * @param blob the blob to convert
-   *
-   * @return the resultant tx output
-   */
-  tx_out output_from_blob(const blobdata& blob) const;
-
-  /**
    * @brief get the global index of the index-th output of the given amount
    *
    * @param amount the output amount
