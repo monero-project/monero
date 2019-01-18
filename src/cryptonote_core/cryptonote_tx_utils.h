@@ -73,17 +73,22 @@ namespace cryptonote
 
   struct tx_destination_entry
   {
+    std::string original;
     uint64_t amount;                    //money
     account_public_address addr;        //destination address
     bool is_subaddress;
+    bool is_integrated;
 
-    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)), is_subaddress(false) { }
-    tx_destination_entry(uint64_t a, const account_public_address &ad, bool is_subaddress) : amount(a), addr(ad), is_subaddress(is_subaddress) { }
+    tx_destination_entry() : amount(0), addr(AUTO_VAL_INIT(addr)), is_subaddress(false), is_integrated(false) { }
+    tx_destination_entry(uint64_t a, const account_public_address &ad, bool is_subaddress) : amount(a), addr(ad), is_subaddress(is_subaddress), is_integrated(false) { }
+    tx_destination_entry(const std::string &o, uint64_t a, const account_public_address &ad, bool is_subaddress) : original(o), amount(a), addr(ad), is_subaddress(is_subaddress), is_integrated(false) { }
 
     BEGIN_SERIALIZE_OBJECT()
+      FIELD(original)
       VARINT_FIELD(amount)
       FIELD(addr)
       FIELD(is_subaddress)
+      FIELD(is_integrated)
     END_SERIALIZE()
   };
 
@@ -102,7 +107,7 @@ namespace cryptonote
 }
 
 BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
-BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 1)
+BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 2)
 
 namespace boost
 {
@@ -132,6 +137,13 @@ namespace boost
       if (ver < 1)
         return;
       a & x.is_subaddress;
+      if (ver < 2)
+      {
+        x.is_integrated = false;
+        return;
+      }
+      a & x.original;
+      a & x.is_integrated;
     }
   }
 }
