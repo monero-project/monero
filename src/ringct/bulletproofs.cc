@@ -202,20 +202,36 @@ static rct::keyV vector_powers(const rct::key &x, size_t n)
 }
 
 /* Given a scalar, return the sum of its powers from 0 to n-1 */
-static rct::key vector_power_sum(const rct::key &x, size_t n)
+static rct::key vector_power_sum(rct::key x, size_t n)
 {
   if (n == 0)
     return rct::zero();
   rct::key res = rct::identity();
   if (n == 1)
     return res;
-  rct::key prev = x;
-  for (size_t i = 1; i < n; ++i)
+
+  const bool is_power_of_2 = (n & (n - 1)) == 0;
+  if (is_power_of_2)
   {
-    if (i > 1)
-      sc_mul(prev.bytes, prev.bytes, x.bytes);
-    sc_add(res.bytes, res.bytes, prev.bytes);
+    sc_add(res.bytes, res.bytes, x.bytes);
+    while (n > 2)
+    {
+      sc_mul(x.bytes, x.bytes, x.bytes);
+      sc_muladd(res.bytes, x.bytes, res.bytes, res.bytes);
+      n /= 2;
+    }
   }
+  else
+  {
+    rct::key prev = x;
+    for (size_t i = 1; i < n; ++i)
+    {
+      if (i > 1)
+        sc_mul(prev.bytes, prev.bytes, x.bytes);
+      sc_add(res.bytes, res.bytes, prev.bytes);
+    }
+  }
+
   return res;
 }
 
