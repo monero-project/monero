@@ -38,6 +38,8 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "i18n"
 
+#define MAX_LANGUAGE_SIZE 16
+
 static const unsigned char qm_magic[16] = {0x3c, 0xb8, 0x64, 0x18, 0xca, 0xef, 0x9c, 0x95, 0xcd, 0x21, 0x1c, 0xbf, 0x60, 0xa1, 0xbd, 0xdd};
 
 static std::map<std::string,std::string> i18n_entries;
@@ -62,7 +64,19 @@ std::string i18n_get_language()
 
   std::string language = e;
   language = language.substr(0, language.find("."));
+  language = language.substr(0, language.find("@"));
+
+  // check valid values
+  for (char c: language)
+    if (!strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-.@", c))
+      return "en";
+
   std::transform(language.begin(), language.end(), language.begin(), tolower);
+  if (language.size() > MAX_LANGUAGE_SIZE)
+  {
+    i18n_log("Language from LANG/LC_ALL suspiciously long, defaulting to en");
+    return "en";
+  }
   return language;
 }
 
