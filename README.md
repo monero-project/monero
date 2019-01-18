@@ -101,12 +101,12 @@ invokes cmake commands as needed.
 
     *Note*: If cmake can not find zmq.hpp file on OS X, installing `zmq.hpp` from
     https://github.com/zeromq/cppzmq to `/usr/local/include` should fix that error.
-    
+
     *Note*: The instructions above will compile the most stable release of the
     Loki software. If you would like to use and test the most recent software,
     use ```git checkout master```. The master branch may contain updates that are
-    both unstable and incompatible with release software, though testing is always 
-    encouraged. 
+    both unstable and incompatible with release software, though testing is always
+    encouraged.
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -136,14 +136,14 @@ Dependencies need to be built with -fPIC. Static libraries usually aren't, so yo
 
 #### On the Raspberry Pi
 
-Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/. If you are using Raspian Jessie, [please see note in the following section](#note-for-raspbian-jessie-users). 
+Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/. If you are using Raspian Jessie, [please see note in the following section](#note-for-raspbian-jessie-users).
 
 * `apt-get update && apt-get upgrade` to install all of the latest software
 
 * Install the dependencies for Loki from the 'Debian' column in the table above.
 
 * Increase the system swap size:
-```	
+```
 	sudo /etc/init.d/dphys-swapfile stop  
 	sudo nano /etc/dphys-swapfile  
 	CONF_SWAPSIZE=2048
@@ -177,7 +177,7 @@ If you are using the older Raspbian Jessie image, compiling Loki is a bit more c
 
 * As before, `apt-get update && apt-get upgrade` to install all of the latest software, and increase the system swap size
 
-```	
+```
 	sudo /etc/init.d/dphys-swapfile stop  
 	sudo nano /etc/dphys-swapfile  
 	CONF_SWAPSIZE=2048  
@@ -217,13 +217,13 @@ application.
 * Open the MSYS shell via the `MSYS2 Shell` shortcut
 * Update packages using pacman:  
 
-        pacman -Syuu  
+        pacman -Syu  
 
 * Exit the MSYS shell using Alt+F4  
 * Edit the properties for the `MSYS2 Shell` shortcut changing "msys2_shell.bat" to "msys2_shell.cmd -mingw64" for 64-bit builds or "msys2_shell.cmd -mingw32" for 32-bit builds
 * Restart MSYS shell via modified shortcut and update packages again using pacman:  
 
-        pacman -Syuu  
+        pacman -Syu  
 
 
 * Install dependencies:
@@ -233,7 +233,7 @@ application.
         pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi
 
     To build for 32-bit Windows:
- 
+
         pacman -S mingw-w64-i686-toolchain make mingw-w64-i686-cmake mingw-w64-i686-boost mingw-w64-i686-openssl mingw-w64-i686-zeromq mingw-w64-i686-libsodium mingw-w64-i686-hidapi
 
 * Open the MingW shell via `MinGW-w64-Win64 Shell` shortcut on 64-bit Windows
@@ -252,9 +252,9 @@ application.
 	
         cd git
 
-* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. '0.3.0'. If you dont care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/loki-project/loki/tags), do a git checkout for that version. eg. 'v2.0.3'. If you dont care about the version and just want binaries from master, skip this step:
 	
-        git checkout 0.3.0
+        git checkout v2.0.3
 
 * If you are on a 64-bit system, run:
 
@@ -269,7 +269,7 @@ application.
 * **Optional**: to build Windows binaries suitable for debugging on a 64-bit system, run:
 
         make debug-static-win64
-	
+
 * **Optional**: to build Windows binaries suitable for debugging on a 32-bit system, run:
 
         make debug-static-win32
@@ -316,7 +316,7 @@ mkdir ~/boost
 cd ~/boost
 
 # Fetch boost source
-ftp -o boost_1_64_0.tar.bz2 https://netcologne.dl.sourceforge.net/project/boost/boost/1.64.0/boost_1_64_0.tar.bz2 
+ftp -o boost_1_64_0.tar.bz2 https://netcologne.dl.sourceforge.net/project/boost/boost/1.64.0/boost_1_64_0.tar.bz2
 
 # MUST output: (SHA256) boost_1_64_0.tar.bz2: OK
 echo "7bcc5caace97baa948931d712ea5f37038dbb1c5d89b43ad4def4ed7cb683332 boost_1_64_0.tar.bz2" | sha256 -c
@@ -516,7 +516,7 @@ Run the build.
 Once it stalls, enter the following command:
 
 ```
-gdb /path/to/lokid `pidof lokid` 
+gdb /path/to/lokid `pidof lokid`
 ```
 
 Type `thread apply all bt` within gdb in order to obtain the stack trace

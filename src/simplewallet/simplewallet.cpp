@@ -1196,6 +1196,7 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
         uint32_t threshold, total;
         m_wallet->multisig(NULL, &threshold, &total);
         success_msg_writer() << tr("Multisig wallet has been successfully created. Current wallet type: ") << threshold << "/" << total;
+        success_msg_writer() << tr("Multisig address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
       }
     }
     catch (const std::exception &e)
@@ -3721,7 +3722,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         if (std::cin.eof() || !command_line::is_yes(confirm))
           CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
 
-        m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height()-1);
+        m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height());
         m_wallet->explicit_refresh_from_block_height(true);
         m_restore_height = m_wallet->get_refresh_from_block_height();
       }
