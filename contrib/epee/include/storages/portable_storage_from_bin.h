@@ -136,6 +136,7 @@ namespace epee
       //for pod types
       array_entry_t<type_name> sa;
       size_t size = read_varint();
+      sa.reserve(size);
       //TODO: add some optimization here later
       while(size--)
         sa.m_array.push_back(read<type_name>());        

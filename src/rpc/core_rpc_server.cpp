@@ -700,32 +700,18 @@ namespace cryptonote
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
       const vote_verification_context &vvc = tvc.m_vote_ctx;
-      res.status  = "Failed";
-      res.reason  = print_tx_verification_context  (tvc);
-      res.reason += print_vote_verification_context(vvc);
-
-      res.low_mixin = tvc.m_low_mixin;
-      res.double_spend = tvc.m_double_spend;
-      res.invalid_input = tvc.m_invalid_input;
-      res.invalid_output = tvc.m_invalid_output;
-      res.too_big = tvc.m_too_big;
-      res.overspend = tvc.m_overspend;
-      res.fee_too_low = tvc.m_fee_too_low;
-      res.not_rct = tvc.m_not_rct;
-      res.invalid_block_height = vvc.m_invalid_block_height;
-      res.duplicate_voters = vvc.m_duplicate_voters;
-      res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds;
-      res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds;
-      res.signature_not_valid = vvc.m_signature_not_valid;
-      res.not_enough_votes = vvc.m_not_enough_votes;
+      res.status          = "Failed";
+      std::string reason  = print_tx_verification_context  (tvc);
+      reason             += print_vote_verification_context(vvc);
+      res.tvc             = tvc;
       const std::string punctuation = res.reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << reason);
       }
       else
       {
-        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << res.reason);
+        LOG_PRINT_L0("[on_send_raw_tx]: Failed to process tx" << punctuation << reason);
       }
       return true;
     }
