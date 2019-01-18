@@ -147,7 +147,10 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
         private_tx_key,
         additional_tx_keys,
         true /*rct*/,
-        range_proof_type[n]))
+        range_proof_type[n],
+        nullptr, /*multisig_out*/
+        false, /*is_staking_tx*/
+        true /*per_output_unlock*/))
     {
       MDEBUG("construct_tx_and_get_tx_key failure");
       return false;

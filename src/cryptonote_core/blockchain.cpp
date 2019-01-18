@@ -528,9 +528,6 @@ bool Blockchain::deinit()
 
   MTRACE("Stopping blockchain read/write activity");
 
-  m_service_node_list.store();
-  m_service_node_list.set_db_pointer(nullptr);
-
  // stop async service
   m_async_work_idle.reset();
   m_async_pool.join_all();

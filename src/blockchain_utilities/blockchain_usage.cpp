@@ -168,9 +168,9 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Initializing source blockchain (BlockchainDB)");
   const std::string input = command_line::get_arg(vm, arg_input);
 
-  blockchain_objects_t *blockchain_objects = new blockchain_objects_t();
-  Blockchain *core_storage = &blockchain_objects->m_blockchain;
-  tx_memory_pool& m_mempool = blockchain_objects->m_mempool;
+  blockchain_objects_t blockchain_objects = {};
+  Blockchain *core_storage = &blockchain_objects.m_blockchain;
+  tx_memory_pool& m_mempool = blockchain_objects.m_mempool;
   BlockchainDB *db = new_db(db_type);
   if (db == NULL)
   {

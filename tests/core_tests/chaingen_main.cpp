@@ -121,13 +121,12 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(deregister_too_old);
       GENERATE_AND_PLAY(sn_test_rollback);
       GENERATE_AND_PLAY(test_swarms_basic);
-#else
-      GENERATE_AND_PLAY(test_swarms_basic);
 #endif
     }
 
     if (run_all)
     {
+#if 1
       GENERATE_AND_PLAY(gen_batched_governance_reward); // Loki Governance
 
       GENERATE_AND_PLAY(gen_simple_chain_001);
@@ -208,6 +207,7 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(gen_bp_tx_invalid_too_many_proofs);
       GENERATE_AND_PLAY(gen_bp_tx_invalid_wrong_amount);
       GENERATE_AND_PLAY(gen_bp_tx_invalid_borromean_type);
+#endif
     }
 
       // TODO(loki): Tests we need to fix

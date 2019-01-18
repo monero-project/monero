@@ -67,6 +67,11 @@ namespace service_nodes
   {
   }
 
+  service_node_list::~service_node_list()
+  {
+    store();
+  }
+
   void service_node_list::register_hooks(service_nodes::quorum_cop &quorum_cop)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
