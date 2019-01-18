@@ -67,7 +67,7 @@ public:
 
   ~t_rpc_command_executor();
 
-  bool print_peer_list();
+  bool print_peer_list(bool white = true, bool gray = true, size_t limit = 0);
 
   bool print_peer_list_stats();
 

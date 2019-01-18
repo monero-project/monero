@@ -48,9 +48,34 @@ t_command_parser_executor::t_command_parser_executor(
 
 bool t_command_parser_executor::print_peer_list(const std::vector<std::string>& args)
 {
-  if (!args.empty()) return false;
+  if (args.size() > 3)
+  {
+    std::cout << "use: print_pl [white] [gray] [<limit>]" << std::endl;
+    return true;
+  }
 
-  return m_executor.print_peer_list();
+  bool white = false;
+  bool gray = false;
+  size_t limit = 0;
+  for (size_t i = 0; i < args.size(); ++i)
+  {
+    if (args[i] == "white")
+    {
+      white = true;
+    }
+    else if (args[i] == "gray")
+    {
+      gray = true;
+    }
+    else if (!epee::string_tools::get_xtype_from_string(limit, args[i]))
+    {
+      std::cout << "unexpected argument: " << args[i] << std::endl;
+      return true;
+    }
+  }
+
+  const bool print_both = !white && !gray;
+  return m_executor.print_peer_list(white | print_both, gray | print_both, limit);
 }
 
 bool t_command_parser_executor::print_peer_list_stats(const std::vector<std::string>& args)
