@@ -3738,9 +3738,9 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       if(m_wallet->get_refresh_from_block_height() == 0) {
         {
           tools::scoped_message_writer wrt = tools::msg_writer();
-          wrt << tr("No restore height is specified.");
-          wrt << tr("Assumed you are creating a new account, restore will be done from current estimated blockchain height.");
-          wrt << tr("Use --restore-height or --restore-date if you want to restore an already setup account from a specific height");
+          wrt << tr("No restore height is specified.") << " ";
+          wrt << tr("Assumed you are creating a new account, restore will be done from current estimated blockchain height.") << " ";
+          wrt << tr("Use --restore-height or --restore-date if you want to restore an already setup account from a specific height.");
         }
         std::string confirm = input_line(tr("Is this okay?"), true);
         if (std::cin.eof() || !command_line::is_yes(confirm))
