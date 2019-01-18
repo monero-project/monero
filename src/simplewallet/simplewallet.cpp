@@ -2783,7 +2783,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_bc",
                            boost::bind(&simple_wallet::rescan_blockchain, this, _1),
                            tr(USAGE_RESCAN_BC),
-                           tr("Rescan the blockchain from scratch, losing any information which can not be recovered from the blockchain itself."));
+                           tr("Rescan the blockchain from scratch. If \"hard\" is specified, you will lose any information which can not be recovered from the blockchain itself."));
   m_cmd_binder.set_handler("set_tx_note",
                            boost::bind(&simple_wallet::set_tx_note, this, _1),
                            tr(USAGE_SET_TX_NOTE),
