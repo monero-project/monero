@@ -1681,7 +1681,25 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    td.m_txid = txid;
             td.m_key_image = tx_scan_info[o].ki;
             td.m_key_image_known = !m_watch_only && !m_multisig;
-            td.m_key_image_requested = false;
+            if (!td.m_key_image_known)
+            {
+              // we might have cold signed, and have a mapping to key images
+              std::unordered_map<crypto::public_key, crypto::key_image>::const_iterator i = m_cold_key_images.find(tx_scan_info[o].in_ephemeral.pub);
+              if (i != m_cold_key_images.end())
+              {
+                td.m_key_image = i->second;
+                td.m_key_image_known = true;
+              }
+            }
+            if (m_watch_only)
+            {
+              // for view wallets, that flag means "we want to request it"
+              td.m_key_image_request = true;
+            }
+            else
+            {
+              td.m_key_image_request = false;
+            }
             td.m_key_image_partial = m_multisig;
             td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
@@ -1703,7 +1721,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_rct = false;
             }
 	    set_unspent(m_transfers.size()-1);
-            if (!m_multisig && !m_watch_only)
+            if (td.m_key_image_known)
 	      m_key_images[td.m_key_image] = m_transfers.size()-1;
 	    m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
             if (output_tracker_cache)
@@ -5924,6 +5942,61 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     txs.back().additional_tx_keys = additional_tx_keys;
   }
 
+  // add key image mapping for these txes
+  const account_keys &keys = get_account().get_keys();
+  hw::device &hwdev = m_account.get_device();
+  for (size_t n = 0; n < exported_txs.txes.size(); ++n)
+  {
+    const cryptonote::transaction &tx = signed_txes.ptx[n].tx;
+
+    crypto::key_derivation derivation;
+    std::vector<crypto::key_derivation> additional_derivations;
+
+    // compute public keys from out secret keys
+    crypto::public_key tx_pub_key;
+    crypto::secret_key_to_public_key(txs[n].tx_key, tx_pub_key);
+    std::vector<crypto::public_key> additional_tx_pub_keys;
+    for (const crypto::secret_key &skey: txs[n].additional_tx_keys)
+    {
+      additional_tx_pub_keys.resize(additional_tx_pub_keys.size() + 1);
+      crypto::secret_key_to_public_key(skey, additional_tx_pub_keys.back());
+    }
+
+    // compute derivations
+    hwdev.set_mode(hw::device::TRANSACTION_PARSE);
+    if (!hwdev.generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation))
+    {
+      MWARNING("Failed to generate key derivation from tx pubkey in " << cryptonote::get_transaction_hash(tx) << ", skipping");
+      static_assert(sizeof(derivation) == sizeof(rct::key), "Mismatched sizes of key_derivation and rct::key");
+      memcpy(&derivation, rct::identity().bytes, sizeof(derivation));
+    }
+    for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
+    {
+      additional_derivations.push_back({});
+      if (!hwdev.generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back()))
+      {
+        MWARNING("Failed to generate key derivation from additional tx pubkey in " << cryptonote::get_transaction_hash(tx) << ", skipping");
+        memcpy(&additional_derivations.back(), rct::identity().bytes, sizeof(crypto::key_derivation));
+      }
+    }
+
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+      if (tx.vout[i].target.type() != typeid(cryptonote::txout_to_key))
+        continue;
+      const cryptonote::txout_to_key &out = boost::get<cryptonote::txout_to_key>(tx.vout[i].target);
+      // if this output is back to this wallet, we can calculate its key image already
+      if (!is_out_to_acc_precomp(m_subaddresses, out.key, derivation, additional_derivations, i, hwdev))
+        continue;
+      crypto::key_image ki;
+      cryptonote::keypair in_ephemeral;
+      if (generate_key_image_helper(keys, m_subaddresses, out.key, tx_pub_key, additional_tx_pub_keys, i, in_ephemeral, ki, hwdev))
+        signed_txes.tx_key_images[out.key] = ki;
+      else
+        MERROR("Failed to calculate key image");
+    }
+  }
+
   // add key images
   signed_txes.key_images.resize(m_transfers.size());
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -6085,6 +6158,10 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   // import key images
   bool r = import_key_images(signed_txs.key_images);
   if (!r) return false;
+
+  // remember key images for this tx, for when we get those txes from the blockchain
+  for (const auto &e: signed_txs.tx_key_images)
+    m_cold_key_images.insert(e);
 
   ptx = signed_txs.ptx;
 
@@ -8284,7 +8361,7 @@ void wallet2::light_wallet_get_unspent_outs()
     
     td.m_key_image = unspent_key_image;
     td.m_key_image_known = !m_watch_only && !m_multisig;
-    td.m_key_image_requested = false;
+    td.m_key_image_request = false;
     td.m_key_image_partial = m_multisig;
     td.m_amount = o.amount;
     td.m_pk_index = 0;
@@ -10894,7 +10971,7 @@ std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> 
   size_t offset = 0;
   if (!all)
   {
-    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
+    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_request)
       ++offset;
   }
 
@@ -11054,7 +11131,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     m_transfers[n + offset].m_key_image = signed_key_images[n].first;
     m_key_images[m_transfers[n + offset].m_key_image] = n + offset;
     m_transfers[n + offset].m_key_image_known = true;
-    m_transfers[n + offset].m_key_image_requested = false;
+    m_transfers[n + offset].m_key_image_request = false;
     m_transfers[n + offset].m_key_image_partial = false;
   }
   PERF_TIMER_STOP(import_key_images_B);
@@ -11273,7 +11350,7 @@ bool wallet2::import_key_images(std::vector<crypto::key_image> key_images)
     td.m_key_image = key_images[i];
     m_key_images[m_transfers[i].m_key_image] = i;
     td.m_key_image_known = true;
-    td.m_key_image_requested = false;
+    td.m_key_image_request = false;
     td.m_key_image_partial = false;
     m_pub_keys[m_transfers[i].get_public_key()] = i;
   }
@@ -11345,7 +11422,7 @@ std::pair<size_t, std::vector<tools::wallet2::transfer_details>> wallet2::export
   std::vector<tools::wallet2::transfer_details> outs;
 
   size_t offset = 0;
-  while (offset < m_transfers.size() && m_transfers[offset].m_key_image_known)
+  while (offset < m_transfers.size() && (m_transfers[offset].m_key_image_known && !m_transfers[offset].m_key_image_request))
     ++offset;
 
   outs.reserve(m_transfers.size() - offset);
@@ -11389,7 +11466,7 @@ size_t wallet2::import_outputs(const std::pair<size_t, std::vector<tools::wallet
   const size_t original_size = m_transfers.size();
   m_transfers.resize(offset + outputs.second.size());
   for (size_t i = 0; i < offset; ++i)
-    m_transfers[i].m_key_image_requested = false;
+    m_transfers[i].m_key_image_request = false;
   for (size_t i = 0; i < outputs.second.size(); ++i)
   {
     transfer_details td = outputs.second[i];
@@ -11430,7 +11507,7 @@ process:
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
-    td.m_key_image_requested = true;
+    td.m_key_image_request = true;
     td.m_key_image_partial = false;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
@@ -11676,7 +11753,7 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   m_key_images.erase(td.m_key_image);
   td.m_key_image = get_multisig_composite_key_image(n);
   td.m_key_image_known = true;
-  td.m_key_image_requested = false;
+  td.m_key_image_request = false;
   td.m_key_image_partial = false;
   td.m_multisig_k = multisig_k[n];
   m_key_images[td.m_key_image] = n;
