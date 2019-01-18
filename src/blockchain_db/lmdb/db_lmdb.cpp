@@ -495,7 +495,7 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   mdb_env_stat(m_env, &mst);
 
   // add 1Gb per resize, instead of doing a percentage increase
-  uint64_t new_mapsize = (double) mei.me_mapsize + add_size;
+  uint64_t new_mapsize = (uint64_t) mei.me_mapsize + add_size;
 
   // If given, use increase_size instead of above way of resizing.
   // This is currently used for increasing by an estimated size at start of new
@@ -1280,14 +1280,14 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   MDB_envinfo mei;
   mdb_env_info(m_env, &mei);
-  uint64_t cur_mapsize = (double)mei.me_mapsize;
+  uint64_t cur_mapsize = (uint64_t)mei.me_mapsize;
 
   if (cur_mapsize < mapsize)
   {
     if (auto result = mdb_env_set_mapsize(m_env, mapsize))
       throw0(DB_ERROR(lmdb_error("Failed to set max memory map size: ", result).c_str()));
     mdb_env_info(m_env, &mei);
-    cur_mapsize = (double)mei.me_mapsize;
+    cur_mapsize = (uint64_t)mei.me_mapsize;
     LOG_PRINT_L1("LMDB memory map size: " << cur_mapsize);
   }
 
