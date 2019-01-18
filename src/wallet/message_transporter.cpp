@@ -44,7 +44,7 @@ namespace mms
 namespace bitmessage_rpc
 {
 
-  struct message_info
+  struct message_info_t
   {
     uint32_t encodingType;
     std::string toAddress;
@@ -66,8 +66,9 @@ namespace bitmessage_rpc
       KV_SERIALIZE(subject)
     END_KV_SERIALIZE_MAP()
   };
+  typedef epee::misc_utils::struct_init<message_info_t> message_info;
 
-  struct inbox_messages_response
+  struct inbox_messages_response_t
   {
     std::vector<message_info> inboxMessages;
 
@@ -75,6 +76,7 @@ namespace bitmessage_rpc
       KV_SERIALIZE(inboxMessages)
     END_KV_SERIALIZE_MAP()
   };
+  typedef epee::misc_utils::struct_init<inbox_messages_response_t> inbox_messages_response;
 
 }
 
