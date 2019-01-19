@@ -1,18 +1,22 @@
 # Triton
 
 Copyright (c) 2014-2018 The Monero Project.   
-Copyright (c) 2018 The Triton Project.
+Copyright (c) 2018 Project Triton.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
 ## Announcements
 
 - Get updates on our discord: https://discord.gg/7FWufDt
+- Get updates on our twitter: https://twitter.com/ProjectTriton
+
 
 ### IMPORTANT 
 
 These builds are of the master branch, which is used for active development and can be either unstable or incompatible with release software. Please compile release branches.
 
 ## Introduction
+
+On Januaray 16th, Project Triton announced development of the SAO Dollar. A mint/burn stablecoin with consensus prices from Service Node Oracles. Check out the paper [here](https://cdn.discordapp.com/attachments/439265536296091648/535511049940631572/Sao_Technical_Paper_v1.1.pdf). 
 
 Project Triton is developing innovative donation applications for the Online Streaming and ESports industries through blockchain technology. It is based on Monero which is a private, secure, untraceable, decentralised digital currency. You are your bank, you control your funds, and nobody can trace your transfers unless you allow them to do so.
 
