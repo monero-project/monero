@@ -118,7 +118,11 @@ bool message_transporter::receive_messages(const std::vector<std::string> &desti
 
   std::string json = get_str_between_tags(answer, "<string>", "</string>");
   bitmessage_rpc::inbox_messages_response bitmessage_res;
-  epee::serialization::load_t_from_json(bitmessage_res, json);
+  if (!epee::serialization::load_t_from_json(bitmessage_res, json))
+  {
+    MERROR("Failed to deserialize messages");
+    return true;
+  }
   size_t size = bitmessage_res.inboxMessages.size();
   messages.clear();
 
@@ -140,8 +144,10 @@ bool message_transporter::receive_messages(const std::vector<std::string> &desti
         std::string message_body = epee::string_encoding::base64_decode(message_info.message);
         // Second Base64-decoding: The MMS uses Base64 to hide non-textual data in its JSON from Bitmessage
         json = epee::string_encoding::base64_decode(message_body);
-        epee::serialization::load_t_from_json(message, json);
-        is_mms_message = true;
+        if (!epee::serialization::load_t_from_json(message, json))
+          MERROR("Failed to deserialize message");
+        else
+          is_mms_message = true;
       }
       catch(const std::exception& e)
       {
