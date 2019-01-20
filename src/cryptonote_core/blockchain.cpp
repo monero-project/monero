@@ -87,12 +87,12 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } mainnet_hard_forks[] = {
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1541014386 },
 
-  { 2, 8, 0, 1442763710 },
+  { 2, 8, 0, 1541014391 },
 
-  { 3, 100, 0, 1458558528 },
-  { 4, 45000, 0, 1442763710 }
+  { 3, 100, 0, 1541014463 },
+  { 4, 45000, 0, 1549695692 }
 
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 8;
@@ -825,7 +825,6 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     diff = 1000;
   }else{
     diff = next_difficulty(timestamps,difficulties,target);
-
   }
   return diff;
 }
@@ -2810,10 +2809,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    // for bulletproofs, check they're only multi-output after v8
+    // for bulletproofs, check they're only multi-output after v4
     if (rct::is_rct_bulletproof(rv.type))
     {
-      if (hf_version < 8)
+      if (hf_version < 4)
       {
         for (const rct::Bulletproof &proof: rv.p.bulletproofs)
         {
