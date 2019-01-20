@@ -387,7 +387,7 @@ We expect to add Monero into the ports tree in the near future, which will aid i
 
 This has been tested on OpenBSD 5.8.
 
-You will need to add a few packages to your system. `pkg_add db cmake gcc gcc-libs g++ gtest`.
+You will need to add a few packages to your system. `pkg_add db gmake cmake gcc gcc-libs g++ gtest`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -396,11 +396,11 @@ https://github.com/bitcoin/bitcoin/blob/master/doc/build-openbsd.md
 
 You will have to add the serialization, date_time, and regex modules to Boost when building as they are needed by Monero.
 
-To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built make release-static-64`
+To build: `env CC=egcc CXX=eg++ CPP=ecpp DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/path/to/the/boost/you/built gmake release-static-64`
 
 #### OpenBSD >= 6.2
 
-You will need to add a few packages to your system. `pkg_add cmake zeromq libiconv`.
+You will need to add a few packages to your system. `pkg_add gmake cmake zeromq libiconv`.
 
 The doxygen and graphviz packages are optional and require the xbase set.
 
@@ -469,7 +469,7 @@ cmake ..
 doas make install
 ```
 
-Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local make release-static`
+Build monero: `env DEVELOPER_LOCAL_TOOLS=1 BOOST_ROOT=/usr/local gmake release-static`
 
 ### On Solaris:
 
