@@ -87,14 +87,13 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } mainnet_hard_forks[] = {
-  // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
 
-  // version 2 starts from block 1009827, which is on or around the 20th of March, 2016. Fork time finalised on 2015-09-20. No fork voting occurs for the v2 fork.
   { 2, 8, 0, 1442763710 },
 
-  // version 3 starts from block 1141317, which is on or around the 24th of September, 2016. Fork time finalised on 2016-03-21.
-  { 3, 100, 0, 1458558528 }
+  { 3, 100, 0, 1458558528 },
+  { 4, 45000, 0, 1442763710 }
+
 };
 static const uint64_t mainnet_hard_fork_version_1_till = 8;
 
@@ -104,23 +103,14 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } testnet_hard_forks[] = {
-  // version 1 from the start of the blockchain
   { 1, 1, 0, 1341378000 },
 
-  // version 2 starts from block 624634, which is on or around the 23rd of November, 2015. Fork time finalised on 2015-11-20. No fork voting occurs for the v2 fork.
-  { 2, 624634, 0, 1445355000 },
+  { 2, 8, 0, 1445355000 },
 
-  // versions 3-5 were passed in rapid succession from September 18th, 2016
-  { 3, 800500, 0, 1472415034 },
-  { 4, 801219, 0, 1472415035 },
-  { 5, 802660, 0, 1472415036 + 86400*180 }, // add 5 months on testnet to shut the update warning up since there's a large gap to v6
-
-  { 6, 971400, 0, 1501709789 },
-  { 7, 1057027, 0, 1512211236 },
-  { 8, 1057058, 0, 1533211200 },
-  { 9, 1057778, 0, 1533297600 },
+  { 3, 100, 0, 1472415034 },
+  { 4, 720, 0, 1472415035 }
 };
-static const uint64_t testnet_hard_fork_version_1_till = 624633;
+static const uint64_t testnet_hard_fork_version_1_till = 8;
 
 static const struct {
   uint8_t version;
@@ -128,18 +118,8 @@ static const struct {
   uint8_t threshold;
   time_t time;
 } stagenet_hard_forks[] = {
-  // version 1 from the start of the blockchain
-  { 1, 1, 0, 1341378000 },
+  { 1, 1, 0, 1341378000 }
 
-  // versions 2-7 in rapid succession from March 13th, 2018
-  { 2, 32000, 0, 1521000000 },
-  { 3, 33000, 0, 1521120000 },
-  { 4, 34000, 0, 1521240000 },
-  { 5, 35000, 0, 1521360000 },
-  { 6, 36000, 0, 1521480000 },
-  { 7, 37000, 0, 1521600000 },
-  { 8, 176456, 0, 1537821770 },
-  { 9, 177176, 0, 1537821771 },
 };
 
 //------------------------------------------------------------------
@@ -845,6 +825,7 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
     diff = 1000;
   }else{
     diff = next_difficulty(timestamps,difficulties,target);
+
   }
   return diff;
 }
@@ -2344,7 +2325,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v8, allow bulletproofs
-  if (hf_version < 8) {
+  if (hf_version < 4) {
     if (tx.version >= 2) {
       const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
       if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
@@ -2357,7 +2338,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v9, forbid borromean range proofs
-  if (hf_version > 8) {
+  if (hf_version > 4) {
     if (tx.version >= 2) {
       const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
       if (borromean)
@@ -2547,7 +2528,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
 
   // from v7, sorted ins
-  if (hf_version >= 7) {
+  if (hf_version >= 4) {
     const crypto::key_image *last_key_image = NULL;
     for (size_t n = 0; n < tx.vin.size(); ++n)
     {

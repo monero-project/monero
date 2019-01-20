@@ -86,9 +86,9 @@ typedef cryptonote::simple_wallet sw;
 
 #define EXTENDED_LOGS_FILE "wallet_details.log"
 
-#define DEFAULT_MIX 2
+#define DEFAULT_MIX 4
 
-#define MIN_RING_SIZE 3 // Used to inform user about min ring size -- does not track actual protocol
+#define MIN_RING_SIZE 4 // Used to inform user about min ring size -- does not track actual protocol
 
 #define LOCK_IDLE_SCOPE() \
   bool auto_refresh_enabled = m_auto_refresh_enabled.load(std::memory_order_relaxed); \
