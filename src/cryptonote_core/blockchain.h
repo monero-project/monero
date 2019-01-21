@@ -37,6 +37,7 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/circular_buffer.hpp>
 #include <atomic>
 #include <functional>
 #include <unordered_map>
@@ -663,6 +664,13 @@ namespace cryptonote
     uint64_t get_current_cumulative_block_weight_limit() const;
 
     /**
+     * @brief gets the long term block weight for a new block
+     *
+     * @return the long term block weight
+     */
+    uint64_t get_next_long_term_block_weight(uint64_t block_weight) const;
+
+    /**
      * @brief gets the block weight median based on recent blocks (same window as for the limit)
      *
      * @return the median
@@ -1022,8 +1030,6 @@ namespace cryptonote
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
 
-    std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
-
     /**
      * @brief add a hook for processing new blocks and rollbacks for reorgs
      */
@@ -1033,13 +1039,20 @@ namespace cryptonote
     void hook_validate_miner_tx  (ValidateMinerTxHook& hook)    { m_validate_miner_tx_hooks.push_back(&hook); }
 
     /**
+     * @brief returns the timestamps of the last N blocks
+     */
+    std::vector<time_t> get_last_block_timestamps(unsigned int blocks) const;
+
+    /**
      * @brief removes blocks from the top of the blockchain
      *
      * @param nblocks number of blocks to be removed
      */
     void pop_blocks(uint64_t nblocks);
 
+#ifndef IN_UNIT_TESTS
   private:
+#endif
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -1095,6 +1108,8 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
+    boost::circular_buffer<uint64_t> m_long_term_block_weights;
+    uint64_t m_long_term_block_weights_height;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1431,9 +1446,11 @@ namespace cryptonote
     /**
      * @brief calculate the block weight limit for the next block to be added
      *
+     * @param long_term_effective_median_block_weight optionally return that value
+     *
      * @return true
      */
-    bool update_next_cumulative_weight_limit();
+    bool update_next_cumulative_weight_limit(uint64_t *long_term_effective_median_block_weight = NULL);
     void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**
@@ -1489,5 +1506,12 @@ namespace cryptonote
      * At some point, may be used to push an update to miners
      */
     void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t expected_reward, uint64_t pool_cookie);
+
+    /**
+     * @brief pops an entry from long term block weights
+     *
+     * another is added at the other end if necessary
+     */
+    void pop_from_long_term_block_weights();
   };
 }  // namespace cryptonote
