@@ -26,44 +26,22 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(cryptonote_core_sources
-  blockchain.cpp
-  cryptonote_core.cpp
-  tx_pool.cpp
-  tx_sanity_check.cpp
-  cryptonote_tx_utils.cpp)
+set(hardforks_sources
+  hardforks.cpp)
 
-set(cryptonote_core_headers)
+set(hardforks_headers
+  hardforks.h)
 
-set(cryptonote_core_private_headers
-  blockchain_storage_boost_serialization.h
-  blockchain.h
-  cryptonote_core.h
-  tx_pool.h
-  tx_sanity_check.h
-  cryptonote_tx_utils.h)
+set(hardforks_private_headers)
 
-monero_private_headers(cryptonote_core
-  ${cryptonote_core_private_headers})
-monero_add_library(cryptonote_core
-  ${cryptonote_core_sources}
-  ${cryptonote_core_headers}
-  ${cryptonote_core_private_headers})
-target_link_libraries(cryptonote_core
+monero_private_headers(hardforks
+  ${hardforks_private_headers})
+monero_add_library(hardforks
+  ${hardforks_sources}
+  ${hardforks_headers}
+  ${hardforks_private_headers})
+target_link_libraries(hardforks
   PUBLIC
     version
-    common
-    cncrypto
-    blockchain_db
-    multisig
-    ringct
-    device
-    hardforks
-    ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SERIALIZATION_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

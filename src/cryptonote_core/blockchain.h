@@ -763,13 +763,6 @@ namespace cryptonote
     HardFork::State get_hard_fork_state() const;
 
     /**
-     * @brief gets the hardfork heights of given network
-     *
-     * @return the HardFork object
-     */
-    static const std::vector<HardFork::Params>& get_hard_fork_heights(network_type nettype);
-
-    /**
      * @brief gets the current hardfork version in use/voted for
      *
      * @return the version
