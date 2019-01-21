@@ -51,6 +51,7 @@ public:
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height) const;
   boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const;
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask) const;
+  boost::optional<uint8_t> get_network_version() const;
 
 private:
   boost::optional<std::string> get_info() const;

@@ -33,17 +33,41 @@ uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement)
     return resultlo;
 }
 
-bool check_service_node_portions(const std::vector<uint64_t>& portions)
+bool check_service_node_portions(uint8_t hf_version, const std::vector<uint64_t>& portions)
 {
-    uint64_t portions_left = STAKING_PORTIONS;
+    if (portions.size() > MAX_NUMBER_OF_CONTRIBUTORS) return false;
 
-    for (const auto portion : portions) {
-        const uint64_t min_portions = std::min(portions_left, MIN_PORTIONS);
-        if (portion < min_portions || portion > portions_left) return false;
-        portions_left -= portion;
+    uint64_t reserved = 0;
+    for (auto i = 0u; i < portions.size(); ++i) {
+        const uint64_t min_portions = get_min_node_contribution(hf_version, STAKING_PORTIONS, reserved, i);
+        if (portions[i] < min_portions) return false;
+        reserved += portions[i];
     }
 
-    return true;
+    return reserved <= STAKING_PORTIONS;
+}
+
+
+static uint64_t get_min_node_contribution_pre_v11(uint64_t staking_requirement, uint64_t total_reserved)
+{
+    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+}
+
+uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t contrib_count)
+{
+    if (version < cryptonote::network_version_11_swarms) {
+        return get_min_node_contribution_pre_v11(staking_requirement, total_reserved);
+    }
+
+    const uint64_t needed = staking_requirement - total_reserved;
+    const size_t vacant = MAX_NUMBER_OF_CONTRIBUTORS - contrib_count;
+
+    assert(contrib_count < MAX_NUMBER_OF_CONTRIBUTORS);
+    /// This function is not called when the node is full, but if
+    /// it does in the future, at least we don't cause undefined behaviour
+    if (vacant == 0) return 0;
+
+    return needed / vacant;
 }
 
 uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)

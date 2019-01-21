@@ -6650,41 +6650,57 @@ bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output)
   catch (const std::exception &e) { return false; }
 }
 
-bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount) {
+stake_check_result wallet2::check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction) {
 
-  if (addr_info.has_payment_id) {
-    LOG_ERROR("Do not use payment ids for staking.");
-    return false;
+  if (addr_info.has_payment_id)
+  {
+    MERROR(tr("Do not use payment ids for staking."));
+    return stake_check_result::not_allowed;
   }
 
-  if (!this->contains_address(addr_info.address)) {
-    LOG_ERROR("The specified address is not owned by this wallet.");
-    return false;
+  if (!this->contains_address(addr_info.address))
+  {
+    MERROR(tr("The specified address is not owned by this wallet."));
+    return stake_check_result::not_allowed;
   }
 
   if (addr_info.is_subaddress)
   {
-    LOG_ERROR("Service nodes do not support subaddresses.");
-    return false;
+    MERROR(tr("Service nodes do not support subaddresses."));
+    return stake_check_result::not_allowed;
   }
 
   /// check that the service node is registered
   const auto& response = this->get_service_nodes({ epee::string_tools::pod_to_hex(sn_key) });
   if (response.service_node_states.size() != 1)
   {
-    LOG_ERROR("Could not find service node in service node list, please make sure it is registered first.");
-    return false;
+    MERROR(tr("Could not find service node in service node list, please make sure it is registered first."));
+    return stake_check_result::try_later;
   }
 
   const auto& snode_info = response.service_node_states.front();
+
+  if (amount == 0)
+      amount = snode_info.staking_requirement * fraction;
 
   const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
 
   /// maximum to contribute (unless we have some amount reserved for us)
   uint64_t max_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
 
-  /// decrease if some reserved for us
-  uint64_t min_contrib_total = service_nodes::get_min_node_contribution(snode_info.staking_requirement, snode_info.total_reserved);
+  uint64_t expected_to_contrib = 0;
+
+  const boost::optional<uint8_t> res = m_node_rpc_proxy.get_network_version();
+
+  /// Use stricter rules when not sure what version we are on
+  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
+  if (res) {
+    hf_version = *res;
+  } else {
+    MERROR(tr("Could not obtain the current network version, defaulting to v9"));
+  }
+
+  uint64_t min_contrib_total = service_nodes::get_min_node_contribution(hf_version, snode_info.staking_requirement, snode_info.total_reserved, snode_info.contributors.size());
 
   bool is_preexisting_contributor = false;
   for (const auto& contributor : snode_info.contributors)
@@ -6697,40 +6713,72 @@ bool wallet2::check_stake_allowed(const crypto::public_key& sn_key, const crypto
     {
       /// reserved for us, so we can contribute some more
       max_contrib_total += contributor.reserved - contributor.amount;
+      expected_to_contrib += contributor.reserved - contributor.amount;
       /// in this case we can contribute as little as we want
       min_contrib_total = 0;
       is_preexisting_contributor = true;
     }
   }
 
+  if (max_contrib_total == 0)
+  {
+    MERROR(tr("You may not contribute any more loki to this service node"));
+    return stake_check_result::not_allowed;
+  }
+
   /// a. Check if there is room for us
-  if (full && !is_preexisting_contributor) {
-      LOG_ERROR("The service node is full.");
-      return false;
+  if (full && !is_preexisting_contributor)
+  {
+      MERROR(tr("This service node already has the maximum number of participants, and the specified address is not one of them."));
+      return stake_check_result::not_allowed;
   }
 
   /// b. Check if the amount is too small
-  if (amount < min_contrib_total) {
-      LOG_ERROR("You must contribute at least " << print_money(min_contrib_total) << " loki to become a contributor for this service node.");
-      return false;
+  if (amount < min_contrib_total)
+  {
+      const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
+      if (min_contrib_total - amount <= DUST) {
+          amount = min_contrib_total;
+          MINFO(tr("Seeing as this is insufficient by dust amounts, amount was increased automatically to ") << print_money(min_contrib_total));
+      } else {
+          MERROR(tr("You must contribute at least ") << print_money(min_contrib_total) << tr(" loki to become a contributor for this service node."));
+          return stake_check_result::try_later;
+      }
+
   }
 
   /// c. Check if the amount is too big
   if (amount > max_contrib_total)
   {
-    LOG_ERROR("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node") << std::endl;
-    LOG_ERROR("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total) << std::endl;
+    MINFO(tr("You may only contribute up to ") << print_money(max_contrib_total) << tr(" more loki to this service node."));
+    MINFO(tr("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(max_contrib_total));
     amount = max_contrib_total;
   }
 
-  return true;
+  /// Issue a warning if there is more loki reserved from this contributor
+  if (amount < expected_to_contrib)
+  {
+    MWARNING(tr("Warning: You must contribute ") << print_money(expected_to_contrib)
+                         << tr(" loki to meet your registration requirements for this service node"));
+  }
+
+  return stake_check_result::allowed;
 }
 
 std::vector<wallet2::pending_tx> wallet2::create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount)
 {
-  /// check stake parameters (this might adjust the amount)
-  if (!check_stake_allowed(service_node_key, addr_info, amount)) {
-    LOG_ERROR("Invalid stake parameters");
+  try
+  {
+    /// check stake parameters (this might adjust the amount)
+    if (check_stake_allowed(service_node_key, addr_info, amount) != stake_check_result::allowed)
+    {
+      LOG_ERROR("Invalid stake parameters");
+      return {};
+    }
+  }
+  catch (const std::exception& e)
+  {
+    MERROR(e.what());
     return {};
   }
 

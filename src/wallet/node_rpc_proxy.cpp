@@ -153,6 +153,21 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
   return boost::optional<std::string>();
 }
 
+boost::optional<uint8_t> NodeRPCProxy::get_network_version() const
+{
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp = AUTO_VAL_INIT(resp);
+
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "hard_fork_info", req, resp, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+  CHECK_AND_ASSERT_MES(r, {}, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(resp.status != CORE_RPC_STATUS_BUSY, {}, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(resp.status == CORE_RPC_STATUS_OK, {}, "Failed to get hard fork status");
+
+  return resp.version;
+}
+
 boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const
 {
   uint64_t height;

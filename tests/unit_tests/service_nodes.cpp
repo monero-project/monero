@@ -327,27 +327,30 @@ TEST(service_nodes, tx_extra_deregister_validation)
 
 TEST(service_nodes, min_portions)
 {
+
+  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
   // Test new contributors can *NOT* stake to a registration with under 25% of the total stake if there is more than 25% available.
   {
-    ASSERT_FALSE(service_nodes::check_service_node_portions({0, STAKING_PORTIONS}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {0, STAKING_PORTIONS}));
   }
 
   {
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {small, rest}));
   }
 
   {
+    /// TODO: fix this test
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small - STAKING_PORTIONS / 2;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({STAKING_PORTIONS / 2, small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {STAKING_PORTIONS / 2, small, rest}));
   }
 
   {
     const auto small = MIN_PORTIONS - 1;
     const auto rest = STAKING_PORTIONS - small - 2 * MIN_PORTIONS;
-    ASSERT_FALSE(service_nodes::check_service_node_portions({MIN_PORTIONS, MIN_PORTIONS, small, rest}));
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {MIN_PORTIONS, MIN_PORTIONS, small, rest}));
   }
 
   // Test new contributors *CAN* stake as the last person with under 25% if there is less than 25% available.
@@ -356,7 +359,7 @@ TEST(service_nodes, min_portions)
   {
     const auto large = 4 * (STAKING_PORTIONS / 5);
     const auto rest = STAKING_PORTIONS - large;
-    bool result = service_nodes::check_service_node_portions({large, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, rest});
     ASSERT_TRUE(result);
   }
 
@@ -364,7 +367,7 @@ TEST(service_nodes, min_portions)
   {
     const auto half = STAKING_PORTIONS / 2 - 1;
     const auto rest = STAKING_PORTIONS - 2 * half;
-    bool result = service_nodes::check_service_node_portions({half, half, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {half, half, rest});
     ASSERT_TRUE(result);
   }
 
@@ -372,8 +375,109 @@ TEST(service_nodes, min_portions)
   {
     const auto third = STAKING_PORTIONS / 3 - 1;
     const auto rest = STAKING_PORTIONS - 3 * third;
-    bool result = service_nodes::check_service_node_portions({third, third, third, rest});
+    bool result = service_nodes::check_service_node_portions(hf_version, {third, third, third, rest});
     ASSERT_TRUE(result);
+  }
+
+  // ===== After hard fork v11 =====
+  hf_version = cryptonote::network_version_11_swarms;
+
+  {
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {0, STAKING_PORTIONS}));
+  }
+
+  {
+    const auto small = MIN_PORTIONS - 1;
+    const auto rest = STAKING_PORTIONS - small;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {small, rest}));
+  }
+
+  {
+    const auto small = STAKING_PORTIONS / 8;
+    const auto rest = STAKING_PORTIONS - small - STAKING_PORTIONS / 2;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {STAKING_PORTIONS / 2, small, rest}));
+  }
+
+  {
+    const auto small = MIN_PORTIONS - 1;
+    const auto rest = STAKING_PORTIONS - small - 2 * MIN_PORTIONS;
+    ASSERT_FALSE(service_nodes::check_service_node_portions(hf_version, {MIN_PORTIONS, MIN_PORTIONS, small, rest}));
+  }
+
+  // Test new contributors *CAN* stake as the last person with under 25% if there is less than 25% available.
+
+  // Two contributers
+  {
+    const auto large = 4 * (STAKING_PORTIONS / 5);
+    const auto rest = STAKING_PORTIONS - large;
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // Three contributers
+  {
+    const auto half = STAKING_PORTIONS / 2 - 1;
+    const auto rest = STAKING_PORTIONS - 2 * half;
+    bool result = service_nodes::check_service_node_portions(hf_version, {half, half, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // Four contributers
+  {
+    const auto third = STAKING_PORTIONS / 3 - 1;
+    const auto rest = STAKING_PORTIONS - 3 * third;
+    bool result = service_nodes::check_service_node_portions(hf_version, {third, third, third, rest});
+    ASSERT_TRUE(result);
+  }
+
+  // New test for hf_v11: allow less than 25% stake in the presence of large existing contributions
+  {
+    const auto large = STAKING_PORTIONS / 2;
+    const auto small_1 = STAKING_PORTIONS / 6;
+    const auto small_2 = STAKING_PORTIONS / 6;
+    const auto rest = STAKING_PORTIONS - large - small_1 - small_2;
+    bool result = service_nodes::check_service_node_portions(hf_version, {large, small_1, small_2, rest});
+    ASSERT_TRUE(result);
+  }
+
+}
+
+
+// Test minimum stake contributions (should test pre and post this change)
+TEST(service_nodes, min_stake_amount)
+{
+  uint64_t height = 101250;
+  const uint64_t stake_requirement = service_nodes::get_staking_requirement(cryptonote::MAINNET, height);
+
+  /// pre v11
+  uint8_t hf_version = cryptonote::network_version_9_service_nodes;
+
+  {
+    const uint64_t reserved = stake_requirement / 2;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_EQ(min_stake, stake_requirement / 4);
+  }
+
+  {
+    const uint64_t reserved = 5 * stake_requirement / 6;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_EQ(min_stake, stake_requirement / 6);
+  }
+
+  /// post v11
+  hf_version = cryptonote::network_version_11_swarms;
+  {
+    /// Should be able to contribute roughly one sixth of the total requirement, but not less
+    const uint64_t reserved = stake_requirement / 2;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_EQ(min_stake, stake_requirement / 6);
+  }
+
+  {
+    /// Cannot contribute less than 25% under normal circumstances
+    const uint64_t reserved = stake_requirement / 4;
+    const uint64_t min_stake = service_nodes::get_min_node_contribution(hf_version, stake_requirement, reserved, 1);
+    ASSERT_FALSE(min_stake <= stake_requirement / 6);
   }
 
 }

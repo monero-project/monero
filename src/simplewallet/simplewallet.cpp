@@ -5731,16 +5731,7 @@ bool simple_wallet::stake_main(
       return true;
   }
 
-  // sanity check address is not subaddress incase this gets called somewhere else that assumes it can be
-  if (parse_info.is_subaddress)
-  {
-    fail_msg_writer() << tr("Cannot stake from a subaddress");
-    return false;
-  }
-
   m_wallet->refresh(false);
-  uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
-  uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
   time_t begin_construct_time = time(nullptr);
   std::string err, err2;
@@ -5781,97 +5772,18 @@ bool simple_wallet::stake_main(
     }
   }
 
+  uint64_t staking_requirement_lock_blocks = service_nodes::get_staking_requirement_lock_blocks(m_wallet->nettype());
+  uint64_t locked_blocks = staking_requirement_lock_blocks + STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
   uint64_t unlock_block = bc_height + locked_blocks;
 
-  // Check if client can stake into this service node, if so, how much.
-  try
-  {
-    const auto& response = m_wallet->get_service_nodes({ epee::string_tools::pod_to_hex(service_node_key) });
-    if (response.service_node_states.size() != 1)
-    {
-      fail_msg_writer() << tr("Could not find service node in service node list, please make sure it is registered first.");
+  try {
+    const tools::stake_check_result res = m_wallet->check_stake_allowed(service_node_key, parse_info, amount, amount_fraction);
+    if (res == tools::stake_check_result::try_later) {
       return true;
+    } else if (res == tools::stake_check_result::not_allowed) {
+      return false;
     }
-
-    const auto& snode_info = response.service_node_states.front();
-    const uint64_t DUST = MAX_NUMBER_OF_CONTRIBUTORS;
-
-    if (amount == 0)
-      amount = snode_info.staking_requirement * amount_fraction;
-
-    const bool full = snode_info.contributors.size() >= MAX_NUMBER_OF_CONTRIBUTORS;
-    uint64_t can_contrib_total = 0;
-    uint64_t must_contrib_total = 0;
-    if (!full)
-    {
-      can_contrib_total = snode_info.staking_requirement - snode_info.total_reserved;
-      must_contrib_total = service_nodes::get_min_node_contribution(snode_info.staking_requirement, snode_info.total_reserved);
-    }
-
-    bool is_preexisting_contributor = false;
-    for (const auto& contributor : snode_info.contributors)
-    {
-      address_parse_info info;
-      if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), contributor.address))
-        info.address = service_nodes::null_address;
-
-      if (info.address == parse_info.address)
-      {
-        uint64_t max_increase_reserve = snode_info.staking_requirement - snode_info.total_reserved;
-        uint64_t max_increase_amount_to = contributor.reserved + max_increase_reserve;
-        can_contrib_total = max_increase_amount_to - contributor.amount;
-        must_contrib_total = contributor.reserved - contributor.amount;
-        is_preexisting_contributor = true;
-      }
-    }
-
-    if (full && !is_preexisting_contributor)
-    {
-      fail_msg_writer() << tr("This service node already has the maximum number of participants, and the specified address is not one of them");
-      return true;
-    }
-
-    if (can_contrib_total == 0)
-    {
-      if (!autostake)
-        fail_msg_writer() << tr("You may not contribute any more to this service node");
-      return true;
-    }
-    if (amount > can_contrib_total)
-    {
-      success_msg_writer() << tr("You may only contribute up to ") << print_money(can_contrib_total) << tr(" more loki to this service node");
-      success_msg_writer() << tr("Reducing your stake from ") << print_money(amount) << tr(" to ") << print_money(can_contrib_total);
-      amount = can_contrib_total;
-    }
-    if (amount < must_contrib_total)
-    {
-      if (is_preexisting_contributor)
-          success_msg_writer() << tr("Warning: You must contribute ") << print_money(must_contrib_total) << tr(" loki to meet your registration requirements for this service node");
-
-      if (amount == 0)
-      {
-        amount = must_contrib_total;
-      }
-      else
-      {
-        success_msg_writer() << tr("You have only specified ") << print_money(amount);
-        if (must_contrib_total - amount <= DUST)
-        {
-          amount = must_contrib_total;
-          success_msg_writer() << tr("Seeing as this is insufficient by dust amounts, amount was increased automatically to ") << print_money(must_contrib_total);
-        }
-        else if (!is_preexisting_contributor || autostake)
-        {
-          if (!is_preexisting_contributor)
-            fail_msg_writer() << tr("You must contribute atleast ") << print_money(must_contrib_total) << tr(" loki to become a contributor for this service node");
-
-          return true;
-        }
-      }
-    }
-  }
-  catch(const std::exception &e)
-  {
+  } catch (const std::exception& e) {
     fail_msg_writer() << e.what();
     return true;
   }
@@ -6118,18 +6030,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("Service nodes do not support rewards to subaddresses, cannot stake for address: ")
                       << local_args[1]
                       << tr("Please use index=[...] if you want to stake funds from particular subaddresses.");
-    return true;
-  }
-
-  if (info.has_payment_id)
-  {
-    fail_msg_writer() << tr("Do not use payment ids for staking");
-    return true;
-  }
-
-  if (!m_wallet->contains_address(info.address))
-  {
-    fail_msg_writer() << tr("The specified address is not owned by this wallet.");
     return true;
   }
 

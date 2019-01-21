@@ -204,6 +204,8 @@ namespace tools
     std::deque<crypto::hash> m_blockchain;
   };
 
+  enum class stake_check_result { allowed, not_allowed, try_later };
+
   class wallet_keys_unlocker;
   class wallet2
   {
@@ -1264,8 +1266,9 @@ namespace tools
     bool unblackball_output(const std::pair<uint64_t, uint64_t> &output);
     bool is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const;
 
-    /// Note that the amount will be modified to maximum possible if too large
-    bool check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount);
+    /// Checks arguments for staking. Modifies the amount to maximum possible if too large,
+    /// but rejects if insufficient. `fraction` is only used to determine the amount if specified zero. 
+    stake_check_result check_stake_allowed(const crypto::public_key& sn_key, const cryptonote::address_parse_info& addr_info, uint64_t& amount, double fraction = 0);
 
     std::vector<wallet2::pending_tx> create_stake_tx(const crypto::public_key& service_node_key, const cryptonote::address_parse_info& addr_info, uint64_t amount);
 

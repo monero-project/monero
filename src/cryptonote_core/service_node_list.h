@@ -104,8 +104,6 @@ namespace service_nodes
     cryptonote::account_public_address operator_address;
 
     bool is_fully_funded() const { return total_contributed >= staking_requirement; }
-    // the minimum contribution to start a new contributor
-    uint64_t get_min_contribution() const;
 
     service_node_info() = default;
 

@@ -15,17 +15,15 @@ switch(nettype) {
 }
 }
 
-inline uint64_t get_min_node_contribution(uint64_t staking_requirement, uint64_t total_reserved)
-{
-  return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
-}
+uint64_t get_min_node_contribution(uint8_t version, uint64_t staking_requirement, uint64_t total_reserved, size_t contrib_count);
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
 
 uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 
-/// Check if portions are sufficiently large (except for the last) and add up to the required amount
-bool check_service_node_portions(const std::vector<uint64_t>& portions);
+/// Check if portions are sufficiently large (provided the contributions
+/// are made in the specified order) and don't exceed the required amount
+bool check_service_node_portions(uint8_t version, const std::vector<uint64_t>& portions);
 
 // Returns lowest x such that (staking_requirement * x/STAKING_PORTIONS) >= amount
 uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount);
