@@ -40,6 +40,7 @@
 
 #include "net/net_utils_base.h"
 #include "net/tor_address.h"
+#include "net/i2p_address.h"
 
 namespace net
 {
@@ -267,6 +268,13 @@ namespace socks
     }
 
     bool client::set_connect_command(const net::tor_address& address)
+    {
+        if (!address.is_unknown())
+            return set_connect_command(address.host_str(), address.port());
+        return false;
+    }
+
+    bool client::set_connect_command(const net::i2p_address& address)
     {
         if (!address.is_unknown())
             return set_connect_command(address.host_str(), address.port());

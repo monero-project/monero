@@ -26,8 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(net_sources error.cpp parse.cpp socks.cpp tor_address.cpp)
-set(net_headers error.h parse.h socks.h tor_address.h)
+set(net_sources error.cpp parse.cpp socks.cpp tor_address.cpp i2p_address.cpp)
+set(net_headers error.h parse.h socks.h tor_address.h i2p_address.h)
 
 monero_add_library(net ${net_sources} ${net_headers})
 target_link_libraries(net epee ${Boost_ASIO_LIBRARY})
