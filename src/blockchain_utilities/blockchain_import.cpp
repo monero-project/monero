@@ -501,7 +501,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
 
           try
           {
-            core.get_blockchain_storage().get_db().add_block(b, block_size, cumulative_difficulty, coins_generated, txs);
+            uint64_t long_term_block_size = core.get_blockchain_storage().get_next_long_term_block_size(block_size);
+            core.get_blockchain_storage().get_db().add_block(b, block_size, long_term_block_size, cumulative_difficulty, coins_generated, txs);
           }
           catch (const std::exception& e)
           {

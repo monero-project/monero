@@ -137,6 +137,8 @@ static const struct {
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_sz_limit(0), m_current_block_cumul_sz_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
+  m_long_term_block_sizes_window(CRYPTONOTE_LONG_TERM_BLOCK_SIZE_WINDOW_SIZE),
+  m_long_term_effective_median_block_size(0),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_btc_valid(false)
@@ -462,7 +464,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
   }
 
-  update_next_cumulative_size_limit();
+  if (test_options && test_options->long_term_block_size_window)
+    m_long_term_block_sizes_window = test_options->long_term_block_size_window;
+
+  if (!update_next_cumulative_size_limit())
+    return false;
   return true;
 }
 //------------------------------------------------------------------
@@ -611,7 +617,7 @@ block Blockchain::pop_block_from_blockchain()
   m_blocks_txs_check.clear();
   m_check_txin_table.clear();
 
-  update_next_cumulative_size_limit();
+  CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_size_limit(), "Error updating next cumulative size limit");
   m_tx_pool.on_blockchain_dec(m_db->height()-1, get_tail_id());
   invalidate_block_template_cache();
 
@@ -630,7 +636,8 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
 
   block_verification_context bvc = boost::value_initialized<block_verification_context>();
   add_new_block(b, bvc);
-  update_next_cumulative_size_limit();
+  if (!update_next_cumulative_size_limit())
+    return false;
   return bvc.m_added_to_main_chain && !bvc.m_verifivation_failed;
 }
 //------------------------------------------------------------------
@@ -1116,7 +1123,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
   }
 
-  std::vector<size_t> last_blocks_sizes;
+  std::vector<uint64_t> last_blocks_sizes;
   get_last_n_blocks_sizes(last_blocks_sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
   if (!get_block_reward(epee::misc_utils::median(last_blocks_sizes), cumulative_block_size, already_generated_coins, base_reward, version, height))
   {
@@ -1151,7 +1158,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
 }
 //------------------------------------------------------------------
 // get the block sizes of the last <count> blocks, and return by reference <sz>.
-void Blockchain::get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const
+void Blockchain::get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2930,6 +2937,7 @@ bool Blockchain::check_fee(size_t blob_size, uint64_t fee) const
 uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) const
 {
   const uint8_t version = get_current_hard_fork_version();
+  const uint64_t db_height = m_db->height();
 
   return FEE_PER_KB;
 #if 0
@@ -2940,7 +2948,7 @@ uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) cons
     grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
 
   const uint64_t min_block_size = get_min_block_size(version);
-  std::vector<size_t> sz;
+  std::vector<uint64_t> sz;
   get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
   sz.reserve(grace_blocks);
   for (size_t i = 0; i < grace_blocks; ++i)
@@ -2950,7 +2958,7 @@ uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) cons
   if(median <= min_block_size)
     median = min_block_size;
 
-  uint64_t already_generated_coins = m_db->height() ? m_db->get_block_already_generated_coins(m_db->height() - 1) : 0;
+  uint64_t already_generated_coins = db_height ? m_db->get_block_already_generated_coins(db_height - 1) : 0;
   uint64_t base_reward;
   if (!get_block_reward(median, 1, already_generated_coins, base_reward, version, get_current_blockchain_height()))
   {
@@ -2958,7 +2966,8 @@ uint64_t Blockchain::get_dynamic_per_kb_fee_estimate(uint64_t grace_blocks) cons
     base_reward = BLOCK_REWARD_OVERESTIMATE;
   }
 
-  uint64_t fee = get_dynamic_per_kb_fee(base_reward, median, version);
+  const bool use_long_term_median_in_fee = version >= HF_VERSION_LONG_TERM_BLOCK_SIZE;
+  uint64_t fee = get_dynamic_per_kb_fee(base_reward, use_long_term_median_in_fee ? m_long_term_effective_median_block_size : median, version);
   MDEBUG("Estimating " << grace_blocks << "-block fee at " << print_money(fee) << "/kB");
   return fee;
 #endif
@@ -3469,7 +3478,8 @@ leave:
   {
     try
     {
-      new_height = m_db->add_block(bl, block_size, cumulative_difficulty, already_generated_coins, txs);
+      uint64_t long_term_block_size = get_next_long_term_block_size(block_size);
+      new_height = m_db->add_block(bl, block_size, long_term_block_size, cumulative_difficulty, already_generated_coins, txs);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {
@@ -3495,7 +3505,12 @@ leave:
   TIME_MEASURE_FINISH(addblock);
 
   // do this after updating the hard fork state since the size limit may change due to fork
-  update_next_cumulative_size_limit();
+  if (!update_next_cumulative_size_limit())
+  {
+    MERROR("Failed to update next cumulative size limit");
+    pop_block_from_blockchain();
+    return false;
+  }
 
   MINFO("+++++ BLOCK SUCCESSFULLY ADDED" << std::endl << "id:\t" << id << std::endl << "PoW:\t" << proof_of_work << std::endl << "HEIGHT " << new_height-1 << ", difficulty:\t" << current_diffic << std::endl << "block reward: " << print_money(fee_summary + base_reward) << "(" << print_money(base_reward) << " + " << print_money(fee_summary) << "), coinbase_blob_size: " << coinbase_blob_size << ", cumulative size: " << cumulative_block_size << ", " << block_processing_time << "(" << target_calculating_time << "/" << longhash_calculating_time << ")ms");
   if(m_show_time_stats)
@@ -3518,20 +3533,99 @@ leave:
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::update_next_cumulative_size_limit()
+uint64_t Blockchain::get_next_long_term_block_size(uint64_t block_size) const
 {
-  uint64_t full_reward_zone = get_min_block_size(get_current_hard_fork_version());
+  PERF_TIMER(get_next_long_term_block_size);
+
+  const uint64_t db_height = m_db->height();
+  const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_sizes_window, db_height);
+
+  const uint8_t hf_version = get_current_hard_fork_version();
+  if (hf_version < HF_VERSION_LONG_TERM_BLOCK_SIZE)
+    return block_size;
+
+  std::vector<uint64_t> sizes;
+  sizes.resize(nblocks);
+  for (uint64_t h = 0; h < nblocks; ++h)
+    sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h);
+  uint64_t long_term_median = epee::misc_utils::median(sizes);
+  uint64_t long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
+
+  uint64_t short_term_constraint = long_term_effective_median_block_size + long_term_effective_median_block_size * 2 / 50;
+  uint64_t long_term_block_size = std::min<uint64_t>(block_size, short_term_constraint);
+
+  return long_term_block_size;
+}
+//------------------------------------------------------------------
+bool Blockchain::update_next_cumulative_size_limit(uint64_t *long_term_effective_median_block_size)
+{
+  PERF_TIMER(update_next_cumulative_size_limit);
 
   LOG_PRINT_L3("Blockchain::" << __func__);
-  std::vector<size_t> sz;
-  get_last_n_blocks_sizes(sz, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
 
-  uint64_t median = epee::misc_utils::median(sz);
-  m_current_block_cumul_sz_median = median;
-  if(median <= full_reward_zone)
-    median = full_reward_zone;
+  // when we reach this, the last hf version is not yet written to the db
+  const uint64_t db_height = m_db->height();
+  const uint8_t hf_version = get_current_hard_fork_version();
+  uint64_t full_reward_zone = get_min_block_size(hf_version);
+  uint64_t long_term_block_size;
 
-  m_current_block_cumul_sz_limit = median*2;
+  if (hf_version < HF_VERSION_LONG_TERM_BLOCK_SIZE)
+  {
+    std::vector<uint64_t> sizes;
+    get_last_n_blocks_sizes(sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
+    m_current_block_cumul_sz_median = epee::misc_utils::median(sizes);
+    long_term_block_size = sizes.back();
+  }
+  else
+  {
+    const uint64_t block_size = m_db->get_block_size(db_height - 1);
+
+    std::vector<uint64_t> sizes, new_sizes;
+    uint64_t long_term_median;
+    if (db_height == 1)
+    {
+      long_term_median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
+    }
+    else
+    {
+      uint64_t nblocks = std::min<uint64_t>(m_long_term_block_sizes_window, db_height);
+      if (nblocks == db_height)
+        --nblocks;
+      sizes.resize(nblocks);
+      for (uint64_t h = 0; h < nblocks; ++h)
+        sizes[h] = m_db->get_block_long_term_size(db_height - nblocks + h - 1);
+      new_sizes = sizes;
+      long_term_median = epee::misc_utils::median(sizes);
+    }
+
+    m_long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
+
+    uint64_t short_term_constraint = m_long_term_effective_median_block_size + m_long_term_effective_median_block_size * 2 / 50;
+    long_term_block_size = std::min<uint64_t>(block_size, short_term_constraint);
+
+    if (new_sizes.empty())
+      new_sizes.resize(1);
+    new_sizes[0] = long_term_block_size;
+    long_term_median = epee::misc_utils::median(new_sizes);
+    m_long_term_effective_median_block_size = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, long_term_median);
+
+    sizes.clear();
+    get_last_n_blocks_sizes(sizes, CRYPTONOTE_REWARD_BLOCKS_WINDOW);
+
+    uint64_t short_term_median = epee::misc_utils::median(sizes);
+    uint64_t effective_median_block_size = std::min<uint64_t>(std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1, short_term_median), CRYPTONOTE_SHORT_TERM_BLOCK_SIZE_SURGE_FACTOR * m_long_term_effective_median_block_size);
+
+    m_current_block_cumul_sz_median = effective_median_block_size;
+  }
+
+  if (m_current_block_cumul_sz_median <= full_reward_zone)
+    m_current_block_cumul_sz_median = full_reward_zone;
+
+  m_current_block_cumul_sz_limit = m_current_block_cumul_sz_median * 2;
+
+  if (long_term_effective_median_block_size)
+    *long_term_effective_median_block_size = m_long_term_effective_median_block_size;
+
   return true;
 }
 //------------------------------------------------------------------

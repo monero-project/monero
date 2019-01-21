@@ -37,6 +37,7 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/circular_buffer.hpp>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
@@ -599,6 +600,13 @@ namespace cryptonote
     uint64_t get_current_cumulative_blocksize_limit() const;
 
     /**
+     * @brief gets the long term block size for a new block
+     *
+     * @return the long term block size
+     */
+    uint64_t get_next_long_term_block_size(uint64_t block_size) const;
+
+    /**
      * @brief gets the blocksize median based on recent blocks (same window as for the limit)
      *
      * @return the median
@@ -925,7 +933,9 @@ namespace cryptonote
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
 
+#ifndef IN_UNIT_TESTS
   private:
+#endif
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
     typedef std::unordered_map<crypto::hash, size_t> blocks_by_id_index;
@@ -978,6 +988,8 @@ namespace cryptonote
     std::vector<uint64_t> m_timestamps;
     std::vector<difficulty_type> m_difficulties;
     uint64_t m_timestamps_and_difficulties_height;
+    uint64_t m_long_term_block_sizes_window;
+    uint64_t m_long_term_effective_median_block_size;
 
     epee::critical_section m_difficulty_lock;
     crypto::hash m_difficulty_for_next_block_top_hash;
@@ -1209,7 +1221,7 @@ namespace cryptonote
      * @param sz return-by-reference the list of sizes
      * @param count the number of blocks to get sizes for
      */
-    void get_last_n_blocks_sizes(std::vector<size_t>& sz, size_t count) const;
+    void get_last_n_blocks_sizes(std::vector<uint64_t>& sz, size_t count) const;
 
     /**
      * @brief checks if a transaction is unlocked (its outputs spendable)
@@ -1308,9 +1320,11 @@ namespace cryptonote
     /**
      * @brief calculate the block size limit for the next block to be added
      *
+     * @param long_term_effective_median_block_size optionally return that value
+     *
      * @return true
      */
-    bool update_next_cumulative_size_limit();
+    bool update_next_cumulative_size_limit(uint64_t *long_term_effective_median_block_size = NULL);
     void return_tx_to_pool(std::vector<transaction> &txs);
 
     /**
