@@ -56,6 +56,14 @@
 #include "checkpoints/checkpoints.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
+namespace service_nodes
+{
+  class service_node_list;
+};
+namespace triton
+{
+  class deregister_vote_pool;
+};
 
 namespace tools { class Notify; }
 
@@ -75,11 +83,11 @@ namespace cryptonote
     db_nosync //!< Leave syncing up to the backing db (safest, but slowest because of disk I/O)
   };
 
-  /** 
+  /**
    * @brief Callback routine that returns checkpoints data for specific network type
-   * 
+   *
    * @param network network type
-   * 
+   *
    * @return checkpoints data, empty span if there ain't any checkpoints for specific network type
    */
   typedef std::function<const epee::span<const unsigned char>(cryptonote::network_type network)> GetCheckpointsCallback;
@@ -112,13 +120,36 @@ namespace cryptonote
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
+    class BlockAddedHook
+   {
+   public:
+     virtual void block_added(const block& block, const std::vector<transaction>& txs) = 0;
+   };
+
+   class BlockchainDetachedHook
+   {
+   public:
+     virtual void blockchain_detached(uint64_t height) = 0;
+   };
+
+   class InitHook
+   {
+   public:
+     virtual void init() = 0;
+   };
+
+   class ValidateMinerTxHook
+   {
+   public:
+     virtual bool validate_miner_tx(const crypto::hash& prev_id, const cryptonote::transaction& miner_tx, uint64_t height, int hard_fork_version, uint64_t base_reward) = 0;
+   };
 
     /**
      * @brief Blockchain constructor
      *
      * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
      */
-    Blockchain(tx_memory_pool& tx_pool);
+     Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, triton::deregister_vote_pool &deregister_vote_pool);
 
     /**
      * @brief Initialize the Blockchain state
@@ -300,6 +331,12 @@ namespace cryptonote
      * @return the target
      */
     difficulty_type get_difficulty_for_next_block();
+    /**
+   * @brief returns the staking requirement for the block at height
+   *
+   * @return the target
+   */
+  uint64_t get_staking_requirement(uint64_t height) const;
 
     /**
      * @brief adds a block to the blockchain
@@ -809,7 +846,7 @@ namespace cryptonote
      * @param earliest_height the earliest height at which <version> is allowed
      * @param voting which version this node is voting for/using
      *
-     * @return whether the version queried is enabled 
+     * @return whether the version queried is enabled
      */
     bool get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const;
 
@@ -963,6 +1000,13 @@ namespace cryptonote
      * Used for handling txes from historical blocks in a fast way
      */
     void on_new_tx_from_block(const cryptonote::transaction &tx);
+    /**
+    * @brief add a hook for processing new blocks and rollbacks for reorgs
+    */
+   void hook_block_added(BlockAddedHook& block_added_hook);
+   void hook_blockchain_detached(BlockchainDetachedHook& blockchain_detached_hook);
+   void hook_init(InitHook& init_hook);
+   void hook_validate_miner_tx(ValidateMinerTxHook& validate_miner_tx_hook);
 
     /**
      * @brief returns the timestamps of the last N blocks
@@ -990,7 +1034,8 @@ namespace cryptonote
     BlockchainDB* m_db;
 
     tx_memory_pool& m_tx_pool;
-
+    service_nodes::service_node_list& m_service_node_list;
+    triton::deregister_vote_pool& m_deregister_vote_pool;
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
     // main chain
@@ -1036,7 +1081,10 @@ namespace cryptonote
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
-
+    std::vector<BlockAddedHook*> m_block_added_hooks;
+    std::vector<BlockchainDetachedHook*> m_blockchain_detached_hooks;
+    std::vector<InitHook*> m_init_hooks;
+    std::vector<ValidateMinerTxHook*> m_validate_miner_tx_hooks;
 
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
@@ -1266,7 +1314,7 @@ namespace cryptonote
      *
      * @return true if spendable, otherwise false
      */
-    bool is_tx_spendtime_unlocked(uint64_t unlock_time) const;
+     bool is_output_spendtime_unlocked(uint64_t unlock_time) const;
 
     /**
      * @brief stores an invalid block in a separate container
@@ -1386,7 +1434,7 @@ namespace cryptonote
      * A (possibly empty) set of block hashes can be compiled into the
      * monero daemon binary.  This function loads those hashes into
      * a useful state.
-     * 
+     *
      * @param get_checkpoints if set, will be called to get checkpoints data
      */
     void load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints);

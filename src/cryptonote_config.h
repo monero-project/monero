@@ -50,6 +50,19 @@
 
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
+
+#define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
+#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (30*24*31)
+#define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
+#define STAKING_PORTIONS                                  UINT32_MAX
+#define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2) // 2 weeks
+#define MAX_NUMBER_OF_CONTRIBUTORS                      10
+
+#define UPTIME_PROOF_BUFFER_IN_SECONDS                  (5*60)
+#define UPTIME_PROOF_FREQUENCY_IN_SECONDS               (60*60)
+#define UPTIME_PROOF_MAX_TIME_IN_SECONDS                (UPTIME_PROOF_FREQUENCY_IN_SECONDS + (2 * UPTIME_PROOF_BUFFER_IN_SECONDS))
+
+
 // MONEY_SUPPLY - total number coins to be generated
 #define MONEY_SUPPLY                                    ((uint64_t)840000000000)
 #define TRITON_SWAP                                     ((uint64_t)107695988100)

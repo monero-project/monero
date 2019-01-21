@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
 //
@@ -28,49 +28,38 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#include <ctime>
+#include "cryptonote_config.h"
+
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct vote_verification_context
- {
-   bool m_verification_failed;
-   bool m_invalid_block_height;
-   bool m_voters_quorum_index_out_of_bounds;
-   bool m_service_node_index_out_of_bounds;
-   bool m_signature_not_valid;
-   bool m_added_to_pool;
-   bool m_full_tx_deregister_made;
-   bool m_not_enough_votes;
- };
 
-  struct tx_verification_context
+namespace rules
+{
+
+bool is_output_unlocked(uint64_t unlock_time, uint64_t height)
+{
+  if(unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
   {
-    bool m_should_be_relayed;
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool;
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-    bool m_not_rct;
-    bool m_invalid_version;
-
-    vote_verification_context m_vote_ctx;
-  };
-
-  struct block_verification_context
+    // ND: Instead of calling get_current_blockchain_height(), call m_db->height()
+    //    directly as get_current_blockchain_height() locks the recursive mutex.
+    if(height - 1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
+      return true;
+    else
+      return false;
+  }
+  else
   {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
-  };
+    //interpret as time
+    uint64_t current_time = static_cast<uint64_t>(time(NULL));
+    if(current_time + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2 >= unlock_time)
+      return true;
+    else
+      return false;
+  }
+  return false;
 }
+
+} // namespace rules
+
+} // namespace cryptonote

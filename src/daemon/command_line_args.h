@@ -86,6 +86,10 @@ namespace daemon_args
     "daemon_command"
   , "Hidden"
   };
+  const command_line::arg_descriptor<bool> arg_prepare_registration = {
+    "prepare-registration"
+  , "Prepares a registration tx for this service node"
+  };
   const command_line::arg_descriptor<bool> arg_os_version = {
     "os-version"
   , "OS for which this executable was compiled"

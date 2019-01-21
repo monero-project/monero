@@ -33,12 +33,14 @@
 #include <boost/filesystem.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
+#include "common/rules.h"
 #include "include_base_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_core/service_node_deregister.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
 #include "misc_language.h"
@@ -53,6 +55,8 @@
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
 #include "common/notify.h"
+#include "service_node_deregister.h"
+#include "service_node_list.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain"
@@ -108,7 +112,9 @@ static const struct {
   { 2, 8, 0, 1445355000 },
 
   { 3, 100, 0, 1472415034 },
-  { 4, 720, 0, 1472415035 }
+  { 4, 720, 0, 1472415035 },
+  { 5, 1000, 0, 1472415035 }
+
 };
 static const uint64_t testnet_hard_fork_version_1_till = 8;
 
@@ -123,11 +129,13 @@ static const struct {
 };
 
 //------------------------------------------------------------------
-Blockchain::Blockchain(tx_memory_pool& tx_pool) :
+Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, triton::deregister_vote_pool& deregister_vote_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
+  m_service_node_list(service_node_list),
+  m_deregister_vote_pool(deregister_vote_pool),
   m_btc_valid(false)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -455,6 +463,8 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
 
   update_next_cumulative_weight_limit();
+  for (InitHook* hook : m_init_hooks)
+    hook->init();
   return true;
 }
 //------------------------------------------------------------------
@@ -829,6 +839,11 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   return diff;
 }
 //------------------------------------------------------------------
+uint64_t Blockchain::get_staking_requirement(uint64_t height) const
+{
+  return UINT64_C(10000);
+}
+//------------------------------------------------------------------
 std::vector<time_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
 {
   std::vector<time_t> timestamps(blocks);
@@ -910,7 +925,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::
   }
 
   auto split_height = m_db->height();
-
+  for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
+  hook->blockchain_detached(split_height);
   //connecting new alternative chain
   for(auto alt_ch_iter = alt_chain.begin(); alt_ch_iter != alt_chain.end(); alt_ch_iter++)
   {
@@ -1113,6 +1129,9 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
     return false;
   }
+  for (ValidateMinerTxHook* hook : m_validate_miner_tx_hooks)
+    if (!hook->validate_miner_tx(b.prev_id, b.miner_tx, m_db->height(), get_current_hard_fork_version(), base_reward))
+      return false;
   if(base_reward + fee < money_in_use)
   {
     MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << ")");
@@ -1299,7 +1318,9 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = m_hardfork->get_current_version();
   size_t max_outs = hf_version >= 4 ? 1 : 11;
-  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
+  crypto::public_key winner = m_service_node_list.select_winner(b.prev_id);
+  std::vector<std::pair<account_public_address, uint32_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
+  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_weight = txs_weight + get_transaction_weight(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1308,7 +1329,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
+    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);
@@ -1681,6 +1702,20 @@ bool Blockchain::get_alternative_blocks(std::vector<block>& blocks) const
   }
   return true;
 }
+//------------------------------------------------------------------
+// This function adds the output specified by <amount, i> to the result_outs container
+// unlocked and other such checks should be done by here.
+void Blockchain::add_out_to_get_random_outs(COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::outs_for_amount& result_outs, uint64_t amount, size_t i) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry& oen = *result_outs.outs.insert(result_outs.outs.end(), COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::out_entry());
+  oen.global_amount_index = i;
+  output_data_t data = m_db->get_output_key(amount, i);
+  oen.out_key = data.pubkey;
+}
+
 //------------------------------------------------------------------
 size_t Blockchain::get_alternative_blocks_count() const
 {
@@ -2285,8 +2320,14 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
 
   const uint8_t hf_version = m_hardfork->get_current_version();
 
+  if (hf_version >= 5 && tx.version < 2)
+ {
+   tvc.m_invalid_version = true;
+   return false;
+ }
+
   // from hard fork 2, we forbid dust and compound outputs
-  if (hf_version >= 2) {
+  if (hf_version >= 2 && !tx.is_deregister_tx())
     for (auto &o: tx.vout) {
       if (tx.version == 1)
       {
@@ -2510,7 +2551,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
 
     // min/max tx version based on HF, and we accept v1 txes if having a non mixable
-    const size_t max_tx_version = (hf_version <= 3) ? 1 : 2;
+    const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < 5)
+      ? transaction::version_2
+      : transaction::version_3_per_output_unlock_times;
     if (tx.version > max_tx_version)
     {
       MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
@@ -2668,7 +2711,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
   }
-  else
+  else if (!tx.is_deregister_tx())
   {
     if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys))
     {
@@ -2822,6 +2865,68 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
             return false;
           }
         }
+      }
+    }
+  }
+  if (tx.is_deregister_tx())
+  {
+    // Check the inputs (votes) of the transaction have not been already been
+    // submitted to the blockchain under another transaction using a different
+    // combination of votes.
+    tx_extra_service_node_deregister deregister;
+    if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    {
+      MERROR_VER("TX version deregister did not have the deregister metadata in the tx_extra");
+      return false;
+    }
+
+    std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(deregister.block_height);
+    if (!quorum_state)
+    {
+      MERROR_VER("TX version 3 deregister_tx could not get quorum for height: " << deregister.block_height);
+      return false;
+    }
+
+    if (!triton::service_node_deregister::verify_deregister(deregister, tvc.m_vote_ctx, *quorum_state))
+    {
+      tvc.m_verifivation_failed = true;
+      MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified.");
+      return false;
+    }
+
+    const uint64_t height            = deregister.block_height;
+    const size_t num_blocks_to_check = triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
+
+    std::list<std::pair<cryptonote::blobdata,block>> blocks;
+    std::list<cryptonote::blobdata> txs;
+    if (get_blocks(height, num_blocks_to_check, blocks, txs))
+    {
+      for (blobdata const &blob : txs)
+      {
+        transaction existing_tx;
+        if (!parse_and_validate_tx_from_blob(blob, existing_tx))
+        {
+          MERROR_VER("tx could not be validated from blob, possibly corrupt blockchain");
+          continue;
+        }
+
+        if (!existing_tx.is_deregister_tx())
+          continue;
+
+        tx_extra_service_node_deregister existing_deregister;
+        if (!get_service_node_deregister_from_tx_extra(existing_tx.extra, existing_deregister))
+        {
+          MERROR_VER("could not get service node deregister from tx extra, possibly corrupt tx");
+          continue;
+        }
+
+        if (existing_deregister.block_height       == deregister.block_height &&
+            existing_deregister.service_node_index == deregister.service_node_index)
+        {
+          tvc.m_double_spend = true;
+          return false;
+        }
+
       }
     }
   }
@@ -2984,28 +3089,11 @@ uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
 //------------------------------------------------------------------
 // This function checks to see if a tx is unlocked.  unlock_time is either
 // a block index or a unix time.
-bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time) const
+bool Blockchain::is_output_spendtime_unlocked(uint64_t unlock_time) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  if(unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
-  {
-    // ND: Instead of calling get_current_blockchain_height(), call m_db->height()
-    //    directly as get_current_blockchain_height() locks the recursive mutex.
-    if(m_db->height()-1 + CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS >= unlock_time)
-      return true;
-    else
-      return false;
-  }
-  else
-  {
-    //interpret as time
-    uint64_t current_time = static_cast<uint64_t>(time(NULL));
-    if(current_time + (get_current_hard_fork_version() < 2 ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2) >= unlock_time)
-      return true;
-    else
-      return false;
-  }
-  return false;
+  return cryptonote::rules::is_output_unlocked(unlock_time, m_db->height());
+
 }
 //------------------------------------------------------------------
 // This function locates all outputs associated with a given input (mixins)
@@ -3030,7 +3118,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
     bool handle_output(uint64_t unlock_time, const crypto::public_key &pubkey, const rct::key &commitment)
     {
       //check tx unlock time
-      if (!m_bch.is_tx_spendtime_unlocked(unlock_time))
+      if (!m_bch.is_output_spendtime_unlocked(unlock_time))
       {
         MERROR_VER("One of outputs for one of inputs has wrong tx.unlock_time = " << unlock_time);
         return false;
@@ -3397,7 +3485,7 @@ leave:
 #endif
     {
       // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
+      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       if(!check_tx_inputs(tx, tvc))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
@@ -3494,7 +3582,8 @@ leave:
   {
     LOG_ERROR("Blocks that failed verification should not reach here");
   }
-
+  for (BlockAddedHook* hook : m_block_added_hooks)
+   hook->block_added(bl, txs);
   TIME_MEASURE_FINISH(addblock);
 
   // do this after updating the hard fork state since the weight limit may change due to fork
@@ -3515,6 +3604,8 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
+  m_deregister_vote_pool.remove_expired_votes(new_height);
+  m_deregister_vote_pool.remove_used_votes(txs);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
@@ -4495,7 +4586,25 @@ bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t he
 {
   return m_db->for_all_outputs(amount, f);;
 }
+void Blockchain::hook_init(Blockchain::InitHook& init_hook)
+{
+  m_init_hooks.push_back(&init_hook);
+}
 
+void Blockchain::hook_block_added(Blockchain::BlockAddedHook& block_added_hook)
+{
+  m_block_added_hooks.push_back(&block_added_hook);
+}
+
+void Blockchain::hook_blockchain_detached(Blockchain::BlockchainDetachedHook& blockchain_detached_hook)
+{
+  m_blockchain_detached_hooks.push_back(&blockchain_detached_hook);
+}
+
+void Blockchain::hook_validate_miner_tx(Blockchain::ValidateMinerTxHook& validate_miner_tx_hook)
+{
+  m_validate_miner_tx_hooks.push_back(&validate_miner_tx_hook);
+}
 void Blockchain::invalidate_block_template_cache()
 {
   MDEBUG("Invalidating block template cache");

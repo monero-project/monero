@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 //
 // All rights reserved.
 //
@@ -25,52 +25,48 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+
+#include "blockchain.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
+
+namespace triton
+{
+  class deregister_vote_pool;
+};
+
 namespace cryptonote
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct vote_verification_context
- {
-   bool m_verification_failed;
-   bool m_invalid_block_height;
-   bool m_voters_quorum_index_out_of_bounds;
-   bool m_service_node_index_out_of_bounds;
-   bool m_signature_not_valid;
-   bool m_added_to_pool;
-   bool m_full_tx_deregister_made;
-   bool m_not_enough_votes;
- };
+  class core;
+};
 
-  struct tx_verification_context
+namespace service_nodes
+{
+  class quorum_cop
+    : public cryptonote::Blockchain::BlockAddedHook,
+      public cryptonote::Blockchain::BlockchainDetachedHook
   {
-    bool m_should_be_relayed;
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool;
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-    bool m_not_rct;
-    bool m_invalid_version;
+  public:
+    quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list);
+    void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs);
+    void blockchain_detached(uint64_t height);
+    bool handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig);
+    void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req) const;
 
-    vote_verification_context m_vote_ctx;
-  };
+    static const uint64_t REORG_SAFETY_BUFFER_IN_BLOCKS = 20;
+    static_assert(REORG_SAFETY_BUFFER_IN_BLOCKS < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT,
+                  "Safety buffer should always be less than the vote lifetime");
+    bool prune_uptime_proof();
 
-  struct block_verification_context
-  {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
+  private:
+
+    cryptonote::core& m_core;
+    service_node_list& m_service_node_list;
+    uint64_t m_last_height;
+
+    using timestamp = uint64_t;
+    std::unordered_map<crypto::public_key, timestamp> m_uptime_proof_seen;
+    epee::critical_section m_lock;
   };
 }
