@@ -33,9 +33,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "gtest/gtest.h"
 
-#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db.h"
+
+namespace cryptonote
+{
 
 class BaseTestDB: public cryptonote::BlockchainDB {
 public:
@@ -73,6 +75,7 @@ public:
   virtual cryptonote::difficulty_type get_block_cumulative_difficulty(const uint64_t& height) const { return 10; }
   virtual cryptonote::difficulty_type get_block_difficulty(const uint64_t& height) const { return 0; }
   virtual uint64_t get_block_already_generated_coins(const uint64_t& height) const { return 10000000000; }
+  virtual uint64_t get_block_long_term_weight(const uint64_t& height) const { return 128; }
   virtual crypto::hash get_block_hash_from_height(const uint64_t& height) const { return crypto::hash(); }
   virtual std::vector<cryptonote::block> get_blocks_range(const uint64_t& h1, const uint64_t& h2) const { return std::vector<cryptonote::block>(); }
   virtual std::vector<crypto::hash> get_hashes_range(const uint64_t& h1, const uint64_t& h2) const { return std::vector<crypto::hash>(); }
@@ -128,6 +131,7 @@ public:
 
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight
+                        , uint64_t long_term_block_weight
                         , const cryptonote::difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
@@ -145,3 +149,4 @@ public:
   virtual void prune_outputs(uint64_t amount) {}
 };
 
+}

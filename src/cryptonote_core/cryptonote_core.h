@@ -54,6 +54,7 @@ namespace cryptonote
 {
    struct test_options {
      const std::pair<uint8_t, uint64_t> *hard_forks;
+     const size_t long_term_block_weight_window;
    };
 
   extern const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir;
