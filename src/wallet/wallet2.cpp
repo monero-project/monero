@@ -38,6 +38,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include "include_base_utils.h"
 using namespace epee;
@@ -75,6 +76,7 @@ using namespace epee;
 #include "ringdb.h"
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
+#include "net/socks_connect.h"
 
 extern "C"
 {
@@ -231,6 +233,7 @@ namespace
 struct options {
   const command_line::arg_descriptor<std::string> daemon_address = {"daemon-address", tools::wallet2::tr("Use daemon instance at <host>:<port>"), ""};
   const command_line::arg_descriptor<std::string> daemon_host = {"daemon-host", tools::wallet2::tr("Use daemon instance at host <arg> instead of localhost"), ""};
+  const command_line::arg_descriptor<std::string> proxy = {"proxy", tools::wallet2::tr("[<ip>:]<port> socks proxy to use for daemon connections"), {}, true};
   const command_line::arg_descriptor<bool> trusted_daemon = {"trusted-daemon", tools::wallet2::tr("Enable commands which rely on a trusted daemon"), false};
   const command_line::arg_descriptor<bool> untrusted_daemon = {"untrusted-daemon", tools::wallet2::tr("Disable commands which rely on a trusted daemon"), false};
   const command_line::arg_descriptor<std::string> password = {"password", tools::wallet2::tr("Wallet password (escape/quote as needed)"), "", true};
@@ -303,6 +306,8 @@ std::string get_weight_string(const cryptonote::transaction &tx, size_t blob_siz
 
 std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
 {
+  namespace ip = boost::asio::ip;
+
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
   const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
@@ -352,6 +357,44 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
+  boost::asio::ip::tcp::endpoint proxy{};
+  if (command_line::has_arg(vm, opts.proxy))
+  {
+    namespace ip = boost::asio::ip;
+    const boost::string_ref real_daemon = boost::string_ref{daemon_address}.substr(0, daemon_address.rfind(':'));
+
+    // onion and i2p addresses contain information about the server cert
+    // which both authenticates and encrypts
+    const bool unencrypted_proxy =
+      !real_daemon.ends_with(".onion") && !real_daemon.ends_with(".i2p") &&
+      daemon_ssl_allowed_certificates.empty() && daemon_ssl_allowed_fingerprints.empty();
+    THROW_WALLET_EXCEPTION_IF(
+      unencrypted_proxy,
+      tools::error::wallet_internal_error,
+      std::string{"Use of --"} + opts.proxy.name + " requires --" + opts.daemon_ssl_allowed_certificates.name + " or --" + opts.daemon_ssl_allowed_fingerprints.name + " or use of a .onion/.i2p domain"
+    );
+
+    const auto proxy_address = command_line::get_arg(vm, opts.proxy);
+
+    boost::string_ref proxy_port{proxy_address};
+    boost::string_ref proxy_host = proxy_port.substr(0, proxy_port.rfind(":"));
+    if (proxy_port.size() == proxy_host.size())
+      proxy_host = "127.0.0.1";
+    else
+      proxy_port = proxy_port.substr(proxy_host.size() + 1);
+
+    uint16_t port_value = 0;
+    THROW_WALLET_EXCEPTION_IF(
+      !epee::string_tools::get_xtype_from_string(port_value, std::string{proxy_port}),
+      tools::error::wallet_internal_error,
+      std::string{"Invalid port specified for --"} + opts.proxy.name
+    );
+
+    boost::system::error_code error{};
+    proxy = ip::tcp::endpoint{ip::address::from_string(std::string{proxy_host}, error), port_value};
+    THROW_WALLET_EXCEPTION_IF(bool(error), tools::error::wallet_internal_error, std::string{"Invalid IP address specified for --"} + opts.proxy.name);
+  }
+
   boost::optional<bool> trusted_daemon;
   if (!command_line::is_arg_defaulted(vm, opts.trusted_daemon) || !command_line::is_arg_defaulted(vm, opts.untrusted_daemon))
     trusted_daemon = command_line::get_arg(vm, opts.trusted_daemon) && !command_line::get_arg(vm, opts.untrusted_daemon);
@@ -388,8 +431,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   std::transform(daemon_ssl_allowed_fingerprints.begin(), daemon_ssl_allowed_fingerprints.end(), ssl_allowed_fingerprints.begin(), epee::from_hex::vector);
 
   std::unique_ptr<tools::wallet2> wallet(new tools::wallet2(nettype, kdf_rounds, unattended));
-  wallet->init(std::move(daemon_address), std::move(login), 0, *trusted_daemon, ssl_support, std::make_pair(daemon_ssl_private_key, daemon_ssl_certificate), ssl_allowed_certificates, ssl_allowed_fingerprints, daemon_ssl_allow_any_cert);
-
+  wallet->init(std::move(daemon_address), std::move(login), std::move(proxy), 0, *trusted_daemon, ssl_support, std::make_pair(daemon_ssl_private_key, daemon_ssl_certificate), ssl_allowed_certificates, ssl_allowed_fingerprints, daemon_ssl_allow_any_cert);
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
   wallet->get_message_store().set_options(vm);
@@ -1046,6 +1088,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   const options opts{};
   command_line::add_arg(desc_params, opts.daemon_address);
   command_line::add_arg(desc_params, opts.daemon_host);
+  command_line::add_arg(desc_params, opts.proxy);
   command_line::add_arg(desc_params, opts.trusted_daemon);
   command_line::add_arg(desc_params, opts.untrusted_daemon);
   command_line::add_arg(desc_params, opts.password);
@@ -1109,7 +1152,7 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::list<std::string> &allowed_certificates, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
+bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, boost::asio::ip::tcp::endpoint proxy, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_support_t ssl_support, const std::pair<std::string, std::string> &private_key_and_certificate_path, const std::list<std::string> &allowed_certificates, const std::vector<std::vector<uint8_t>> &allowed_fingerprints, bool allow_any_cert)
 {
   m_checkpoints.init_default_checkpoints(m_nettype);
   if(m_http_client.is_connected())
@@ -1119,6 +1162,10 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
   m_trusted_daemon = trusted_daemon;
+  if (proxy != boost::asio::ip::tcp::endpoint{})
+    m_http_client.set_connector(net::socks::connector{std::move(proxy)});
+
+  // When switching from light wallet to full wallet, we need to reset the height we got from lw node.
   return m_http_client.set_server(get_daemon_address(), get_daemon_login(), ssl_support, private_key_and_certificate_path, allowed_certificates, allowed_fingerprints, allow_any_cert);
 }
 //----------------------------------------------------------------------------------------------------

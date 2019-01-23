@@ -327,10 +327,17 @@ namespace net_utils
 				m_net_client.set_ssl(m_ssl_support, m_ssl_private_key_and_certificate_path, m_ssl_allowed_certificates, m_ssl_allowed_fingerprints, m_ssl_allow_any_cert);
 			}
 
+			template<typename F>
+			void set_connector(F connector)
+			{
+				CRITICAL_REGION_LOCAL(m_lock);
+				m_net_client.set_connector(std::move(connector));
+			}
+
       bool connect(std::chrono::milliseconds timeout)
       {
         CRITICAL_REGION_LOCAL(m_lock);
-        return m_net_client.connect(m_host_buff, m_port, timeout, "0.0.0.0");
+        return m_net_client.connect(m_host_buff, m_port, timeout);
       }
 			//---------------------------------------------------------------------------
 			bool disconnect()
