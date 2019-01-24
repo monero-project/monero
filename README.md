@@ -1,4 +1,4 @@
-## About Triton
+# Triton
 ![Image of Triton](https://xtri.network/wp-content/uploads/2018/11/ProjectTritontextlogo.jpg)
 Freedom for Streamers and Professional Gamers
 
@@ -9,18 +9,19 @@ Project Triton [XTRI] is developing innovative donation platforms for the Online
 [Twitter](https://twitter.com/TritonNetwork)  
 [Discord](https://discord.gg/7FWufDt)
 
-## About Sao
+# Sao
 <p align="center">
   <img src="https://xtri.network/wp-content/uploads/2019/01/SAOTEXTSMALL-2.png" alt="Sao"/>
 </p>
 A new journey for Project Triton. The SAO stablecoin.
 SAO is a decentralized stablecoin based on mint and burn protocol called the Sao Dollar (SAO), which is minted from our established volatile coin Triton (XTRI).
 
+Check out the announcement [here](https://medium.com/@projecttriton/new-journey-the-sao-stablecoin-da6f9119a410)  
 Check out the paper [here](https://bit.ly/SAOTechinicalPaper)
 
 
 
-## 
+# General Information
 Copyright (c) 2014-2018 The Monero Project.   
 Copyright (c) 2018 Project Triton.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
