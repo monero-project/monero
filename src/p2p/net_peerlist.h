@@ -340,14 +340,14 @@ namespace nodetool
   {    
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
-    pl_gray.resize(pl_gray.size() + by_time_index_gr.size());
+    pl_gray.reserve(pl_gray.size() + by_time_index_gr.size());
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
     {
       pl_gray.push_back(vl);      
     }
 
     peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
-    pl_white.resize(pl_white.size() + by_time_index_wt.size());
+    pl_white.reserve(pl_white.size() + by_time_index_wt.size());
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
     {
       pl_white.push_back(vl);      
