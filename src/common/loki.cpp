@@ -1,3 +1,6 @@
+#include "loki.h"
+#include <assert.h>
+
 /* Exponential base 2 function.
    Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
@@ -20,7 +23,10 @@
 #include <cfloat>
 #include <cmath>
 
-#include "round.h"
+// TODO(loki): This is temporary until we switch to integer math for calculating
+// block rewards. We provide the specific implementation to minimise the risk of
+// different results from math functions across different std libraries.
+static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 /* Best possible approximation of log(2) as a 'double'.  */
 #define LOG2 0.693147180559945309417232121458176568075
@@ -34,13 +40,8 @@
 /* Best possible approximation of 256/log(2) as a 'double'.  */
 #define LOG2_BY_256_INVERSE 369.329930467574632284140718336484387181
 
-// TODO(loki): This is temporary until we switch to integer math for calculating
-// block rewards. We provide the specific implementation to minimise the risk of
-// different results from math functions across different std libraries.
-static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
-
 double
-loki_exp2 (double x)
+loki::exp2(double x)
 {
   /* exp2(x) = exp(x*log(2)).
      If we would compute it like this, there would be rounding errors for
@@ -94,7 +95,7 @@ loki_exp2 (double x)
        truncate the series after the z^5 term.  */
 
   {
-    double nm = loki_round (x * 256.0); /* = 256 * n + m */
+    double nm = loki::round (x * 256.0); /* = 256 * n + m */
     double z = (x * 256.0 - nm) * (LOG2_BY_256 * 0.5);
 
 /* Coefficients of the power series for tanh(z).  */
@@ -116,7 +117,7 @@ loki_exp2 (double x)
 
     double exp_y = (1.0 + tanh_z) / (1.0 - tanh_z);
 
-    int n = (int) loki_round (nm * (1.0 / 256.0));
+    int n = (int) loki::round (nm * (1.0 / 256.0));
     int m = (int) nm - 256 * n;
 
     /* exp_table[i] = exp((i - 128) * log(2)/256).
@@ -393,4 +394,162 @@ loki_exp2 (double x)
       ret *= 2;
     return ret;
   }
+}
+
+/* Round toward nearest, breaking ties away from zero.
+   Copyright (C) 2007, 2010-2019 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License along
+   with this program; if not, see <https://www.gnu.org/licenses/>.  */
+
+/* Written by Ben Pfaff <blp@gnu.org>, 2007.
+   Based heavily on code by Bruno Haible. */
+
+/* Specification.  */
+
+#include <cstdint>
+#include <cfloat>
+#include <limits>
+
+/* -0.0.  See minus-zero.h.  */
+#if defined __hpux || defined __sgi || defined __ICC
+# define MINUS_ZERO (-DBL_MIN * DBL_MIN)
+#else
+# define MINUS_ZERO -0.0
+#endif
+
+/* MSVC with option -fp:strict refuses to compile constant initializers that
+   contain floating-point operations.  Pacify this compiler.  */
+#ifdef _MSC_VER
+# pragma fenv_access (off)
+#endif
+
+double
+loki::round (double x)
+{
+  /* 2^(DBL_MANT_DIG-1).  */
+  static const double TWO_MANT_DIG =
+    /* Assume DBL_MANT_DIG <= 5 * 31.
+       Use the identity
+       n = floor(n/5) + floor((n+1)/5) + ... + floor((n+4)/5).  */
+    (double) (1U << ((DBL_MANT_DIG - 1) / 5))
+    * (double) (1U << ((DBL_MANT_DIG - 1 + 1) / 5))
+    * (double) (1U << ((DBL_MANT_DIG - 1 + 2) / 5))
+    * (double) (1U << ((DBL_MANT_DIG - 1 + 3) / 5))
+    * (double) (1U << ((DBL_MANT_DIG - 1 + 4) / 5));
+
+  /* The use of 'volatile' guarantees that excess precision bits are dropped at
+     each addition step and before the following comparison at the caller's
+     site.  It is necessary on x86 systems where double-floats are not IEEE
+     compliant by default, to avoid that the results become platform and
+     compiler option dependent.  'volatile' is a portable alternative to gcc's
+     -ffloat-store option.  */
+  volatile double y = x;
+  volatile double z = y;
+
+  if (z > 0.0)
+    {
+      /* Avoid rounding error for x = 0.5 - 2^(-DBL_MANT_DIG-1).  */
+      if (z < 0.5)
+        z = 0.0;
+      /* Avoid rounding errors for values near 2^k, where k >= DBL_MANT_DIG-1.  */
+      else if (z < TWO_MANT_DIG)
+        {
+          /* Add 0.5 to the absolute value.  */
+          y = z += 0.5;
+          /* Round to the next integer (nearest or up or down, doesn't
+             matter).  */
+          z += TWO_MANT_DIG;
+          z -= TWO_MANT_DIG;
+          /* Enforce rounding down.  */
+          if (z > y)
+            z -= 1.0;
+        }
+    }
+  else if (z < 0.0)
+    {
+      /* Avoid rounding error for x = -(0.5 - 2^(-DBL_MANT_DIG-1)).  */
+      if (z > - 0.5)
+        z = MINUS_ZERO;
+      /* Avoid rounding errors for values near -2^k, where k >= DBL_MANT_DIG-1.  */
+      else if (z > -TWO_MANT_DIG)
+        {
+          /* Add 0.5 to the absolute value.  */
+          y = z -= 0.5;
+          /* Round to the next integer (nearest or up or down, doesn't
+             matter).  */
+          z -= TWO_MANT_DIG;
+          z += TWO_MANT_DIG;
+          /* Enforce rounding up.  */
+          if (z < y)
+            z += 1.0;
+        }
+    }
+  return z;
+}
+
+// adapted from Lokinet llarp/encode.hpp
+// from  https://en.wikipedia.org/wiki/Base32#z-base-32
+static const char zbase32_alpha[] = {'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
+                                     'e', 'j', 'k', 'm', 'c', 'p', 'q', 'x',
+                                     'o', 't', '1', 'u', 'w', 'i', 's', 'z',
+                                     'a', '3', '4', '5', 'h', '7', '6', '9'};
+
+/// adapted from i2pd
+template <typename v, typename stack_t>
+const char* base32z_encode(const v& value, stack_t &stack)
+{
+  size_t ret = 0, pos = 1;
+  int bits = 8, tmp = value[0];
+  size_t len = value.size();
+  while(ret < sizeof(stack) && (bits > 0 || pos < len))
+  {
+    if(bits < 5)
+    {
+      if(pos < len)
+      {
+        tmp <<= 8;
+        tmp |= value[pos] & 0xFF;
+        pos++;
+        bits += 8;
+      }
+      else  // last byte
+      {
+        tmp <<= (5 - bits);
+        bits = 5;
+      }
+    }
+
+    bits -= 5;
+    int ind = (tmp >> bits) & 0x1F;
+    if(ret < sizeof(stack))
+    {
+      stack[ret] = zbase32_alpha[ind];
+      ret++;
+    }
+    else
+      return nullptr;
+  }
+  return &stack[0];
+}
+
+std::string loki::hex64_to_base32z(const std::string &src)
+{
+  assert(src.size() <= 64); // NOTE: Developer error, update function if you need more. This is intended for 64 char snode pubkeys
+  char buf[128] = {};
+  std::string result;
+  if (char const *dest = base32z_encode(src, buf))
+    result = dest;
+
+  return result;
 }

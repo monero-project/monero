@@ -38,7 +38,6 @@
 #include "common/scoped_message_writer.h"
 #include "common/i18n.h"
 #include "service_node_quorum_cop.h"
-#include "common/exp2.h"
 
 #include "service_node_list.h"
 #include "service_node_rules.h"
@@ -1233,6 +1232,29 @@ namespace service_nodes
 
     return true;
   }
+
+  void service_node_list::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const
+  {
+    keys.clear();
+    keys.resize(m_service_nodes_infos.size());
+
+    size_t i = 0;
+    if (fully_funded_nodes_only)
+    {
+      for (const auto &it : m_service_nodes_infos)
+      {
+        service_node_info const &info = it.second;
+        if (info.is_fully_funded())
+          keys[i++] = it.first;
+      }
+    }
+    else
+    {
+      for (const auto &it : m_service_nodes_infos)
+        keys[i++] = it.first;
+    }
+  }
+
 
   bool service_node_list::load()
   {

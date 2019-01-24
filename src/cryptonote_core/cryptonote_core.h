@@ -845,6 +845,14 @@ namespace cryptonote
      bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
 
      /**
+      * @brief Get the public key of every service node.
+      *
+      * @param keys The container in which to return the keys
+      * @param fully_funded_nodes_only Only return nodes that are funded and hence working on the network
+      */
+     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
+
+     /**
       * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
       *
       * @return true

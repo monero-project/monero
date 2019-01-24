@@ -1,5 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
-// Copyright (c)      2018, The Loki Project
+// Copyright (c) 2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -27,6 +26,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#ifndef LOKI_H
+#define LOKI_H
 
-double loki_round(double);
+#include <string>
+
+namespace loki
+{
+double      round           (double);
+double      exp2            (double);
+std::string hex64_to_base32z(std::string const& src);
+}; // namespace Loki
+
+#endif // LOKI_H

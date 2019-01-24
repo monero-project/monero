@@ -36,10 +36,9 @@ set(common_sources
   download.cpp
   error.cpp
   expect.cpp
+  loki.cpp
   util.cpp
   i18n.cpp
-  exp2.cpp
-  round.cpp
   rules.cpp
   notify.cpp
   password.cpp
@@ -64,10 +63,9 @@ set(common_private_headers
   common_fwd.h
   dns_utils.h
   download.h
-  exp2.h
-  round.h
   error.h
   expect.h
+  loki.h
   http_connection.h
   notify.h
   pod-class.h

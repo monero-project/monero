@@ -37,6 +37,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "common/updates.h"
 #include "common/download.h"
+#include "common/loki.h"
 #include "common/util.h"
 #include "common/perf_timer.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -208,6 +209,22 @@ namespace cryptonote
     res.database_size = m_restricted ? 0 : m_core.get_blockchain_storage().get_db().get_database_size();
     res.update_available = m_restricted ? false : m_core.is_update_available();
     res.version = m_restricted ? "" : LOKI_VERSION;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp)
+  {
+    std::vector<crypto::public_key> keys;
+    m_core.get_all_service_nodes_public_keys(keys, req.fully_funded_nodes_only);
+
+    res.keys.clear();
+    res.keys.resize(keys.size());
+    size_t i = 0;
+    for (const auto& key : keys)
+    {
+      std::string const hex64 = string_tools::pod_to_hex(key);
+      res.keys[i++]           = loki::hex64_to_base32z(hex64);
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

@@ -985,6 +985,27 @@ namespace cryptonote
     };
   };
 
+
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
+  {
+    struct request
+    {
+      bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<std::string> keys; // NOTE: Returns as base32z of the hex key, for Lokinet internal usage
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
     
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING

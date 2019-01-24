@@ -1985,6 +1985,11 @@ namespace cryptonote
     return m_service_node;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const
+  {
+    m_service_node_list.get_all_service_nodes_public_keys(keys, fully_funded_nodes_only);
+  }
+  //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const
   {
     return start_time;
