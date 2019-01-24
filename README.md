@@ -4,12 +4,20 @@ Freedom for Streamers and Professional Gamers
 
 Project Triton [XTRI] is developing innovative donation platforms for the Online Streaming and ESports industries through blockchain technology
 
+### For announcements:
+[Website](https://xtri.network)  
+[Twitter](https://twitter.com/TritonNetwork)  
+[Discord](https://discord.gg/7FWufDt)
+
 ## About Sao
 <p align="center">
   <img src="https://xtri.network/wp-content/uploads/2019/01/SAOTEXTSMALL-2.png" alt="Sao"/>
 </p>
-The SAO stablecoin. A new journey for Project Triton
+A new journey for Project Triton. The SAO stablecoin.
 SAO is a decentralized stablecoin based on mint and burn protocol called the Sao Dollar (SAO), which is minted from our established volatile coin Triton (XTRI).
+
+Check out the paper [here](https://bit.ly/SAOTechinicalPaper)
+
 
 
 ## 
@@ -17,27 +25,9 @@ Copyright (c) 2014-2018 The Monero Project.
 Copyright (c) 2018 Project Triton.
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
 
-## Announcements
+## Current maintainer
+- Harrison Hesslink (krakn)
 
-- Get updates on our discord: https://discord.gg/7FWufDt
-- Get updates on our twitter: https://twitter.com/ProjectTriton
-
-
-### IMPORTANT 
-
-These builds are of the master branch, which is used for active development and can be either unstable or incompatible with release software. Please compile release branches.
-
-## Introduction
-
-On Januaray 16th, Project Triton announced development of the SAO Dollar. A mint/burn stablecoin with consensus prices from Service Node Oracles. Check out the paper [here](https://cdn.discordapp.com/attachments/439265536296091648/535511049940631572/Sao_Technical_Paper_v1.1.pdf). 
-
-Project Triton is developing innovative donation applications for the Online Streaming and ESports industries through blockchain technology. It is based on Monero which is a private, secure, untraceable, decentralised digital currency. You are your bank, you control your funds, and nobody can trace your transfers unless you allow them to do so.
-
-**Privacy:** Triton uses a cryptographically sound system to allow you to send and receive funds without your transactions being easily revealed on the blockchain (the ledger of transactions that everyone has). This ensures that your purchases, receipts, and all transfers remain absolutely private by default.
-
-**Security:** Using the power of a distributed peer-to-peer consensus network, every transaction on the network is cryptographically secured. Individual wallets have a 25 word mnemonic seed that is only displayed once, and can be written down to backup the wallet. Wallet files are encrypted with a passphrase to ensure they are useless if stolen.
-
-**Untraceability:** By taking advantage of ring signatures, a special property of a certain type of cryptography, Triton is able to ensure that transactions are not only untraceable, but have an optional measure of ambiguity that ensures that transactions cannot easily be tied back to an individual user or computer.
 
 **Anyone is welcome to contribute to Triton's codebase!** If you have a fix or code change, feel free to submit it as a pull request directly to the "master" branch. In cases where the change is relatively small or does not affect other parts of the codebase it may be merged in immediately by any one of the collaborators. On the other hand, if the change is particularly large or complex, it is expected that it will be discussed at length either well in advance of the pull request being submitted, or even directly on the pull request.
 
