@@ -26,6 +26,7 @@ q
 save
 set_log
 show_hr
+sekreta
 start_mining
 status
 stop_daemon

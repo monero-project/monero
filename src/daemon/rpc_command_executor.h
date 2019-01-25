@@ -46,6 +46,10 @@
 #include "net/net_fwd.h"
 #include "rpc/core_rpc_server.h"
 
+#if defined(SEKRETA)
+#include "net/sekreta.h"
+#endif
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
 
@@ -106,6 +110,11 @@ public:
   bool print_transaction_pool_short();
 
   bool print_transaction_pool_stats();
+
+#if defined(SEKRETA)
+  bool sekreta(
+      const ::sekreta::api::impl_helper::DaemonArgs<std::string>& args);
+#endif
 
   bool start_mining(cryptonote::account_public_address address, uint64_t num_threads, cryptonote::network_type nettype, bool do_background_mining = false, bool ignore_battery = false);
 

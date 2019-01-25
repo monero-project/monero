@@ -1079,6 +1079,7 @@ TEST(NetUtils, NetworkAddress)
     constexpr static bool is_local() noexcept { return false; }
     static std::string str() { return {}; }
     static std::string host_str() { return {}; }
+    static uint16_t port() { return {}; }
     constexpr static epee::net_utils::address_type get_type_id() noexcept { return epee::net_utils::address_type(-1); }
     constexpr static epee::net_utils::zone get_zone() noexcept { return epee::net_utils::zone::invalid; }
     constexpr static bool is_blockable() noexcept { return false; }
@@ -1089,6 +1090,7 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_TRUE(empty.is_same_host(empty));
   EXPECT_STREQ("<none>", empty.str().c_str());
   EXPECT_STREQ("<none>", empty.host_str().c_str());
+  EXPECT_EQ(0, empty.port());
   EXPECT_FALSE(empty.is_loopback());
   EXPECT_FALSE(empty.is_local());
   EXPECT_EQ(epee::net_utils::address_type::invalid, empty.get_type_id());
@@ -1107,6 +1109,7 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_FALSE(address1.is_same_host(empty));
   EXPECT_STREQ("51.0.18.255:65535", address1.str().c_str());
   EXPECT_STREQ("51.0.18.255", address1.host_str().c_str());
+  EXPECT_EQ(65535, address1.port());
   EXPECT_FALSE(address1.is_loopback());
   EXPECT_FALSE(address1.is_local());
   EXPECT_EQ(epee::net_utils::ipv4_network_address::get_type_id(), address1.get_type_id());
@@ -1126,6 +1129,7 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_FALSE(address1.is_same_host(loopback));
   EXPECT_STREQ("127.0.0.1:0", loopback.str().c_str());
   EXPECT_STREQ("127.0.0.1", loopback.host_str().c_str());
+  EXPECT_EQ(0, loopback.port());
   EXPECT_TRUE(loopback.is_loopback());
   EXPECT_FALSE(loopback.is_local());
   EXPECT_EQ(epee::net_utils::ipv4_network_address::get_type_id(), address1.get_type_id());
@@ -1152,6 +1156,7 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_TRUE(address2.is_same_host(address1));
   EXPECT_STREQ("51.0.18.255:55", address2.str().c_str());
   EXPECT_STREQ("51.0.18.255", address2.host_str().c_str());
+  EXPECT_EQ(55, address2.port());
 
   address2 = std::move(address1);
   CHECK_EQUAL(address1, address1);
@@ -1161,6 +1166,7 @@ TEST(NetUtils, NetworkAddress)
   EXPECT_FALSE(address2.is_same_host(address1));
   EXPECT_STREQ("51.0.18.255:65535", address2.str().c_str());
   EXPECT_STREQ("51.0.18.255", address2.host_str().c_str());
+  EXPECT_EQ(65535, address2.port());
   EXPECT_FALSE(address1.is_loopback());
   EXPECT_FALSE(address1.is_local());
   EXPECT_THROW(address1.as<epee::net_utils::ipv4_network_address>(), std::bad_cast);

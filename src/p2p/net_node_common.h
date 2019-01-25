@@ -46,6 +46,12 @@ namespace nodetool
   typedef boost::uuids::uuid uuid;
   typedef boost::uuids::uuid net_connection_id;
 
+#if defined(SEKRETA)
+  //! \brief UID shared between p2p and daemon
+  //! \note Trivially destructible for static storage duration
+  constexpr std::string_view UID = "-daemon-";
+#endif
+
   template<class t_connection_context>
   struct i_p2p_endpoint
   {

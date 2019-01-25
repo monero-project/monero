@@ -3012,6 +3012,19 @@ namespace tools
     }
     return true;
   }
+
+#if defined(SEKRETA)
+  bool wallet_rpc_server::on_sekreta(
+      const wallet_rpc::COMMAND_RPC_SEKRETA::request& req,
+      wallet_rpc::COMMAND_RPC_SEKRETA::response& res,
+      epee::json_rpc::error& er,
+      const connection_context* ctx)
+  {
+    // TODO(unassigned): implement
+    return true;
+  }
+#endif
+
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_start_mining(const wallet_rpc::COMMAND_RPC_START_MINING::request& req, wallet_rpc::COMMAND_RPC_START_MINING::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {

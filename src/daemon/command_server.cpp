@@ -107,6 +107,36 @@ t_command_server::t_command_server(
     , "is_key_image_spent <key_image>"
     , "Print whether a given key image is in the spent key images set."
     );
+#if defined(SEKRETA)
+  m_command_lookup.set_handler(
+      "sekreta",
+      std::bind(&t_command_parser_executor::sekreta, &m_parser, p::_1),
+      "sekreta <command> <system> [<args>]",
+      "\n"
+      "  <command>  :  Command to run with sekreta. Options: <configure|start|status|restart|stop>\n"
+      "  <system>   :  Anonymity system to run <command> against. Current options: <kovri|ire|i2p|tor|loki>\n"
+      "  <args>     :  Arguments used against the anonymity system in conjuction with <command>. See the system's documentation for details.\n"
+      "\n"
+      "Example:\n"
+      "\n"
+// TODO(anonimal): WIP
+//      "  sekreta set_nodes /home/anonimal/anon_nodes.sek\n"
+//      "\n"
+//      "     Where `anon_nodes.sek` is a Sekreta SEK key. Alternatively, you can `set_nodes` manually:\n"
+//      "\n"
+//      "  sekreta set_nodes wqr5kmjdpvnlcg7mzlg6bqin3izawq2226gxq4bacgxiy4aeoprq.b32.i2p:18081,6wkomhe6ozpc3iq3dadl4hbfkdrptcphayiiri5udxigs3y3t4zq.b32.i2p:18081,etc.\n"
+//      "\n"
+//      "     Then, start your system:\n"
+//      "\n"
+      "  sekreta configure kovri --port=12345 --disable-console-log\n"
+      "  sekreta start kovri\n"
+      "  sekreta status kovri\n"
+      "\n"
+      "NOTES:\n"
+      "  - Replace `--port=12345` with an open/un-firewalled port of choice to be used by your anonymity system (if supported)\n"
+      "  - See the supported anonymity systems' documentation for a full list of options\n"
+      "  - Depending on the anonymity system, you may need to wait for the system to bootstrap (~3-5 minutes) and/or integrate upon each startup");
+#endif
   m_command_lookup.set_handler(
       "start_mining"
     , std::bind(&t_command_parser_executor::start_mining, &m_parser, p::_1)

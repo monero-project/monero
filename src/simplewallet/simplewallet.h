@@ -498,5 +498,8 @@ namespace cryptonote
     void mms_start_auto_config(const std::vector<std::string> &args);
     void mms_stop_auto_config(const std::vector<std::string> &args);
     void mms_auto_config(const std::vector<std::string> &args);
+#if defined(SEKRETA)
+    bool sekreta(const std::vector<std::string>& args);
+#endif
   };
 }

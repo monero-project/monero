@@ -33,6 +33,10 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
 
+#if defined(SEKRETA)
+#include "net/sekreta.h"
+#endif
+
 namespace daemonize {
 
 t_command_parser_executor::t_command_parser_executor(
@@ -314,6 +318,36 @@ bool t_command_parser_executor::print_transaction_pool_stats(const std::vector<s
 
   return m_executor.print_transaction_pool_stats();
 }
+
+#if defined(SEKRETA)
+bool t_command_parser_executor::sekreta(const std::vector<std::string>& args)
+{
+  namespace impl = ::sekreta::api::impl_helper;
+  namespace type = impl::type;
+
+  using t_value = std::string;
+  using t_args = impl::DaemonArgs<t_value>;
+
+  std::pair<std::optional<t_args>, std::optional<t_value>> const daemon_args =
+      impl::parse_args<t_args, t_value>(args);
+
+  if (!daemon_args.first)
+    {
+      std::cout << daemon_args.second.value() << std::endl;
+      return true;
+    }
+
+  // TODO(anonimal): temporary
+  if (daemon_args.first.value().system
+      != t_args::get_value<type::kSystem>(type::kSystem::Kovri))
+    {
+      std::cout << "Only Kovri is currently supported" << std::endl;
+      return true;
+    }
+
+  return m_executor.sekreta(daemon_args.first.value());
+}
+#endif
 
 bool t_command_parser_executor::start_mining(const std::vector<std::string>& args)
 {

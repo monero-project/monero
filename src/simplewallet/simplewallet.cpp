@@ -32,6 +32,8 @@
  * \file simplewallet.cpp
  * 
  * \brief Source file that defines simple_wallet class.
+ *
+ * \todo Returning true on failure is a classic CN anti-pattern :/
  */
 #include <locale.h>
 #include <thread>
@@ -77,6 +79,11 @@
 
 #ifdef HAVE_READLINE
 #include "readline_buffer.h"
+#endif
+
+#if defined(SEKRETA)
+#include "net/sekreta.h"
+#include "net/parse.h"
 #endif
 
 using namespace std;
@@ -172,6 +179,9 @@ namespace
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
+#if defined(SEKRETA)
+  constexpr const char* USAGE_SEKRETA = "sekreta <location> <command> <system> [<args>]";
+#endif
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
   const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted]");
   const char* USAGE_SHOW_BALANCE("balance [detail]");
@@ -3069,6 +3079,44 @@ simple_wallet::simple_wallet()
   , m_rpc_payment_hash_rate(-1.0f)
   , m_suspend_rpc_payment_mining(false)
 {
+#if defined(SEKRETA)
+  m_cmd_binder.set_handler(
+      "sekreta",
+      boost::bind(&simple_wallet::sekreta, this, _1),
+      tr(USAGE_SEKRETA),
+      tr("\n"
+      "  <location> :  Options: <wallet|daemon>\n"
+      "      wallet -  Run sekreta command within the monero wallet (if ran within wallet, default is wallet).\n"
+      "      daemon -  Run sekreta command within the monero daemon.\n"
+      "  <command>  :  Command to run with sekreta. Options: <configure|start|status|restart|stop>\n"
+      "  <system>   :  Anonymity system to run <command> against. Current options: <kovri|ire|i2p|tor|loki>\n"
+      "  <args>     :  Arguments used against the anonymity system in conjuction with <command>. See the system's documentation for details.\n"
+      "\n"
+      "Example:\n"
+      "\n"
+      "  For remote node (not local monerod):\n"
+      "\n"
+      "    [wallet 9wNCEM]: sekreta wallet configure kovri --port=12345 --disable-console-log\n"
+      "    [wallet 9wNCEM]: sekreta wallet start kovri\n"
+      "    [wallet 9wNCEM]: sekreta wallet status kovri\n"
+      "    [wallet 9wNCEM]: set_daemon wqr5kmjdpvnlcg7mzlg6bqin3izawq2226gxq4bacgxiy4aeoprq.b32.i2p:18081\n"
+      "    ...\n"
+      "    [wallet 9wNCEM]: sekreta wallet stop kovri\n"
+      "\n"
+      "    or, simply `exit` the wallet.\n"
+      "\n"
+      "  To issue commands to an unrestricted monerod node; replace the `wallet` command with `daemon`:\n"
+      "\n"
+      "    [wallet 9wNCEM]: sekreta daemon configure kovri --port=12345 --disable-console-log\n"
+      "    [wallet 9wNCEM]: sekreta daemon start kovri\n"
+      "    [wallet 9wNCEM]: sekreta daemon status kovri\n"
+      "    ...etc.\n"
+      "\n"
+      "NOTE:\n"
+      "  - Replace `--port=12345` with an open/un-firewalled port of choice to be used by your anonymity system (if supported)\n"
+      "  - See the supported anonymity systems' documentation for a full list of options\n"
+      "  - Depending on the anonymity system, you may need to wait for the system to bootstrap (~3-5 minutes) and/or integrate upon each startup"));
+#endif
   m_cmd_binder.set_handler("start_mining",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::start_mining, _1),
                            tr(USAGE_START_MINING),
@@ -5191,6 +5239,200 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
     start_background_mining();
   }
 }
+
+#if defined(SEKRETA)
+bool simple_wallet::sekreta(const std::vector<std::string>& args)
+{
+  namespace impl = ::sekreta::api::impl_helper;
+  namespace type = impl::type;
+
+  using t_value = std::string;
+  using t_args = impl::WalletArgs<t_value>;
+
+  // Parse args
+  std::pair<std::optional<t_args>, std::optional<t_value>> wallet_args =
+      impl::parse_args<t_args, t_value>(args);
+
+  if (!wallet_args.first)
+    {
+      fail_msg_writer() << tr(wallet_args.second.value().c_str());
+      return true;
+    }
+
+  t_args& parsed_args = wallet_args.first.value();
+
+  if (parsed_args.system_args.empty())
+    {
+      parsed_args.system_args.push_back("--disable-console-log");
+      parsed_args.system_args.push_back("--enable-auto-flush-log");
+    }
+
+  type::kSystem const system =
+      t_args::get_key<type::kSystem>(parsed_args.system).value();
+
+  // TODO(anonimal): temporary
+  if (system != type::kSystem::Kovri)
+    {
+      fail_msg_writer() << tr("Only Kovri is currently supported");
+      return true;
+    }
+
+  // Send to daemon if requested
+  if (t_args::get_key<type::kLocation>(parsed_args.location).value()
+      == type::kLocation::Daemon)
+    {
+      COMMAND_RPC_SEKRETA::request req;
+      COMMAND_RPC_SEKRETA::response res;
+
+      req.command = parsed_args.command;
+      req.system = parsed_args.system;
+      req.system_args = parsed_args.system_args;
+
+      std::string const error = interpret_rpc_response(
+          m_wallet->invoke_http_json("/sekreta", req, res), res.status);
+
+      if (error.empty())
+        {
+          success_msg_writer()
+              << tr("Sekreta executed '") << tr(parsed_args.system.c_str())
+              << tr("' in daemon");
+          return true;
+        }
+
+      fail_msg_writer() << tr("Sekreta has NOT been executed: ") << error;
+      return true;
+    }
+
+  // Shared Sekreta instance between wallet2/simplewallet
+  std::shared_ptr<net::sekreta::Sekreta> sekreta = m_wallet->sekreta();
+
+  // TODO(anonimal): temporary single-system only
+  namespace api = ::sekreta::api::kovri;
+  std::shared_ptr<api::Library> lib;
+
+  net::sekreta::UID const uid({std::string{tools::wallet2::UID}});
+  std::string const uid_lib{uid.name() + "lib"};
+  std::string const uid_path{uid.name() + "rpc client"};
+  std::string const uid_trait{uid.name() + "trait"};
+
+  std::string error;  // exception error
+  try
+    {
+      // Check-in if not already done so by wallet2 and/or borrow
+      if (!sekreta->contains<api::Library>({uid_lib}))
+        sekreta->check_in<api::Library>({uid_lib});
+      lib = sekreta->borrow<api::Library>({uid_lib});
+
+      // TODO(anonimal): in Kovri, command exceptions are caught and log printed
+      switch (t_args::get_key<type::kCommand>(parsed_args.command).value())
+        {
+          case type::kCommand::Configure:
+            {
+              // TODO(anonimal): Sekreta only allows to configure once,
+              //   regardless if stop'd
+              lib->configure(parsed_args.system_args);
+
+              success_msg_writer()
+                  << tr(parsed_args.system.c_str()) << tr(" configured");
+            }
+            break;
+          case type::kCommand::Start:
+            {
+              if (lib->status()->is_running())
+                {
+                  fail_msg_writer() << tr(
+                      "Instance has already started. Stop and start again");
+                  return true;
+                }
+
+              lib->start();
+
+              success_msg_writer()
+                  << tr(parsed_args.system.c_str()) << tr(" started");
+            }
+            break;
+          case type::kCommand::Restart:
+            {
+              if (!lib->status()->is_running())
+                {
+                  fail_msg_writer()
+                      << tr("Instance is not running. Start, if so desired.");
+                  return true;
+                }
+
+              lib->restart();
+
+              success_msg_writer()
+                  << tr(parsed_args.system.c_str()) << tr(" restarted");
+            }
+            break;
+          case type::kCommand::Status:
+            {
+              if (!lib->status()->is_running())
+                {
+                  fail_msg_writer()
+                      << tr("Instance is not running. Start, if so desired.");
+                  return true;
+                }
+
+              std::shared_ptr<api::Library::Status> status = lib->status();
+
+              success_msg_writer()
+                  << tr("Version: ") << status->version() << "\n"
+                  << tr("Data dir: ") << status->data_dir() << "\n"
+                  << tr("Uptime (seconds): ") << status->uptime() << "\n"
+                  << tr("State: ") << status->state() << "\n"
+                  << tr("Inbound bandwidth: ") << status->inbound_bandwidth() << "\n"
+                  << tr("Outbound bandwidth: ") << status->outbound_bandwidth() << "\n"
+                  << tr("Router path creation rate (percentage): ") << status->path_creation_rate() << "%\n"
+                  << tr("Router path count: ") << status->path_count() << "\n"
+                  << tr("Active peer count: ") << status->active_peer_count() << "\n"
+                  << tr("Known peer count: ") << status->known_peer_count();
+
+              if (system == type::kSystem::Kovri || system == type::kSystem::Ire
+                  || system == type::kSystem::I2P)
+                {
+                  success_msg_writer()
+                      << tr("Floodfill count: ") << status->floodfill_count() << "\n"
+                      << tr("Leaseset count: ") << status->leaseset_count();
+                }
+            }
+            break;
+          case type::kCommand::Stop:
+            {
+              if (!lib->status()->is_running())
+                {
+                  fail_msg_writer()
+                      << tr("Instance is not running. Start, if so desired.");
+                  return true;
+                }
+
+              lib->stop();
+
+              success_msg_writer()
+                  << tr(parsed_args.system.c_str()) << tr(" stopped");
+            }
+            break;
+          default:
+            fail_msg_writer() << tr("Unsupported option");
+            return false;
+        }
+
+      // Check-in for Nth iteration of this function
+      sekreta->check_in<api::Library>({uid_lib}, lib);
+    }
+  catch (const sekreta::Exception& ex)
+    {
+      error = ex.what();
+    }
+
+  if (!error.empty())
+    fail_msg_writer() << tr(error.c_str());
+
+  return true;
+}
+#endif
+
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
@@ -5327,14 +5569,150 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       fail_msg_writer() << tr("Unexpected array length - Exited simple_wallet::set_daemon()");
       return true;
     }
-    // If no port has been provided, use the default from config
-    if (!match[3].length())
-    {
-      uint16_t daemon_port = get_config(m_wallet->nettype()).RPC_DEFAULT_PORT;
-      daemon_url = match[1] + match[2] + std::string(":") + std::to_string(daemon_port);
-    } else {
-      daemon_url = args[0];
-    }
+
+    std::string scheme{match[1]}, host{match[2]}, delimiter{match[3]},
+        port{std::to_string(get_config(m_wallet->nettype()).RPC_DEFAULT_PORT)};
+
+    if (scheme.empty())
+      scheme =
+          "http://";  // Note: this won't (shouldn't) interfere with daemon-ssl
+
+    // Parse-out port that's included with delimiter
+    if (!delimiter.empty() && delimiter != ":")
+      {
+        std::vector<std::string> parsed;
+        boost::split(parsed, delimiter, boost::is_any_of(":"));
+        port = parsed.at(1);
+      }
+    delimiter = ":";
+#if defined(SEKRETA)
+    // If host is an anon address, set the path using given host and port, and
+    //   then set the given host and port locally to pipe RPC through that path
+
+    namespace impl = ::sekreta::api::impl_helper;
+
+    using t_address = expect<epee::net_utils::network_address>;
+    using t_value = std::string;
+
+    std::pair<std::optional<t_address>, std::optional<t_value>> const address =
+        net::sekreta::parse_cli_arg<t_address, t_value>(
+            {host, boost::lexical_cast<uint16_t>(port)},
+            // TODO(unassigned): single-system is temporary
+            {impl::Args<t_value>::get_value<impl::type::kSystem>(
+                 impl::type::kSystem::Kovri)
+                 .value()});
+
+    THROW_WALLET_EXCEPTION_IF(
+        !address.first,
+        tools::error::wallet_internal_error,
+        tools::wallet2::tr(address.second.value().c_str()));
+
+    // Set host/port locally to pipe through anon path
+    host = "127.0.0.1";
+
+    // TODO(unassigned): would be nice to have a get_random_port() that provides
+    //   only available ports...
+    port = std::to_string(
+        cryptonote::get_config(m_wallet->nettype()).SEK_RPC_DEFAULT_PORT);
+
+    auto const create_path = [&]() {
+      // Shared Sekreta instance between wallet2/simplewallet
+      std::shared_ptr<net::sekreta::Sekreta> sekreta = m_wallet->sekreta();
+      namespace type = ::sekreta::type;
+
+      // TODO(anonimal): temporary single-system only
+      namespace api = ::sekreta::api::kovri;
+      std::shared_ptr<api::Trait> trait;
+      std::shared_ptr<api::Library> lib;
+      std::shared_ptr<api::Library::Path> path;
+      std::shared_ptr<type::kovri::PathData> path_data;
+
+      net::sekreta::UID const uid({std::string{tools::wallet2::UID}});
+      std::string const uid_lib{uid.name() + "lib"};
+      std::string const uid_path{uid.name() + "rpc-client"};
+      std::string const uid_trait{uid.name() + "trait"};
+
+      std::string error;  // exception error
+      try
+        {
+          if (!sekreta->contains<api::Library>({uid_lib}))
+            {
+              fail_msg_writer() << tr(
+                  "Sekreta has not created an instance. Try `help sekreta`");
+              return false;
+            }
+
+          if (!sekreta->contains<api::Trait>({uid_trait}))
+            sekreta->check_in<api::Trait>({uid_trait});
+          trait = sekreta->check_out<api::Trait>({uid_trait});
+
+          lib = sekreta->borrow<api::Library>({uid_lib});
+          if (!lib->status()->is_running())
+            lib->start();  // assuming already configured
+
+          // Clear out previous tunnel set by wallet
+          if (sekreta->contains<api::Library::Path>({uid_path}))
+            {
+              path = sekreta->check_out<api::Library::Path>({uid_path});
+              path->stop();
+              sekreta->erase<api::Library::Path>({uid_path});
+            }
+
+          try
+            {
+              // Create client tunnel
+              path_data =
+                  trait->path()
+                      ->uid({"Monero RPC client tunnel"})
+                      // TODO(unassigned): if/once supported, àffect can be HTTP
+                      .type({type::kPathDirection::Client,
+                             type::kPathAffect::Default})
+                      .local_point(
+                          {host, {boost::lexical_cast<uint16_t>(port), {}}})
+                      .remote_point({address.first.value()->host_str(),
+                                     address.first.value()->port()})
+                      .build();
+
+              path = lib->path(path_data);
+              path->configure();
+              path->start();
+
+              success_msg_writer()
+                  << "Sekreta path created to "
+                  << path_data->remote_point().dest() << delimiter
+                  << path_data->remote_point().port();
+            }
+          catch (const ::sekreta::Exception& ex)
+            {
+              error = ex.what();
+            }
+        }
+      catch (const ::sekreta::Exception& ex)
+        {
+          error = ex.what();
+        }
+
+      if (!error.empty())
+        {
+          fail_msg_writer() << tr(error.c_str());
+          return false;
+        }
+
+      sekreta->check_in<api::Library::Path>({uid_path}, path);
+      sekreta->check_in<api::Library>({uid_lib}, lib);
+      sekreta->check_in<api::Trait>({uid_trait}, trait);
+      return true;
+    };
+
+    if (!create_path())
+      return true;
+
+    success_msg_writer() << "Wallet will take a while to connect/refresh/exit. "
+                            "Connecting through "
+                         << scheme + host + delimiter + port;
+#endif
+    daemon_url = scheme + host + delimiter + port;
+
     LOCK_IDLE_SCOPE();
     m_wallet->init(daemon_url);
 
@@ -5353,6 +5731,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
     else
     {
       m_wallet->set_trusted_daemon(false);
+#if !defined(SEKRETA)  // Pointing to local doesn't imply trusted
       try
       {
         if (tools::is_local_address(m_wallet->get_daemon_address()))
@@ -5362,6 +5741,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
         }
       }
       catch (const std::exception &e) { }
+#endif
     }
 
     if (!try_connect_to_daemon())

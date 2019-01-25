@@ -104,6 +104,12 @@ function (add_definition_if_library_exists library function header var)
   endif()
 endfunction()
 
+function(BuildExternal in_path out_dir)
+  configure_file(${in_path} ${out_dir}/CMakeLists.txt)
+  execute_process(COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ./ WORKING_DIRECTORY ${out_dir})
+  execute_process(COMMAND ${CMAKE_COMMAND} --build ./ WORKING_DIRECTORY ${out_dir})
+endfunction()
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
   message(STATUS "Setting default build type: ${CMAKE_BUILD_TYPE}")
@@ -970,6 +976,70 @@ if(PROTOLIB_LIBRARY)
 endif()
 if(SODIUM_LIBRARY)
   set(ZMQ_LIB "${ZMQ_LIB};${SODIUM_LIBRARY}")
+endif()
+
+## Sekreta
+
+if (BUILD_KOVRI AND NOT BUILD_SEKRETA)
+  die("Kovri goes well with a pinch of Sekreta")
+endif()
+
+if (BUILD_SEKRETA)
+  # Slowly moving into modernity...
+  cmake_minimum_required(VERSION 3.10.2...3.16.2)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+  if (STATIC)
+    list(APPEND SEKRETA_CMAKE_ARGS "-DBUILD_STATIC=ON")
+  endif()
+
+  if (BUILD_KOVRI)
+    list(APPEND SEKRETA_CMAKE_ARGS "-DBUILD_KOVRI=ON")
+  endif()
+
+  if (BUILD_MINIUPNPC)
+    list(APPEND SEKRETA_CMAKE_ARGS "-DBUILD_MINIUPNPC=ON")
+  endif()
+
+  list(APPEND SEKRETA_CMAKE_ARGS "-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}")
+
+  string(REPLACE ";" " " SEKRETA_CMAKE_ARGS "${SEKRETA_CMAKE_ARGS}")
+  message(STATUS "Building Sekreta with: ${SEKRETA_CMAKE_ARGS}")
+
+  # TODO(unassigned): Monero's CMAKE_MODULE_PATH will not work here.
+  BuildExternal(${CMAKE_SOURCE_DIR}/cmake/Sekreta.cmake.in ${CMAKE_BINARY_DIR}/sekreta)
+
+  set(SEKRETA_BUILD_DIR ${CMAKE_BINARY_DIR}/sekreta/build)
+  set(Sekreta_DIR ${SEKRETA_BUILD_DIR}/src/cmake)
+  find_package(Sekreta CONFIG REQUIRED)
+
+  # TODO(unassigned): HACK. Monero's build system will not fully consume this target's requirement when included at library-level.
+  get_target_property(SEKRETA_INCLUDES sekreta::sekreta INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories("${SEKRETA_INCLUDES}")
+
+  if (BUILD_KOVRI)
+    set(KOVRI_BUILD_DIR ${SEKRETA_BUILD_DIR}/anon/kovri/build)
+    set(Kovri_DIR ${KOVRI_BUILD_DIR}/lib/cmake)
+    find_package(Kovri CONFIG REQUIRED)
+
+    # TODO(unassigned): upstream miniupnp does not provide target INSTALL_INTERFACE for includes nor INTERFACE_INCLUDE_DIRECTORIES
+    set_property(TARGET kovri::kovri-core APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES $<BUILD_INTERFACE:${KOVRI_BUILD_DIR}/../src/deps>)
+
+    # TODO(unassigned): HACK. Monero's build system will not fully consume this target's requirement when included at library-level.
+    get_target_property(KOVRI_CORE_INCLUDES kovri::kovri-core INTERFACE_INCLUDE_DIRECTORIES)
+    include_directories("${KOVRI_CORE_INCLUDES}")
+    get_target_property(KOVRI_CLIENT_INCLUDES kovri::kovri-client INTERFACE_INCLUDE_DIRECTORIES)
+    include_directories("${KOVRI_CLIENT_INCLUDES}")
+  endif()
+
+  install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -DCOMPONENT=sekreta -P ${SEKRETA_BUILD_DIR}/cmake_install.cmake)"
+    COMPONENT sekreta)
+
+  if (BUILD_KOVRI)
+    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -DCOMPONENT=kovri -P ${KOVRI_BUILD_DIR}/cmake_install.cmake)"
+      COMPONENT kovri)
+  endif()
 endif()
 
 add_subdirectory(contrib)

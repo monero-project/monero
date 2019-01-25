@@ -95,6 +95,10 @@ public:
 
   bool print_transaction_pool_stats(const std::vector<std::string>& args);
 
+#if defined(SEKRETA)
+  bool sekreta(const std::vector<std::string>& args);
+#endif
+
   bool start_mining(const std::vector<std::string>& args);
 
   bool stop_mining(const std::vector<std::string>& args);

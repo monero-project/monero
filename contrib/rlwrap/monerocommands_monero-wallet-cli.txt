@@ -22,6 +22,7 @@ set_tx_note
 show_transfers
 sign
 spendkey
+sekreta
 start_mining
 status
 stop_mining

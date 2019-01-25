@@ -226,6 +226,30 @@ namespace cryptonote
   {
     if (m_rpc_payment)
       m_rpc_payment->store();
+
+#if defined(SEKRETA)
+    try  // nested try because logger has potential to throw
+      {
+        try
+          {
+            std::shared_ptr<net::sekreta::Sekreta> sekreta = m_p2p.sekreta();
+
+            // TODO(anonimal): this only fits for a single *known* system
+            using t_api = ::sekreta::api::kovri::Library;
+            net::sekreta::UID const uid({std::string{nodetool::UID} + "lib"});
+
+            if (sekreta->contains<t_api>(uid))
+              sekreta->borrow<t_api>(uid)->stop();
+          }
+        catch (const sekreta::Exception& ex)
+          {
+            MERROR(ex.what());
+          }
+      }
+    catch (...)
+      {
+      }
+#endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::init(
@@ -1147,6 +1171,240 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
+
+#if defined(SEKRETA)
+  bool core_rpc_server::on_sekreta(
+      const COMMAND_RPC_SEKRETA::request& req,
+      COMMAND_RPC_SEKRETA::response& res,
+      const connection_context* ctx)
+  {
+    // Daemon implementation
+    namespace impl = ::sekreta::api::impl_helper;
+    using t_args = impl::DaemonArgs<std::string>;
+
+    // Get requested system type
+    impl::type::kSystem const system =
+        t_args::get_key<impl::type::kSystem>(req.system).value();
+
+    // Sekreta instance
+    std::shared_ptr<net::sekreta::Sekreta> sekreta = m_p2p.sekreta();
+
+    // APIs
+    namespace type = ::sekreta::type;
+    // TODO(anonimal): this is temporary work-around for a single-system only
+    namespace api = ::sekreta::api::kovri;
+    std::shared_ptr<api::Trait> trait;
+    std::shared_ptr<api::Library> lib;
+    std::shared_ptr<api::Library::Path> rpc, p2p;
+
+    // Shared UID for non-wallet Sekreta instance
+    net::sekreta::UID const uid({std::string{nodetool::UID}});
+    std::string const uid_lib{uid.name() + "lib"};
+    std::string const uid_rpc{uid.name() + "rpc-server"};
+    std::string const uid_p2p{uid.name() + "p2p-server"};
+    std::string const uid_trait{uid.name() + "trait"};
+
+    CHECK_CORE_READY();
+
+    try
+      {
+        // Check-in if first iteration. Always check-out
+        if (!sekreta->contains<api::Trait>({uid_trait}))
+          sekreta->check_in<api::Trait>({uid_trait});
+        trait = sekreta->check_out<api::Trait>({uid_trait});
+
+        if (!sekreta->contains<api::Library>({uid_lib}))
+          sekreta->check_in<api::Library>({uid_lib});
+        lib = sekreta->check_out<api::Library>({uid_lib});
+
+        // Check-in tunnels later, only after initialized during configuration
+        if (sekreta->contains<api::Library::Path>({uid_rpc}))
+          rpc = sekreta->check_out<api::Library::Path>({uid_rpc});
+
+        if (sekreta->contains<api::Library::Path>({uid_p2p}))
+          p2p = sekreta->check_out<api::Library::Path>({uid_p2p});
+
+        // TODO(anonimal): in Kovri, command exceptions are caught and log printed
+        switch (t_args::get_key<impl::type::kCommand>(req.command).value())
+          {
+            case impl::type::kCommand::Configure:
+              {
+                // TODO(anonimal): Sekreta only allows to configure once,
+                //   regardless if stop'd
+                lib->configure(req.system_args);
+
+                // Create server paths
+                try
+                  {
+                    std::shared_ptr<type::kovri::PathData> rpc_data =
+                        trait->path()
+                            ->uid({uid_rpc})
+                            .type({type::kPathDirection::Server,
+                                   type::kPathAffect::HTTP})
+                            .local_point({"127.0.0.1",
+                                          {cryptonote::get_config(nettype())
+                                               .RPC_DEFAULT_PORT,
+                                           {}}})
+                            .crypto({{/* no-op */},
+                                     type::crypto::kScheme::Ed25519 /* no-op */,
+                                     "monero" + uid_rpc + ".dat"})
+                            .build();
+
+                    rpc = lib->path(rpc_data);
+                    rpc->configure();
+
+                    MGINFO_GREEN("RPC server path configured");
+
+                    // TODO(anonimal): BUG: only first path (RPC) is created at
+                    //   system level (`grep PrivateKeys` in Kovri logs)
+                    std::shared_ptr<type::kovri::PathData> p2p_data =
+                        trait->path()
+                            ->uid({uid_p2p})
+                            .type({type::kPathDirection::Server,
+                                   type::kPathAffect::Default})
+                            .local_point({"127.0.0.1",
+                                          {cryptonote::get_config(nettype())
+                                               .P2P_DEFAULT_PORT,
+                                           {}}})
+                            .crypto({{/* no-op */},
+                                     type::crypto::kScheme::Ed25519 /* no-op */,
+                                     "monero" + uid_p2p + ".dat"})
+                            .build();
+
+                    p2p = lib->path(p2p_data);
+                    p2p->configure();
+
+                    MGINFO_GREEN("P2P server path configured");
+                  }
+                catch (const ::sekreta::Exception& ex)
+                  {
+                    // TODO(unassigned): we'll want to expand command options
+                    //   for tunnel flexibility because we shouldn't need to
+                    //   stop the router upon fatal tunnel error
+                    lib->stop();
+                    sekreta->erase<api::Library>({uid_lib});
+                    LOG_ERROR(ex.what());
+                    throw;
+                  }
+
+                MGINFO_GREEN(req.system.c_str() << " configured");
+              }
+              break;
+            case impl::type::kCommand::Start:
+              {
+                if (lib->status()->is_running())
+                  {
+                    LOG_ERROR(
+                        "Instance has already started. Stop and start again");
+                    return false;
+                  }
+
+                lib->start();
+                rpc->start();
+                p2p->start();
+
+                MGINFO_GREEN(req.system.c_str() << " started");
+                MGINFO_GREEN(
+                    "See anonymity system logs or stored keys directory for "
+                    "published addresses");  // TODO(unassigned): temporary,
+                                             // we want to display addresses
+              }
+              break;
+            case impl::type::kCommand::Restart:
+              {
+                if (!lib->status()->is_running())
+                  {
+                    LOG_ERROR("Instance is not running. Start, if so desired.");
+                    return false;
+                  }
+
+                p2p->restart();
+                rpc->restart();
+                lib->restart();
+
+                MGINFO_GREEN(req.system.c_str() << " restarted");
+              }
+              break;
+            case impl::type::kCommand::Status:
+              {
+                if (!lib->status()->is_running())
+                  {
+                    MERROR("Instance is not running. Start, if so desired.");
+                    return false;
+                  }
+
+                std::shared_ptr<api::Library::Status> status = lib->status();
+
+                MGINFO(
+                    "Version: " << status->version() << "\n"
+                    << "Data dir: " << status->data_dir() << "\n"
+                    << "Uptime (seconds): " << status->uptime() << "\n"
+                    << "State: " << status->state() << "\n"
+                    << "Inbound bandwidth: " << status->inbound_bandwidth() << "\n"
+                    << "Outbound bandwidth: " << status->outbound_bandwidth() << "\n"
+                    << "Router path creation rate (percentage): " << status->path_creation_rate() << "%\n"
+                    << "Router path count: " << status->path_count() << "\n"
+                    << "Active peer count: " << status->active_peer_count() << "\n"
+                    << "Known peer count: " << status->known_peer_count());
+
+                if (system == impl::type::kSystem::Kovri
+                    || system == impl::type::kSystem::Ire
+                    || system == impl::type::kSystem::I2P)
+                  {
+                    MGINFO(
+                        "Floodfill count: " << status->floodfill_count() << "\n"
+                     << "Leaseset count: " << status->leaseset_count());
+                  }
+                // TODO(anonimal): more methods to come
+                // TODO(anonimal): tunnel(s) status + print produced address(es)
+              }
+              break;
+            case impl::type::kCommand::Stop:
+              {
+                if (!lib->status()->is_running())
+                  {
+                    MERROR("Instance is not running. Start, if so desired.");
+                    return false;
+                  }
+
+                p2p->stop();
+                rpc->stop();
+                lib->stop();
+
+                MGINFO_GREEN(req.system.c_str() << " stopped");
+              }
+              break;
+            default:
+              MERROR("Unsupported option");
+              return false;
+          }
+
+        // Check-in for Nth iteration of this function
+        sekreta->check_in<api::Trait>({uid_trait}, trait);
+        sekreta->check_in<api::Library::Path>({uid_p2p}, p2p);
+        sekreta->check_in<api::Library::Path>({uid_rpc}, rpc);
+        sekreta->check_in<api::Library>({uid_lib}, lib);
+      }
+    catch (const ::sekreta::Exception& ex)
+      {
+        res.status = ex.what();
+      }
+    catch (...)
+      {
+        res.status = "Could not start Sekreta";
+      }
+
+    if (!res.status.empty())
+      {
+        MERROR(res.status);
+        return false;
+      }
+
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+#endif
+
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res, const connection_context *ctx)
   {

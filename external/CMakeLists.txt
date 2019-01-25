@@ -28,28 +28,64 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+# TODO(unassigned): the original copyright for this file actually extends from 2012-2014, not 2013
 
-# This is broken up into two parts: first we check for miniupnp, compile it if we can't
-# find it, and thereafter we check for libunbound, and compile it if we can't find it.
-# We always compile if we are building statically to reduce static dependency issues...
-# ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
-# others.
+# The miniupnp project has, historically, be unreliable in providing timely releases after security patches.
+#   Use this option to build your own miniupnpc (using Monero's mindful fork) to be used in monerod.
+#   You may also need to keep this option off if your system *must* rely on using a system installation.
+option(BUILD_MINIUPNPC "Build in-tree miniupnpc" OFF)
 
-find_package(Miniupnpc REQUIRED)
+# Sekreta/Kovri provides miniupnpc from the same upstream source as Monero, and uses its own targets.
+if (NOT BUILD_KOVRI)
+  find_package(Miniupnpc REQUIRED)
+  add_library(libminiupnpc INTERFACE)
 
-message(STATUS "Using in-tree miniupnpc")
-add_subdirectory(miniupnp/miniupnpc)
-set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
-if(MSVC)
-  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
-elseif(NOT MSVC)
-  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
+  # In addition to allowing optional local building of miniupnpc, the following will
+  #  require that the build is built locally if a system package only provides a shared
+  #  library (like on Arch) even though we have chosen to build statically.
+  if (NOT MINIUPNP_INCLUDE_DIR OR NOT MINIUPNP_LIBRARY)
+    set(BUILD_MINIUPNPC ON)
+  endif()
+
+  if (BUILD_MINIUPNPC)
+    if (NOT STATIC)
+      set(UPNPC_BUILD_STATIC OFF CACHE BOOL "Disable static lib target" FORCE)
+      set(UPNPC_BUILD_SHARED ON CACHE BOOL "Enable shared lib target" FORCE)
+    endif()
+
+    if (MINIUPNP_FOUND)
+      message(WARNING "Ignoring system miniupnpc, forcing a local build")
+    endif()
+
+    message(STATUS "Using " ${CMAKE_CURRENT_SOURCE_DIR}/miniupnp/miniupnpc)
+    add_subdirectory(miniupnp/miniupnpc)
+
+    if (NOT STATIC)
+      set(MINIUPNPC_TARGET libminiupnpc-shared)
+    else()
+      set(MINIUPNPC_TARGET libminiupnpc-static)
+    endif()
+
+    set(MINIUPNPC_FLAGS "")
+    if(MSVC)
+      list(APPEND MINIUPNPC_FLAGS "-wd4244 -wd4267")
+    elseif(NOT MSVC)
+      list(APPEND MINIUPNPC_FLAGS "-Wno-undef -Wno-unused-result -Wno-unused-value")
+    endif()
+    if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+      list(APPEND MINIUPNPC_FLAGS "-D_NETBSD_SOURCE")
+    endif()
+
+    string(REPLACE ";" " " MINIUPNPC_FLAGS "${MINIUPNPC_FLAGS}" )
+    set_property(TARGET ${MINIUPNPC_TARGET} APPEND_STRING PROPERTY COMPILE_FLAGS "${MINIUPNPC_FLAGS}")
+    set_property(TARGET ${MINIUPNPC_TARGET} PROPERTY FOLDER "external")
+
+    target_link_libraries(libminiupnpc INTERFACE ${MINIUPNPC_TARGET})
+  else()
+    target_include_directories(libminiupnpc INTERFACE ${MINIUPNP_INCLUDE_DIR})
+    target_link_libraries(libminiupnpc INTERFACE ${MINIUPNP_LIBRARY})
+  endif()
 endif()
-if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-	set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -D_NETBSD_SOURCE")
-endif()
-
-set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
 
 find_package(Unbound)
 

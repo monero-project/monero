@@ -1,4 +1,4 @@
-# Copyright (c) 2018, The Monero Project
+# Copyright (c) 2018-2019, The Monero Project
 #
 # All rights reserved.
 #
@@ -31,6 +31,23 @@ set(net_sources dandelionpp.cpp error.cpp i2p_address.cpp parse.cpp socks.cpp
 set(net_headers dandelionpp.h error.h i2p_address.h parse.h socks.h socks_connect.h
     tor_address.h zmq.h)
 
-monero_add_library(net ${net_sources} ${net_headers})
-target_link_libraries(net common epee ${ZMQ_LIB} ${Boost_ASIO_LIBRARY})
+if (BUILD_SEKRETA)
+  list(APPEND net_headers sekreta.h)
+endif()
 
+monero_add_library(net ${net_sources} ${net_headers})
+target_link_libraries(net PRIVATE common epee ${ZMQ_LIB} ${Boost_ASIO_LIBRARY})
+
+if (BUILD_SEKRETA)
+  target_compile_definitions(net PUBLIC SEKRETA)
+  target_link_libraries(net PUBLIC sekreta::sekreta)
+  if (BUILD_KOVRI)
+    target_compile_definitions(net PUBLIC KOVRI)
+    target_link_libraries(net PUBLIC kovri::kovri)
+  endif()
+endif()
+
+# Sekreta/Kovri provides miniupnpc from the same upstream source as Monero, and uses its own targets.
+if (NOT BUILD_KOVRI)
+  target_link_libraries(net PUBLIC libminiupnpc)
+endif()

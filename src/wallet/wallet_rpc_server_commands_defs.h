@@ -47,7 +47,16 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
+#if defined(SEKRETA)
+// TODO(anonimal): is bumping minor for only `#if defined(SEKRETA)` safe to do?
+//   A server can enumerate a client to see if the node has anonymizing features
+//   and some clients may purposefully be behind a NAT so that their
+//   untranslated IP (not a private subnet) is not listed in a public database
+//   (such as an I2P-style NetDb).
+#define WALLET_RPC_VERSION_MINOR 17
+#else
 #define WALLET_RPC_VERSION_MINOR 16
+#endif
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1998,6 +2007,32 @@ namespace wallet_rpc
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+
+#if defined(SEKRETA)
+  struct COMMAND_RPC_SEKRETA
+  {
+    struct request
+    {
+      std::string location;  //!< Location to run command (wallet or daemon)
+      std::string command;  //!< Command to be issued against anonymity system
+      std::string system;  //!< Anonymity system type
+      std::vector<std::string> system_args;  //!< Anonymity system's arguments
+
+      BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(location)
+      KV_SERIALIZE(command)
+      KV_SERIALIZE(system)
+      KV_SERIALIZE(system_args)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+#endif
 
   struct COMMAND_RPC_START_MINING
   {
