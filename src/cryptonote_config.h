@@ -43,7 +43,6 @@
 #define CRYPTONOTE_MAX_TX_SIZE                          1000000000
 #define CRYPTONOTE_PUBLIC_ADDRESS_TEXTBLOB_VER          0
 #define CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW            30
-#define CURRENT_TRANSACTION_VERSION                     3
 #define CURRENT_BLOCK_MAJOR_VERSION                     7
 #define CURRENT_BLOCK_MINOR_VERSION                     7
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT_V2           60*10
@@ -103,6 +102,9 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define DIFFICULTY_CUT                                  60  // timestamps to cut after sorting
 #define DIFFICULTY_BLOCKS_COUNT_V2                      (DIFFICULTY_WINDOW_V2 + 1) // added +1 to make N=N
 
+#define BLOCKS_EXPECTED_IN_HOURS(val)                   (((60 * 60) / DIFFICULTY_TARGET_V2) * (val))
+#define BLOCKS_EXPECTED_IN_DAYS(val)                    (BLOCKS_EXPECTED_IN_HOURS(24) * (val))
+#define BLOCKS_EXPECTED_IN_YEARS(val)                   (BLOCKS_EXPECTED_IN_DAYS(365) * (val))
 
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2   DIFFICULTY_TARGET_V2 * CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS
 #define CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS       1
@@ -118,7 +120,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    (86400*3) //seconds, three days
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
 
-#define MEMPOOL_PRUNE_DEREGISTER_LIFETIME               (2 * 60 * 60) // seconds, 2 hours
+#define MEMPOOL_PRUNE_NON_STANDARD_TX_LIFETIME          (2 * 60 * 60) // seconds, 2 hours
 
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_COUNT           1000
 

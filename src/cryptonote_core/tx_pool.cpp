@@ -87,7 +87,7 @@ namespace cryptonote
     uint64_t get_transaction_weight_limit(uint8_t version)
     {
       // from v10, bulletproofs, limit a tx to 50% of the minimum block weight
-      if (version >= 10)
+      if (version >= network_version_10_bulletproofs)
         return get_min_block_weight(version) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
       else
         return get_min_block_weight(version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
@@ -115,37 +115,79 @@ namespace cryptonote
 
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_deregister_tx_already(transaction const &tx) const
+  bool tx_memory_pool::have_duplicated_non_standard_tx(transaction const &tx) const
   {
-    if (!tx.is_deregister_tx())
+    transaction_prefix::type_t tx_type = tx.get_type();
+
+    if (tx_type == transaction::type_standard)
       return false;
 
-    tx_extra_service_node_deregister deregister;
-    if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
+    if (tx_type == transaction::type_deregister)
     {
-      MERROR("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
-      return false;
-    }
-
-    std::vector<transaction> pool_txs;
-    get_transactions(pool_txs);
-    for (const transaction& pool_tx : pool_txs)
-    {
-      if (!pool_tx.is_deregister_tx())
-        continue;
-
-      tx_extra_service_node_deregister pool_tx_deregister;
-      if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+      tx_extra_service_node_deregister deregister;
+      if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
       {
-        MERROR("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
-        continue;
-      }
-
-      if ((pool_tx_deregister.block_height       == deregister.block_height) &&
-          (pool_tx_deregister.service_node_index == deregister.service_node_index))
-      {
+        MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain, rejecting malformed deregister");
         return true;
       }
+
+      std::vector<transaction> pool_txs;
+      get_transactions(pool_txs);
+      for (const transaction& pool_tx : pool_txs)
+      {
+        if (pool_tx.get_type() != transaction::type_deregister)
+          continue;
+
+        tx_extra_service_node_deregister pool_tx_deregister;
+        if (!get_service_node_deregister_from_tx_extra(pool_tx.extra, pool_tx_deregister))
+        {
+          MERROR("Could not get service node deregister from tx, possibly corrupt tx in your blockchain");
+          continue;
+        }
+
+        if ((pool_tx_deregister.block_height       == deregister.block_height) &&
+            (pool_tx_deregister.service_node_index == deregister.service_node_index))
+        {
+          return true;
+        }
+      }
+    }
+    else if (tx_type == transaction::type_key_image_unlock)
+    {
+      tx_extra_tx_key_image_unlock unlock;
+      if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(tx.extra, unlock))
+      {
+        MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+        return true;
+      }
+
+      std::vector<transaction> pool_txs;
+      get_transactions(pool_txs);
+      for (const transaction& pool_tx : pool_txs)
+      {
+        if (pool_tx.get_type() != tx_type)
+          continue;
+
+        tx_extra_tx_key_image_unlock pool_unlock;
+        if (!cryptonote::get_tx_key_image_unlock_from_tx_extra(pool_tx.extra, pool_unlock))
+        {
+          MERROR("Could not get key image unlock from tx, possibly corrupt tx in your blockchain, rejecting malformed tx");
+          return true;
+        }
+
+        if (unlock.key_image == pool_unlock.key_image)
+        {
+          MERROR("There was atleast one TX in the pool that is requesting to unlock the same key image already.");
+          return true;
+        }
+      }
+
+    }
+    else
+    {
+      // NOTE(loki): This is a developer error. If we come across this in production, be conservative and just reject
+      MERROR("Unrecognised transaction type: " << static_cast<uint16_t>(tx_type) << " for tx: " <<  get_transaction_hash(tx));
+      return true;
     }
 
     return false;
@@ -217,7 +259,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && !tx.is_deregister_tx() && !m_blockchain.check_fee(tx_weight, fee))
+    if (!kept_by_block && tx.get_type() == transaction::type_standard && !m_blockchain.check_fee(tx_weight, fee))
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -246,10 +288,10 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-      if (have_deregister_tx_already(tx))
+      if (have_duplicated_non_standard_tx(tx))
       {
         mark_double_spend(tx);
-        LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
+        LOG_PRINT_L1("Transaction with id= "<< id << " already has a duplicate tx for height");
         tvc.m_verifivation_failed = true;
         tvc.m_double_spend = true;
         return false;
@@ -273,6 +315,7 @@ namespace cryptonote
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta;
     bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
+    const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
     if(!ch_inp_res)
     {
       // if the transaction was valid before (kept_by_block), then it
@@ -290,7 +333,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_deregister_tx_already(tx));
+        meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_duplicated_non_standard_tx(tx));
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -302,7 +345,7 @@ namespace cryptonote
           m_blockchain.add_txpool_tx(id, blob, meta);
           if (!insert_key_images(tx, id, kept_by_block))
             return false;
-          m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)tx_weight, receive_time), id);
+          m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(non_standard_tx, fee / (double)tx_weight, receive_time), id);
         }
         catch (const std::exception &e)
         {
@@ -346,7 +389,7 @@ namespace cryptonote
         m_blockchain.add_txpool_tx(id, blob, meta);
         if (!insert_key_images(tx, id, kept_by_block))
           return false;
-        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)tx_weight, receive_time), id);
+        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(non_standard_tx, fee / (double)tx_weight, receive_time), id);
       }
       catch (const std::exception &e)
       {
@@ -355,7 +398,7 @@ namespace cryptonote
       }
       tvc.m_added_to_pool = true;
 
-      if((meta.fee > 0 || tx.is_deregister_tx()) && !do_not_relay)
+      if((meta.fee > 0 || non_standard_tx) && !do_not_relay)
         tvc.m_should_be_relayed = true;
     }
 
@@ -427,10 +470,10 @@ namespace cryptonote
 
     for (auto it = m_txs_by_fee_and_receive_time.begin(); it != m_txs_by_fee_and_receive_time.end(); )
     {
-      const bool is_deregister  = std::get<0>(it->first);
+      const bool is_standard_tx = !std::get<0>(it->first);
       const time_t receive_time = std::get<2>(it->first);
 
-      if (!is_deregister || receive_time >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
+      if (is_standard_tx || receive_time >= time(nullptr) - MEMPOOL_PRUNE_NON_STANDARD_TX_LIFETIME)
         break;
 
       try
@@ -705,7 +748,7 @@ namespace cryptonote
                 return true;
               }
 
-              if (!tx.is_deregister_tx())
+              if (tx.get_type() != transaction::type_deregister)
                 return true;
 
               tx_verification_context tvc;
@@ -713,7 +756,7 @@ namespace cryptonote
               crypto::hash max_used_block_id = null_hash;
               if (!m_blockchain.check_tx_inputs(tx, max_used_block_height, max_used_block_id, tvc, /*kept_by_block*/ false))
               {
-                LOG_PRINT_L1("TX deregister considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
+                LOG_PRINT_L1("TX type: " << transaction::type_to_string(tx.type) << " considered for relaying failed tx inputs check, txid: " << txid << ", reason: " << print_tx_verification_context(tvc, &tx));
                 return true;
               }
             }
@@ -1493,7 +1536,9 @@ namespace cryptonote
           MFATAL("Failed to insert key images from txpool tx");
           return false;
         }
-        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, time_t>(tx.is_deregister_tx(), meta.fee / (double)meta.weight, meta.receive_time), txid);
+
+        const bool non_standard_tx = (tx.get_type() != transaction::type_standard);
+        m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, time_t>(non_standard_tx, meta.fee / (double)meta.weight, meta.receive_time), txid);
         m_txpool_weight += meta.weight;
         return true;
       }, true);

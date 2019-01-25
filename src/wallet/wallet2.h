@@ -410,9 +410,10 @@ namespace tools
       std::vector<size_t> selected_transfers;
       std::vector<uint8_t> extra;
       uint64_t unlock_time;
-      bool use_rct;
-      bool use_bulletproofs;
-      bool per_output_unlock;
+      bool v2_use_rct;
+      bool v3_use_bulletproofs;
+      bool v3_per_output_unlock;
+      bool v4_allow_tx_types;
       std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
       uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
       std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
@@ -424,9 +425,10 @@ namespace tools
         FIELD(selected_transfers)
         FIELD(extra)
         FIELD(unlock_time)
-        FIELD(use_rct)
-        FIELD(use_bulletproofs)
-        FIELD(per_output_unlock)
+        FIELD(v2_use_rct)
+        FIELD(v3_use_bulletproofs)
+        FIELD(v3_per_output_unlock)
+        FIELD(v4_allow_tx_types)
         FIELD(dests)
         FIELD(subaddr_account)
         FIELD(subaddr_indices)
@@ -770,6 +772,7 @@ namespace tools
     void set_subaddress_lookahead(size_t major, size_t minor);
     std::pair<size_t, size_t> get_subaddress_lookahead() const { return {m_subaddress_lookahead_major, m_subaddress_lookahead_minor}; }
     bool contains_address(const cryptonote::account_public_address& address) const;
+    bool generate_signature_for_request_stake_unlock(crypto::key_image const &key_image, crypto::signature &signature, uint32_t &nonce) const;
     /*!
      * \brief Tells if the wallet file is deprecated.
      */
@@ -852,12 +855,12 @@ namespace tools
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
 
-    cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response get_service_nodes(std::vector<std::string> const &pubkeys = {});
+    std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> get_service_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) { return m_node_rpc_proxy.get_service_nodes(pubkeys, failed); }
     uint64_t get_blockchain_current_height() const { return m_light_wallet_blockchain_height ? m_light_wallet_blockchain_height : m_blockchain.size(); }
     void rescan_spent();
     void rescan_blockchain(bool hard, bool refresh = true);
-    bool is_transfer_unlocked(const transfer_details& td) const;
-    bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height) const;
+    bool is_transfer_unlocked(const transfer_details &td) const;
+    bool is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, crypto::key_image const *key_image = nullptr) const;
 
     uint64_t get_last_block_reward() const { return m_last_block_reward; }
     uint64_t get_device_last_key_image_sync() const { return m_device_last_key_image_sync; }
@@ -1499,7 +1502,7 @@ BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
 BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
+BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 5)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
 
@@ -1856,7 +1859,7 @@ namespace boost
       }
       a & x.extra;
       a & x.unlock_time;
-      a & x.use_rct;
+      a & x.v2_use_rct;
       a & x.dests;
       if (ver < 1)
       {
@@ -1870,10 +1873,13 @@ namespace boost
       a & x.selected_transfers;
       if (ver < 3)
         return;
-      a & x.use_bulletproofs;
+      a & x.v3_use_bulletproofs;
       if (ver < 4)
         return;
-      a & x.per_output_unlock;
+      a & x.v3_per_output_unlock;
+      if (ver < 5)
+        return;
+      a & x.v4_allow_tx_types;
     }
 
     template <class Archive>

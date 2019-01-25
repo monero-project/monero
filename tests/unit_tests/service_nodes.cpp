@@ -485,7 +485,6 @@ TEST(service_nodes, min_stake_amount)
 // Test service node receive rewards proportionate to the amount they contributed.
 TEST(service_nodes, service_node_rewards_proportional_to_portions)
 {
-
   {
     const auto reward_a = cryptonote::get_portion_of_reward(MIN_PORTIONS, COIN);
     const auto reward_b = cryptonote::get_portion_of_reward(3 * MIN_PORTIONS, COIN);
@@ -498,4 +497,41 @@ TEST(service_nodes, service_node_rewards_proportional_to_portions)
     ASSERT_TRUE(2 * reward_a == reward_b);
   }
 
+}
+
+TEST(service_nodes, service_node_get_locked_key_image_unlock_height)
+{
+  uint64_t lock_duration = service_nodes::staking_initial_num_lock_blocks(cryptonote::MAINNET);
+
+  {
+    uint64_t expected      = lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, 100);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t expected      = lock_duration;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, lock_duration - 1);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t expected      = lock_duration * 2;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, 0, lock_duration + 100);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t expected      = lock_duration * 2;
+    uint64_t unlock_height = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, lock_duration, lock_duration);
+    ASSERT_EQ(unlock_height, expected);
+  }
+
+  {
+    uint64_t register_height = lock_duration + 1;
+    uint64_t curr_height     = register_height + 2;
+    uint64_t expected        = register_height + lock_duration;
+    uint64_t unlock_height   = service_nodes::get_locked_key_image_unlock_height(cryptonote::MAINNET, register_height, curr_height);
+    ASSERT_EQ(unlock_height, expected);
+  }
 }

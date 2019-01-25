@@ -325,6 +325,21 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details = "tx is not version 2 or later";
       }
+      if (tvc.m_invalid_type)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx has an invalid type";
+      }
+      if (tvc.m_key_image_locked_by_snode)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx uses outputs that are locked by the service node network";
+      }
+      if (tvc.m_key_image_blacklisted)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details = "tx uses a key image that has been temporarily blacklisted by the service node network";
+      }
       if (res.error_details.empty())
       {
         res.error_details = "an unknown issue was found with the transaction";

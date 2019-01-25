@@ -2048,9 +2048,10 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
       tools::msg_writer()      << indent2 << "Total Reserved: "                        << cryptonote::print_money(entry.total_reserved);
     }
 
+    // TODO(doyle): Fix up for infinite staking changes
     // Print Expiry Info
     {
-      uint64_t expiry_height = entry.registration_height + service_nodes::get_staking_requirement_lock_blocks(nettype);
+      uint64_t expiry_height = entry.registration_height + service_nodes::staking_initial_num_lock_blocks(nettype);
       if (hard_fork_version >= cryptonote::network_version_10_bulletproofs)
         expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
@@ -2094,7 +2095,7 @@ static void print_service_node_list_state(cryptonote::network_type nettype, int 
       tools::msg_writer() << "";
       for (size_t j = 0; j < entry.contributors.size(); ++j)
       {
-        const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &contributor = entry.contributors[j];
+        const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor &contributor = entry.contributors[j];
         tools::msg_writer() << indent2 << "[" << j << "] Contributor: " << contributor.address;
         tools::msg_writer() << indent3 << "Amount / Reserved: "         << cryptonote::print_money(contributor.amount) << " / " << cryptonote::print_money(contributor.reserved);
       }

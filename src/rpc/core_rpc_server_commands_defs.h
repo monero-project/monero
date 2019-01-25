@@ -842,6 +842,10 @@ namespace cryptonote
       bool overspend;
       bool fee_too_low;
       bool not_rct;
+      bool invalid_version;
+      bool invalid_type;
+      bool key_image_locked_by_snode;
+      bool key_image_blacklisted;
       bool untrusted;
 
       bool invalid_block_height;
@@ -863,6 +867,10 @@ namespace cryptonote
         KV_SERIALIZE(overspend)
         KV_SERIALIZE(fee_too_low)
         KV_SERIALIZE(not_rct)
+        KV_SERIALIZE(invalid_version)
+        KV_SERIALIZE(invalid_type)
+        KV_SERIALIZE(key_image_locked_by_snode)
+        KV_SERIALIZE(key_image_blacklisted)
         KV_SERIALIZE(untrusted)
 
         KV_SERIALIZE(invalid_block_height)
@@ -2551,34 +2559,51 @@ namespace cryptonote
     {
       struct contribution
       {
+        std::string key_image;
+        std::string key_image_pub_key;
+        uint64_t    amount;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(key_image)
+          KV_SERIALIZE(key_image_pub_key)
+          KV_SERIALIZE(amount)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct contributor
+      {
         uint64_t amount;
         uint64_t reserved;
         std::string address;
+        std::vector<contribution> locked_contributions;
 
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount)
           KV_SERIALIZE(reserved)
           KV_SERIALIZE(address)
+          KV_SERIALIZE(locked_contributions)
         END_KV_SERIALIZE_MAP()
       };
 
       struct entry
       {
-        std::string                        service_node_pubkey;
-        uint64_t                           registration_height;
-        uint64_t                           last_reward_block_height;
-        uint32_t                           last_reward_transaction_index;
-        uint64_t                           last_uptime_proof;
-        std::vector<contribution>          contributors;
-        uint64_t                           total_contributed;
-        uint64_t                           total_reserved;
-        uint64_t                           staking_requirement;
-        uint64_t                           portions_for_operator;
-        std::string                        operator_address;
+        std::string               service_node_pubkey;
+        uint64_t                  registration_height;
+        uint64_t                  requested_unlock_height;
+        uint64_t                  last_reward_block_height;
+        uint32_t                  last_reward_transaction_index;
+        uint64_t                  last_uptime_proof;
+        std::vector<contributor>  contributors;
+        uint64_t                  total_contributed;
+        uint64_t                  total_reserved;
+        uint64_t                  staking_requirement;
+        uint64_t                  portions_for_operator;
+        std::string               operator_address;
 
         BEGIN_KV_SERIALIZE_MAP()
             KV_SERIALIZE(service_node_pubkey)
             KV_SERIALIZE(registration_height)
+            KV_SERIALIZE(requested_unlock_height)
             KV_SERIALIZE(last_reward_block_height)
             KV_SERIALIZE(last_reward_transaction_index)
             KV_SERIALIZE(last_uptime_proof)
@@ -2621,4 +2646,34 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      std::string key_image;
+      uint64_t unlock_height;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image)
+        KV_SERIALIZE(unlock_height)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<entry> blacklist;
+      std::string status;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blacklist)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 }

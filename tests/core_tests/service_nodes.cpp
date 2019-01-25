@@ -145,7 +145,7 @@ bool gen_service_nodes::generate(std::vector<test_event_entry> &events) const
 
   DO_CALLBACK(events, "check_registered");
 
-  for (auto i = 0u; i < service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN); ++i) {
+  for (auto i = 0u; i < service_nodes::staking_initial_num_lock_blocks(cryptonote::FAKECHAIN); ++i) {
     gen.create_block();
   }
 
@@ -186,7 +186,7 @@ bool gen_service_nodes::check_expired(cryptonote::core& c, size_t ev_index, cons
 
   cryptonote::account_base alice = boost::get<cryptonote::account_base>(events[1]);
 
-  const auto stake_lock_time = service_nodes::get_staking_requirement_lock_blocks(cryptonote::FAKECHAIN);
+  const auto stake_lock_time = service_nodes::staking_initial_num_lock_blocks(cryptonote::FAKECHAIN);
 
   std::vector<block> blocks;
   size_t count = 15 + (2 * CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW) + stake_lock_time;
@@ -281,7 +281,7 @@ bool test_prefer_deregisters::check_prefer_deregisters(cryptonote::core& c, size
 
   const auto deregister_count =
     std::count_if(full_blk.tx_hashes.begin(), full_blk.tx_hashes.end(), [&mtx](const crypto::hash& tx_hash) {
-      return mtx[tx_hash]->is_deregister;
+      return mtx[tx_hash]->get_type() == cryptonote::transaction::type_deregister;
     });
 
   /// test that there are more transactions in tx pool
@@ -520,7 +520,7 @@ bool test_deregisters_on_split::test_on_split(cryptonote::core& c, size_t ev_ind
   /// obtain the expected deregister from events
   const size_t dereg_idx = 68;
   auto dereg_tx = boost::get<cryptonote::transaction>(events.at(dereg_idx));
-  CHECK_AND_ASSERT_MES(dereg_tx.is_deregister, false, "event is not a deregister transaction");
+  CHECK_AND_ASSERT_MES(dereg_tx.get_type() == cryptonote::transaction::type_deregister, false, "event is not a deregister transaction");
 
   const auto expected_tx_hash = get_transaction_hash(dereg_tx);
 
@@ -686,7 +686,7 @@ bool sn_test_rollback::test_registrations(cryptonote::core& c, size_t ev_index, 
 
     CHECK_TEST_CONDITION(event_a.type() == typeid(cryptonote::transaction));
     const auto dereg_tx = boost::get<cryptonote::transaction>(event_a);
-    CHECK_TEST_CONDITION(dereg_tx.is_deregister);
+    CHECK_TEST_CONDITION(dereg_tx.get_type() == transaction::type_deregister);
 
     tx_extra_service_node_deregister deregistration;
     get_service_node_deregister_from_tx_extra(dereg_tx.extra, deregistration);

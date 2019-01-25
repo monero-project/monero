@@ -71,7 +71,9 @@ public:
     std::vector<crypto::secret_key> additional_tx_keys;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, rct, range_proof_type))
+    loki_construct_tx_params tx_params(cryptonote::network_version_9_service_nodes);
+    tx_params.type = range_proof_type;
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_tx, 0, tx_key, additional_tx_keys, nullptr, tx_params))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
@@ -132,10 +134,13 @@ public:
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
 
+    loki_construct_tx_params tx_params(cryptonote::network_version_10_bulletproofs);
+    tx_params.type = rct::RangeProofPaddedBulletproof;
+
     m_txes.resize(a_num_txes + (extra_outs > 0 ? 1 : 0));
     for (size_t n = 0; n < a_num_txes; ++n)
     {
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, true, rct::RangeProofPaddedBulletproof))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_txes[n], 0, tx_key, additional_tx_keys, nullptr, tx_params))
         return false;
     }
 
@@ -146,7 +151,7 @@ public:
       for (size_t n = 1; n < extra_outs; ++n)
         destinations.push_back(tx_destination_entry(1, m_alice.get_keys().m_account_address, false));
 
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_txes.back(), 0, tx_key, additional_tx_keys, true, rct::RangeProofMultiOutputBulletproof))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::tx_destination_entry{}, std::vector<uint8_t>(), m_txes.back(), 0, tx_key, additional_tx_keys, nullptr, tx_params))
         return false;
     }
 

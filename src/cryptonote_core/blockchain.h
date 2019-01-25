@@ -1000,10 +1000,10 @@ namespace cryptonote
     /**
      * @brief add a hook for processing new blocks and rollbacks for reorgs
      */
-    void hook_block_added(BlockAddedHook& block_added_hook);
-    void hook_blockchain_detached(BlockchainDetachedHook& blockchain_detached_hook);
-    void hook_init(InitHook& init_hook);
-    void hook_validate_miner_tx(ValidateMinerTxHook& validate_miner_tx_hook);
+    void hook_block_added        (BlockAddedHook& hook)         { m_block_added_hooks.push_back(&hook); }
+    void hook_blockchain_detached(BlockchainDetachedHook& hook) { m_blockchain_detached_hooks.push_back(&hook); }
+    void hook_init               (InitHook& hook)               { m_init_hooks.push_back(&hook); }
+    void hook_validate_miner_tx  (ValidateMinerTxHook& hook)    { m_validate_miner_tx_hooks.push_back(&hook); }
 
     /**
      * @brief removes blocks from the top of the blockchain

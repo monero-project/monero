@@ -514,7 +514,6 @@ public:
 
     return cryptonote::construct_tx(
       m_from.get_keys(), sources, destinations, change_addr, m_extra, m_tx, m_unlock_time, m_hf_version, m_is_staking);
-
   }
 };
 
