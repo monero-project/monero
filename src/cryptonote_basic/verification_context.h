@@ -38,6 +38,7 @@ namespace cryptonote
  {
    bool m_verification_failed;
    bool m_invalid_block_height;
+   bool m_duplicate_voters;
    bool m_voters_quorum_index_out_of_bounds;
    bool m_service_node_index_out_of_bounds;
    bool m_signature_not_valid;

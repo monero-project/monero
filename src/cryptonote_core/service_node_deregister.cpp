@@ -101,27 +101,44 @@ namespace triton
     }
 
     const std::vector<crypto::public_key>& quorum = quorum_state.quorum_nodes;
-    for (const cryptonote::tx_extra_service_node_deregister::vote &vote : deregister.votes)
+	std::vector<int8_t> quorum_set;
+
+	std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs;
+	for (const cryptonote::tx_extra_service_node_deregister::vote& vote : deregister.votes)
     {
-      bool all_votes_verified = true;
-      std::vector<std::pair<crypto::public_key, crypto::signature>> keys_and_sigs;
-      for (const cryptonote::tx_extra_service_node_deregister::vote& vote : deregister.votes)
+		if (vote.voters_quorum_index >= quorum.size())
       {
-        if (vote.voters_quorum_index >= quorum.size())
-        {
-          vvc.m_voters_quorum_index_out_of_bounds = true;
-          LOG_PRINT_L1("Voter's index in deregister vote was out of bounds:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
-          return false;
-        }
-
-        keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
+			vvc.m_voters_quorum_index_out_of_bounds = true;
+			LOG_PRINT_L1("Voter's index in deregister vote was out of bounds:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+			return false;
       }
+		if (nettype == cryptonote::TESTNET && deregister.block_height < 8670)
+		{
+			// TODO(doyle): Remove on next testnet re-launch, also. Can remove nettype param until next fork I guess.
+		}
+		else
+		{
+			quorum_set.resize(quorum.size());
+			if (++quorum_set[vote.voters_quorum_index] > 1)
+			{
+				vvc.m_duplicate_voters = true;
+				LOG_PRINT_L1("Voter quorum index is duplicated:  " << vote.voters_quorum_index << ", expected to be in range of: [0, " << quorum.size() << "]");
+				return false;
+			}
+		}
+		keys_and_sigs.push_back(std::make_pair(quorum[vote.voters_quorum_index], vote.signature));
+	}
+  }
 
-      return service_node_deregister::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
-    }
+  bool r = service_node_deregister::verify_votes_signature(deregister.block_height, deregister.service_node_index, keys_and_sigs);
+  if (!r)
+  {
+	  LOG_PRINT_L1("Invalid signatures for votes");
+	  vvc.m_verification_failed = true;
 
-    vvc.m_verification_failed = true;
-    return false;
+	  return false;
+  }
+  return r;
   }
 
   bool service_node_deregister::verify_deregister(const cryptonote::tx_extra_service_node_deregister& deregister,
@@ -130,6 +147,7 @@ namespace triton
   {
     if (deregister.votes.size() < service_nodes::MIN_VOTES_TO_KICK_SERVICE_NODE)
     {
+	  LOG_PRINT_L1("Not enough votes");
       vvc.m_not_enough_votes = true;
       return false;
     }
@@ -246,8 +264,8 @@ namespace triton
         for (const auto& entry : *deregister_votes)
         {
           cryptonote::tx_extra_service_node_deregister::vote tx_vote = {};
-          tx_vote.signature           = new_vote.signature;
-          tx_vote.voters_quorum_index = new_vote.voters_quorum_index;
+		  tx_vote.signature = entry.m_vote.signature;
+		  tx_vote.voters_quorum_index = entry.m_vote.voters_quorum_index;
           deregister.votes.push_back(tx_vote);
         }
 

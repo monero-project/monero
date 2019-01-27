@@ -583,10 +583,15 @@ namespace cryptonote
       regtest_hard_forks
     };
     const difficulty_type fixed_difficulty = command_line::get_arg(vm, arg_fixed_difficulty);
-    r = m_blockchain_storage.init(db.release(), m_nettype, m_offline, regtest ? &regtest_test_options : test_options, fixed_difficulty, get_checkpoints);
-
-    r = m_mempool.init(max_txpool_weight);
+	
+	BlockchainDB *initialized_db = db.release();
+	m_service_node_list.set_db_pointer(initialized_db);
     m_service_node_list.register_hooks(m_quorum_cop);
+
+
+	r = m_blockchain_storage.init(initialized_db, m_nettype, m_offline, test_options);
+	r = m_mempool.init(max_txpool_weight);
+
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
     // now that we have a valid m_blockchain_storage, we can clean out any
@@ -1246,6 +1251,12 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_uptime_proof(const crypto::public_key &key) const
+  {
+	  uint64_t result = m_quorum_cop.get_uptime_proof(key);
+	  return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::handle_uptime_proof(uint64_t timestamp, const crypto::public_key& pubkey, const crypto::signature& sig)
   {
     return m_quorum_cop.handle_uptime_proof(timestamp, pubkey, sig);
@@ -1563,6 +1574,22 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  void core::do_uptime_proof_call()
+  {
+	  std::vector<service_nodes::service_node_pubkey_info> states = get_service_node_list_state({ m_service_node_pubkey });
+
+	  // wait one block before starting uptime proofs.
+	  if (!states.empty() && states[0].info.registration_height + 1 < get_current_blockchain_height())
+	  {
+		  m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
+	  }
+	  else
+	  {
+		  // reset the interval so that we're ready when we register.
+		  m_submit_uptime_proof_interval = epee::math_helper::once_a_time_seconds<UPTIME_PROOF_FREQUENCY_IN_SECONDS, true>();
+	  }
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::on_idle()
   {
     if(!m_starter_message_showed)
@@ -1589,11 +1616,9 @@ namespace cryptonote
     m_deregisters_auto_relayer.do_call(boost::bind(&core::relay_deregister_votes, this));
     m_check_updates_interval.do_call(boost::bind(&core::check_updates, this));
     m_check_disk_space_interval.do_call(boost::bind(&core::check_disk_space, this));
-    if (m_service_node && m_service_node_list.is_service_node(m_service_node_pubkey))
-   {
-     m_submit_uptime_proof_interval.do_call(boost::bind(&core::submit_uptime_proof, this));
-     m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
-   }
+	if (m_service_node)
+		do_uptime_proof_call();
+	m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_miner.on_idle();
     m_mempool.on_idle();
@@ -1858,36 +1883,38 @@ namespace cryptonote
     return result;
   }
   //-----------------------------------------------------------------------------------------------
+  std::vector<service_nodes::service_node_pubkey_info> core::get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const
+  {
+	  std::vector<service_nodes::service_node_pubkey_info> result = m_service_node_list.get_service_node_list_state(service_node_pubkeys);
+	  return result;
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::add_deregister_vote(const triton::service_node_deregister::vote& vote, vote_verification_context &vvc)
   {
-    {
-      uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
-      uint64_t delta_height = latest_block_height - vote.block_height;
+	  uint64_t latest_block_height = std::max(get_current_blockchain_height(), get_target_blockchain_height());
+	  uint64_t delta_height = latest_block_height - vote.block_height;
 
-      if (vote.block_height < latest_block_height && delta_height > triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
-      {
-        LOG_ERROR("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is older than: "       << triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
-                  << " blocks and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-      else if (vote.block_height > latest_block_height)
-      {
-        LOG_ERROR("Received vote for height: " << vote.block_height
-                  << " and service node: "     << vote.service_node_index
-                  << ", is newer than: "       << latest_block_height
-                  << " (latest block height) and has been rejected.");
-        vvc.m_invalid_block_height = true;
-      }
-
-      if (vvc.m_invalid_block_height)
-      {
-        vvc.m_verification_failed = true;
-        return false;
-      }
-    }
-
+	  if (vote.block_height < latest_block_height && delta_height > loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
+	  {
+		  LOG_PRINT_L1("Received vote for height: " << vote.block_height
+			  << " and service node: " << vote.service_node_index
+			  << ", is older than: " << loki::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT
+			  << " blocks and has been rejected.");
+		  vvc.m_invalid_block_height = true;
+	  }
+	  else if (vote.block_height > latest_block_height)
+	  {
+		  LOG_PRINT_L1("Received vote for height: " << vote.block_height
+			  << " and service node: " << vote.service_node_index
+			  << ", is newer than: " << latest_block_height
+			  << " (latest block height) and has been rejected.");
+		  vvc.m_invalid_block_height = true;
+	  }
+	  if (vvc.m_invalid_block_height)
+	  {
+		  vvc.m_verification_failed = true;
+		  return false;
+	  }
     const std::shared_ptr<service_nodes::quorum_state> quorum_state = m_service_node_list.get_quorum_state(vote.block_height);
     if (!quorum_state)
     {
@@ -1907,9 +1934,10 @@ namespace cryptonote
       result = handle_incoming_tx(tx_blob, tvc, false /*keeped_by_block*/, false /*relayed*/, false /*do_not_relay*/);
       if (!result || tvc.m_verifivation_failed)
       {
-        LOG_ERROR("A full deregister tx for height: " << vote.block_height << " and service node: "
-                  << vote.service_node_index << " could not be verified and was not added to the memory pool.");
-      }
+        LOG_PRINT_L1("A full deregister tx for height: " << vote.block_height <<
+                     " and service node: " << vote.service_node_index <<
+                     " could not be verified and was not added to the memory pool, reason: " <<
+                     print_tx_verification_context(tvc, &deregister_tx));
     }
 
     return result;

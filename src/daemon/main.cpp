@@ -79,7 +79,6 @@ int main(int argc, char const * argv[])
       command_line::add_arg(visible_options, command_line::arg_version);
       command_line::add_arg(visible_options, daemon_args::arg_os_version);
       command_line::add_arg(visible_options, daemon_args::arg_config_file);
-      command_line::add_arg(visible_options, daemon_args::arg_prepare_registration);
 
 
       // Settings
@@ -166,19 +165,11 @@ int main(int argc, char const * argv[])
     const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     const bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
     const bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
-    if (testnet + stagenet + regtest > 1)
-    {
-      std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
-      return 1;
-    }
-
-    if (command_line::get_arg(vm, daemon_args::arg_prepare_registration))
-   {
-     cryptonote::core core(nullptr);
-     auto args = command_line::get_arg(vm, daemon_args::arg_command);
-     return core.cmd_prepare_registration(vm, args) ? 0 : 1;
-   }
-
+	if (testnet + stagenet + regtest > 1)
+	{
+		std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
+		return 1;
+	}
 
     std::string db_type = command_line::get_arg(vm, cryptonote::arg_db_type);
 

@@ -71,6 +71,9 @@ public:
 
   unsigned int get_max_concurrency() const;
 
+  void stop();
+  void start();
+
   ~threadpool();
 
   private:

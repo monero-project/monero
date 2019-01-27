@@ -331,12 +331,7 @@ namespace cryptonote
      * @return the target
      */
     difficulty_type get_difficulty_for_next_block();
-    /**
-   * @brief returns the staking requirement for the block at height
-   *
-   * @return the target
-   */
-  uint64_t get_staking_requirement(uint64_t height) const;
+
 
     /**
      * @brief adds a block to the blockchain

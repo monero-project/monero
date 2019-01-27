@@ -155,6 +155,11 @@ public:
 
   bool sync_info();
   bool get_service_node_registration_cmd(const std::vector<std::string> &args);
+  bool print_sn_key();
+  bool print_sn_status();
+  bool print_sn(const std::vector<std::string> &args);
+
+
 
 };
 

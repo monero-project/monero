@@ -55,16 +55,6 @@ using namespace epee;
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
 
-namespace
-{
-  void add_reason(std::string &reasons, const char *reason)
-  {
-    if (!reasons.empty())
-      reasons += ", ";
-    reasons += reason;
-  }
-}
-
 namespace cryptonote
 {
 
@@ -697,37 +687,27 @@ namespace cryptonote
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     if(!m_core.handle_incoming_tx(tx_blob, tvc, false, false, req.do_not_relay) || tvc.m_verifivation_failed)
     {
-      res.status = "Failed";
-      res.reason = "";
-      if ((res.low_mixin = tvc.m_low_mixin))
-        add_reason(res.reason, "ring size too small");
-      if ((res.double_spend = tvc.m_double_spend))
-        add_reason(res.reason, "double spend");
-      if ((res.invalid_input = tvc.m_invalid_input))
-        add_reason(res.reason, "invalid input");
-      if ((res.invalid_output = tvc.m_invalid_output))
-        add_reason(res.reason, "invalid output");
-      if ((res.too_big = tvc.m_too_big))
-        add_reason(res.reason, "too big");
-      if ((res.overspend = tvc.m_overspend))
-        add_reason(res.reason, "overspend");
-      if ((res.fee_too_low = tvc.m_fee_too_low))
-        add_reason(res.reason, "fee too low");
-      if ((res.not_rct = tvc.m_not_rct))
-        add_reason(res.reason, "tx is not ringct");
+    
 
       const vote_verification_context &vvc = tvc.m_vote_ctx;
-       if ((res.invalid_block_height = vvc.m_invalid_block_height))
-         add_reason(res.reason, "block height was invalid");
-       if ((res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds))
-         add_reason(res.reason, "voters quorum index specified out of bounds");
-       if ((res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds))
-         add_reason(res.reason, "service node index specified out of bounds");
-       if ((res.signature_not_valid = vvc.m_signature_not_valid))
-         add_reason(res.reason, "signature was not valid");
-       if ((res.not_enough_votes = vvc.m_not_enough_votes))
-         add_reason(res.reason, "not enough votes");
+	  res.status = "Failed";
+	  res.reason = print_tx_verification_context(tvc);
+	  res.reason += print_vote_verification_context(vvc);
 
+	  res.low_mixin = tvc.m_low_mixin;
+	  res.double_spend = tvc.m_double_spend;
+	  res.invalid_input = tvc.m_invalid_input;
+	  res.invalid_output = tvc.m_invalid_output;
+	  res.too_big = tvc.m_too_big;
+	  res.overspend = tvc.m_overspend;
+	  res.fee_too_low = tvc.m_fee_too_low;
+	  res.not_rct = tvc.m_not_rct;
+	  res.invalid_block_height = vvc.m_invalid_block_height;
+	  res.duplicate_voters = vvc.m_duplicate_voters;
+	  res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds;
+	  res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds;
+	  res.signature_not_valid = vvc.m_signature_not_valid;
+	  res.not_enough_votes = vvc.m_not_enough_votes;
       const std::string punctuation = res.reason.empty() ? "" : ": ";
       if (tvc.m_verifivation_failed)
       {
@@ -2060,6 +2040,28 @@ namespace cryptonote
    return r;
  }
  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp)
+  {
+	  PERF_TIMER(on_get_service_node_key);
+
+	  crypto::public_key pubkey;
+	  crypto::secret_key seckey;
+	  bool result = m_core.get_service_node_keys(pubkey, seckey);
+	  if (result)
+	  {
+		  res.service_node_pubkey = string_tools::pod_to_hex(pubkey);
+	  }
+	  else
+	  {
+		  error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+		  error_resp.message = "Daemon queried is not a service node or did not launch with --service-node";
+		  return false;
+	  }
+
+	  res.status = CORE_RPC_STATUS_OK;
+	  return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_relay_tx(const COMMAND_RPC_RELAY_TX::request& req, COMMAND_RPC_RELAY_TX::response& res, epee::json_rpc::error& error_resp)
   {
     PERF_TIMER(on_relay_tx);
@@ -2283,6 +2285,60 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp)
+  {
+	  PERF_TIMER(on_get_service_nodes);
+
+	  std::vector<crypto::public_key> pubkeys(req.service_node_pubkeys.size());
+	  for (size_t i = 0; i < req.service_node_pubkeys.size(); i++)
+	  {
+		  if (!string_tools::hex_to_pod(req.service_node_pubkeys[i], pubkeys[i]))
+		  {
+			  error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+			  error_resp.message = "Could not convert to a public key, arg: ";
+			  error_resp.message += std::to_string(i);
+			  error_resp.message += " which is pubkey: ";
+			  error_resp.message += req.service_node_pubkeys[i];
+			  return false;
+		  }
+	  }
+
+	  std::vector<service_nodes::service_node_pubkey_info> pubkey_info_list = m_core.get_service_node_list_state(pubkeys);
+
+	  res.status = CORE_RPC_STATUS_OK;
+	  res.service_node_states.reserve(pubkey_info_list.size());
+	  for (const auto &pubkey_info : pubkey_info_list)
+	  {
+		  COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
+		  entry.service_node_pubkey = string_tools::pod_to_hex(pubkey_info.pubkey);
+		  entry.registration_height = pubkey_info.info.registration_height
+		  entry.last_reward_block_height = pubkey_info.info.last_reward_block_height;
+		  entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
+		  entry.last_uptime_proof = m_core.get_uptime_proof(pubkey_info.pubkey);
+
+		  entry.contributors.reserve(pubkey_info.info.contributors.size());
+		  for (service_nodes::service_node_info::contribution const &contributor : pubkey_info.info.contributors)
+		  {
+			  COMMAND_RPC_GET_SERVICE_NODES::response::contribution new_contributor = {};
+			  new_contributor.amount = contributor.amount;
+			  new_contributor.reserved = contributor.reserved;
+			  new_contributor.address  = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, contributor.address);
+			  entry.contributors.push_back(new_contributor);
+		  }
+
+		  entry.total_contributed = pubkey_info.info.total_contributed;
+		  entry.total_reserved = pubkey_info.info.total_reserved;
+		  entry.staking_requirement = pubkey_info.info.staking_requirement;
+		  entry.portions_for_operator = pubkey_info.info.portions_for_operator;
+		  entry.operator_address = cryptonote::get_account_address_as_str(nettype(), false/*is_subaddress*/, pubkey_info.info.operator_address);
+
+		  res.service_node_states.push_back(entry);
+	  }
+
+	  return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+
   const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"

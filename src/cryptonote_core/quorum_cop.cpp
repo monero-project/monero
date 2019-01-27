@@ -32,6 +32,10 @@
 #include "cryptonote_core.h"
 #include "quorum_cop.h"
 
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "quorum_cop"
+
 namespace service_nodes
 {
   quorum_cop::quorum_cop(cryptonote::core& core, service_nodes::service_node_list& service_node_list)
@@ -51,6 +55,10 @@ namespace service_nodes
 
   void quorum_cop::block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs)
   {
+    uint64_t const height        = cryptonote::get_block_height(block);
+
+    if (m_core.get_hard_fork_version(height) < 9)
+      return;
     crypto::public_key my_pubkey;
     crypto::secret_key my_seckey;
     if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
@@ -64,8 +72,7 @@ namespace service_nodes
       return;
     }
 
-    uint64_t const height        = cryptonote::get_block_height(block);
-    uint64_t const latest_height = m_core.get_current_blockchain_height();
+    uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 
     if (latest_height < triton::service_node_deregister::VOTE_LIFETIME_BY_HEIGHT)
       return;
@@ -80,6 +87,9 @@ namespace service_nodes
 
     for (;m_last_height < (height - REORG_SAFETY_BUFFER_IN_BLOCKS); m_last_height++)
     {
+      if (m_core.get_hard_fork_version(m_last_height) < 9)
+       continue;
+       
       const std::shared_ptr<quorum_state> state = m_core.get_quorum_state(m_last_height);
       if (!state)
       {
@@ -98,7 +108,7 @@ namespace service_nodes
         const crypto::public_key &node_key = state->nodes_to_test[node_index];
 
         CRITICAL_REGION_LOCAL(m_lock);
-        bool vote_off_node = (m_uptime_proof_seen.find(node_key) != m_uptime_proof_seen.end());
+        bool vote_off_node = (m_uptime_proof_seen.find(node_key) == m_uptime_proof_seen.end());
 
         if (!vote_off_node)
           continue;
@@ -116,7 +126,10 @@ namespace service_nodes
             LOG_ERROR("block height was invalid: " << vote.block_height);
 
           if (vvc.m_voters_quorum_index_out_of_bounds)
-            LOG_ERROR("voters quorum index specified out of bounds: " << vote.voters_quorum_index);
+			  LOG_ERROR("voters quorum index specified was out of bounds: " << vote.voters_quorum_index);
+
+		  if (vvc.m_duplicate_voters)
+			  LOG_ERROR("voters index was duplicated: " << vote.voters_quorum_index);
 
           if (vvc.m_service_node_index_out_of_bounds)
             LOG_ERROR("service node index specified out of bounds: " << vote.service_node_index);
@@ -159,7 +172,7 @@ namespace service_nodes
     if (!crypto::check_signature(hash, pubkey, sig))
       return false;
 
-    m_uptime_proof_seen[pubkey] = timestamp;
+    m_uptime_proof_seen[pubkey] = now;
     return true;
   }
 
@@ -187,5 +200,15 @@ namespace service_nodes
     }
 
     return true;
+  }
+  uint64_t quorum_cop::get_uptime_proof(const crypto::public_key &pubkey) const
+  {
+	  const auto& it = m_uptime_proof_seen.find(pubkey);
+	  if (it == m_uptime_proof_seen.end())
+	  {
+		  return 0;
+	  }
+
+	  return (*it).second;
   }
 }

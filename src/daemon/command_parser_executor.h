@@ -77,7 +77,13 @@ public:
 
   bool print_quorum_state(const std::vector<std::string>& args);
 
-  bool get_service_node_registration_cmd(const std::vector<std::string>& args);
+  bool print_sn_key(const std::vector<std::string>& args);
+
+  bool prepare_registration();
+
+  bool print_sn(const std::vector<std::string>& args);
+
+  bool print_sn_status(const std::vector<std::string>& args);
 
   bool set_log_level(const std::vector<std::string>& args);
 

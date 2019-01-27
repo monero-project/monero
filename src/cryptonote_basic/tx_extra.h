@@ -203,13 +203,15 @@ namespace cryptonote
   {
     std::vector<crypto::public_key> m_public_spend_keys;
    std::vector<crypto::public_key> m_public_view_keys;
-   std::vector<uint32_t> m_portions;
+   uint64_t  m_portions_for_operator;
+   std::vector<uint64_t > m_portions;
    uint64_t m_expiration_timestamp;
    crypto::signature m_service_node_signature;
 
     BEGIN_SERIALIZE()
       FIELD(m_public_spend_keys)
       FIELD(m_public_view_keys)
+	  FIELD(m_portions_for_operator)
       FIELD(m_portions)
       FIELD(m_expiration_timestamp)
       FIELD(m_service_node_signature)

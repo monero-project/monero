@@ -365,6 +365,9 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   }
   m_hardfork->init();
 
+  for (InitHook* hook : m_init_hooks)
+	  hook->init();
+
   m_db->set_hard_fork(m_hardfork);
 
   // if the blockchain is new, add the genesis block
@@ -512,7 +515,11 @@ bool Blockchain::deinit()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
+
   MTRACE("Stopping blockchain read/write activity");
+
+  m_service_node_list.store();
+  m_service_node_list.set_db_pointer(nullptr);
 
  // stop async service
   m_async_work_idle.reset();
@@ -839,11 +846,6 @@ difficulty_type Blockchain::get_difficulty_for_next_block()
   return diff;
 }
 //------------------------------------------------------------------
-uint64_t Blockchain::get_staking_requirement(uint64_t height) const
-{
-  return UINT64_C(10000);
-}
-//------------------------------------------------------------------
 std::vector<time_t> Blockchain::get_last_block_timestamps(unsigned int blocks) const
 {
   std::vector<time_t> timestamps(blocks);
@@ -874,7 +876,9 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   {
     pop_block_from_blockchain();
   }
-
+   // Revert all changes from switching to the alt chain before adding the original chain back in
+  for (BlockchainDetachedHook* hook : m_blockchain_detached_hooks)
+    hook->blockchain_detached(rollback_height);
   // make sure the hard fork object updates its current version
   m_hardfork->reorganize_from_chain_height(rollback_height);
 
@@ -1319,8 +1323,8 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   uint8_t hf_version = m_hardfork->get_current_version();
   size_t max_outs = hf_version >= 4 ? 1 : 11;
   crypto::public_key winner = m_service_node_list.select_winner(b.prev_id);
-  std::vector<std::pair<account_public_address, uint32_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
-  bool r = construct_miner_tx(height, median_size, already_generated_coins, txs_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
+  std::vector<std::pair<account_public_address, uint64_t>> service_node_addresses = m_service_node_list.get_winner_addresses_and_portions(b.prev_id);
+  bool r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
   CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
   size_t cumulative_weight = txs_weight + get_transaction_weight(b.miner_tx);
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
@@ -1329,7 +1333,7 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_size, already_generated_coins, cumulative_size, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
+    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version, winner, service_node_addresses);
 
     CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);
@@ -2327,7 +2331,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
  }
 
   // from hard fork 2, we forbid dust and compound outputs
-  if (hf_version >= 2 && !tx.is_deregister_tx())
+  if (hf_version >= 2 && !tx.is_deregister_tx()){
     for (auto &o: tx.vout) {
       if (tx.version == 1)
       {
@@ -2524,6 +2528,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         }
         if (in_to_key.key_offsets.size() - 1 < mixin)
           mixin = in_to_key.key_offsets.size() - 1;
+		if (hf_version >= 5 & in_to_key.key_offsets.size() - 1 != min_mixin)
+		{
+			MERROR_VER("Tx " << get_transaction_hash(tx) << " has incorrect ring size (" << in_to_key.key_offsets.size() - 1 << ")");
+			tvc.m_low_mixin = true;
+			return false;
+		}
       }
     }
 
@@ -2551,9 +2561,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
 
     // min/max tx version based on HF, and we accept v1 txes if having a non mixable
-    const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < 5)
-      ? transaction::version_2
-      : transaction::version_3_per_output_unlock_times;
+	const size_t max_tx_version = (hf_version < 5) ? transaction::version_2 : transaction::version_3_per_output_unlock_times;
+
     if (tx.version > max_tx_version)
     {
       MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
@@ -2870,6 +2879,13 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
   if (tx.is_deregister_tx())
   {
+	  if (tx.rct_signatures.txnFee != 0)
+	  {
+		  tvc.m_invalid_input = true;
+		  tvc.m_verifivation_failed = true;
+		  MERROR_VER("TX version deregister should have 0 fee!");
+		  return false;
+	  }
     // Check the inputs (votes) of the transaction have not been already been
     // submitted to the blockchain under another transaction using a different
     // combination of votes.
@@ -2890,9 +2906,35 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     if (!triton::service_node_deregister::verify_deregister(deregister, tvc.m_vote_ctx, *quorum_state))
     {
       tvc.m_verifivation_failed = true;
-      MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified.");
-      return false;
+	  MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
+	  return false;
     }
+	// Check if deregister is too old or too new to hold onto
+	{
+		const uint64_t curr_height = get_current_blockchain_height();
+		if (deregister.block_height >= curr_height)
+		{
+			LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+				<< " and service node: " << deregister.service_node_index
+				<< ", is newer than current height: " << curr_height
+				<< " blocks and has been rejected.");
+			tvc.m_vote_ctx.m_invalid_block_height = true;
+			tvc.m_verifivation_failed = true;
+			return false;
+		}
+
+		uint64_t delta_height = curr_height - deregister.block_height;
+		if (delta_height > loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
+		{
+			LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
+				<< " and service node: " << deregister.service_node_index
+				<< ", is older than: " << loki::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
+				<< " blocks and has been rejected. The current height is: " << curr_height);
+			tvc.m_vote_ctx.m_invalid_block_height = true;
+			tvc.m_verifivation_failed = true;
+			return false;
+		}
+	}
 
     const uint64_t height            = deregister.block_height;
     const size_t num_blocks_to_check = triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT;
@@ -2920,15 +2962,27 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
           continue;
         }
 
-        if (existing_deregister.block_height       == deregister.block_height &&
-            existing_deregister.service_node_index == deregister.service_node_index)
+		std::shared_ptr<service_nodes::quorum_state> existing_deregister_quorum_state
+			= m_service_node_list.get_quorum_state(existing_deregister.block_height);
+
+		if (!existing_deregister_quorum_state)
+		{
+			MERROR_VER("could not get quorum state for recent deregister tx");
+			continue;
+		}
+
+		if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
+			quorum_state->nodes_to_test[deregister.service_node_index])
         {
           tvc.m_double_spend = true;
           return false;
         }
-
       }
     }
+	else
+	{
+		return false;
+	}
   }
   return true;
 }
@@ -3604,7 +3658,13 @@ leave:
 
   // appears to be a NOP *and* is called elsewhere.  wat?
   m_tx_pool.on_blockchain_inc(new_height, id);
-  m_deregister_vote_pool.remove_expired_votes(new_height);
+  // New height is the height of the block we just mined. We want (new_height
+  // + 1) because our age checks for deregister votes is now (age >=
+  // DEREGISTER_VOTE_LIFETIME_BY_HEIGHT) where age is derived from
+  // get_current_blockchain_height() which gives you the height that you are
+  // currently mining for, i.e. (new_height + 1). Otherwise peers will silently
+  // drop connection from each other when they go around P2Ping votes.
+  m_deregister_vote_pool.remove_expired_votes(new_height + 1);
   m_deregister_vote_pool.remove_used_votes(txs);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();

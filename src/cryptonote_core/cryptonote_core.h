@@ -796,7 +796,14 @@ namespace cryptonote
      * @return Null shared ptr if quorum has not been determined yet for height
      */
     const std::shared_ptr<service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
-
+	/**
+	* @brief Get a snapshot of the service node list state at the time of the call.
+	*
+	* @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys
+	*
+	* @return All the service nodes that can be matched from pubkeys in param
+	*/
+	std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
     /**
      * @brief Add a vote to deregister a service node from network
      *
@@ -827,6 +834,15 @@ namespace cryptonote
     * @return true
     */
    bool submit_uptime_proof();
+   /**
+   * @brief Try find the uptime proof from the service node.
+   *
+   * @param key The public key of the service node
+   *
+   * @return 0 if no uptime proof found, otherwise the timestamp it last received in epoch time
+   */
+   uint64_t get_uptime_proof(const crypto::public_key &key) const;
+
    private:
 
      /**
@@ -1013,6 +1029,10 @@ namespace cryptonote
     * @return true on success, false otherwise
     */
    bool init_service_node_key();
+   /**
+   * @brief do the uptime proof logic and calls for idle loop.
+   */
+   void do_uptime_proof_call();
 
      bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
 

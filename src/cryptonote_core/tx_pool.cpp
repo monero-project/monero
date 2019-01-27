@@ -113,8 +113,8 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
  bool tx_memory_pool::have_deregister_tx_already(transaction const &tx) const
  {
-   if (!tx.is_deregister_tx())
-     return false;
+	 if (!pool_tx.is_deregister_tx())
+		return false;
 
    tx_extra_service_node_deregister deregister;
    if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
@@ -127,7 +127,7 @@ namespace cryptonote
    get_transactions(pool_txs);
    for (const transaction& pool_tx : pool_txs)
    {
-     if (!tx.is_deregister_tx())
+	 if (!pool_tx.is_deregister_tx())
        continue;
 
      tx_extra_service_node_deregister pool_tx_deregister;
@@ -205,7 +205,6 @@ namespace cryptonote
         tvc.m_fee_too_low = true;
         return false;
       }
-
       fee = inputs_amount - outputs_amount;
     }
     else
@@ -213,7 +212,7 @@ namespace cryptonote
       fee = tx.rct_signatures.txnFee;
     }
 
-    if (!kept_by_block && !m_blockchain.check_fee(tx_weight, fee) && !tx.is_deregister_tx())
+	if (!kept_by_block && !tx.is_deregister_tx() && !m_blockchain.check_fee(blob_size, fee))
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
@@ -242,49 +241,16 @@ namespace cryptonote
         tvc.m_double_spend = true;
         return false;
       }
-    }
-    if (have_deregister_tx_already(tx))
-   {
-     mark_double_spend(tx);
-     LOG_PRINT_L1("Transaction version 3 with id= "<< id << " already has a deregister for height");
-     tvc.m_verifivation_failed = true;
-     tvc.m_double_spend = true;
-     return false;
+	  if (have_deregister_tx_already(tx))
+	  {
+		  mark_double_spend(tx);
+		  LOG_PRINT_L1("Transaction version 3 with id= " << id << " already has a deregister for height");
+		  tvc.m_verifivation_failed = true;
+		  tvc.m_double_spend = true;
+		  return false;
+	  }
    }
 
-   if (tx.is_deregister_tx())
-   {
-     tx_extra_service_node_deregister deregister;
-     if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
-     {
-       LOG_PRINT_L1("Could not get service node deregister from tx v3, possibly corrupt tx in your blockchain");
-       return false;
-     }
-
-     const uint64_t curr_height = m_blockchain.get_current_blockchain_height();
-     if (deregister.block_height >= curr_height)
-     {
-       LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                    << " and service node: "              << deregister.service_node_index
-                    << ", is newer than current height: " << curr_height
-                    << " blocks and has been rejected.");
-       tvc.m_vote_ctx.m_invalid_block_height = true;
-       tvc.m_verifivation_failed             = true;
-       return false;
-     }
-
-     uint64_t delta_height = curr_height - deregister.block_height;
-     if (delta_height > triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT)
-     {
-       LOG_PRINT_L1("Received deregister tx for height: " << deregister.block_height
-                    << " and service node: "     << deregister.service_node_index
-                    << ", is older than: "       << triton::service_node_deregister::DEREGISTER_LIFETIME_BY_HEIGHT
-                    << " blocks and has been rejected.");
-       tvc.m_vote_ctx.m_invalid_block_height = true;
-       tvc.m_verifivation_failed             = true;
-       return false;
-     }
-   }
 
     if (!m_blockchain.check_tx_outputs(tx, tvc))
     {
@@ -320,7 +286,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.do_not_relay = do_not_relay;
-        meta.double_spend_seen = have_tx_keyimges_as_spent(tx);
+		meta.double_spend_seen = (have_tx_keyimges_as_spent(tx) || have_deregister_tx_already(tx));
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
         try
@@ -330,8 +296,8 @@ namespace cryptonote
           m_blockchain.add_txpool_tx(tx, meta);
           if (!insert_key_images(tx, id, kept_by_block))
             return false;
-          m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
-        }
+		  m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)blob_size, receive_time), id);
+		}
         catch (const std::exception &e)
         {
           MERROR("transaction already exists at inserting in memory pool: " << e.what());
@@ -373,8 +339,8 @@ namespace cryptonote
         m_blockchain.add_txpool_tx(tx, meta);
         if (!insert_key_images(tx, txid, kept_by_block))
           return false;
-        m_txs_by_fee_and_receive_time.emplace(std::pair<double, std::time_t>(fee / (double)tx_weight, receive_time), id);
-      }
+		m_txs_by_fee_and_receive_time.emplace(std::tuple<bool, double, std::time_t>(tx.is_deregister_tx(), fee / (double)blob_size, receive_time), id);
+	  }
       catch (const std::exception &e)
       {
         MERROR("internal error: transaction already exists at inserting in memory pool: " << e.what());
@@ -421,60 +387,100 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   void tx_memory_pool::prune(size_t bytes)
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    if (bytes == 0)
-      bytes = m_txpool_max_weight;
-    CRITICAL_REGION_LOCAL1(m_blockchain);
-    LockedTXN lock(m_blockchain);
-    bool changed = false;
+    C CRITICAL_REGION_LOCAL(m_transactions_lock);
+	if (bytes == 0)
+		bytes = m_txpool_max_size;
+	CRITICAL_REGION_LOCAL1(m_blockchain);
+	LockedTXN lock(m_blockchain);
 
-    // this will never remove the first one, but we don't care
-    auto it = --m_txs_by_fee_and_receive_time.end();
-    while (it != m_txs_by_fee_and_receive_time.begin())
-    {
-      if (m_txpool_weight <= bytes)
-        break;
-      try
-      {
-        const crypto::hash &txid = it->second;
-        txpool_tx_meta_t meta;
-        if (!m_blockchain.get_txpool_tx_meta(txid, meta))
-        {
-          MERROR("Failed to find tx in txpool");
-          return;
-        }
-        // don't prune the kept_by_block ones, they're likely added because we're adding a block with those
-        if (meta.kept_by_block)
-        {
-          --it;
-          continue;
-        }
-        cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
-        cryptonote::transaction_prefix tx;
-        if (!parse_and_validate_tx_prefix_from_blob(txblob, tx))
-        {
-          MERROR("Failed to parse tx from txpool");
-          return;
-        }
-        // remove first, in case this throws, so key images aren't removed
-        MINFO("Pruning tx " << txid << " from txpool: weight: " << it->first.second << ", fee/byte: " << it->first.first);
-        m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= it->first.second;
-        remove_transaction_keyimages(tx, txid);
-        MINFO("Pruned tx " << txid << " from txpool: weight: " << it->first.second << ", fee/byte: " << it->first.first);
-        m_txs_by_fee_and_receive_time.erase(it--);
-        changed = true;
-      }
-      catch (const std::exception &e)
-      {
-        MERROR("Error while pruning txpool: " << e.what());
-        return;
-      }
-    }
-    if (changed)
-      ++m_cookie;
-    if (m_txpool_weight > bytes)
-      MINFO("Pool weight after pruning is larger than limit: " << m_txpool_weight << "/" << bytes);
+	for (auto it = m_txs_by_fee_and_receive_time.begin(); it != m_txs_by_fee_and_receive_time.end(); )
+	{
+		if (!std::get<0>(it->first))
+			break;
+		// is deregister. keep if has not be around for a long time
+		if (std::get<2>(it->first) >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
+			break;
+		try
+		{
+			const crypto::hash &txid = it->second;
+			txpool_tx_meta_t meta;
+			if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+			{
+				MERROR("Failed to find tx in txpool");
+				return;
+			}
+			// don't prune the kept_by_block ones, they're likely added because we're adding a block with those
+			if (meta.kept_by_block)
+			{
+				it++;
+				continue;
+			}
+			cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
+			cryptonote::transaction tx;
+			if (!parse_and_validate_tx_from_blob(txblob, tx))
+			{
+				MERROR("Failed to parse tx from txpool");
+				return;
+			}
+			// remove first, in case this throws, so key images aren't removed
+			MINFO("Pruning deregister tx " << txid << " from txpool");
+			m_blockchain.remove_txpool_tx(txid);
+			m_txpool_size -= txblob.size();
+			remove_transaction_keyimages(tx);
+			MINFO("Pruned deregister tx " << txid << " from txpool");
+			it = m_txs_by_fee_and_receive_time.erase(it);
+		}
+		catch (const std::exception &e)
+		{
+			MERROR("Error while pruning txpool: " << e.what());
+			return;
+		}
+	}
+
+	// this will never remove the first one, but we don't care
+	auto it = --m_txs_by_fee_and_receive_time.end();
+	while (it != m_txs_by_fee_and_receive_time.begin())
+	{
+		if (m_txpool_size <= bytes)
+			break;
+		try
+		{
+			const crypto::hash &txid = it->second;
+			txpool_tx_meta_t meta;
+			if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+			{
+				MERROR("Failed to find tx in txpool");
+				return;
+			}
+			// don't prune the kept_by_block ones, they're likely added because we're adding a block with those
+			if (meta.kept_by_block)
+			{
+				--it;
+				continue;
+			}
+			cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid);
+			cryptonote::transaction tx;
+			if (!parse_and_validate_tx_from_blob(txblob, tx))
+			{
+				MERROR("Failed to parse tx from txpool");
+				return;
+			}
+			// remove first, in case this throws, so key images aren't removed
+			MINFO("Pruning tx " << txid << " from txpool: size: " << txblob.size() << ", fee/byte: " << std::get<1>(it->first));
+			m_blockchain.remove_txpool_tx(txid);
+			m_txpool_size -= txblob.size();
+			remove_transaction_keyimages(tx);
+			MINFO("Pruned tx " << txid << " from txpool: size: " << txblob.size() << ", fee/byte: " << std::get<1>(it->first));
+			it = --m_txs_by_fee_and_receive_time.erase(it);
+		}
+		catch (const std::exception &e)
+		{
+			MERROR("Error while pruning txpool: " << e.what());
+			return;
+		}
+	}
+	if (m_txpool_size > bytes)
+		MINFO("Pool size after pruning is larger than limit: " << m_txpool_size << "/" << bytes);
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::insert_key_images(const transaction_prefix &tx, const crypto::hash &id, bool kept_by_block)
@@ -1121,6 +1127,7 @@ namespace cryptonote
       txd.double_spend_seen = true;
       return false;
     }
+	
 
     //transaction is ok.
     return true;

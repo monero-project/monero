@@ -49,12 +49,12 @@ namespace cryptonote
         size_t max_outs = 999,
         uint8_t hard_fork_version = 1,
         const crypto::public_key& service_node_key = crypto::null_pkey,
-        const std::vector<std::pair<account_public_address, uint32_t>>& service_node_info={ std::pair<account_public_address, uint32_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_portions) }
+        const std::vector<std::pair<account_public_address, uint64_t>>& service_node_info={ std::pair<account_public_address, uint64_t>({ crypto::null_pkey, crypto::null_pkey }, STAKING_PORTIONS) }
     );
     keypair get_deterministic_keypair_from_height(uint64_t height);
 
   uint64_t get_service_node_reward(uint64_t height, uint64_t base_reward, int hard_fork_version);
-  uint64_t get_share_of_reward(uint32_t portions, uint64_t total_service_node_reward);
+  uint64_t get_portion_of_reward(uint64_t portions, uint64_t total_service_node_reward);
 
   struct tx_source_entry
   {
@@ -110,7 +110,7 @@ namespace cryptonote
 
   //---------------------------------------------------------------
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr);
-  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry> &sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time);
+  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry> &sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, bool is_staking = false, bool per_output_unlock = false);
   bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType  range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL, bool per_output_unlock = false, bool shuffle_outs = true);
   bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, rct::RangeProofType  range_proof_type = rct::RangeProofBorromean, rct::multisig_out *msout = NULL,bool is_staking_tx = false, bool per_output_unlock = false);
 

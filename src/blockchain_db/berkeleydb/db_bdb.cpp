@@ -2345,5 +2345,17 @@ void BlockchainBDB::fixup()
   // Always call parent as well
   BlockchainDB::fixup();
 }
+void BlockchainBDB::set_service_node_data(const std::string& data)
+{
+}
+
+bool BlockchainBDB::get_service_node_data(std::string& data)
+{
+	return false;
+}
+
+void BlockchainBDB::clear_service_node_data()
+{
+}
 
 }  // namespace cryptonote

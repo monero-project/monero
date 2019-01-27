@@ -106,14 +106,14 @@ namespace cryptonote
  {
    return hard_fork_version >= 5 ? base_reward / 2 : 0;
  }
- uint64_t get_portion_of_reward(uint32_t portions, uint64_t total_service_node_reward)
+ uint64_t get_portion_of_reward(uint64_t  portions, uint64_t total_service_node_reward)
   {
     uint64_t hi, lo, rewardhi, rewardlo;
     lo = mul128(total_service_node_reward, portions, &hi);
-    div128_32(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
+	div128_64(hi, lo, STAKING_PORTIONS, &rewardhi, &rewardlo);
     return rewardlo;
   }
-  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint32_t>>& portions, uint64_t total_service_node_reward)
+  static uint64_t calculate_sum_of_portions(const std::vector<std::pair<cryptonote::account_public_address, uint64_t>>& portions, uint64_t total_service_node_reward)
   {
     uint64_t reward = 0;
     for (size_t i = 0; i < portions.size(); i++)
@@ -133,7 +133,7 @@ namespace cryptonote
      size_t max_outs /* unused */,
      uint8_t hard_fork_version,
      const crypto::public_key& service_node_key,
-     const std::vector<std::pair<account_public_address, uint32_t>>& service_node_info)
+     const std::vector<std::pair<account_public_address, uint64_t>>& service_node_info)
  {
   tx.vin.clear();
     tx.vout.clear();
@@ -750,14 +750,14 @@ else
     return r;
   }
   //---------------------------------------------------------------
-  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time)
+  bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry>& sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::tx_destination_entry>& change_addr, std::vector<uint8_t> extra, transaction& tx, uint64_t unlock_time, bool is_staking, bool per_output_unlock)
   {
      std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
      subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0,0};
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, rct::RangeProofBorromean, NULL);
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, false, rct::RangeProofBorromean, NULL, is_staking, per_output_unlock);
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(
