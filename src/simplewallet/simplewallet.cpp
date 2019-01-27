@@ -5103,7 +5103,14 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
     if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
     {
       crypto::hash payment_id = crypto::null_hash;
-      if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+      crypto::hash8 payment_id8 = crypto::null_hash8;
+      if (get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+      {
+        if (payment_id8 != crypto::null_hash8)
+          message_writer() <<
+            tr("NOTE: this transaction uses an encrypted payment ID: consider using subaddresses instead");
+      }
+      else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         message_writer(console_color_red, false) <<
           (m_long_payment_id_support ? tr("WARNING: this transaction uses an unencrypted payment ID: consider using subaddresses instead.") : tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete. Support will be withdrawn in the future. Use subaddresses instead."));
    }
