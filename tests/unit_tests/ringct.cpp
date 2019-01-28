@@ -171,8 +171,10 @@ TEST(ringct, range_proofs)
         skpkGen(Sk, Pk);
         destinations.push_back(Pk);
 
+        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
+
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -189,7 +191,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -235,8 +237,10 @@ TEST(ringct, range_proofs_with_fee)
         skpkGen(Sk, Pk);
         destinations.push_back(Pk);
 
+        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
+
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -253,7 +257,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -311,7 +315,8 @@ TEST(ringct, simple)
         //compute sig with mixin 2
         xmr_amount txnfee = 1;
 
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, hw::get_device("default"));
+        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, rct_config, hw::get_device("default"));
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
@@ -345,7 +350,8 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
         }
     }
 
-    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+    const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
+    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 }
 
 static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], uint64_t fee)
@@ -371,7 +377,8 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
         destinations.push_back(Pk);
     }
 
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, hw::get_device("default"));
+    const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
+    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, rct_config, hw::get_device("default"));
 }
 
 static bool range_proof_test(bool expected_valid,
@@ -823,27 +830,6 @@ TEST(ringct, HPow2)
 }
 
 static const xmr_amount test_amounts[]={0, 1, 2, 3, 4, 5, 10000, 10000000000000000000ull, 10203040506070809000ull, 123456789123456789};
-
-TEST(ringct, ecdh_roundtrip)
-{
-  key k;
-  ecdhTuple t0, t1;
-
-  for (auto amount: test_amounts) {
-    skGen(k);
-
-    t0.mask = skGen();
-    t0.amount = d2h(amount);
-
-    t1 = t0;
-    ecdhEncode(t1, k);
-    ecdhDecode(t1, k);
-    ASSERT_TRUE(t0.mask == t1.mask);
-    ASSERT_TRUE(equalKeys(t0.mask, t1.mask));
-    ASSERT_TRUE(t0.amount == t1.amount);
-    ASSERT_TRUE(equalKeys(t0.amount, t1.amount));
-  }
-}
 
 TEST(ringct, d2h)
 {
