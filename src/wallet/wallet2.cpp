@@ -628,7 +628,7 @@ std::string strjoin(const std::vector<size_t> &V, const char *sep)
   return ss.str();
 }
 
-static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
+static bool emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
   const crypto::hash &key, const tools::wallet2::pool_payment_details &pd)
 {
   auto range = container.equal_range(key);
@@ -637,10 +637,11 @@ static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
     if (i->second.m_pd.m_tx_hash == pd.m_pd.m_tx_hash && i->second.m_pd.m_subaddr_index == pd.m_pd.m_subaddr_index)
     {
       i->second = pd;
-      return;
+      return false;
     }
   }
   container.emplace(key, pd);
+  return true;
 }
 
 void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_t N)
@@ -2015,6 +2016,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       return;
     }
 
+    bool all_same = true;
     for (const auto& i : tx_money_got_in_outs)
     {
       payment_details payment;
@@ -2027,7 +2029,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       payment.m_coinbase     = miner_tx;
       payment.m_subaddr_index = i.first;
       if (pool) {
-        emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen});
+        if (emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen}))
+          all_same = false;
         if (0 != m_callback)
           m_callback->on_unconfirmed_money_received(height, txid, tx, payment.m_amount, payment.m_subaddr_index);
       }
@@ -2035,6 +2038,10 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         m_payments.emplace(payment_id, payment);
       LOG_PRINT_L2("Payment found in " << (pool ? "pool" : "block") << ": " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
     }
+
+    // if it's a pool tx and we already had it, don't notify again
+    if (pool && all_same)
+      notify = false;
   }
 
   if (notify)
