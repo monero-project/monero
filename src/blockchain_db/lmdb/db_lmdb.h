@@ -40,6 +40,11 @@
 namespace cryptonote
 {
 
+typedef struct txindex {
+    crypto::hash key;
+    tx_data_t data;
+} txindex;
+
 typedef struct mdb_txn_cursors
 {
   MDB_cursor *m_txc_blocks;
@@ -53,6 +58,7 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_txs_pruned;
   MDB_cursor *m_txc_txs_prunable;
   MDB_cursor *m_txc_txs_prunable_hash;
+  MDB_cursor *m_txc_txs_prunable_tip;
   MDB_cursor *m_txc_tx_indices;
   MDB_cursor *m_txc_tx_outputs;
 
@@ -62,6 +68,8 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_txpool_blob;
 
   MDB_cursor *m_txc_hf_versions;
+
+  MDB_cursor *m_txc_properties;
 } mdb_txn_cursors;
 
 #define m_cur_blocks	m_cursors->m_txc_blocks
@@ -73,12 +81,14 @@ typedef struct mdb_txn_cursors
 #define m_cur_txs_pruned	m_cursors->m_txc_txs_pruned
 #define m_cur_txs_prunable	m_cursors->m_txc_txs_prunable
 #define m_cur_txs_prunable_hash	m_cursors->m_txc_txs_prunable_hash
+#define m_cur_txs_prunable_tip	m_cursors->m_txc_txs_prunable_tip
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_hf_versions	m_cursors->m_txc_hf_versions
+#define m_cur_properties	m_cursors->m_txc_properties
 
 typedef struct mdb_rflags
 {
@@ -92,12 +102,14 @@ typedef struct mdb_rflags
   bool m_rf_txs_pruned;
   bool m_rf_txs_prunable;
   bool m_rf_txs_prunable_hash;
+  bool m_rf_txs_prunable_tip;
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_hf_versions;
+  bool m_rf_properties;
 } mdb_rflags;
 
 typedef struct mdb_threadinfo
@@ -232,6 +244,7 @@ public:
 
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
+  virtual bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const;
 
   virtual uint64_t get_tx_count() const;
@@ -264,6 +277,11 @@ public:
   virtual bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const;
   virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd) const;
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid) const;
+  virtual uint32_t get_blockchain_pruning_seed() const;
+  virtual bool prune_blockchain(uint32_t pruning_seed = 0);
+  virtual bool update_pruning();
+  virtual bool check_pruning();
+
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata*)> f, bool include_blob = false, bool include_unrelayed_txes = true) const;
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
@@ -308,6 +326,11 @@ public:
   std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> get_output_histogram(const std::vector<uint64_t> &amounts, bool unlocked, uint64_t recent_cutoff, uint64_t min_count) const;
 
   bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
+
+  // helper functions
+  static int compare_uint64(const MDB_val *a, const MDB_val *b);
+  static int compare_hash32(const MDB_val *a, const MDB_val *b);
+  static int compare_string(const MDB_val *a, const MDB_val *b);
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -361,6 +384,8 @@ private:
 
   inline void check_open() const;
 
+  bool prune_worker(int mode, uint32_t pruning_seed);
+
   virtual bool is_read_only() const;
 
   virtual uint64_t get_database_size() const;
@@ -393,6 +418,7 @@ private:
   MDB_dbi m_txs_pruned;
   MDB_dbi m_txs_prunable;
   MDB_dbi m_txs_prunable_hash;
+  MDB_dbi m_txs_prunable_tip;
   MDB_dbi m_tx_indices;
   MDB_dbi m_tx_outputs;
 

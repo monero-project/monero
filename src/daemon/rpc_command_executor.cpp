@@ -31,6 +31,7 @@
 #include "string_tools.h"
 #include "common/password.h"
 #include "common/scoped_message_writer.h"
+#include "common/pruning.h"
 #include "daemon/rpc_command_executor.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -60,7 +61,8 @@ namespace {
     peer_id_str >> id_str;
     epee::string_tools::xtype_to_string(peer.port, port_str);
     std::string addr_str = ip_str + ":" + port_str;
-    tools::msg_writer() << boost::format("%-10s %-25s %-25s %s") % prefix % id_str % addr_str % elapsed;
+    std::string pruning_seed = epee::string_tools::to_string_hex(peer.pruning_seed);
+    tools::msg_writer() << boost::format("%-10s %-25s %-25s %-4s %s") % prefix % id_str % addr_str % pruning_seed % elapsed;
   }
 
   void print_block_header(cryptonote::block_header_response const & header)
@@ -741,6 +743,7 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
 
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(transaction_hash));
   req.decode_as_json = false;
+  req.split = true;
   req.prune = false;
   if (m_is_rpc)
   {
@@ -766,13 +769,25 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
       if (res.txs.front().in_pool)
         tools::success_msg_writer() << "Found in pool";
       else
-        tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height;
+        tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height << (res.txs.front().prunable_as_hex.empty() ? " (pruned)" : "");
     }
 
     const std::string &as_hex = (1 == res.txs.size()) ? res.txs.front().as_hex : res.txs_as_hex.front();
+    const std::string &pruned_as_hex = (1 == res.txs.size()) ? res.txs.front().pruned_as_hex : "";
+    const std::string &prunable_as_hex = (1 == res.txs.size()) ? res.txs.front().prunable_as_hex : "";
     // Print raw hex if requested
     if (include_hex)
-      tools::success_msg_writer() << as_hex << std::endl;
+    {
+      if (!as_hex.empty())
+      {
+        tools::success_msg_writer() << as_hex << std::endl;
+      }
+      else
+      {
+        std::string output = pruned_as_hex + prunable_as_hex;
+        tools::success_msg_writer() << output << std::endl;
+      }
+    }
 
     // Print json if requested
     if (include_json)
@@ -780,17 +795,27 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
       crypto::hash tx_hash, tx_prefix_hash;
       cryptonote::transaction tx;
       cryptonote::blobdata blob;
-      if (!string_tools::parse_hexstr_to_binbuff(as_hex, blob))
+      std::string source = as_hex.empty() ? pruned_as_hex + prunable_as_hex : as_hex;
+      bool pruned = !pruned_as_hex.empty() && prunable_as_hex.empty();
+      if (!string_tools::parse_hexstr_to_binbuff(source, blob))
       {
         tools::fail_msg_writer() << "Failed to parse tx to get json format";
       }
-      else if (!cryptonote::parse_and_validate_tx_from_blob(blob, tx, tx_hash, tx_prefix_hash))
-      {
-        tools::fail_msg_writer() << "Failed to parse tx blob to get json format";
-      }
       else
       {
-        tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+        bool ret;
+        if (pruned)
+          ret = cryptonote::parse_and_validate_tx_base_from_blob(blob, tx);
+        else
+          ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx);
+        if (!ret)
+        {
+          tools::fail_msg_writer() << "Failed to parse tx blob to get json format";
+        }
+        else
+        {
+          tools::success_msg_writer() << cryptonote::obj_to_json_str(tx) << std::endl;
+        }
       }
     }
   }
@@ -1939,6 +1964,8 @@ bool t_rpc_command_executor::sync_info()
     for (const auto &p: res.peers)
       current_download += p.info.current_download;
     tools::success_msg_writer() << "Downloading at " << current_download << " kB/s";
+    if (res.next_needed_pruning_seed)
+      tools::success_msg_writer() << "Next needed pruning seed: " << res.next_needed_pruning_seed;
 
     tools::success_msg_writer() << std::to_string(res.peers.size()) << " peers";
     for (const auto &p: res.peers)
@@ -1946,25 +1973,30 @@ bool t_rpc_command_executor::sync_info()
       std::string address = epee::string_tools::pad_string(p.info.address, 24);
       uint64_t nblocks = 0, size = 0;
       for (const auto &s: res.spans)
-        if (s.rate > 0.0f && s.connection_id == p.info.connection_id)
+        if (s.connection_id == p.info.connection_id)
           nblocks += s.nblocks, size += s.size;
-      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " << epee::string_tools::pad_string(p.info.state, 16) << "  " << p.info.height << "  "  << p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
+      tools::success_msg_writer() << address << "  " << epee::string_tools::pad_string(p.info.peer_id, 16, '0', true) << "  " <<
+          epee::string_tools::pad_string(p.info.state, 16) << "  " <<
+          epee::string_tools::pad_string(epee::string_tools::to_string_hex(p.info.pruning_seed), 8) << "  " << p.info.height << "  "  <<
+          p.info.current_download << " kB/s, " << nblocks << " blocks / " << size/1e6 << " MB queued";
     }
 
     uint64_t total_size = 0;
     for (const auto &s: res.spans)
       total_size += s.size;
     tools::success_msg_writer() << std::to_string(res.spans.size()) << " spans, " << total_size/1e6 << " MB";
+    tools::success_msg_writer() << res.overview;
     for (const auto &s: res.spans)
     {
       std::string address = epee::string_tools::pad_string(s.remote_address, 24);
+      std::string pruning_seed = epee::string_tools::to_string_hex(tools::get_pruning_seed(s.start_block_height, std::numeric_limits<uint64_t>::max(), CRYPTONOTE_PRUNING_LOG_STRIPES));
       if (s.size == 0)
       {
-        tools::success_msg_writer() << address << "  " << s.nblocks << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ")  -";
+        tools::success_msg_writer() << address << "  " << s.nblocks << "/" << pruning_seed << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ")  -";
       }
       else
       {
-        tools::success_msg_writer() << address << "  " << s.nblocks << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ", " << (uint64_t)(s.size/1e3) << " kB)  " << (unsigned)(s.rate/1e3) << " kB/s (" << s.speed/100.0f << ")";
+        tools::success_msg_writer() << address << "  " << s.nblocks << "/" << pruning_seed << " (" << s.start_block_height << " - " << (s.start_block_height + s.nblocks - 1) << ", " << (uint64_t)(s.size/1e3) << " kB)  " << (unsigned)(s.rate/1e3) << " kB/s (" << s.speed/100.0f << ")";
       }
     }
 
@@ -1996,6 +2028,71 @@ bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks)
   tools::success_msg_writer() << "new height: " << res.height;
 
   return true;
+}
+
+bool t_rpc_command_executor::prune_blockchain()
+{
+    cryptonote::COMMAND_RPC_PRUNE_BLOCKCHAIN::request req;
+    cryptonote::COMMAND_RPC_PRUNE_BLOCKCHAIN::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    req.check = false;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "prune_blockchain", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_prune_blockchain(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    tools::success_msg_writer() << "Blockchain pruned: seed " << epee::string_tools::to_string_hex(res.pruning_seed);
+    return true;
+}
+
+bool t_rpc_command_executor::check_blockchain_pruning()
+{
+    cryptonote::COMMAND_RPC_PRUNE_BLOCKCHAIN::request req;
+    cryptonote::COMMAND_RPC_PRUNE_BLOCKCHAIN::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    req.check = true;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "prune_blockchain", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_prune_blockchain(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    if (res.pruning_seed)
+    {
+      tools::success_msg_writer() << "Blockchain pruning checked";
+    }
+    else
+    {
+      tools::success_msg_writer() << "Blockchain is not pruned";
+    }
+    return true;
 }
 
 }// namespace daemonize

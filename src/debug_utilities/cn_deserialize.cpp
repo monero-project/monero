@@ -180,11 +180,9 @@ int main(int argc, char* argv[])
   }
   else if (cryptonote::parse_and_validate_tx_from_blob(blob, tx) || cryptonote::parse_and_validate_tx_base_from_blob(blob, tx))
   {
-/*
     if (tx.pruned)
       std::cout << "Parsed pruned transaction:" << std::endl;
     else
-*/
       std::cout << "Parsed transaction:" << std::endl;
     std::cout << cryptonote::obj_to_json_str(tx) << std::endl;
 

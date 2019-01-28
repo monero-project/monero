@@ -40,6 +40,7 @@ set(common_sources
   notify.cpp
   password.cpp
   perf_timer.cpp
+  pruning.cpp
   spawn.cpp
   threadpool.cpp
   updates.cpp
@@ -69,6 +70,7 @@ set(common_private_headers
   http_connection.h
   notify.h
   pod-class.h
+  pruning.h
   rpc_client.h
   scoped_message_writer.h
   unordered_containers_boost_serialization.h

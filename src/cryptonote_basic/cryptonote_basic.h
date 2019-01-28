@@ -201,9 +201,11 @@ namespace cryptonote
     mutable crypto::hash hash;
     mutable size_t blob_size;
 
+    bool pruned;
+
     transaction();
-    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
-    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } return *this; }
+    transaction(const transaction &t): transaction_prefix(t), hash_valid(false), blob_size_valid(false), signatures(t.signatures), rct_signatures(t.rct_signatures), pruned(t.pruned) { if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } }
+    transaction &operator=(const transaction &t) { transaction_prefix::operator=(t); set_hash_valid(false); set_blob_size_valid(false); signatures = t.signatures; rct_signatures = t.rct_signatures; if (t.is_hash_valid()) { hash = t.hash; set_hash_valid(true); } if (t.is_blob_size_valid()) { blob_size = t.blob_size; set_blob_size_valid(true); } pruned = t.pruned; return *this; }
     virtual ~transaction();
     void set_null();
     void invalidate_hashes();
@@ -232,7 +234,7 @@ namespace cryptonote
         if (!signatures_not_expected && vin.size() != signatures.size())
           return false;
 
-        for (size_t i = 0; i < vin.size(); ++i)
+        if (!pruned) for (size_t i = 0; i < vin.size(); ++i)
         {
           size_t signature_size = get_signature_size(vin[i]);
           if (signatures_not_expected)
@@ -263,7 +265,7 @@ namespace cryptonote
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
           if (!r || !ar.stream().good()) return false;
           ar.end_object();
-          if (rct_signatures.type != rct::RCTTypeNull)
+          if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
             ar.tag("rctsig_prunable");
             ar.begin_object();
@@ -274,6 +276,8 @@ namespace cryptonote
           }
         }
       }
+      if (!typename Archive<W>::is_saving())
+        pruned = false;
     END_SERIALIZE()
 
     template<bool W, template <bool> class Archive>
@@ -295,6 +299,8 @@ namespace cryptonote
           ar.end_object();
         }
       }
+      if (!typename Archive<W>::is_saving())
+        pruned = true;
       return true;
     }
 
@@ -322,6 +328,7 @@ namespace cryptonote
     rct_signatures.type = rct::RCTTypeNull;
     set_hash_valid(false);
     set_blob_size_valid(false);
+    pruned = false;
   }
 
   inline
