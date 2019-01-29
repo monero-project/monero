@@ -1138,7 +1138,12 @@ namespace service_nodes
 
             // NOTE(loki): This should be checked in blockchain check_tx_inputs already
             crypto::hash const hash = service_nodes::generate_request_stake_unlock_hash(unlock.nonce);
-            assert(crypto::check_signature(hash, locked_contribution->key_image_pub_key, unlock.signature));
+            if (!crypto::check_signature(hash, locked_contribution->key_image_pub_key, unlock.signature))
+            {
+              MERROR("Unlock TX: Couldn't verify key image unlock in the tx_extra, rejected on height: " << block_height << " for tx: " << get_transaction_hash(tx));
+              early_exit = true;
+              break;
+            }
 
             node_info.requested_unlock_height = unlock_height;
             early_exit = true;
