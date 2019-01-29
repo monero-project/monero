@@ -30,12 +30,17 @@
 
 #pragma once
 #include <array>
+#include <atomic>
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/thread.hpp>
+#include <boost/optional/optional_fwd.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/serialization/version.hpp>
 #include <boost/uuid/uuid.hpp>
-#include <boost/serialization/map.hpp>
+#include <functional>
+#include <utility>
+#include <vector>
 
 #include "cryptonote_config.h"
 #include "warnings.h"
@@ -47,6 +52,8 @@
 #include "net_peerlist.h"
 #include "math_helper.h"
 #include "net_node_common.h"
+#include "net/enums.h"
+#include "net/fwd.h"
 #include "common/command_line.h"
 
 PUSH_WARNINGS
@@ -54,6 +61,47 @@ DISABLE_VS_WARNINGS(4355)
 
 namespace nodetool
 {
+  struct proxy
+  {
+    proxy()
+      : max_connections(-1),
+        address(),
+        zone(epee::net_utils::zone::invalid)
+    {}
+
+    std::int64_t max_connections;
+    boost::asio::ip::tcp::endpoint address;
+    epee::net_utils::zone zone;
+  };
+
+  struct anonymous_inbound
+  {
+    anonymous_inbound()
+      : max_connections(-1),
+        local_ip(),
+        local_port(),
+        our_address(),
+        default_remote()
+    {}
+
+    std::int64_t max_connections;
+    std::string local_ip;
+    std::string local_port;
+    epee::net_utils::network_address our_address;
+    epee::net_utils::network_address default_remote;
+  };
+
+  boost::optional<std::vector<proxy>> get_proxies(const boost::program_options::variables_map& vm);
+  boost::optional<std::vector<anonymous_inbound>> get_anonymous_inbounds(const boost::program_options::variables_map& vm);
+
+  //! \return True if `commnd` is filtered (ignored/dropped) for `address`
+  bool is_filtered_command(epee::net_utils::network_address const& address, int command);
+
+  // hides boost::future and chrono stuff from mondo template file
+  boost::optional<boost::asio::ip::tcp::socket>
+  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_service& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote);
+
+
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
@@ -78,53 +126,124 @@ namespace nodetool
     typedef COMMAND_HANDSHAKE_T<typename t_payload_net_handler::payload_type> COMMAND_HANDSHAKE;
     typedef COMMAND_TIMED_SYNC_T<typename t_payload_net_handler::payload_type> COMMAND_TIMED_SYNC;
 
+    typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context>> net_server;
+
+    struct network_zone;
+    using connect_func = boost::optional<p2p_connection_context>(network_zone&, epee::net_utils::network_address const&);
+
+    struct config
+    {
+      config()
+        : m_net_config(),
+          m_peer_id(crypto::rand<uint64_t>()),
+          m_support_flags(0)
+      {}
+
+      network_config m_net_config;
+      uint64_t m_peer_id;
+      uint32_t m_support_flags;
+    };
+
+    struct network_zone
+    {
+      network_zone()
+        : m_connect(nullptr),
+          m_net_server(epee::net_utils::e_connection_type_P2P),
+          m_bind_ip(),
+          m_port(),
+          m_our_address(),
+          m_peerlist(),
+          m_config{},
+          m_proxy_address(),
+          m_current_number_of_out_peers(0),
+          m_current_number_of_in_peers(0),
+          m_can_pingback(false)
+      {
+        set_config_defaults();
+      }
+
+      network_zone(boost::asio::io_service& public_service)
+        : m_connect(nullptr),
+          m_net_server(public_service, epee::net_utils::e_connection_type_P2P),
+          m_bind_ip(),
+          m_port(),
+          m_our_address(),
+          m_peerlist(),
+          m_config{},
+          m_proxy_address(),
+          m_current_number_of_out_peers(0),
+          m_current_number_of_in_peers(0),
+          m_can_pingback(false)
+      {
+        set_config_defaults();
+      }
+
+      connect_func* m_connect;
+      net_server m_net_server;
+      std::string m_bind_ip;
+      std::string m_port;
+      epee::net_utils::network_address m_our_address; // in anonymity networks
+      peerlist_manager m_peerlist;
+      config m_config;
+      boost::asio::ip::tcp::endpoint m_proxy_address;
+      std::atomic<unsigned int> m_current_number_of_out_peers;
+      std::atomic<unsigned int> m_current_number_of_in_peers;
+      bool m_can_pingback;
+
+    private:
+      void set_config_defaults() noexcept
+      {
+        // at this moment we have a hardcoded config
+        m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
+        m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE;
+        m_config.m_net_config.config_id = 0;
+        m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
+        m_config.m_net_config.ping_connection_timeout = P2P_DEFAULT_PING_CONNECTION_TIMEOUT;
+        m_config.m_net_config.send_peerlist_sz = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
+        m_config.m_support_flags = 0; // only set in public zone
+      }
+    };
+
   public:
     typedef t_payload_net_handler payload_net_handler;
 
     node_server(t_payload_net_handler& payload_handler)
-      :m_payload_handler(payload_handler),
-    m_current_number_of_out_peers(0),
-    m_current_number_of_in_peers(0),
-    m_allow_local_ip(false),
-    m_hide_my_port(false),
-    m_no_igd(false),
-    m_offline(false),
-    m_save_graph(false),
-    is_closing(false),
-    m_net_server( epee::net_utils::e_connection_type_P2P ) // this is a P2P connection of the main p2p node server, because this is class node_server<>
+      : m_payload_handler(payload_handler),
+        m_external_port(0),
+        m_allow_local_ip(false),
+        m_hide_my_port(false),
+        m_no_igd(false),
+        m_offline(false),
+        m_save_graph(false),
+        is_closing(false),
+        m_network_id()
     {}
-    virtual ~node_server()
-    {}
+    virtual ~node_server();
 
     static void init_options(boost::program_options::options_description& desc);
 
     bool run();
+    network_zone& add_zone(epee::net_utils::zone zone);
     bool init(const boost::program_options::variables_map& vm);
     bool deinit();
     bool send_stop_signal();
     uint32_t get_this_peer_port(){return m_listening_port;}
     t_payload_net_handler& get_payload_object();
 
-    template <class Archive, class t_version_type>
-    void serialize(Archive &a,  const t_version_type ver)
-    {
-      a & m_peerlist;
-      if (ver == 0)
-      {
-        // from v1, we do not store the peer id anymore
-        peerid_type peer_id = AUTO_VAL_INIT (peer_id);
-        a & peer_id;
-      }
-    }
     // debug functions
     bool log_peerlist();
     bool log_connections();
-    virtual uint64_t get_connections_count();
-    size_t get_outgoing_connections_count();
-    size_t get_incoming_connections_count();
-    peerlist_manager& get_peerlist_manager(){return m_peerlist;}
-    void delete_out_connections(size_t count);
-    void delete_in_connections(size_t count);
+
+    // These functions only return information for the "public" zone
+    virtual uint64_t get_public_connections_count();
+    size_t get_public_outgoing_connections_count();
+    size_t get_public_white_peers_count();
+    size_t get_public_gray_peers_count();
+    void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
+    size_t get_zone_count() const { return m_network_zones.size(); }
+
+    void change_max_out_public_peers(size_t count);
+    void change_max_in_public_peers(size_t count);
     virtual bool block_host(const epee::net_utils::network_address &adress, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
@@ -150,6 +269,9 @@ namespace nodetool
     CHAIN_LEVIN_NOTIFY_MAP2(p2p_connection_context); //move levin_commands_handler interface notify(...) callbacks into nothing
 
     BEGIN_INVOKE_MAP2(node_server)
+      if (is_filtered_command(context.m_remote_address, command))
+        return LEVIN_ERROR_CONNECTION_HANDLER_NOT_DEFINED;
+
       HANDLE_INVOKE_T2(COMMAND_HANDSHAKE, &node_server::handle_handshake)
       HANDLE_INVOKE_T2(COMMAND_TIMED_SYNC, &node_server::handle_timed_sync)
       HANDLE_INVOKE_T2(COMMAND_PING, &node_server::handle_ping)
@@ -178,7 +300,7 @@ namespace nodetool
     bool make_default_peer_id();
     bool make_default_config();
     bool store_config();
-    bool check_trust(const proof_of_trust& tr);
+    bool check_trust(const proof_of_trust& tr, epee::net_utils::zone zone_type);
 
 
     //----------------- levin_commands_handler -------------------------------------------------------------
@@ -186,8 +308,7 @@ namespace nodetool
     virtual void on_connection_close(p2p_connection_context& context);
     virtual void callback(p2p_connection_context& context);
     //----------------- i_p2p_endpoint -------------------------------------------------------------
-    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, const std::list<boost::uuids::uuid> &connections);
-    virtual bool relay_notify_to_all(int command, const epee::span<const uint8_t> data_buff, const epee::net_utils::connection_context_base& context);
+    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections);
     virtual bool invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context);
     virtual bool invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context);
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
@@ -204,7 +325,7 @@ namespace nodetool
       );
     bool idle_worker();
     bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, time_t local_time, const epee::net_utils::connection_context_base& context);
-    bool get_local_node_data(basic_node_data& node_data);
+    bool get_local_node_data(basic_node_data& node_data, const network_zone& zone);
     //bool get_local_handshake_data(handshake_data& hshd);
 
     bool merge_peerlist_with_local(const std::vector<peerlist_entry>& bs);
@@ -216,7 +337,7 @@ namespace nodetool
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
 
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
-    bool make_new_connection_from_peerlist(bool use_white_list);
+    bool make_new_connection_from_peerlist(network_zone& zone, bool use_white_list);
     bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
@@ -227,7 +348,7 @@ namespace nodetool
     template<class t_callback>
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
-    bool make_expected_connections_count(PeerType peer_type, size_t expected_connections);
+    bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
     void cache_connect_fail_info(const epee::net_utils::network_address& addr);
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr);
     bool is_priority_node(const epee::net_utils::network_address& na);
@@ -240,14 +361,8 @@ namespace nodetool
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
 
-    bool set_max_out_peers(const boost::program_options::variables_map& vm, int64_t max);
-    bool get_max_out_peers() const { return m_config.m_net_config.max_out_connection_count; }
-    bool get_current_out_peers() const { return m_current_number_of_out_peers; }
-
-    bool set_max_in_peers(const boost::program_options::variables_map& vm, int64_t max);
-    bool get_max_in_peers() const { return m_config.m_net_config.max_in_connection_count; }
-    bool get_current_in_peers() const { return m_current_number_of_in_peers; }
-
+    bool set_max_out_peers(network_zone& zone, int64_t max);
+    bool set_max_in_peers(network_zone& zone, int64_t max);
     bool set_tos_flag(const boost::program_options::variables_map& vm, int limit);
 
     bool set_rate_up_limit(const boost::program_options::variables_map& vm, int64_t limit);
@@ -255,6 +370,11 @@ namespace nodetool
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
     bool has_too_many_connections(const epee::net_utils::network_address &address);
+    uint64_t get_connections_count();
+    size_t get_incoming_connections_count();
+    size_t get_incoming_connections_count(network_zone&);
+    size_t get_outgoing_connections_count();
+    size_t get_outgoing_connections_count(network_zone&);
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
@@ -272,25 +392,7 @@ namespace nodetool
     std::string print_connections_container();
 
 
-    typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context> > net_server;
-
-    struct config
-    {
-      network_config m_net_config;
-      uint64_t m_peer_id;
-      uint32_t m_support_flags;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(m_net_config)
-        KV_SERIALIZE(m_peer_id)
-        KV_SERIALIZE(m_support_flags)
-      END_KV_SERIALIZE_MAP()
-    };
-
   public:
-    config m_config; // TODO was private, add getters?
-    std::atomic<unsigned int> m_current_number_of_out_peers;
-    std::atomic<unsigned int> m_current_number_of_in_peers;
 
     void set_save_graph(bool save_graph)
     {
@@ -304,7 +406,6 @@ namespace nodetool
     bool m_first_connection_maker_call;
     uint32_t m_listening_port;
     uint32_t m_external_port;
-    uint32_t m_ip_address;
     bool m_allow_local_ip;
     bool m_hide_my_port;
     bool m_no_igd;
@@ -316,7 +417,7 @@ namespace nodetool
     //connections_indexed_container m_connections;
 
     t_payload_net_handler& m_payload_handler;
-    peerlist_manager m_peerlist;
+    peerlist_storage m_peerlist_storage;
 
     epee::math_helper::once_a_time_seconds<P2P_DEFAULT_HANDSHAKE_INTERVAL> m_peer_handshake_idle_maker_interval;
     epee::math_helper::once_a_time_seconds<1> m_connections_maker_interval;
@@ -324,8 +425,6 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
     epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
 
-    std::string m_bind_ip;
-    std::string m_port;
 #ifdef ALLOW_DEBUG_COMMANDS
     uint64_t m_last_stat_request_time;
 #endif
@@ -333,11 +432,22 @@ namespace nodetool
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
     std::vector<epee::net_utils::network_address> m_seed_nodes;
     bool m_fallback_seed_nodes_added;
-    std::list<nodetool::peerlist_entry> m_command_line_peers;
+    std::vector<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
-    net_server m_net_server;
-    boost::uuids::uuid m_network_id;
+
+
+    static boost::optional<p2p_connection_context> public_connect(network_zone&, epee::net_utils::network_address const&);
+    static boost::optional<p2p_connection_context> socks_connect(network_zone&, epee::net_utils::network_address const&);
+
+
+    /* A `std::map` provides constant iterators and key/value pointers even with
+    inserts/erases to _other_ elements. This makes the configuration step easier
+    since references can safely be stored on the stack. Do not insert/erase
+    after configuration and before destruction, lock safety would need to be
+    added. `std::map::operator[]` WILL insert! */
+    std::map<epee::net_utils::zone, network_zone> m_network_zones;
+
 
     std::map<epee::net_utils::network_address, time_t> m_conn_fails_cache;
     epee::critical_section m_conn_fails_cache_lock;
@@ -351,6 +461,7 @@ namespace nodetool
     boost::mutex m_used_stripe_peers_mutex;
     std::array<std::list<epee::net_utils::network_address>, 1 << CRYPTONOTE_PRUNING_LOG_STRIPES> m_used_stripe_peers;
 
+    boost::uuids::uuid m_network_id;
     cryptonote::network_type m_nettype;
   };
 
@@ -364,6 +475,8 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_proxy;
+    extern const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
 
     extern const command_line::arg_descriptor<bool>        arg_no_igd;
@@ -380,3 +493,4 @@ namespace nodetool
 }
 
 POP_WARNINGS
+

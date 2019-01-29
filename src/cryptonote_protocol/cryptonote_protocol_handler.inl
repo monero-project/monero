@@ -226,7 +226,7 @@ namespace cryptonote
       cnx.host = cntxt.m_remote_address.host_str();
       cnx.ip = "";
       cnx.port = "";
-      if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::ID)
+      if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
       {
         cnx.ip = cnx.host;
         cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv4_network_address>().port());
@@ -330,6 +330,13 @@ namespace cryptonote
       context.m_state = cryptonote_connection_context::state_normal;
       if(is_inital && target == m_core.get_current_blockchain_height())
         on_connection_synchronized();
+      return true;
+    }
+
+    // No chain synchronization over hidden networks (tor, i2p, etc.)
+    if(context.m_remote_address.get_zone() != epee::net_utils::zone::public_)
+    {
+      context.m_state = cryptonote_connection_context::state_normal;
       return true;
     }
 
@@ -2058,20 +2065,20 @@ skip:
     fluffy_arg.b.txs = fluffy_txs;
 
     // sort peers between fluffy ones and others
-    std::list<boost::uuids::uuid> fullConnections, fluffyConnections;
+    std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> fullConnections, fluffyConnections;
     m_p2p->for_each_connection([this, &exclude_context, &fullConnections, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
-      if (peer_id && exclude_context.m_connection_id != context.m_connection_id)
+      if (peer_id && exclude_context.m_connection_id != context.m_connection_id && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
       {
         if(m_core.fluffy_blocks_enabled() && (support_flags & P2P_SUPPORT_FLAG_FLUFFY_BLOCKS))
         {
           LOG_DEBUG_CC(context, "PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK");
-          fluffyConnections.push_back(context.m_connection_id);
+          fluffyConnections.push_back({context.m_remote_address.get_zone(), context.m_connection_id});
         }
         else
         {
           LOG_DEBUG_CC(context, "PEER DOESN'T SUPPORT FLUFFY BLOCKS - RELAYING FULL BLOCK");
-          fullConnections.push_back(context.m_connection_id);
+          fullConnections.push_back({context.m_remote_address.get_zone(), context.m_connection_id});
         }
       }
       return true;
@@ -2082,13 +2089,13 @@ skip:
     {
       std::string fluffyBlob;
       epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, epee::strspan<uint8_t>(fluffyBlob), fluffyConnections);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, epee::strspan<uint8_t>(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
       std::string fullBlob;
       epee::serialization::store_t_to_binary(arg, fullBlob);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, epee::strspan<uint8_t>(fullBlob), fullConnections);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, epee::strspan<uint8_t>(fullBlob), std::move(fullConnections));
     }
 
     return true;
@@ -2097,6 +2104,12 @@ skip:
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& exclude_context)
   {
+    const bool hide_tx_broadcast =
+      1 < m_p2p->get_zone_count() && exclude_context.m_remote_address.get_zone() == epee::net_utils::zone::invalid;
+
+    if (hide_tx_broadcast)
+      MDEBUG("Attempting to conceal origin of tx via anonymity network connection(s)");
+
     // no check for success, so tell core they're relayed unconditionally
     const bool pad_transactions = m_core.pad_transactions();
     size_t bytes = pad_transactions ? 9 /* header */ + 4 /* 1 + 'txs' */ + tools::get_varint_data(arg.txs.size()).size() : 0;
@@ -2131,7 +2144,30 @@ skip:
       // if the size of _ moved enough, we might lose byte in size encoding, we don't care
     }
 
-    return relay_post_notify<NOTIFY_NEW_TRANSACTIONS>(arg, exclude_context);
+    std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections;
+    m_p2p->for_each_connection([hide_tx_broadcast, &exclude_context, &connections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+    {
+      const epee::net_utils::zone current_zone = context.m_remote_address.get_zone();
+      const bool broadcast_to_peer =
+        peer_id &&
+        (hide_tx_broadcast != bool(current_zone == epee::net_utils::zone::public_)) &&
+	exclude_context.m_connection_id != context.m_connection_id;
+
+      if (broadcast_to_peer)
+        connections.push_back({current_zone, context.m_connection_id});
+
+      return true;
+    });
+
+    if (connections.empty())
+      MERROR("Transaction not relayed - no" << (hide_tx_broadcast ? " privacy": "") << " peers available");
+    else
+    {
+      std::string fullBlob;
+      epee::serialization::store_t_to_binary(arg, fullBlob);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_TRANSACTIONS::ID, epee::strspan<uint8_t>(fullBlob), std::move(connections));
+    }
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

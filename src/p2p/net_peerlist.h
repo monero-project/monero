@@ -30,33 +30,67 @@
 
 #pragma once
 
+#include <iosfwd>
 #include <list>
-#include <set>
-#include <map>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/portable_binary_oarchive.hpp>
-#include <boost/archive/portable_binary_iarchive.hpp>
-#include <boost/serialization/version.hpp>
+#include <string>
+#include <vector>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
 
-#include "syncobj.h"
+#include "cryptonote_config.h"
+#include "net/enums.h"
 #include "net/local_ip.h"
 #include "p2p_protocol_defs.h"
-#include "cryptonote_config.h"
-#include "net_peerlist_boost_serialization.h"
-
-
-#define CURRENT_PEERLIST_STORAGE_ARCHIVE_VER    6
+#include "syncobj.h"
 
 namespace nodetool
 {
+  struct peerlist_types
+  {
+    std::vector<peerlist_entry> white;
+    std::vector<peerlist_entry> gray;
+    std::vector<anchor_peerlist_entry> anchor;
+  };
 
+  class peerlist_storage
+  {
+  public:
+    peerlist_storage()
+      : m_types{}
+    {}
+
+    //! \return Peers stored in stream `src` in `new_format` (portable archive or older non-portable).
+    static boost::optional<peerlist_storage> open(std::istream& src, const bool new_format);
+
+    //! \return Peers stored in file at `path`
+    static boost::optional<peerlist_storage> open(const std::string& path);
+
+    peerlist_storage(peerlist_storage&&) = default;
+    peerlist_storage(const peerlist_storage&) = delete;
+
+    ~peerlist_storage() noexcept;
+
+    peerlist_storage& operator=(peerlist_storage&&) = default;
+    peerlist_storage& operator=(const peerlist_storage&) = delete;
+
+    //! Save peers from `this` and `other` in stream `dest`.
+    bool store(std::ostream& dest, const peerlist_types& other) const;
+
+    //! Save peers from `this` and `other` in one file at `path`.
+    bool store(const std::string& path, const peerlist_types& other) const;
+
+    //! \return Peers in `zone` and from remove from `this`.
+    peerlist_types take_zone(epee::net_utils::zone zone);
+
+  private:
+    peerlist_types m_types;
+  };
 
   /************************************************************************/
   /*                                                                      */
@@ -64,13 +98,13 @@ namespace nodetool
   class peerlist_manager
   {
   public: 
-    bool init(bool allow_local_ip);
-    bool deinit();
+    bool init(peerlist_types&& peers, bool allow_local_ip);
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}
     size_t get_gray_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_gray.size();}
     bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs);
     bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
-    bool get_peerlist_full(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
+    void get_peerlist(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
+    void get_peerlist(peerlist_types& peers);
     bool get_white_peer_by_index(peerlist_entry& p, size_t i);
     bool get_gray_peer_by_index(peerlist_entry& p, size_t i);
     template<typename F> bool foreach(bool white, const F &f);
@@ -136,18 +170,6 @@ namespace nodetool
     > peers_indexed;
 
     typedef boost::multi_index_container<
-      peerlist_entry,
-      boost::multi_index::indexed_by<
-      // access by peerlist_entry::id<
-      boost::multi_index::ordered_unique<boost::multi_index::tag<by_id>, boost::multi_index::member<peerlist_entry,uint64_t,&peerlist_entry::id> >,
-      // access by peerlist_entry::net_adress
-      boost::multi_index::ordered_unique<boost::multi_index::tag<by_addr>, boost::multi_index::member<peerlist_entry,epee::net_utils::network_address,&peerlist_entry::adr> >,
-      // sort by peerlist_entry::last_seen<
-      boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<peerlist_entry,int64_t,&peerlist_entry::last_seen> >
-      > 
-    > peers_indexed_old;
-
-    typedef boost::multi_index_container<
       anchor_peerlist_entry,
       boost::multi_index::indexed_by<
       // access by anchor_peerlist_entry::net_adress
@@ -156,56 +178,8 @@ namespace nodetool
       boost::multi_index::ordered_non_unique<boost::multi_index::tag<by_time>, boost::multi_index::member<anchor_peerlist_entry,int64_t,&anchor_peerlist_entry::first_seen> >
       >
     > anchor_peers_indexed;
-  public:    
-    
-    template <class Archive, class List, class Element, class t_version_type>
-    void serialize_peers(Archive &a, List &list, Element ple, const t_version_type ver)
-    {
-      if (typename Archive::is_saving())
-      {
-        uint64_t size = list.size();
-        a & size;
-        for (auto p: list)
-        {
-          a & p;
-        }
-      }
-      else
-      {
-        uint64_t size;
-        a & size;
-        list.clear();
-        while (size--)
-        {
-          a & ple;
-          list.insert(ple);
-        }
-      }
-    }
-
-    template <class Archive, class t_version_type>
-    void serialize(Archive &a,  const t_version_type ver)
-    {
-      // at v6, we drop existing peerlists, because annoying change
-      if (ver < 6)
-        return;
-
-      CRITICAL_REGION_LOCAL(m_peerlist_lock);
-
-#if 0
-      // trouble loading more than one peer, can't find why
-      a & m_peers_white;
-      a & m_peers_gray;
-      a & m_peers_anchor;
-#else
-      serialize_peers(a, m_peers_white, peerlist_entry(), ver);
-      serialize_peers(a, m_peers_gray, peerlist_entry(), ver);
-      serialize_peers(a, m_peers_anchor, anchor_peerlist_entry(), ver);
-#endif
-    }
 
   private: 
-    bool peers_indexed_from_old(const peers_indexed_old& pio, peers_indexed& pi);
     void trim_white_peerlist();
     void trim_gray_peerlist();
 
@@ -219,34 +193,6 @@ namespace nodetool
     peers_indexed m_peers_white;
     anchor_peers_indexed m_peers_anchor;
   };
-  //--------------------------------------------------------------------------------------------------
-  inline
-  bool peerlist_manager::init(bool allow_local_ip)
-  {
-    m_allow_local_ip = allow_local_ip;
-    return true;
-  } 
-  //--------------------------------------------------------------------------------------------------
-  inline
-    bool peerlist_manager::deinit()
-  {
-    return true;
-  }
-  //--------------------------------------------------------------------------------------------------
-  inline 
-  bool peerlist_manager::peers_indexed_from_old(const peers_indexed_old& pio, peers_indexed& pi)
-  {
-    for(auto x: pio)
-    {
-      auto by_addr_it = pi.get<by_addr>().find(x.adr);
-      if(by_addr_it == pi.get<by_addr>().end())
-      {
-        pi.insert(x);
-      }
-    }
-
-    return true;
-  }
   //--------------------------------------------------------------------------------------------------
   inline void peerlist_manager::trim_gray_peerlist()
   {
@@ -334,27 +280,6 @@ namespace nodetool
 
       bs_head.push_back(vl);
     }
-    return true;
-  }
-  //--------------------------------------------------------------------------------------------------
-  inline
-  bool peerlist_manager::get_peerlist_full(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white)
-  {    
-    CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    peers_indexed::index<by_time>::type& by_time_index_gr=m_peers_gray.get<by_time>();
-    pl_gray.resize(pl_gray.size() + by_time_index_gr.size());
-    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_gr))
-    {
-      pl_gray.push_back(vl);      
-    }
-
-    peers_indexed::index<by_time>::type& by_time_index_wt=m_peers_white.get<by_time>();
-    pl_white.resize(pl_white.size() + by_time_index_wt.size());
-    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index_wt))
-    {
-      pl_white.push_back(vl);      
-    }
-
     return true;
   }
   //--------------------------------------------------------------------------------------------------
@@ -559,4 +484,3 @@ namespace nodetool
   //--------------------------------------------------------------------------------------------------
 }
 
-BOOST_CLASS_VERSION(nodetool::peerlist_manager, CURRENT_PEERLIST_STORAGE_ARCHIVE_VER)

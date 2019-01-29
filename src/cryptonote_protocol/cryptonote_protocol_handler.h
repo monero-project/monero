@@ -173,15 +173,6 @@ namespace cryptonote
         //handler_response_blocks_now(blob.size()); // XXX
         return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::strspan<uint8_t>(blob), context);
       }
-
-      template<class t_parameter>
-      bool relay_post_notify(typename t_parameter::request& arg, cryptonote_connection_context& exclude_context)
-      {
-        LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(exclude_context) << "] post relay " << typeid(t_parameter).name() << " -->");
-        std::string arg_buff;
-        epee::serialization::store_t_to_binary(arg, arg_buff);
-        return m_p2p->relay_notify_to_all(t_parameter::ID, epee::strspan<uint8_t>(arg_buff), exclude_context);
-      }
   };
 
 } // namespace

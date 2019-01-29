@@ -31,6 +31,8 @@
 #pragma once
 
 #include <boost/uuid/uuid.hpp>
+#include <utility>
+#include <vector>
 #include "net/net_utils_base.h"
 #include "p2p_protocol_defs.h"
 
@@ -43,13 +45,13 @@ namespace nodetool
   template<class t_connection_context>
   struct i_p2p_endpoint
   {
-    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, const std::list<boost::uuids::uuid>& connections)=0;
-    virtual bool relay_notify_to_all(int command, const epee::span<const uint8_t> data_buff, const epee::net_utils::connection_context_base& context)=0;
+    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections)=0;
     virtual bool invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context)=0;
     virtual bool invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context)=0;
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context)=0;
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
-    virtual uint64_t get_connections_count()=0;
+    virtual uint64_t get_public_connections_count()=0;
+    virtual size_t get_zone_count() const=0;
     virtual void for_each_connection(std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
     virtual bool for_connection(const boost::uuids::uuid&, std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
     virtual bool block_host(const epee::net_utils::network_address &address, time_t seconds = 0)=0;
@@ -64,11 +66,7 @@ namespace nodetool
   template<class t_connection_context>
   struct p2p_endpoint_stub: public i_p2p_endpoint<t_connection_context>
   {
-    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, const std::list<boost::uuids::uuid>& connections)
-    {
-      return false;
-    }
-    virtual bool relay_notify_to_all(int command, const epee::span<const uint8_t> data_buff, const epee::net_utils::connection_context_base& context)
+    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections)
     {
       return false;
     }
@@ -97,7 +95,12 @@ namespace nodetool
       return false;
     }
 
-    virtual uint64_t get_connections_count()    
+    virtual size_t get_zone_count() const
+    {
+      return 0;
+    }
+
+    virtual uint64_t get_public_connections_count()    
     {
       return false;
     }
