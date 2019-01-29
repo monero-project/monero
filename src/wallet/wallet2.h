@@ -306,7 +306,7 @@ namespace tools
       uint64_t m_amount;
       bool m_rct;
       bool m_key_image_known;
-      bool m_key_image_requested;
+      bool m_key_image_request; // view wallets: we want to request it; cold wallets: it was requested
       size_t m_pk_index;
       cryptonote::subaddress_index m_subaddr_index;
       bool m_key_image_partial;
@@ -331,7 +331,7 @@ namespace tools
         FIELD(m_amount)
         FIELD(m_rct)
         FIELD(m_key_image_known)
-        FIELD(m_key_image_requested)
+        FIELD(m_key_image_request)
         FIELD(m_pk_index)
         FIELD(m_subaddr_index)
         FIELD(m_key_image_partial)
@@ -492,6 +492,7 @@ namespace tools
     {
       std::vector<pending_tx> ptx;
       std::vector<crypto::key_image> key_images;
+      std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
     };
 
     struct multisig_tx_set
@@ -973,6 +974,9 @@ namespace tools
       if(ver < 27)
         return;
       a & m_device_last_key_image_sync;
+      if(ver < 28)
+        return;
+      a & m_cold_key_images;
     }
 
     /*!
@@ -1408,6 +1412,7 @@ namespace tools
     uint64_t m_upper_transaction_weight_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
     const std::vector<std::vector<tools::wallet2::multisig_info>> *m_multisig_rescan_info;
     const std::vector<std::vector<rct::key>> *m_multisig_rescan_k;
+    std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     std::atomic<bool> m_run;
 
@@ -1503,7 +1508,7 @@ namespace tools
     std::unique_ptr<wallet_device_callback> m_device_callback;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 27)
+BOOST_CLASS_VERSION(tools::wallet2, 28)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 11)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
@@ -1515,7 +1520,7 @@ BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 7)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 17)
 BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
 BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 0)
-BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 0)
+BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
 BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 0)
@@ -1564,7 +1569,7 @@ namespace boost
         }
         if (ver < 10)
         {
-          x.m_key_image_requested = false;
+          x.m_key_image_request = false;
         }
     }
 
@@ -1652,7 +1657,7 @@ namespace boost
         initialize_transfer_details(a, x, ver);
         return;
       }
-      a & x.m_key_image_requested;
+      a & x.m_key_image_request;
       if (ver < 11)
         return;
       a & x.m_uses;
@@ -1856,6 +1861,9 @@ namespace boost
     {
       a & x.ptx;
       a & x.key_images;
+      if (ver < 1)
+        return;
+      a & x.tx_key_images;
     }
 
     template <class Archive>

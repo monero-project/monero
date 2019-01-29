@@ -6,7 +6,7 @@ $(package)_sha256_hash=1f912c54035533fb4268809701d65c7468d00e292efbc31e644490845
 $(package)_patches=icu-001-dont-build-static-dynamic-twice.patch
 
 define $(package)_set_vars
-  $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -DU_USING_ICU_NAMESPACE=0 --std=gnu++0x -DU_STATIC_IMPLEMENTATION -DU_COMBINED_IMPLEMENTATION -fPIC"
+  $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -DU_USING_ICU_NAMESPACE=0 --std=gnu++0x -DU_STATIC_IMPLEMENTATION -DU_COMBINED_IMPLEMENTATION -fPIC -DENABLE_STATIC=YES -DPGKDATA_MODE=static"
 endef
 
 define $(package)_config_cmds
@@ -17,7 +17,7 @@ define $(package)_config_cmds
   sh ../source/runConfigureICU Linux &&\
   make &&\
   cd ../buildb &&\
-  sh ../source/$($(package)_autoconf) --enable-static=yes --enable-shared=yes --disable-layoutex --prefix=$(host_prefix) --with-cross-build=`pwd`/../builda &&\
+  sh ../source/$($(package)_autoconf) --enable-static=yes --disable-shared --disable-layout --disable-layoutex --disable-tests --disable-samples --prefix=$(host_prefix) --with-cross-build=`pwd`/../builda &&\
   $(MAKE) $($(package)_build_opts)
 endef
 
