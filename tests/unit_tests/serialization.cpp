@@ -550,12 +550,10 @@ TEST(Serialization, serializes_ringct_types)
 
   ecdh0.mask = rct::skGen();
   ecdh0.amount = rct::skGen();
-  ecdh0.senderPk = rct::skGen();
   ASSERT_TRUE(serialization::dump_binary(ecdh0, blob));
   ASSERT_TRUE(serialization::parse_binary(blob, ecdh1));
   ASSERT_TRUE(!memcmp(&ecdh0.mask, &ecdh1.mask, sizeof(ecdh0.mask)));
   ASSERT_TRUE(!memcmp(&ecdh0.amount, &ecdh1.amount, sizeof(ecdh0.amount)));
-  // senderPk is not serialized
 
   for (size_t n = 0; n < 64; ++n)
   {
@@ -591,7 +589,8 @@ TEST(Serialization, serializes_ringct_types)
   rct::skpkGen(Sk, Pk);
   destinations.push_back(Pk);
   //compute rct data with mixin 500
-  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
+  const rct::RCTConfig rct_config{ rct::RangeProofPaddedBulletproof, 0 };
+  s0 = rct::genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
 
   mg0 = s0.p.MGs[0];
   ASSERT_TRUE(serialization::dump_binary(mg0, blob));

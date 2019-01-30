@@ -42,10 +42,7 @@ using namespace cryptonote;
 // Tests
 
 bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
-    size_t n_txes,
-    const uint64_t *amounts_paid,
-    bool valid,
-    const rct::RangeProofType *range_proof_type,
+    size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RCTConfig *rct_config,
     const std::function<bool(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations, size_t tx_idx)> &pre_tx,
     const std::function<bool(transaction &tx, size_t tx_idx)> &post_tx) const
 {
@@ -147,7 +144,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
         private_tx_key,
         additional_tx_keys,
         true /*rct*/,
-        range_proof_type[n],
+        rct_config[n],
         nullptr, /*multisig_out*/
         false, /*is_staking_tx*/
         true /*per_output_unlock*/))
@@ -177,7 +174,8 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
       rct::key rct_tx_mask;
 
       uint64_t amount = 0;
-      if (rct_txes.back().rct_signatures.type == rct::RCTTypeSimple || rct_txes.back().rct_signatures.type == rct::RCTTypeBulletproof)
+      const uint8_t type = rct_txes.back().rct_signatures.type;
+      if (type == rct::RCTTypeSimple || type == rct::RCTTypeBulletproof || type == rct::RCTTypeBulletproof2)
         amount = rct::decodeRctSimple(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
       else
         amount = rct::decodeRct(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
@@ -251,23 +249,23 @@ bool gen_bp_tx_valid_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {MK_COINS(10), (uint64_t)-1};
   const size_t bp_sizes[] = {1, (size_t)-1};
-  const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof};
-  return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_1"); });
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofPaddedBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_1"); });
 }
 
 bool gen_bp_tx_invalid_1_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {5, 5, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, NULL);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBulletproof , 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, NULL);
 }
 
 bool gen_bp_tx_valid_2::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {MK_COINS(5), MK_COINS(5), (uint64_t)-1};
   const size_t bp_sizes[] = {2, (size_t)-1};
-  const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof};
-  return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_2"); });
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofPaddedBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_2"); });
 }
 
 bool gen_bp_tx_valid_3::generate(std::vector<test_event_entry>& events) const
@@ -275,8 +273,8 @@ bool gen_bp_tx_valid_3::generate(std::vector<test_event_entry>& events) const
   // const uint64_t amounts_paid[] = {50, 50, 50, (uint64_t)-1};
   const uint64_t amounts_paid[] = {MK_COINS(28), MK_COINS(28), MK_COINS(28), (uint64_t)-1};
   const size_t bp_sizes[] = {4, (size_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofPaddedBulletproof };
-  return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_3"); });
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofPaddedBulletproof , 0 } };
+  return generate_with(events, 1, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_3"); });
 }
 
 bool gen_bp_tx_valid_16::generate(std::vector<test_event_entry>& events) const
@@ -284,22 +282,22 @@ bool gen_bp_tx_valid_16::generate(std::vector<test_event_entry>& events) const
   // const uint64_t amounts_paid[] = {5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, (uint64_t)-1};
   const uint64_t amounts_paid[] = {MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), MK_COINS(1), (uint64_t)-1};
   const size_t bp_sizes[] = {16, (size_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofPaddedBulletproof };
-  return generate_with(events, 1, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_16"); });
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofPaddedBulletproof , 0 } };
+  return generate_with(events, 1, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_tx_valid_16"); });
 }
 
 bool gen_bp_tx_invalid_4_2_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {1, 1, 1, 1, 1, 1, 1, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofMultiOutputBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, NULL);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofMultiOutputBulletproof , 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, NULL);
 }
 
 bool gen_bp_tx_invalid_16_16::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofMultiOutputBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, NULL);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofMultiOutputBulletproof , 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, NULL);
 }
 
 bool gen_bp_txs_valid_2_and_2::generate(std::vector<test_event_entry>& events) const
@@ -308,35 +306,35 @@ bool gen_bp_txs_valid_2_and_2::generate(std::vector<test_event_entry>& events) c
   const uint64_t amounts_paid[] = {MK_COINS(50), MK_COINS(50), (size_t)-1, MK_COINS(50), MK_COINS(50), (uint64_t)-1};
 
   const size_t bp_sizes[] = {2, (size_t)-1, 2, (size_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofPaddedBulletproof,  rct::RangeProofPaddedBulletproof};
-  return generate_with(events, 2, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_and_2"); });
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofPaddedBulletproof, 0 }, {rct::RangeProofPaddedBulletproof, 0 } };
+  return generate_with(events, 2, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx){ return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_and_2"); });
 }
 
 bool gen_bp_txs_invalid_2_and_8_2_and_16_16_1::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {1, 1, (uint64_t)-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, (uint64_t)-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = {rct::RangeProofMultiOutputBulletproof, rct::RangeProofMultiOutputBulletproof, rct::RangeProofMultiOutputBulletproof};
-  return generate_with(events, 3, amounts_paid, false, range_proof_type, NULL, NULL);
+  const rct::RCTConfig rct_config[] = {{rct::RangeProofMultiOutputBulletproof, 0}, {rct::RangeProofMultiOutputBulletproof, 0}, {rct::RangeProofMultiOutputBulletproof, 0}};
+  return generate_with(events, 3, amounts_paid, false, rct_config, NULL, NULL);
 }
 
 bool gen_bp_txs_valid_2_and_3_and_2_and_4::generate(std::vector<test_event_entry>& events) const
 {
   // TODO(doyle): See valid_2_and_2 comment
-  //const uint64_t amounts_paid[] = {11111115, 11111115, (uint64_t)-1, 11111115, 11111115, 11111116, (uint64_t)-1, 11111115, 11111117, (uint64_t)-1, 11111115, 11111115, 11111115, 11111118, (uint64_t)-1};
+  // const uint64_t amounts_paid[] = {11111115000, 11111115000, (uint64_t)-1, 11111115000, 11111115000, 11111115001, (uint64_t)-1, 11111115000, 11111115002, (uint64_t)-1, 11111115000, 11111115000, 11111115000, 11111115003, (uint64_t)-1};
   const uint64_t amounts_paid[] = {MK_COINS(50), MK_COINS(50), (uint64_t)-1, MK_COINS(5), MK_COINS(50), MK_COINS(51), (uint64_t)-1, MK_COINS(50), MK_COINS(52), (uint64_t)-1, MK_COINS(5), MK_COINS(50), MK_COINS(53), MK_COINS(6), (uint64_t)-1};
 
-  const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof, rct::RangeProofPaddedBulletproof};
+  const rct::RCTConfig rct_config[] = {{rct::RangeProofPaddedBulletproof, 0}, {rct::RangeProofPaddedBulletproof, 0}, {rct::RangeProofPaddedBulletproof, 0}, {rct::RangeProofPaddedBulletproof, 0}};
   const size_t bp_sizes[] = {2, (size_t)-1, 4, (size_t)-1, 2, (size_t)-1, 4, (size_t)-1};
-  return generate_with(events, 4, amounts_paid, true, range_proof_type, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx) { return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_and_3_and_2_and_4"); });
+  return generate_with(events, 4, amounts_paid, true, rct_config, NULL, [&](const cryptonote::transaction &tx, size_t tx_idx) { return check_bp(tx, tx_idx, bp_sizes, "gen_bp_txs_valid_2_and_3_and_2_and_4"); });
 }
 
 bool gen_bp_tx_invalid_not_enough_proofs::generate(std::vector<test_event_entry>& events) const
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_not_enough_proofs");
   const uint64_t amounts_paid[] = {5, 5, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t idx){
-    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, [&](cryptonote::transaction &tx, size_t idx){
+    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof || tx.rct_signatures.type == rct::RCTTypeBulletproof2);
     CHECK_TEST_CONDITION(!tx.rct_signatures.p.bulletproofs.empty());
     tx.rct_signatures.p.bulletproofs.pop_back();
     CHECK_TEST_CONDITION(!tx.rct_signatures.p.bulletproofs.empty());
@@ -348,9 +346,9 @@ bool gen_bp_tx_invalid_empty_proofs::generate(std::vector<test_event_entry>& eve
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_empty_proofs");
   const uint64_t amounts_paid[] = {50, 50, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t idx){
-    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, [&](cryptonote::transaction &tx, size_t idx){
+    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof || tx.rct_signatures.type == rct::RCTTypeBulletproof2);
     tx.rct_signatures.p.bulletproofs.clear();
     return true;
   });
@@ -360,9 +358,9 @@ bool gen_bp_tx_invalid_too_many_proofs::generate(std::vector<test_event_entry>& 
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_too_many_proofs");
   const uint64_t amounts_paid[] = {10000, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t idx){
-    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, [&](cryptonote::transaction &tx, size_t idx){
+    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof || tx.rct_signatures.type == rct::RCTTypeBulletproof2);
     CHECK_TEST_CONDITION(!tx.rct_signatures.p.bulletproofs.empty());
     tx.rct_signatures.p.bulletproofs.push_back(tx.rct_signatures.p.bulletproofs.back());
     return true;
@@ -373,9 +371,9 @@ bool gen_bp_tx_invalid_wrong_amount::generate(std::vector<test_event_entry>& eve
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_wrong_amount");
   const uint64_t amounts_paid[] = {10, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = { rct::RangeProofBulletproof };
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t idx){
-    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBulletproof, 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, [&](cryptonote::transaction &tx, size_t idx){
+    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof || tx.rct_signatures.type == rct::RCTTypeBulletproof2);
     CHECK_TEST_CONDITION(!tx.rct_signatures.p.bulletproofs.empty());
     tx.rct_signatures.p.bulletproofs.back() = rct::bulletproof_PROVE(1000, rct::skGen());
     return true;
@@ -386,10 +384,8 @@ bool gen_bp_tx_invalid_borromean_type::generate(std::vector<test_event_entry>& e
 {
   DEFINE_TESTS_ERROR_CONTEXT("gen_bp_tx_invalid_borromean_type");
   const uint64_t amounts_paid[] = {5, 5, (uint64_t)-1};
-  const rct::RangeProofType range_proof_type[] = {rct::RangeProofPaddedBulletproof};
-  return generate_with(events, 1, amounts_paid, false, range_proof_type, NULL, [&](cryptonote::transaction &tx, size_t tx_idx){
-    CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproof);
-    tx.rct_signatures.type = rct::RCTTypeSimple;
+  const rct::RCTConfig rct_config[] = { { rct::RangeProofBorromean, 0 } };
+  return generate_with(events, 1, amounts_paid, false, rct_config, NULL, [&](cryptonote::transaction &tx, size_t tx_idx){
     return true;
   });
 }

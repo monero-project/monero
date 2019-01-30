@@ -83,10 +83,7 @@ struct gen_bp_tx_validation_base : public test_chain_unit_base
   }
 
   bool generate_with(std::vector<test_event_entry>& events,
-      size_t n_txes,
-      const uint64_t *amounts_paid,
-      bool valid,
-      const rct::RangeProofType *range_proof_type,
+      size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RCTConfig *rct_config,
       const std::function<bool(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations, size_t)> &pre_tx,
       const std::function<bool(cryptonote::transaction &tx, size_t)> &post_tx) const;
 
