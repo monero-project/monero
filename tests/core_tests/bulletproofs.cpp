@@ -90,6 +90,23 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
     blk_r = blk_last;
   }
 
+  // NOTE(loki): Submit one more block. On the fork height, we allow exactly the
+  // forking block to contain borromean TX's, due to some clients constructing
+  // old style TX's on the fork height. So make sure we create one block so that
+  // the block containing bulletproofs txes, which is 1 block after the fork
+  // height, is tested with BP logic
+  generator.m_hf_version = cryptonote::network_version_11_swarms;
+  {
+    block blk;
+    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_account,
+        test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
+        generator.m_hf_version, generator.m_hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0),
+        false, "Failed to generate block");
+    events.push_back(blk);
+    blk_last = blk;
+  }
+
   std::vector<transaction> rct_txes;
   cryptonote::block blk_txes;
   std::vector<crypto::hash> starting_rct_tx_hashes;
@@ -190,14 +207,14 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
 
     CHECK_AND_ASSERT_MES(expected_amount_encoded == total_amount_encoded, false, "Decoded rct did not match amount to pay");
   }
+
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
-  generator.m_hf_version = 10;
   CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes, blk_last, miner_account,
       test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version,
-      10, 10, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+      generator.m_hf_version, generator.m_hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
       crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0),
       false, "Failed to generate block");
   if (!valid)

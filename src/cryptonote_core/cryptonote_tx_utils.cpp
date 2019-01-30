@@ -968,9 +968,10 @@ namespace cryptonote
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
 
-     const rct::RangeProofType rp_type = (hf_version < network_version_10_bulletproofs) ?  rct::RangeProofBorromean : rct::RangeProofPaddedBulletproof;
      const bool per_output_unlock = (hf_version >= network_version_9_service_nodes);
-     rct::RCTConfig rct_config = {rp_type, 0};
+     rct::RCTConfig rct_config    = {};
+     rct_config.range_proof_type  = (hf_version < network_version_10_bulletproofs) ?  rct::RangeProofBorromean : rct::RangeProofPaddedBulletproof;
+     rct_config.bp_version        = (hf_version < HF_VERSION_SMALLER_BP) ? 1 : 0;
      return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, unlock_time, tx_key, additional_tx_keys, true /*rct*/, rct_config, NULL, is_staking, per_output_unlock);
   }
   //---------------------------------------------------------------
