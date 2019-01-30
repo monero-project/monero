@@ -29,8 +29,8 @@
 #include <string.h>
 #include "net/buffer.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "net.buffer"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "net.buffer"
 
 namespace epee
 {

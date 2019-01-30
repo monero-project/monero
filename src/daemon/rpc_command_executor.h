@@ -167,6 +167,10 @@ public:
   bool prepare_registration();
 
   bool print_sn(const std::vector<std::string> &args);
+
+  bool prune_blockchain();
+
+  bool check_blockchain_pruning();
 };
 
 } // namespace daemonize
