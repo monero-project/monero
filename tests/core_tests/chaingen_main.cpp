@@ -45,6 +45,7 @@ namespace
   const command_line::arg_descriptor<bool>        arg_service_nodes               = {"service_nodes", ""};
   const command_line::arg_descriptor<bool>        arg_test_transactions           = {"test_transactions", ""};
   const command_line::arg_descriptor<std::string> arg_filter                      = { "filter", "Regular expression filter for which tests to run" };
+  const command_line::arg_descriptor<bool>        arg_list_tests                  = {"list_tests", ""};
 }
 
 int main(int argc, char* argv[])
@@ -66,6 +67,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_options, arg_service_nodes);
   command_line::add_arg(desc_options, arg_test_transactions);
   command_line::add_arg(desc_options, arg_filter);
+  command_line::add_arg(desc_options, arg_list_tests);
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -89,6 +91,7 @@ int main(int argc, char* argv[])
   size_t tests_count = 0;
   std::vector<std::string> failed_tests;
   std::string tests_folder = command_line::get_arg(vm, arg_test_data_path);
+  bool list_tests = false;
   if (command_line::get_arg(vm, arg_generate_test_data))
   {
     GENERATE("chain001.dat", gen_simple_chain_001);
@@ -103,12 +106,12 @@ int main(int argc, char* argv[])
   }
   else
   {
+    list_tests = command_line::get_arg(vm, arg_list_tests);
     const bool run_all = !command_line::get_arg(vm, arg_service_nodes);
 
     if (run_all) {
       MLOG(el::Level::Info, "Running all tests\n");
     }
-
 
     if (run_all || command_line::get_arg(vm, arg_service_nodes))
     {
@@ -294,9 +297,12 @@ int main(int argc, char* argv[])
 #endif
 
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
-    MLOG(level, "\nREPORT:");
-    MLOG(level, "  Test run: " << tests_count);
-    MLOG(level, "  Failures: " << failed_tests.size());
+    if (!list_tests)
+    {
+      MLOG(level, "\nREPORT:");
+      MLOG(level, "  Test run: " << tests_count);
+      MLOG(level, "  Failures: " << failed_tests.size());
+    }
     if (!failed_tests.empty())
     {
       MLOG(level, "FAILED TESTS:");
