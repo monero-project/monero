@@ -57,6 +57,7 @@
 #include "common/util.h"
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
+#include "crypto/crypto.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
 #include "checkpoints/checkpoints.h"
@@ -1201,7 +1202,18 @@ private:
       a & m_scanned_pool_txs[1];
       if (ver < 20)
         return;
-      a & m_subaddresses.parent();
+      if (ver < 31)
+      {
+        using pair_type = std::pair<crypto::public_key, cryptonote::subaddress_index>;
+        std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+        a & subaddresses;
+        std::vector<pair_type> vector;
+        vector.reserve(subaddresses.size());
+        for (const auto &e: subaddresses)
+          vector.push_back(e);
+        std::sort(vector.begin(), vector.end(), [](const pair_type &e0, const pair_type &e1){ return e0.first < e1.first; });
+        m_subaddresses.insert(boost::container::ordered_unique_range_t(), vector.begin(), vector.end());
+      }
       std::unordered_map<cryptonote::subaddress_index, crypto::public_key> dummy_subaddresses_inv;
       a & dummy_subaddresses_inv;
       a & m_subaddress_labels;
@@ -1230,20 +1242,14 @@ private:
       if(ver < 28)
         return;
       a & m_cold_key_images.parent();
-      if(ver < 29)
+      if(ver < 31)
         return;
-      a & m_rpc_client_secret_key;
-      if(ver < 30)
-      {
-        m_has_ever_refreshed_from_node = false;
-        return;
-      }
-      a & m_has_ever_refreshed_from_node;
+      a & m_subaddresses.parent();
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(1)
+      VERSION_FIELD(2)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1258,7 +1264,20 @@ private:
       FIELD(m_address_book)
       FIELD(m_scanned_pool_txs[0])
       FIELD(m_scanned_pool_txs[1])
-      FIELD(m_subaddresses)
+      if (version <= 1)
+      {
+        serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+        using pair_type = std::pair<crypto::public_key, cryptonote::subaddress_index>;
+
+        FIELD(subaddresses)
+
+        std::vector<pair_type> vector;
+        vector.reserve(subaddresses.size());
+        for (const auto &e: subaddresses)
+          vector.push_back(e);
+        std::sort(vector.begin(), vector.end(), [](const pair_type &e0, const pair_type &e1){ return e0.first < e1.first; });
+        m_subaddresses.insert(boost::container::ordered_unique_range_t(), vector.begin(), vector.end());
+      }
       FIELD(m_subaddress_labels)
       FIELD(m_additional_tx_keys)
       FIELD(m_attributes)
@@ -1275,6 +1294,9 @@ private:
         return true;
       }
       FIELD(m_has_ever_refreshed_from_node)
+      if (version < 2)
+        return true;
+      FIELD(m_subaddresses)
     END_SERIALIZE()
 
     /*!
@@ -1804,8 +1826,8 @@ private:
     serializable_unordered_map<crypto::key_image, size_t> m_key_images;
     serializable_unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
-    serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
     std::vector<std::vector<std::string>> m_subaddress_labels;
+    serializable_flat_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
     serializable_unordered_map<crypto::hash, std::string> m_tx_notes;
     serializable_unordered_map<std::string, std::string> m_attributes;
     std::vector<tools::wallet2::address_book_row> m_address_book;
@@ -1931,7 +1953,7 @@ private:
     static std::string default_daemon_address;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 30)
+BOOST_CLASS_VERSION(tools::wallet2, 31)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
@@ -2444,6 +2466,34 @@ namespace boost
       if (ver < 3)
         return;
       a & x.multisig_sigs;
+    }
+
+    template <class Archive>
+    inline typename std::enable_if<!Archive::is_loading::value, void>::type serialize(Archive &a, boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> &x, const boost::serialization::version_type ver)
+    {
+      size_t sz = x.size();
+      a & sz;
+      for (const auto &e: x)
+      {
+        a & e.first;
+        a & e.second;
+      }
+    }
+    template <class Archive>
+    inline typename std::enable_if<Archive::is_loading::value, void>::type serialize(Archive &a, boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> &x, const boost::serialization::version_type ver)
+    {
+      using pair_type = std::pair<crypto::public_key, cryptonote::subaddress_index>;
+      size_t sz;
+      a & sz;
+      x.clear();
+      x.reserve(sz);
+      pair_type e{};
+      while (sz--)
+      {
+        a & e.first;
+        a & e.second;
+        x.insert(x.end(), e);
+      }
     }
   }
 }

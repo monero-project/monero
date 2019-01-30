@@ -93,7 +93,7 @@ static bool compute_keys_for_sources(
 {
   const std::size_t num_sources = sources.size();
   hw::device& hwdev = account_keys.get_device();
-  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+  boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   for (const std::uint32_t minor_index: subaddr_minor_indices) {
     subaddresses[hwdev.get_subaddress_spend_public_key(
       account_keys,

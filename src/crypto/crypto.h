@@ -333,8 +333,6 @@ namespace crypto {
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
 
-  inline bool operator<(const public_key &p1, const public_key &p2) { return memcmp(&p1, &p2, sizeof(public_key)) < 0; }
-  inline bool operator>(const public_key &p1, const public_key &p2) { return p2 < p1; }
   inline bool operator<(const key_image &p1, const key_image &p2) { return memcmp(&p1, &p2, sizeof(key_image)) < 0; }
   inline bool operator>(const key_image &p1, const key_image &p2) { return p2 < p1; }
 }
@@ -346,6 +344,7 @@ inline unsigned char* to_bytes(crypto::ec_point &point) { return &reinterpret_ca
 inline const unsigned char* to_bytes(const crypto::ec_point &point) { return &reinterpret_cast<const unsigned char&>(point); }
 
 CRYPTO_MAKE_HASHABLE(public_key)
+CRYPTO_MAKE_ORDERED(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
 CRYPTO_MAKE_HASHABLE(key_image)
