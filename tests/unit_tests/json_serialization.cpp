@@ -74,7 +74,7 @@ namespace test
         crypto::secret_key tx_key{};
         std::vector<crypto::secret_key> extra_keys{};
 
-        std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+        boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.m_account_address.m_spend_public_key] = {0,0};
 
         if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, rct, { bulletproof ? rct::RangeProofBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }))

@@ -483,7 +483,7 @@ bool init_spent_output_indices(map_output_idx_t& outs, map_output_t& outs_mine, 
             crypto::key_image img;
             keypair in_ephemeral;
             crypto::public_key out_key = boost::get<txout_to_key>(oi.out).key;
-            std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+            boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
             subaddresses[from.get_keys().m_account_address.m_spend_public_key] = {0,0};
             generate_key_image_helper(from.get_keys(), subaddresses, out_key, get_tx_pub_key_from_extra(*oi.p_tx), get_additional_tx_pub_keys_from_extra(*oi.p_tx), oi.out_no, in_ephemeral, img, hw::get_device(("default")));
 
@@ -1060,7 +1060,7 @@ bool construct_tx_to_key(cryptonote::transaction& tx,
 
 bool construct_tx_rct(const cryptonote::account_keys& sender_account_keys, std::vector<cryptonote::tx_source_entry>& sources, const std::vector<cryptonote::tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time, bool rct, rct::RangeProofType range_proof_type, int bp_version)
 {
-  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+  boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[sender_account_keys.m_account_address.m_spend_public_key] = {0, 0};
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;

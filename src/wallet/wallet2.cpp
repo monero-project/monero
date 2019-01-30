@@ -1546,12 +1546,19 @@ bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
 //----------------------------------------------------------------------------------------------------
 void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 {
+  using spair_t = std::pair<crypto::public_key, cryptonote::subaddress_index>;
+
   hw::device &hwdev = m_account.get_device();
+  std::vector<std::pair<crypto::public_key, cryptonote::subaddress_index>> new_elements;
   if (m_subaddress_labels.size() <= index.major)
   {
     // add new accounts
-    cryptonote::subaddress_index index2;
     const uint32_t major_end = get_subaddress_clamped_sum(index.major, m_subaddress_lookahead_major);
+    size_t count = 0;
+    for (size_t i = m_subaddress_labels.size(); i < major_end; ++i)
+      count += get_subaddress_clamped_sum((i == index.major ? index.minor : 0), m_subaddress_lookahead_minor);
+    new_elements.reserve(count);
+    cryptonote::subaddress_index index2;
     for (index2.major = m_subaddress_labels.size(); index2.major < major_end; ++index2.major)
     {
       const uint32_t end = get_subaddress_clamped_sum((index2.major == index.major ? index.minor : 0), m_subaddress_lookahead_minor);
@@ -1559,7 +1566,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
       for (index2.minor = 0; index2.minor < end; ++index2.minor)
       {
          const crypto::public_key &D = pkeys[index2.minor];
-         m_subaddresses[D] = index2;
+         new_elements.push_back(std::make_pair(D, index2));
       }
     }
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
@@ -1573,13 +1580,18 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     const uint32_t begin = m_subaddress_labels[index.major].size();
     cryptonote::subaddress_index index2 = {index.major, begin};
     const std::vector<crypto::public_key> pkeys = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, index2.minor, end);
+    new_elements.reserve(end - index2.minor);
     for (; index2.minor < end; ++index2.minor)
     {
        const crypto::public_key &D = pkeys[index2.minor - begin];
-       m_subaddresses[D] = index2;
+       new_elements.push_back(std::make_pair(D, index2));
     }
     m_subaddress_labels[index.major].resize(index.minor + 1);
   }
+
+  std::sort(new_elements.begin(), new_elements.end(), [](const spair_t &e0, const spair_t &e1) { return e0.first < e1.first; });
+  boost::container::ordered_unique_range_t tag;
+  m_subaddresses.insert(tag, new_elements.begin(), new_elements.end());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::create_one_off_subaddress(const cryptonote::subaddress_index& index)

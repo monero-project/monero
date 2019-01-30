@@ -313,6 +313,7 @@ namespace crypto {
 }
 
 CRYPTO_MAKE_HASHABLE(public_key)
+CRYPTO_MAKE_ORDERED(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)

@@ -80,3 +80,11 @@ CRYPTO_DEFINE_HASH_FUNCTIONS(type)
 CRYPTO_MAKE_COMPARABLE_CONSTANT_TIME(type) \
 CRYPTO_DEFINE_HASH_FUNCTIONS(type)
 
+#define CRYPTO_MAKE_ORDERED(type) \
+namespace crypto { \
+  inline bool operator<(const crypto::type &t0, const crypto::type &t1) \
+  { \
+    static_assert(std::is_pod<crypto::type>(), "type must be pod"); \
+    return memcmp(&t0, &t1, sizeof(crypto::type)) < 0; \
+  } \
+}

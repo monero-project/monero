@@ -211,7 +211,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     MDEBUG("output_pub_key: " << output_pub_key);
   }
 
-  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+  boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[miner_account[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
 
 #ifndef NO_MULTISIG

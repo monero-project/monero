@@ -133,7 +133,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
 
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+    boost::container::flat_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[miner_accounts[n].get_keys().m_account_address.m_spend_public_key] = {0,0};
     rct_txes.resize(rct_txes.size() + 1);
     bool r = construct_tx_and_get_tx_key(miner_accounts[n].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), 0, tx_key, additional_tx_keys, true, rct_config[n]);
