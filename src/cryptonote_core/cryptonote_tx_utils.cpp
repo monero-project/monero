@@ -494,7 +494,17 @@ namespace cryptonote
     std::vector<tx_extra_field> tx_extra_fields;
     if (parse_tx_extra(tx.extra, tx_extra_fields))
     {
-      bool add_dummy_payment_id = true;
+      // TODO(doyle): FIXME(doyle): LOOK AT ME. Introduced in commmit
+      // c6d387184e05437d8f68a4227d739ad28568aa5e on Monero as part of the
+      // deprecating process of payment IDs. I've set it to false, but it was
+      // actually true before. If we want to take this route as the way to
+      // deprecate payment ID's by including it in every transaction, we should
+      // make this true.
+
+      // But if we have a better way, this may not be necessary.
+      //   - Jan 30, 2019
+      bool add_dummy_payment_id = false;
+
       tx_extra_nonce extra_nonce;
       if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
