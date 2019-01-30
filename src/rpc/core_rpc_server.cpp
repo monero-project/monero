@@ -37,6 +37,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "common/updates.h"
 #include "common/download.h"
+#include "common/loki.h"
 #include "common/util.h"
 #include "common/perf_timer.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -2291,6 +2292,12 @@ namespace cryptonote
       }
     };
 
+  const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_login = {
+      "bootstrap-daemon-login"
+    , "Specify username:password for the bootstrap daemon login"
+    , ""
+    };
+
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_rpc_restricted_bind_port = {
       "rpc-restricted-bind-port"
     , "Port for restricted RPC server"
@@ -2306,12 +2313,6 @@ namespace cryptonote
   const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_address = {
       "bootstrap-daemon-address"
     , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced"
-    , ""
-    };
-
-  const command_line::arg_descriptor<std::string> core_rpc_server::arg_bootstrap_daemon_login = {
-      "bootstrap-daemon-login"
-    , "Specify username:password for the bootstrap daemon login"
     , ""
     };
 
@@ -2481,6 +2482,23 @@ namespace cryptonote
     return success;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_service_node_blacklisted_key_images(const COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request& req, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx)
+  {
+    PERF_TIMER(on_get_service_node_blacklisted_key_images);
+    const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_core.get_service_node_blacklisted_key_images();
+
+    res.status = CORE_RPC_STATUS_OK;
+    res.blacklist.reserve(blacklist.size());
+    for (const service_nodes::key_image_blacklist_entry &entry : blacklist)
+    {
+      COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry new_entry = {};
+      new_entry.key_image     = epee::string_tools::pod_to_hex(entry.key_image);
+      new_entry.unlock_height = entry.unlock_height;
+      res.blacklist.push_back(std::move(new_entry));
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_service_node_key);
@@ -2501,6 +2519,22 @@ namespace cryptonote
 
     res.status = CORE_RPC_STATUS_OK;
     return result;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  {
+    std::vector<crypto::public_key> keys;
+    m_core.get_all_service_nodes_public_keys(keys, req.fully_funded_nodes_only);
+
+    res.keys.clear();
+    res.keys.resize(keys.size());
+    size_t i = 0;
+    for (const auto& key : keys)
+    {
+      std::string const hex64 = string_tools::pod_to_hex(key);
+      res.keys[i++]           = loki::hex64_to_base32z(hex64);
+    }
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
@@ -2530,17 +2564,31 @@ namespace cryptonote
       COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
       entry.service_node_pubkey           = string_tools::pod_to_hex(pubkey_info.pubkey);
       entry.registration_height           = pubkey_info.info.registration_height;
+      entry.requested_unlock_height       = pubkey_info.info.requested_unlock_height;
       entry.last_reward_block_height      = pubkey_info.info.last_reward_block_height;
       entry.last_reward_transaction_index = pubkey_info.info.last_reward_transaction_index;
       entry.last_uptime_proof             = m_core.get_uptime_proof(pubkey_info.pubkey);
 
       entry.contributors.reserve(pubkey_info.info.contributors.size());
-      for (service_nodes::service_node_info::contribution const &contributor : pubkey_info.info.contributors)
+
+      using namespace service_nodes;
+      for (service_node_info::contributor_t const &contributor : pubkey_info.info.contributors)
       {
-        COMMAND_RPC_GET_SERVICE_NODES::response::contribution new_contributor = {};
+        COMMAND_RPC_GET_SERVICE_NODES::response::contributor new_contributor = {};
         new_contributor.amount   = contributor.amount;
         new_contributor.reserved = contributor.reserved;
         new_contributor.address  = cryptonote::get_account_address_as_str(m_core.get_nettype(), false/*is_subaddress*/, contributor.address);
+
+        new_contributor.locked_contributions.reserve(contributor.locked_contributions.size());
+        for (service_node_info::contribution_t const &src : contributor.locked_contributions)
+        {
+          COMMAND_RPC_GET_SERVICE_NODES::response::contribution dest = {};
+          dest.amount                                                = src.amount;
+          dest.key_image                                             = string_tools::pod_to_hex(src.key_image);
+          dest.key_image_pub_key                                     = string_tools::pod_to_hex(src.key_image_pub_key);
+          new_contributor.locked_contributions.push_back(dest);
+        }
+
         entry.contributors.push_back(new_contributor);
       }
 
@@ -2570,4 +2618,5 @@ namespace cryptonote
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
+
 }  // namespace cryptonote

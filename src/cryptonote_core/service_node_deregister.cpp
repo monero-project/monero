@@ -264,8 +264,8 @@ namespace service_nodes
         vvc.m_full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
         if (vvc.m_full_tx_deregister_made)
         {
-          tx.version       = cryptonote::transaction::version_3_per_output_unlock_times;
-          tx.is_deregister = true;
+          tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
+          tx.type    = cryptonote::transaction::type_deregister;
         }
         else
         {
@@ -282,13 +282,13 @@ namespace service_nodes
     CRITICAL_REGION_LOCAL(m_lock);
     for (const cryptonote::transaction &tx : txs)
     {
-      if (!tx.is_deregister_tx())
+      if (tx.get_type() != cryptonote::transaction::type_deregister)
         continue;
 
       cryptonote::tx_extra_service_node_deregister deregister;
       if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
       {
-        LOG_ERROR("Could not get deregister from tx version 3, possibly corrupt tx");
+        LOG_ERROR("Could not get deregister from tx, possibly corrupt tx");
         continue;
       }
 

@@ -154,30 +154,36 @@ namespace boost
   inline void serialize(Archive &a, cryptonote::transaction_prefix &x, const boost::serialization::version_type ver)
   {
     a & x.version;
-    if (x.version >= 3)
+    if (x.version > 2)
     {
       a & x.output_unlock_times;
-      a & x.is_deregister;
+      if (x.version == cryptonote::transaction::version_3_per_output_unlock_times)
+        a & x.is_deregister;
     }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
     a & x.extra;
+    if (x.version >= cryptonote::transaction::version_4_tx_types)
+      a & x.type;
   }
 
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::transaction &x, const boost::serialization::version_type ver)
   {
     a & x.version;
-    if (x.version >= 3)
+    if (x.version > 2)
     {
       a & x.output_unlock_times;
-      a & x.is_deregister;
+      if (x.version == cryptonote::transaction::version_3_per_output_unlock_times)
+        a & x.is_deregister;
     }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
     a & x.extra;
+    if (x.version >= cryptonote::transaction::version_4_tx_types)
+      a & x.type;
     if (x.version == 1)
     {
       a & x.signatures;

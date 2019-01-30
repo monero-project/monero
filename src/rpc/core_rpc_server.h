@@ -154,15 +154,21 @@ namespace cryptonote
         MAP_JON_RPC_WE_IF("sync_info",           on_sync_info,                  COMMAND_RPC_SYNC_INFO, !m_restricted)
         MAP_JON_RPC_WE("get_txpool_backlog",     on_get_txpool_backlog,         COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG)
         MAP_JON_RPC_WE("get_output_distribution", on_get_output_distribution, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION)
-        MAP_JON_RPC_WE("get_quorum_state",        on_get_quorum_state,     COMMAND_RPC_GET_QUORUM_STATE)
-        MAP_JON_RPC_WE("get_quorum_state_batched", on_get_quorum_state_batched, COMMAND_RPC_GET_QUORUM_STATE_BATCHED)
-        MAP_JON_RPC_WE("get_service_node_registration_cmd_raw", on_get_service_node_registration_cmd_raw, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW)
-        MAP_JON_RPC_WE("get_service_node_registration_cmd", on_get_service_node_registration_cmd, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD)
-        MAP_JON_RPC_WE("get_service_node_key",   on_get_service_node_key, COMMAND_RPC_GET_SERVICE_NODE_KEY)
-        MAP_JON_RPC_WE("get_service_nodes", on_get_service_nodes, COMMAND_RPC_GET_SERVICE_NODES)
-        MAP_JON_RPC_WE("get_all_service_nodes", on_get_all_service_nodes, COMMAND_RPC_GET_SERVICE_NODES)
-        MAP_JON_RPC_WE("get_staking_requirement", on_get_staking_requirement, COMMAND_RPC_GET_STAKING_REQUIREMENT)
         MAP_JON_RPC_WE_IF("prune_blockchain",    on_prune_blockchain,           COMMAND_RPC_PRUNE_BLOCKCHAIN, !m_restricted)
+
+        //
+        // Loki
+        //
+        MAP_JON_RPC_WE("get_quorum_state",                       on_get_quorum_state, COMMAND_RPC_GET_QUORUM_STATE)
+        MAP_JON_RPC_WE("get_quorum_state_batched",               on_get_quorum_state_batched, COMMAND_RPC_GET_QUORUM_STATE_BATCHED)
+        MAP_JON_RPC_WE("get_service_node_registration_cmd_raw",  on_get_service_node_registration_cmd_raw, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW)
+        MAP_JON_RPC_WE("get_service_node_blacklisted_key_images",on_get_service_node_blacklisted_key_images, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES)
+        MAP_JON_RPC_WE("get_service_node_registration_cmd",      on_get_service_node_registration_cmd, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD)
+        MAP_JON_RPC_WE("get_service_node_key",                   on_get_service_node_key, COMMAND_RPC_GET_SERVICE_NODE_KEY)
+        MAP_JON_RPC_WE("get_service_nodes",                      on_get_service_nodes, COMMAND_RPC_GET_SERVICE_NODES)
+        MAP_JON_RPC_WE("get_all_service_nodes",                  on_get_all_service_nodes, COMMAND_RPC_GET_SERVICE_NODES)
+        MAP_JON_RPC_WE("get_all_service_nodes_keys",             on_get_all_service_nodes_keys, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS)
+        MAP_JON_RPC_WE("get_staking_requirement",                on_get_staking_requirement, COMMAND_RPC_GET_STAKING_REQUIREMENT)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -229,12 +235,17 @@ namespace cryptonote
     bool on_get_output_distribution(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_prune_blockchain(const COMMAND_RPC_PRUNE_BLOCKCHAIN::request& req, COMMAND_RPC_PRUNE_BLOCKCHAIN::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 
+    //
+    // Loki
+    //
     bool on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_quorum_state_batched(const COMMAND_RPC_GET_QUORUM_STATE_BATCHED::request& req, COMMAND_RPC_GET_QUORUM_STATE_BATCHED::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_service_node_registration_cmd_raw(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::request& req, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_get_service_node_blacklisted_key_images(const COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request& req, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx = NULL);
     bool on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx = NULL);
     bool on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx);
     bool on_get_all_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     //-----------------------

@@ -125,7 +125,8 @@ int main(int argc, char* argv[])
       GENERATE_AND_PLAY(sn_test_rollback);
       GENERATE_AND_PLAY(test_swarms_basic);
 #else
-      GENERATE_AND_PLAY(gen_bp_tx_invalid_borromean_type);
+      GENERATE_AND_PLAY(gen_bp_tx_valid_1);
+      GENERATE_AND_PLAY(gen_bp_tx_valid_2);
 #endif
     }
 

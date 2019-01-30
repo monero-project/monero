@@ -50,7 +50,7 @@ namespace service_nodes
 
   struct deregister_vote
   {
-    static const uint64_t VOTE_LIFETIME_BY_HEIGHT       = (60 * 60 * 2) / DIFFICULTY_TARGET_V2;
+    static const uint64_t VOTE_LIFETIME_BY_HEIGHT       = BLOCKS_EXPECTED_IN_HOURS(2);
     static const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
 
     uint64_t          block_height;

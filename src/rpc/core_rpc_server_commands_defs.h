@@ -965,6 +965,27 @@ namespace cryptonote
     };
   };
 
+
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
+  {
+    struct request
+    {
+      bool fully_funded_nodes_only; // Return keys for service nodes if they are funded and working on the network
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(fully_funded_nodes_only, (bool)true)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::vector<std::string> keys; // NOTE: Returns as base32z of the hex key, for Lokinet internal usage
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
     
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
@@ -2333,6 +2354,55 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_POP_BLOCKS
+  {
+    struct request
+    {
+      uint64_t nblocks;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(nblocks);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PRUNE_BLOCKCHAIN
+  {
+    struct request
+    {
+      bool check;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(check, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint32_t pruning_seed;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(pruning_seed)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  //
+  // Loki
+  //
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
     struct request
@@ -2479,29 +2549,6 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_POP_BLOCKS
-  {
-    struct request
-    {
-      uint64_t nblocks;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(nblocks);
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct response
-    {
-      std::string status;
-      uint64_t height;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(height)
-      END_KV_SERIALIZE_MAP()
-    };
-  };
-
   struct COMMAND_RPC_GET_SERVICE_NODES
   {
     struct request
@@ -2516,34 +2563,51 @@ namespace cryptonote
     {
       struct contribution
       {
+        std::string key_image;
+        std::string key_image_pub_key;
+        uint64_t    amount;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(key_image)
+          KV_SERIALIZE(key_image_pub_key)
+          KV_SERIALIZE(amount)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct contributor
+      {
         uint64_t amount;
         uint64_t reserved;
         std::string address;
+        std::vector<contribution> locked_contributions;
 
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount)
           KV_SERIALIZE(reserved)
           KV_SERIALIZE(address)
+          KV_SERIALIZE(locked_contributions)
         END_KV_SERIALIZE_MAP()
       };
 
       struct entry
       {
-        std::string                        service_node_pubkey;
-        uint64_t                           registration_height;
-        uint64_t                           last_reward_block_height;
-        uint32_t                           last_reward_transaction_index;
-        uint64_t                           last_uptime_proof;
-        std::vector<contribution>          contributors;
-        uint64_t                           total_contributed;
-        uint64_t                           total_reserved;
-        uint64_t                           staking_requirement;
-        uint64_t                           portions_for_operator;
-        std::string                        operator_address;
+        std::string               service_node_pubkey;
+        uint64_t                  registration_height;
+        uint64_t                  requested_unlock_height;
+        uint64_t                  last_reward_block_height;
+        uint32_t                  last_reward_transaction_index;
+        uint64_t                  last_uptime_proof;
+        std::vector<contributor>  contributors;
+        uint64_t                  total_contributed;
+        uint64_t                  total_reserved;
+        uint64_t                  staking_requirement;
+        uint64_t                  portions_for_operator;
+        std::string               operator_address;
 
         BEGIN_KV_SERIALIZE_MAP()
             KV_SERIALIZE(service_node_pubkey)
             KV_SERIALIZE(registration_height)
+            KV_SERIALIZE(requested_unlock_height)
             KV_SERIALIZE(last_reward_block_height)
             KV_SERIALIZE(last_reward_transaction_index)
             KV_SERIALIZE(last_uptime_proof)
@@ -2587,25 +2651,31 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_PRUNE_BLOCKCHAIN
+  struct COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES
   {
     struct request
     {
-      bool check;
-
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_OPT(check, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct entry
+    {
+      std::string key_image;
+      uint64_t unlock_height;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(key_image)
+        KV_SERIALIZE(unlock_height)
       END_KV_SERIALIZE_MAP()
     };
 
     struct response
     {
-      uint32_t pruning_seed;
+      std::vector<entry> blacklist;
       std::string status;
-
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(blacklist)
         KV_SERIALIZE(status)
-        KV_SERIALIZE(pruning_seed)
       END_KV_SERIALIZE_MAP()
     };
   };

@@ -162,7 +162,10 @@ namespace cryptonote
       version_1,
       version_2,
       version_3_per_output_unlock_times,
+      version_4_tx_types,
     };
+    static version get_min_version_for_hf(int hf_version);
+    static version get_max_version_for_hf(int hf_version);
 
     // tx information
     size_t   version;
@@ -176,21 +179,43 @@ namespace cryptonote
     std::vector<uint8_t> extra;
 
     std::vector<uint64_t> output_unlock_times;
-    bool is_deregister; //service node deregister tx
+
+    enum type_t
+    {
+      type_standard,
+      type_deregister,
+      type_key_image_unlock,
+      type_count,
+    };
+
+    static char const *type_to_string(type_t type);
+    static char const *type_to_string(uint16_t type_as_uint);
+
+    union
+    {
+      bool is_deregister; // not used after version >= version_4_tx_types
+      uint16_t type;
+    };
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
       if (version > 2)
       {
         FIELD(output_unlock_times)
-        FIELD(is_deregister)
+        if (version == version_3_per_output_unlock_times)
+          FIELD(is_deregister)
       }
-      if(version == 0 || CURRENT_TRANSACTION_VERSION < version) return false;
+      if(version == 0 || version > version_4_tx_types) return false;
       VARINT_FIELD(unlock_time)
       FIELD(vin)
       FIELD(vout)
       if (version >= 3 && vout.size() != output_unlock_times.size()) return false;
       FIELD(extra)
+      if (version >= version_4_tx_types)
+      {
+        VARINT_FIELD(type) // NOTE(loki): Overwrites is_deregister
+        if (static_cast<uint16_t>(type) >= type_count) return false;
+      }
     END_SERIALIZE()
 
   public:
@@ -203,9 +228,11 @@ namespace cryptonote
       vout.clear();
       extra.clear();
       output_unlock_times.clear();
-      is_deregister = false;
+      type = type_standard;
     }
-    bool is_deregister_tx() const { return (version >= version_3_per_output_unlock_times) && is_deregister; }
+    type_t get_type   ()                  const;
+    bool   set_type   (type_t new_type);
+
     uint64_t get_unlock_time(size_t out_index) const
     {
       if (version >= version_3_per_output_unlock_times)
@@ -484,7 +511,85 @@ namespace cryptonote
     }
   };
   //---------------------------------------------------------------
+  inline enum transaction_prefix::version transaction_prefix::get_max_version_for_hf(int hf_version)
+  {
+    if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_8)
+      return transaction::version_2;
 
+    if (hf_version >= cryptonote::network_version_9_service_nodes && hf_version <= cryptonote::network_version_10_bulletproofs)
+      return transaction::version_3_per_output_unlock_times;
+
+    return transaction::version_4_tx_types;
+  }
+
+  inline enum transaction_prefix::version transaction_prefix::get_min_version_for_hf(int hf_version)
+  {
+    if (hf_version >= cryptonote::network_version_7 && hf_version <= cryptonote::network_version_9_service_nodes)
+      return transaction::version_2;
+
+    if (hf_version == cryptonote::network_version_10_bulletproofs)
+      return transaction::version_3_per_output_unlock_times;
+
+    return transaction::version_4_tx_types;
+  }
+
+  inline transaction_prefix::type_t transaction_prefix::get_type() const
+  {
+    if (version <= version_2)
+      return type_standard;
+
+    if (version == version_3_per_output_unlock_times)
+    {
+      if (is_deregister) return type_deregister;
+      return type_standard;
+    }
+
+    // NOTE(loki): Type is range checked on deserialisation, so hitting this is a developer error
+    assert(static_cast<uint16_t>(type) < static_cast<uint16_t>(type_count));
+    return static_cast<transaction::type_t>(type);
+  }
+
+  inline bool transaction_prefix::set_type(transaction_prefix::type_t new_type)
+  {
+    bool result = false;
+    if (version <= version_2)
+      result = (new_type == type_standard);
+
+    if (version == version_3_per_output_unlock_times)
+    {
+      if (new_type == type_standard || new_type == type_deregister)
+        result = true;
+    }
+    else
+    {
+      result = true;
+    }
+
+    if (result)
+    {
+      assert(static_cast<uint16_t>(new_type) <= static_cast<uint16_t>(type_count)); // NOTE(loki): Developer error
+      type = static_cast<uint16_t>(new_type);
+    }
+
+    return result;
+  }
+
+  inline char const *transaction_prefix::type_to_string(uint16_t type_as_uint)
+  {
+    return type_to_string(static_cast<type_t>(type_as_uint));
+  }
+
+  inline char const *transaction_prefix::type_to_string(type_t type)
+  {
+    switch(type)
+    {
+      case type_standard:         return "standard";
+      case type_deregister:       return "deregister";
+      case type_key_image_unlock: return "key_image_unlock";
+      case type_count:            return "xx_count";
+      default: assert(false);     return "xx_unhandled_type";
+    }
+  }
 }
 
 namespace std {

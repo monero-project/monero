@@ -817,11 +817,16 @@ namespace cryptonote
      const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
 
      /**
-      * @brief Get a snapshot of the service node list state at the time of the call.
+      * @brief Get a non owning reference to the list of blacklisted key images
+      */
+     const std::vector<service_nodes::key_image_blacklist_entry> &get_service_node_blacklisted_key_images() const;
+
+     /**
+      * @brief get a snapshot of the service node list state at the time of the call.
       *
       * @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys
       *
-      * @return All the service nodes that can be matched from pubkeys in param
+      * @return all the service nodes that can be matched from pubkeys in param
       */
      std::vector<service_nodes::service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key>& service_node_pubkeys) const;
 
@@ -852,6 +857,14 @@ namespace cryptonote
       * @return True if we are a service node
       */
      bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+
+     /**
+      * @brief Get the public key of every service node.
+      *
+      * @param keys The container in which to return the keys
+      * @param fully_funded_nodes_only Only return nodes that are funded and hence working on the network
+      */
+     void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const;
 
      /**
       * @brief attempts to submit an uptime proof to the network, if this is running in service node mode

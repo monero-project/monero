@@ -149,6 +149,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
       return false;
     }
 
+    loki_construct_tx_params tx_params(generator.m_hf_version);
     if (!cryptonote::construct_tx_and_get_tx_key(
         from.get_keys(),
         subaddresses,
@@ -160,11 +161,9 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
         0 /*unlock_time*/,
         private_tx_key,
         additional_tx_keys,
-        true /*rct*/,
         rct_config[n],
         nullptr, /*multisig_out*/
-        false, /*is_staking_tx*/
-        true /*per_output_unlock*/))
+        tx_params))
     {
       MDEBUG("construct_tx_and_get_tx_key failure");
       return false;
