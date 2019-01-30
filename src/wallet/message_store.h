@@ -135,6 +135,7 @@ namespace mms
     {
       monero_address_known = false;
       memset(&monero_address, 0, sizeof(cryptonote::account_public_address));
+      me = false;
       index = 0;
       auto_config_public_key = crypto::null_pkey;
       auto_config_secret_key = crypto::null_skey;
