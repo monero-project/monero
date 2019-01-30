@@ -50,7 +50,7 @@ namespace hw {
       virtual void disconnect() = 0;
       virtual bool connected() const = 0;
 
-      virtual int  exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len) = 0;
+      virtual int  exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len, bool user_input) = 0;
     };
   };
 };

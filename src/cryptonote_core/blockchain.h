@@ -146,6 +146,11 @@ namespace cryptonote
     Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list& service_node_list, service_nodes::deregister_vote_pool &deregister_vote_pool);
 
     /**
+     * @brief Blockchain destructor
+     */
+    ~Blockchain();
+
+    /**
      * @brief Initialize the Blockchain state
      *
      * @param db a pointer to the backing store to use for the blockchain
@@ -541,10 +546,12 @@ namespace cryptonote
      *
      * @param tx_id the hash of the transaction to fetch indices for
      * @param indexs return-by-reference the global indices for the transaction's outputs
+     * @param n_txes how many txes in a row to get results for
      *
      * @return false if the transaction does not exist, or if no indices are found, otherwise true
      */
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs) const;
+    bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
     /**
      * @brief stores the blockchain
@@ -695,6 +702,8 @@ namespace cryptonote
     template<class t_ids_container, class t_tx_container, class t_missed_container>
     bool get_transactions_blobs(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs, bool pruned = false) const;
     template<class t_ids_container, class t_tx_container, class t_missed_container>
+    bool get_split_transactions_blobs(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
+    template<class t_ids_container, class t_tx_container, class t_missed_container>
     bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
 
     //debug functions
@@ -747,9 +756,16 @@ namespace cryptonote
     /**
      * @brief sets a block notify object to call for every new block
      *
-     * @param notify the notify object to cal at every new block
+     * @param notify the notify object to call at every new block
      */
     void set_block_notify(const std::shared_ptr<tools::Notify> &notify) { m_block_notify = notify; }
+
+    /**
+     * @brief sets a reorg notify object to call for every reorg
+     *
+     * @param notify the notify object to call at every reorg
+     */
+    void set_reorg_notify(const std::shared_ptr<tools::Notify> &notify) { m_reorg_notify = notify; }
 
     /**
      * @brief Put DB in safe sync mode
@@ -949,7 +965,7 @@ namespace cryptonote
      * @param outputs return-by-reference the outputs collected
      */
     void output_scan_worker(const uint64_t amount,const std::vector<uint64_t> &offsets,
-        std::vector<output_data_t> &outputs, const std::vector<output_data_t> &extra_tx_map) const;
+        std::vector<output_data_t> &outputs) const;
 
     /**
      * @brief computes the "short" and "long" hashes for a set of blocks
@@ -980,6 +996,10 @@ namespace cryptonote
     bool is_within_compiled_block_hash_area(uint64_t height) const;
     bool is_within_compiled_block_hash_area() const { return is_within_compiled_block_hash_area(m_db->height()); }
     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes);
+    uint32_t get_blockchain_pruning_seed() const { return m_db->get_blockchain_pruning_seed(); }
+    bool prune_blockchain(uint32_t pruning_seed = 0);
+    bool update_blockchain_pruning();
+    bool check_blockchain_pruning();
 
     bool calc_batched_governance_reward(uint64_t height, uint64_t &reward) const;
 
@@ -1109,6 +1129,7 @@ namespace cryptonote
     bool m_btc_valid;
 
     std::shared_ptr<tools::Notify> m_block_notify;
+    std::shared_ptr<tools::Notify> m_reorg_notify;
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input

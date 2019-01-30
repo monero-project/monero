@@ -19,7 +19,8 @@ posted to #monero-dev on irc.freenode.net).
 
 Patches should be self contained. A good rule of thumb is to have
 one patch per separate issue, feature, or logical change. Also, no
-other changes, such as random whitespace changes or reindentation.
+other changes, such as random whitespace changes, reindentation,
+or fixing typoes, spelling, or wording, unless user visible.
 Following the code style of the particular chunk of code you're
 modifying is encouraged. Proper squashing should be done (eg, if
 you're making a buggy patch, then a later patch to fix the bug,

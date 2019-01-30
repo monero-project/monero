@@ -12,11 +12,11 @@ For example:
 
     make HOST=x86_64-w64-mingw32 -j4
 
-A prefix will be generated that's suitable for plugging into Bitcoin's
-configure. In the above example, a dir named x86_64-w64-mingw32 will be
-created. To use it for Bitcoin:
+A toolchain will be generated that's suitable for plugging into Monero's
+cmake. In the above example, a dir named x86_64-w64-mingw32 will be
+created. To use it for Monero:
 
-    ./configure --prefix=`pwd`/depends/x86_64-w64-mingw32
+    cmake -DCMAKE_TOOLCHAIN=`pwd`/contrib/depends/x86_64-w64-mingw32
 
 Common `host-platform-triplets` for cross compilation are:
 
@@ -35,15 +35,9 @@ The following can be set when running make: make FOO=bar
     BASE_CACHE: built packages will be placed here
     SDK_PATH: Path where sdk's can be found (used by OSX)
     FALLBACK_DOWNLOAD_PATH: If a source file can't be fetched, try here before giving up
-    NO_QT: Don't download/build/cache qt and its dependencies
-    NO_WALLET: Don't download/build/cache libs needed to enable the wallet
-    NO_UPNP: Don't download/build/cache packages needed for enabling upnp
     DEBUG: disable some optimizations and enable more runtime checking
     HOST_ID_SALT: Optional salt to use when generating host package ids
     BUILD_ID_SALT: Optional salt to use when generating build package ids
-
-If some packages are not built, for example `make NO_WALLET=1`, the appropriate
-options will be passed to bitcoin's configure. In this case, `--disable-wallet`.
 
 Additional targets:
 
@@ -58,6 +52,16 @@ To build with the x86_64-apple-darwin11 you require the mac os developer tools i
 Download it from apple, or search for it on github. Create a new directoty called SDKs in this
 directory and place the entire MacOSX10.11.sdk folder in it. The depends build will then pick it up automatically
 (without requiring SDK_PATH). 
+
+
+#Mingw builds
+
+Building for 32/64bit mingw requires switching alternatives to a posix mode
+
+```bash
+update-alternatives --set x86_64-w64-mingw32-g++ x86_64-w64-mingw32-g++-posix
+update-alternatives --set x86_64-w64-mingw32-gcc x86_64-w64-mingw32-gcc-posix
+```
 
 ### Other documentation
 

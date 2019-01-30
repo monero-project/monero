@@ -67,13 +67,24 @@ TEST(notify, works)
       + " " + name_template + " %s";
 
   tools::Notify notify(spec.c_str());
-  notify.notify("1111111111111111111111111111111111111111111111111111111111111111");
+  notify.notify("%s", "1111111111111111111111111111111111111111111111111111111111111111", NULL);
 
-  epee::misc_utils::sleep_no_w(100);
+  bool ok = false;
+  for (int i = 0; i < 10; ++i)
+  {
+    epee::misc_utils::sleep_no_w(100);
 
-  std::string s;
-  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(name_template, s));
-  ASSERT_TRUE(s == "1111111111111111111111111111111111111111111111111111111111111111");
-
+    std::string s;
+    if (epee::file_io_utils::load_file_to_string(name_template, s))
+    {
+      if (s == "1111111111111111111111111111111111111111111111111111111111111111")
+      {
+        ok = true;
+        break;
+      }
+      std::cout << "got: [" << s << "]" << std::endl;
+    }
+  }
   boost::filesystem::remove(name_template);
+  ASSERT_TRUE(ok);
 }

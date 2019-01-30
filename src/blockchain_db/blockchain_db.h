@@ -1142,6 +1142,17 @@ public:
   virtual transaction get_tx(const crypto::hash& h) const;
 
   /**
+   * @brief fetches the transaction base with the given hash
+   *
+   * If the transaction does not exist, the subclass should throw TX_DNE.
+   *
+   * @param h the hash to look for
+   *
+   * @return the transaction with the given hash
+   */
+  virtual transaction get_pruned_tx(const crypto::hash& h) const;
+
+  /**
    * @brief fetches the transaction with the given hash
    *
    * If the transaction does not exist, the subclass should return false.
@@ -1151,6 +1162,17 @@ public:
    * @return true iff the transaction was found
    */
   virtual bool get_tx(const crypto::hash& h, transaction &tx) const;
+
+  /**
+   * @brief fetches the transaction base with the given hash
+   *
+   * If the transaction does not exist, the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found
+   */
+  virtual bool get_pruned_tx(const crypto::hash& h, transaction &tx) const;
 
   /**
    * @brief fetches the transaction blob with the given hash
@@ -1179,6 +1201,21 @@ public:
    * @return true iff the transaction was found
    */
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
+
+  /**
+   * @brief fetches the prunable transaction blob with the given hash
+   *
+   * The subclass should return the prunable transaction stored which has the given
+   * hash.
+   *
+   * If the transaction does not exist, or if we do not have that prunable data,
+   * the subclass should return false.
+   *
+   * @param h the hash to look for
+   *
+   * @return true iff the transaction was found and we have its prunable data
+   */
+  virtual bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const = 0;
 
   /**
    * @brief fetches the prunable transaction hash
@@ -1274,7 +1311,7 @@ public:
    *
    * @return the requested output data
    */
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index) const = 0;
+  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1345,10 +1382,11 @@ public:
    * If an output cannot be found, the subclass should throw OUTPUT_DNE.
    *
    * @param tx_id a transaction ID
+   * @param n_txes how many txes to get data for, starting with tx_id
    *
    * @return a list of amount-specific output indices
    */
-  virtual std::vector<uint64_t> get_tx_amount_output_indices(const uint64_t tx_id) const = 0;
+  virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_id, size_t n_txes = 1) const = 0;
 
   /**
    * @brief check if a key image is stored as spent
@@ -1426,6 +1464,31 @@ public:
    * @param amount the amount for which to prune data
    */
   virtual void prune_outputs(uint64_t amount) = 0;
+
+  /**
+   * @brief get the blockchain pruning seed
+   * @return the blockchain pruning seed
+   */
+  virtual uint32_t get_blockchain_pruning_seed() const = 0;
+
+  /**
+   * @brief prunes the blockchain
+   * @param pruning_seed the seed to use, 0 for default (highly recommended)
+   * @return success iff true
+   */
+  virtual bool prune_blockchain(uint32_t pruning_seed = 0) = 0;
+
+  /**
+   * @brief prunes recent blockchain changes as needed, iff pruning is enabled
+   * @return success iff true
+   */
+  virtual bool update_pruning() = 0;
+
+  /**
+   * @brief checks pruning was done correctly, iff enabled
+   * @return success iff true
+   */
+  virtual bool check_pruning() = 0;
 
   /**
    * @brief runs a function over all txpool transactions

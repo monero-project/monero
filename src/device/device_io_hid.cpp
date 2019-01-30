@@ -35,8 +35,8 @@
 namespace hw {
   namespace io {
  
-    #undef MONERO_DEFAULT_LOG_CATEGORY
-    #define MONERO_DEFAULT_LOG_CATEGORY "device.io"
+    #undef LOKI_DEFAULT_LOG_CATEGORY
+    #define LOKI_DEFAULT_LOG_CATEGORY "device.io"
  
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
@@ -148,7 +148,7 @@ namespace hw {
       return this->usb_device != NULL;
     }
 
-    int device_io_hid::exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len)  {
+    int device_io_hid::exchange(unsigned char *command, unsigned int cmd_len, unsigned char *response, unsigned int max_resp_len, bool user_input)  {
       unsigned char buffer[400];
       unsigned char padding_buffer[MAX_BLOCK+1];
       unsigned int  result;
@@ -177,7 +177,11 @@ namespace hw {
 
       //get first response
       memset(buffer, 0, sizeof(buffer));
-      hid_ret = hid_read_timeout(this->usb_device, buffer, MAX_BLOCK, this->timeout);
+      if (!user_input) {
+        hid_ret = hid_read_timeout(this->usb_device, buffer, MAX_BLOCK, this->timeout);
+      } else {
+        hid_ret = hid_read(this->usb_device, buffer, MAX_BLOCK);
+      }
       ASSERT_X(hid_ret>=0, "Unable to read hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
       result = (unsigned int)hid_ret;
       io_hid_log(1, buffer, result); 

@@ -110,6 +110,11 @@ namespace cryptonote
     "disable-dns-checkpoints"
   , "Do not retrieve checkpoints from DNS"
   };
+  const command_line::arg_descriptor<size_t> arg_block_download_max_size  = {
+    "block-download-max-size"
+  , "Set maximum size of block download queue in bytes (0 for default)"
+  , 0
+  };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
@@ -182,6 +187,18 @@ namespace cryptonote
   static const command_line::arg_descriptor<std::string> arg_block_notify = {
     "block-notify"
   , "Run a program for each new block, '%s' will be replaced by the block hash"
+  , ""
+  };
+  static const command_line::arg_descriptor<bool> arg_prune_blockchain  = {
+    "prune-blockchain"
+  , "Prune blockchain"
+  , false
+  };
+  static const command_line::arg_descriptor<std::string> arg_reorg_notify = {
+    "reorg-notify"
+  , "Run a program for each reorg, '%s' will be replaced by the split height, "
+    "'%h' will be replaced by the new blockchain height, and '%n' will be "
+    "replaced by the number of new blocks in the new chain"
   , ""
   };
 
@@ -296,10 +313,13 @@ namespace cryptonote
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
+    command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_service_node);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_block_notify);
+    command_line::add_arg(desc, arg_prune_blockchain);
+    command_line::add_arg(desc, arg_reorg_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -389,6 +409,11 @@ namespace cryptonote
     return m_blockchain_storage.get_transactions_blobs(txs_ids, txs, missed_txs);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_split_transactions_blobs(const std::vector<crypto::hash>& txs_ids, std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>>& txs, std::vector<crypto::hash>& missed_txs) const
+  {
+    return m_blockchain_storage.get_split_transactions_blobs(txs_ids, txs, missed_txs);
+  }
+  //-----------------------------------------------------------------------------------------------
   bool core::get_txpool_backlog(std::vector<tx_backlog_entry>& backlog) const
   {
     m_mempool.get_transaction_backlog(backlog);
@@ -428,6 +453,7 @@ namespace cryptonote
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
     size_t max_txpool_weight = command_line::get_arg(vm, arg_max_txpool_weight);
+    bool prune_blockchain = command_line::get_arg(vm, arg_prune_blockchain);
 
     if (m_service_node)
     {
@@ -586,6 +612,16 @@ namespace cryptonote
       MERROR("Failed to parse block notify spec");
     }
 
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_reorg_notify))
+        m_blockchain_storage.set_reorg_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_reorg_notify).c_str())));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse reorg notify spec");
+    }
+
     const std::vector<std::pair<uint8_t, uint64_t>> regtest_hard_forks = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
     const cryptonote::test_options regtest_test_options = {
       regtest_hard_forks
@@ -632,6 +668,14 @@ namespace cryptonote
 
     r = m_miner.init(vm, m_nettype);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize miner instance");
+
+    if (prune_blockchain)
+    {
+      // display a message if the blockchain is not pruned yet
+      if (m_blockchain_storage.get_current_blockchain_height() > 1 && !m_blockchain_storage.get_blockchain_pruning_seed())
+        MGINFO("Pruning blockchain...");
+      CHECK_AND_ASSERT_MES(m_blockchain_storage.prune_blockchain(), false, "Failed to prune blockchain");
+    }
 
     return load_state_data();
   }
@@ -681,8 +725,10 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-    bool core::deinit()
+  bool core::deinit()
   {
+    m_service_node_list.store();
+    m_service_node_list.set_db_pointer(nullptr);
     m_miner.stop();
     m_mempool.deinit();
     m_blockchain_storage.deinit();
@@ -840,6 +886,7 @@ namespace cryptonote
           }
           break;
         case rct::RCTTypeBulletproof:
+        case rct::RCTTypeBulletproof2:
           if (!is_canonical_bulletproof_layout(rv.p.bulletproofs))
           {
             MERROR_VER("Bulletproof does not have canonical form");
@@ -867,7 +914,7 @@ namespace cryptonote
       {
         if (!tx_info[n].result)
           continue;
-        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof)
+        if (tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof && tx_info[n].tx->rct_signatures.type != rct::RCTTypeBulletproof2)
           continue;
         if (assumed_bad || !rct::verRctSemanticsSimple(tx_info[n].tx->rct_signatures))
         {
@@ -1325,6 +1372,11 @@ namespace cryptonote
     return m_blockchain_storage.get_tx_outputs_gindexs(tx_id, indexs);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const
+  {
+    return m_blockchain_storage.get_tx_outputs_gindexs(tx_id, n_txes, indexs);
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::pause_mine()
   {
     m_miner.pause();
@@ -1633,6 +1685,7 @@ namespace cryptonote
 
     m_uptime_proof_pruner.do_call(boost::bind(&service_nodes::quorum_cop::prune_uptime_proof, &m_quorum_cop));
 
+    m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
@@ -1868,6 +1921,16 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::update_blockchain_pruning()
+  {
+    return m_blockchain_storage.update_blockchain_pruning();
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_blockchain_pruning()
+  {
+    return m_blockchain_storage.check_blockchain_pruning();
+  }
+  //-----------------------------------------------------------------------------------------------
   void core::set_target_blockchain_height(uint64_t target_blockchain_height)
   {
     m_target_blockchain_height = target_blockchain_height;
@@ -1977,6 +2040,15 @@ namespace cryptonote
       sec_key = m_service_node_key;
     }
     return m_service_node;
+  }
+  uint32_t core::get_blockchain_pruning_seed() const
+  {
+    return get_blockchain_storage().get_blockchain_pruning_seed();
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::prune_blockchain(uint32_t pruning_seed)
+  {
+    return get_blockchain_storage().prune_blockchain(pruning_seed);
   }
   //-----------------------------------------------------------------------------------------------
   void core::get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool fully_funded_nodes_only) const

@@ -27,7 +27,7 @@ To run the same tests on a release build, replace `debug` with `release`.
 
 # Crypto Tests
 
-Crypto tests are located under the `tests/crypto` directory. 
+Crypto tests are located under the `tests/crypto` directory.
 
 - `crypto-tests.h` contains test harness headers
 - `main.cpp` implements the driver for the crypto tests
@@ -50,7 +50,7 @@ To run the same tests on a release build, replace `debug` with `release`.
 # Functional tests
 
 [TODO]
-Functional tests are located under the `tests/functional` directory. 
+Functional tests are located under the `tests/functional` directory.
 
 First, run a regtest daemon in the offline mode and with a fixed difficulty:
 ```

@@ -71,6 +71,11 @@ namespace service_nodes
   {
   }
 
+  service_node_list::~service_node_list()
+  {
+    store();
+  }
+
   void service_node_list::register_hooks(service_nodes::quorum_cop &quorum_cop)
   {
     std::lock_guard<boost::recursive_mutex> lock(m_sn_mutex);
@@ -286,6 +291,7 @@ namespace service_nodes
       {
       case rct::RCTTypeSimple:
       case rct::RCTTypeBulletproof:
+      case rct::RCTTypeBulletproof2:
         money_transferred = rct::decodeRctSimple(tx.rct_signatures, rct::sk2rct(scalar1), i, mask, hwdev);
         break;
       case rct::RCTTypeFull:

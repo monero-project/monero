@@ -92,8 +92,7 @@ namespace
         cryptonote::loki_construct_tx_params tx_params = {};
         tx_params.v2_rct = rct;
         tx_params.v3_per_output_unlock = per_output_unlock;
-        tx_params.type = bulletproof ? rct::RangeProofBorromean : rct::RangeProofBulletproof;
-        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, nullptr, tx_params))
+        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, { bulletproof ? rct::RangeProofBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }, nullptr, tx_params))
             throw std::runtime_error{"transaction construction error"};
 
         return tx;

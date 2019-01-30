@@ -877,6 +877,9 @@ namespace tx {
     valueS.SetString(m_ct.enc_salt2.c_str(), m_ct.enc_salt2.size());
     json.AddMember("salt2", valueS, json.GetAllocator());
 
+    valueS.SetString(m_ct.tx_prefix_hash.c_str(), m_ct.tx_prefix_hash.size());
+    json.AddMember("tx_prefix_hash", valueS, json.GetAllocator());
+
     valueS.SetString(m_ct.enc_keys.c_str(), m_ct.enc_keys.size());
     json.AddMember("enc_keys", valueS, json.GetAllocator());
 

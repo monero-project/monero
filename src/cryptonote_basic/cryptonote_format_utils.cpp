@@ -188,6 +188,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
+    tx.set_blob_size(tx_blob.size());
     return true;
   }
   //---------------------------------------------------------------
@@ -199,6 +200,7 @@ namespace cryptonote
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, true), false, "Failed to expand transaction data");
+    tx.invalidate_hashes();
     return true;
   }
   //---------------------------------------------------------------
@@ -226,6 +228,22 @@ namespace cryptonote
     get_transaction_hash(tx, tx_hash);
     get_transaction_prefix_hash(tx, tx_prefix_hash);
     return true;
+  }
+  //---------------------------------------------------------------
+  bool is_v1_tx(const blobdata_ref& tx_blob)
+  {
+    uint64_t version;
+    const char* begin = static_cast<const char*>(tx_blob.data());
+    const char* end = begin + tx_blob.size();
+    int read = tools::read_varint(begin, end, version);
+    if (read <= 0)
+      throw std::runtime_error("Internal error getting transaction version");
+    return version <= 1;
+  }
+  //---------------------------------------------------------------
+  bool is_v1_tx(const blobdata& tx_blob)
+  {
+    return is_v1_tx(blobdata_ref{tx_blob.data(), tx_blob.size()});
   }
   //---------------------------------------------------------------
   bool generate_key_image_helper(const account_keys& ack, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
@@ -383,11 +401,19 @@ namespace cryptonote
   //---------------------------------------------------------------
   uint64_t get_transaction_weight(const transaction &tx)
   {
-    std::ostringstream s;
-    binary_archive<true> a(s);
-    ::serialization::serialize(a, const_cast<transaction&>(tx));
-    const cryptonote::blobdata blob = s.str();
-    return get_transaction_weight(tx, blob.size());
+    size_t blob_size;
+    if (tx.is_blob_size_valid())
+    {
+      blob_size = tx.blob_size;
+    }
+    else
+    {
+      std::ostringstream s;
+      binary_archive<true> a(s);
+      ::serialization::serialize(a, const_cast<transaction&>(tx));
+      blob_size = s.str().size();
+    }
+    return get_transaction_weight(tx, blob_size);
   }
   //---------------------------------------------------------------
   bool get_tx_fee(const transaction& tx, uint64_t & fee)

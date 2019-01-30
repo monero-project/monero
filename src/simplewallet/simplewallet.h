@@ -143,6 +143,7 @@ namespace cryptonote
     bool set_subaddress_lookahead(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_segregation_height(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_ignore_fractional_outputs(const std::vector<std::string> &args = std::vector<std::string>());
+    bool set_track_uses(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_device_name(const std::vector<std::string> &args = std::vector<std::string>());
     bool set_fork_on_autostake(const std::vector<std::string> &args = std::vector<std::string>());
     bool help(const std::vector<std::string> &args = std::vector<std::string>());
@@ -156,7 +157,7 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(int transfer_type, const std::vector<std::string> &args);
+    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms);
     bool transfer(const std::vector<std::string> &args);
     bool locked_transfer(const std::vector<std::string> &args);
     bool stake(const std::vector<std::string> &args_);
@@ -218,15 +219,23 @@ namespace cryptonote
     bool payment_id(const std::vector<std::string> &args);
     bool print_fee_info(const std::vector<std::string> &args);
     bool prepare_multisig(const std::vector<std::string>& args);
+    bool prepare_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool make_multisig(const std::vector<std::string>& args);
+    bool make_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool finalize_multisig(const std::vector<std::string> &args);
     bool exchange_multisig_keys(const std::vector<std::string> &args);
+    bool exchange_multisig_keys_main(const std::vector<std::string> &args, bool called_by_mms);
     bool export_multisig(const std::vector<std::string>& args);
+    bool export_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool import_multisig(const std::vector<std::string>& args);
+    bool import_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs);
     bool sign_multisig(const std::vector<std::string>& args);
+    bool sign_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool submit_multisig(const std::vector<std::string>& args);
+    bool submit_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
     bool export_raw_multisig(const std::vector<std::string>& args);
+    bool mms(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool set_ring(const std::vector<std::string>& args);
     bool save_known_rings(const std::vector<std::string>& args);
@@ -250,6 +259,7 @@ namespace cryptonote
     bool print_seed(bool encrypted);
     void key_images_sync_intern();
     void on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money);
+    std::pair<std::string, std::string> show_outputs_line(const std::vector<uint64_t> &heights, uint64_t blockchain_height, uint64_t highlight_height = std::numeric_limits<uint64_t>::max()) const;
 
     struct transfer_view
     {
@@ -373,6 +383,7 @@ namespace cryptonote
     std::string m_mnemonic_language;
     std::string m_import_path;
     std::string m_subaddress_lookahead;
+    std::string m_restore_date;  // optional - converted to m_restore_height
 
     epee::wipeable_string m_electrum_seed;  // electrum-style seed parameter
 
@@ -400,5 +411,42 @@ namespace cryptonote
     bool m_auto_refresh_refreshing;
     std::atomic<bool> m_in_manual_refresh;
     uint32_t m_current_subaddress_account;
+
+    bool m_long_payment_id_support;
+    
+    // MMS
+    mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };
+    mms::multisig_wallet_state get_multisig_wallet_state() const { return m_wallet->get_multisig_wallet_state(); };
+    bool mms_active() const { return get_message_store().get_active(); };
+    bool choose_mms_processing(const std::vector<mms::processing_data> &data_list, uint32_t &choice);
+    void list_mms_messages(const std::vector<mms::message> &messages);
+    void list_signers(const std::vector<mms::authorized_signer> &signers);
+    void add_signer_config_messages();
+    void show_message(const mms::message &m);
+    void ask_send_all_ready_messages();
+    void check_for_messages();
+    bool user_confirms(const std::string &question);
+    bool get_message_from_arg(const std::string &arg, mms::message &m);
+    bool get_number_from_arg(const std::string &arg, uint32_t &number, const uint32_t lower_bound, const uint32_t upper_bound); 
+
+    void mms_init(const std::vector<std::string> &args);
+    void mms_info(const std::vector<std::string> &args);
+    void mms_signer(const std::vector<std::string> &args);
+    void mms_list(const std::vector<std::string> &args);
+    void mms_next(const std::vector<std::string> &args);
+    void mms_sync(const std::vector<std::string> &args);
+    void mms_transfer(const std::vector<std::string> &args);
+    void mms_delete(const std::vector<std::string> &args);
+    void mms_send(const std::vector<std::string> &args);
+    void mms_receive(const std::vector<std::string> &args);
+    void mms_export(const std::vector<std::string> &args);
+    void mms_note(const std::vector<std::string> &args);
+    void mms_show(const std::vector<std::string> &args);
+    void mms_set(const std::vector<std::string> &args);
+    void mms_help(const std::vector<std::string> &args);
+    void mms_send_signer_config(const std::vector<std::string> &args);
+    void mms_start_auto_config(const std::vector<std::string> &args);
+    void mms_stop_auto_config(const std::vector<std::string> &args);
+    void mms_auto_config(const std::vector<std::string> &args);
   };
 }

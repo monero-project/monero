@@ -193,6 +193,13 @@ namespace
 
     return false;
   }
+
+  std::string get_text_reason(const cryptonote::COMMAND_RPC_SEND_RAW_TX::response &res)
+  {
+      std::string reason  = print_tx_verification_context  (res.tvc);
+      reason             += print_vote_verification_context(res.tvc.m_vote_ctx);
+      return reason;
+  }
 }
 
 namespace
@@ -227,7 +234,7 @@ struct options {
   const command_line::arg_descriptor<std::string> tx_notify = { "tx-notify" , "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" , "" };
 };
 
-void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file)
+void do_prepare_file_names(const std::string& file_path, std::string& keys_file, std::string& wallet_file, std::string &mms_file)
 {
   keys_file = file_path;
   wallet_file = file_path;
@@ -239,6 +246,7 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
   {//provided wallet file name
     keys_file += ".keys";
   }
+  mms_file = file_path + ".mms";
 }
 
 uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes, uint64_t fee_multiplier)
@@ -331,6 +339,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   wallet->init(std::move(daemon_address), std::move(login), 0, false, *trusted_daemon);
   boost::filesystem::path ringdb_path = command_line::get_arg(vm, opts.shared_ringdb_dir);
   wallet->set_ring_database(ringdb_path.string());
+  wallet->get_message_store().set_options(vm);
   wallet->device_name(device_name);
   wallet->device_derivation_path(device_derivation_path);
 
@@ -582,19 +591,6 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
   return {nullptr, tools::password_container{}};
 }
 
-static void throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method)
-{
-  // no error
-  if (!status)
-    return;
-
-  // empty string -> not connection
-  THROW_WALLET_EXCEPTION_IF(status->empty(), tools::error::no_connection_to_daemon, method);
-
-  THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
-  THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, *status);
-}
-
 std::string strjoin(const std::vector<size_t> &V, const char *sep)
 {
   std::stringstream ss;
@@ -609,7 +605,7 @@ std::string strjoin(const std::vector<size_t> &V, const char *sep)
   return ss.str();
 }
 
-static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
+static bool emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
   const crypto::hash &key, const tools::wallet2::pool_payment_details &pd)
 {
   auto range = container.equal_range(key);
@@ -618,10 +614,11 @@ static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
     if (i->second.m_pd.m_tx_hash == pd.m_pd.m_tx_hash && i->second.m_pd.m_subaddr_index == pd.m_pd.m_subaddr_index)
     {
       i->second = pd;
-      return;
+      return false;
     }
   }
   container.emplace(key, pd);
+  return true;
 }
 
 void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_t N)
@@ -795,6 +792,43 @@ static void setup_shim(hw::wallet_shim * shim, tools::wallet2 * wallet)
   shim->get_tx_pub_key_from_received_outs = boost::bind(&tools::wallet2::get_tx_pub_key_from_received_outs, wallet, _1);
 }
 
+bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry, cryptonote::transaction &tx, crypto::hash &tx_hash)
+{
+  cryptonote::blobdata bd;
+
+  // easy case if we have the whole tx
+  if (!entry.as_hex.empty() || (!entry.prunable_as_hex.empty() && !entry.pruned_as_hex.empty()))
+  {
+    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.as_hex.empty() ? entry.pruned_as_hex + entry.prunable_as_hex : entry.as_hex, bd), false, "Failed to parse tx data");
+    CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(bd, tx), false, "Invalid tx data");
+    tx_hash = cryptonote::get_transaction_hash(tx);
+    // if the hash was given, check it matches
+    CHECK_AND_ASSERT_MES(entry.tx_hash.empty() || epee::string_tools::pod_to_hex(tx_hash) == entry.tx_hash, false,
+        "Response claims a different hash than the data yields");
+    return true;
+  }
+  // case of a pruned tx with its prunable data hash
+  if (!entry.pruned_as_hex.empty() && !entry.prunable_hash.empty())
+  {
+    crypto::hash ph;
+    CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.prunable_hash, ph), false, "Failed to parse prunable hash");
+    CHECK_AND_ASSERT_MES(epee::string_tools::parse_hexstr_to_binbuff(entry.pruned_as_hex, bd), false, "Failed to parse pruned data");
+    CHECK_AND_ASSERT_MES(parse_and_validate_tx_base_from_blob(bd, tx), false, "Invalid base tx data");
+    // only v2 txes can calculate their txid after pruned
+    if (bd[0] > 1)
+    {
+      tx_hash = cryptonote::get_pruned_transaction_hash(tx, ph);
+    }
+    else
+    {
+      // for v1, we trust the dameon
+      CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.tx_hash, tx_hash), false, "Failed to parse tx hash");
+    }
+    return true;
+  }
+  return false;
+}
+
   //-----------------------------------------------------------------
 } //namespace
 
@@ -893,6 +927,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_key_reuse_mitigation2(true),
   m_segregation_height(0),
   m_ignore_fractional_outputs(true),
+  m_track_uses(false),
   m_is_initialized(false),
   m_fork_on_autostake(true),
   m_kdf_rounds(kdf_rounds),
@@ -901,6 +936,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_multisig(false),
   m_multisig_threshold(0),
   m_node_rpc_proxy(m_http_client, m_daemon_rpc_mutex),
+  m_account_public_address{crypto::null_pkey, crypto::null_pkey},
   m_subaddress_lookahead_major(SUBADDRESS_LOOKAHEAD_MAJOR),
   m_subaddress_lookahead_minor(SUBADDRESS_LOOKAHEAD_MINOR),
   m_light_wallet(false),
@@ -909,12 +945,15 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended):
   m_light_wallet_connected(false),
   m_light_wallet_balance(0),
   m_light_wallet_unlocked_balance(0),
+  m_original_keys_available(false),
+  m_message_store(),
   m_key_device_type(hw::device::device_type::SOFTWARE),
   m_ring_history_saved(false),
   m_ringdb(),
   m_last_block_reward(0),
   m_encrypt_keys_after_refresh(boost::none),
   m_unattended(unattended),
+  m_devices_registered(false),
   m_device_last_key_image_sync(0)
 {
 }
@@ -958,6 +997,7 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.stagenet);
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
+  mms::message_store::init_options(desc_params);
   command_line::add_arg(desc_params, opts.hw_device);
   command_line::add_arg(desc_params, opts.hw_device_derivation_path);
   command_line::add_arg(desc_params, opts.tx_notify);
@@ -1348,6 +1388,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
     {
     case rct::RCTTypeSimple:
     case rct::RCTTypeBulletproof:
+    case rct::RCTTypeBulletproof2:
       return rct::decodeRctSimple(rv, rct::sk2rct(scalar1), i, mask, hwdev);
     case rct::RCTTypeFull:
       return rct::decodeRct(rv, rct::sk2rct(scalar1), i, mask, hwdev);
@@ -1363,7 +1404,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs)
+void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool)
 {
   THROW_WALLET_EXCEPTION_IF(vout_index >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
@@ -1374,7 +1415,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::publi
     CRITICAL_REGION_LOCAL(password_lock);
     if (!m_encrypt_keys_after_refresh)
     {
-      boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password("output received");
+      boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
       THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming loki"));
       THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming loki"));
       decrypt_keys(*pwd);
@@ -1460,11 +1501,12 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data)
+void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   if (tx.get_type() != transaction::type_standard)
     return;
 
+  PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
   // (that is, the prunable stuff may or may not be included)
   if (!miner_tx && !pool)
@@ -1617,7 +1659,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         if (tx_scan_info[i].received)
         {
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -1633,7 +1675,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           boost::unique_lock<hw::device> hwdev_lock (hwdev);
           hwdev.set_mode(hw::device::NONE);
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -1676,7 +1718,25 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             td.m_txid = txid;
             td.m_key_image = tx_scan_info[o].ki;
             td.m_key_image_known = !m_watch_only && !m_multisig;
-            td.m_key_image_requested = false;
+            if (!td.m_key_image_known)
+            {
+              // we might have cold signed, and have a mapping to key images
+              std::unordered_map<crypto::public_key, crypto::key_image>::const_iterator i = m_cold_key_images.find(tx_scan_info[o].in_ephemeral.pub);
+              if (i != m_cold_key_images.end())
+              {
+                td.m_key_image = i->second;
+                td.m_key_image_known = true;
+              }
+            }
+            if (m_watch_only)
+            {
+              // for view wallets, that flag means "we want to request it"
+              td.m_key_image_request = true;
+            }
+            else
+            {
+              td.m_key_image_request = false;
+            }
             td.m_key_image_partial = m_multisig;
             td.m_amount = amount;
             td.m_pk_index = pk_index - 1;
@@ -1698,11 +1758,11 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_rct = false;
             }
             set_unspent(m_transfers.size()-1);
-            if (!m_multisig && !m_watch_only)
+            if (td.m_key_image_known)
               m_key_images[td.m_key_image] = m_transfers.size()-1;
-
             m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
-
+            if (output_tracker_cache)
+              (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = m_transfers.size() - 1;
             if (m_multisig)
             {
               THROW_WALLET_EXCEPTION_IF(!m_multisig_rescan_k && m_multisig_rescan_info,
@@ -1824,6 +1884,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_mask = rct::identity();
               td.m_rct = false;
             }
+            if (output_tracker_cache)
+              (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = kit->second;
             if (m_multisig)
             {
               THROW_WALLET_EXCEPTION_IF(!m_multisig_rescan_k && m_multisig_rescan_info,
@@ -1855,11 +1917,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   {
     if(in.type() != typeid(cryptonote::txin_to_key))
       continue;
-    auto it = m_key_images.find(boost::get<cryptonote::txin_to_key>(in).k_image);
+    const cryptonote::txin_to_key &in_to_key = boost::get<cryptonote::txin_to_key>(in);
+    auto it = m_key_images.find(in_to_key.k_image);
     if(it != m_key_images.end())
     {
       transfer_details& td = m_transfers[it->second];
-      uint64_t amount = boost::get<cryptonote::txin_to_key>(in).amount;
+      uint64_t amount = in_to_key.amount;
       if (amount > 0)
       {
         if(amount != td.amount())
@@ -1888,6 +1951,34 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         set_spent(it->second, height);
         if (0 != m_callback)
           m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index);
+      }
+    }
+
+    if (!pool && m_track_uses)
+    {
+      PERF_TIMER(track_uses);
+      const uint64_t amount = in_to_key.amount;
+      std::vector<uint64_t> offsets = cryptonote::relative_output_offsets_to_absolute(in_to_key.key_offsets);
+      if (output_tracker_cache)
+      {
+        for (uint64_t offset: offsets)
+        {
+          const std::map<std::pair<uint64_t, uint64_t>, size_t>::const_iterator i = output_tracker_cache->find(std::make_pair(amount, offset));
+          if (i != output_tracker_cache->end())
+          {
+            size_t idx = i->second;
+            THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error, "Output tracker cache index out of range");
+            m_transfers[idx].m_uses.push_back(std::make_pair(height, txid));
+          }
+        }
+      }
+      else for (transfer_details &td: m_transfers)
+      {
+        if (amount != in_to_key.amount)
+          continue;
+        for (uint64_t offset: offsets)
+          if (offset == td.m_global_output_index)
+            td.m_uses.push_back(std::make_pair(height, txid));
       }
     }
   }
@@ -1980,6 +2071,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       return;
     }
 
+    bool all_same = true;
     for (const auto& i : tx_money_got_in_outs)
     {
       payment_details payment;
@@ -1992,7 +2084,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       payment.m_subaddr_index = i.index;
       payment.m_type          = i.type;
       if (pool) {
-        emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen});
+        if (emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen}))
+          all_same = false;
         if (0 != m_callback)
           m_callback->on_unconfirmed_money_received(height, txid, tx, payment.m_amount, payment.m_subaddr_index);
       }
@@ -2000,13 +2093,17 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         m_payments.emplace(payment_id, payment);
       LOG_PRINT_L2("Payment found in " << (pool ? "pool" : "block") << ": " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
     }
+
+    // if it's a pool tx and we already had it, don't notify again
+    if (pool && all_same)
+      notify = false;
   }
 
   if (notify)
   {
     std::shared_ptr<tools::Notify> tx_notify = m_tx_notify;
     if (tx_notify)
-      tx_notify->notify(epee::string_tools::pod_to_hex(txid).c_str());
+      tx_notify->notify("%s", epee::string_tools::pod_to_hex(txid).c_str(), NULL);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -2074,7 +2171,7 @@ void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::trans
   add_rings(tx);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset)
+void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   THROW_WALLET_EXCEPTION_IF(bche.txs.size() + 1 != parsed_block.o_indices.indices.size(), error::wallet_internal_error,
       "block transactions=" + std::to_string(bche.txs.size()) +
@@ -2087,7 +2184,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
   {
     TIME_MEASURE_START(miner_tx_handle_time);
     if (m_refresh_type != RefreshNoCoinbase)
-      process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, parsed_block.o_indices.indices[0].indices, height, b.timestamp, true, false, false, tx_cache_data[tx_cache_data_offset]);
+      process_new_transaction(get_transaction_hash(b.miner_tx), b.miner_tx, parsed_block.o_indices.indices[0].indices, height, b.timestamp, true, false, false, tx_cache_data[tx_cache_data_offset], output_tracker_cache);
     ++tx_cache_data_offset;
     TIME_MEASURE_FINISH(miner_tx_handle_time);
 
@@ -2096,7 +2193,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
     THROW_WALLET_EXCEPTION_IF(bche.txs.size() != parsed_block.txes.size(), error::wallet_internal_error, "Wrong amount of transactions for block");
     for (size_t idx = 0; idx < b.tx_hashes.size(); ++idx)
     {
-      process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++]);
+      process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++], output_tracker_cache);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
@@ -2166,7 +2263,7 @@ void wallet2::pull_blocks(uint64_t start_height, uint64_t &blocks_start_height, 
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblocks.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, get_rpc_status(res.status));
   THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
       "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
       boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
@@ -2188,13 +2285,13 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "gethashes.bin");
   THROW_WALLET_EXCEPTION_IF(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "gethashes.bin");
-  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, res.status);
+  THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, error::get_hashes_error, get_rpc_status(res.status));
 
   blocks_start_height = res.start_height;
   hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added)
+void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   size_t current_index = start_height;
   blocks_added = 0;
@@ -2233,7 +2330,6 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
   const cryptonote::account_keys &keys = m_account.get_keys();
 
   auto gender = [&](wallet2::is_out_data &iod) {
-    boost::unique_lock<hw::device> hwdev_lock(hwdev);
     if (!hwdev.generate_key_derivation(iod.pkey, keys.m_view_secret_key, iod.derivation))
     {
       MWARNING("Failed to generate key derivation from tx pubkey, skipping");
@@ -2242,12 +2338,16 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
     }
   };
 
-  for (auto &slot: tx_cache_data)
+  for (size_t i = 0; i < tx_cache_data.size(); ++i)
   {
-    for (auto &iod: slot.primary)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
-    for (auto &iod: slot.additional)
-      tpool.submit(&waiter, [&gender, &iod]() { gender(iod); }, true);
+    tpool.submit(&waiter, [&hwdev, &gender, &tx_cache_data, i]() {
+      auto &slot = tx_cache_data[i];
+      boost::unique_lock<hw::device> hwdev_lock(hwdev);
+      for (auto &iod: slot.primary)
+        gender(iod);
+      for (auto &iod: slot.additional)
+        gender(iod);
+    }, true);
   }
   waiter.wait(&tpool);
 
@@ -2301,7 +2401,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
 
     if(current_index >= m_blockchain.size())
     {
-      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset);
+      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
       ++blocks_added;
     }
     else if(bl_id != m_blockchain[current_index])
@@ -2313,7 +2413,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
         string_tools::pod_to_hex(m_blockchain[current_index]));
 
       detach_blockchain(current_index);
-      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset);
+      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
     }
     else
     {
@@ -2347,11 +2447,10 @@ void wallet2::pull_and_parse_next_blocks(uint64_t start_height, uint64_t &blocks
     THROW_WALLET_EXCEPTION_IF(prev_blocks.size() != prev_parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
 
     // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-    std::vector<parsed_block>::const_reverse_iterator i = prev_parsed_blocks.rbegin();
-    for (size_t n = 0; n < std::min((size_t)3, prev_parsed_blocks.size()); ++n)
+    auto s = std::next(prev_parsed_blocks.rbegin(), std::min((size_t)3, prev_parsed_blocks.size())).base();
+    for (; s != prev_parsed_blocks.end(); ++s)
     {
-      short_chain_history.push_front(i->hash);
-      ++i;
+      short_chain_history.push_front(s->hash);
     }
 
     // pull the new blocks
@@ -2590,7 +2689,7 @@ void wallet2::update_pool_state(bool refreshed)
       req.txs_hashes.push_back(epee::string_tools::pod_to_hex(p.first));
     MDEBUG("asking for " << txids.size() << " transactions");
     req.decode_as_json = false;
-    req.prune = false;
+    req.prune = true;
     m_daemon_rpc_mutex.lock();
     bool r = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client, rpc_timeout);
     m_daemon_rpc_mutex.unlock();
@@ -2605,11 +2704,10 @@ void wallet2::update_pool_state(bool refreshed)
           {
             cryptonote::transaction tx;
             cryptonote::blobdata bd;
-            crypto::hash tx_hash, tx_prefix_hash;
-            if (epee::string_tools::parse_hexstr_to_binbuff(tx_entry.as_hex, bd))
+            crypto::hash tx_hash;
+
+            if (get_pruned_tx(tx_entry, tx, tx_hash))
             {
-              if (cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash))
-              {
                 const std::vector<std::pair<crypto::hash, bool>>::const_iterator i = std::find_if(txids.begin(), txids.end(),
                     [tx_hash](const std::pair<crypto::hash, bool> &e) { return e.first == tx_hash; });
                 if (i != txids.end())
@@ -2626,11 +2724,6 @@ void wallet2::update_pool_state(bool refreshed)
                 {
                   MERROR("Got txid " << tx_hash << " which we did not ask for");
                 }
-              }
-              else
-              {
-                LOG_PRINT_L0("failed to validate transaction from daemon");
-              }
             }
             else
             {
@@ -2650,7 +2743,7 @@ void wallet2::update_pool_state(bool refreshed)
     }
     else
     {
-      LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << res.status);
+      LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << get_rpc_status(res.status));
     }
   }
   MTRACE("update_pool_state end");
@@ -2746,7 +2839,18 @@ bool wallet2::delete_address_book_row(std::size_t row_id) {
 }
 
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
+std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create_output_tracker_cache() const
+{
+  std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> cache{new std::map<std::pair<uint64_t, uint64_t>, size_t>()};
+  for (size_t i = 0; i < m_transfers.size(); ++i)
+  {
+    const transfer_details &td = m_transfers[i];
+    (*cache)[std::make_pair(td.is_rct() ? 0 : td.amount(), td.m_global_output_index)] = i;
+  }
+  return cache;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool)
 {
   if(m_light_wallet) {
 
@@ -2792,6 +2896,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   std::vector<cryptonote::block_complete_entry> blocks;
   std::vector<parsed_block> parsed_blocks;
   bool refreshed = false;
+  std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> output_tracker_cache;
 
   // pull the first set of blocks
   get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
@@ -2826,13 +2931,16 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   bool first = true;
   while(m_run.load(std::memory_order_relaxed))
   {
+    uint64_t next_blocks_start_height;
+    std::vector<cryptonote::block_complete_entry> next_blocks;
+    std::vector<parsed_block> next_parsed_blocks;
+    bool error;
     try
     {
       // pull the next set of blocks while we're processing the current one
-      uint64_t next_blocks_start_height;
-      std::vector<cryptonote::block_complete_entry> next_blocks;
-      std::vector<parsed_block> next_parsed_blocks;
-      bool error = false;
+      error = false;
+      next_blocks.clear();
+      next_parsed_blocks.clear();
       added_blocks = 0;
       if (!first && blocks.empty())
       {
@@ -2845,7 +2953,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       {
         try
         {
-          process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks);
+          process_parsed_blocks(blocks_start_height, blocks, parsed_blocks, added_blocks, output_tracker_cache.get());
         }
         catch (const tools::error::out_of_hashchain_bounds_error&)
         {
@@ -2870,6 +2978,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           start_height = stop_height;
           throw std::runtime_error(""); // loop again
         }
+        catch (const std::exception &e)
+        {
+          MERROR("Error parsing blocks: " << e.what());
+          error = true;
+        }
         blocks_fetched += added_blocks;
       }
       waiter.wait(&tpool);
@@ -2887,6 +3000,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       {
         throw std::runtime_error("proxy exception in refresh thread");
       }
+
+      // if we've got at least 10 blocks to refresh, assume we're starting
+      // a long refresh, and setup a tracking output cache if we need to
+      if (m_track_uses && !output_tracker_cache && next_blocks.size() >= 10)
+        output_tracker_cache = create_output_tracker_cache();
 
       // switch to the new blocks from the daemon
       blocks_start_height = next_blocks_start_height;
@@ -2922,7 +3040,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   try
   {
     // If stop() is called we don't need to check pending transactions
-    if(m_run.load(std::memory_order_relaxed))
+    if (check_pool && m_run.load(std::memory_order_relaxed))
       update_pool_state(refreshed);
   }
   catch (...)
@@ -3260,11 +3378,17 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value2.SetInt(m_ignore_fractional_outputs ? 1 : 0);
   json.AddMember("ignore_fractional_outputs", value2, json.GetAllocator());
 
+  value2.SetInt(m_track_uses ? 1 : 0);
+  json.AddMember("track_uses", value2, json.GetAllocator());
+
   value2.SetUint(m_subaddress_lookahead_major);
   json.AddMember("subaddress_lookahead_major", value2, json.GetAllocator());
 
   value2.SetUint(m_subaddress_lookahead_minor);
   json.AddMember("subaddress_lookahead_minor", value2, json.GetAllocator());
+
+  value2.SetInt(m_original_keys_available ? 1 : 0);
+  json.AddMember("original_keys_available", value2, json.GetAllocator());
 
   value2.SetUint(1);
   json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
@@ -3275,6 +3399,18 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
   value.SetString(m_device_derivation_path.c_str(), m_device_derivation_path.size());
   json.AddMember("device_derivation_path", value, json.GetAllocator());
 
+  std::string original_address;
+  std::string original_view_secret_key;
+  if (m_original_keys_available)
+  {  
+    original_address = get_account_address_as_str(m_nettype, false, m_original_address);
+    value.SetString(original_address.c_str(), original_address.length());
+    json.AddMember("original_address", value, json.GetAllocator());
+    original_view_secret_key = epee::string_tools::pod_to_hex(m_original_view_secret_key);
+    value.SetString(original_view_secret_key.c_str(), original_view_secret_key.length());
+    json.AddMember("original_view_secret_key", value, json.GetAllocator());
+  }
+  
   // Serialize the JSON object
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -3391,8 +3527,10 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_key_reuse_mitigation2 = true;
     m_segregation_height = 0;
     m_ignore_fractional_outputs = true;
+    m_track_uses = false;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
+    m_original_keys_available = false;
     m_device_name = "";
     m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
@@ -3542,6 +3680,8 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
     m_segregation_height = field_segregation_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ignore_fractional_outputs, int, Int, false, true);
     m_ignore_fractional_outputs = field_ignore_fractional_outputs;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, track_uses, int, Int, false, false);
+    m_track_uses = field_track_uses;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_major, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MAJOR);
     m_subaddress_lookahead_major = field_subaddress_lookahead_major;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, subaddress_lookahead_minor, uint32_t, Uint, false, SUBADDRESS_LOOKAHEAD_MINOR);
@@ -3565,6 +3705,35 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_derivation_path, std::string, String, false, std::string());
     m_device_derivation_path = field_device_derivation_path;
+    
+    if (json.HasMember("original_keys_available"))
+    {
+      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_keys_available, int, Int, false, false);
+      m_original_keys_available = field_original_keys_available;
+      if (m_original_keys_available)
+      {
+        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_address, std::string, String, true, std::string());
+        address_parse_info info;
+        bool ok = get_account_address_from_str(info, m_nettype, field_original_address);
+        if (!ok)
+        {
+          LOG_ERROR("Failed to parse original_address from JSON");
+          return false;
+        }
+        m_original_address = info.address;
+        GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, original_view_secret_key, std::string, String, true, std::string());
+        ok = epee::string_tools::hex_to_pod(field_original_view_secret_key, m_original_view_secret_key);
+        if (!ok)
+        {
+          LOG_ERROR("Failed to parse original_view_secret_key from JSON");
+          return false;
+        }
+      }
+    }
+    else
+    {
+      m_original_keys_available = false;
+    }
   }
   else
   {
@@ -3891,6 +4060,10 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
+  // Not possible to restore a multisig wallet that is able to activate the MMS
+  // (because the original keys are not (yet) part of the restore info)
+  m_original_keys_available = false;
+
   create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
   setup_new_blockchain();
 
@@ -3928,6 +4101,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -4016,6 +4190,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -4056,6 +4231,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   m_key_device_type = hw::device::device_type::SOFTWARE;
   setup_keys(password);
 
@@ -4097,6 +4273,7 @@ void wallet2::restore(const std::string& wallet_, const epee::wipeable_string& p
   m_multisig = false;
   m_multisig_threshold = 0;
   m_multisig_signers.clear();
+  m_original_keys_available = false;
   setup_keys(password);
   m_device_name = device_name;
 
@@ -4208,6 +4385,15 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
       // Need to store middle keys to be able to proceed in case of wallet shutdown.
       m_multisig_derivations = derivations;
     }
+  }
+  
+  if (!m_original_keys_available)
+  {
+    // Save the original i.e. non-multisig keys so the MMS can continue to use them to encrypt and decrypt messages
+    // (making a wallet multisig overwrites those keys, see account_base::make_multisig)
+    m_original_address = m_account.get_keys().m_account_address;
+    m_original_view_secret_key = m_account.get_keys().m_view_secret_key;
+    m_original_keys_available = true;
   }
 
   clear();
@@ -4438,6 +4624,23 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
 
 bool wallet2::finalize_multisig(const epee::wipeable_string &password, const std::unordered_set<crypto::public_key> &pkeys, std::vector<crypto::public_key> signers)
 {
+  bool ready;
+  uint32_t threshold, total;
+  if (!multisig(&ready, &threshold, &total))
+  {
+    MERROR("This is not a multisig wallet");
+    return false;
+  }
+  if (ready)
+  {
+    MERROR("This multisig wallet is already finalized");
+    return false;
+  }
+  if (threshold + 1 != total)
+  {
+    MERROR("finalize_multisig should only be used for N-1/N wallets, use exchange_multisig_keys instead");
+    return false;
+  }
   exchange_multisig_keys(password, pkeys, signers);
   return true;
 }
@@ -4642,8 +4845,8 @@ void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_exists(const std::string& file_path, bool& keys_file_exists, bool& wallet_file_exists)
 {
-  std::string keys_file, wallet_file;
-  do_prepare_file_names(file_path, keys_file, wallet_file);
+  std::string keys_file, wallet_file, mms_file;
+  do_prepare_file_names(file_path, keys_file, wallet_file, mms_file);
 
   boost::system::error_code ignore;
   keys_file_exists = boost::filesystem::exists(keys_file, ignore);
@@ -4697,7 +4900,7 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
 {
-  do_prepare_file_names(file_path, m_keys_file, m_wallet_file);
+  do_prepare_file_names(file_path, m_keys_file, m_wallet_file, m_mms_file);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4890,6 +5093,8 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     MERROR("Failed to save rings, will try again next time");
   }
+  
+  m_message_store.read_from_file(get_multisig_wallet_state(), m_mms_file);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::trim_hashchain()
@@ -4995,6 +5200,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   const std::string old_file = m_wallet_file;
   const std::string old_keys_file = m_keys_file;
   const std::string old_address_file = m_wallet_file + ".address.txt";
+  const std::string old_mms_file = m_mms_file;
 
   // save keys to the new file
   // if we here, main wallet file is saved and we only need to save keys and address files
@@ -5024,6 +5230,14 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     if (!r) {
       LOG_ERROR("error removing file: " << old_address_file);
     }
+    // remove old message store file
+    if (boost::filesystem::exists(old_mms_file))
+    {
+      r = boost::filesystem::remove(old_mms_file);
+      if (!r) {
+        LOG_ERROR("error removing file: " << old_mms_file);
+      }
+    }
   } else {
     // save to new file
 #ifdef WIN32
@@ -5049,6 +5263,14 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     std::error_code e = tools::replace_file(new_file, m_wallet_file);
     THROW_WALLET_EXCEPTION_IF(e, error::file_save_error, m_wallet_file, e);
   }
+  
+  if (m_message_store.get_active())
+  {
+    // While the "m_message_store" object of course always exist, a file for the message
+    // store should only exist if the MMS is really active
+    m_message_store.write_to_file(get_multisig_wallet_state(), m_mms_file);
+  }
+  
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::balance(uint32_t index_major) const
@@ -5218,7 +5440,7 @@ void wallet2::rescan_spent()
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "is_key_image_spent");
     THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "is_key_image_spent");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::is_key_image_spent_error, get_rpc_status(daemon_resp.status));
     THROW_WALLET_EXCEPTION_IF(daemon_resp.spent_status.size() != n_outputs, error::wallet_internal_error,
         "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
         std::to_string(daemon_resp.spent_status.size()) + ", expected " +  std::to_string(n_outputs));
@@ -5315,7 +5537,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
       binary_buf.clear();
       if(!string_tools::parse_hexstr_to_binbuff(entry.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
       {
-        MERROR("Failed to parse hex representation of key image: ") << entry.key_image;
+        MERROR("Failed to parse hex representation of key image: " << entry.key_image);
         break;
       }
 
@@ -5348,7 +5570,7 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height, 
           binary_buf.clear();
           if(!string_tools::parse_hexstr_to_binbuff(contribution.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
           {
-            MERROR("Failed to parse hex representation of key image: ") << contribution.key_image;
+            MERROR("Failed to parse hex representation of key image: " << contribution.key_image);
             break;
           }
 
@@ -5597,7 +5819,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "submit_raw_tx");
     // MyMonero and OpenMonero use different status strings
-    THROW_WALLET_EXCEPTION_IF(ores.status != "OK" && ores.status != "success" , error::tx_rejected, ptx.tx, ores.status, ores.error);
+    THROW_WALLET_EXCEPTION_IF(ores.status != "OK" && ores.status != "success" , error::tx_rejected, ptx.tx, get_rpc_status(ores.status), ores.error);
   }
   else
   {
@@ -5611,7 +5833,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "sendrawtransaction");
     THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
-    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, daemon_send_resp.status, daemon_send_resp.reason);
+    THROW_WALLET_EXCEPTION_IF(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, ptx.tx, get_rpc_status(daemon_send_resp.status), get_text_reason(daemon_send_resp));
     // sanity checks
     for (size_t idx: ptx.selected_transfers)
     {
@@ -5808,6 +6030,13 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << sd.sources[0].outputs.size());
     signed_txes.ptx.push_back(pending_tx());
     tools::wallet2::pending_tx &ptx = signed_txes.ptx.back();
+
+    rct::RCTConfig rct_config = { rct::RangeProofBorromean, 0 };
+    if (sd.v3_use_bulletproofs)
+    {
+      rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
+    }
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
     rct::multisig_out msout;
@@ -5816,8 +6045,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     tx_params.v4_allow_tx_types        = sd.v4_allow_tx_types;
     tx_params.v3_per_output_unlock     = sd.v3_per_output_unlock;
     tx_params.v2_rct                   = sd.v2_use_rct;
-    tx_params.type                     = sd.v3_use_bulletproofs ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, m_multisig ? &msout : NULL, tx_params);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts, sd.extra, ptx.tx, sd.unlock_time, tx_key, additional_tx_keys, rct_config, m_multisig ? &msout : NULL, tx_params);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -5860,6 +6088,61 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     // add tx keys only to ptx
     txs.back().tx_key = tx_key;
     txs.back().additional_tx_keys = additional_tx_keys;
+  }
+
+  // add key image mapping for these txes
+  const account_keys &keys = get_account().get_keys();
+  hw::device &hwdev = m_account.get_device();
+  for (size_t n = 0; n < exported_txs.txes.size(); ++n)
+  {
+    const cryptonote::transaction &tx = signed_txes.ptx[n].tx;
+
+    crypto::key_derivation derivation;
+    std::vector<crypto::key_derivation> additional_derivations;
+
+    // compute public keys from out secret keys
+    crypto::public_key tx_pub_key;
+    crypto::secret_key_to_public_key(txs[n].tx_key, tx_pub_key);
+    std::vector<crypto::public_key> additional_tx_pub_keys;
+    for (const crypto::secret_key &skey: txs[n].additional_tx_keys)
+    {
+      additional_tx_pub_keys.resize(additional_tx_pub_keys.size() + 1);
+      crypto::secret_key_to_public_key(skey, additional_tx_pub_keys.back());
+    }
+
+    // compute derivations
+    hwdev.set_mode(hw::device::TRANSACTION_PARSE);
+    if (!hwdev.generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation))
+    {
+      MWARNING("Failed to generate key derivation from tx pubkey in " << cryptonote::get_transaction_hash(tx) << ", skipping");
+      static_assert(sizeof(derivation) == sizeof(rct::key), "Mismatched sizes of key_derivation and rct::key");
+      memcpy(&derivation, rct::identity().bytes, sizeof(derivation));
+    }
+    for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
+    {
+      additional_derivations.push_back({});
+      if (!hwdev.generate_key_derivation(additional_tx_pub_keys[i], keys.m_view_secret_key, additional_derivations.back()))
+      {
+        MWARNING("Failed to generate key derivation from additional tx pubkey in " << cryptonote::get_transaction_hash(tx) << ", skipping");
+        memcpy(&additional_derivations.back(), rct::identity().bytes, sizeof(crypto::key_derivation));
+      }
+    }
+
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+      if (tx.vout[i].target.type() != typeid(cryptonote::txout_to_key))
+        continue;
+      const cryptonote::txout_to_key &out = boost::get<cryptonote::txout_to_key>(tx.vout[i].target);
+      // if this output is back to this wallet, we can calculate its key image already
+      if (!is_out_to_acc_precomp(m_subaddresses, out.key, derivation, additional_derivations, i, hwdev))
+        continue;
+      crypto::key_image ki;
+      cryptonote::keypair in_ephemeral;
+      if (generate_key_image_helper(keys, m_subaddresses, out.key, tx_pub_key, additional_tx_pub_keys, i, in_ephemeral, ki, hwdev))
+        signed_txes.tx_key_images[out.key] = ki;
+      else
+        MERROR("Failed to calculate key image");
+    }
   }
 
   // add key images
@@ -6023,6 +6306,10 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   // import key images
   bool r = import_key_images(signed_txs.key_images);
   if (!r) return false;
+
+  // remember key images for this tx, for when we get those txes from the blockchain
+  for (const auto &e: signed_txs.tx_key_images)
+    m_cold_key_images.insert(e);
 
   ptx = signed_txs.ptx;
 
@@ -6221,13 +6508,19 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
     rct::multisig_out msout = ptx.multisig_sigs.front().msout;
     auto sources = sd.sources;
 
+    rct::RCTConfig rct_config = { rct::RangeProofBorromean, 0 };
+    if (sd.v3_use_bulletproofs)
+    {
+      rct_config.range_proof_type = rct::RangeProofPaddedBulletproof;
+      rct_config.bp_version = use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1;
+    }
+
     loki_construct_tx_params tx_params = {};
     tx_params.v4_allow_tx_types        = sd.v4_allow_tx_types;
     tx_params.v3_per_output_unlock     = sd.v3_per_output_unlock;
     tx_params.v2_rct                   = sd.v2_use_rct;
-    tx_params.type                     = sd.v3_use_bulletproofs ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean;
+    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, rct_config, &msout, true /*shuffle_outs*/, tx_params);
 
-    bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources, sd.splitted_dsts, ptx.change_dts, sd.extra, tx, sd.unlock_time, ptx.tx_key, ptx.additional_tx_keys, &msout, true /*shuffle_outs*/, tx_params);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, sd.unlock_time, m_nettype);
 
     THROW_WALLET_EXCEPTION_IF(get_transaction_prefix_hash (tx) != get_transaction_prefix_hash(ptx.tx),
@@ -6468,7 +6761,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "getblockheadersrange");
       THROW_WALLET_EXCEPTION_IF(getbh_res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblockheadersrange");
-      THROW_WALLET_EXCEPTION_IF(getbh_res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, getbh_res.status);
+      THROW_WALLET_EXCEPTION_IF(getbh_res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, get_rpc_status(getbh_res.status));
       if (getbh_res.headers.size() != N)
       {
         MERROR("Bad blockheaders size");
@@ -6640,11 +6933,12 @@ bool wallet2::find_and_save_rings(bool force)
   MDEBUG("Found " << std::to_string(txs_hashes.size()) << " transactions");
 
   // get those transactions from the daemon
+  auto it = txs_hashes.begin();
   static const size_t SLICE_SIZE = 200;
   for (size_t slice = 0; slice < txs_hashes.size(); slice += SLICE_SIZE)
   {
     req.decode_as_json = false;
-    req.prune = false;
+    req.prune = true;
     req.txs_hashes.clear();
     size_t ntxes = slice + SLICE_SIZE > txs_hashes.size() ? txs_hashes.size() - slice : SLICE_SIZE;
     for (size_t s = slice; s < slice + ntxes; ++s)
@@ -6663,19 +6957,15 @@ bool wallet2::find_and_save_rings(bool force)
 
     MDEBUG("Scanning " << res.txs.size() << " transactions");
     THROW_WALLET_EXCEPTION_IF(slice + res.txs.size() > txs_hashes.size(), error::wallet_internal_error, "Unexpected tx array size");
-    auto it = req.txs_hashes.begin();
     for (size_t i = 0; i < res.txs.size(); ++i, ++it)
     {
     const auto &tx_info = res.txs[i];
-    THROW_WALLET_EXCEPTION_IF(tx_info.tx_hash != epee::string_tools::pod_to_hex(txs_hashes[slice + i]), error::wallet_internal_error, "Wrong txid received");
-    THROW_WALLET_EXCEPTION_IF(tx_info.tx_hash != *it, error::wallet_internal_error, "Wrong txid received");
-    cryptonote::blobdata bd;
-    THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(tx_info.as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
-    cryptonote::transaction tx;
-    crypto::hash tx_hash, tx_prefix_hash;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-    THROW_WALLET_EXCEPTION_IF(epee::string_tools::pod_to_hex(tx_hash) != tx_info.tx_hash, error::wallet_internal_error, "txid mismatch");
-    THROW_WALLET_EXCEPTION_IF(!add_rings(get_ringdb_key(), tx), error::wallet_internal_error, "Failed to save ring");
+      cryptonote::transaction tx;
+      crypto::hash tx_hash;
+      THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(tx_info, tx, tx_hash), error::wallet_internal_error,
+          "Failed to get transaction from daemon");
+      THROW_WALLET_EXCEPTION_IF(!(tx_hash == *it), error::wallet_internal_error, "Wrong txid received");
+      THROW_WALLET_EXCEPTION_IF(!add_rings(get_ringdb_key(), tx), error::wallet_internal_error, "Failed to save ring");
     }
   }
 
@@ -7113,7 +7403,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
       THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_histogram");
-      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, resp_t.status);
+      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_histogram_error, get_rpc_status(resp_t.status));
     }
 
     // if we want to segregate fake outs pre or post fork, get distribution
@@ -7136,7 +7426,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       m_daemon_rpc_mutex.unlock();
       THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "transfer_selected");
       THROW_WALLET_EXCEPTION_IF(resp_t.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_output_distribution");
-      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_output_distribution, resp_t.status);
+      THROW_WALLET_EXCEPTION_IF(resp_t.status != CORE_RPC_STATUS_OK, error::get_output_distribution, get_rpc_status(resp_t.status));
 
       // check we got all data
       for(size_t idx: selected_transfers)
@@ -7535,7 +7825,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_outs.bin");
     THROW_WALLET_EXCEPTION_IF(daemon_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_outs.bin");
-    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_outs_error, daemon_resp.status);
+    THROW_WALLET_EXCEPTION_IF(daemon_resp.status != CORE_RPC_STATUS_OK, error::get_outs_error, get_rpc_status(daemon_resp.status));
     THROW_WALLET_EXCEPTION_IF(daemon_resp.outs.size() != req.outputs.size(), error::wallet_internal_error,
       "daemon returned wrong response for get_outs.bin, wrong amounts count = " +
       std::to_string(daemon_resp.outs.size()) + ", expected " +  std::to_string(req.outputs.size()));
@@ -7794,12 +8084,11 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   // TODO(loki): This should be replaced with a NodeRPCProxy function to get the
   // current hardfork version
   loki_construct_tx_params tx_params = {};
-  tx_params.v4_allow_tx_types    = use_fork_rules(network_version_11_swarms, 5);
-  tx_params.v3_per_output_unlock = use_fork_rules(network_version_9_service_nodes, 5);
-  tx_params.v2_rct               = false;
-  tx_params.type                 = rct::RangeProofBorromean;
+  tx_params.v4_allow_tx_types        = use_fork_rules(network_version_11_swarms, 5);
+  tx_params.v3_per_output_unlock     = use_fork_rules(network_version_9_service_nodes, 5);
+  tx_params.v2_rct                   = false;
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, {}, m_multisig ? &msout : NULL, tx_params);
 
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, m_multisig ? &msout : NULL, tx_params);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -7849,7 +8138,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
 
 void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry> dsts, const std::vector<size_t>& selected_transfers, size_t fake_outputs_count,
   std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs,
-  uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, rct::RangeProofType range_proof_type, bool is_staking_tx)
+  uint64_t unlock_time, uint64_t fee, const std::vector<uint8_t>& extra, cryptonote::transaction& tx, pending_tx &ptx, const rct::RCTConfig &rct_config, bool is_staking_tx)
 {
   using namespace cryptonote;
   // throw if attempting a transaction with no destinations
@@ -8039,9 +8328,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   tx_params.v3_per_output_unlock = use_fork_rules(network_version_9_service_nodes, 5);
   tx_params.v3_is_staking_tx     = is_staking_tx;
   tx_params.v2_rct               = true;
-  tx_params.type                 = use_fork_rules(network_version_10_bulletproofs) ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean;
 
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, m_multisig ? &msout : NULL, tx_params);
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts, extra, tx, unlock_time, tx_key, additional_tx_keys, rct_config, m_multisig ? &msout : NULL, tx_params);
 
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, unlock_time, m_nettype);
@@ -8088,7 +8376,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
         cryptonote::transaction ms_tx;
         auto sources_copy_copy = sources_copy;
 
-        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, &msout, /*shuffle_outs*/ true, tx_params);
+        bool r = cryptonote::construct_tx_with_tx_key(m_account.get_keys(), m_subaddresses, sources_copy_copy, splitted_dsts, change_dts, extra, ms_tx, unlock_time,tx_key, additional_tx_keys, rct_config, &msout, /*shuffle_outs*/ true, tx_params);
         LOG_PRINT_L2("constructed tx, r="<<r);
         THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, unlock_time, m_nettype);
         THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -8396,7 +8684,7 @@ void wallet2::light_wallet_get_unspent_outs()
     
     td.m_key_image = unspent_key_image;
     td.m_key_image_known = !m_watch_only && !m_multisig;
-    td.m_key_image_requested = false;
+    td.m_key_image_request = false;
     td.m_key_image_partial = m_multisig;
     td.m_amount = o.amount;
     td.m_pk_index = 0;
@@ -8769,15 +9057,16 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
 
     TX() : weight(0), needed_fee(0) {}
 
-    void add(const account_public_address &addr, bool is_subaddress, uint64_t amount, unsigned int original_output_index, bool merge_destinations) {
+    void add(const cryptonote::tx_destination_entry &de, uint64_t amount, unsigned int original_output_index, bool merge_destinations) {
       if (merge_destinations)
       {
         std::vector<cryptonote::tx_destination_entry>::iterator i;
-        i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &addr, sizeof(addr)); });
+        i = std::find_if(dsts.begin(), dsts.end(), [&](const cryptonote::tx_destination_entry &d) { return !memcmp (&d.addr, &de.addr, sizeof(de.addr)); });
         if (i == dsts.end())
         {
-          dsts.push_back(tx_destination_entry(0,addr,is_subaddress));
+          dsts.push_back(de);
           i = dsts.end() - 1;
+          i->amount = 0;
         }
         i->amount += amount;
       }
@@ -8786,8 +9075,11 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         THROW_WALLET_EXCEPTION_IF(original_output_index > dsts.size(), error::wallet_internal_error,
             std::string("original_output_index too large: ") + std::to_string(original_output_index) + " > " + std::to_string(dsts.size()));
         if (original_output_index == dsts.size())
-          dsts.push_back(tx_destination_entry(0,addr,is_subaddress));
-        THROW_WALLET_EXCEPTION_IF(memcmp(&dsts[original_output_index].addr, &addr, sizeof(addr)), error::wallet_internal_error, "Mismatched destination address");
+        {
+          dsts.push_back(de);
+          dsts.back().amount = 0;
+        }
+        THROW_WALLET_EXCEPTION_IF(memcmp(&dsts[original_output_index].addr, &de.addr, sizeof(de.addr)), error::wallet_internal_error, "Mismatched destination address");
         dsts[original_output_index].amount += amount;
       }
     }
@@ -8799,7 +9091,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
   const bool use_rct = true;
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
-  const rct::RangeProofType range_proof_type = bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean;
+  const rct::RCTConfig rct_config {
+    bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0
+  };
 
   const uint64_t base_fee  = get_base_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
@@ -9057,7 +9352,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         // we can fully pay that destination
         LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, dsts[0].is_subaddress, dsts[0].amount, original_output_index, m_merge_destinations);
+        tx.add(dsts[0], dsts[0].amount, original_output_index, m_merge_destinations);
         available_amount -= dsts[0].amount;
         dsts[0].amount = 0;
         pop_index(dsts, 0);
@@ -9068,7 +9363,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         // we can partially fill that destination
         LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
-        tx.add(dsts[0].addr, dsts[0].is_subaddress, available_amount, original_output_index, m_merge_destinations);
+        tx.add(dsts[0], available_amount, original_output_index, m_merge_destinations);
         dsts[0].amount -= available_amount;
         available_amount = 0;
       }
@@ -9114,7 +9409,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         tx.selected_transfers.size() << " inputs");
       if (use_rct)
         transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
-          test_tx, test_ptx, range_proof_type, is_staking_tx);
+          test_tx, test_ptx, rct_config, is_staking_tx);
       else
         transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
           detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
@@ -9157,7 +9452,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         while (needed_fee > test_ptx.fee) {
           if (use_rct)
             transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
-              test_tx, test_ptx, range_proof_type, is_staking_tx);
+              test_tx, test_ptx, rct_config, is_staking_tx);
           else
             transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
               detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
@@ -9230,7 +9525,7 @@ skip_tx:
                             extra,                      /* const std::vector<uint8_t>& extra, */
                             test_tx,                    /* OUT   cryptonote::transaction& tx, */
                             test_ptx,                   /* OUT   cryptonote::transaction& tx, */
-                            range_proof_type,
+                            rct_config,
                             is_staking_tx);
     } else {
       transfer_selected(tx.dsts,
@@ -9371,7 +9666,10 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE);
   const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
-  const rct::RangeProofType range_proof_type = bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean;
+  const rct::RCTConfig rct_config {
+    bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean,
+    bulletproof ? (use_fork_rules(HF_VERSION_SMALLER_BP, -10) ? 2 : 1) : 0,
+  };
   const uint64_t base_fee  = get_base_fee();
   const uint64_t fee_multiplier = get_fee_multiplier(priority, get_fee_algorithm());
   const uint64_t fee_quantization_mask = get_fee_quantization_mask();
@@ -9447,7 +9745,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
         tx.selected_transfers.size() << " outputs");
       if (use_rct)
         transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
-          test_tx, test_ptx, range_proof_type, is_staking_tx);
+          test_tx, test_ptx, rct_config, is_staking_tx);
       else
         transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
           detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
@@ -9484,7 +9782,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
         }
         if (use_rct)
           transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra, 
-            test_tx, test_ptx, range_proof_type, is_staking_tx);
+            test_tx, test_ptx, rct_config, is_staking_tx);
         else
           transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, outs, unlock_time, needed_fee, extra,
             detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
@@ -9522,7 +9820,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     cryptonote::transaction test_tx;
     pending_tx test_ptx;
     if (use_rct) {
-      transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, tx.outs, unlock_time, tx.needed_fee, extra, test_tx, test_ptx, range_proof_type, is_staking_tx);
+      transfer_selected_rct(tx.dsts, tx.selected_transfers, fake_outs_count, tx.outs, unlock_time, tx.needed_fee, extra, test_tx, test_ptx, rct_config, is_staking_tx);
     } else {
       transfer_selected(tx.dsts, tx.selected_transfers, fake_outs_count, tx.outs, unlock_time, tx.needed_fee, extra,
         detail::digit_split_strategy, tx_dust_policy(::config::DEFAULT_DUST_THRESHOLD), test_tx, test_ptx);
@@ -9626,7 +9924,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks) const
   result = m_node_rpc_proxy.get_earliest_height(version, earliest_height);
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 
-  bool close_enough = height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
+  bool close_enough = height >= earliest_height - early_blocks; // start using the rules that many blocks beforehand
   if (early_blocks > 0 && (earliest_height - early_blocks) > earliest_height)
   {
     close_enough = true;
@@ -9823,7 +10121,7 @@ void wallet2::set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
   bool r;
   {
@@ -9836,11 +10134,10 @@ void wallet2::set_tx_key(const crypto::hash &txid, const crypto::secret_key &tx_
   THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error,
     "daemon returned wrong response for gettransactions, wrong txs count = " +
     std::to_string(res.txs.size()) + ", expected 1");
-  cryptonote::blobdata bd;
-  THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
   cryptonote::transaction tx;
-  crypto::hash tx_hash, tx_prefix_hash;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
+  crypto::hash tx_hash;
+  THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error,
+      "Failed to get transaction from daemon");
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "txid mismatch");
   std::vector<tx_extra_field> tx_extra_fields;
   THROW_WALLET_EXCEPTION_IF(!parse_tx_extra(tx.extra, tx_extra_fields), error::wallet_internal_error, "Transaction extra has unsupported format");
@@ -9874,7 +10171,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
   bool r;
   {
@@ -9887,12 +10184,10 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
   THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error,
     "daemon returned wrong response for gettransactions, wrong txs count = " +
     std::to_string(res.txs.size()) + ", expected 1");
-  cryptonote::blobdata bd;
-  THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
+
   cryptonote::transaction tx;
-  crypto::hash tx_hash, tx_prefix_hash;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "txid mismatch");
+  crypto::hash tx_hash;
+  THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error, "Failed to get tx from daemon");
 
   std::vector<std::vector<crypto::signature>> signatures;
 
@@ -9994,7 +10289,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
   bool r;
   {
@@ -10007,12 +10302,10 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error,
     "daemon returned wrong response for gettransactions, wrong txs count = " +
     std::to_string(res.txs.size()) + ", expected 1");
-  cryptonote::blobdata bd;
-  THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(res.txs[0].as_hex, bd), error::wallet_internal_error, "failed to parse tx from hexstr");
+
   cryptonote::transaction tx;
-  crypto::hash tx_hash, tx_prefix_hash;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error, "failed to parse tx from blob");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "txid mismatch");
+  crypto::hash tx_hash;
+  THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error, "failed to get tx from daemon");
 
   // check signature size
   size_t num_sigs = 0;
@@ -10119,24 +10412,30 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
   COMMAND_RPC_GET_TRANSACTIONS::response res;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   m_daemon_rpc_mutex.lock();
   bool ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, m_http_client);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
     error::wallet_internal_error, "Failed to get transaction from daemon");
 
-  cryptonote::blobdata tx_data;
-  if (res.txs.size() == 1)
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-  else
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
-  crypto::hash tx_hash, tx_prefix_hash;
   cryptonote::transaction tx;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
-    "Failed to validate transaction from daemon");
+  crypto::hash tx_hash;
+  if (res.txs.size() == 1)
+  {
+    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+  }
+  else
+  {
+    cryptonote::blobdata tx_data;
+    crypto::hash tx_prefix_hash;
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+        error::wallet_internal_error, "Failed to validate transaction from daemon");
+  }
+
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
     "Failed to get the right transaction from daemon");
   THROW_WALLET_EXCEPTION_IF(!additional_derivations.empty() && additional_derivations.size() != tx.vout.size(), error::wallet_internal_error,
@@ -10175,7 +10474,7 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
         crypto::secret_key scalar1;
         hwdev.derivation_to_scalar(found_derivation, n, scalar1);
         rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-        hwdev.ecdhDecode(ecdh_info, rct::sk2rct(scalar1));
+        hwdev.ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2);
         const rct::key C = tx.rct_signatures.outPk[n].mask;
         rct::key Ctmp;
         THROW_WALLET_EXCEPTION_IF(sc_check(ecdh_info.mask.bytes) != 0, error::wallet_internal_error, "Bad ECDH input mask");
@@ -10259,24 +10558,30 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
     COMMAND_RPC_GET_TRANSACTIONS::response res;
     req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
     req.decode_as_json = false;
-    req.prune = false;
+    req.prune = true;
     m_daemon_rpc_mutex.lock();
     bool ok = net_utils::invoke_http_json("/gettransactions", req, res, m_http_client);
     m_daemon_rpc_mutex.unlock();
     THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
       error::wallet_internal_error, "Failed to get transaction from daemon");
 
-    cryptonote::blobdata tx_data;
-    if (res.txs.size() == 1)
-      ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-    else
-      ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
-    crypto::hash tx_hash, tx_prefix_hash;
     cryptonote::transaction tx;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
-      "Failed to validate transaction from daemon");
+    crypto::hash tx_hash;
+    if (res.txs.size() == 1)
+    {
+      ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+      THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+    }
+    else
+    {
+      cryptonote::blobdata tx_data;
+      crypto::hash tx_prefix_hash;
+      ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+      THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+      THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+          error::wallet_internal_error, "Failed to validate transaction from daemon");
+    }
+
     THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
     crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
@@ -10371,24 +10676,30 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
   COMMAND_RPC_GET_TRANSACTIONS::response res;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
   req.decode_as_json = false;
-  req.prune = false;
+  req.prune = true;
   m_daemon_rpc_mutex.lock();
   bool ok = net_utils::invoke_http_json("/gettransactions", req, res, m_http_client);
   m_daemon_rpc_mutex.unlock();
   THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
     error::wallet_internal_error, "Failed to get transaction from daemon");
 
-  cryptonote::blobdata tx_data;
-  if (res.txs.size() == 1)
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs.front().as_hex, tx_data);
-  else
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
-  crypto::hash tx_hash, tx_prefix_hash;
   cryptonote::transaction tx;
-  THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
-    "Failed to validate transaction from daemon");
+  crypto::hash tx_hash;
+  if (res.txs.size() == 1)
+  {
+    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+  }
+  else
+  {
+    cryptonote::blobdata tx_data;
+    crypto::hash tx_prefix_hash;
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
+        error::wallet_internal_error, "Failed to validate transaction from daemon");
+  }
+
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
   crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
@@ -10607,7 +10918,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   for (size_t i = 0; i < proofs.size(); ++i)
     gettx_req.txs_hashes.push_back(epee::string_tools::pod_to_hex(proofs[i].txid));
   gettx_req.decode_as_json = false;
-  gettx_req.prune = false;
+  gettx_req.prune = true;
   m_daemon_rpc_mutex.lock();
   bool ok = net_utils::invoke_http_json("/gettransactions", gettx_req, gettx_res, m_http_client);
   m_daemon_rpc_mutex.unlock();
@@ -10631,14 +10942,11 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
     const reserve_proof_entry& proof = proofs[i];
     THROW_WALLET_EXCEPTION_IF(gettx_res.txs[i].in_pool, error::wallet_internal_error, "Tx is unconfirmed");
 
-    cryptonote::blobdata tx_data;
-    ok = string_tools::parse_hexstr_to_binbuff(gettx_res.txs[i].as_hex, tx_data);
+    cryptonote::transaction tx;
+    crypto::hash tx_hash;
+    ok = get_pruned_tx(gettx_res.txs[i], tx, tx_hash);
     THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
 
-    crypto::hash tx_hash, tx_prefix_hash;
-    cryptonote::transaction tx;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash), error::wallet_internal_error,
-      "Failed to validate transaction from daemon");
     THROW_WALLET_EXCEPTION_IF(tx_hash != proof.txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
     THROW_WALLET_EXCEPTION_IF(proof.index_in_tx >= tx.vout.size(), error::wallet_internal_error, "index_in_tx is out of bound");
@@ -10680,7 +10988,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
       crypto::secret_key shared_secret;
       crypto::derivation_to_scalar(derivation, proof.index_in_tx, shared_secret);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[proof.index_in_tx];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(shared_secret));
+      rct::ecdhDecode(ecdh_info, rct::sk2rct(shared_secret), tx.rct_signatures.type == rct::RCTTypeBulletproof2);
       amount = rct::h2d(ecdh_info.amount);
     }
     total += amount;
@@ -10719,7 +11027,10 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err) const
   boost::optional<std::string> result = m_node_rpc_proxy.get_height(height);
   if (result)
   {
-    err = *result;
+    if (m_trusted_daemon)
+      err = *result;
+    else
+      err = "daemon error";
     return 0;
   }
 
@@ -10734,7 +11045,10 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
   const auto result = m_node_rpc_proxy.get_target_height(target_height);
   if (result && *result != CORE_RPC_STATUS_OK)
   {
-    err= *result;
+    if (m_trusted_daemon)
+      err = *result;
+    else
+      err = "daemon error";
     return 0;
   }
   return target_height;
@@ -11003,7 +11317,7 @@ std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> 
 
   if (requested_only)
   {
-    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_requested)
+    while (offset < m_transfers.size() && !m_transfers[offset].m_key_image_request)
       ++offset;
   }
 
@@ -11011,9 +11325,6 @@ std::pair<size_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> 
   for (size_t n = offset; n < m_transfers.size(); ++n)
   {
     const transfer_details &td = m_transfers[n];
-
-    crypto::hash hash;
-    crypto::cn_fast_hash(&td.m_key_image, sizeof(td.m_key_image), hash);
 
     // get ephemeral public key
     const cryptonote::tx_out &out = td.m_tx.vout[td.m_internal_output_index];
@@ -11166,7 +11477,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     m_transfers[n + offset].m_key_image = signed_key_images[n].first;
     m_key_images[m_transfers[n + offset].m_key_image] = n + offset;
     m_transfers[n + offset].m_key_image_known = true;
-    m_transfers[n + offset].m_key_image_requested = false;
+    m_transfers[n + offset].m_key_image_request = false;
     m_transfers[n + offset].m_key_image_partial = false;
   }
   PERF_TIMER_STOP(import_key_images_B);
@@ -11238,7 +11549,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     COMMAND_RPC_GET_TRANSACTIONS::request gettxs_req;
     COMMAND_RPC_GET_TRANSACTIONS::response gettxs_res;
     gettxs_req.decode_as_json = false;
-    gettxs_req.prune = false;
+    gettxs_req.prune = true;
     gettxs_req.txs_hashes.reserve(spent_txids.size());
     for (const crypto::hash& spent_txid : spent_txids)
       gettxs_req.txs_hashes.push_back(epee::string_tools::pod_to_hex(spent_txid));
@@ -11258,17 +11569,16 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     PERF_TIMER_START(import_key_images_F);
     auto spent_txid = spent_txids.begin();
     hw::device &hwdev =  m_account.get_device();
+    auto it = spent_txids.begin();
     for (const COMMAND_RPC_GET_TRANSACTIONS::entry& e : gettxs_res.txs)
     {
       THROW_WALLET_EXCEPTION_IF(e.in_pool, error::wallet_internal_error, "spent tx isn't supposed to be in txpool");
 
-      // parse tx
-      cryptonote::blobdata bd;
-      THROW_WALLET_EXCEPTION_IF(!epee::string_tools::parse_hexstr_to_binbuff(e.as_hex, bd), error::wallet_internal_error, "parse_hexstr_to_binbuff failed");
       cryptonote::transaction spent_tx;
-      crypto::hash spnet_txid_parsed, spent_txid_prefix;
-      THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(bd, spent_tx, spnet_txid_parsed, spent_txid_prefix), error::wallet_internal_error, "parse_and_validate_tx_from_blob failed");
-      THROW_WALLET_EXCEPTION_IF(*spent_txid != spnet_txid_parsed, error::wallet_internal_error, "parsed txid mismatch");
+      crypto::hash spnet_txid_parsed;
+      THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(e, spent_tx, spnet_txid_parsed), error::wallet_internal_error, "Failed to get tx from daemon");
+      THROW_WALLET_EXCEPTION_IF(!(spnet_txid_parsed == *it), error::wallet_internal_error, "parsed txid mismatch");
+      ++it;
 
       // get received (change) amount
       uint64_t tx_money_got_in_outs = 0;
@@ -11385,7 +11695,7 @@ bool wallet2::import_key_images(std::vector<crypto::key_image> key_images)
     td.m_key_image = key_images[i];
     m_key_images[m_transfers[i].m_key_image] = i;
     td.m_key_image_known = true;
-    td.m_key_image_requested = false;
+    td.m_key_image_request = false;
     td.m_key_image_partial = false;
     m_pub_keys[m_transfers[i].get_public_key()] = i;
   }
@@ -11457,7 +11767,7 @@ std::pair<size_t, std::vector<tools::wallet2::transfer_details>> wallet2::export
   std::vector<tools::wallet2::transfer_details> outs;
 
   size_t offset = 0;
-  while (offset < m_transfers.size() && m_transfers[offset].m_key_image_known)
+  while (offset < m_transfers.size() && (m_transfers[offset].m_key_image_known && !m_transfers[offset].m_key_image_request))
     ++offset;
 
   outs.reserve(m_transfers.size() - offset);
@@ -11501,7 +11811,7 @@ size_t wallet2::import_outputs(const std::pair<size_t, std::vector<tools::wallet
   const size_t original_size = m_transfers.size();
   m_transfers.resize(offset + outputs.second.size());
   for (size_t i = 0; i < offset; ++i)
-    m_transfers[i].m_key_image_requested = false;
+    m_transfers[i].m_key_image_request = false;
   for (size_t i = 0; i < outputs.second.size(); ++i)
   {
     transfer_details td = outputs.second[i];
@@ -11542,7 +11852,7 @@ process:
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
     expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
-    td.m_key_image_requested = true;
+    td.m_key_image_request = true;
     td.m_key_image_partial = false;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
@@ -11788,7 +12098,7 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   m_key_images.erase(td.m_key_image);
   td.m_key_image = get_multisig_composite_key_image(n);
   td.m_key_image_known = true;
-  td.m_key_image_requested = false;
+  td.m_key_image_request = false;
   td.m_key_image_partial = false;
   td.m_multisig_k = multisig_k[n];
   m_key_images[td.m_key_image] = n;
@@ -12172,7 +12482,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
       else if (res.status == CORE_RPC_STATUS_BUSY)
         oss << "daemon is busy";
       else
-        oss << res.status;
+        oss << get_rpc_status(res.status);
       throw std::runtime_error(oss.str());
     }
     cryptonote::block blk_min, blk_mid, blk_max;
@@ -12386,6 +12696,29 @@ bool wallet2::generate_signature_for_request_stake_unlock(crypto::key_image cons
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+mms::multisig_wallet_state wallet2::get_multisig_wallet_state() const
+{
+  mms::multisig_wallet_state state;
+  state.nettype = m_nettype;
+  state.multisig = multisig(&state.multisig_is_ready);
+  state.has_multisig_partial_key_images = has_multisig_partial_key_images();
+  state.multisig_rounds_passed = m_multisig_rounds_passed;
+  state.num_transfer_details = m_transfers.size();
+  if (state.multisig)
+  {
+    THROW_WALLET_EXCEPTION_IF(!m_original_keys_available, error::wallet_internal_error, "MMS use not possible because own original Monero address not available");
+    state.address = m_original_address;
+    state.view_secret_key = m_original_view_secret_key;
+  }
+  else
+  {
+    state.address = m_account.get_keys().m_account_address;
+    state.view_secret_key = m_account.get_keys().m_view_secret_key;
+  }
+  state.mms_file=m_mms_file;
+  return state;
+}
+//----------------------------------------------------------------------------------------------------
 wallet_device_callback * wallet2::get_device_callback()
 {
   if (!m_device_callback){
@@ -12410,4 +12743,27 @@ void wallet2::on_passphrase_request(bool on_device, epee::wipeable_string & pass
   if (0 != m_callback)
     m_callback->on_passphrase_request(on_device, passphrase);
 }
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::get_rpc_status(const std::string &s) const
+{
+  if (m_trusted_daemon)
+    return s;
+  return "<error>";
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::throw_on_rpc_response_error(const boost::optional<std::string> &status, const char *method) const
+{
+  // no error
+  if (!status)
+    return;
+
+  MERROR("RPC error: " << method << ": status " << *status);
+
+  // empty string -> not connection
+  THROW_WALLET_EXCEPTION_IF(status->empty(), tools::error::no_connection_to_daemon, method);
+
+  THROW_WALLET_EXCEPTION_IF(*status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
+  THROW_WALLET_EXCEPTION_IF(*status != CORE_RPC_STATUS_OK, tools::error::wallet_generic_rpc_error, method, m_trusted_daemon ? *status : "daemon error");
+}
+
 }

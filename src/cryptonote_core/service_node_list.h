@@ -191,6 +191,7 @@ namespace service_nodes
   {
   public:
     service_node_list(cryptonote::Blockchain& blockchain);
+    ~service_node_list();
     void block_added(const cryptonote::block& block, const std::vector<cryptonote::transaction>& txs) override;
     void blockchain_detached(uint64_t height) override;
     void register_hooks(service_nodes::quorum_cop &quorum_cop);

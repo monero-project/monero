@@ -242,4 +242,6 @@ namespace tools
 #endif
 
   void closefrom(int fd);
+
+  std::string get_human_readable_timestamp(uint64_t ts);
 }

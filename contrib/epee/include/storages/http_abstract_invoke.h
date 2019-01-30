@@ -97,7 +97,7 @@ namespace epee
         return false;
       }
 
-      return serialization::load_t_from_binary(result_struct, pri->m_body);
+      return serialization::load_t_from_binary(result_struct, epee::strspan<uint8_t>(pri->m_body));
     }
 
     template<class t_request, class t_response, class t_transport>

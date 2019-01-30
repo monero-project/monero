@@ -52,8 +52,8 @@
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "misc_language.h"
 
-#undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "tests.core"
+#undef LOKI_DEFAULT_LOG_CATEGORY
+#define LOKI_DEFAULT_LOG_CATEGORY "tests.core"
 
 #define TESTS_DEFAULT_FEE ((uint64_t)200000000) // 2 * pow(10, 8)
 
@@ -756,7 +756,7 @@ inline bool replay_events_through_core(cryptonote::core& cr, const std::vector<t
   push_core_event_visitor<t_test_class> visitor(cr, events, validator);
   for(size_t i = 1; i < events.size() && r; ++i)
   {
-      if ( i == 155) {
+      if (i == 79) {
           volatile int break_here = 5;
       }
     visitor.event_index(i);
@@ -815,7 +815,6 @@ inline bool do_replay_events(std::vector<test_event_entry>& events)
 
   t_test_class validator;
   bool ret = replay_events_through_core<t_test_class>(c, events, validator);
-  c.deinit();
   return ret;
 }
 //--------------------------------------------------------------------------
@@ -1000,7 +999,9 @@ cryptonote::transaction make_deregistration_tx(const std::vector<test_event_entr
     }
 
 #define GENERATE_AND_PLAY(genclass)                                                                        \
-  if (filter.empty() || boost::regex_match(std::string(#genclass), match, boost::regex(filter)))           \
+  if (list_tests)                                                                                          \
+    std::cout << #genclass << std::endl;                                                                   \
+  else if (filter.empty() || boost::regex_match(std::string(#genclass), match, boost::regex(filter)))      \
   {                                                                                                        \
     std::vector<test_event_entry> events;                                                                  \
     ++tests_count;                                                                                         \

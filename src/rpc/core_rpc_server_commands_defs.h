@@ -87,7 +87,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 2
-#define CORE_RPC_VERSION_MINOR 2
+#define CORE_RPC_VERSION_MINOR 3
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -604,11 +604,13 @@ namespace cryptonote
       std::vector<std::string> txs_hashes;
       bool decode_as_json;
       bool prune;
+      bool split;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs_hashes)
         KV_SERIALIZE(decode_as_json)
         KV_SERIALIZE_OPT(prune, false)
+        KV_SERIALIZE_OPT(split, false)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -616,6 +618,9 @@ namespace cryptonote
     {
       std::string tx_hash;
       std::string as_hex;
+      std::string pruned_as_hex;
+      std::string prunable_as_hex;
+      std::string prunable_hash;
       std::string as_json;
       bool in_pool;
       bool double_spend_seen;
@@ -626,6 +631,9 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(as_hex)
+        KV_SERIALIZE(pruned_as_hex)
+        KV_SERIALIZE(prunable_as_hex)
+        KV_SERIALIZE(prunable_hash)
         KV_SERIALIZE(as_json)
         KV_SERIALIZE(in_pool)
         KV_SERIALIZE(double_spend_seen)
@@ -834,51 +842,15 @@ namespace cryptonote
       std::string status;
       std::string reason;
       bool not_relayed;
-      bool low_mixin;
-      bool double_spend;
-      bool invalid_input;
-      bool invalid_output;
-      bool too_big;
-      bool overspend;
-      bool fee_too_low;
-      bool not_rct;
-      bool invalid_version;
-      bool invalid_type;
-      bool key_image_locked_by_snode;
-      bool key_image_blacklisted;
       bool untrusted;
-
-      bool invalid_block_height;
-      bool voters_quorum_index_out_of_bounds;
-      bool duplicate_voters;
-      bool service_node_index_out_of_bounds;
-      bool signature_not_valid;
-      bool not_enough_votes;
+      tx_verification_context tvc;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(reason)
         KV_SERIALIZE(not_relayed)
-        KV_SERIALIZE(low_mixin)
-        KV_SERIALIZE(double_spend)
-        KV_SERIALIZE(invalid_input)
-        KV_SERIALIZE(invalid_output)
-        KV_SERIALIZE(too_big)
-        KV_SERIALIZE(overspend)
-        KV_SERIALIZE(fee_too_low)
-        KV_SERIALIZE(not_rct)
-        KV_SERIALIZE(invalid_version)
-        KV_SERIALIZE(invalid_type)
-        KV_SERIALIZE(key_image_locked_by_snode)
-        KV_SERIALIZE(key_image_blacklisted)
         KV_SERIALIZE(untrusted)
-
-        KV_SERIALIZE(invalid_block_height)
-        KV_SERIALIZE(voters_quorum_index_out_of_bounds)
-        KV_SERIALIZE(duplicate_voters)
-        KV_SERIALIZE(service_node_index_out_of_bounds)
-        KV_SERIALIZE(signature_not_valid)
-        KV_SERIALIZE(not_enough_votes)
+        KV_SERIALIZE(tvc)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -1359,14 +1331,15 @@ namespace cryptonote
     uint32_t ip;
     uint16_t port;
     uint64_t last_seen;
+    uint32_t pruning_seed;
 
     peer() = default;
 
-    peer(uint64_t id, const std::string &host, uint64_t last_seen)
-      : id(id), host(host), ip(0), port(0), last_seen(last_seen)
+    peer(uint64_t id, const std::string &host, uint64_t last_seen, uint32_t pruning_seed)
+      : id(id), host(host), ip(0), port(0), last_seen(last_seen), pruning_seed(pruning_seed)
     {}
-    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen)
-      : id(id), host(std::to_string(ip)), ip(ip), port(port), last_seen(last_seen)
+    peer(uint64_t id, uint32_t ip, uint16_t port, uint64_t last_seen, uint32_t pruning_seed)
+      : id(id), host(std::to_string(ip)), ip(ip), port(port), last_seen(last_seen), pruning_seed(pruning_seed)
     {}
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -1375,6 +1348,7 @@ namespace cryptonote
       KV_SERIALIZE(ip)
       KV_SERIALIZE(port)
       KV_SERIALIZE(last_seen)
+      KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -2286,15 +2260,19 @@ namespace cryptonote
       std::string status;
       uint64_t height;
       uint64_t target_height;
+      uint32_t next_needed_pruning_seed;
       std::list<peer> peers;
       std::list<span> spans;
+      std::string overview;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(status)
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
+        KV_SERIALIZE(next_needed_pruning_seed)
         KV_SERIALIZE(peers)
         KV_SERIALIZE(spans)
+        KV_SERIALIZE(overview)
       END_KV_SERIALIZE_MAP()
     };
   };
@@ -2376,6 +2354,55 @@ namespace cryptonote
     };
   };
 
+  struct COMMAND_RPC_POP_BLOCKS
+  {
+    struct request
+    {
+      uint64_t nblocks;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(nblocks);
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+      uint64_t height;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  struct COMMAND_RPC_PRUNE_BLOCKCHAIN
+  {
+    struct request
+    {
+      bool check;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(check, false)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      uint32_t pruning_seed;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(pruning_seed)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+  //
+  // Loki
+  //
   struct COMMAND_RPC_GET_QUORUM_STATE
   {
     struct request
@@ -2522,29 +2549,6 @@ namespace cryptonote
     };
   };
 
-  struct COMMAND_RPC_POP_BLOCKS
-  {
-    struct request
-    {
-      uint64_t nblocks;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(nblocks);
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct response
-    {
-      std::string status;
-      uint64_t height;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(height)
-      END_KV_SERIALIZE_MAP()
-    };
-  };
-
   struct COMMAND_RPC_GET_SERVICE_NODES
   {
     struct request
@@ -2675,5 +2679,4 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
   };
-
 }

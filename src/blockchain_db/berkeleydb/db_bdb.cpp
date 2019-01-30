@@ -714,29 +714,6 @@ bool BlockchainBDB::for_all_outputs(std::function<bool(uint64_t amount, const cr
     return ret;
 }
 
-blobdata BlockchainBDB::output_to_blob(const tx_out& output) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    blobdata b;
-    if (!t_serializable_object_to_blob(output, b))
-        throw1(DB_ERROR("Error serializing output to blob"));
-    return b;
-}
-
-tx_out BlockchainBDB::output_from_blob(const blobdata& blob) const
-{
-    LOG_PRINT_L3("BlockchainBDB::" << __func__);
-    std::stringstream ss;
-    ss << blob;
-    binary_archive<false> ba(ss);
-    tx_out o;
-
-    if (!(::serialization::serialize(ba, o)))
-        throw1(DB_ERROR("Error deserializing tx output blob"));
-
-    return o;
-}
-
 uint64_t BlockchainBDB::get_output_global_index(const uint64_t& amount, const uint64_t& index)
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
@@ -1664,7 +1641,7 @@ output_data_t BlockchainBDB::get_output_key(const uint64_t& amount, const uint64
     return get_output_key(glob_index);
 }
 
-tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index)
+tx_out_index BlockchainBDB::get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const
 {
     LOG_PRINT_L3("BlockchainBDB::" << __func__);
     std::vector < uint64_t > offsets;
