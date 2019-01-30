@@ -38,7 +38,9 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <boost/algorithm/string.hpp>
 #include "misc_log_ex.h"
+#include "fnv1.h"
 
 /*!
  * \namespace Language
@@ -71,6 +73,92 @@ namespace Language
     return prefix;
   }
 
+  template<typename T>
+  inline T utf8canonical(const T &s)
+  {
+    T sc = "";
+    size_t avail = s.size();
+    const char *ptr = s.data();
+    wint_t cp = 0;
+    int bytes = 1;
+    char wbuf[8], *wptr;
+    while (avail--)
+    {
+      if ((*ptr & 0x80) == 0)
+      {
+        cp = *ptr++;
+        bytes = 1;
+      }
+      else if ((*ptr & 0xe0) == 0xc0)
+      {
+        if (avail < 1)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0x1f) << 6;
+        cp |= *ptr++ & 0x3f;
+        --avail;
+        bytes = 2;
+      }
+      else if ((*ptr & 0xf0) == 0xe0)
+      {
+        if (avail < 2)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0xf) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 2;
+        bytes = 3;
+      }
+      else if ((*ptr & 0xf8) == 0xf0)
+      {
+        if (avail < 3)
+          throw std::runtime_error("Invalid UTF-8");
+        cp = (*ptr++ & 0x7) << 18;
+        cp |= (*ptr++ & 0x3f) << 12;
+        cp |= (*ptr++ & 0x3f) << 6;
+        cp |= *ptr++ & 0x3f;
+        avail -= 3;
+        bytes = 4;
+      }
+      else
+        throw std::runtime_error("Invalid UTF-8");
+
+      cp = std::towlower(cp);
+      wptr = wbuf;
+      switch (bytes)
+      {
+        case 1: *wptr++ = cp; break;
+        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr += 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
+        default: throw std::runtime_error("Invalid UTF-8");
+      }
+      *wptr = 0;
+      sc += T(wbuf, bytes);
+      cp = 0;
+      bytes = 1;
+    }
+    return sc;
+  }
+
+  struct WordHash
+  {
+    std::size_t operator()(const epee::wipeable_string &s) const
+    {
+      const epee::wipeable_string sc = utf8canonical(s);
+      return epee::fnv::FNV1a(sc.data(), sc.size());
+    }
+  };
+
+  struct WordEqual
+  {
+    bool operator()(const epee::wipeable_string &s0, const epee::wipeable_string &s1) const
+    {
+      const epee::wipeable_string s0c = utf8canonical(s0);
+      const epee::wipeable_string s1c = utf8canonical(s1);
+      return s0c == s1c;
+    }
+  };
+
   /*!
    * \class Base
    * \brief A base language class which all languages have to inherit from for
@@ -87,8 +175,8 @@ namespace Language
       NWORDS = 1626
     };
     std::vector<std::string> word_list; /*!< A pointer to the array of words */
-    std::unordered_map<epee::wipeable_string, uint32_t> word_map; /*!< hash table to find word's index */
-    std::unordered_map<epee::wipeable_string, uint32_t> trimmed_word_map; /*!< hash table to find word's trimmed index */
+    std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual> word_map; /*!< hash table to find word's index */
+    std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual> trimmed_word_map; /*!< hash table to find word's trimmed index */
     std::string language_name; /*!< Name of language */
     std::string english_language_name; /*!< Name of language */
     uint32_t unique_prefix_length; /*!< Number of unique starting characters to trim the wordlist to when matching */
@@ -159,7 +247,7 @@ namespace Language
      * \brief Returns a pointer to the word map.
      * \return A pointer to the word map.
      */
-    const std::unordered_map<epee::wipeable_string, uint32_t>& get_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual>& get_word_map() const
     {
       return word_map;
     }
@@ -167,7 +255,7 @@ namespace Language
      * \brief Returns a pointer to the trimmed word map.
      * \return A pointer to the trimmed word map.
      */
-    const std::unordered_map<epee::wipeable_string, uint32_t>& get_trimmed_word_map() const
+    const std::unordered_map<epee::wipeable_string, uint32_t, WordHash, WordEqual>& get_trimmed_word_map() const
     {
       return trimmed_word_map;
     }

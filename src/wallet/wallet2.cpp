@@ -605,7 +605,7 @@ std::string strjoin(const std::vector<size_t> &V, const char *sep)
   return ss.str();
 }
 
-static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
+static bool emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wallet2::pool_payment_details> &container,
   const crypto::hash &key, const tools::wallet2::pool_payment_details &pd)
 {
   auto range = container.equal_range(key);
@@ -614,10 +614,11 @@ static void emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
     if (i->second.m_pd.m_tx_hash == pd.m_pd.m_tx_hash && i->second.m_pd.m_subaddr_index == pd.m_pd.m_subaddr_index)
     {
       i->second = pd;
-      return;
+      return false;
     }
   }
   container.emplace(key, pd);
+  return true;
 }
 
 void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_t N)
@@ -1403,7 +1404,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs)
+void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::public_key &tx_pub_key, size_t vout_index, tx_scan_info_t &tx_scan_info, std::vector<tx_money_got_in_out> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool)
 {
   THROW_WALLET_EXCEPTION_IF(vout_index >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
@@ -1414,7 +1415,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, const crypto::publi
     CRITICAL_REGION_LOCAL(password_lock);
     if (!m_encrypt_keys_after_refresh)
     {
-      boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password("output received");
+      boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
       THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming loki"));
       THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming loki"));
       decrypt_keys(*pwd);
@@ -1655,7 +1656,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         if (tx_scan_info[i].received)
         {
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -1671,7 +1672,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           boost::unique_lock<hw::device> hwdev_lock (hwdev);
           hwdev.set_mode(hw::device::NONE);
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
-          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs);
+          scan_output(tx, tx_pub_key, i, tx_scan_info[i], tx_money_got_in_outs, outs, pool);
         }
       }
     }
@@ -2067,6 +2068,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       return;
     }
 
+    bool all_same = true;
     for (const auto& i : tx_money_got_in_outs)
     {
       payment_details payment;
@@ -2079,7 +2081,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       payment.m_subaddr_index = i.index;
       payment.m_type          = i.type;
       if (pool) {
-        emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen});
+        if (emplace_or_replace(m_unconfirmed_payments, payment_id, pool_payment_details{payment, double_spend_seen}))
+          all_same = false;
         if (0 != m_callback)
           m_callback->on_unconfirmed_money_received(height, txid, tx, payment.m_amount, payment.m_subaddr_index);
       }
@@ -2087,6 +2090,10 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         m_payments.emplace(payment_id, payment);
       LOG_PRINT_L2("Payment found in " << (pool ? "pool" : "block") << ": " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
     }
+
+    // if it's a pool tx and we already had it, don't notify again
+    if (pool && all_same)
+      notify = false;
   }
 
   if (notify)
@@ -2840,7 +2847,7 @@ std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create
   return cache;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool)
 {
   if(m_light_wallet) {
 
@@ -3030,7 +3037,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   try
   {
     // If stop() is called we don't need to check pending transactions
-    if(m_run.load(std::memory_order_relaxed))
+    if (check_pool && m_run.load(std::memory_order_relaxed))
       update_pool_state(refreshed);
   }
   catch (...)
@@ -9760,7 +9767,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks) const
   result = m_node_rpc_proxy.get_earliest_height(version, earliest_height);
   throw_on_rpc_response_error(result, "get_hard_fork_info");
 
-  bool close_enough = height >=  earliest_height - early_blocks; // start using the rules that many blocks beforehand
+  bool close_enough = height >= earliest_height - early_blocks; // start using the rules that many blocks beforehand
   if (early_blocks > 0 && (earliest_height - early_blocks) > earliest_height)
   {
     close_enough = true;

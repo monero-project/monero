@@ -85,7 +85,6 @@ namespace hw {
 
         //IO
         hw::io::device_io_hid hw_device;
-        std::string   full_name;        
         unsigned int  length_send;
         unsigned char buffer_send[BUFFER_SEND_SIZE];
         unsigned int  length_recv;
@@ -95,6 +94,7 @@ namespace hw {
         void logCMD(void);
         void logRESP(void);
         unsigned int exchange(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
+        unsigned int exchange_wait_on_input(unsigned int ok=0x9000, unsigned int mask=0xFFFF);
         void reset_buffer(void);
         int  set_command_header(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
         int  set_command_header_noopt(unsigned char ins, unsigned char p1 = 0x00, unsigned char p2 = 0x00);
