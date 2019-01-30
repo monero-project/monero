@@ -173,7 +173,7 @@ t_rpc_command_executor::~t_rpc_command_executor()
   }
 }
 
-bool t_rpc_command_executor::print_peer_list() {
+bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit) {
   cryptonote::COMMAND_RPC_GET_PEER_LIST::request req;
   cryptonote::COMMAND_RPC_GET_PEER_LIST::response res;
 
@@ -194,14 +194,24 @@ bool t_rpc_command_executor::print_peer_list() {
     }
   }
 
-  for (auto & peer : res.white_list)
+  if (white)
   {
-    print_peer("white", peer);
+    auto peer = res.white_list.cbegin();
+    const auto end = limit ? peer + std::min(limit, res.white_list.size()) : res.white_list.cend();
+    for (; peer != end; ++peer)
+    {
+      print_peer("white", *peer);
+    }
   }
 
-  for (auto & peer : res.gray_list)
+  if (gray)
   {
-    print_peer("gray", peer);
+    auto peer = res.gray_list.cbegin();
+    const auto end = limit ? peer + std::min(limit, res.gray_list.size()) : res.gray_list.cend();
+    for (; peer != end; ++peer)
+    {
+      print_peer("gray", *peer);
+    }
   }
 
   return true;
@@ -939,7 +949,7 @@ bool t_rpc_command_executor::print_transaction_pool_long() {
   }
   else
   {
-    if (!m_rpc_server->on_get_transaction_pool(req, res, false) || res.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
@@ -1025,7 +1035,7 @@ bool t_rpc_command_executor::print_transaction_pool_short() {
   }
   else
   {
-    if (!m_rpc_server->on_get_transaction_pool(req, res, false) || res.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_transaction_pool(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
@@ -1083,7 +1093,7 @@ bool t_rpc_command_executor::print_transaction_pool_stats() {
   else
   {
     res.pool_stats = {};
-    if (!m_rpc_server->on_get_transaction_pool_stats(req, res, false) || res.status != CORE_RPC_STATUS_OK)
+    if (!m_rpc_server->on_get_transaction_pool_stats(req, res) || res.status != CORE_RPC_STATUS_OK)
     {
       tools::fail_msg_writer() << make_error(fail_message, res.status);
       return true;
