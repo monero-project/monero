@@ -34,6 +34,7 @@
 #include "serialization/keyvalue_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
+
 namespace cryptonote
 {
 
@@ -208,6 +209,7 @@ namespace cryptonote
   {
     uint64_t current_height;
     uint64_t cumulative_difficulty;
+    uint64_t cumulative_difficulty_top64;
     crypto::hash  top_id;
     uint8_t top_version;
     uint32_t pruning_seed;
@@ -215,6 +217,7 @@ namespace cryptonote
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(current_height)
       KV_SERIALIZE(cumulative_difficulty)
+      KV_SERIALIZE(cumulative_difficulty_top64)
       KV_SERIALIZE_VAL_POD_AS_BLOB(top_id)
       KV_SERIALIZE_OPT(top_version, (uint8_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
@@ -245,12 +248,14 @@ namespace cryptonote
       uint64_t start_height;
       uint64_t total_height;
       uint64_t cumulative_difficulty;
+      uint64_t cumulative_difficulty_top64;
       std::vector<crypto::hash> m_block_ids;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(total_height)
         KV_SERIALIZE(cumulative_difficulty)
+        KV_SERIALIZE(cumulative_difficulty_top64)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
       END_KV_SERIALIZE_MAP()
     };

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2019, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,62 +25,41 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <limits>
-#include "crypto/hash.h"
+#pragma once
+
 #include "cryptonote_basic/difficulty.h"
+#include "serialization.h"
 
-using namespace std;
-using cryptonote::check_hash;
+template<> struct is_basic_type<cryptonote::difficulty_type> { typedef boost::true_type type; };
 
-int main(int argc, char *argv[]) {
-  crypto::hash h;
-  for (cryptonote::difficulty_type diff = 1;; diff += 1 + (diff >> 8)) {
-    for (uint16_t b = 0; b < 256; b++) {
-      memset(&h, b, sizeof(crypto::hash));
-      if (check_hash(h, diff) != (b == 0 || diff <= 255 / b)) {
-        return 1;
-      }
-      if (b > 0) {
-        memset(&h, 0, sizeof(crypto::hash));
-        ((char *) &h)[31] = b;
-        if (check_hash(h, diff) != (diff <= 255 / b)) {
-          return 2;
-        }
-      }
-    }
-    if (diff < numeric_limits<uint64_t>::max() / 256) {
-      uint64_t val = 0;
-      for (int i = 31; i >= 0; i--) {
-        val = val * 256 + 255;
-        ((char *) &h)[i] = static_cast<char>(static_cast<uint64_t>(val / diff));
-        val %= diff.convert_to<uint64_t>();
-      }
-      if (check_hash(h, diff) != true) {
-        return 3;
-      }
-      if (diff > 1) {
-        for (int i = 0;; i++) {
-          if (i >= 32) {
-            abort();
-          }
-          if (++((char *) &h)[i] != 0) {
-            break;
-          }
-        }
-        if (check_hash(h, diff) != false) {
-          return 4;
-        }
-      }
-    }
-    if (diff + 1 + (diff >> 8) < diff) {
-      break;
-    }
-  }
-  return 0;
+template <template <bool> class Archive>
+inline bool do_serialize(Archive<false>& ar, cryptonote::difficulty_type &diff)
+{
+  uint64_t hi, lo;
+  ar.serialize_varint(hi);
+  if (!ar.stream().good())
+    return false;
+  ar.serialize_varint(lo);
+  if (!ar.stream().good())
+    return false;
+  diff = hi;
+  diff <<= 64;
+  diff += lo;
+  return true;
 }
+
+template <template <bool> class Archive>
+inline bool do_serialize(Archive<true>& ar, cryptonote::difficulty_type &diff)
+{
+  if (!ar.stream().good())
+    return false;
+  const uint64_t hi = (diff >> 64).convert_to<uint64_t>();
+  const uint64_t lo = (diff << 64 >> 64).convert_to<uint64_t>();
+  ar.serialize_varint(hi);
+  ar.serialize_varint(lo);
+  if (!ar.stream().good())
+    return false;
+  return true;
+}
+
