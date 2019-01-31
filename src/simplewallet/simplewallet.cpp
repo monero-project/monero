@@ -57,6 +57,7 @@
 #include "common/dns_utils.h"
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
+#include "common/loki_integration_test_hooks.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_core/service_node_deregister.h"
 #include "cryptonote_core/service_node_list.h"
@@ -92,7 +93,11 @@
 #endif
 
 #ifdef HAVE_READLINE
-#include "readline_buffer.h"
+  #include "readline_buffer.h"
+  #define PAUSE_READLINE() \
+    rdln::suspend_readline pause_readline; 
+#else
+  #define PAUSE_READLINE()
 #endif
 
 using namespace std;
@@ -167,7 +172,6 @@ namespace
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
   const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
   const command_line::arg_descriptor<bool> arg_long_payment_id_support = {"long-payment-id-support", sw::tr("Support obsolete long (unencrypted) payment ids"), false};
-
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
@@ -264,17 +268,31 @@ namespace
   const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <address> <amount>");
   const char* USAGE_REQUEST_STAKE_UNLOCK("request_stake_unlock <service_node_pubkey>");
 
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
   std::string input_line(const std::string& prompt, bool yesno = false)
   {
+    std::string buf;
+    if (yesno) std::cout << prompt << " (Y/Yes/N/No): ";
+    else       std::cout << prompt << ": ";
+    loki::write_redirected_stdout_to_shared_mem();
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
+    buf.reserve(buffer.len);
+    buf = buffer.data;
+    return epee::string_tools::trim(buf);
+  }
+#else // LOKI_ENABLE_INTEGRATION_TEST_HOOKS
+  std::string input_line(const std::string& prompt, bool yesno = false)
+  {
+    std::string buf;
+
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
     std::cout << prompt;
     if (yesno)
       std::cout << "  (Y/Yes/N/No)";
-    std::cout << ": " << std::flush;
+    std::cout << ": ";
 
-    std::string buf;
 #ifdef _WIN32
     buf = tools::input_line_win();
 #else
@@ -283,9 +301,17 @@ namespace
 
     return epee::string_tools::trim(buf);
   }
+#endif // LOKI_ENABLE_INTEGRATION_TEST_HOOKS
 
   epee::wipeable_string input_secure_line(const char *prompt)
   {
+#if defined (LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    std::cout << prompt;
+    loki::write_redirected_stdout_to_shared_mem();
+    loki::fixed_buffer buffer = loki::read_from_stdin_shared_mem();
+    epee::wipeable_string buf = buffer.data;
+#else
+
 #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
 #endif
@@ -299,6 +325,7 @@ namespace
     epee::wipeable_string buf = pwd_container->password();
 
     buf.trim();
+#endif
     return buf;
   }
 
@@ -315,14 +342,20 @@ namespace
 
   boost::optional<tools::password_container> password_prompter(const char *prompt, bool verify)
   {
-#ifdef HAVE_READLINE
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+    std::cout << prompt << ": NOTE(loki): Passwords not supported, defaulting to empty password";
+    loki::write_redirected_stdout_to_shared_mem();
+    tools::password_container pwd_container(std::string(""));
+#else
+  #ifdef HAVE_READLINE
     rdln::suspend_readline pause_readline;
-#endif
+  #endif
     auto pwd_container = tools::password_container::prompt(verify, prompt);
     if (!pwd_container)
     {
       tools::fail_msg_writer() << sw::tr("failed to read wallet password");
     }
+#endif
     return pwd_container;
   }
 
@@ -3321,7 +3354,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     fail_msg_writer() << tr("Can't specify more than one of --testnet and --stagenet");
     return false;
   }
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
 
   epee::wipeable_string multisig_keys;
 
@@ -6126,7 +6159,9 @@ bool simple_wallet::register_service_node(const std::vector<std::string> &args_)
         return true;
     }
 
+#if !defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS) // NOTE: Allow us to issue commands like exit when integration testing, by not disabling cmd_handler in stop()
     stop();
+#endif
 
 #ifndef WIN32 // NOTE: Fork not supported on Windows
     if (m_wallet->fork_on_autostake())
@@ -8710,9 +8745,15 @@ std::string simple_wallet::get_prompt() const
   else if (!m_wallet->is_synced())
     prompt += tr(" (out of sync)");
   prompt += "]: ";
+
   return prompt;
 }
 //----------------------------------------------------------------------------------------------------
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+#include <thread>
+#endif
+
 bool simple_wallet::run()
 {
   // check and display warning, but go on anyway
@@ -8724,7 +8765,31 @@ bool simple_wallet::run()
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
   message_writer(console_color_green, false) << "Background refresh thread started";
-  return m_cmd_binder.run_handling([this](){return get_prompt();}, "");
+
+#if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
+  for (;;)
+  {
+    loki::fixed_buffer const input = loki::read_from_stdin_shared_mem();
+    std::vector<std::string> args  = loki::separate_stdin_to_space_delim_args(&input);
+    {
+      boost::unique_lock<boost::mutex> scoped_lock(loki::integration_test_mutex);
+      loki::use_standard_cout();
+      std::cout << input.data << std::endl;
+      loki::use_redirected_cout();
+    }
+
+    this->process_command(args);
+    if (args.size() == 1 && args[0] == "exit")
+    {
+      loki::deinit_integration_test_context();
+      return true;
+    }
+
+    loki::write_redirected_stdout_to_shared_mem();
+  }
+#endif
+
+  return m_cmd_binder.run_handling([this]() {return get_prompt(); }, "");
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::stop()

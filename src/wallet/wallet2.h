@@ -64,6 +64,8 @@
 #include "node_rpc_proxy.h"
 #include "message_store.h"
 
+#include "common/loki_integration_test_hooks.h"
+
 #undef LOKI_DEFAULT_LOG_CATEGORY
 #define LOKI_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
