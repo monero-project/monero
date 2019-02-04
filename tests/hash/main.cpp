@@ -44,6 +44,13 @@ using namespace std;
 using namespace crypto;
 typedef crypto::hash chash;
 
+struct V4_Data
+{
+  const void* data;
+  size_t length;
+  uint64_t height;
+};
+
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4297)
 extern "C" {
@@ -54,13 +61,17 @@ extern "C" {
     tree_hash((const char (*)[crypto::HASH_SIZE]) data, length >> 5, hash);
   }
   static void cn_slow_hash_0(const void *data, size_t length, char *hash) {
-    return cn_slow_hash(data, length, hash, 0/*variant*/, 0/*prehashed*/);
+    return cn_slow_hash(data, length, hash, 0/*variant*/, 0/*prehashed*/, 0/*height*/);
   }
   static void cn_slow_hash_1(const void *data, size_t length, char *hash) {
-    return cn_slow_hash(data, length, hash, 1/*variant*/, 0/*prehashed*/);
+    return cn_slow_hash(data, length, hash, 1/*variant*/, 0/*prehashed*/, 0/*height*/);
   }
   static void cn_slow_hash_2(const void *data, size_t length, char *hash) {
-    return cn_slow_hash(data, length, hash, 2/*variant*/, 0/*prehashed*/);
+    return cn_slow_hash(data, length, hash, 2/*variant*/, 0/*prehashed*/, 0/*height*/);
+  }
+  static void cn_slow_hash_4(const void *data, size_t, char *hash) {
+    const V4_Data* p = reinterpret_cast<const V4_Data*>(data);
+    return cn_slow_hash(p->data, p->length, hash, 4/*variant*/, 0/*prehashed*/, p->height);
   }
 }
 POP_WARNINGS
@@ -72,7 +83,7 @@ struct hash_func {
 } hashes[] = {{"fast", cn_fast_hash}, {"slow", cn_slow_hash_0}, {"tree", hash_tree},
   {"extra-blake", hash_extra_blake}, {"extra-groestl", hash_extra_groestl},
   {"extra-jh", hash_extra_jh}, {"extra-skein", hash_extra_skein},
-  {"slow-1", cn_slow_hash_1}, {"slow-2", cn_slow_hash_2}};
+  {"slow-1", cn_slow_hash_1}, {"slow-2", cn_slow_hash_2}, {"slow-4", cn_slow_hash_4}};
 
 int test_variant2_int_sqrt();
 int test_variant2_int_sqrt_ref();
@@ -140,7 +151,15 @@ int main(int argc, char *argv[]) {
     input.exceptions(ios_base::badbit | ios_base::failbit | ios_base::eofbit);
     input.clear(input.rdstate());
     get(input, data);
-    f(data.data(), data.size(), (char *) &actual);
+    if (f == cn_slow_hash_4) {
+      V4_Data d;
+      d.data = data.data();
+      d.length = data.size();
+      get(input, d.height);
+      f(&d, 0, (char *) &actual);
+    } else {
+      f(data.data(), data.size(), (char *) &actual);
+    }
     if (expected != actual) {
       size_t i;
       cerr << "Hash mismatch on test " << test << endl << "Input: ";
