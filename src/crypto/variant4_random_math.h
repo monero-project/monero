@@ -170,7 +170,7 @@ static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed
 {
 	if (*data_index + bytes_needed > data_size)
 	{
-		hash_extra_blake(data, sizeof(data), data);
+		hash_extra_blake(data, data_size, data);
 		*data_index = 0;
 	}
 }
