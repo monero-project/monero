@@ -73,6 +73,9 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "miner"
 
+#define AUTODETECT_WINDOW 10 // seconds
+#define AUTODETECT_GAIN_THRESHOLD 1.02f  // 2%
+
 using namespace epee;
 
 #include "miner.h"
@@ -108,6 +111,7 @@ namespace cryptonote
     m_starter_nonce(0),
     m_last_hr_merge_time(0),
     m_hashes(0),
+    m_total_hashes(0),
     m_do_print_hashrate(false),
     m_do_mining(false),
     m_current_hash_rate(0),
@@ -178,7 +182,12 @@ namespace cryptonote
       merge_hr();
       return true;
     });
-    
+
+    m_autodetect_interval.do_call([&](){
+      update_autodetection();
+      return true;
+    });
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -207,6 +216,60 @@ namespace cryptonote
     }
     m_last_hr_merge_time = misc_utils::get_tick_count();
     m_hashes = 0;
+  }
+  //-----------------------------------------------------------------------------------------------------
+  void miner::update_autodetection()
+  {
+    if (m_threads_autodetect.empty())
+      return;
+
+    uint64_t now = epee::misc_utils::get_ns_count();
+    uint64_t dt = now - m_threads_autodetect.back().first;
+    if (dt < AUTODETECT_WINDOW * 1000000000ull)
+      return;
+
+    // work out how many more hashes we got
+    m_threads_autodetect.back().first = dt;
+    uint64_t dh = m_total_hashes - m_threads_autodetect.back().second;
+    m_threads_autodetect.back().second = dh;
+    float hs = dh / (dt / (float)1000000000);
+    MGINFO("Mining autodetection: " << m_threads_autodetect.size() << " threads: " << hs << " H/s");
+
+    // when we don't increase by at least 2%, stop, otherwise check next
+    // if N and N+1 have mostly the same hash rate, we want to "lighter" one
+    bool found = false;
+    if (m_threads_autodetect.size() > 1)
+    {
+      int previdx = m_threads_autodetect.size() - 2;
+      float previous_hs = m_threads_autodetect[previdx].second / (m_threads_autodetect[previdx].first / (float)1000000000);
+      if (previous_hs > 0 && hs / previous_hs < AUTODETECT_GAIN_THRESHOLD)
+      {
+        m_threads_total = m_threads_autodetect.size() - 1;
+        m_threads_autodetect.clear();
+        MGINFO("Optimal number of threads seems to be " << m_threads_total);
+        found = true;
+      }
+    }
+
+    if (!found)
+    {
+      // setup one more thread
+      m_threads_autodetect.push_back({now, m_total_hashes});
+      m_threads_total = m_threads_autodetect.size();
+    }
+
+    // restart all threads
+    {
+      CRITICAL_REGION_LOCAL(m_threads_lock);
+      boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
+      for(boost::thread& th: m_threads)
+        th.join();
+      m_threads.clear();
+    }
+    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
+    boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
+    for(size_t i = 0; i != m_threads_total; i++)
+      m_threads.push_back(boost::thread(m_attrs, boost::bind(&miner::worker_thread, this)));
   }
   //-----------------------------------------------------------------------------------------------------
   void miner::init_options(boost::program_options::options_description& desc)
@@ -297,6 +360,13 @@ namespace cryptonote
   {
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
+    if (threads_count == 0)
+    {
+      m_threads_autodetect.clear();
+      m_threads_autodetect.push_back({epee::misc_utils::get_ns_count(), m_total_hashes});
+      m_threads_total = 1;
+    }
+    m_attrs = attrs;
     m_starter_nonce = crypto::rand<uint32_t>();
     CRITICAL_REGION_LOCAL(m_threads_lock);
     if(is_mining())
@@ -318,12 +388,15 @@ namespace cryptonote
     set_is_background_mining_enabled(do_background);
     set_ignore_battery(ignore_battery);
     
-    for(size_t i = 0; i != threads_count; i++)
+    for(size_t i = 0; i != m_threads_total; i++)
     {
       m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
     }
 
-    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
+    if (threads_count == 0)
+      MINFO("Mining has started, autodetecting optimal number of threads, good luck!" );
+    else
+      MINFO("Mining has started with " << threads_count << " threads, good luck!" );
 
     if( get_is_background_mining_enabled() )
     {
@@ -360,7 +433,7 @@ namespace cryptonote
 
     if (!is_mining())
     {
-      MDEBUG("Not mining - nothing to stop" );
+      MTRACE("Not mining - nothing to stop" );
       return true;
     }
 
@@ -381,6 +454,7 @@ namespace cryptonote
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
+    m_threads_autodetect.clear();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -506,6 +580,7 @@ namespace cryptonote
       }
       nonce+=m_threads_total;
       ++m_hashes;
+      ++m_total_hashes;
     }
     slow_hash_free_state();
     MGINFO("Miner thread stopped ["<< th_local_index << "]");
