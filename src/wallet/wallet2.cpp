@@ -287,7 +287,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 #if defined(LOKI_ENABLE_INTEGRATION_TEST_HOOKS)
   if (command_line::get_arg(vm, opts.fakenet))
   {
-    assert(!testnet &&!stagnet); // NOTE(loki): Developer error
+    assert(!testnet &&!stagenet); // NOTE(loki): Developer error
     nettype = FAKECHAIN;
   }
 #endif

@@ -119,20 +119,28 @@ if(NOT IOS)
   add_subdirectory(rpc)
   add_subdirectory(serialization)
 endif()
-add_subdirectory(wallet)
+
+if (NOT BUILD_INTEGRATION)
+  add_subdirectory(wallet)
+endif()
+
 if(NOT IOS)
   add_subdirectory(p2p)
 endif()
 add_subdirectory(cryptonote_protocol)
 if(NOT IOS)
   add_subdirectory(simplewallet)
-  add_subdirectory(gen_multisig)
+
+  if(NOT BUILD_INTEGRATION)
+    add_subdirectory(gen_multisig)
+    add_subdirectory(blockchain_utilities)
+  endif()
+
   add_subdirectory(daemonizer)
   add_subdirectory(daemon)
-  add_subdirectory(blockchain_utilities)
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL Debug)
+if(CMAKE_BUILD_TYPE STREQUAL Debug AND NOT BUILD_INTEGRATION)
   add_subdirectory(debug_utilities)
 endif()
 
