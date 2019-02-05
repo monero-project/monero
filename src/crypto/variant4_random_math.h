@@ -33,7 +33,7 @@ enum V4_InstructionList
 	V4_INSTRUCTION_COUNT = RET,
 };
 
-// V4_InstructionCompact is used to generate code from random data
+// V4_InstructionDefinition is used to generate code from random data
 // Every random sequence of bytes is a valid code
 //
 // There are 8 registers in total:
@@ -41,11 +41,11 @@ enum V4_InstructionList
 // - 4 constant registers initialized from loop variables
 //
 // This is why dst_index is 2 bits
-struct V4_InstructionCompact
+enum V4_InstructionDefinition
 {
-	uint8_t opcode : 3;
-	uint8_t dst_index : 2;
-	uint8_t src_index : 3;
+	V4_OPCODE_BITS = 3,
+	V4_DST_INDEX_BITS = 2,
+	V4_SRC_INDEX_BITS = 3,
 };
 
 struct V4_Instruction
@@ -235,33 +235,40 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		{
 			check_data(&data_index, 1, data, sizeof(data));
 
-			struct V4_InstructionCompact op = ((struct V4_InstructionCompact*)data)[data_index++];
+			const uint8_t c = ((uint8_t*)data)[data_index++];
 
 			// MUL = opcodes 0-2
 			// ADD = opcode 3
 			// SUB = opcode 4
 			// ROR/ROL = opcode 5, shift direction is selected randomly
 			// XOR = opcodes 6-7
-			uint8_t opcode = (op.opcode <= 2) ? MUL : (op.opcode - 2);
-			if (op.opcode == 5)
+			uint8_t opcode = c & ((1 << V4_OPCODE_BITS) - 1);
+			if (opcode == 5)
 			{
 				check_data(&data_index, 1, data, sizeof(data));
 				opcode = (data[data_index++] >= 0) ? ROR : ROL;
 			}
-			else if (op.opcode >= 6)
+			else if (opcode >= 6)
 			{
 				opcode = XOR;
 			}
+			else
+			{
+				opcode = (opcode <= 2) ? MUL : (opcode - 2);
+			}
 
-			const int a = op.dst_index;
-			int b = op.src_index;
+			uint8_t dst_index = (c >> V4_OPCODE_BITS) & ((1 << V4_DST_INDEX_BITS) - 1);
+			uint8_t src_index = (c >> (V4_OPCODE_BITS + V4_DST_INDEX_BITS)) & ((1 << V4_SRC_INDEX_BITS) - 1);
+
+			const int a = dst_index;
+			int b = src_index;
 
 			// Don't do ADD/SUB/XOR with the same register
 			if (((opcode == ADD) || (opcode == SUB) || (opcode == XOR)) && (a == b))
 			{
 				// a is always < 4, so we don't need to check bounds here
 				b = a + 4;
-				op.src_index = b;
+				src_index = b;
 			}
 
 			// Don't do rotation with the same destination twice because it's equal to a single rotation
@@ -337,8 +344,8 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 				inst_data[a] = code_size + (opcode << 8) + ((inst_data[b] & 255) << 16);
 
 				code[code_size].opcode = opcode;
-				code[code_size].dst_index = op.dst_index;
-				code[code_size].src_index = op.src_index;
+				code[code_size].dst_index = dst_index;
+				code[code_size].src_index = src_index;
 				code[code_size].C = 0;
 
 				if (opcode == ADD)
