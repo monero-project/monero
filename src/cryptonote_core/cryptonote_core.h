@@ -1062,6 +1062,8 @@ namespace cryptonote
      bool m_fluffy_blocks_enabled;
      bool m_offline;
      bool m_pad_transactions;
+
+     std::shared_ptr<tools::Notify> m_block_rate_notify;
    };
 }
 

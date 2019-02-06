@@ -192,6 +192,18 @@ namespace cryptonote
     "replaced by the number of new blocks in the new chain"
   , ""
   };
+  static const command_line::arg_descriptor<std::string> arg_block_rate_notify = {
+    "block-rate-notify"
+  , "Run a program when the block rate undergoes large fluctuations. This might "
+    "be a sign of large amounts of hash rate going on and off the Monero network, "
+    "and thus be of potential interest in predicting attacks. %t will be replaced "
+    "by the number of minutes for the observation window, %b by the number of "
+    "blocks observed within that window, and %e by the number of blocks that was "
+    "expected in that window. It is suggested that this notification is used to "
+    "automatically increase the number of confirmations required before a payment "
+    "is acted upon."
+  , ""
+  };
 
   //-----------------------------------------------------------------------------------------------
   core::core(i_cryptonote_protocol* pprotocol):
@@ -308,6 +320,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_block_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
     command_line::add_arg(desc, arg_reorg_notify);
+    command_line::add_arg(desc, arg_block_rate_notify);
 
     miner::init_options(desc);
     BlockchainDB::init_options(desc);
@@ -598,6 +611,16 @@ namespace cryptonote
     catch (const std::exception &e)
     {
       MERROR("Failed to parse reorg notify spec");
+    }
+
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_block_rate_notify))
+        m_block_rate_notify.reset(new tools::Notify(command_line::get_arg(vm, arg_block_rate_notify).c_str()));
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse block rate notify spec: " << e.what());
     }
 
     const std::pair<uint8_t, uint64_t> regtest_hard_forks[3] = {std::make_pair(1, 0), std::make_pair(Blockchain::get_hard_fork_heights(MAINNET).back().version, 1), std::make_pair(0, 0)};
@@ -1776,6 +1799,14 @@ namespace cryptonote
       if (p < threshold)
       {
         MWARNING("There were " << b << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack. Or it could be just sheer bad luck.");
+
+        std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
+        if (block_rate_notify)
+        {
+          auto expected = seconds[n] / DIFFICULTY_TARGET_V2;
+          block_rate_notify->notify("%t", std::to_string(seconds[n] / 60).c_str(), "%b", std::to_string(b).c_str(), "%e", std::to_string(expected).c_str(), NULL);
+        }
+
         break; // no need to look further
       }
     }
