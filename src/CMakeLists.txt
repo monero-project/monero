@@ -120,9 +120,7 @@ if(NOT IOS)
   add_subdirectory(serialization)
 endif()
 
-if (NOT BUILD_INTEGRATION)
-  add_subdirectory(wallet)
-endif()
+add_subdirectory(wallet)
 
 if(NOT IOS)
   add_subdirectory(p2p)
