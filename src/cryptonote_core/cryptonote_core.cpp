@@ -1788,7 +1788,7 @@ namespace cryptonote
     const time_t now = time(NULL);
     const std::vector<time_t> timestamps = m_blockchain_storage.get_last_block_timestamps(60);
 
-    static const unsigned int seconds[] = { 5400, 1800, 600 };
+    static const unsigned int seconds[] = { 5400, 3600, 1800, 1200, 600 };
     for (size_t n = 0; n < sizeof(seconds)/sizeof(seconds[0]); ++n)
     {
       unsigned int b = 0;
