@@ -188,8 +188,9 @@ namespace cryptonote
   static const command_line::arg_descriptor<std::string> arg_reorg_notify = {
     "reorg-notify"
   , "Run a program for each reorg, '%s' will be replaced by the split height, "
-    "'%h' will be replaced by the new blockchain height, and '%n' will be "
-    "replaced by the number of new blocks in the new chain"
+    "'%h' will be replaced by the new blockchain height, '%n' will be "
+    "replaced by the number of new blocks in the new chain, and '%d' will be "
+    "replaced by the number of blocks discarded from the old chain"
   , ""
   };
   static const command_line::arg_descriptor<std::string> arg_block_rate_notify = {
