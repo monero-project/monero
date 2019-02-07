@@ -53,9 +53,9 @@ namespace cryptonote
   {
     using stake_portions = uint64_t;
 
-    loki_miner_tx_context(network_type type         = MAINNET,
-                          crypto::public_key winner = crypto::null_pkey,
-                          std::vector<std::pair<account_public_address, stake_portions>> winner_info = {});
+    loki_miner_tx_context(network_type type                = MAINNET,
+                          crypto::public_key const &winner = crypto::null_pkey,
+                          std::vector<std::pair<account_public_address, stake_portions>> const &winner_info = {});
 
     network_type                                                   nettype;
     crypto::public_key                                             snode_winner_key;

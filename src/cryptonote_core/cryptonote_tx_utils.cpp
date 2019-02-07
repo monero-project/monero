@@ -166,7 +166,6 @@ namespace cryptonote
   uint64_t derive_governance_from_block_reward(network_type nettype, const cryptonote::block &block)
   {
     uint64_t result       = 0;
-    uint64_t height       = get_block_height(block);
     uint64_t snode_reward = 0;
     uint64_t vout_end     = block.miner_tx.vout.size();
 
@@ -224,7 +223,7 @@ namespace cryptonote
     return reward;
   }
 
-  loki_miner_tx_context::loki_miner_tx_context(network_type type, crypto::public_key winner, std::vector<std::pair<account_public_address, stake_portions>> winner_info)
+  loki_miner_tx_context::loki_miner_tx_context(network_type type, crypto::public_key const &winner, std::vector<std::pair<account_public_address, stake_portions>> const &winner_info)
     : nettype(type)
     , snode_winner_key(winner)
     , snode_winner_info(winner_info)
@@ -346,8 +345,6 @@ namespace cryptonote
       }
       else
       {
-        std::string governance_wallet_address_str;
-
         cryptonote::address_parse_info governance_wallet_address;
         cryptonote::get_account_address_from_str(governance_wallet_address, nettype, *cryptonote::get_config(nettype, hard_fork_version).GOVERNANCE_WALLET_ADDRESS);
         crypto::public_key out_eph_public_key = AUTO_VAL_INIT(out_eph_public_key);
