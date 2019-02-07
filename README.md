@@ -29,6 +29,12 @@ Our researchers are available on IRC in [#monero-research-lab on Freenode](https
 
 - You can subscribe to an [announcement listserv](https://lists.getmonero.org) to get critical announcements from the Monero core team. The announcement list can be very helpful for knowing when software updates are needed.
 
+## Translations
+The CLI wallet is available in different languages. If you want to help translate it, join Pootle, our self-hosted localization platform: [translate.getmonero.org](https://translate.getmonero.org). Every translation *must* be uploaded on Pootle, pull requests directly editing the code on this repository will be closed.
+&nbsp;
+
+If you need help/support/info, contact the localization workgroup. You can do so in various ways: by email (translate[at]getmonero[dot]org), on the official chat (#monero-translations). A complete list of contacts can be found on the repository of the workgroup: [monero-ecosystem/monero-translations](https://github.com/monero-ecosystem/monero-translations#contacts).
+
 ## Build
 
 ### IMPORTANT
