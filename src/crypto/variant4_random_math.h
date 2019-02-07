@@ -195,7 +195,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 
 	char data[32];
 	memset(data, 0, sizeof(data));
-	*((uint64_t*)data) = height;
+	*((uint64_t*)data) = SWAP64LE(height);
 
 	size_t data_index = sizeof(data);
 
@@ -209,7 +209,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 		// byte 1: instruction opcode
 		// byte 2: current value of the source register
 		//
-		// Registers R4-R7 are constant and are threatened as having the same value because when we do
+		// Registers R4-R7 are constant and are treated as having the same value because when we do
 		// the same operation twice with two constant source registers, it can be optimized into a single operation
 		int inst_data[8] = { 0, 1, 2, 3, -1, -1, -1, -1 };
 
@@ -355,7 +355,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 
 					// ADD instruction requires 4 more random bytes for 32-bit constant "C" in "a = a + b + C"
 					check_data(&data_index, sizeof(uint32_t), data, sizeof(data));
-					code[code_size].C = *((uint32_t*)&data[data_index]);
+					code[code_size].C = SWAP32LE(*((uint32_t*)&data[data_index]));
 					data_index += sizeof(uint32_t);
 				}
 
