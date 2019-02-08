@@ -171,10 +171,8 @@ TEST(ringct, range_proofs)
         skpkGen(Sk, Pk);
         destinations.push_back(Pk);
 
-        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -191,7 +189,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -237,10 +235,8 @@ TEST(ringct, range_proofs_with_fee)
         skpkGen(Sk, Pk);
         destinations.push_back(Pk);
 
-        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-
         //compute rct data with mixin 500
-        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRct(s));
@@ -257,7 +253,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 500
-        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
+        s = genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRct(s));
@@ -315,8 +311,7 @@ TEST(ringct, simple)
         //compute sig with mixin 2
         xmr_amount txnfee = 1;
 
-        const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, NULL, NULL, txnfee, 2, hw::get_device("default"));
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
@@ -350,8 +345,7 @@ static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amount
         }
     }
 
-    const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, rct_config, hw::get_device("default"));
+    return genRct(rct::zero(), sc, pc, destinations, amounts, amount_keys, NULL, NULL, 3, hw::get_device("default"));
 }
 
 static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], uint64_t fee)
@@ -377,8 +371,7 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
         destinations.push_back(Pk);
     }
 
-    const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, rct_config, hw::get_device("default"));
+    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, NULL, NULL, fee, 3, hw::get_device("default"));
 }
 
 static bool range_proof_test(bool expected_valid,
@@ -843,8 +836,8 @@ TEST(ringct, ecdh_roundtrip)
     t0.amount = d2h(amount);
 
     t1 = t0;
-    ecdhEncode(t1, k);
-    ecdhDecode(t1, k);
+    ecdhEncode(t1, k, true);
+    ecdhDecode(t1, k, true);
     ASSERT_TRUE(t0.mask == t1.mask);
     ASSERT_TRUE(equalKeys(t0.mask, t1.mask));
     ASSERT_TRUE(t0.amount == t1.amount);
@@ -975,6 +968,8 @@ static rctSig make_sig()
 #define TEST_rctSig_elements(name, op) \
 TEST(ringct, rctSig_##name) \
 { \
+  const uint64_t inputs[] = {1000, 1000}; \
+  const uint64_t outputs[] = {1000, 1000}; \
   rct::rctSig sig = make_sig(); \
   ASSERT_TRUE(rct::verRct(sig)); \
   op; \
@@ -1089,25 +1084,6 @@ TEST(ringct, zeroCommmit)
   const rct::key b = rct::scalarmultH(rct::d2h(amount));
   const rct::key manual = rct::addKeys(a, b);
   ASSERT_EQ(z, manual);
-}
-
-static rct::key uncachedZeroCommit(uint64_t amount)
-{
-  const rct::key am = rct::d2h(amount);
-  const rct::key bH = rct::scalarmultH(am);
-  return rct::addKeys(rct::G, bH);
-}
-
-TEST(ringct, zeroCommitCache)
-{
-  ASSERT_EQ(rct::zeroCommit(0), uncachedZeroCommit(0));
-  ASSERT_EQ(rct::zeroCommit(1), uncachedZeroCommit(1));
-  ASSERT_EQ(rct::zeroCommit(2), uncachedZeroCommit(2));
-  ASSERT_EQ(rct::zeroCommit(10), uncachedZeroCommit(10));
-  ASSERT_EQ(rct::zeroCommit(200), uncachedZeroCommit(200));
-  ASSERT_EQ(rct::zeroCommit(1000000000), uncachedZeroCommit(1000000000));
-  ASSERT_EQ(rct::zeroCommit(3000000000000), uncachedZeroCommit(3000000000000));
-  ASSERT_EQ(rct::zeroCommit(900000000000000), uncachedZeroCommit(900000000000000));
 }
 
 TEST(ringct, H)
