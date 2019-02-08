@@ -144,12 +144,12 @@ namespace rct {
         key64 s1;
         key ee;
     };
-  
+
     //Container for precomp
     struct geDsmp {
         ge_dsmp k;
     };
-    
+
     //just contains the necessary keys to represent MLSAG sigs
     //c.f. https://eprint.iacr.org/2015/1098
     struct mgSig {
@@ -314,7 +314,10 @@ namespace rct {
           if (type == RCTTypeBulletproof)
           {
             uint32_t nbp = bulletproofs.size();
-            FIELD(nbp)
+            if (type == RCTTypeBulletproof2)
+              VARINT_FIELD(nbp)
+            else
+              FIELD(nbp)
             ar.tag("bp");
             ar.begin_array();
             if (nbp > outputs)
