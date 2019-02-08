@@ -106,13 +106,13 @@ static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg
 		case ROR: \
 			{ \
 				const uint32_t shift = src % REG_BITS; \
-				*dst = (*dst >> shift) | (*dst << (REG_BITS - shift)); \
+				*dst = (*dst >> shift) | (*dst << ((REG_BITS - shift) % REG_BITS)); \
 			} \
 			break; \
 		case ROL: \
 			{ \
 				const uint32_t shift = src % REG_BITS; \
-				*dst = (*dst << shift) | (*dst >> (REG_BITS - shift)); \
+				*dst = (*dst << shift) | (*dst >> ((REG_BITS - shift) % REG_BITS)); \
 			} \
 			break; \
 		case XOR: \
