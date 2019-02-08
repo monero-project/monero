@@ -166,7 +166,7 @@ static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg
 }
 
 // If we don't have enough data available, generate more
-static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed, char* data, const size_t data_size)
+static FORCEINLINE void check_data(size_t* data_index, const size_t bytes_needed, int8_t* data, const size_t data_size)
 {
 	if (*data_index + bytes_needed > data_size)
 	{
@@ -193,7 +193,7 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 	// Available ALUs for each instruction
 	const int op_ALUs[V4_INSTRUCTION_COUNT] = { ALU_COUNT_MUL, ALU_COUNT, ALU_COUNT, ALU_COUNT, ALU_COUNT, ALU_COUNT };
 
-	char data[32];
+	int8_t data[32];
 	memset(data, 0, sizeof(data));
 	uint64_t tmp = SWAP64LE(height);
 	memcpy(data, &tmp, sizeof(uint64_t));
