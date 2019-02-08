@@ -215,30 +215,43 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     lo ^= SWAP64LE(*(U64(hp_state + (j ^ 0x20)) + 1)); \
   } while (0)
 
+#define V4_REG_LOAD(dst, src) \
+  do { \
+    memcpy((dst), (src), sizeof(v4_reg)); \
+    if (sizeof(v4_reg) == sizeof(uint32_t)) \
+      *(dst) = SWAP32LE(*(dst)); \
+    else \
+      *(dst) = SWAP64LE(*(dst)); \
+  } while (0)
+
 #define VARIANT4_RANDOM_MATH_INIT() \
   v4_reg r[8]; \
   struct V4_Instruction code[TOTAL_LATENCY * ALU_COUNT + 1]; \
   do if (variant >= 4) \
   { \
-    v4_reg* data = (v4_reg*)(state.hs.w + 12); \
-    r[0] = data[0]; \
-    r[1] = data[1]; \
-    r[2] = data[2]; \
-    r[3] = data[3]; \
+    for (int i = 0; i < 4; ++i) \
+      V4_REG_LOAD(r + i, (uint8_t*)(state.hs.w + 12) + sizeof(v4_reg) * i); \
     v4_random_math_init(code, height); \
   } while (0)
 
 #define VARIANT4_RANDOM_MATH(a, b, r, _b, _b1) \
   do if (variant >= 4) \
   { \
+    uint64_t t; \
+    memcpy(&t, b, sizeof(uint64_t)); \
+    \
     if (sizeof(v4_reg) == sizeof(uint32_t)) \
-      U64(b)[0] ^= (r[0] + r[1]) | ((uint64_t)(r[2] + r[3]) << 32); \
+      t ^= SWAP64LE((r[0] + r[1]) | ((uint64_t)(r[2] + r[3]) << 32)); \
     else \
-      U64(b)[0] ^= (r[0] + r[1]) ^ (r[2] + r[3]); \
-    r[4] = ((v4_reg*)(a))[0]; \
-    r[5] = ((v4_reg*)(a))[sizeof(uint64_t) / sizeof(v4_reg)]; \
-    r[6] = ((v4_reg*)(_b))[0]; \
-    r[7] = ((v4_reg*)(_b1))[0]; \
+      t ^= SWAP64LE((r[0] + r[1]) ^ (r[2] + r[3])); \
+    \
+    memcpy(b, &t, sizeof(uint64_t)); \
+    \
+    V4_REG_LOAD(r + 4, a); \
+    V4_REG_LOAD(r + 5, (uint64_t*)(a) + 1); \
+    V4_REG_LOAD(r + 6, _b); \
+    V4_REG_LOAD(r + 7, _b1); \
+    \
     v4_random_math(code, r); \
   } while (0)
 

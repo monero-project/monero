@@ -195,8 +195,12 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 
 	char data[32];
 	memset(data, 0, sizeof(data));
-	*((uint64_t*)data) = SWAP64LE(height);
+	uint64_t tmp = SWAP64LE(height);
+	memcpy(data, &tmp, sizeof(uint64_t));
 
+	// Set data_index past the last byte in data
+	// to trigger full data update with blake hash
+	// before we start using it
 	size_t data_index = sizeof(data);
 
 	int code_size;
@@ -355,7 +359,9 @@ static inline int v4_random_math_init(struct V4_Instruction* code, const uint64_
 
 					// ADD instruction requires 4 more random bytes for 32-bit constant "C" in "a = a + b + C"
 					check_data(&data_index, sizeof(uint32_t), data, sizeof(data));
-					code[code_size].C = SWAP32LE(*((uint32_t*)&data[data_index]));
+					uint32_t t;
+					memcpy(&t, data + data_index, sizeof(uint32_t));
+					code[code_size].C = SWAP32LE(t);
 					data_index += sizeof(uint32_t);
 				}
 
